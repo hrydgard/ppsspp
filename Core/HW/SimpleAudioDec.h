@@ -129,6 +129,8 @@ public:
 	int AuBufAvailable; // the available buffer of AuBuf to be able to recharge data
 	int readPos; // read position in audio source file
 	int writePos; // write position in AuBuf, i.e. the size of bytes decoded in AuBuf.
+	int askedReadSize; // the size of data requied to be read from file by the game
+	int realReadSize; // the really read size from file
 
 	AuCtx() :decoder(NULL){};
 	~AuCtx(){

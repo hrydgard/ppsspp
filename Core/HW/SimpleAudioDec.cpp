@@ -374,9 +374,12 @@ int AuCtx::AuCheckStreamDataNeeded()
 // check how many bytes we have read from source file
 u32 AuCtx::AuNotifyAddStreamData(int size)
 {
-	readPos += size;
-	AuBufAvailable += size;
-	writePos = 0;
+	realReadSize = size;
+	int diffszie = realReadSize - askedReadSize;
+	if (diffszie != 0){
+		readPos += diffszie;
+		AuBufAvailable += diffszie;
+	}
 
 	if (readPos >= endPos && LoopNum != 0){
 		// if we need loop, reset readPos
@@ -391,6 +394,7 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 }
 
 // read from stream position srcPos of size bytes into buff
+// buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 {
 	// we can recharge AuBuf from its begining
@@ -400,6 +404,11 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 		Memory::Write_U32(AuBufSize, size);
 	if (Memory::IsValidAddress(srcPos))
 		Memory::Write_U32(readPos, srcPos);
+
+	askedReadSize = AuBufSize;
+	readPos += askedReadSize;
+	AuBufAvailable += askedReadSize;
+	writePos = 0;
 
 	return 0;
 }
