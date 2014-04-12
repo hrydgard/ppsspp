@@ -1193,7 +1193,10 @@ void DrawTriangleSlice(
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
-			texptr[i] = Memory::GetPointer(texaddr);
+			if (Memory::IsValidAddress(texaddr))
+				texptr[i] = Memory::GetPointer(texaddr);
+			else
+				texptr[i] = 0;
 		}
 	}
 
