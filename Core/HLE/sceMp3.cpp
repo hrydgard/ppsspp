@@ -127,7 +127,8 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
 			mp3->readPos = mp3_old->readPosition;
 			mp3->AuBufAvailable = 0; // reset to read from file
-			mp3->writePos = 0; // reset to read from buffer 
+			mp3->askedReadSize = 0;
+			mp3->realReadSize = 0;
 
 			mp3->audioType = PSP_CODEC_MP3;
 			mp3->decoder = new SimpleAudio(mp3->audioType);
@@ -331,18 +332,17 @@ int sceMp3Init(u32 mp3) {
 		ctx->decoder->setResampleFrequency(ctx->freq);
 	}
 
-	// For mp3 file, if ID3 tag is detected, we must move startPos and writePos to 0x400 (stream start position), and reduce the available buffer size by 0x400
+	// For mp3 file, if ID3 tag is detected, we must move startPos to 0x400 (stream start position), remove 0x400 bytes of the sourcebuff, and reduce the available buffer size by 0x400
 	// this is very important for ID3 tag mp3, since our universal audio decoder is for decoding stream part only.
 	if (isID3){
 		// if get ID3 tage, we will decode from 0x400
 		ctx->startPos = 0x400;
-		ctx->writePos = 0x400;
+		ctx->sourcebuff.erase(0, 0x400);
 		ctx->AuBufAvailable -= 0x400;
 	}
 	else{
 		// if no ID3 tag, we will decode from the begining of the file
 		ctx->startPos = 0;
-		ctx->writePos = 0;
 	}
 
 	return 0;
@@ -350,6 +350,8 @@ int sceMp3Init(u32 mp3) {
 
 int sceMp3GetLoopNum(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
+	INFO_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
+
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
@@ -372,7 +374,7 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	DEBUG_LOG_REPORT(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
+	INFO_LOG_REPORT(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -395,7 +397,7 @@ int sceMp3SetLoopNum(u32 mp3, int loop) {
 	return ctx->AuSetLoopNum(loop);
 }
 int sceMp3GetMp3ChannelNum(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
+	INFO_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -406,7 +408,7 @@ int sceMp3GetMp3ChannelNum(u32 mp3) {
 	return ctx->AuGetChannelNum();
 }
 int sceMp3GetBitRate(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
+	INFO_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -417,7 +419,7 @@ int sceMp3GetBitRate(u32 mp3) {
 	return ctx->AuGetBitRate();
 }
 int sceMp3GetSamplingRate(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
+	INFO_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -429,7 +431,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	DEBUG_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
+	INFO_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -441,7 +443,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	DEBUG_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+	INFO_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -453,7 +455,7 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 }
 
 int sceMp3ReleaseMp3Handle(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
+	INFO_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {

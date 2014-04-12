@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -302,57 +303,40 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		return -1;
 	}
 
-	auto inbuff = Memory::GetPointer(AuBuf);
 	auto outbuf = Memory::GetPointer(PCMBuf);
 	u32 outpcmbufsize = 0;
 
-	// move inbuff to writePos of buffer
-	inbuff += writePos;
-
-	// decode frames in AuBuf and output into PCMBuf if it is not exceed
-	while (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
+	int repeat = 1;
+	if (g_Config.bSoundSpeedHack){
+		repeat = 2;
+	}
+	int i = 0;
+	// decode frames in sourcebuff and output into PCMBuf (each time, we decode one or two frames)
+	// some games as Miku like one frame each time, some games like DOA like two frames each time
+	while (sourcebuff.size() > 0 && outpcmbufsize < PCMBufSize && i < repeat){
+		i++;
 		int pcmframesize;
 		// decode
-		decoder->Decode(inbuff, AuBufAvailable, outbuf, &pcmframesize);
+		decoder->Decode((void*)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &pcmframesize);
 		if (pcmframesize == 0){
-			// no output pcm, we have either no data or no enough data to decode
-			// move back audio source readPos to the begin of the last incomplete frame if we not start looping and reset available AuBuf
-			if (readPos > startPos) { // this means we are not begin to loop yet
-				readPos -= AuBufAvailable;
-			}
-			AuBufAvailable = 0;
+			// no output pcm, we are at the end of the stream
 			break;
 		}
 		// count total output pcm size 
 		outpcmbufsize += pcmframesize;
 		// count total output samples
 		SumDecodedSamples += decoder->getOutSamples();
-		// move inbuff position to next frame
+		// get consumed source length
 		int srcPos = decoder->getSourcePos();
-		inbuff += srcPos;
-		// decrease available AuBuf
+		// remove the consumed source
+		sourcebuff.erase(0, srcPos);
+		// reduce the available Aubuff size
 		AuBufAvailable -= srcPos;
-		// modify the writePos value
-		writePos += srcPos;
 		// move outbuff position to the current end of output 
 		outbuf += pcmframesize;
-		// audio hack, default we will not do while and break here
-		if (!g_Config.bSoundSpeedHack){
-			break;
-		}
 	}
 
 	Memory::Write_U32(PCMBuf, pcmAddr);
-
-	// if we got zero pcm, and we still haven't reach endPos. 
-	// some game like "Miku" will stop playing if we return 0, but some others will recharge buffer.
-	// so we did a hack here, clear output buff and just return a nonzero value to continue 
-	if (outpcmbufsize == 0 && readPos < endPos){
-		// clear output buffer will avoid noise
-		memset(outbuf, 0, PCMBufSize);
-		return FF_INPUT_BUFFER_PADDING_SIZE; // return a padding size seems very good and almost unsensible latency.
-	}
-
 	return outpcmbufsize;
 }
 
@@ -371,7 +355,7 @@ u32 AuCtx::AuSetLoopNum(int loop)
 int AuCtx::AuCheckStreamDataNeeded()
 {
 	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
-	if (AuBufAvailable == 0 && readPos < endPos){
+	if (AuBufAvailable < AuBufSize && readPos < endPos){
 		return 1;
 	}
 	return 0;
@@ -386,6 +370,9 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 		readPos += diffszie;
 		AuBufAvailable += diffszie;
 	}
+
+	// append AuBuf into sourcebuff
+	sourcebuff.append((const char*)Memory::GetPointer(AuBuf), size);
 
 	if (readPos >= endPos && LoopNum != 0){
 		// if we need loop, reset readPos
@@ -403,18 +390,19 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 // buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 {
+	int readsize = std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
+
 	// we can recharge AuBuf from its begining
 	if (Memory::IsValidAddress(buff))
 		Memory::Write_U32(AuBuf, buff);
 	if (Memory::IsValidAddress(size))
-		Memory::Write_U32(AuBufSize, size);
+		Memory::Write_U32(readsize, size);
 	if (Memory::IsValidAddress(srcPos))
 		Memory::Write_U32(readPos, srcPos);
 
-	askedReadSize = AuBufSize;
+	askedReadSize = readsize;
 	readPos += askedReadSize;
 	AuBufAvailable += askedReadSize;
-	writePos = 0;
 
 	return 0;
 }

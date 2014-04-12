@@ -249,7 +249,7 @@ void GameSettingsScreen::CreateViews() {
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio hacks")));
-	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (fill pcm buffer)")));
+	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (DOA etc.)")));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
