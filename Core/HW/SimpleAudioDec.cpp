@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HW/MediaEngine.h"
@@ -309,7 +310,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 	inbuff += writePos;
 
 	// decode frames in AuBuf and output into PCMBuf if it is not exceed
-	if (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
+	while (AuBufAvailable > 0 && outpcmbufsize < PCMBufSize){
 		int pcmframesize;
 		// decode
 		decoder->Decode(inbuff, AuBufAvailable, outbuf, &pcmframesize);
@@ -320,6 +321,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 				readPos -= AuBufAvailable;
 			}
 			AuBufAvailable = 0;
+			break;
 		}
 		// count total output pcm size 
 		outpcmbufsize += pcmframesize;
@@ -334,6 +336,10 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		writePos += srcPos;
 		// move outbuff position to the current end of output 
 		outbuf += pcmframesize;
+		// audio hack, default we will not do while and break here
+		if (!g_Config.bSoundSpeedHack){
+			break;
+		}
 	}
 
 	Memory::Write_U32(PCMBuf, pcmAddr);
