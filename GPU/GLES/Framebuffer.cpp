@@ -711,7 +711,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
+	size_t i;
+	for (i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address)) {
 			vfb = v;
@@ -730,6 +731,20 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 	}
 
+	if (vfb && (drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
+		// If it's newly wrong, or changing every frame, just keep track.
+		if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+			vfb->newWidth = drawing_width;
+			vfb->newHeight = drawing_height;
+			vfb->lastFrameNewSize = gpuStats.numFlips;
+		} else if (vfb->lastFrameNewSize + FBO_OLD_AGE <= gpuStats.numFlips) {
+			// Okay, it's changed for a while (and stayed that way.)  Let's start over.
+			DestroyFramebuf(vfb);
+			vfbs_.erase(vfbs_.begin() + i);
+			vfb = NULL;
+		}
+	}
+
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
@@ -744,6 +759,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->z_stride = z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
+		vfb->newWidth = drawing_width;
+		vfb->newHeight = drawing_height;
+		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->bufferWidth = buffer_width;
@@ -1664,10 +1682,20 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 				// However, it doesn't seem to work for Star Ocean, at least
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
-					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					fbo_bind_as_render_target(vfb->fbo);
-					if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR)
-						glstate.viewport.restore();
+
+					int w = vfb->bufferWidth;
+					int h = vfb->bufferHeight;
+					// Often, the framebuffer size is incorrect.  But here we have the size.  Bit of a hack.
+					if (vfb->fb_stride == 512 && (size == 512 * 272 * 4 || size == 512 * 272 * 2)) {
+						// Looks like a standard 480x272 sized framebuffer/video/etc.
+						w = 480;
+						h = 272;
+					}
+					// Scale by the render resolution factor.
+					w = (w * vfb->renderWidth) / vfb->bufferWidth;
+					h = (h * vfb->renderHeight) / vfb->bufferHeight;
+					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
 				} else {
