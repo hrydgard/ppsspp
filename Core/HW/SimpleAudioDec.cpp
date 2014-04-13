@@ -304,6 +304,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 	}
 
 	auto outbuf = Memory::GetPointer(PCMBuf);
+	memset(outbuf, 0, PCMBufSize); // important! empty outbuf to avoid noise
 	u32 outpcmbufsize = 0;
 
 	int repeat = 1;
@@ -320,6 +321,12 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		decoder->Decode((void*)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &pcmframesize);
 		if (pcmframesize == 0){
 			// no output pcm, we are at the end of the stream
+			AuBufAvailable = 0;
+			sourcebuff.clear();
+			if (LoopNum != 0){
+				// if we loop, reset readPos
+				readPos = startPos;
+			}
 			break;
 		}
 		// count total output pcm size 
@@ -331,11 +338,11 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		// remove the consumed source
 		sourcebuff.erase(0, srcPos);
 		// reduce the available Aubuff size
+		// (the available buff size is now used to know if we can read again from file and how many to read)
 		AuBufAvailable -= srcPos;
 		// move outbuff position to the current end of output 
 		outbuf += pcmframesize;
 	}
-
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
 }
@@ -355,7 +362,7 @@ u32 AuCtx::AuSetLoopNum(int loop)
 int AuCtx::AuCheckStreamDataNeeded()
 {
 	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
-	if (AuBufAvailable < AuBufSize && readPos < endPos){
+	if (AuBufAvailable < (int)AuBufSize && readPos < (int)endPos){
 		return 1;
 	}
 	return 0;
@@ -366,6 +373,7 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 {
 	realReadSize = size;
 	int diffszie = realReadSize - askedReadSize;
+	// Notify the real read size
 	if (diffszie != 0){
 		readPos += diffszie;
 		AuBufAvailable += diffszie;
@@ -390,6 +398,7 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 // buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 {
+	// you can not read beyond file size and the buffersize
 	int readsize = std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 
 	// we can recharge AuBuf from its begining
@@ -400,6 +409,7 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 	if (Memory::IsValidAddress(srcPos))
 		Memory::Write_U32(readPos, srcPos);
 
+	// preset the readPos and available size, they will be notified later in NotifyAddStreamData.
 	askedReadSize = readsize;
 	readPos += askedReadSize;
 	AuBufAvailable += askedReadSize;

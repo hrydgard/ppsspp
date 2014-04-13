@@ -21,69 +21,9 @@
 #include "Core/HLE/sceMp4.h"
 #include "Core/HW/SimpleAudioDec.h"
 
+static std::map<u32, AuCtx*> aacMap;
 
-class AACCtx{
-public:
-	// aac source informations
-	u64 startPos;
-	u64 endPos;
-	u32 AACBuf;
-	u32 AACBufSize;
-	u32 PCMBuf;
-	u32 PCMBufSize;
-	int freq;
-
-	// audio settings
-	u32 SumDecodedSamples;
-	int LoopNum;
-	int Channels;
-	u32 MaxOutputSample;
-
-	// aac decoder
-	SimpleAudio *decoder;
-
-	// buffers informations
-	int aacBufAvailable; // the available buffer of AACBuf to be able to recharge data
-	int readPos; // read position in audio source file
-	int writePos; // write position in AACBuf, i.e. the size of bytes decoded in AACBuf.
-
-	AACCtx() :decoder(NULL){};
-	~AACCtx(){
-		if (decoder){
-			AudioClose(&decoder);
-			decoder = NULL;
-		}
-	};
-
-	void DoState(PointerWrap &p) {
-		auto s = p.Section("AACContext", 1);
-		if (!s)
-			return;
-
-		p.Do(startPos);
-		p.Do(endPos);
-		p.Do(AACBuf);
-		p.Do(AACBufSize);
-		p.Do(PCMBuf);
-		p.Do(PCMBufSize);
-		p.Do(freq);
-		p.Do(SumDecodedSamples);
-		p.Do(LoopNum);
-		p.Do(Channels);
-		p.Do(MaxOutputSample);
-		p.Do(aacBufAvailable);
-		p.Do(readPos);
-		p.Do(writePos);
-
-		if (p.mode == p.MODE_READ){
-			decoder = new SimpleAudio(PSP_CODEC_AAC);
-		}
-	};
-};
-
-static std::map<u32, AACCtx*> aacMap;
-
-AACCtx *getAacCtx(u32 id) {
+AuCtx *getAacCtx(u32 id) {
 	if (aacMap.find(id) == aacMap.end())
 		return NULL;
 	return aacMap[id];
@@ -242,16 +182,16 @@ u32 sceAacInit(u32 id)
 		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
-	AACCtx *aac = new AACCtx;
+	AuCtx *aac = new AuCtx;
 	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
 	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
-	aac->AACBuf = Memory::Read_U32(id + 16);            // Input AAC data buffer.	
-	aac->AACBufSize = Memory::Read_U32(id + 20);        // Input AAC data buffer size.
+	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
+	aac->AuBufSize = Memory::Read_U32(id + 20);         // Input AAC data buffer size.
 	aac->PCMBuf = Memory::Read_U32(id + 24);            // Output PCM data buffer.
 	aac->PCMBufSize = Memory::Read_U32(id + 28);        // Output PCM data buffer size.
 	aac->freq = Memory::Read_U32(id + 32);              // Frequency.
-	if (aac->AACBuf == 0 || aac->PCMBuf == 0) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS AACBuf %08x PCMBuf %08x", aac->AACBuf, aac->PCMBuf);
+	if (aac->AuBuf == 0 || aac->PCMBuf == 0) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
 		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
@@ -260,8 +200,8 @@ u32 sceAacInit(u32 id)
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
-	if (aac->AACBufSize < 8192 || aac->PCMBufSize < 8192) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", aac->AACBufSize, aac->PCMBufSize);
+	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", aac->AuBufSize, aac->PCMBufSize);
 		delete aac; 
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
@@ -271,23 +211,26 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	DEBUG_LOG(ME, "startPos %x endPos %x AACbuf %08x AACbufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
-		aac->startPos, aac->endPos, aac->AACBuf, aac->AACBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
+	DEBUG_LOG(ME, "startPos %x endPos %x AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
+		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;
 	aac->SumDecodedSamples = 0;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
 	aac->LoopNum = -1;
-	aac->aacBufAvailable = 0;
+	aac->AuBufAvailable = 0;
 	aac->MaxOutputSample = 0;
 	aac->readPos = aac->startPos;
+	aac->audioType = PSP_CODEC_AAC;
 
 	// create aac decoder
-	aac->decoder = new SimpleAudio(PSP_CODEC_AAC);
+	aac->decoder = new SimpleAudio(aac->audioType);
 
 	// close the audio if id already exist.
-	sceAacExit(id);
-
+	if (aacMap.find(id) != aacMap.end()) {
+		delete aacMap[id];
+		aacMap.erase(id);
+	}
 	aacMap[id] = aac;
 
 	return id;
@@ -308,61 +251,15 @@ u32 sceAacTermResource()
 
 u32 sceAacDecode(u32 id, u32 pcmAddr)
 {
-	// return the size of output pcm
+	// return the size of output pcm, <0 error
 	DEBUG_LOG(ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
 	auto ctx = getAacCtx(id);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
-	if (!Memory::IsValidAddress(pcmAddr)){
-		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalid", __FUNCTION__, pcmAddr);
-		return -1;
-	}
 
-	auto inbuff = Memory::GetPointer(ctx->AACBuf);
-	auto outbuf = Memory::GetPointer(ctx->PCMBuf);
-	u32 outpcmbufsize = 0;
-
-	// move inbuff to writePos of buffer
-	inbuff += ctx->writePos;
-
-	// decode one frame in aacBuf and output into PCMBuf. Don't use while here, it could lead to latency in playing. 
-	if (ctx->aacBufAvailable > 0){
-		int pcmframesize;
-		// decode
-		ctx->decoder->Decode(inbuff, ctx->aacBufAvailable, outbuf, &pcmframesize);
-		if (pcmframesize == 0){
-			// no output pcm, we have either no data or no enough data to decode
-			// move back audio source readPos to the begin of the last incomplete frame if we not start looping and reset available aacBuf
-			if (ctx->readPos > ctx->startPos) { // this means we are not begin to loop yet
-				ctx->readPos -= ctx->aacBufAvailable;
-			}
-			ctx->aacBufAvailable = 0;
-		}
-		// count total output pcm size 
-		outpcmbufsize += pcmframesize;
-		// count total output samples
-		ctx->SumDecodedSamples += ctx->decoder->getOutSamples();
-		// move inbuff position to next frame
-		int srcPos = ctx->decoder->getSourcePos();
-		inbuff += srcPos;
-		// decrease available aacBuf
-		ctx->aacBufAvailable -= srcPos;
-		// modify the writePos value
-		ctx->writePos += srcPos;
-		// move outbuff position to the current end of output 
-		outbuf += pcmframesize;
-	}
-
-	Memory::Write_U32(ctx->PCMBuf, pcmAddr);
-
-	// if we have no output but readPos is not the end of audio stream, we will clear pcm outbuf and return nonzero value to continue.
-	if (outpcmbufsize == 0 && ctx->readPos < ctx->endPos){
-		memset(outbuf, 0, ctx->PCMBufSize);
-		return FF_INPUT_BUFFER_PADDING_SIZE;
-	}
-	return outpcmbufsize;
+	return ctx->AuDecode(pcmAddr);
 }
 
 u32 sceAacGetLoopNum(u32 id)
@@ -373,7 +270,7 @@ u32 sceAacGetLoopNum(u32 id)
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
-	return ctx->LoopNum;
+	return ctx->AuGetLoopNum();
 }
 
 u32 sceAacSetLoopNum(u32 id, int loop)
@@ -385,8 +282,7 @@ u32 sceAacSetLoopNum(u32 id, int loop)
 		return -1;
 	}
 
-	ctx->LoopNum = loop;
-	return 0;
+	return ctx->AuSetLoopNum(loop);
 }
 
 int sceAacCheckStreamDataNeeded(u32 id)
@@ -400,11 +296,7 @@ int sceAacCheckStreamDataNeeded(u32 id)
 		return -1;
 	}
 
-	// if we have no available aac buffer, and the current read position in source file is not the end of stream, then we can read
-	if (ctx->aacBufAvailable == 0 && ctx->readPos < ctx->endPos){
-		return 1;
-	}
-	return 0;
+	return ctx->AuCheckStreamDataNeeded();
 }
 
 u32 sceAacNotifyAddStreamData(u32 id, int size)
@@ -418,20 +310,7 @@ u32 sceAacNotifyAddStreamData(u32 id, int size)
 		return -1;
 	}
 
-	ctx->readPos += size;
-	ctx->aacBufAvailable += size;
-	ctx->writePos = 0;
-
-	if (ctx->readPos >= ctx->endPos && ctx->LoopNum != 0){
-		// if we need loop, reset readPos
-		ctx->readPos = ctx->startPos;
-		// reset LoopNum
-		if (ctx->LoopNum > 0){
-			ctx->LoopNum--;
-		}
-	}
-
-	return 0;
+	return ctx->AuNotifyAddStreamData(size);
 }
 
 u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
@@ -445,15 +324,7 @@ u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 		return -1;
 	}
 
-	// we can recharge aacBuf from its begining
-	if (Memory::IsValidAddress(buff))
-		Memory::Write_U32(ctx->AACBuf, buff);
-	if (Memory::IsValidAddress(size))
-		Memory::Write_U32(ctx->AACBufSize, size);
-	if (Memory::IsValidAddress(srcPos))
-		Memory::Write_U32(ctx->readPos, srcPos);
-
-	return 0;
+	return ctx->AuGetInfoToAddStreamData(buff, size, srcPos);
 }
 
 u32 sceAacGetMaxOutputSample(u32 id)
@@ -465,7 +336,7 @@ u32 sceAacGetMaxOutputSample(u32 id)
 		return -1;
 	}
 
-	return ctx->MaxOutputSample;
+	return ctx->AuGetMaxOutputSample();
 }
 
 u32 sceAacGetSumDecodedSample(u32 id)
@@ -477,7 +348,7 @@ u32 sceAacGetSumDecodedSample(u32 id)
 		return -1;
 	}
 
-	return ctx->SumDecodedSamples;
+	return ctx->AuGetSumDecodedSample();
 }
 
 u32 sceAacResetPlayPosition(u32 id)
@@ -488,9 +359,8 @@ u32 sceAacResetPlayPosition(u32 id)
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
-	
-	ctx->readPos = ctx->startPos;
-	return 0;
+
+	return ctx->AuResetPlayPosition();
 }
 
 const HLEFunction sceMp4[] =
