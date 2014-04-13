@@ -23,6 +23,8 @@
 #include "ge_constants.h"
 #include "Common/Common.h"
 
+class PointerWrap;
+
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
 // This is used for light positions, transform matrices, you name it.
 inline float getFloat24(unsigned int data)
@@ -432,6 +434,12 @@ struct UVScale {
 	float uOff, vOff;
 };
 
+enum TextureChangeReason {
+	TEXCHANGE_UNCHANGED,
+	TEXCHANGE_UPDATED,
+	TEXCHANGE_PARAMSONLY,
+};
+
 struct GPUStateCache
 {
 	u32 vertexAddr;
@@ -439,7 +447,7 @@ struct GPUStateCache
 
 	u32 offsetAddr;
 
-	bool textureChanged;
+	TextureChangeReason textureChanged;
 	bool textureFullAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
@@ -468,6 +476,7 @@ struct GPUStateCache
 	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
+	void DoState(PointerWrap &p);
 };
 
 // TODO: Implement support for these.

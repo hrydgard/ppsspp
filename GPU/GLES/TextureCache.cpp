@@ -922,6 +922,11 @@ void TextureCache::SetTexture(bool force) {
 		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
+		// If we only loaded a clut, or changed framebuf or something, we don't need to rehash the texture data.
+		if (gstate_c.textureChanged == TEXCHANGE_PARAMSONLY) {
+			rehash = false;
+		}
+
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFlips) {
 				u32 diff = gpuStats.numFlips - entry->lastFrame;

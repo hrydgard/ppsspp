@@ -226,7 +226,7 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
 	p.Do(gstate);
-	p.Do(gstate_c);
+	gstate_c.DoState(p);
 #ifndef _XBOX
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
