@@ -46,7 +46,7 @@ enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
 	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
-	FLAG_EXECUTEONCHANGE = 8,  // unused for now. not sure if checking for this will be more expensive than doing it.
+	FLAG_EXECUTEONCHANGE = 8,
 	FLAG_ANY_EXECUTE = 4 | 8,
 	FLAG_READS_PC = 16,
 	FLAG_WRITES_PC = 32,
@@ -627,7 +627,7 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 			transformDraw_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
-		if (cmdFlags & FLAG_ANY_EXECUTE) {  // (cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
 			ExecuteOpInternal(op, diff);
 		}
 		list.pc += 4;
@@ -658,7 +658,7 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 }
 
 inline void GLES_GPU::CheckFlushOp(int cmd, u32 diff) {
-	u8 cmdFlags = commandFlags_[cmd];
+	const u8 cmdFlags = commandFlags_[cmd];
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
@@ -672,7 +672,11 @@ void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
-	return ExecuteOpInternal(op, diff);
+	const u8 cmd = op >> 24;
+	const u8 cmdFlags = commandFlags_[cmd];
+	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+		ExecuteOpInternal(op, diff);
+	}
 }
 
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
