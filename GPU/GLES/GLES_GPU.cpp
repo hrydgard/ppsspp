@@ -887,30 +887,26 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		if (diff) {
-			if (!g_Config.bSoftwareSkinning) {
+		if (!g_Config.bSoftwareSkinning) {
+			if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		} else {
+			// Don't flush when weight count changes, unless morph is enabled.
+			if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (data & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+				// Restore and flush
+				gstate.vertType ^= diff;
+				Flush();
+				gstate.vertType ^= diff;
 				if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 					shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-			} else {
-				// Don't flush when weight count changes, unless morph is enabled.
-				if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (data & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-					// Restore and flush
-					gstate.vertType ^= diff;
-					Flush();
-					gstate.vertType ^= diff;
-					if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-						shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-				}
 			}
 		}
 		break;
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.framebufChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -922,26 +918,19 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
-		if (diff)
-			gstate_c.textureChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
 		break;
 
 	case GE_CMD_FOGCOLOR:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
+		shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
 		break;
 
 	case GE_CMD_FOG1:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
-		break;
-
 	case GE_CMD_FOG2:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+		shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
 		break;
 
 	case GE_CMD_FOGENABLE:
@@ -957,39 +946,29 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXSCALEU:
-		if (diff) {
-			gstate_c.uv.uScale = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		gstate_c.uv.uScale = getFloat24(data);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXSCALEV:
-		if (diff) {
-			gstate_c.uv.vScale = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		gstate_c.uv.vScale = getFloat24(data);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
-		if (diff) {
-			gstate_c.uv.uOff = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		gstate_c.uv.uOff = getFloat24(data);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
-		if (diff) {
-			gstate_c.uv.vOff = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		gstate_c.uv.vOff = getFloat24(data);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.framebufChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 		///
@@ -1000,13 +979,15 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.framebufChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_TEXADDR0:
+		gstate_c.textureChanged = true;
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		break;
+
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -1014,10 +995,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		if (diff) {
-			gstate_c.textureChanged = true;
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -1028,15 +1006,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		if (diff) {
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_CLUTFORMAT:
-		if (diff) {
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		break;
 
@@ -1052,9 +1026,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		if (diff) {
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXSHADELS:
@@ -1093,7 +1065,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			// We will need to reset the texture now.
 			gstate_c.textureChanged = true;
 		}
-		//fall thru - ignoring the mipmap sizes for now
+		break;
 
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
@@ -1102,9 +1074,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		if (diff) {
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1113,30 +1083,25 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_AMBIENTCOLOR:
 	case GE_CMD_AMBIENTALPHA:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_AMBIENT);
+		shaderManager_->DirtyUniform(DIRTY_AMBIENT);
 		break;
 
 	case GE_CMD_MATERIALDIFFUSE:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
+		shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
 		break;
 
 	case GE_CMD_MATERIALEMISSIVE:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
+		shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
 		break;
 
 	case GE_CMD_MATERIALAMBIENT:
 	case GE_CMD_MATERIALALPHA:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
+		shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALSPECULAR:
 	case GE_CMD_MATERIALSPECULARCOEF:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
+		shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
@@ -1149,7 +1114,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
 	case GE_CMD_LX3:case GE_CMD_LY3:case GE_CMD_LZ3:
-		if (diff) {
+		{
 			int n = cmd - GE_CMD_LX0;
 			int l = n / 3;
 			int c = n % 3;
@@ -1162,7 +1127,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LDX1:case GE_CMD_LDY1:case GE_CMD_LDZ1:
 	case GE_CMD_LDX2:case GE_CMD_LDY2:case GE_CMD_LDZ2:
 	case GE_CMD_LDX3:case GE_CMD_LDY3:case GE_CMD_LDZ3:
-		if (diff) {
+		{
 			int n = cmd - GE_CMD_LDX0;
 			int l = n / 3;
 			int c = n % 3;
@@ -1175,7 +1140,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LKA1:case GE_CMD_LKB1:case GE_CMD_LKC1:
 	case GE_CMD_LKA2:case GE_CMD_LKB2:case GE_CMD_LKC2:
 	case GE_CMD_LKA3:case GE_CMD_LKB3:case GE_CMD_LKC3:
-		if (diff)	{
+		{
 			int n = cmd - GE_CMD_LKA0;
 			int l = n / 3;
 			int c = n % 3;
@@ -1188,7 +1153,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LKS1:
 	case GE_CMD_LKS2:
 	case GE_CMD_LKS3:
-		if (diff) {
+		{
 			int l = cmd - GE_CMD_LKS0;
 			gstate_c.lightspotCoef[l] = getFloat24(data);
 			shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
@@ -1199,7 +1164,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LKO1:
 	case GE_CMD_LKO2:
 	case GE_CMD_LKO3:
-		if (diff) {
+		{
 			int l = cmd - GE_CMD_LKO0;
 			gstate_c.lightangle[l] = getFloat24(data);
 			shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
@@ -1209,7 +1174,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
-		if (diff) {
+		{
 			float r = (float)(data & 0xff) * (1.0f / 255.0f);
 			float g = (float)((data >> 8) & 0xff) * (1.0f / 255.0f);
 			float b = (float)(data >> 16) * (1.0f / 255.0f);
@@ -1229,10 +1194,8 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
-		}
+		gstate_c.framebufChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1284,16 +1247,15 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
-		// Intentional fallthrough - we still need to dirty DIRTY_ALPHACOLORREF for GE_CMD_ALPHATEST.
+		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+		break;
 
 	case GE_CMD_COLORREF:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_TEXENV);
+		shaderManager_->DirtyUniform(DIRTY_TEXENV);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -1304,8 +1266,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXFORMAT:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		if (diff)
-			gstate_c.textureChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1325,8 +1286,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_MORPHWEIGHT5:
 	case GE_CMD_MORPHWEIGHT6:
 	case GE_CMD_MORPHWEIGHT7:
-		if (diff)
-			gstate_c.morphWeights[cmd - GE_CMD_MORPHWEIGHT0] = getFloat24(data);
+		gstate_c.morphWeights[cmd - GE_CMD_MORPHWEIGHT0] = getFloat24(data);
 		break;
 
 	case GE_CMD_DITH0:
@@ -1585,8 +1545,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 #endif
 
 	case GE_CMD_TEXLEVEL:
-		if (diff)
-			gstate_c.textureChanged = true;
+		gstate_c.textureChanged = true;
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1595,9 +1554,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_STENCILTEST:
 		// Handled in StateMapping.
-		if (diff) {
-			shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
-		}
+		shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
 		break;
 
 	case GE_CMD_STENCILTESTENABLE:
