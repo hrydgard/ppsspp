@@ -1942,23 +1942,26 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
-		// write d_private for supporting Custom BGM
-		// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
-		if (Memory::IsValidAddress(entry->d_private)){
-			if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
-				// d_private is pointing to an area of unknown size
-				// - [0..12] "8.3" file name (null-terminated), could be empty.
-				// - [13..???] long file name (null-terminated)
-				strncpy((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
-			}
-			else {
-				// d_private is pointing to an area of total size 1044
-				// - [0..3] size of area
-				// - [4..19] "8.3" file name (null-terminated), could be empty.
-				// - [20..???] long file name (null-terminated)
-				auto size = Memory::Read_U32(entry->d_private);
-				if (size >= 1044) {
-					strncpy((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+		// Only write d_private for memory stick
+		if (dir->name.substr(0, 3) == "ms0") {
+			// write d_private for supporting Custom BGM like Project Diva
+			// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
+			if (Memory::IsValidAddress(entry->d_private)){
+				if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
+					// d_private is pointing to an area of unknown size
+					// - [0..12] "8.3" file name (null-terminated), could be empty.
+					// - [13..???] long file name (null-terminated)
+					strncpy((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+				}
+				else {
+					// d_private is pointing to an area of total size 1044
+					// - [0..3] size of area
+					// - [4..19] "8.3" file name (null-terminated), could be empty.
+					// - [20..???] long file name (null-terminated)
+					auto size = Memory::Read_U32(entry->d_private);
+					if (size >= 1044) {
+						strncpy((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+					}
 				}
 			}
 		}
