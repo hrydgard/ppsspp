@@ -85,6 +85,7 @@ struct VirtualFramebuffer {
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
+	bool embiggened;
 };
 
 void CenterRect(float *x, float *y, float *w, float *h,

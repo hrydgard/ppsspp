@@ -708,6 +708,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
+	bool embiggened = false;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -718,8 +719,19 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
 			if (v->width < drawing_width && v->height < drawing_height) {
-				v->width = drawing_width;
-				v->height = drawing_height;
+				// Embiggen if it gets bigger, but only once.
+				// This prevents it happening over and over again.
+				if (!v->embiggened) {
+					// TODO: Could copy over the data.
+					embiggened = true;
+					vfb = NULL;
+					DestroyFramebuf(v);
+					vfbs_.erase(vfbs_.begin() + i);
+					break;
+				} else {
+					v->width = drawing_width;
+					v->height = drawing_height;
+				}
 			}
 			if (v->format != fmt) {
 				v->width = drawing_width;
@@ -755,6 +767,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb->reallyDirtyAfterDisplay = true;
 		vfb->memoryUpdated = false;
 		vfb->depthUpdated = false;
+		vfb->embiggened = embiggened;
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
