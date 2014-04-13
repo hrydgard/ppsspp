@@ -1927,10 +1927,10 @@ u32 sceIoDopen(const char *path) {
 
 // For some reason strncpy will fill up the entire output buffer. No reason to do that,
 // so we use this trivial replacement.
-static void strcpy_limit(char *dest, const char *src, int count) {
+static void strcpy_limit(char *dest, const char *src, int limit) {
 	int i;
-	for (i = 0; i < count; i++) {
-		if (!src[i])  // Do the check afterwards, so we don't exit before copying the null terminator.
+	for (i = 0; i < limit - 1; i++) {
+		if (!src[i])
 			break;
 		dest[i] = src[i];
 	}
