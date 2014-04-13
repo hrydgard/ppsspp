@@ -267,24 +267,6 @@ struct GPUStateCache_v0
 
 	UVScale uv;
 	bool flipTexture;
-
-	float lightpos[4][3];
-	float lightdir[4][3];
-	float lightatt[4][3];
-	float lightColor[3][4][3];  // Ambient Diffuse Specular
-	float lightangle[4]; // spotlight cone angle (cosine)
-	float lightspotCoef[4]; // spotlight dropoff
-	float morphWeights[8];
-
-	u32 curTextureWidth;
-	u32 curTextureHeight;
-	u32 actualTextureHeight;
-
-	float vpWidth;
-	float vpHeight;
-
-	u32 curRTWidth;
-	u32 curRTHeight;
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
@@ -301,26 +283,24 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		textureFullAlpha = old.textureFullAlpha;
 		vertexFullAlpha = old.vertexFullAlpha;
 		framebufChanged = old.framebufChanged;
+		skipDrawReason = old.skipDrawReason;
+		uv = old.uv;
+		flipTexture = old.flipTexture;
+	} else {
+		p.Do(vertexAddr);
+		p.Do(indexAddr);
+		p.Do(offsetAddr);
 
-		const size_t oldOffset = offsetof(GPUStateCache_v0, skipDrawReason);
-		const size_t newOffset = offsetof(GPUStateCache, skipDrawReason);
-		memcpy((char *)this + newOffset, (char *)&old + oldOffset, sizeof(old) - oldOffset);
-		return;
+		p.Do(textureChanged);
+		p.Do(textureFullAlpha);
+		p.Do(vertexFullAlpha);
+		p.Do(framebufChanged);
+
+		p.Do(skipDrawReason);
+
+		p.Do(uv);
+		p.Do(flipTexture);
 	}
-
-	p.Do(vertexAddr);
-	p.Do(indexAddr);
-	p.Do(offsetAddr);
-
-	p.Do(textureChanged);
-	p.Do(textureFullAlpha);
-	p.Do(vertexFullAlpha);
-	p.Do(framebufChanged);
-
-	p.Do(skipDrawReason);
-
-	p.Do(uv);
-	p.Do(flipTexture);
 
 	p.Do(lightpos);
 	p.Do(lightdir);
