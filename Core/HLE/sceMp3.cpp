@@ -506,12 +506,11 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 }
 
 u32 sceMp3LowLevelInit(u32 mp3) {
-	// return a valide mp3 handle
 	ERROR_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
 	auto ctx = new AuCtx;
 
 	ctx->audioType = PSP_CODEC_MP3;
-	// create Au decoder
+	// create mp3 decoder
 	ctx->decoder = new SimpleAudio(ctx->audioType);
 
 	// close the audio if mp3Addr already exist.
