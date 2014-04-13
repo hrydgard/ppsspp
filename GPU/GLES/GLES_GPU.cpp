@@ -906,9 +906,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
 		gstate_c.framebufChanged = true;
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -970,9 +968,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
 		gstate_c.framebufChanged = true;
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 		///
@@ -984,9 +980,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
 		gstate_c.framebufChanged = true;
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1001,9 +995,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -1017,15 +1009,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_CLUTFORMAT:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		// This could be used to "dirty" textures with clut.
 		break;
 
@@ -1035,9 +1023,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_LOADCLUT:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		textureCache_.LoadClut();
 		// This could be used to "dirty" textures with clut.
 		break;
@@ -1080,9 +1066,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			gstate_c.curTextureHeight = gstate.getTextureHeight(0);
 			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 			// We will need to reset the texture now.
-			if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-			}
+			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		}
 		break;
 
@@ -1093,9 +1077,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1216,9 +1198,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
 		gstate_c.framebufChanged = true;
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1292,9 +1272,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1573,9 +1551,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 #endif
 
 	case GE_CMD_TEXLEVEL:
-		if (gstate_c.textureChanged == TEXCHANGE_UNCHANGED) {
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
-		}
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		break;
 
 	//////////////////////////////////////////////////////////////////

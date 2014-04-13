@@ -923,7 +923,7 @@ void TextureCache::SetTexture(bool force) {
 		bool doDelete = true;
 
 		// If we only loaded a clut, or changed framebuf or something, we don't need to rehash the texture data.
-		if (gstate_c.textureChanged == TEXCHANGE_PARAMSONLY) {
+		if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
 			rehash = false;
 		}
 

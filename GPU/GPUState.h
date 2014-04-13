@@ -435,9 +435,9 @@ struct UVScale {
 };
 
 enum TextureChangeReason {
-	TEXCHANGE_UNCHANGED,
-	TEXCHANGE_UPDATED,
-	TEXCHANGE_PARAMSONLY,
+	TEXCHANGE_UNCHANGED = 0x00,
+	TEXCHANGE_UPDATED = 0x01,
+	TEXCHANGE_PARAMSONLY = 0x02,
 };
 
 struct GPUStateCache
@@ -447,7 +447,7 @@ struct GPUStateCache
 
 	u32 offsetAddr;
 
-	TextureChangeReason textureChanged;
+	u8 textureChanged;
 	bool textureFullAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
