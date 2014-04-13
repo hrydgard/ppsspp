@@ -150,6 +150,7 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	int Flags() { return 0; }
 
 private:
 	struct OpenFileEntry {
