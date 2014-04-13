@@ -87,6 +87,7 @@ private:
 			STATUS_ALPHA_MASK = 0x0c,
 
 			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		};
 
 		// Status, but int so we can zero initialize.

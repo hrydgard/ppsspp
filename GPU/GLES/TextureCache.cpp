@@ -922,8 +922,13 @@ void TextureCache::SetTexture(bool force) {
 		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
-		// If we only loaded a clut, or changed framebuf or something, we don't need to rehash the texture data.
-		if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
+		// First let's see if another texture with the same address had a hashfail.
+		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
+			// Always rehash in this case, if one changed the rest all probably did.
+			rehash = true;
+			entry->status &= ~TexCacheEntry::STATUS_CLUT_RECHECK;
+		} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
+			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
 		}
 
@@ -1036,6 +1041,17 @@ void TextureCache::SetTexture(bool force) {
 			// Clear the reliable bit if set.
 			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+			}
+
+			// Also, mark any textures with the same address but different clut.  They need rechecking.
+			if (cluthash != 0) {
+				const u64 cachekeyMin = (u64)texaddr << 32;
+				const u64 cachekeyMax = (u64)(texaddr + 1) << 32;
+				for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
+					if (it->second.cluthash != cluthash) {
+						it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
+					}
+				}
 			}
 		}
 	} else {
