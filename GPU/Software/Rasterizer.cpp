@@ -1314,12 +1314,12 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int range = (maxY - minY) / 16 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24)
+		if (range >= 24 && (maxX - minX) >= 24 * 16)
 			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 		else
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 	} else {
-		if (range >= 24)
+		if (range >= 24 && (maxX - minX) >= 24 * 16)
 			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 		else
 			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
