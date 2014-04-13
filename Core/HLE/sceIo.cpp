@@ -457,7 +457,7 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory, FILESYSTEM_SIMULATE_FAT32);
 #if defined(USING_WIN_UI) || defined(APPLE)
 	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #else
@@ -716,7 +716,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 			memcpy(data, pgd->block_buf+offset, copy_size);
 			block += 1;
 			offset = 0;
-		}else{
+		} else {
 			copy_size = remain_size;
 			memcpy(data, pgd->block_buf+offset, copy_size);
 		}
@@ -1925,6 +1925,19 @@ u32 sceIoDopen(const char *path) {
 	return id;
 }
 
+// For some reason strncpy will fill up the entire output buffer. No reason to do that,
+// so we use this trivial replacement.
+static void strcpy_limit(char *dest, const char *src, int count) {
+	int i;
+	for (i = 0; i < count; i++) {
+		if (!src[i])  // Do the check afterwards, so we don't exit before copying the null terminator.
+			break;
+		dest[i] = src[i];
+	}
+	// Always null terminate.
+	dest[i] = 0;
+}
+
 u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
@@ -1943,8 +1956,15 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 		
+		bool isFAT = false;
+		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(dir->name);
+		if (sys && (sys->Flags() & FILESYSTEM_SIMULATE_FAT32))
+			isFAT = true;
+		else
+			isFAT = false;
+
 		// Only write d_private for memory stick
-		if (dir->name.substr(0, 3) == "ms0") {
+		if (isFAT) {
 			// write d_private for supporting Custom BGM
 			// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
 			if (Memory::IsValidAddress(entry->d_private)){
@@ -1952,7 +1972,9 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 					// d_private is pointing to an area of unknown size
 					// - [0..12] "8.3" file name (null-terminated), could be empty.
 					// - [13..???] long file name (null-terminated)
-					strncpy((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+
+					// Hm, so currently we don't write the short name at all to d_private? TODO
+					strcpy_limit((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 				}
 				else {
 					// d_private is pointing to an area of total size 1044
@@ -1960,8 +1982,9 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 					// - [4..19] "8.3" file name (null-terminated), could be empty.
 					// - [20..???] long file name (null-terminated)
 					auto size = Memory::Read_U32(entry->d_private);
+					// Hm, so currently we don't write the short name at all to d_private? TODO
 					if (size >= 1044) {
-						strncpy((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+						strcpy_limit((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 					}
 				}
 			}

@@ -86,7 +86,7 @@ struct DirectoryFileHandle
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags = 0);
 	~DirectoryFileSystem();
 
 	void CloseAll();
@@ -108,6 +108,7 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	int Flags() { return flags; }
 
 private:
 	struct OpenFileEntry {
@@ -120,7 +121,7 @@ private:
 	EntryMap entries;
 	std::string basePath;
 	IHandleAllocator *hAlloc;
-
+	int flags;
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
 };
