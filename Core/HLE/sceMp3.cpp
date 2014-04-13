@@ -306,7 +306,7 @@ int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
 }
 
 int sceMp3Init(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
+	INFO_LOG(ME, "sceMp3Init(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -349,7 +349,6 @@ int sceMp3Init(u32 mp3) {
 
 int sceMp3GetLoopNum(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
-	INFO_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -373,7 +372,7 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	INFO_LOG_REPORT(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
+	INFO_LOG(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -430,7 +429,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	INFO_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
+	DEBUG_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -442,7 +441,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	INFO_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+	DEBUG_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -513,7 +512,7 @@ u32 sceMp3LowLevelInit(u32 mp3) {
 	// create mp3 decoder
 	ctx->decoder = new SimpleAudio(ctx->audioType);
 
-	// close the audio if mp3Addr already exist.
+	// close the audio if mp3 already exists.
 	if (mp3Map.find(mp3) != mp3Map.end()) {
 		delete mp3Map[mp3];
 		mp3Map.erase(mp3);
@@ -530,7 +529,6 @@ u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u
 	// sampleBytesAddr: output pcm size
 	DEBUG_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 
-	//return 0;
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
