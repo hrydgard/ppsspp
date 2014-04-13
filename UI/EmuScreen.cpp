@@ -138,6 +138,8 @@ void EmuScreen::bootComplete() {
 	const char *renderer = (const char*)glGetString(GL_RENDERER);
 	if (strstr(renderer, "Chainfire3D") != 0) {
 		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+	} else if (strstr(renderer, "GLTools") != 0) {
+		osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 	}
 
 	System_SendMessage("event", "startgame");
