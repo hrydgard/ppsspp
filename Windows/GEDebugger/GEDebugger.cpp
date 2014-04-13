@@ -320,6 +320,9 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
+			if (gpuDebug != NULL) {
+				lists->Update();
+			}
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);

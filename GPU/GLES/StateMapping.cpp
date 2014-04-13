@@ -325,7 +325,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.EXT_shader_framebuffer_fetch) {
+				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
+				glstate.blend.set(false);
+			} else {
+				glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			}
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
 		}
@@ -536,8 +541,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65536.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65536.0f;
+		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);

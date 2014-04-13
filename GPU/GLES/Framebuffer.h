@@ -79,6 +79,10 @@ struct VirtualFramebuffer {
 
 	u16 usageFlags;
 
+	u16 newWidth;
+	u16 newHeight;
+	int lastFrameNewSize;
+
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;

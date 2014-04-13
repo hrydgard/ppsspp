@@ -506,13 +506,13 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 	return ctx->AuResetPlayPositionByFrame(position);
 }
 
-u32 sceMp3LowLevelInit() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelInit(...)");
+u32 sceMp3LowLevelInit(u32 mp3, u32 paramsAddr) {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelInit(%08x, %08x)", mp3, paramsAddr);
 	return 0;
 }
 
-u32 sceMp3LowLevelDecode() {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelDecode(...)");
+u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	return 0;
 }
 
@@ -539,8 +539,8 @@ const HLEFunction sceMp3[] = {
 	{0xAE6D2027,WrapU_U<sceMp3GetMPEGVersion>,"sceMp3GetMPEGVersion"},
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
 	{0x0840e808,WrapU_UI<sceMp3ResetPlayPositionByFrame>,"sceMp3ResetPlayPositionByFrame"},
-	{0x1b839b83,WrapU_V<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
-	{0xe3ee2c81,WrapU_V<sceMp3LowLevelDecode>,"sceMp3LowLevelDecode"}
+	{0x1b839b83,WrapU_UU<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
+	{0xe3ee2c81,WrapU_UUUUU<sceMp3LowLevelDecode>,"sceMp3LowLevelDecode"}
 };
 
 void Register_sceMp3() {

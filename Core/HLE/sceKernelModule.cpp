@@ -212,7 +212,7 @@ enum NativeModuleStatus {
 
 class Module : public KernelObject {
 public:
-	Module() : memoryBlockAddr(0), isFake(false) {}
+	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
@@ -439,6 +439,10 @@ void __KernelModuleDoState(PointerWrap &p)
 
 	if (s >= 2) {
 		p.Do(loadedModules);
+	}
+
+	if (g_Config.bFuncHashMap) {
+		MIPSAnalyst::ReplaceFunctions();
 	}
 }
 
