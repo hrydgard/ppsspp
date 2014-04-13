@@ -335,7 +335,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			gpuStats.numNonAlphaTestedDraws++;
 
 		if (computeAbsdiff) {
-			id->d[0] |= (computeAbsdiff & 1) << 25;
+			id0 |= (computeAbsdiff & 1) << 25;
 		}
 	}
 
