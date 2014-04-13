@@ -755,7 +755,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// None found? Create one.
 	if (!vfb) {
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		vfb = new VirtualFramebuffer();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
@@ -859,7 +859,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
@@ -1191,7 +1191,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
