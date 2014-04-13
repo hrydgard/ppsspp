@@ -116,6 +116,18 @@ private:
 		bool sClamp;
 		bool tClamp;
 
+		Status GetHashStatus() {
+			return Status(status & STATUS_MASK);
+		}
+		void SetHashStatus(Status newStatus) {
+			status = (status & ~STATUS_MASK) | newStatus;
+		}
+		Status GetAlphaStatus() {
+			return Status(status & STATUS_ALPHA_MASK);
+		}
+		void SetAlphaStatus(Status newStatus) {
+			status = (status & ~STATUS_ALPHA_MASK) | newStatus;
+		}
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
