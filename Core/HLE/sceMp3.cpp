@@ -173,15 +173,14 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 	return ctx->AuCheckStreamDataNeeded();
 }
 
-
 u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
-	DEBUG_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
-	AuCtx *Au = new AuCtx;
-
+	INFO_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
 	if (!Memory::IsValidAddress(mp3Addr)){
-		ERROR_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address %08x", mp3Addr);
+		ERROR_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address %08x", mp3Addr, mp3Addr);
 		return -1;
 	}
+
+	AuCtx *Au = new AuCtx;
 	Au->startPos = Memory::Read_U64(mp3Addr);				// Audio stream start position.
 	Au->endPos = Memory::Read_U32(mp3Addr + 8);				// Audio stream end position.
 	Au->AuBuf = Memory::Read_U32(mp3Addr + 16);            // Input Au data buffer.	
@@ -506,13 +505,53 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 	return ctx->AuResetPlayPositionByFrame(position);
 }
 
-u32 sceMp3LowLevelInit(u32 mp3, u32 paramsAddr) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelInit(%08x, %08x)", mp3, paramsAddr);
+u32 sceMp3LowLevelInit(u32 mp3) {
+	// return a valide mp3 handle
+	ERROR_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
+	auto ctx = new AuCtx;
+
+	ctx->audioType = PSP_CODEC_MP3;
+	// create Au decoder
+	ctx->decoder = new SimpleAudio(ctx->audioType);
+
+	// close the audio if mp3Addr already exist.
+	if (mp3Map.find(mp3) != mp3Map.end()) {
+		delete mp3Map[mp3];
+		mp3Map.erase(mp3);
+	}
+
+	mp3Map[mp3] = ctx;
 	return 0;
 }
 
 u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	// sourceAddr: input mp3 stream buffer
+	// sourceBytesConsumedAddr: consumed bytes decoded in source
+	// samplesAddr: output pcm buffer
+	// sampleBytesAddr: output pcm size
+	DEBUG_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x)", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+
+	//return 0;
+	AuCtx *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(sourceBytesConsumedAddr) ||
+		!Memory::IsValidAddress(samplesAddr) || !Memory::IsValidAddress(sampleBytesAddr)){
+		ERROR_LOG(ME, "sceMp3LowLevelDecode(%08x, %08x, %08x, %08x, %08x) : invalid address in args", mp3, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+		return -1;
+	}
+
+	auto inbuff = Memory::GetPointer(sourceAddr);
+	auto outbuff = Memory::GetPointer(samplesAddr);
+	
+	int outpcmbytes = 0;
+	ctx->decoder->Decode((void*)inbuff,4096,outbuff,&outpcmbytes);
+	
+	Memory::Write_U32(ctx->decoder->getSourcePos(), sourceBytesConsumedAddr);
+	Memory::Write_U32(outpcmbytes, sampleBytesAddr);
 	return 0;
 }
 
@@ -539,7 +578,7 @@ const HLEFunction sceMp3[] = {
 	{0xAE6D2027,WrapU_U<sceMp3GetMPEGVersion>,"sceMp3GetMPEGVersion"},
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
 	{0x0840e808,WrapU_UI<sceMp3ResetPlayPositionByFrame>,"sceMp3ResetPlayPositionByFrame"},
-	{0x1b839b83,WrapU_UU<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
+	{0x1b839b83,WrapU_U<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
 	{0xe3ee2c81,WrapU_UUUUU<sceMp3LowLevelDecode>,"sceMp3LowLevelDecode"}
 };
 
