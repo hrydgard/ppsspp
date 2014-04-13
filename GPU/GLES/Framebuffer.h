@@ -79,13 +79,16 @@ struct VirtualFramebuffer {
 
 	u16 usageFlags;
 
+	u16 newWidth;
+	u16 newHeight;
+	int lastFrameNewSize;
+
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
-	bool embiggened;
 };
 
 void CenterRect(float *x, float *y, float *w, float *h,

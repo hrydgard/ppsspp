@@ -708,30 +708,19 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
-	bool embiggened = false;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
+	size_t i;
+	for (i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address)) {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
 			if (v->width < drawing_width && v->height < drawing_height) {
-				// Embiggen if it gets bigger, but only once.
-				// This prevents it happening over and over again.
-				if (!v->embiggened) {
-					// TODO: Could copy over the data.
-					embiggened = true;
-					vfb = NULL;
-					DestroyFramebuf(v);
-					vfbs_.erase(vfbs_.begin() + i);
-					break;
-				} else {
-					v->width = drawing_width;
-					v->height = drawing_height;
-				}
+				v->width = drawing_width;
+				v->height = drawing_height;
 			}
 			if (v->format != fmt) {
 				v->width = drawing_width;
@@ -739,6 +728,20 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 				v->format = fmt;
 			}
 			break;
+		}
+	}
+
+	if (vfb && (drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
+		// If it's newly wrong, or changing every frame, just keep track.
+		if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+			vfb->newWidth = drawing_width;
+			vfb->newHeight = drawing_height;
+			vfb->lastFrameNewSize = gpuStats.numFlips;
+		} else if (vfb->lastFrameNewSize + FBO_OLD_AGE <= gpuStats.numFlips) {
+			// Okay, it's changed for a while (and stayed that way.)  Let's start over.
+			DestroyFramebuf(vfb);
+			vfbs_.erase(vfbs_.begin() + i);
+			vfb = NULL;
 		}
 	}
 
@@ -756,6 +759,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->z_stride = z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
+		vfb->newWidth = drawing_width;
+		vfb->newHeight = drawing_height;
+		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->bufferWidth = buffer_width;
@@ -767,7 +773,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb->reallyDirtyAfterDisplay = true;
 		vfb->memoryUpdated = false;
 		vfb->depthUpdated = false;
-		vfb->embiggened = embiggened;
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
