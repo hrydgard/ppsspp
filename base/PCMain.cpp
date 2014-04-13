@@ -441,6 +441,7 @@ int main(int argc, char *argv[]) {
 	int set_yres = -1;
 
 	int set_ipad = 0;
+	bool portrait = false;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
@@ -465,6 +466,8 @@ int main(int argc, char *argv[]) {
 	
 		if (!strcmp(argv[i],"--ipad"))
 			set_ipad = 1;
+		if (!strcmp(argv[i],"--portrait"))
+			portrait = true;
 	}
 #endif
 	if (mode & SDL_FULLSCREEN) {
@@ -478,6 +481,9 @@ int main(int argc, char *argv[]) {
 		// set a sensible default resolution (2x)
 		pixel_xres = 480 * 2 * set_scale;
 		pixel_yres = 272 * 2 * set_scale;
+		if (portrait) {
+			std::swap(pixel_xres, pixel_yres);
+		}
 #ifdef PPSSPP
 		g_Config.bFullScreen = false;
 #endif
