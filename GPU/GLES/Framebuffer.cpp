@@ -731,17 +731,22 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 	}
 
-	if (vfb && (drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
-		// If it's newly wrong, or changing every frame, just keep track.
-		if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
-			vfb->newWidth = drawing_width;
-			vfb->newHeight = drawing_height;
+	if (vfb) {
+		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
+			// If it's newly wrong, or changing every frame, just keep track.
+			if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+				vfb->newWidth = drawing_width;
+				vfb->newHeight = drawing_height;
+				vfb->lastFrameNewSize = gpuStats.numFlips;
+			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.numFlips) {
+				// Okay, it's changed for a while (and stayed that way.)  Let's start over.
+				DestroyFramebuf(vfb);
+				vfbs_.erase(vfbs_.begin() + i);
+				vfb = NULL;
+			}
+		} else {
+			// It's not different, let's keep track of that too.
 			vfb->lastFrameNewSize = gpuStats.numFlips;
-		} else if (vfb->lastFrameNewSize + FBO_OLD_AGE <= gpuStats.numFlips) {
-			// Okay, it's changed for a while (and stayed that way.)  Let's start over.
-			DestroyFramebuf(vfb);
-			vfbs_.erase(vfbs_.begin() + i);
-			vfb = NULL;
 		}
 	}
 
