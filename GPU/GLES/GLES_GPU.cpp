@@ -115,7 +115,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
@@ -918,7 +918,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
-		gstate_c.textureChanged = true;
+		// Don't need to dirty the texture here, already dirtied at list start/etc.
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
