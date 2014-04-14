@@ -118,6 +118,7 @@ public:
 	u32 SumDecodedSamples;
 	int LoopNum;
 	u32 MaxOutputSample;
+	int FrameNum; // number of decoded frame
 	
 	// Au decoder
 	SimpleAudio *decoder;
@@ -132,7 +133,28 @@ public:
 	int realReadSize; // the really read size from file
 	std::string sourcebuff; // source buffer
 
-	AuCtx() :decoder(NULL){};
+	AuCtx(){
+		decoder = NULL;
+		startPos = 0;
+		endPos = 0;
+		LoopNum = -1;
+		AuBuf = 0;
+		AuBufSize = 2048;
+		PCMBuf = 0;
+		PCMBufSize = 2048;
+		AuBufAvailable = 0;
+		SamplingRate = 44100;
+		freq = SamplingRate;
+		BitRate = 0;
+		Channels = 2;
+		Version = 0;
+		SumDecodedSamples = 0;
+		MaxOutputSample = 0;
+		askedReadSize = 0;
+		realReadSize = 0;
+		audioType = 0;
+		FrameNum = 0;
+	};
 	~AuCtx(){
 		if (decoder){
 			AudioClose(&decoder);
@@ -155,6 +177,7 @@ public:
 	int AuGetSamplingRate();
 	u32 AuResetPlayPositionByFrame(int position);
 	int AuGetVersion();
+	int AuGetFrameNum();
 
 	void DoState(PointerWrap &p) {
 		auto s = p.Section("AuContext", 0, 1);
@@ -178,6 +201,7 @@ public:
 		p.Do(SamplingRate);
 		p.Do(askedReadSize);
 		p.Do(realReadSize);
+		p.Do(FrameNum);
 
 		if (p.mode == p.MODE_READ){
 			decoder = new SimpleAudio(audioType);

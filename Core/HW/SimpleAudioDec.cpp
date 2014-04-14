@@ -342,6 +342,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		AuBufAvailable -= srcPos;
 		// move outbuff position to the current end of output 
 		outbuf += pcmframesize;
+		// increase FrameNum count
+		FrameNum++;
 	}
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
@@ -452,4 +454,8 @@ u32 AuCtx::AuResetPlayPositionByFrame(int position){
 
 int AuCtx::AuGetVersion(){
 	return Version;
+}
+
+int AuCtx::AuGetFrameNum(){
+	return FrameNum;
 }
