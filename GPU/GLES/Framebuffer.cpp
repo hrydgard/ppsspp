@@ -1674,13 +1674,13 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 		if (!Memory::IsValidAddress(displayFramebufPtr_))
 			return;
 
-		fbo_unbind();
-		currentRenderVfb_ = 0;
-
 		bool needUnbind = false;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
+				fbo_unbind();
+				currentRenderVfb_ = 0;
+
 				vfb->dirtyAfterDisplay = true;
 				vfb->reallyDirtyAfterDisplay = true;
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
