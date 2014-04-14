@@ -63,7 +63,6 @@ public:
 	int srcPos; // bytes consumed in source during the last decoding
 	int wanted_resample_freq; // wanted resampling rate/frequency
 
-private:
 #ifdef USE_FFMPEG
 	AVFrame *frame_;
 	AVCodec *codec_;
@@ -178,6 +177,7 @@ public:
 	u32 AuResetPlayPositionByFrame(int position);
 	int AuGetVersion();
 	int AuGetFrameNum();
+	bool AuCreateCodecContextFromSource();
 
 	void DoState(PointerWrap &p) {
 		auto s = p.Section("AuContext", 0, 1);

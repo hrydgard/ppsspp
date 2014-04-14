@@ -326,6 +326,11 @@ int sceMp3Init(u32 mp3) {
 
 	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
 
+	// Read information from source via ffmpeg and re-create codec context
+	// This is an automatic method without knowledge in audio file format
+	// ctx->AuCreateCodecContextFromSource();
+	// INFO_LOG(ME, "sceMp3Init() ffmpeg: channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+
 	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
 	if (ctx->freq == 48000){
 		ctx->decoder->setResampleFrequency(ctx->freq);

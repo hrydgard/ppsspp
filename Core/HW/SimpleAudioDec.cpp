@@ -459,3 +459,85 @@ int AuCtx::AuGetVersion(){
 int AuCtx::AuGetFrameNum(){
 	return FrameNum;
 }
+
+static int _Readbuffer(void *opaque, uint8_t *buf, int buf_size) {
+	auto ctx = (AuCtx *)opaque;
+	int toread = std::min((int)ctx->AuBufSize, buf_size);
+	memcpy(buf, Memory::GetPointer(ctx->AuBuf), toread);
+	return toread;
+}
+
+static void closeAvioCtxandFormatCtx(AVIOContext* pAVIOCtx, AVFormatContext* pFormatCtx){
+	if (pAVIOCtx && pAVIOCtx->buffer)
+		av_free(pAVIOCtx->buffer);
+	if (pAVIOCtx)
+		av_free(pAVIOCtx);
+	if (pFormatCtx)
+		avformat_close_input(&pFormatCtx);
+}
+
+// you need at least have initialized AuBuf, AuBufSize and decoder
+bool AuCtx::AuCreateCodecContextFromSource(){
+	u8* tempbuf = (u8*)av_malloc(AuBufSize);
+
+	auto pFormatCtx = avformat_alloc_context();
+	auto pAVIOCtx = avio_alloc_context(tempbuf, AuBufSize, 0, (void*)this, _Readbuffer, NULL, NULL);
+	pFormatCtx->pb = pAVIOCtx;
+
+	int ret;
+	// Load audio buffer
+	if ((ret = avformat_open_input((AVFormatContext**)&pFormatCtx, NULL, NULL, NULL)) != 0) {
+		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
+		closeAvioCtxandFormatCtx(pAVIOCtx,pFormatCtx);
+		return false;
+	}
+
+	if ((ret = avformat_find_stream_info(pFormatCtx, NULL)) < 0) {
+		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
+		closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
+		return false;
+	}
+	// reset decoder context
+	if (decoder->codecCtx_){
+		avcodec_close(decoder->codecCtx_);
+		av_free(decoder->codecCtx_);
+	}
+	decoder->codecCtx_ = pFormatCtx->streams[ret]->codec;
+
+	if (decoder->codec_){
+		decoder->codec_ = 0;
+	}
+	// select the audio stream
+	ret = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder->codec_, 0);
+	if (ret < 0) {
+		if (ret == AVERROR_DECODER_NOT_FOUND) {
+			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
+		}
+		else {
+			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		}
+		closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
+		return false;
+	}
+
+	// close and free AVIO and AVFormat
+	// closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
+
+	// open codec
+	if ((ret = avcodec_open2(decoder->codecCtx_, decoder->codec_, NULL)) < 0) {
+		avcodec_close(decoder->codecCtx_);
+		av_free(decoder->codecCtx_);
+		decoder->codecCtx_ = 0;
+		decoder->codec_ = 0;
+		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
+		return false;
+	}
+
+	// set audio informations
+	SamplingRate = decoder->codecCtx_->sample_rate;
+	Channels = decoder->codecCtx_->channels;
+	BitRate = decoder->codecCtx_->bit_rate/1000;
+	freq = SamplingRate;
+
+	return true;
+}
