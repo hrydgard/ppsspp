@@ -460,6 +460,9 @@ void RestoreReplacedInstruction(u32 address) {
 }
 
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+	// Need to be in order, or we'll hang.
+	if (endAddr > startAddr)
+		std::swap(endAddr, startAddr);
 	const auto start = replacedInstructions.lower_bound(startAddr);
 	const auto end = replacedInstructions.upper_bound(endAddr);
 	int restored = 0;
