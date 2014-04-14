@@ -256,7 +256,11 @@ struct ConfigSectionSettings {
 static ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
+#ifdef MOBILE_DEVICE
+	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, false),
+#else
 	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
+#endif
 	ConfigSetting("AutoRun", &g_Config.bAutoRun, true),
 	ConfigSetting("Browse", &g_Config.bBrowse, false),
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true),
