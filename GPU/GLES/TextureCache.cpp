@@ -142,12 +142,16 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	}
 
 	addr &= 0x0FFFFFFF;
-	u32 addr_end = addr + size;
+	const u32 addr_end = addr + size;
 
 	// They could invalidate inside the texture, let's just give a bit of leeway.
 	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
-	u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
+	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
 	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
+	if (endKey < startKey) {
+		endKey = (u64)-1;
+	}
+
 	for (TexCache::iterator iter = cache.lower_bound(startKey), end = cache.upper_bound(endKey); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
@@ -265,7 +269,8 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
 
 	// Must be in VRAM so | 0x04000000 it is.
-	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
+	const u32 addr = (address | 0x04000000) & 0x0FFFFFFF;
+	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
 	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
@@ -278,14 +283,14 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 			fbCache_.push_back(framebuffer);
 		}
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, address | 0x04000000, framebuffer, it->first == cacheKey);
+			AttachFramebuffer(&it->second, addr, framebuffer, it->first == cacheKey);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
 		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, address | 0x04000000, framebuffer);
+			DetachFramebuffer(&it->second, addr, framebuffer);
 		}
 		break;
 	}
@@ -906,7 +911,8 @@ void TextureCache::SetTexture(bool force) {
 	}
 	bool hasClut = gstate.isTextureFormatIndexed();
 
-	u64 cachekey = (u64)texaddr << 32;
+	// Ignore uncached/kernel when caching.
+	u64 cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1081,8 +1087,8 @@ void TextureCache::SetTexture(bool force) {
 
 			// Also, mark any textures with the same address but different clut.  They need rechecking.
 			if (cluthash != 0) {
-				const u64 cachekeyMin = (u64)texaddr << 32;
-				const u64 cachekeyMax = (u64)(texaddr + 1) << 32;
+				const u64 cachekeyMin = (u64)(texaddr & 0x0FFFFFFF) << 32;
+				const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 				for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
 					if (it->second.cluthash != cluthash) {
 						it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
@@ -1142,14 +1148,15 @@ void TextureCache::SetTexture(bool force) {
 		// This is a rough heuristic, because sometimes our framebuffers are too tall.
 		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
 
-		// Must be in VRAM so | 0x04000000 it is.
-		const u64 cacheKeyStart = (u64)(framebuffer->fb_address | 0x04000000) << 32;
+		// Must be in VRAM so | 0x04000000 it is, and ignore any uncached bit.
+		const u32 addr = (framebuffer->fb_address | 0x04000000) & 0x0FFFFFFF;
+		const u64 cacheKeyStart = (u64)addr << 32;
 		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
 		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
 
 		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
-			AttachFramebuffer(entry, framebuffer->fb_address | 0x04000000, framebuffer, cachekey == cacheKeyStart);
+			AttachFramebuffer(entry, addr, framebuffer, cachekey == cacheKeyStart);
 		}
 	}
 
