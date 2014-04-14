@@ -510,7 +510,7 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 }
 
 u32 sceMp3LowLevelInit(u32 mp3) {
-	ERROR_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
+	INFO_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
 	auto ctx = new AuCtx;
 
 	ctx->audioType = PSP_CODEC_MP3;
