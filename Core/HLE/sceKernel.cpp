@@ -78,6 +78,7 @@
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
+#include "sceMp4.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -164,6 +165,7 @@ void __KernelShutdown()
 
 	__AudioCodecShutdown();
 	__VideoPmpShutdown();
+	__AACShutdown();
 	__NetShutdown();
 	__NetAdhocShutdown();
 	__FontShutdown();
@@ -264,6 +266,7 @@ void __KernelDoState(PointerWrap &p)
 		__CheatDoState(p);
 		__sceAudiocodecDoState(p);
 		__VideoPmpDoState(p);
+		__AACDoState(p);
 	}
 
 	{
