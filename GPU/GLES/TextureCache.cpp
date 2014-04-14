@@ -1632,6 +1632,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
+	bool useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+
 	u32 *pixelData = (u32 *)finalBuf;
 	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
@@ -1645,7 +1647,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	GLuint components2 = components;
 #if defined(MAY_HAVE_GLES3)
-	if (UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE) {
+	if (useBGRA) {
 		components2 = GL_BGRA_EXT;
 	}
 #endif
