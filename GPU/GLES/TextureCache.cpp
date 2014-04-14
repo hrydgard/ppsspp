@@ -56,6 +56,14 @@
 
 extern int g_iNumVideos;
 
+static inline bool UseBGRA8888() {
+	// TODO: Other platforms?  May depend on vendor which is faster?
+#ifdef _WIN32
+	return gl_extensions.EXT_bgra;
+#endif
+	return false;
+}
+
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -633,7 +641,35 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 		}
 		break;
 	default:
-		{
+		if (UseBGRA8888()) {
+#ifdef _M_SSE
+			const __m128i maskGA = _mm_set1_epi32(0xFF00FF00);
+
+			__m128i *srcp = (__m128i *)src;
+			__m128i *dstp = (__m128i *)dst;
+			const int sseChunks = numPixels / 4;
+			for (int i = 0; i < sseChunks; ++i) {
+				__m128i c = _mm_load_si128(&srcp[i]);
+				__m128i rb = _mm_andnot_si128(maskGA, c);
+				c = _mm_and_si128(c, maskGA);
+
+				__m128i b = _mm_srli_epi32(rb, 16);
+				__m128i r = _mm_slli_epi32(rb, 16);
+				c = _mm_or_si128(_mm_or_si128(c, r), b);
+				_mm_store_si128(&dstp[i], c);
+			}
+			// The remainder starts right after those done via SSE.
+			int i = sseChunks * 4;
+#else
+			int i = 0;
+#endif
+			for (; i < numPixels; i++) {
+				u32 c = src[i];
+				dst[i] = ((c >> 16) & 0x000000FF) |
+				         ((c >> 0)  & 0xFF00FF00) |
+				         ((c << 16) & 0x00FF0000);
+			}
+		} else {
 			// No need to convert RGBA8888, right order already
 			if (dst != src)
 				memcpy(dst, src, numPixels * sizeof(u32));
@@ -735,7 +771,7 @@ void TextureCache::UpdateCurrentClut() {
 	clutHash_ = DoReliableHash((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
 	// Avoid a copy when we don't need to convert colors.
-	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
+	if (UseBGRA8888() || clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutExtendedBytes / sizeof(u16));
 		clutBuf_ = clutBufConverted_;
 	} else {
@@ -1381,18 +1417,23 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
 			if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) || w == bufw) {
-				finalBuf = (void *)texptr;
+				if (UseBGRA8888()) {
+					finalBuf = tmpTexBuf32.data();
+					ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
+				} else {
+					finalBuf = (void *)texptr;
+				}
 			} else {
-				int len = bufw * h;
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
 				tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-				memcpy(tmpTexBuf32.data(), texptr, len * sizeof(u32));
 				finalBuf = tmpTexBuf32.data();
+				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
 			}
 		}
 		else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texptr, bufw, 4, level);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1567,8 +1608,6 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
-	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
-
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	int bufw;
 	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
@@ -1601,16 +1640,23 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
+	GLuint components2 = components;
+#if defined(MAY_HAVE_GLES3)
+	if (UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE) {
+		components2 = GL_BGRA_EXT;
+	}
+#endif
+
 	if (replaceImages) {
-		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components, dstFmt, pixelData);
+		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
-		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
 		GLenum err = glGetError();
 		if (err == GL_OUT_OF_MEMORY) {
 			lowMemoryMode_ = true;
 			Decimate();
 			// Try again.
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
 		}
 	}
 
