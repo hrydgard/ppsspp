@@ -226,7 +226,7 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
 	p.Do(gstate);
-	p.Do(gstate_c);
+	gstate_c.DoState(p);
 #ifndef _XBOX
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
@@ -672,7 +672,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		const int FLIP_DELAY_MIN_FLIPS = 30;
 
 		u64 now = CoreTiming::GetTicks();
-		u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
+		// 1001 to account for NTSC timing (59.94 fps.)
+		u64 expected = msToCycles(1001) / g_Config.iForceMaxEmulatedFPS;
 		u64 actual = now - lastFlipCycles;
 		if (actual < expected - FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {

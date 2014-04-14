@@ -255,6 +255,10 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	if (startsWith(prefix, "host"))
 		prefix = "host0:";
 
+	// Should we simply make this case insensitive?
+	if (prefix == "DISC0:")
+		prefix = "disc0:";
+
 	return prefix;
 }
 
@@ -282,6 +286,13 @@ void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
 			it->system = newSystem;
 		}
 	}
+}
+
+IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
+	size_t prefixPos = filename.find(':');
+	if (prefixPos == filename.npos)
+		return 0;
+	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {

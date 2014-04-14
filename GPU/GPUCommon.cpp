@@ -648,7 +648,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
 	// Game might've written new texture data.
-	gstate_c.textureChanged = true;
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
