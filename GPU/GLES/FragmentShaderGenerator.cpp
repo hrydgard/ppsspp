@@ -37,9 +37,6 @@
 
 // #define DEBUG_SHADER
 
-// GL_NV_shader_framebuffer_fetch looks interesting....
-
-
 // Dest factors where it's safe to eliminate the alpha test under certain conditions
 const bool safeDestFactors[16] = {
 	true, // GE_DSTBLEND_SRCCOLOR,
@@ -370,6 +367,12 @@ void GenerateFragmentShader(char *buffer) {
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	
+	// GL_EXT_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
+	if (gl_extensions.EXT_shader_framebuffer_fetch) {
+		WRITE(p, "  #extension GL_EXT_shader_framebuffer_fetch : require\n");
+	}
+	
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
@@ -601,7 +604,8 @@ void GenerateFragmentShader(char *buffer) {
 
 	// Handle ABSDIFF blending mode using GL_EXT_shader_framebuffer_fetch
 	if (computeAbsdiff && gl_extensions.EXT_shader_framebuffer_fetch) {
-		WRITE(p, "  gl_FragColor.rgb = abs(v.rgb - gl_LastFragData[0].rgb);\n");
+		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
 	}
 
 	switch (stencilToAlpha) {
