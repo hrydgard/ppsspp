@@ -33,5 +33,3 @@ void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
 int __AudioMix(short *outstereo, int numSamples);
-
-void __setChanQueueMaxSizeFactor(int factor);
