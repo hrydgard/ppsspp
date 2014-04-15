@@ -166,6 +166,10 @@ void __AudioShutdown() {
 		chans[i].clear();
 }
 
+void __setChanQueueMaxSizeFactor(int factor){
+	chanQueueMaxSizeFactor = factor;
+}
+
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	u32 ret = chan.sampleCount;
 
@@ -177,8 +181,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	}
 
 	// If there's anything on the queue at all, it should be busy, but we try to be a bit lax.
-	//if (chan.sampleQueue.size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
-	if (chan.sampleQueue.size() > 0) {
+	if (chan.sampleQueue.size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
 		if (blocking) {
 			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
 			int blockSamples = (int)chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;

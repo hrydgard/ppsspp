@@ -30,6 +30,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "Core/HLE/__sceAudio.h"
 
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
@@ -910,6 +911,9 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 			pmp_ContextList.push_front(pmpctxAddr);
 		}
 
+		// set chanQueueMaxSizeFactor to 5 will get smooth sound playback
+		__setChanQueueMaxSizeFactor(5);
+		
 		ringbuffer->packetsRead = pmp_nBlocks;
 
 		MediaEngine* mediaengine = ctx->mediaengine;
@@ -1523,6 +1527,7 @@ u32 sceMpegFinish()
 	} else {
 		INFO_LOG(ME, "sceMpegFinish(...)");
 		__VideoPmpShutdown();
+		__setChanQueueMaxSizeFactor(0); // reset this value to 0 after pmp playing
 	}
 	isMpegInit = false;
 	//__MpegFinish();
