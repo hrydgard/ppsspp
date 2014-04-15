@@ -743,10 +743,6 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	if (g_Config.bPrescaleUV) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
-		gstate_c.uv.uOff = 0;
-		gstate_c.uv.vOff = 0;
 	}
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
 
@@ -834,10 +830,6 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	if (g_Config.bPrescaleUV) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
-		gstate_c.uv.uOff = 0;
-		gstate_c.uv.vOff = 0;
 	}
 
 	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
