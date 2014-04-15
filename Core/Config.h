@@ -244,7 +244,6 @@ public:
 	//   * Still has major problems so off by default - need to store tex scale/offset per DeferredDrawCall, 
 	//     which currently isn't done so if texscale/offset isn't static (like in Tekken 6) things go wrong.
 	bool bPrescaleUV;
-	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
 	// End GLES hacks.
 
 	// Risky JIT optimizations
