@@ -82,7 +82,7 @@ public:
 
 static std::map<u32, Mp3Context *> mp3Map_old;
 static std::map<u32, AuCtx *> mp3Map;
-
+static const int mp3DecodeDelay = 4000;
 
 AuCtx *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
@@ -145,8 +145,13 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
-
-	return ctx->AuDecode(outPcmPtr);
+		
+	int pcmBytes = ctx->AuDecode(outPcmPtr);
+	if (!pcmBytes) {
+		// decode data successfully, delay thread
+		hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
+	}
+	return pcmBytes;
 }
 
 int sceMp3ResetPlayPosition(u32 mp3) {
