@@ -166,10 +166,6 @@ void __AudioShutdown() {
 		chans[i].clear();
 }
 
-void __setChanQueueMaxSizeFactor(int factor){
-	chanQueueMaxSizeFactor = factor;
-}
-
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	u32 ret = chan.sampleCount;
 
