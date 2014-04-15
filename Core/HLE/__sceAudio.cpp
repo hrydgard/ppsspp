@@ -98,8 +98,8 @@ void __AudioInit() {
 		hwBlockSize = 16;
 		hostAttemptBlockSize = 256;
 	} else {
-		chanQueueMaxSizeFactor = 2;
-		chanQueueMinSizeFactor = 1;
+		chanQueueMaxSizeFactor = 4;
+		chanQueueMinSizeFactor = 2;
 		hwBlockSize = 64;
 		hostAttemptBlockSize = 512;
 	}

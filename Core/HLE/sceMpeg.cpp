@@ -910,9 +910,6 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 			// add the initialized context into ContextList
 			pmp_ContextList.push_front(pmpctxAddr);
 		}
-
-		// set chanQueueMaxSizeFactor to 5 will get smooth sound playback
-		__setChanQueueMaxSizeFactor(5);
 		
 		ringbuffer->packetsRead = pmp_nBlocks;
 
@@ -1527,7 +1524,6 @@ u32 sceMpegFinish()
 	} else {
 		INFO_LOG(ME, "sceMpegFinish(...)");
 		__VideoPmpShutdown();
-		__setChanQueueMaxSizeFactor(0); // reset this value to 0 after pmp playing
 	}
 	isMpegInit = false;
 	//__MpegFinish();
