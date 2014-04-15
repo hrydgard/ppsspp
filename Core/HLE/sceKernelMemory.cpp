@@ -609,10 +609,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		}
 	}
 
-	if (alignment < 4)
-		alignment = 4;
-
-	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
+	int alignedSize = alignment == 0 ? (int)blockSize : ((int)blockSize + alignment - 1) & ~(alignment - 1);
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = userMemory.Alloc(totalSize, atEnd, "FPL");
