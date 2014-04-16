@@ -1,3 +1,5 @@
+#include "base/arch.h"
+
 #if defined(_M_IX86) || defined(_M_X64)
 
 #include <emmintrin.h>

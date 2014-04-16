@@ -1,6 +1,7 @@
 #pragma once
 
-#include "backtrace.h"
+#include "base/arch.h"
+#include "base/backtrace.h"
 
 // Simple wrapper around Android's logging interface that also allows other
 // implementations, and also some misc utilities.
