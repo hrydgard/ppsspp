@@ -76,6 +76,12 @@ public:
 
 	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
 
+	void Execute_Vaddr(u32 op, u32 diff);
+	void Execute_Iaddr(u32 op, u32 diff);
+	void Execute_Prim(u32 op, u32 diff);
+	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_FramebufType(u32 op, u32 diff);
+
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
