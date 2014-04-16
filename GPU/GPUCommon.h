@@ -52,6 +52,14 @@ public:
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
 
+	void Execute_OffsetAddr(u32 op, u32 diff);
+	void Execute_Origin(u32 op, u32 diff);
+	void Execute_Jump(u32 op, u32 diff);
+	void Execute_BJump(u32 op, u32 diff);
+	void Execute_Call(u32 op, u32 diff);
+	void Execute_Ret(u32 op, u32 diff);
+	void Execute_End(u32 op, u32 diff);
+
 	virtual u64 GetTickEstimate() {
 #if defined(_M_X64) || defined(ANDROID)
 		return curTickEst_;
