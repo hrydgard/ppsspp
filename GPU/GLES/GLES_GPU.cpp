@@ -55,6 +55,7 @@ enum {
 struct CommandTableEntry {
 	u8 cmd;
 	u8 flags;
+	GLES_GPU::CmdFunc func;
 };
 
 static const CommandTableEntry commandTable[] = {
@@ -382,6 +383,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
 };
 
+GLES_GPU::CmdFunc GLES_GPU::cmdFuncs_[256];
+
 
 GLES_GPU::GLES_GPU()
 : resized_(false) {
@@ -422,6 +425,10 @@ GLES_GPU::GLES_GPU()
 			dupeCheck.insert(cmd);
 		}
 		commandFlags_[cmd] |= commandTable[i].flags;
+		cmdFuncs_[cmd] = commandTable[i].func;
+		if (!cmdFuncs_[cmd]) {
+			cmdFuncs_[cmd] = &GLES_GPU::ExecuteOpInternal;
+		}
 	}
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
@@ -628,7 +635,7 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
 		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-			ExecuteOpInternal(op, diff);
+			(this->*cmdFuncs_[cmd])(op, diff);
 		}
 		list.pc += 4;
 	}
@@ -675,7 +682,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	const u8 cmd = op >> 24;
 	const u8 cmdFlags = commandFlags_[cmd];
 	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		ExecuteOpInternal(op, diff);
+		(this->*cmdFuncs_[cmd])(op, diff);
 	}
 }
 

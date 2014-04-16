@@ -74,6 +74,8 @@ public:
 
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
+	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
+
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
@@ -91,6 +93,8 @@ private:
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+
+	static CmdFunc cmdFuncs_[256];
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
