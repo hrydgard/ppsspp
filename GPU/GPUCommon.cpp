@@ -586,7 +586,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++) {
-		if (i != GE_CMD_ORIGIN) {
+		if (i != GE_CMD_ORIGIN && i != GE_CMD_OFFSETADDR) {
 			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 		}
 	}
