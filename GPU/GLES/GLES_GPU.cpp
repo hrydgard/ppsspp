@@ -77,39 +77,39 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty texture scaling.
 	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleU},
+	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleV},
+	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetU},
+	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetV},
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
 	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GLES_GPU::Execute_TexSize0},
-	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexFormat},
 	{GE_CMD_TEXLEVEL, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddr0},
-	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufw0},
+	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexBufwN},
 	// These must flush on change, so that LoadClut doesn't have to always flush.
 	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
@@ -123,10 +123,10 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_ColorTest},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_ColorTest},
 
 	// These change the vertex shader so need flushing.
 	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},  // TODO: This one is actually processed during vertex decoding which is wrong.
@@ -147,9 +147,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Uniform changes
-	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_AlphaTest},
+	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ColorRef},
+	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexEnvColor},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
 	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
@@ -318,8 +318,8 @@ static const CommandTableEntry commandTable[] = {
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_VertexType},
 
-	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
-	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
+	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &GLES_GPU::Execute_Bezier},
+	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &GLES_GPU::Execute_Spline},
 
 	// These two are actually processed in CMD_END.
 	{GE_CMD_SIGNAL, FLAG_FLUSHBEFORE},
@@ -327,7 +327,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GLES_GPU::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, &GLES_GPU::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -336,16 +336,16 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITH3},
 
 	// These handle their own flushing.
-	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
-	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE},
-	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
-	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
-	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
-	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
-	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE},
+	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_WorldMtxNum},
+	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, &GLES_GPU::Execute_WorldMtxData},
+	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_ViewMtxNum},
+	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, &GLES_GPU::Execute_ViewMtxData},
+	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_ProjMtxNum},
+	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, &GLES_GPU::Execute_ProjMtxData},
+	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_TgenMtxNum},
+	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, &GLES_GPU::Execute_TgenMtxData},
+	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_BoneMtxNum},
+	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, &GLES_GPU::Execute_BoneMtxData},
 
 	// "Missing" commands (gaps in the sequence)
 	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
@@ -380,7 +380,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
+	// Appears to be debugging related or something?  Hit a lot in GoW.
+	{GE_CMD_UNKNOWN_FF, 0},
 };
 
 GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
@@ -786,6 +787,90 @@ void GLES_GPU::Execute_VertexType(u32 op, u32 diff) {
 	}
 }
 
+void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
+}
+
+void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
+}
+
 void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -796,15 +881,41 @@ void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
+void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
+	gstate_c.uv.uScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexScaleV(u32 op, u32 diff) {
+	gstate_c.uv.vScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexOffsetU(u32 op, u32 diff) {
+	gstate_c.uv.uOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexOffsetV(u32 op, u32 diff) {
+	gstate_c.uv.vOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
 void GLES_GPU::Execute_TexAddr0(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 }
 
-void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
+void GLES_GPU::Execute_TexAddrN(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut();
-	// This could be used to "dirty" textures with clut.
+}
+
+void GLES_GPU::Execute_TexBufw0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void GLES_GPU::Execute_TexBufwN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GLES_GPU::Execute_TexSize0(u32 op, u32 diff) {
@@ -817,6 +928,24 @@ void GLES_GPU::Execute_TexSize0(u32 op, u32 diff) {
 		// We will need to reset the texture now.
 		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	}
+}
+
+void GLES_GPU::Execute_TexSizeN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void GLES_GPU::Execute_TexFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_TEXENV);
+}
+
+void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
 }
 
 void GLES_GPU::Execute_Ambient(u32 op, u32 diff) {
@@ -837,6 +966,249 @@ void GLES_GPU::Execute_MaterialAmbient(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_MaterialSpecular(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
+}
+
+void GLES_GPU::Execute_ColorTest(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+}
+
+void GLES_GPU::Execute_AlphaTest(u32 op, u32 diff) {
+#ifndef MOBILE_DEVICE
+	if (((op >> 16) & 0xFF) != 0xFF && (op & 7) > 1)
+		WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (op >> 16) & 0xFF);
+#endif
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+}
+
+void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+}
+
+void GLES_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GLES_GPU::Execute_WorldMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.worldmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.worldMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+	}
+	num++;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void GLES_GPU::Execute_ViewMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GLES_GPU::Execute_ViewMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.viewmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.viewMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+	}
+	num++;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void GLES_GPU::Execute_ProjMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
+	const int end = 16 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GLES_GPU::Execute_ProjMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.projmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.projMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+	num++;
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void GLES_GPU::Execute_TgenMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GLES_GPU::Execute_TgenMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.texmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.tgenMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+	}
+	num++;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void GLES_GPU::Execute_BoneMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
+	const int end = 12 * 8 - (op & 0x7F);
+	int i = 0;
+
+	// If we can't use software skinning, we have to flush and dirty.
+	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+
+		const int numPlusCount = (op & 0x7F) + i;
+		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		}
+	} else {
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void GLES_GPU::Execute_BoneMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.boneMatrixNumber & 0x7F;
+	u32 newVal = op << 8;
+	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		// Bone matrices should NOT flush when software skinning is enabled!
+		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			Flush();
+			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		}
+		((u32 *)gstate.boneMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+}
+
+void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
+	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
+	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
+	// Can we skip this on SkipDraw?
+	DoBlockTransfer();
+
+	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
@@ -862,91 +1234,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
-		}
+		Execute_Bezier(op, diff);
 		break;
 
 	case GE_CMD_SPLINE:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			int sp_ucount = data & 0xFF;
-			int sp_vcount = (data >> 8) & 0xFF;
-			int sp_utype = (data >> 16) & 0x3;
-			int sp_vtype = (data >> 18) & 0x3;
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
-		}
+		Execute_Spline(op, diff);
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
@@ -1020,23 +1312,19 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXSCALEU:
-		gstate_c.uv.uScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexScaleU(op, diff);
 		break;
 
 	case GE_CMD_TEXSCALEV:
-		gstate_c.uv.vScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexScaleV(op, diff);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
-		gstate_c.uv.uOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexOffsetU(op, diff);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
-		gstate_c.uv.vOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexOffsetV(op, diff);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -1067,11 +1355,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexAddrN(op, diff);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		Execute_TexBufw0(op, diff);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH1:
@@ -1081,7 +1369,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexBufwN(op, diff);
 		break;
 
 	case GE_CMD_CLUTFORMAT:
@@ -1117,16 +1405,8 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
-		{
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-			// Can we skip this on SkipDraw?
-			DoBlockTransfer();
-
-			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-			break;
-		}
+		Execute_BlockTransferStart(op, diff);
+		break;
 
 	case GE_CMD_TEXSIZE0:
 		Execute_TexSize0(op, diff);
@@ -1139,7 +1419,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexSizeN(op, diff);
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1303,24 +1583,19 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+		Execute_ColorTest(op, diff);
 		break;
 
 	case GE_CMD_ALPHATEST:
-#ifndef MOBILE_DEVICE
-		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
-			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
-#endif
-		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+		Execute_AlphaTest(op, diff);
 		break;
 
 	case GE_CMD_COLORREF:
-		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+		Execute_ColorRef(op, diff);
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
-		shaderManager_->DirtyUniform(DIRTY_TEXENV);
+		Execute_TexEnvColor(op, diff);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -1328,7 +1603,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXFORMAT:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		Execute_TexFormat(op, diff);
 		break;
 
 	case GE_CMD_TEXMODE:
@@ -1364,240 +1639,43 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		{
-			// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
-			u32 *dst = (u32 *)(gstate.worldMatrix + (data & 0xF));
-			const int end = 12 - (data & 0xF);
-			int i = 0;
-
-			while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-					shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const int count = i;
-			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((data + count) & 0xF);
-
-			// Skip over the loaded data, it's done now.
-			UpdatePC(currentList->pc, currentList->pc + count * 4);
-			currentList->pc += count * 4;
-		}
+		Execute_WorldMtxNum(op, diff);
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
-		{
-			// Note: it's uncommon to get here now, see above.
-			int num = gstate.worldmtxnum & 0xF;
-			u32 newVal = data << 8;
-			if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-				Flush();
-				((u32 *)gstate.worldMatrix)[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-			}
-			num++;
-			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
-		}
+		Execute_WorldMtxData(op, diff);
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		{
-			// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
-			u32 *dst = (u32 *)(gstate.viewMatrix + (data & 0xF));
-			const int end = 12 - (data & 0xF);
-			int i = 0;
-
-			while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-					shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const int count = i;
-			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((data + count) & 0xF);
-
-			// Skip over the loaded data, it's done now.
-			UpdatePC(currentList->pc, currentList->pc + count * 4);
-			currentList->pc += count * 4;
-		}
+		Execute_ViewMtxNum(op, diff);
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
-		{
-			// Note: it's uncommon to get here now, see above.
-			int num = gstate.viewmtxnum & 0xF;
-			u32 newVal = data << 8;
-			if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-				Flush();
-				((u32 *)gstate.viewMatrix)[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-			}
-			num++;
-			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
-		}
+		Execute_ViewMtxData(op, diff);
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		{
-			// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
-			u32 *dst = (u32 *)(gstate.projMatrix + (data & 0xF));
-			const int end = 16 - (data & 0xF);
-			int i = 0;
-
-			while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-					shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const int count = i;
-			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((data + count) & 0xF);
-
-			// Skip over the loaded data, it's done now.
-			UpdatePC(currentList->pc, currentList->pc + count * 4);
-			currentList->pc += count * 4;
-		}
+		Execute_ProjMtxNum(op, diff);
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
-		{
-			// Note: it's uncommon to get here now, see above.
-			int num = gstate.projmtxnum & 0xF;
-			u32 newVal = data << 8;
-			if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
-				Flush();
-				((u32 *)gstate.projMatrix)[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-			}
-			num++;
-			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
-		}
+		Execute_ProjMtxData(op, diff);
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		{
-			// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
-			u32 *dst = (u32 *)(gstate.tgenMatrix + (data & 0xF));
-			const int end = 12 - (data & 0xF);
-			int i = 0;
-
-			while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-					shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const int count = i;
-			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((data + count) & 0xF);
-
-			// Skip over the loaded data, it's done now.
-			UpdatePC(currentList->pc, currentList->pc + count * 4);
-			currentList->pc += count * 4;
-		}
+		Execute_TgenMtxNum(op, diff);
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
-		{
-			// Note: it's uncommon to get here now, see above.
-			int num = gstate.texmtxnum & 0xF;
-			u32 newVal = data << 8;
-			if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-				Flush();
-				((u32 *)gstate.tgenMatrix)[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-			}
-			num++;
-			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
-		}
+		Execute_TgenMtxData(op, diff);
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		{
-			// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-			const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
-			u32 *dst = (u32 *)(gstate.boneMatrix + (data & 0x7F));
-			const int end = 12 * 8 - (data & 0x7F);
-			int i = 0;
-
-			// If we can't use software skinning, we have to flush and dirty.
-			if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-					const u32 newVal = src[i] << 8;
-					if (dst[i] != newVal) {
-						Flush();
-						dst[i] = newVal;
-					}
-					if (++i >= end) {
-						break;
-					}
-				}
-
-				const int numPlusCount = (data & 0x7F) + i;
-				for (int num = data & 0x7F; num < numPlusCount; num += 12) {
-					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-				}
-			} else {
-				while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-					dst[i] = src[i] << 8;
-					if (++i >= end) {
-						break;
-					}
-				}
-			}
-
-			const int count = i;
-			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((data + count) & 0x7F);
-
-			// Skip over the loaded data, it's done now.
-			UpdatePC(currentList->pc, currentList->pc + count * 4);
-			currentList->pc += count * 4;
-		}
+		Execute_BoneMtxNum(op, diff);
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		{
-			// Note: it's uncommon to get here now, see above.
-			int num = gstate.boneMatrixNumber & 0x7F;
-			u32 newVal = data << 8;
-			if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-				// Bone matrices should NOT flush when software skinning is enabled!
-				if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-					Flush();
-					shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-				}
-				((u32 *)gstate.boneMatrix)[num] = newVal;
-			}
-			num++;
-			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
-		}
+		Execute_BoneMtxData(op, diff);
 		break;
 
 #ifndef MOBILE_DEVICE
