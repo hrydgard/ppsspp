@@ -318,8 +318,8 @@ static const CommandTableEntry commandTable[] = {
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_VertexType},
 
-	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
-	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
+	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &GLES_GPU::Execute_Bezier},
+	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &GLES_GPU::Execute_Spline},
 
 	// These two are actually processed in CMD_END.
 	{GE_CMD_SIGNAL, FLAG_FLUSHBEFORE},
@@ -787,6 +787,90 @@ void GLES_GPU::Execute_VertexType(u32 op, u32 diff) {
 	}
 }
 
+void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
+}
+
+void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
+}
+
 void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -1090,91 +1174,11 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
-		}
+		Execute_Bezier(op, diff);
 		break;
 
 	case GE_CMD_SPLINE:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			int sp_ucount = data & 0xFF;
-			int sp_vcount = (data >> 8) & 0xFF;
-			int sp_utype = (data >> 16) & 0x3;
-			int sp_vtype = (data >> 18) & 0x3;
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
-		}
+		Execute_Spline(op, diff);
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
