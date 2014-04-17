@@ -92,7 +92,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
 	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
 	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
-	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexFormat},
 	{GE_CMD_TEXLEVEL, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddr0},
 	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
@@ -876,6 +876,11 @@ void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
+void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
 void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
 	gstate_c.uv.uScale = getFloat24(op);
 	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
@@ -896,11 +901,6 @@ void GLES_GPU::Execute_TexOffsetV(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 }
 
-void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
-	gstate_c.framebufChanged = true;
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-}
-
 void GLES_GPU::Execute_TexAddr0(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
@@ -918,12 +918,6 @@ void GLES_GPU::Execute_TexBufwN(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
-void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut();
-	// This could be used to "dirty" textures with clut.
-}
-
 void GLES_GPU::Execute_TexSize0(u32 op, u32 diff) {
 	// Render to texture may have overridden the width/height.
 	// Don't reset it unless the size is different / the texture has changed.
@@ -938,6 +932,20 @@ void GLES_GPU::Execute_TexSize0(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_TexSizeN(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void GLES_GPU::Execute_TexFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_TEXENV);
+}
+
+void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
 }
 
 void GLES_GPU::Execute_Ambient(u32 op, u32 diff) {
@@ -974,10 +982,6 @@ void GLES_GPU::Execute_AlphaTest(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
-}
-
-void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
-	shaderManager_->DirtyUniform(DIRTY_TEXENV);
 }
 
 void GLES_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
@@ -1599,7 +1603,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXFORMAT:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		Execute_TexFormat(op, diff);
 		break;
 
 	case GE_CMD_TEXMODE:
