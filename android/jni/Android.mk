@@ -11,6 +11,9 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
+LOCAL_C_INCLUDES := \
+		$(LOCAL_PATH)/$(NATIVE) \
+		$(LOCAL_PATH)
 LOCAL_LDLIBS := -lOpenSLES -llog
 		
 include $(BUILD_SHARED_LIBRARY)
