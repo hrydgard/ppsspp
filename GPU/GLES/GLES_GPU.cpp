@@ -383,7 +383,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
 };
 
-GLES_GPU::CmdFunc GLES_GPU::cmdFuncs_[256];
+GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 
 
 GLES_GPU::GLES_GPU()
@@ -413,21 +413,20 @@ GLES_GPU::GLES_GPU()
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	// Sanity check commandFlags table - no dupes please
+	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
-	commandFlags_ = new u8[256];
-	memset(commandFlags_, 0, 256 * sizeof(bool));
+	memset(cmdInfo_, 0, sizeof(cmdInfo_));
 	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		u8 cmd = commandTable[i].cmd;
+		const u8 cmd = commandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		commandFlags_[cmd] |= commandTable[i].flags;
-		cmdFuncs_[cmd] = commandTable[i].func;
-		if (!cmdFuncs_[cmd]) {
-			cmdFuncs_[cmd] = &GLES_GPU::ExecuteOpInternal;
+		cmdInfo_[cmd].flags |= commandTable[i].flags;
+		cmdInfo_[cmd].func = commandTable[i].func;
+		if (!cmdInfo_[cmd].func) {
+			cmdInfo_[cmd].func = &GLES_GPU::ExecuteOpInternal;
 		}
 	}
 	// Find commands missing from the table.
@@ -441,14 +440,14 @@ GLES_GPU::GLES_GPU()
 	// the tex scale/offset into the vertices anyway.
 
 	if (g_Config.bPrescaleUV) {
-		commandFlags_[GE_CMD_TEXSCALEU] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXSCALEV] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXOFFSETU] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
 	if (g_Config.bSoftwareSkinning) {
-		commandFlags_[GE_CMD_VERTEXTYPE] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 	}
 
 	BuildReportingInfo();
@@ -458,7 +457,6 @@ GLES_GPU::~GLES_GPU() {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 	delete shaderManager_;
-	delete [] commandFlags_;
 }
 
 // Let's avoid passing nulls into snprintf().
@@ -622,12 +620,13 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
-	const u8 *commandFlags = commandFlags_;
+	const CommandInfo *cmdInfo = cmdInfo_;
 	for (; downcount > 0; --downcount) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
-		const u8 cmdFlags = commandFlags[cmd];      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
+		const CommandInfo info = cmdInfo[cmd];
+		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
@@ -635,7 +634,7 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		}
 		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
 		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-			(this->*cmdFuncs_[cmd])(op, diff);
+			(this->*info.func)(op, diff);
 		}
 		list.pc += 4;
 	}
@@ -665,7 +664,7 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 }
 
 inline void GLES_GPU::CheckFlushOp(int cmd, u32 diff) {
-	const u8 cmdFlags = commandFlags_[cmd];
+	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
@@ -680,9 +679,10 @@ void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	const u8 cmd = op >> 24;
-	const u8 cmdFlags = commandFlags_[cmd];
+	const CommandInfo info = cmdInfo_[cmd];
+	const u8 cmdFlags = info.flags;
 	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
-		(this->*cmdFuncs_[cmd])(op, diff);
+		(this->*info.func)(op, diff);
 	}
 }
 

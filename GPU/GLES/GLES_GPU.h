@@ -75,6 +75,10 @@ public:
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
+	struct CommandInfo {
+		u8 flags;
+		GLES_GPU::CmdFunc func;
+	};
 
 	void Execute_Vaddr(u32 op, u32 diff);
 	void Execute_Iaddr(u32 op, u32 diff);
@@ -109,14 +113,12 @@ private:
 	void CopyDisplayToOutputInternal();
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
-	static CmdFunc cmdFuncs_[256];
+	static CommandInfo cmdInfo_[256];
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
-
-	u8 *commandFlags_;
 
 	bool resized_;
 	int lastVsync_;
