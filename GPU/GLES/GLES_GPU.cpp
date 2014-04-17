@@ -77,10 +77,10 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty texture scaling.
 	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleU},
+	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleV},
+	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetU},
+	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetV},
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
@@ -876,6 +876,26 @@ void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
+void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
+	gstate_c.uv.uScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexScaleV(u32 op, u32 diff) {
+	gstate_c.uv.vScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexOffsetU(u32 op, u32 diff) {
+	gstate_c.uv.uOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexOffsetV(u32 op, u32 diff) {
+	gstate_c.uv.vOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
 void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -1288,23 +1308,19 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXSCALEU:
-		gstate_c.uv.uScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexScaleU(op, diff);
 		break;
 
 	case GE_CMD_TEXSCALEV:
-		gstate_c.uv.vScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexScaleV(op, diff);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
-		gstate_c.uv.uOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexOffsetU(op, diff);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
-		gstate_c.uv.vOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexOffsetV(op, diff);
 		break;
 
 	case GE_CMD_SCISSOR1:
