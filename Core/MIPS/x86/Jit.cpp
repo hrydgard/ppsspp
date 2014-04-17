@@ -453,7 +453,15 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
 		return true;
 	} else {
-		return false;
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		ABI_CallFunction(entry->replaceFunc);
+		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		js.downcountAmount = 0;  // we just subtracted most of it
+		js.compilerPC += 4;
+		js.compiling = true;
+		return true;
 	}
 }
 
