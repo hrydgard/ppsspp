@@ -327,7 +327,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GLES_GPU::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC, &GLES_GPU::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -1056,6 +1056,16 @@ void GLES_GPU::Execute_BoneMtxData(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 }
 
+void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
+	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
+	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
+	// Can we skip this on SkipDraw?
+	DoBlockTransfer();
+
+	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1334,16 +1344,8 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
-		{
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-			// Can we skip this on SkipDraw?
-			DoBlockTransfer();
-
-			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-			break;
-		}
+		Execute_BlockTransferStart(op, diff);
+		break;
 
 	case GE_CMD_TEXSIZE0:
 		Execute_TexSize0(op, diff);
