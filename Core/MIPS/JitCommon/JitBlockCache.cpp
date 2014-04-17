@@ -188,6 +188,9 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	}
 	b.exitAddress[0] = rootAddress;
 	b.blockNum = num_blocks_;
+	if (!b.proxyFor) {
+		b.proxyFor = new std::vector<u32>();
+	}
 	b.SetPureProxy();  // flag as pure proxy block.
 
 	// Make binary searches and stuff work ok
