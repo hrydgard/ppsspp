@@ -80,7 +80,16 @@ public:
 	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_Region(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
+	void Execute_TexAddr0(u32 op, u32 diff);
+	void Execute_LoadClut(u32 op, u32 diff);
+	void Execute_TexSize0(u32 op, u32 diff);
+	void Execute_Ambient(u32 op, u32 diff);
+	void Execute_MaterialDiffuse(u32 op, u32 diff);
+	void Execute_MaterialEmissive(u32 op, u32 diff);
+	void Execute_MaterialAmbient(u32 op, u32 diff);
+	void Execute_MaterialSpecular(u32 op, u32 diff);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);

@@ -84,7 +84,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
-	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE}, // NOTE: only one that uses diff?
+	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GLES_GPU::Execute_TexSize0},
 	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
@@ -93,7 +93,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddr0},
 	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
@@ -204,22 +204,22 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Region
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Region},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Region},
 
 	// Scissor
 	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
-	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_AMBIENTALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALDIFFUSE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALEMISSIVE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALAMBIENT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALSPECULAR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Ambient},
+	{GE_CMD_AMBIENTALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Ambient},
+	{GE_CMD_MATERIALDIFFUSE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialDiffuse},
+	{GE_CMD_MATERIALEMISSIVE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialEmissive},
+	{GE_CMD_MATERIALAMBIENT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialAmbient},
+	{GE_CMD_MATERIALALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialAmbient},
+	{GE_CMD_MATERIALSPECULAR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialSpecular},
+	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_MaterialSpecular},
 
 	// These precompute a value. not sure if worth it. Also dirty uniforms, which could be table-ized to avoid execute.
 	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
@@ -326,7 +326,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_FINISH, FLAG_FLUSHBEFORE},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &GLES_GPU::Execute_LoadClut},
 	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
 
 	// We don't use the dither table.
@@ -786,9 +786,57 @@ void GLES_GPU::Execute_VertexType(u32 op, u32 diff) {
 	}
 }
 
+void GLES_GPU::Execute_Region(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
 void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void GLES_GPU::Execute_TexAddr0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
+}
+
+void GLES_GPU::Execute_TexSize0(u32 op, u32 diff) {
+	// Render to texture may have overridden the width/height.
+	// Don't reset it unless the size is different / the texture has changed.
+	if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
+		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		// We will need to reset the texture now.
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	}
+}
+
+void GLES_GPU::Execute_Ambient(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_AMBIENT);
+}
+
+void GLES_GPU::Execute_MaterialDiffuse(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
+}
+
+void GLES_GPU::Execute_MaterialEmissive(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
+}
+
+void GLES_GPU::Execute_MaterialAmbient(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
+}
+
+void GLES_GPU::Execute_MaterialSpecular(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
 }
 
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
@@ -932,8 +980,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		gstate_c.framebufChanged = true;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_Region(op, diff);
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -1010,8 +1057,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexAddr0(op, diff);
 		break;
 
 	case GE_CMD_TEXADDR1:
@@ -1049,9 +1095,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_LOADCLUT:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-		textureCache_.LoadClut();
-		// This could be used to "dirty" textures with clut.
+		Execute_LoadClut(op, diff);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
@@ -1085,15 +1129,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		// Render to texture may have overridden the width/height.
-		// Don't reset it unless the size is different / the texture has changed.
-		if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
-			gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-			gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-			// We will need to reset the texture now.
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-		}
+		Execute_TexSize0(op, diff);
 		break;
 
 	case GE_CMD_TEXSIZE1:
@@ -1112,25 +1148,25 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_AMBIENTCOLOR:
 	case GE_CMD_AMBIENTALPHA:
-		shaderManager_->DirtyUniform(DIRTY_AMBIENT);
+		Execute_Ambient(op, diff);
 		break;
 
 	case GE_CMD_MATERIALDIFFUSE:
-		shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
+		Execute_MaterialDiffuse(op, diff);
 		break;
 
 	case GE_CMD_MATERIALEMISSIVE:
-		shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
+		Execute_MaterialEmissive(op, diff);
 		break;
 
 	case GE_CMD_MATERIALAMBIENT:
 	case GE_CMD_MATERIALALPHA:
-		shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
+		Execute_MaterialAmbient(op, diff);
 		break;
 
 	case GE_CMD_MATERIALSPECULAR:
 	case GE_CMD_MATERIALSPECULARCOEF:
-		shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
+		Execute_MaterialSpecular(op, diff);
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
