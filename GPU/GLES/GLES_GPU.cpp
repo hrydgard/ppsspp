@@ -380,7 +380,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
+	// Appears to be debugging related or something?  Hit a lot in GoW.
+	{GE_CMD_UNKNOWN_FF, 0},
 };
 
 GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
