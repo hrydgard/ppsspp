@@ -630,6 +630,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 					if (got_frame) {
 						// got a frame
+						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
 						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
 						u8 *out = outbuf;
@@ -690,7 +691,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
 	}
-	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", ret, atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
+			  numSamplesAddr, numSamples,
+			  finishFlagAddr, finish,
+			  remainAddr, remains);
 	if (!ret) {
 		// decode data successfully, delay thread
 		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
@@ -965,9 +969,8 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		// reset the temp buf for adding more stream data
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		// atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
@@ -975,6 +978,11 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		if (Memory::IsValidAddress(readOffsetAddr))
 			Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
+		
+		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
+				  writeAddr, atrac->first.addr,
+				  writableBytesAddr, atrac->first.writableBytes,
+				  readOffsetAddr, atrac->first.fileoffset);
 	}
 	return 0;
 }
