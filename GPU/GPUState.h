@@ -292,6 +292,7 @@ struct GPUgstate
 	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
+	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }

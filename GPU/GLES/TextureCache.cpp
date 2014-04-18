@@ -504,15 +504,15 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		float lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 		if (force || entry.lodBias != lodBias) {
 #ifndef USING_GLES2
-			int mode = gstate.texlevel & 0x3;
+			GETexLevelMode mode = gstate.getTexLevelMode();
 			switch (mode) {
-			case GE_TEXBIAS_MODE_AUTO:
+			case GE_TEXLEVEL_MODE_AUTO:
 				// TODO
 				break;
-			case GE_TEXBIAS_MODE_CONST:
+			case GE_TEXLEVEL_MODE_CONST:
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 				break;
-			case GE_TEXBIAS_MODE_SLOPE:
+			case GE_TEXLEVEL_MODE_SLOPE:
 				// TODO
 				break;
 			}

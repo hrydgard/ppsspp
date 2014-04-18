@@ -414,6 +414,12 @@ enum GETextureFormat
 	GE_TFMT_DXT5 = 10,
 };
 
+enum GETexLevelMode {
+	GE_TEXLEVEL_MODE_AUTO = 0,
+	GE_TEXLEVEL_MODE_CONST = 1,
+	GE_TEXLEVEL_MODE_SLOPE = 2,
+};
+
 enum GEMaterialColorSetting
 {
 	GE_MATERIALCOLOR_EMISSIVE = 0,
