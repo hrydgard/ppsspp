@@ -87,6 +87,7 @@ public:
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_Region(u32 op, u32 diff);
+	void Execute_Scissor(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
 	void Execute_TexScaleU(u32 op, u32 diff);
 	void Execute_TexScaleV(u32 op, u32 diff);
@@ -99,6 +100,8 @@ public:
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexSizeN(u32 op, u32 diff);
 	void Execute_TexFormat(u32 op, u32 diff);
+	void Execute_TexMapMode(u32 op, u32 diff);
+	void Execute_TexParamType(u32 op, u32 diff);
 	void Execute_TexEnvColor(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 	void Execute_Ambient(u32 op, u32 diff);

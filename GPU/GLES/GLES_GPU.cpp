@@ -76,7 +76,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexMapMode},
 	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleU},
 	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleV},
 	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetU},
@@ -119,7 +119,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
@@ -143,8 +143,8 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
 
 	// Uniform changes
 	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_AlphaTest},
@@ -209,8 +209,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Region},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Scissor},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Scissor},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Ambient},
@@ -876,6 +876,11 @@ void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
+void GLES_GPU::Execute_Scissor(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
 void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -936,6 +941,14 @@ void GLES_GPU::Execute_TexSizeN(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_TexFormat(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void GLES_GPU::Execute_TexMapMode(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexParamType(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
 void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
@@ -1329,8 +1342,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		gstate_c.framebufChanged = true;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_Scissor(op, diff);
 		break;
 
 		///
@@ -1387,7 +1399,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexMapMode(op, diff);
 		break;
 
 	case GE_CMD_TEXSHADELS:
@@ -1609,7 +1621,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexParamType(op, diff);
 		break;
 
 	//////////////////////////////////////////////////////////////////
