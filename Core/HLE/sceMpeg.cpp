@@ -276,6 +276,7 @@ u32 getMpegVersion(u32 mpegRawVersion) {
 		case PSMF_VERSION_0013: return MPEG_VERSION_0013;
 		case PSMF_VERSION_0014: return MPEG_VERSION_0014;
 		case PSMF_VERSION_0015: return MPEG_VERSION_0015;
+		default: return -1;
 	}
 }
 void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
