@@ -32,6 +32,7 @@
 #include "GPU/ge_constants.h"
 
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
@@ -129,169 +130,6 @@ void TransformDrawEngineDX9::InitDeviceObjects() {
 void TransformDrawEngineDX9::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 }
-
-namespace {
-using namespace DX9;
-
-// Convenient way to do precomputation to save the parts of the lighting calculation
-// that's common between the many vertices of a draw call.
-class Lighter {
-public:
-	Lighter(int vertType);
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &normal);
-
-private:
-	Color4 globalAmbient;
-	Color4 materialEmissive;
-	Color4 materialAmbient;
-	Color4 materialDiffuse;
-	Color4 materialSpecular;
-	float specCoef_;
-	// Vec3f viewer_;
-	bool doShadeMapping_;
-	int materialUpdate_;
-};
-
-Lighter::Lighter(int vertType) {
-	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
-	materialEmissive.GetFromRGB(gstate.materialemissive);
-	materialEmissive.a = 0.0f;
-	globalAmbient.GetFromRGB(gstate.ambientcolor);
-	globalAmbient.GetFromA(gstate.ambientalpha);
-	materialAmbient.GetFromRGB(gstate.materialambient);
-	materialAmbient.GetFromA(gstate.materialalpha);
-	materialDiffuse.GetFromRGB(gstate.materialdiffuse);
-	materialDiffuse.a = 1.0f;
-	materialSpecular.GetFromRGB(gstate.materialspecular);
-	materialSpecular.a = 1.0f;
-	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
-}
-
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], const Vec3f &pos, const Vec3f &norm)
-{
-	// Color are in dx format
-	Color4 in;
-
-	in.a = colorIn[0];
-	in.r = colorIn[1];
-	in.g = colorIn[2];
-	in.b = colorIn[3];
-
-
-	const Color4 *ambient;
-	if (materialUpdate_ & 1)
-		ambient = &in;
-	else
-		ambient = &materialAmbient;
-
-	const Color4 *diffuse;
-	if (materialUpdate_ & 2)
-		diffuse = &in;
-	else
-		diffuse = &materialDiffuse;
-
-	const Color4 *specular;
-	if (materialUpdate_ & 4)
-		specular = &in;
-	else
-		specular = &materialSpecular;
-
-	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
-	Color4 lightSum1(0, 0, 0, 0);
-
-	for (int l = 0; l < 4; l++)
-	{
-		// can we skip this light?
-		if (!gstate.isLightChanEnabled(l))
-			continue;
-
-		GELightType type = gstate.getLightType(l);
-
-		Vec3f toLight(0,0,0);
-		Vec3f lightDir(0,0,0);
-
-		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3f(gstate_c.lightpos[l]);  // lightdir is for spotlights
-		else
-			toLight = Vec3f(gstate_c.lightpos[l]) - pos;
-
-		bool doSpecular = gstate.isUsingSpecularLight(l);
-		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
-
-		float distanceToLight = toLight.Length();
-		float dot = 0.0f;
-		float angle = 0.0f;
-		float lightScale = 0.0f;
-
-		if (distanceToLight > 0.0f) {
-			toLight /= distanceToLight;
-			dot = Dot(toLight, norm);
-		}
-		// Clamp dot to zero.
-		if (dot < 0.0f) dot = 0.0f;
-
-		if (poweredDiffuse)
-			dot = powf(dot, specCoef_);
-
-		// Attenuation
-		switch (type) {
-		case GE_LIGHTTYPE_DIRECTIONAL:
-			lightScale = 1.0f;
-			break;
-		case GE_LIGHTTYPE_POINT:
-			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
-			break;
-		case GE_LIGHTTYPE_SPOT:
-		case GE_LIGHTTYPE_UNKNOWN:
-			lightDir = gstate_c.lightdir[l];
-			angle = Dot(toLight.Normalized(), lightDir.Normalized());
-			if (angle >= gstate_c.lightangle[l])
-				lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, gstate_c.lightspotCoef[l]);
-			break;
-		default:
-			// ILLEGAL
-			break;
-		}
-
-		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * dot;
-
-		// Real PSP specular
-		Vec3f toViewer(0,0,1);
-		// Better specular
-		// Vec3f toViewer = (viewer - pos).Normalized();
-
-		if (doSpecular)
-		{
-			Vec3f halfVec = (toLight + toViewer);
-			halfVec.Normalize();
-
-			dot = Dot(halfVec, norm);
-			if (dot > 0.0f)
-			{
-				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
-			}
-		}
-
-		if (gstate.isLightChanEnabled(l))
-		{
-			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
-		}
-	}
-
-	// 4?
-	for (int i = 0; i < 4; i++) {
-		colorOut0[i] = lightSum0[i] > 1.0f ? 1.0f : lightSum0[i];
-		colorOut1[i] = lightSum1[i] > 1.0f ? 1.0f : lightSum1[i];
-	}
-}
-
-}  // namespace
 
 struct DeclTypeInfo {
 	u32 type;
@@ -747,8 +585,8 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 				case GE_TEXMAP_ENVIRONMENT_MAP:
 					// Shade mapping - use two light sources to generate U and V.
 					{
-						Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
-						Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
+						Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0()]).Normalized();
+						Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1()]).Normalized();
 
 						uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
 						uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
