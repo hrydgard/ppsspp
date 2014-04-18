@@ -76,7 +76,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexMapMode},
 	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleU},
 	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexScaleV},
 	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexOffsetU},
@@ -113,13 +113,13 @@ static const CommandTableEntry commandTable[] = {
 	// These must flush on change, so that LoadClut doesn't have to always flush.
 	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ClutFormat},
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
@@ -143,8 +143,8 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexParamType},
 
 	// Uniform changes
 	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_AlphaTest},
@@ -158,7 +158,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_StencilTest},
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -197,20 +197,20 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_PATCHCULLENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Viewport.
-	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ViewportType},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Region},
 	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Region},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Scissor},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Scissor},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_Ambient},
@@ -313,7 +313,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VADDR, FLAG_EXECUTE, &GLES_GPU::Execute_Vaddr},
 	{GE_CMD_IADDR, FLAG_EXECUTE, &GLES_GPU::Execute_Iaddr},
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GPUCommon::Execute_BJump},  // EXECUTE
-	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE}, // + FLUSHBEFORE when we implement... or not, do we need to?
+	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, &GLES_GPU::Execute_BoundingBox}, // + FLUSHBEFORE when we implement... or not, do we need to?
 
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_VertexType},
@@ -871,12 +871,48 @@ void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 }
 
+void GLES_GPU::Execute_BoundingBox(u32 op, u32 diff) {
+	// Just resetting, nothing to bound.
+	const u32 data = op & 0x00FFFFFF;
+	if (data == 0) {
+		// TODO: Should this set the bboxResult?  Let's set it true for now.
+		currentList->bboxResult = true;
+		return;
+	}
+	if (((data & 7) == 0) && data <= 64) {  // Sanity check
+		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+			return;
+		}
+
+		// Test if the bounding box is within the drawing region.
+		currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
+	} else {
+		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+		// Data seems invalid. Let's assume the box test passed.
+		currentList->bboxResult = true;
+	}
+}
+
 void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
 
+void GLES_GPU::Execute_Scissor(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
 void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void GLES_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 }
@@ -938,6 +974,14 @@ void GLES_GPU::Execute_TexFormat(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
+void GLES_GPU::Execute_TexMapMode(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void GLES_GPU::Execute_TexParamType(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
 void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_TEXENV);
 }
@@ -945,6 +989,11 @@ void GLES_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
 void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
+}
+
+void GLES_GPU::Execute_ClutFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -978,6 +1027,10 @@ void GLES_GPU::Execute_AlphaTest(u32 op, u32 diff) {
 		WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (op >> 16) & 0xFF);
 #endif
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+}
+
+void GLES_GPU::Execute_StencilTest(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
 }
 
 void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
@@ -1242,28 +1295,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		// Just resetting, nothing to bound.
-		if (data == 0) {
-			// TODO: Should this set the bboxResult?  Let's set it true for now.
-			currentList->bboxResult = true;
-			break;
-		}
-		if (((data & 7) == 0) && data <= 64) {  // Sanity check
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-				// Data seems invalid. Let's assume the box test passed.
-				currentList->bboxResult = true;
-				break;
-			}
-
-			// Test if the bounding box is within the drawing region.
-			currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
-		} else {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
-		}
+		Execute_BoundingBox(op, diff);
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -1329,8 +1361,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		gstate_c.framebufChanged = true;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_Scissor(op, diff);
 		break;
 
 		///
@@ -1373,8 +1404,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-		// This could be used to "dirty" textures with clut.
+		Execute_ClutFormat(op, diff);
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -1387,7 +1417,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		Execute_TexMapMode(op, diff);
 		break;
 
 	case GE_CMD_TEXSHADELS:
@@ -1539,8 +1569,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		gstate_c.framebufChanged = true;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_ViewportType(op, diff);
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1609,7 +1638,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexParamType(op, diff);
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1699,8 +1728,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_STENCILTEST:
-		// Handled in StateMapping.
-		shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+		Execute_StencilTest(op, diff);
 		break;
 
 	case GE_CMD_STENCILTESTENABLE:

@@ -85,9 +85,12 @@ public:
 	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
+	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_Region(u32 op, u32 diff);
+	void Execute_Scissor(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
+	void Execute_ViewportType(u32 op, u32 diff);
 	void Execute_TexScaleU(u32 op, u32 diff);
 	void Execute_TexScaleV(u32 op, u32 diff);
 	void Execute_TexOffsetU(u32 op, u32 diff);
@@ -99,8 +102,11 @@ public:
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexSizeN(u32 op, u32 diff);
 	void Execute_TexFormat(u32 op, u32 diff);
+	void Execute_TexMapMode(u32 op, u32 diff);
+	void Execute_TexParamType(u32 op, u32 diff);
 	void Execute_TexEnvColor(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
+	void Execute_ClutFormat(u32 op, u32 diff);
 	void Execute_Ambient(u32 op, u32 diff);
 	void Execute_MaterialDiffuse(u32 op, u32 diff);
 	void Execute_MaterialEmissive(u32 op, u32 diff);
@@ -108,6 +114,7 @@ public:
 	void Execute_MaterialSpecular(u32 op, u32 diff);
 	void Execute_ColorTest(u32 op, u32 diff);
 	void Execute_AlphaTest(u32 op, u32 diff);
+	void Execute_StencilTest(u32 op, u32 diff);
 	void Execute_ColorRef(u32 op, u32 diff);
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);
