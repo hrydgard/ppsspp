@@ -219,7 +219,8 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 	gl_extensions.EXT_blend_minmax = strstr(extString, "GL_EXT_blend_minmax") != 0;
-	gl_extensions.EXT_shader_framebuffer_fetch = (strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0) || (strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0);
+	gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
+	gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
 	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 #if defined(ANDROID) || defined(BLACKBERRY)

@@ -42,6 +42,7 @@ struct GLExtensions {
 	bool EXT_swap_control_tear;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
+	bool NV_shader_framebuffer_fetch;
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_blend_minmax;
 	bool NV_draw_texture;
