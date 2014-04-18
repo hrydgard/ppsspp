@@ -323,7 +323,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.EXT_shader_framebuffer_fetch) {
+			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
 				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
 				glstate.blend.set(false);
 			} else {
