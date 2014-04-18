@@ -106,6 +106,7 @@ public:
 	void Execute_TexParamType(u32 op, u32 diff);
 	void Execute_TexEnvColor(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
+	void Execute_ClutFormat(u32 op, u32 diff);
 	void Execute_Ambient(u32 op, u32 diff);
 	void Execute_MaterialDiffuse(u32 op, u32 diff);
 	void Execute_MaterialEmissive(u32 op, u32 diff);

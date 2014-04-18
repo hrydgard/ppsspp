@@ -113,7 +113,7 @@ static const CommandTableEntry commandTable[] = {
 	// These must flush on change, so that LoadClut doesn't have to always flush.
 	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ClutFormat},
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -992,6 +992,11 @@ void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
 	// This could be used to "dirty" textures with clut.
 }
 
+void GLES_GPU::Execute_ClutFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	// This could be used to "dirty" textures with clut.
+}
+
 void GLES_GPU::Execute_Ambient(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_AMBIENT);
 }
@@ -1399,8 +1404,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-		// This could be used to "dirty" textures with clut.
+		Execute_ClutFormat(op, diff);
 		break;
 
 	case GE_CMD_CLUTADDR:
