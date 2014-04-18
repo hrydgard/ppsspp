@@ -158,7 +158,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_StencilTest},
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -313,7 +313,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VADDR, FLAG_EXECUTE, &GLES_GPU::Execute_Vaddr},
 	{GE_CMD_IADDR, FLAG_EXECUTE, &GLES_GPU::Execute_Iaddr},
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GPUCommon::Execute_BJump},  // EXECUTE
-	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE}, // + FLUSHBEFORE when we implement... or not, do we need to?
+	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, &GLES_GPU::Execute_BoundingBox}, // + FLUSHBEFORE when we implement... or not, do we need to?
 
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_VertexType},
@@ -871,6 +871,32 @@ void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 }
 
+void GLES_GPU::Execute_BoundingBox(u32 op, u32 diff) {
+	// Just resetting, nothing to bound.
+	const u32 data = op & 0x00FFFFFF;
+	if (data == 0) {
+		// TODO: Should this set the bboxResult?  Let's set it true for now.
+		currentList->bboxResult = true;
+		return;
+	}
+	if (((data & 7) == 0) && data <= 64) {  // Sanity check
+		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+			return;
+		}
+
+		// Test if the bounding box is within the drawing region.
+		currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
+	} else {
+		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+		// Data seems invalid. Let's assume the box test passed.
+		currentList->bboxResult = true;
+	}
+}
+
 void GLES_GPU::Execute_Region(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -996,6 +1022,10 @@ void GLES_GPU::Execute_AlphaTest(u32 op, u32 diff) {
 		WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (op >> 16) & 0xFF);
 #endif
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+}
+
+void GLES_GPU::Execute_StencilTest(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
 }
 
 void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
@@ -1260,28 +1290,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		// Just resetting, nothing to bound.
-		if (data == 0) {
-			// TODO: Should this set the bboxResult?  Let's set it true for now.
-			currentList->bboxResult = true;
-			break;
-		}
-		if (((data & 7) == 0) && data <= 64) {  // Sanity check
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-				// Data seems invalid. Let's assume the box test passed.
-				currentList->bboxResult = true;
-				break;
-			}
-
-			// Test if the bounding box is within the drawing region.
-			currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
-		} else {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
-		}
+		Execute_BoundingBox(op, diff);
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -1715,8 +1724,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_STENCILTEST:
-		// Handled in StateMapping.
-		shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+		Execute_StencilTest(op, diff);
 		break;
 
 	case GE_CMD_STENCILTESTENABLE:
