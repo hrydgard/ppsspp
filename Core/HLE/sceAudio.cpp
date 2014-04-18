@@ -24,13 +24,18 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/Reporting.h"
 
 const u32 PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
 const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
+const int AUDIO_ROUTING_SPEAKER_OFF = 0;
+const int AUDIO_ROUTING_SPEAKER_ON = 1;
+int defaultRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
+int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
 
 void AudioChannel::DoState(PointerWrap &p)
 {
-	auto s = p.Section("AudioChannel", 1);
+	auto s = p.Section("AudioChannel", 1, 2);
 	if (!s)
 		return;
 
@@ -41,6 +46,10 @@ void AudioChannel::DoState(PointerWrap &p)
 	p.Do(rightVolume);
 	p.Do(format);
 	p.Do(waitingThreads);
+	if (s >= 2) {
+		p.Do(defaultRoutingMode);
+		p.Do(defaultRoutingVolMode);
+	}
 	sampleQueue.DoState(p);
 }
 
@@ -424,6 +433,30 @@ u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_SRC], PSP_AUDIO_CHANNEL_SRC, true);
 }
 
+u32 sceAudioRoutingSetMode(u32 mode) {
+	ERROR_LOG_REPORT(SCEAUDIO, "sceAudioRoutingSetMode(%08x)", mode);
+	int previousMode = defaultRoutingMode;
+	defaultRoutingMode = mode;
+	return previousMode;
+}
+
+u32 sceAudioRoutingGetMode() {
+	ERROR_LOG_REPORT(SCEAUDIO, "sceAudioRoutingGetMode()");
+	return defaultRoutingMode;
+}
+
+u32 sceAudioRoutingSetVolumeMode(u32 mode) {
+	ERROR_LOG_REPORT(SCEAUDIO, "sceAudioRoutingSetVolumeMode(%08x)", mode);
+	int previousMode = defaultRoutingVolMode;
+	defaultRoutingVolMode = mode;
+	return previousMode;
+}
+
+u32 sceAudioRoutingGetVolumeMode() {
+	ERROR_LOG_REPORT(SCEAUDIO, "sceAudioRoutingGetVolumeMode()");
+	return defaultRoutingVolMode;
+}
+
 const HLEFunction sceAudio[] = 
 {
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
@@ -468,6 +501,12 @@ const HLEFunction sceAudio[] =
 	{0xa708c6a6, 0, "sceAudioGetInputLength"},
 	{0xA633048E, 0, "sceAudioPollInputEnd"},
 	{0x87b2e651, 0, "sceAudioWaitInputEnd"},
+
+	{0x36FD8AA9, WrapU_U<sceAudioRoutingSetMode>, "sceAudioRoutingSetMode" },
+	{0x39240E7D, WrapU_V<sceAudioRoutingGetMode>, "sceAudioRoutingGetMode" },
+	{0xBB548475, WrapU_U<sceAudioRoutingSetVolumeMode>, "sceAudioRoutingSetVolumeMode" },
+	{0x28235C56, WrapU_V<sceAudioRoutingGetVolumeMode>, "sceAudioRoutingGetVolumeMode" },
+
 };
 
 void Register_sceAudio()
