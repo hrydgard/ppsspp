@@ -55,6 +55,16 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(USE_FFMPEG ON)
 endif()
 
+if (NOT ARM AND NOT MIPS)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_X64")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_X64")
+	else()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_IX86")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_IX86")
+	endif()
+endif()
+
 if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
@@ -1118,10 +1128,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
-	Core/HW/SimpleAT3Dec.cpp
-	Core/HW/SimpleAT3Dec.h
-	Core/HW/SimpleMp3Dec.cpp
-	Core/HW/SimpleMp3Dec.h
+	Core/HW/SimpleAudioDec.cpp
+	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp

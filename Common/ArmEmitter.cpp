@@ -541,7 +541,6 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-
 static const char *armRegStrings[] = {
 	"r0","r1","r2","r3",
 	"r4","r5","r6","r7",
@@ -580,11 +579,11 @@ const char *ARMRegAsString(ARMReg reg) {
 	return armRegStrings[(int)reg];
 }
 
-void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
+void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	if (BLInRange(func)) {
 		BL(func);
 	} else {
-		MOVI2R(reg, (u32)(uintptr_t)(func));
+		MOVP2R(reg, func);
 		BL(reg);
 	}
 }
@@ -1208,8 +1207,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
 	_dbg_assert_msg_(JIT, !WriteBack || Rn != R_PC, "VLDM/VSTM cannot use WriteBack with PC (PC is deprecated anyway.)");
-	ARMReg Dest = SubBase(Vd);
-	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
+	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | EncodeVd(Vd) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {

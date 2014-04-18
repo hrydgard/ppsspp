@@ -27,6 +27,7 @@
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
+#include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -248,4 +249,74 @@ bool vertTypeIsSkinningEnabled(u32 vertType) {
 		return false;
 	else
 		return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE);
+}
+
+struct GPUStateCache_v0
+{
+	u32 vertexAddr;
+	u32 indexAddr;
+
+	u32 offsetAddr;
+
+	bool textureChanged;
+	bool textureFullAlpha;
+	bool vertexFullAlpha;
+	bool framebufChanged;
+
+	int skipDrawReason;
+
+	UVScale uv;
+	bool flipTexture;
+};
+
+void GPUStateCache::DoState(PointerWrap &p) {
+	auto s = p.Section("GPUStateCache", 0, 1);
+	if (!s) {
+		// Old state, this was not versioned.
+		GPUStateCache_v0 old;
+		p.Do(old);
+
+		vertexAddr = old.vertexAddr;
+		indexAddr = old.indexAddr;
+		offsetAddr = old.offsetAddr;
+		textureChanged = TEXCHANGE_UPDATED;
+		textureFullAlpha = old.textureFullAlpha;
+		vertexFullAlpha = old.vertexFullAlpha;
+		framebufChanged = old.framebufChanged;
+		skipDrawReason = old.skipDrawReason;
+		uv = old.uv;
+		flipTexture = old.flipTexture;
+	} else {
+		p.Do(vertexAddr);
+		p.Do(indexAddr);
+		p.Do(offsetAddr);
+
+		p.Do(textureChanged);
+		p.Do(textureFullAlpha);
+		p.Do(vertexFullAlpha);
+		p.Do(framebufChanged);
+
+		p.Do(skipDrawReason);
+
+		p.Do(uv);
+		p.Do(flipTexture);
+	}
+
+	p.Do(lightpos);
+	p.Do(lightdir);
+	p.Do(lightatt);
+	p.Do(lightColor);
+	p.Do(lightangle);
+	p.Do(lightspotCoef);
+	p.Do(morphWeights);
+
+	p.Do(curTextureWidth);
+	p.Do(curTextureHeight);
+	p.Do(actualTextureHeight);
+
+	p.Do(vpWidth);
+	p.Do(vpHeight);
+
+	p.Do(curRTWidth);
+	p.Do(curRTHeight);
 }

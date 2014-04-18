@@ -42,11 +42,11 @@ static const GLushort aLookup[11] = {
 	GL_ONE_MINUS_SRC_ALPHA,
 	GL_DST_ALPHA,
 	GL_ONE_MINUS_DST_ALPHA,
-	GL_SRC_ALPHA,	// should be 2x
-	GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-	GL_DST_ALPHA,	 // should be 2x
-	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x	-	and COLOR?
-	GL_CONSTANT_COLOR,	// FIXA
+	GL_SRC_ALPHA,			// GE_SRCBLEND_DOUBLESRCALPHA
+	GL_ONE_MINUS_SRC_ALPHA,		// GE_SRCBLEND_DOUBLEINVSRCALPHA
+	GL_DST_ALPHA,			// GE_SRCBLEND_DOUBLEDSTALPHA
+	GL_ONE_MINUS_DST_ALPHA,		// GE_SRCBLEND_DOUBLEINVDSTALPHA
+	GL_CONSTANT_COLOR,		// FIXA
 };
 
 static const GLushort bLookup[11] = {
@@ -56,20 +56,20 @@ static const GLushort bLookup[11] = {
 	GL_ONE_MINUS_SRC_ALPHA,
 	GL_DST_ALPHA,
 	GL_ONE_MINUS_DST_ALPHA,
-	GL_SRC_ALPHA,	// should be 2x
-	GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-	GL_DST_ALPHA,	 // should be 2x
-	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
-	GL_CONSTANT_COLOR,	// FIXB
+	GL_SRC_ALPHA,			// GE_DSTBLEND_DOUBLESRCALPHA
+	GL_ONE_MINUS_SRC_ALPHA,		// GE_DSTBLEND_DOUBLEINVSRCALPHA
+	GL_DST_ALPHA,			// GE_DSTBLEND_DOUBLEDSTALPHA
+	GL_ONE_MINUS_DST_ALPHA,		// GE_DSTBLEND_DOUBLEINVDSTALPHA
+	GL_CONSTANT_COLOR,		// FIXB
 };
 
 static const GLushort eqLookupNoMinMax[] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
-	GL_FUNC_ADD,  // GL_MIN
-	GL_FUNC_ADD,  // GL_MAX
-	GL_FUNC_ADD,  // GE_BLENDMODE_ABSDIFF
+	GL_FUNC_ADD,			// GE_BLENDMODE_MIN
+	GL_FUNC_ADD,			// GE_BLENDMODE_MAX
+	GL_FUNC_ADD,			// GE_BLENDMODE_ABSDIFF
 };
 
 static const GLushort eqLookup[] = {
@@ -77,13 +77,13 @@ static const GLushort eqLookup[] = {
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
 #ifdef USING_GLES2
-	GL_MIN_EXT,
-	GL_MAX_EXT,
-	GL_MAX_EXT,  // this is GE_BLENDMODE_ABSDIFF
+	GL_MIN_EXT,			// GE_BLENDMODE_MIN
+	GL_MAX_EXT,			// GE_BLENDMODE_MAX
+	GL_MAX_EXT,			// GE_BLENDMODE_ABSDIFF
 #else
-	GL_MIN,
-	GL_MAX,
-	GL_MAX,  // this is GE_BLENDMODE_ABSDIFF
+	GL_MIN,				// GE_BLENDMODE_MIN
+	GL_MAX,				// GE_BLENDMODE_MAX
+	GL_MAX,				// GE_BLENDMODE_ABSDIFF
 #endif
 };
 
@@ -166,11 +166,9 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged && !gstate.isModeClear()) {
-		if (gstate.isTextureMapEnabled()) {
-			textureCache_->SetTexture();
-		}
-		gstate_c.textureChanged = false;
+	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 	}
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
@@ -325,7 +323,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
+				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
+				glstate.blend.set(false);
+			} else {
+				glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			}
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
 		}
@@ -448,15 +451,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
+		renderWidthFactor = renderWidth / 480.0f;
+		renderHeightFactor = renderHeight / 272.0f;
 	}
-
-	renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-	renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 
 	bool throughmode = gstate.isModeThrough();
 
@@ -536,8 +540,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65536.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65536.0f;
+		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);

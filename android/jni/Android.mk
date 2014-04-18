@@ -11,6 +11,9 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
+LOCAL_C_INCLUDES := \
+		$(LOCAL_PATH)/$(NATIVE) \
+		$(LOCAL_PATH)
 LOCAL_LDLIBS := -lOpenSLES -llog
 		
 include $(BUILD_SHARED_LIBRARY)
@@ -161,8 +164,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
-  $(SRC)/Core/HW/SimpleAT3Dec.cpp \
-  $(SRC)/Core/HW/SimpleMp3Dec.cpp \
+  $(SRC)/Core/HW/SimpleAudioDec.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \

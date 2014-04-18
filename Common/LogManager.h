@@ -127,6 +127,12 @@ public:
 		log_[type]->SetLevel(level);
 	}
 
+	void SetAllLogLevels(LogTypes::LOG_LEVELS level) {
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
+			log_[i]->SetLevel(level);
+		}
+	}
+
 	void SetEnable(LogTypes::LOG_TYPE type, bool enable) {
 		log_[type]->SetEnable(enable);
 	}

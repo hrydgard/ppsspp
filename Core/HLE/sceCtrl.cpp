@@ -37,8 +37,6 @@
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
 
-const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
-
 const u32 NUM_CTRL_BUFFERS = 64;
 
 enum {
@@ -433,9 +431,9 @@ int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 	DEBUG_LOG(SCECTRL, "sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
 
 	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 
 	if (idleResetPtr)
 		Memory::Write_U32(ctrlIdleReset, idleResetPtr);

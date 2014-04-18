@@ -18,6 +18,8 @@
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/GLES/VertexDecoder.h"
 
 extern void DisassembleArm(const u8 *data, int size);
@@ -774,12 +776,12 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, true);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 
 			if (first) {
 				first = false;
@@ -845,15 +847,15 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			// Shift against walls and then back to get R, G, B, A spaced by 1.
-			VSHL(I_8, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_8, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			// Shift against walls and then back to get R, G, B, A in each 16-bit lane.
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
-			VMOVL(I_8 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -918,9 +920,9 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color565Shift);
-		MOVI2R(scratchReg2, (char *)byColor565 - (char *)color565Shift);
+		MOVP2R(scratchReg2, byColor565);
 		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
+		VLD1(F_32, D10, scratchReg2, 2, ALIGN_128);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f / 63.0f, scratchReg);
@@ -930,13 +932,14 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -991,7 +994,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 }
 
 // First is the left shift, second is the right shift (against walls, to get the RGBA values.)
-static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -10}};
+static const s16 MEMORY_ALIGNED16(color5551Shift[2][4]) = {{11, 6, 1, 0}, {-11, -11, -11, -15}};
 static const float MEMORY_ALIGNED16(byColor5551[4]) = {255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f};
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
@@ -1001,9 +1004,9 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 
 	if (useNEON) {
 		MOVP2R(scratchReg, color5551Shift);
-		MOVI2R(scratchReg2, (char *)byColor5551 - (char *)color5551Shift);
+		MOVP2R(scratchReg2, byColor5551);
 		VLD1(I_16, D8, scratchReg, 2, ALIGN_128);
-		VLD1(F_32, D10, scratchReg, 2, ALIGN_128, scratchReg2);
+		VLD1(F_32, D10, scratchReg2, 2, ALIGN_128);
 	} else {
 		MOVI2F(S14, 255.0f / 31.0f, scratchReg);
 		MOVI2F(S15, 255.0f, scratchReg);
@@ -1013,13 +1016,14 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_all_lanes(I_16, neonScratchReg, tempReg1, true);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D8);
-			VSHL(I_16, neonScratchReg, neonScratchReg, D9);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D8);
+			VSHL(I_16 | I_UNSIGNED, neonScratchReg, neonScratchReg, D9);
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_UNSIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -1078,22 +1082,22 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (NEONMorphing) {
 		ADDI2R(tempReg1, dstReg, outOff, scratchReg);
-		VCVT(I_32 | I_UNSIGNED, neonScratchRegQ, neonScratchRegQ);
-		VQMOVN(I_32 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
-		VQMOVN(I_16 | I_UNSIGNED, neonScratchReg, neonScratchRegQ);
-		VST1_lane(I_32, neonScratchReg, tempReg1, 0, true);
+		VCVT(I_32 | I_UNSIGNED, Q2, Q2);
+		VQMOVN(I_32 | I_UNSIGNED, D4, Q2);
+		VQMOVN(I_16 | I_UNSIGNED, D4, Q2);
+		VST1_lane(I_32, D4, tempReg1, 0, true);
 		if (checkAlpha) {
-			VMOV_neon(I_32, scratchReg, neonScratchReg, 0);
+			VMOV_neon(I_32, scratchReg, D4, 0);
 		}
 	} else {
 		VCVT(S8, S8, TO_INT);
 		VCVT(S9, S9, TO_INT);
 		VCVT(S10, S10, TO_INT);
 		VCVT(S11, S11, TO_INT);
-		VMOV(scratchReg, fpScratchReg);
-		VMOV(scratchReg2, fpScratchReg2);
-		VMOV(scratchReg3, fpScratchReg3);
-		VMOV(tempReg3, fpScratchReg4);
+		VMOV(scratchReg, S8);
+		VMOV(scratchReg2, S9);
+		VMOV(scratchReg3, S10);
+		VMOV(tempReg3, S11);
 		ORR(scratchReg, scratchReg, Operand2(scratchReg2, ST_LSL, 8));
 		ORR(scratchReg, scratchReg, Operand2(scratchReg3, ST_LSL, 16));
 		ORR(scratchReg, scratchReg, Operand2(tempReg3, ST_LSL, 24));
@@ -1410,12 +1414,13 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1_lane(I_32, neonScratchReg, tempReg1, 0, false);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_8 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -1455,7 +1460,12 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
@@ -1474,11 +1484,12 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		if (useNEON) {
 			VLD1(I_32, neonScratchReg, tempReg1, 1, ALIGN_NONE);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+
 			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 			VMOVL(I_16 | I_SIGNED, neonScratchRegQ, neonScratchReg);
 			VCVT(F_32 | I_SIGNED, neonScratchRegQ, neonScratchRegQ);
 
-			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
 			VMUL(F_32, Q3, Q3, Q5);
 
 			if (first) {
@@ -1518,36 +1529,47 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
+	const bool useNEON = NEONMorphing;
 	ADDI2R(tempReg1, srcReg, srcoff, scratchReg);
 	MOVP2R(tempReg2, &gstate_c.morphWeights[0]);
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
-		// Load an extra float to stay in NEON mode.
-		VLD1(F_32, neonScratchRegQ, tempReg1, 2, ALIGN_NONE);
-		ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
-		VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+		if (useNEON) {
+			// Load an extra float to stay in NEON mode.
+			VLD1(F_32, neonScratchRegQ, tempReg1, 2, ALIGN_NONE);
+			VLD1_all_lanes(F_32, Q3, tempReg2, true, REG_UPDATE);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
 
-		if (first) {
-			first = false;
-			if (NEONMorphing) {
+			if (first) {
+				first = false;
 				VMUL(F_32, Q2, neonScratchRegQ, Q3);
+			} else if (cpu_info.bVFPv4) {
+				VFMA(F_32, Q2, neonScratchRegQ, Q3);
 			} else {
+				VMLA(F_32, Q2, neonScratchRegQ, Q3);
+			}
+		} else {
+			// Load an extra float to stay in NEON mode.
+			VLDMIA(tempReg1, false, fpScratchReg, 3);
+			// Using VLDMIA to get writeback.
+			VLDMIA(tempReg2, true, S12, 1);
+			ADDI2R(tempReg1, tempReg1, dec_->onesize_, scratchReg);
+
+			if (first) {
+				first = false;
 				VMUL(S8, fpScratchReg, S12);
 				VMUL(S9, fpScratchReg2, S12);
 				VMUL(S10, fpScratchReg3, S12);
-			}
-		} else {
-			if (NEONMorphing) {
-				if (cpu_info.bVFPv4) {
-					VFMA(F_32, Q2, neonScratchRegQ, Q3);
-				} else {
-					VMLA(F_32, Q2, neonScratchRegQ, Q3);
-				}
 			} else {
 				VMLA(S8, fpScratchReg, S12);
 				VMLA(S9, fpScratchReg2, S12);
@@ -1557,7 +1579,12 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 	}
 
 	ADDI2R(tempReg1, dstReg, dstoff, scratchReg);
-	VSTMIA(tempReg1, false, S8, 3);
+	if (useNEON) {
+		// TODO: Is it okay that we're over-writing by 4 bytes?  Probably...
+		VSTMIA(tempReg1, false, D4, 2);
+	} else {
+		VSTMIA(tempReg1, false, S8, 3);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Morph() {

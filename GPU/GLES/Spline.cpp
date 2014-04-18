@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "TransformPipeline.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/VertexDecoder.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"

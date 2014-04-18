@@ -19,6 +19,8 @@
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/GLES/VertexDecoder.h"
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
@@ -790,9 +792,9 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
-// Intentionally in reverse order.
+// The mask is intentionally in reverse order (but skips A.)
 static const u32 MEMORY_ALIGNED16(color565Mask[4]) = { 0x0000f800, 0x000007e0, 0x0000001f, 0x00000000, };
-static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, };
+static const float MEMORY_ALIGNED16(byColor565[4]) = { 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
@@ -804,12 +806,12 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	for (int n = 0; n < dec_->morphcount; ++n) {
 		const X64Reg reg = first ? fpScratchReg : fpScratchReg3;
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
-		// Spread it out into each lane.
+		// Spread it out into each lane.  We end up with it reversed (R high, A low.)
+		// Below, we shift out each lane from low to high and reverse them.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		PAND(fpScratchReg, R(XMM5));
+		PAND(fpScratchReg2, R(XMM5));
 
-		// Alpha - start with 1.
-		MOVD_xmm(reg, R(tempReg2));
+		// Alpha handled in Jit_WriteMorphColor.
 
 		// Blue first.
 		MOVSS(reg, R(fpScratchReg2));
@@ -844,9 +846,9 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
 }
 
-// Intentionally in reverse order.
+// The mask is intentionally in reverse order.
 static const u32 MEMORY_ALIGNED16(color5551Mask[4]) = { 0x00008000, 0x00007c00, 0x000003e0, 0x0000001f, };
-static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 1.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, };
+static const float MEMORY_ALIGNED16(byColor5551[4]) = { 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
@@ -859,7 +861,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		MOVD_xmm(fpScratchReg2, MDisp(srcReg, dec_->onesize_ * n + dec_->coloff));
 		// Spread it out into each lane.
 		PSHUFD(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
-		PAND(fpScratchReg, R(XMM5));
+		PAND(fpScratchReg2, R(XMM5));
 
 		// Alpha first.
 		MOVSS(reg, R(fpScratchReg2));
@@ -901,20 +903,24 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	// Pack back into a u32.
+	// Pack back into a u32, with saturation.
 	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
-	MOVD_xmm(MDisp(dstReg, outOff), fpScratchReg);
+	MOVD_xmm(R(tempReg1), fpScratchReg);
 
 	// TODO: May be a faster way to do this without the MOVD.
 	if (checkAlpha) {
-		MOVD_xmm(R(tempReg1), fpScratchReg);
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
 		MOV(8, M(&gstate_c.textureFullAlpha), Imm8(0));
 		SetJumpTarget(skip);
+	} else {
+		// Force alpha to full if we're not checking it.
+		OR(32, R(tempReg1), Imm32(0xFF000000));
 	}
+
+	MOV(32, MDisp(dstReg, outOff), R(tempReg1));
 }
 
 // Copy 3 bytes and then a zero. Might as well copy four.

@@ -28,9 +28,10 @@
 #include "Common/CommonTypes.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
+#include "Core/HW/SimpleAudioDec.h"
 
 class PointerWrap;
-struct SimpleAT3;
+struct SimpleAudio;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
@@ -119,7 +120,7 @@ public:  // TODO: Very little of this below should be public.
 	BufferQueue *m_pdata;
 
 	MpegDemux *m_demux;
-	SimpleAT3 *m_audioContext;
+	SimpleAudio *m_audioContext;
 	s64 m_audiopts;
 
 	s64 m_firstTimeStamp;
@@ -131,4 +132,7 @@ public:  // TODO: Very little of this below should be public.
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
 	int m_mpegheaderReadPos;
+
+	// used for audio type 
+	int m_audioType;
 };

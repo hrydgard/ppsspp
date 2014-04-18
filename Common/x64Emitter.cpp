@@ -147,7 +147,7 @@ void OpArg::WriteRex(XEmitter *emit, int opBits, int bits, int customOp) const
 	if (indexReg & 8)         op |= 2;
 	if (offsetOrBaseReg & 8)  op |= 1; //TODO investigate if this is dangerous
 	if (op != 0x40 ||
-	    (bits == 8 && (offsetOrBaseReg & 0x10c) == 4) ||
+	    (scale == SCALE_NONE && bits == 8 && (offsetOrBaseReg & 0x10c) == 4) ||
 	    (opBits == 8 && (customOp & 0x10c) == 4)) {
 		emit->Write8(op);
 		_dbg_assert_(JIT, (offsetOrBaseReg & 0x100) == 0 || bits != 8);

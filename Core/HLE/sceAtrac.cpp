@@ -159,6 +159,8 @@ struct Atrac {
 		p.Do(has_data_buf);
 		if (has_data_buf) {
 			if (p.mode == p.MODE_READ) {
+				if (data_buf)
+					delete [] data_buf;
 				data_buf = new u8[first.filesize];
 			}
 			p.DoArray(data_buf, first.filesize);
@@ -596,12 +598,14 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample);
-				AVPacket packet = {0};
+				AVPacket packet;
 				av_init_packet(&packet);
 				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-					if (packet.stream_index != atrac->audio_stream_index)
+					if (packet.stream_index != atrac->audio_stream_index) {
+						av_free_packet(&packet);
 						continue;
+					}
 
 					got_frame = 0;
 					int bytes_in_packet = packet.size;
@@ -611,6 +615,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						// Let's try the next frame.
 					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
+						av_free_packet(&packet);
 						atrac->failedDecode = true;
 						// No need to free the packet if decode_audio4 fails.
 						// Avoid getting stuck in a loop (Virtua Tennis)
@@ -625,6 +630,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 					if (got_frame) {
 						// got a frame
+						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
 						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
 						u8 *out = outbuf;
@@ -685,7 +691,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 		Memory::Write_U32(finish, finishFlagAddr);
 		Memory::Write_U32(remains, remainAddr);
 	}
-	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", ret, atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
+			  numSamplesAddr, numSamples,
+			  finishFlagAddr, finish,
+			  remainAddr, remains);
 	if (!ret) {
 		// decode data successfully, delay thread
 		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
@@ -960,9 +969,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		// reset the temp buf for adding more stream data
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
@@ -970,6 +977,11 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		if (Memory::IsValidAddress(readOffsetAddr))
 			Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
+		
+		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
+				  writeAddr, atrac->first.addr,
+				  writableBytesAddr, atrac->first.writableBytes,
+				  readOffsetAddr, atrac->first.fileoffset);
 	}
 	return 0;
 }
@@ -1766,12 +1778,14 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		atrac->SeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
-			AVPacket packet = {0};
+			AVPacket packet;
 			av_init_packet(&packet);
 			int got_frame, avret;
 			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-				if (packet.stream_index != atrac->audio_stream_index)
+				if (packet.stream_index != atrac->audio_stream_index) {
+					av_free_packet(&packet);
 					continue;
+				}
 
 				got_frame = 0;
 				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);

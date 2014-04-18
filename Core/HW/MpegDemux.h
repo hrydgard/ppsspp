@@ -12,7 +12,7 @@ class MpegDemux
 {
 public:
 	MpegDemux(int size, int offset);
-	~MpegDemux(void);
+	~MpegDemux();
 
 	bool addStreamData(u8* buf, int addSize);
 	void demux(int audioChannel);

@@ -18,6 +18,7 @@
 #include <map>
 #include <vector>
 
+#include "base/mutex.h"
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -45,8 +46,10 @@ struct GeInterruptData
 {
 	int listid;
 	u32 pc;
+	u32 cmd;
 };
 
+static recursive_mutex ge_pending_lock;
 static std::list<GeInterruptData> ge_pending_cb;
 static int geSyncEvent;
 static int geInterruptEvent;
@@ -63,6 +66,7 @@ public:
 
 	bool run(PendingInterrupt& pend)
 	{
+		lock_guard guard(ge_pending_lock);
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
 
@@ -80,7 +84,7 @@ public:
 
 		gpu->InterruptStart(intrdata.listid);
 
-		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
+		const u32 cmd = intrdata.cmd;
 		int subintr = -1;
 		if (dl->subIntrBase >= 0)
 		{
@@ -107,10 +111,16 @@ public:
 			}
 		}
 
+		// Set the list as complete once the interrupt starts.
+		// In other words, not before another interrupt finishes.
+		if (dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH) {
+			dl->state = PSP_GE_DL_STATE_COMPLETED;
+		}
+
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL)
 		{
-			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
+			DEBUG_LOG(CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
 			u32 data = dl->subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
@@ -132,6 +142,7 @@ public:
 
 	virtual void handleResult(PendingInterrupt& pend)
 	{
+		lock_guard guard(ge_pending_lock);
 		GeInterruptData intrdata = ge_pending_cb.front();
 		ge_pending_cb.pop_front();
 
@@ -162,8 +173,6 @@ public:
 			break;
 		}
 
-		dl->signal = PSP_GE_SIGNAL_NONE;
-
 		gpu->InterruptEnd(intrdata.listid);
 	}
 };
@@ -171,20 +180,13 @@ public:
 void __GeExecuteSync(u64 userdata, int cyclesLate)
 {
 	int listid = userdata >> 32;
-	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
-	bool wokeThreads = __GeTriggerWait(waitType, listid);
-	gpu->SyncEnd(waitType, listid, wokeThreads);
+	GPUSyncType type = (GPUSyncType) (userdata & 0xFFFFFFFF);
+	bool wokeThreads = __GeTriggerWait(type, listid);
+	gpu->SyncEnd(type, listid, wokeThreads);
 }
 
 void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
 {
-	int listid = userdata >> 32;
-	u32 pc = userdata & 0xFFFFFFFF;
-
-	GeInterruptData intrdata;
-	intrdata.listid = listid;
-	intrdata.pc     = pc;
-	ge_pending_cb.push_back(intrdata);
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
@@ -204,6 +206,7 @@ void __GeCheckCycles(u64 userdata, int cyclesLate)
 
 void __GeInit()
 {
+	lock_guard guard(ge_pending_lock);
 	memset(&ge_used_callbacks, 0, sizeof(ge_used_callbacks));
 	ge_pending_cb.clear();
 	__RegisterIntrHandler(PSP_GE_INTR, new GeIntrHandler());
@@ -221,15 +224,35 @@ void __GeInit()
 	}
 }
 
+struct GeInterruptData_v1
+{
+	int listid;
+	u32 pc;
+};
+
 void __GeDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceGe", 1);
+	auto s = p.Section("sceGe", 1, 2);
 	if (!s)
 		return;
 
+	lock_guard guard(ge_pending_lock);
+
 	p.DoArray(ge_callback_data, ARRAY_SIZE(ge_callback_data));
 	p.DoArray(ge_used_callbacks, ARRAY_SIZE(ge_used_callbacks));
-	p.Do(ge_pending_cb);
+
+	if (s >= 2) {
+		p.Do(ge_pending_cb);
+	} else {
+		std::list<GeInterruptData_v1> old;
+		p.Do(old);
+		ge_pending_cb.clear();
+		for (auto it = old.begin(), end = old.end(); it != end; ++it) {
+			GeInterruptData intrdata = {it->listid, it->pc};
+			intrdata.cmd = Memory::ReadUnchecked_U32(it->pc - 4) >> 24;
+			ge_pending_cb.push_back(intrdata);
+		}
+	}
 
 	p.Do(geSyncEvent);
 	CoreTiming::RestoreRegisterEvent(geSyncEvent, "GeSyncEvent", &__GeExecuteSync);
@@ -250,11 +273,11 @@ void __GeShutdown()
 }
 
 // Warning: may be called from the GPU thread.
-bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
+bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks)
 {
-	u64 userdata = (u64)id << 32 | (u64) waitType;
+	u64 userdata = (u64)id << 32 | (u64) type;
 	s64 future = atTicks - CoreTiming::GetTicks();
-	if (waitType == WAITTYPE_GEDRAWSYNC)
+	if (type == GPU_SYNC_DRAW)
 	{
 		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
 		if (left > future)
@@ -267,47 +290,56 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 // Warning: may be called from the GPU thread.
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 {
+	GeInterruptData intrdata;
+	intrdata.listid = listid;
+	intrdata.pc = pc;
+	intrdata.cmd = Memory::ReadUnchecked_U32(pc - 4) >> 24;
+
+	lock_guard guard(ge_pending_lock);
+	ge_pending_cb.push_back(intrdata);
+
 	u64 userdata = (u64)listid << 32 | (u64) pc;
 	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
-void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason)
+void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason)
 {
-	if (type == WAITTYPE_GEDRAWSYNC)
+	WaitType waitType;
+	if (type == GPU_SYNC_DRAW) {
 		drawWaitingThreads.push_back(__KernelGetCurThread());
-	else if (type == WAITTYPE_GELISTSYNC)
+		waitType = WAITTYPE_GEDRAWSYNC;
+	} else if (type == GPU_SYNC_LIST) {
 		listWaitingThreads[waitId].push_back(__KernelGetCurThread());
-	else
+		waitType = WAITTYPE_GELISTSYNC;
+	} else {
 		ERROR_LOG_REPORT(SCEGE, "__GeWaitCurrentThread: bad wait type");
+		return;
+	}
 
-	__KernelWaitCurThread(type, waitId, 0, 0, false, reason);
+	__KernelWaitCurThread(waitType, waitId, 0, 0, false, reason);
 }
 
-bool __GeTriggerWait(WaitType type, SceUID waitId, WaitingThreadList &waitingThreads)
+bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitingThreads)
 {
 	// TODO: Do they ever get a result other than 0?
 	bool wokeThreads = false;
 	for (auto it = waitingThreads.begin(), end = waitingThreads.end(); it != end; ++it)
-		wokeThreads |= HLEKernel::ResumeFromWait(*it, type, waitId, 0);
+		wokeThreads |= HLEKernel::ResumeFromWait(*it, waitType, waitId, 0);
 	waitingThreads.clear();
 	return wokeThreads;
 }
 
-bool __GeTriggerWait(WaitType type, SceUID waitId)
+bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 {
-	if (type == WAITTYPE_GEDRAWSYNC)
-		return __GeTriggerWait(type, waitId, drawWaitingThreads);
-	else if (type == WAITTYPE_GELISTSYNC)
-		return __GeTriggerWait(type, waitId, listWaitingThreads[waitId]);
+	// We check for the old type for old savestate compatibility.
+	if (type == GPU_SYNC_DRAW || type == WAITTYPE_GEDRAWSYNC)
+		return __GeTriggerWait(WAITTYPE_GEDRAWSYNC, waitId, drawWaitingThreads);
+	else if (type == GPU_SYNC_LIST || type == WAITTYPE_GELISTSYNC)
+		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
 		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
 	return false;
-}
-
-bool __GeHasPendingInterrupt()
-{
-	return !ge_pending_cb.empty();
 }
 
 u32 sceGeEdramGetAddr()
@@ -415,7 +447,7 @@ int sceGeBreak(u32 mode, u32 unknownPtr)
 	if ((int)unknownPtr < 0 || (int)unknownPtr + 16 < 0)
 	{
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
-		return 0x80000023;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 	else if (unknownPtr != 0)
 		WARN_LOG_REPORT(SCEGE, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");

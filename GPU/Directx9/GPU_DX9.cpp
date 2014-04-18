@@ -520,7 +520,7 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 
 	shaderManager_->EndFrame();
 
-	gstate_c.textureChanged = true;
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
 // Maybe should write this in ASM...
@@ -737,7 +737,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_REGION2:
 		if (diff) {
 			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		}
 		break;
 
@@ -751,7 +751,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXTUREMAPENABLE:
 		if (diff)
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -829,7 +829,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPIXFORMAT:
 		if (diff) {
 			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		}
 		break;
 
@@ -841,7 +841,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
@@ -853,18 +853,18 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		// This could be used to "dirty" textures with clut.
 		break;
 
 	case GE_CMD_LOADCLUT:
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		textureCache_.LoadClut();
 		// This could be used to "dirty" textures with clut.
 		break;
@@ -897,7 +897,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			DoBlockTransfer();
 
 			// Fixes Gran Turismo's funky text issue.
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 			break;
 		}
 
@@ -913,7 +913,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1046,7 +1046,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTZ2:
 		if (diff) {
 			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = true;
+			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		}
 		break;
 
@@ -1381,7 +1381,7 @@ void DIRECTX9_GPU::DoState(PointerWrap &p) {
 	textureCache_.Clear(true);
 	transformDraw_.ClearTrackedVertexArrays();
 
-	gstate_c.textureChanged = true;
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 }

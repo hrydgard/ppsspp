@@ -315,6 +315,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename, controlsConfigFilename);
 
+	bool debugLogLevel = false;
+
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
 	{
@@ -332,6 +334,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			case 's':
 				g_Config.bAutoRun = false;
 				g_Config.bSaveSettings = false;
+				break;
+			case 'd':
+				debugLogLevel = true;
 				break;
 			}
 
@@ -356,7 +361,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
 	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120, "PPSSPP Debug Console");
-
+	
+	if (debugLogLevel)
+		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
 	//Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;

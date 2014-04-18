@@ -26,21 +26,35 @@
 
 using namespace ArmGen;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo) {
-	numARMFpuReg_ = 16;
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
+	if (cpu_info.bNEON) {
+		numARMFpuReg_ = 32;
+	} else {
+		numARMFpuReg_ = 16;
+	}
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
-	qTime_ = 0;
-	for (int i = 0; i < MAX_ARMFPUREG; i++) {
-		ar[i].mipsReg = -1;
-		ar[i].isDirty = false;
+	if (!initialReady) {
+		SetupInitialRegs();
+		initialReady = true;
+	}
+
+	memcpy(ar, arInitial, sizeof(ar));
+	memcpy(mr, mrInitial, sizeof(mr));
+	pendingFlush = false;
+}
+
+void ArmRegCacheFPU::SetupInitialRegs() {
+	for (int i = 0; i < numARMFpuReg_; i++) {
+		arInitial[i].mipsReg = -1;
+		arInitial[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		mr[i].loc = ML_MEM;
-		mr[i].reg = INVALID_REG;
-		mr[i].spillLock = false;
-		mr[i].tempLock = false;
+		mrInitial[i].loc = ML_MEM;
+		mrInitial[i].reg = INVALID_REG;
+		mrInitial[i].spillLock = false;
+		mrInitial[i].tempLock = false;
 	}
 	for (int i = 0; i < MAX_ARMQUADS; i++) {
 		qr[i].isDirty = false;
@@ -55,7 +69,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
-							S2,  S3,
+		          S2,  S3,
 		S4,  S5,  S6,  S7,
 		S8,  S9,  S10, S11,
 		S12, S13, S14, S15
@@ -103,6 +117,7 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 		return S0;
 	}
 
+	pendingFlush = true;
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -398,6 +413,11 @@ int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
 }
 
 void ArmRegCacheFPU::FlushAll() {
+	if (!pendingFlush) {
+		// Nothing allocated.  FPU regs are not nearly as common as GPR.
+		return;
+	}
+
 	// Discard temps!
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
 		DiscardR(i);
@@ -438,9 +458,9 @@ void ArmRegCacheFPU::FlushAll() {
 				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
 			} else {
 				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
-				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(m), R1);
+				emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
 				// ILOG("VSTMIA R0, %i, %i", a, c);
-				emit_->VSTMIA(R0, false, (ARMReg)(S0 + a), c);
+				emit_->VSTMIA(SCRATCHREG1, false, (ARMReg)(S0 + a), c);
 			}
 
 			// Skip past, and mark as non-dirty.
@@ -468,6 +488,7 @@ void ArmRegCacheFPU::FlushAll() {
 			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
 		}
 	}
+	pendingFlush = false;
 }
 
 void ArmRegCacheFPU::DiscardR(MIPSReg r) {
@@ -511,6 +532,7 @@ int ArmRegCacheFPU::GetTempR() {
 		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
 		return 0;
 	}
+	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
 			mr[r].tempLock = true;

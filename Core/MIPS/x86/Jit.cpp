@@ -445,16 +445,22 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
-		js.compilerPC += 4;
-		// No writing exits, keep going!
-
-		// Add a trigger so that if the inlined code changes, we invalidate this block.
-		// TODO: Correctly determine the size of this block.
-		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
-		return true;
 	} else {
-		return false;
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		ABI_CallFunction(entry->replaceFunc);
+		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		js.downcountAmount = 0;  // we just subtracted most of it
 	}
+
+	js.compilerPC += 4;
+	// No writing exits, keep going!
+
+	// Add a trigger so that if the inlined code changes, we invalidate this block.
+	// TODO: Correctly determine the size of this block.
+	blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
+	return true;
 }
 
 void Jit::Comp_ReplacementFunc(MIPSOpcode op)
@@ -491,8 +497,8 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		// we can emit.
 
 		MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-		SUB(32, M(&currentMIPS->downcount - 1), R(EAX));
-		js.downcountAmount = 1;  // we just subtracted most of it
+		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		js.downcountAmount = 0;  // we just subtracted most of it
 		WriteExitDestInReg(ECX);
 
 		js.compiling = false;

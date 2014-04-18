@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <map>
 
 #include "base/basictypes.h"
@@ -360,22 +361,20 @@ static const ReplacementTableEntry entries[] = {
 	// double-precision soft-float routines: __adddf3, __subdf3 and so on. These
 	// should of course be implemented JIT style, inline.
 
-	{ "sinf", &Replace_sinf, 0, 0},
-	{ "cosf", &Replace_cosf, 0, 0},
-
-	{ "tanf", &Replace_tanf, 0, 0},
-
 	/*  These two collide (same hash) and thus can't be replaced :/
 	{ "asinf", &Replace_asinf, 0, 0},
 	{ "acosf", &Replace_acosf, 0, 0},
 	*/
+
+	{ "sinf", &Replace_sinf, 0, 0},
+	{ "cosf", &Replace_cosf, 0, 0},
+	{ "tanf", &Replace_tanf, 0, 0},
 
 	{ "atanf", &Replace_atanf, 0, 0},
 	{ "sqrtf", &Replace_sqrtf, 0, 0},
 	{ "atan2f", &Replace_atan2f, 0, 0},
 	{ "floorf", &Replace_floorf, 0, 0},
 	{ "ceilf", &Replace_ceilf, 0, 0},
-
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memcpy16", &Replace_memcpy16, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
@@ -385,7 +384,6 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
-
 	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
@@ -396,6 +394,7 @@ static const ReplacementTableEntry entries[] = {
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 	{}
 };
+
 
 static std::map<u32, u32> replacedInstructions;
 
@@ -448,6 +447,34 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size) {
 		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
 		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
 	}
+}
+
+void RestoreReplacedInstruction(u32 address) {
+	const u32 curInstr = Memory::Read_U32(address);
+	if (MIPS_IS_REPLACEMENT(curInstr)) {
+		Memory::Write_U32(replacedInstructions[address], address);
+	}
+	INFO_LOG(HLE, "Restored replaced func at %08x", address);
+	replacedInstructions.erase(address);
+}
+
+void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+	// Need to be in order, or we'll hang.
+	if (endAddr < startAddr)
+		std::swap(endAddr, startAddr);
+	const auto start = replacedInstructions.lower_bound(startAddr);
+	const auto end = replacedInstructions.upper_bound(endAddr);
+	int restored = 0;
+	for (auto it = start; it != end; ++it) {
+		const u32 addr = it->first;
+		const u32 curInstr = Memory::Read_U32(addr);
+		if (MIPS_IS_REPLACEMENT(curInstr)) {
+			Memory::Write_U32(it->second, addr);
+			++restored;
+		}
+	}
+	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
+	replacedInstructions.erase(start, end);
 }
 
 bool GetReplacedOpAt(u32 address, u32 *op) {

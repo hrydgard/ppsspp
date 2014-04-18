@@ -21,9 +21,9 @@
 #include <string>
 
 #include "GPU/GPUState.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceGe.h"
+#include "Core/MemMap.h"
 
+struct PspGeListArgs;
 class PointerWrap;
 
 enum DisplayListStatus {
@@ -96,6 +96,12 @@ enum GPUState
 	GPUSTATE_STALL = 2,
 	GPUSTATE_INTERRUPT = 3,
 	GPUSTATE_ERROR = 4,
+};
+
+enum GPUSyncType
+{
+	GPU_SYNC_DRAW,
+	GPU_SYNC_LIST,
 };
 
 // Used for debug
@@ -203,7 +209,7 @@ public:
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
-	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads) = 0;
+	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;

@@ -55,6 +55,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Common/LogManager.h"
+#include "Core/HLE/sceAudiocodec.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -414,6 +415,7 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
+	resetAudioList();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;

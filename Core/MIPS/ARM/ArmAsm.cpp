@@ -20,9 +20,9 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
-#include "MemoryUtil.h"
-
-#include "ArmEmitter.h"
+#include "Common/MemoryUtil.h"
+#include "Common/CPUDetect.h"
+#include "Common/ArmEmitter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
@@ -84,14 +84,13 @@ void Jit::GenerateFixedCode()
 	SetCC(CC_AL);
 
 	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, R_LR);
+
 	// Take care to 8-byte align stack for function calls.
 	// We are misaligned here because of an odd number of args for PUSH.
 	// It's not like x86 where you need to account for an extra 4 bytes
 	// consumed by CALL.
 	SUB(R_SP, R_SP, 4);
 	// Now we are correctly aligned and plan to stay that way.
-
-	// TODO: R12 should be usable for regalloc but will get thrashed by C code.
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.
@@ -100,16 +99,22 @@ void Jit::GenerateFixedCode()
 	//   * r2-r4
 	// Really starting to run low on registers already though...
 
-	MOVI2R(R11, (u32)Memory::base);
-	MOVI2R(R10, (u32)mips_);
-	MOVI2R(R9, (u32)GetBasePtr());
+	MOVP2R(R11, Memory::base);
+	MOVP2R(R10, mips_);
+	MOVP2R(R9, GetBasePtr());
+
+	// Doing this down here for better pipelining, just in case.
+	if (cpu_info.bNEON) {
+		VPUSH(D8, 8);
+	}
+
 	RestoreDowncount();
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
 	MovToPC(R0);
 	outerLoop = GetCodePtr();
 		SaveDowncount();
-		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
+		QuickCallFunction(R0, &CoreTiming::Advance);
 		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 
@@ -183,6 +188,12 @@ void Jit::GenerateFixedCode()
 
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
+
+	// Doing this above the downcount for better pipelining (slightly.)
+	if (cpu_info.bNEON) {
+		VPOP(D8, 8);
+	}
+
 	SaveDowncount();
 
 	ADD(R_SP, R_SP, 4);
