@@ -39,6 +39,12 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
+enum TextureLevelMode {
+	GE_TEXBIAS_MODE_AUTO = 0,
+	GE_TEXBIAS_MODE_CONST = 1,
+	GE_TEXBIAS_MODE_SLOPE = 2,
+};
+
 class TextureCache {
 public:
 	TextureCache();
