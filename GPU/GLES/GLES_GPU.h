@@ -89,6 +89,7 @@ public:
 	void Execute_Region(u32 op, u32 diff);
 	void Execute_Scissor(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
+	void Execute_ViewportType(u32 op, u32 diff);
 	void Execute_TexScaleU(u32 op, u32 diff);
 	void Execute_TexScaleV(u32 op, u32 diff);
 	void Execute_TexOffsetU(u32 op, u32 diff);
