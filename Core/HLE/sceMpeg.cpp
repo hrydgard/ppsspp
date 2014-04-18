@@ -270,26 +270,19 @@ u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
 
+u32 getMpegVersion(u32 mpegRawVersion) {
+	switch (mpegRawVersion) {
+		case PSMF_VERSION_0012: return MPEG_VERSION_0012;
+		case PSMF_VERSION_0013: return MPEG_VERSION_0013;
+		case PSMF_VERSION_0014: return MPEG_VERSION_0014;
+		case PSMF_VERSION_0015: return MPEG_VERSION_0015;
+		default: return -1;
+	}
+}
 void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
-	switch (ctx->mpegRawVersion) {
-	case PSMF_VERSION_0012:
-		ctx->mpegVersion = MPEG_VERSION_0012;
-		break;
-	case PSMF_VERSION_0013:
-		ctx->mpegVersion = MPEG_VERSION_0013;
-		break;
-	case PSMF_VERSION_0014:
-		ctx->mpegVersion = MPEG_VERSION_0014;
-		break;
-	case PSMF_VERSION_0015:
-		ctx->mpegVersion = MPEG_VERSION_0015;
-		break;
-	default:
-		ctx->mpegVersion = -1;
-		break;
-	}
+	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
 	ctx->mpegOffset = bswap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
 	ctx->mpegStreamSize = bswap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
 	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
