@@ -554,6 +554,9 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracAddStreamData(%i, %08x): no data", atracID, bytesToAdd);
 		return ATRAC_ERROR_NO_DATA;
+	} else if (bytesToAdd == 0) {
+		INFO_LOG(ME, "sceAtracAddStreamData(%i, %08x): all data loaded", atracID, bytesToAdd);
+		return ATRAC_ERROR_ALL_DATA_LOADED;
 	} else {
 		DEBUG_LOG(ME, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 		// TODO
