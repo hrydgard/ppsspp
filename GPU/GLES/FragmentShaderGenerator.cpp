@@ -273,7 +273,7 @@ static bool CanDoubleSrcBlendMode() {
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
-	int id0 = 0;
+	u64 id0 = 0;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id0 = 1;
@@ -289,7 +289,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
+		bool shaderAlphaBlending = gstate.isAlphaBlendEnabled() && gl_extensions.NV_shader_framebuffer_fetch;
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -303,7 +303,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 
-		// 6 is free.
+		id0 |= (alphaTestAgainstZero & 1) << 6;
+		if (enableAlphaTest)
+			gpuStats.numAlphaTestedDraws++;
+		else
+			gpuStats.numNonAlphaTestedDraws++;
 
 		id0 |= (lmode & 1) << 7;
 		if (enableAlphaTest) {
@@ -325,14 +329,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= ReplaceAlphaWithStencilType() << 21;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 24;
-		if (enableAlphaTest)
-			gpuStats.numAlphaTestedDraws++;
-		else
-			gpuStats.numNonAlphaTestedDraws++;
-
-		if (computeAbsdiff) {
-			id0 |= (computeAbsdiff & 1) << 25;
+		if (shaderAlphaBlending) {
+			id0 |= gstate.getBlendEq() << 24; // 3 bits
+			id0 |= gstate.getBlendFuncA() << 27; // 4 bits
+			id0 |= gstate.getBlendFuncB() << 31; // 4 bits
 		}
 	}
 
@@ -416,7 +416,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
+	bool shaderAlphaBlending = gstate.isAlphaBlendEnabled() && gl_extensions.NV_shader_framebuffer_fetch;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -466,6 +466,11 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "out vec4 fragColor1;\n");
 	} else if (!strcmp(fragColor0, "fragColor0")) {
 		WRITE(p, "out vec4 fragColor0;\n");
+	}
+
+	if (shaderAlphaBlending) {
+		WRITE(p, "uniform vec4 u_blendfixa;\n");
+		WRITE(p, "uniform vec4 u_blendfixb;\n");
 	}
 
 	WRITE(p, "void main() {\n");
@@ -602,10 +607,47 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
-	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
+	// Handle all blending modes using GL_NV_shader_framebuffer_fetch
+	if (shaderAlphaBlending) {
 		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
-		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
+		WRITE(p, "  lowp vec4 srcColor = v;\n");
+		// Get the srcFactor
+		switch (gstate.getBlendFuncA()) {
+		case GE_SRCBLEND_DSTCOLOR:			WRITE(p, "  vec4 srcFactor = destColor;\n"); break;
+		case GE_SRCBLEND_INVDSTCOLOR:			WRITE(p, "  vec4 srcFactor = 1.0 - destColor;\n"); break;
+		case GE_SRCBLEND_SRCALPHA:			WRITE(p, "  vec4 srcFactor = vec4(srcColor.a);\n"); break;
+		case GE_SRCBLEND_INVSRCALPHA:			WRITE(p, "  vec4 srcFactor = vec4(1.0 - srcColor.a);\n"); break;
+		case GE_SRCBLEND_DSTALPHA:			WRITE(p, "  vec4 srcFactor = vec4(destColor.a);\n"); break;
+		case GE_SRCBLEND_INVDSTALPHA:			WRITE(p, "  vec4 srcFactor = vec4(1.0 - destColor.a);\n"); break;
+		case GE_SRCBLEND_DOUBLESRCALPHA:		WRITE(p, "  vec4 srcFactor = vec4(2.0 * srcColor.a);\n"); break;
+		case GE_SRCBLEND_DOUBLEINVSRCALPHA:		WRITE(p, "  vec4 srcFactor = vec4(1.0 - 2.0 * srcColor.a);\n"); break;
+		case GE_SRCBLEND_DOUBLEDSTALPHA:		WRITE(p, "  vec4 srcFactor = vec4(2.0 * destColor.a);\n"); break;
+		case GE_SRCBLEND_DOUBLEINVDSTALPHA:		WRITE(p, "  vec4 srcFactor = vec4(1.0 - 2.0 * destColor.a);\n"); break;
+		case GE_SRCBLEND_FIXA:				WRITE(p, "  vec4 srcFactor = u_blendfixa;\n"); break;
+		}
+		// Get the dstFactor
+		switch (gstate.getBlendFuncB()) {
+		case GE_DSTBLEND_SRCCOLOR:			WRITE(p, "  vec4 dstFactor = srcColor;\n"); break;
+		case GE_DSTBLEND_INVSRCCOLOR:			WRITE(p, "  vec4 dstFactor = 1.0 - srcColor;\n"); break;
+		case GE_DSTBLEND_SRCALPHA:			WRITE(p, "  vec4 dstFactor = vec4(srcColor.a);\n"); break;
+		case GE_DSTBLEND_INVSRCALPHA:			WRITE(p, "  vec4 dstFactor = vec4(1.0 - srcColor.a);\n"); break;
+		case GE_DSTBLEND_DSTALPHA:			WRITE(p, "  vec4 dstFactor = vec4(destColor.a);"); break;
+		case GE_DSTBLEND_INVDSTALPHA:			WRITE(p, "  vec4 dstFactor = vec4(1.0 - destColor.a);\n"); break;
+		case GE_DSTBLEND_DOUBLESRCALPHA:		WRITE(p, "  vec4 dstFactor = vec4(2.0 * srcColor.a);\n"); break;
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:		WRITE(p, "  vec4 dstFactor = vec4(1.0 - 2.0 * srcColor.a);\n"); break;
+		case GE_DSTBLEND_DOUBLEDSTALPHA:		WRITE(p, "  vec4 dstFactor = vec4(2.0 * destColor.a);\n"); break;
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:		WRITE(p, "  vec4 dstFactor = vec4(1.0 - 2.0 * destColor.a);\n"); break;
+		case GE_DSTBLEND_FIXB:				WRITE(p, "  vec4 dstFactor = u_blendfixb;\n"); break;
+		}
+		// Generate blend equation
+		switch (gstate.getBlendEq()) {
+		case GE_BLENDMODE_MUL_AND_ADD:			WRITE(p, "  gl_FragColor = srcColor * srcFactor + destColor * dstFactor;\n"); break;
+		case GE_BLENDMODE_MUL_AND_SUBTRACT:		WRITE(p, "  gl_FragColor = srcColor * srcFactor - destColor * dstFactor;\n"); break;
+		case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:	WRITE(p, "  gl_FragColor = destColor * dstFactor - srcColor * srcFactor;\n"); break;
+		case GE_BLENDMODE_MIN:				WRITE(p, "  gl_FragColor = min(destColor, srcColor);\n"); break;
+		case GE_BLENDMODE_MAX:				WRITE(p, "  gl_FragColor = max(destColor, srcColor);\n"); break;
+		case GE_BLENDMODE_ABSDIFF:			WRITE(p, "  gl_FragColor = abs(destColor - srcColor);\n"); break;
+		}
 	}
 
 	switch (stencilToAlpha) {
