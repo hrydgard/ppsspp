@@ -89,6 +89,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
+	coreParam.mountRoot = "";
 	coreParam.startPaused = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
