@@ -481,7 +481,7 @@ Psmf *getPsmf(u32 psmf)
 
 PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 {
-	auto iter = psmfPlayerMap.find(psmfplayer);
+	auto iter = psmfPlayerMap.find(Memory::Read_U32(psmfplayer));
 	if (iter != psmfPlayerMap.end())
 		return iter->second;
 	else
@@ -925,6 +925,9 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 		if (psmfPlayerMap.find(psmfPlayer) != psmfPlayerMap.end())
 			delete psmfPlayerMap[psmfPlayer];
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
+
+		// Write something there to identify it with.
+		*player = psmfPlayer;
 	}
 
 	psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
