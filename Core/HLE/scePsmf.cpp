@@ -47,11 +47,6 @@ const int PSMF_PLAYER_CONFIG_NO_LOOP = 1;
 const int PSMF_PLAYER_CONFIG_MODE_LOOP = 0;
 const int PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE = 1;
 
-int psmfCurrentPts = 0;
-int psmfAvcStreamNum = 1;
-int psmfAtracStreamNum = 1;
-int psmfPcmStreamNum = 0;
-int psmfPlayerVersion = PSMF_PLAYER_VERSION_FULL;
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
@@ -212,6 +207,9 @@ public:
 	int displayBufferSize;
 	int playbackThreadPriority;
 	int psmfMaxAheadTimestamp;
+	int totalVideoStreams;
+	int totalAudioStreams;
+	int playerVersion;
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
@@ -379,7 +377,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1);
+	auto s = p.Section("PsmfPlayer", 1, 2);
 	if (!s)
 		return;
 
@@ -395,6 +393,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(playbackThreadPriority);
 	p.Do(psmfMaxAheadTimestamp);
 	p.Do(psmfPlayerLastTimestamp);
+	if (s >= 2) {
+		p.Do(totalVideoStreams);
+		p.Do(totalAudioStreams);
+		p.Do(playerVersion);
+	}
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
 	p.Do(fileoffset);
@@ -1028,6 +1031,32 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic, bad data");
 			//return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 		}
+
+		// TODO: Merge better with Psmf.
+		u16 numStreams = *(u16_be *)(buf + 0x80);
+		psmfplayer->totalVideoStreams = 0;
+		psmfplayer->totalAudioStreams = 0;
+		psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
+		for (u16 i = 0; i < numStreams; i++) {
+			const u8 *currentStreamAddr = buf + 0x82 + i * 16;
+			const int streamId = *currentStreamAddr;
+			if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
+				++psmfplayer->totalVideoStreams;
+				// If we don't have EP info for /any/ video stream, revert to BASIC.
+				const u32 epOffset = *(const u32_be *)(currentStreamAddr + 4);
+				const u32 epEntries = *(const u32_be *)(currentStreamAddr + 8);
+				// TODO: Actually, if these don't match, it seems to be an invalid PSMF.
+				if (epOffset == 0 || epEntries == 0) {
+					psmfplayer->playerVersion = PSMF_PLAYER_VERSION_BASIC;
+				}
+			} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
+				++psmfplayer->totalAudioStreams;
+			} else {
+				WARN_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
+			}
+		}
+		// TODO: It seems like it's invalid if there's not at least 1 video stream.
+
 		int mpegoffset = bswap32(*(u32_le *)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
 		psmfplayer->streamSize = bswap32(*(u32_le *)(buf + PSMF_STREAM_SIZE_OFFSET));
@@ -1370,13 +1399,12 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
 	if (Memory::IsValidAddress(psmfInfoAddr)) {
-		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp, psmfInfoAddr);
-		Memory::Write_U32(psmfplayer->videoStreamNum, psmfInfoAddr + 4);
-		Memory::Write_U32(psmfplayer->audioStreamNum, psmfInfoAddr + 8);
+		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp - 3003, psmfInfoAddr);
+		Memory::Write_U32(psmfplayer->totalVideoStreams, psmfInfoAddr + 4);
+		Memory::Write_U32(psmfplayer->totalAudioStreams, psmfInfoAddr + 8);
 		// pcm stream num?
 		Memory::Write_U32(0, psmfInfoAddr + 12);
-		// Player version?
-		Memory::Write_U32(0, psmfInfoAddr + 16);
+		Memory::Write_U32(psmfplayer->playerVersion, psmfInfoAddr + 16);
 	}
 	return 0;
 }
