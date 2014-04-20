@@ -66,7 +66,10 @@ enum PsmfPlayerError {
 	ERROR_PSMF_INVALID_VALUE         = 0x806151fe,
 	ERROR_PSMF_INVALID_TIMESTAMP     = 0x80615500,
 	ERROR_PSMF_INVALID_PSMF          = 0x80615501,
+
 	ERROR_PSMFPLAYER_NOT_INITIALIZED = 0x80616001,
+	ERROR_PSMFPLAYER_BUFFER_SIZE     = 0x80616005,
+	ERROR_PSMFPLAYER_INVALID_PARAM   = 0x80616008,
 	ERROR_PSMFPLAYER_NO_MORE_DATA    = 0x8061600c,
 };
 
@@ -97,6 +100,12 @@ struct PsmfData {
 	u32_le streamNum;
 	u32_le unk1;
 	u32_le unk2;
+};
+
+struct PsmfPlayerCreateData {
+	PSPPointer<u8> buffer;
+	u32 bufferSize;
+	int threadPriority;
 };
 
 struct PsmfPlayerData {
@@ -181,7 +190,7 @@ class PsmfPlayer {
 public:
 	// For savestates only.
 	PsmfPlayer() { mediaengine = new MediaEngine; filehandle = 0;}
-	PsmfPlayer(u32 data);
+	PsmfPlayer(const PsmfPlayerCreateData *data);
 	~PsmfPlayer() { if (mediaengine) delete mediaengine; pspFileSystem.CloseFile(filehandle);}
 	void DoState(PointerWrap &p);
 
@@ -314,20 +323,24 @@ Psmf::~Psmf() {
 	streamMap.clear();
 }
 
-PsmfPlayer::PsmfPlayer(u32 data) {
-	videoCodec = Memory::Read_U32(data);
-	videoStreamNum = Memory::Read_U32(data + 4);
-	audioCodec = Memory::Read_U32(data + 8);
-	audioStreamNum = Memory::Read_U32(data + 12);
-	playMode = Memory::Read_U32(data+ 16);
-	playSpeed = Memory::Read_U32(data + 20);
-	psmfPlayerLastTimestamp = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
+PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
+	videoCodec = 0;
+	videoStreamNum = 0;
+	audioCodec = 0;
+	audioStreamNum = 0;
+	playMode = 0;
+	playSpeed = 0;
+	psmfPlayerLastTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
 	filehandle = 0;
 	fileoffset = 0;
 	readSize = 0;
 	streamSize = 0;
+
+	displayBuffer = data->buffer.ptr;
+	displayBufferSize = data->bufferSize;
+	playbackThreadPriority = data->threadPriority;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -872,27 +885,51 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 	return epid;
 }
 
-int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
+int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 {
-	WARN_LOG(ME, "scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
+	auto player = PSPPointer<u32>::Create(psmfPlayer);
+	const auto data = PSPPointer<const PsmfPlayerCreateData>::Create(dataPtr);
+
+	if (!player.IsValid() || !data.IsValid()) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): bad pointers", psmfPlayer, dataPtr);
+		// Crashes on a PSP.
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+	if (!data->buffer.IsValid()) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): invalid buffer address %08x", psmfPlayer, dataPtr, data->buffer.ptr);
+		// Also crashes on a PSP.
+		*player = 0;
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+	if (data->bufferSize < 0x00300000) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): buffer too small %08x", psmfPlayer, dataPtr, data->bufferSize);
+		*player = 0;
+		return ERROR_PSMFPLAYER_BUFFER_SIZE;
+	}
+	if (data->threadPriority < 0x10 || data->threadPriority >= 0x6E) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): bad thread priority %02x", psmfPlayer, dataPtr, data->threadPriority);
+		*player = 0;
+		return ERROR_PSMFPLAYER_INVALID_PARAM;
+	}
+	if (!psmfPlayerMap.empty()) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): already have an active player", psmfPlayer, dataPtr);
+		// TODO: Tests show this is what we should do.  Leaving it off for now to see if safe.
+		//*player = 0;
+		//return ERROR_MPEG_ALREADY_INIT;
+	}
+
+	INFO_LOG(ME, "scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, dataPtr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		// TODO: This is the wrong data.  PsmfPlayer needs a new interface.
-		psmfplayer = new PsmfPlayer(psmfPlayerDataAddr);
+		psmfplayer = new PsmfPlayer(data);
 		if (psmfPlayerMap.find(psmfPlayer) != psmfPlayerMap.end())
 			delete psmfPlayerMap[psmfPlayer];
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
-	if (Memory::IsValidAddress(psmfPlayerDataAddr)) {
-		psmfplayer->displayBuffer = Memory::Read_U32(psmfPlayerDataAddr);
-		psmfplayer->displayBufferSize = Memory::Read_U32(psmfPlayerDataAddr + 4);
-		psmfplayer->playbackThreadPriority = Memory::Read_U32(psmfPlayerDataAddr + 8);
-	}
-
 	psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
-	return 0;
+	return hleDelayResult(0, "player create", 20000);
 }
 
 int scePsmfPlayerStop(u32 psmfPlayer)
@@ -1084,13 +1121,6 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	if (!isInitialized) {
 		ERROR_LOG(ME, "scePsmfPlayerStart(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
-	}
-
-	if (!psmfplayer) {
-		psmfplayer = new PsmfPlayer(psmfPlayerData);
-		if (psmfPlayerMap.find(psmfPlayer) != psmfPlayerMap.end())
-			delete psmfPlayerMap[psmfPlayer];
-		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
 	if (Memory::IsValidAddress(psmfPlayerData)) {

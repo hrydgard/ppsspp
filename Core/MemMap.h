@@ -387,6 +387,15 @@ struct PSPPointer
 #endif
 	}
 
+	inline operator const T*() const
+	{
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+		return (const T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
+#endif
+	}
+
 	bool IsValid() const
 	{
 		return Memory::IsValidAddress(ptr);
