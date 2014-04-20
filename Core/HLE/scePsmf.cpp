@@ -114,6 +114,14 @@ struct PsmfPlayerData {
 	s32_le psmfPlayerLastTimestamp;
 };
 
+struct PsmfInfo {
+	u32_le lengthTS;
+	s32_le numVideoStreams;
+	s32_le numAudioStreams;
+	s32_le numPCMStreams;
+	s32_le playerVersion;
+};
+
 struct PsmfEntry {
 	int EPPts;
 	int EPOffset;
@@ -1385,27 +1393,31 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 
 u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr) 
 {
+	auto info = PSPPointer<PsmfInfo>::Create(psmfInfoAddr);
+	if (!Memory::IsValidAddress(psmfPlayer) || !info.IsValid()) {
+		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x): invalid addresses", psmfPlayer, psmfInfoAddr);
+		// PSP would crash.
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x): invalid psmf player", psmfPlayer, psmfInfoAddr);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized || psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
-		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
+		ERROR_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x): psmf not set yet", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
-	if (Memory::IsValidAddress(psmfInfoAddr)) {
-		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp - 3003, psmfInfoAddr);
-		Memory::Write_U32(psmfplayer->totalVideoStreams, psmfInfoAddr + 4);
-		Memory::Write_U32(psmfplayer->totalAudioStreams, psmfInfoAddr + 8);
-		// pcm stream num?
-		Memory::Write_U32(0, psmfInfoAddr + 12);
-		Memory::Write_U32(psmfplayer->playerVersion, psmfInfoAddr + 16);
-	}
+	info->lengthTS = psmfplayer->psmfPlayerLastTimestamp - 3003;
+	info->numVideoStreams = psmfplayer->totalVideoStreams;
+	info->numAudioStreams = psmfplayer->totalAudioStreams;
+	// pcm stream num?
+	info->numPCMStreams = 0;
+	info->playerVersion = psmfplayer->playerVersion;
+
 	return 0;
 }
 
