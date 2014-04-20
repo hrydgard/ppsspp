@@ -39,7 +39,8 @@ struct CoreParameter {
 	bool enableSound;  // there aren't multiple sound cores.
 
 	std::string fileToStart;
-	std::string mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background.
+	std::string mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
+	std::string mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
 	std::string errorString;
 
 	bool startPaused;

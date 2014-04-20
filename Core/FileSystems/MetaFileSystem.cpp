@@ -23,6 +23,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
@@ -197,7 +198,13 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
-		inpath = inpath.substr(strlen("host0:"));
+		// However, this causes trouble when running tests, since our test framework uses host0:.
+		// Maybe it's really just supposed to map to umd0 or something?
+		if (PSP_CoreParameter().headLess) {
+			inpath = "umd0:" + inpath.substr(strlen("host0:"));
+		} else {
+			inpath = inpath.substr(strlen("host0:"));
+		}
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
