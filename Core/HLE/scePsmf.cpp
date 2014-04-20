@@ -1003,17 +1003,30 @@ int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 	return 0;
 }
 
-int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int offset, bool docallback) {
+int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, bool docallback) {
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer || psmfplayer->status != PSMF_PLAYER_STATUS_INIT) {
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (!filename) {
+		return ERROR_PSMFPLAYER_INVALID_PARAM;
+	}
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
+	if (!psmfplayer->filehandle) {
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+
+	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
-		if (offset > 0)
+		if (offset != 0)
 			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
-		u8* buf = psmfplayer->tempbuf;
+		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		int mpegoffset = bswap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
+		int mpegoffset = bswap32(*(u32_le*)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->streamSize = bswap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));
+		psmfplayer->streamSize = bswap32(*(u32_le*)(buf + PSMF_STREAM_SIZE_OFFSET));
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
@@ -1024,80 +1037,64 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
-	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (!psmfplayer) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player", psmfPlayer, filename);
-		return ERROR_PSMF_NOT_FOUND;
+	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, false);
+	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
+	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid filename", psmfPlayer, filename);
+	} else if (result == SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid file data or does not exist", psmfPlayer, filename);
+	} else {
+		INFO_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmf(%08x): not initialized", psmfPlayer);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
-	}
-
-	INFO_LOG(ME, "scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return _PsmfPlayerSetPsmfOffset(psmfplayer, filename, 0, false);
+	return result;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	// TODO: hleCheckCurrentCallbacks?
-	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (!psmfplayer) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player", psmfPlayer, filename);
-		return ERROR_PSMF_NOT_FOUND;
+	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, true);
+	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
+	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid filename", psmfPlayer, filename);
+	} else if (result == SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid file data or does not exist", psmfPlayer, filename);
+	} else {
+		INFO_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x): not initialized", psmfPlayer);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
-	}
-
-	INFO_LOG(ME, "scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return _PsmfPlayerSetPsmfOffset(psmfplayer, filename, 0, true);
+	return result;
 }
 
 int scePsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset) 
 {
-	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (!psmfplayer) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
-		return ERROR_PSMF_NOT_FOUND;
+	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, false);
+	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
+	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s): invalid filename", psmfPlayer, filename);
+	} else if (result == SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s): invalid file data or does not exist", psmfPlayer, filename);
+	} else {
+		INFO_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s)", psmfPlayer, filename);
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x): not initialized", psmfPlayer);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
-	}
-
-	INFO_LOG(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i)", psmfPlayer, filename, offset);
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return _PsmfPlayerSetPsmfOffset(psmfplayer, filename, offset, false);
+	return result;
 }
 
 int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offset) 
 {
 	// TODO: hleCheckCurrentCallbacks?
-	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (!psmfplayer) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
-		return ERROR_PSMF_NOT_FOUND;
+	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, true);
+	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
+	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s): invalid filename", psmfPlayer, filename);
+	} else if (result == SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT) {
+		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s): invalid file data or does not exist", psmfPlayer, filename);
+	} else {
+		INFO_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s)", psmfPlayer, filename);
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x): not initialized", psmfPlayer);
-		return ERROR_PSMFPLAYER_INVALID_STATUS;
-	}
-
-	INFO_LOG(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i)", psmfPlayer, filename, offset);
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return _PsmfPlayerSetPsmfOffset(psmfplayer, filename, offset, true);
+	return result;
 }
 
 int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer) 
@@ -1459,7 +1456,7 @@ int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufSize)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (psmfplayer->status != PSMF_PLAYER_STATUS_INIT) {
-		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetTempBuf(%08x, %08x, %08x): invalid status %d", psmfPlayer, tempBufAddr, tempBufSize, psmfplayer->status);
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetTempBuf(%08x, %08x, %08x): invalid status %x", psmfPlayer, tempBufAddr, tempBufSize, psmfplayer->status);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (tempBufSize < 0x00010000) {
