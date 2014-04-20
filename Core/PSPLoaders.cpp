@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef __SYMBIAN32__
+#include <sys/cdefs.h>
 #include <sys/syslimits.h>
 #endif
 
