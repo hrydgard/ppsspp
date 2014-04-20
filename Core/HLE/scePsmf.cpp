@@ -1016,22 +1016,29 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 
-	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
 		if (offset != 0)
 			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
 		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		int mpegoffset = bswap32(*(u32_le*)(buf + PSMF_STREAM_OFFSET_OFFSET));
+		const u32 magic = *(u32_le *)buf;
+		if (magic != PSMF_MAGIC) {
+			// TODO: Let's keep trying as we were before.
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic, bad data");
+			//return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		}
+		int mpegoffset = bswap32(*(u32_le *)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->streamSize = bswap32(*(u32_le*)(buf + PSMF_STREAM_SIZE_OFFSET));
+		psmfplayer->streamSize = bswap32(*(u32_le *)(buf + PSMF_STREAM_SIZE_OFFSET));
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
 		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
+
+	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+
 	return 0;
 }
 
