@@ -107,7 +107,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), failedDecode(false), codecType(0) {
+		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), failedDecode(false), resetBuffer(false) , codecType(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -234,6 +234,7 @@ struct Atrac {
 	int loopNum;
 
 	bool failedDecode;
+	bool resetBuffer;
 
 	u32 codecType;
 
@@ -630,6 +631,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 					if (got_frame) {
 						// got a frame
+						// Use a small buffer and keep overwriting it with file data constantly
 						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
 						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
@@ -729,7 +731,7 @@ u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAdd
 
 		int Sampleoffset = atrac->getDecodePosBySample(sample);
 		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
-		// reset the temp buf for adding more stream data
+		// Reset temp buf for adding more stream data and set full filled buffer 
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
 		// minWritebytes should not be bigger than writeablebytes
@@ -912,8 +914,12 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
-		if (Memory::IsValidAddress(remainAddr))
+		if (Memory::IsValidAddress(remainAddr)) {
 			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
+		}
+		// Let sceAtracGetStreamDataInfo() know to set the full filled buffer .
+		atrac->resetBuffer = true;
+
 	}
 	return 0;
 }
@@ -969,7 +975,10 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		// reset the temp buf for adding more stream data
+		if (atrac->resetBuffer) {
+			// Reset temp buf for adding more stream data and set full filled buffer 
+			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		}
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
