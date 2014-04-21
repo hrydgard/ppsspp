@@ -64,6 +64,7 @@ enum PsmfPlayerError {
 
 	ERROR_PSMFPLAYER_INVALID_STATUS  = 0x80616001,
 	ERROR_PSMFPLAYER_BUFFER_SIZE     = 0x80616005,
+	ERROR_PSMFPLAYER_INVALID_CONFIG  = 0x80616006,
 	ERROR_PSMFPLAYER_INVALID_PARAM   = 0x80616008,
 	ERROR_PSMFPLAYER_NO_MORE_DATA    = 0x8061600c,
 };
@@ -941,6 +942,10 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 		*player = psmfPlayer;
 	}
 
+	// These really shouldn't be globals.  But, you can only have one psmfplayer anyway.
+	videoPixelMode = GE_CMODE_32BIT_ABGR8888;
+	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
+
 	psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return hleDelayResult(0, "player create", 20000);
@@ -1624,31 +1629,36 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, %i, %i): invalid psmf player", psmfPlayer, configMode, configAttr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerConfigPlayer(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+	// This one works in any status as long as it's created.
 
 	switch (configMode) {
 	case PSMF_PLAYER_CONFIG_MODE_LOOP:
-
+		if (configAttr != 0 && configAttr != 1) {
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, loop, %i): invalid value", psmfPlayer, configAttr);
+			return ERROR_PSMFPLAYER_INVALID_PARAM;
+		}
 		INFO_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, loop, %i)", psmfPlayer, configAttr);
 		videoLoopStatus = configAttr;
 		break;
 	case PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE:
+		if (configAttr < -1 || configAttr > 3) {
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, pixelType, %i): invalid value", psmfPlayer, configAttr);
+			return ERROR_PSMFPLAYER_INVALID_PARAM;
+		}
 		INFO_LOG(ME, "scePsmfPlayerConfigPlayer(%08x, pixelType, %i)", psmfPlayer, configAttr);
 		// Does -1 mean default or something?
 		if (configAttr != -1) {
 			videoPixelMode = configAttr;
+		} else {
+			// TODO: At least for one video, this was the same as 8888.
+			videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 		}
 		break;
 	default:
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
-		break;
+		return ERROR_PSMFPLAYER_INVALID_CONFIG;
 	}
 
 	return 0;
