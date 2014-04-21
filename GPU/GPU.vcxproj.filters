@@ -162,6 +162,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TransformCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -301,6 +304,9 @@
     </ClCompile>
     <ClCompile Include="GLES\VertexDecoderX86.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TransformCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

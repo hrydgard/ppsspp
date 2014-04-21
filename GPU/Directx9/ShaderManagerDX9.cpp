@@ -208,7 +208,7 @@ void LinkedShaderDX9::SetFloat(D3DXHANDLE uniform, float value) {
 
 // Utility
 void LinkedShaderDX9::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
-	const float col[3] = {
+	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
 		((color & 0xFF0000) >> 16) / 255.0f
@@ -216,6 +216,12 @@ void LinkedShaderDX9::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 	SetFloatArray(uniform, col, 4);
 }
 
+void LinkedShaderDX9::SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]) {
+	const u32 col[4] = {
+		data[0] >> 8, data[1] >> 8, data[2] >> 8,
+	};
+	SetFloatArray(uniform, (const float *)&col[0], 4);
+}
 
 void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
 	const float col[4] = {
@@ -452,42 +458,30 @@ void LinkedShaderDX9::updateUniforms() {
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
-			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = gstate_c.lightpos[i][0];
-				float y = gstate_c.lightpos[i][1];
-				float z = gstate_c.lightpos[i][2];
-				float len = sqrtf(x*x+y*y+z*z);
-				if (len == 0.0f) 
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				if (u_lightpos[i] != 0) 
+			if (u_lightpos[i] != 0) {
+				if (gstate.isDirectionalLight(i)) {
+					// Prenormalize
+					float x = getFloat24(gstate.lpos[i * 3 + 0]);
+					float y = getFloat24(gstate.lpos[i * 3 + 1]);
+					float z = getFloat24(gstate.lpos[i * 3 + 2]);
+					float len = sqrtf(x*x + y*y + z*z);
+					if (len == 0.0f)
+						len = 1.0f;
+					else
+						len = 1.0f / len;
+					float vec[3] = { x * len, y * len, z * len };
 					SetFloatArray(u_lightpos[i], vec, 3);
-			} else {
-				if (u_lightpos[i] != 0) 
-					SetFloatArray(u_lightpos[i],  gstate_c.lightpos[i], 3);
+				} else {
+					SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
+				}
 			}
-			if (u_lightdir[i] != 0) 
-				SetFloatArray(u_lightdir[i],  gstate_c.lightdir[i], 3);
-			if (u_lightatt[i] != 0) 
-				SetFloatArray(u_lightatt[i],  gstate_c.lightatt[i], 3);
-				
-			if (u_lightangle[i] != 0) 				
-				SetFloat(u_lightangle[i],  gstate_c.lightangle[i]);
-
-			if (u_lightspotCoef[i] != 0) 
-				SetFloat(u_lightspotCoef[i],  gstate_c.lightspotCoef[i]);
-
-			if (u_lightambient[i] != 0) 				
-				SetFloatArray(u_lightambient[i],  gstate_c.lightColor[0][i], 3);
-
-			if (u_lightdiffuse[i] != 0) 
-				SetFloatArray(u_lightdiffuse[i],  gstate_c.lightColor[1][i], 3);
-				
-			if (u_lightspecular[i] != 0) 
-				SetFloatArray(u_lightspecular[i],  gstate_c.lightColor[2][i], 3);
+			if (u_lightdir[i] != 0) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != 0) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
+			if (u_lightangle[i] != 0) SetFloat(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != 0) SetFloat(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
+			if (u_lightambient[i] != 0) SetColorUniform3(u_lightambient[i], gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != 0) SetColorUniform3(u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != 0) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 
