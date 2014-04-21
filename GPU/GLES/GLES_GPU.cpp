@@ -93,7 +93,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
 	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexSizeN},
 	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexFormat},
-	{GE_CMD_TEXLEVEL, FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexLevel},
 	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddr0},
 	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
 	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_TexAddrN},
@@ -1264,6 +1264,18 @@ void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
+void GLES_GPU::Execute_TexLevel(u32 op, u32 diff) {
+	// I had hoped that this would let us avoid excessively flushing in Gran Turismo, but not so,
+	// as the game switches rapidly between modes 0 and 1.
+	/*
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) {
+		gstate.texlevel ^= diff;
+		Flush();
+		gstate.texlevel ^= diff;
+	}
+	*/
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1720,15 +1732,7 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 #endif
 
 	case GE_CMD_TEXLEVEL:
-		// I had hoped that this would let us avoid excessively flushing in Gran Turismo, but not so,
-		// as the game switches rapidly between modes 0 and 1.
-		/*
-		if ((gstate.texlevel & 0x3) == 1) {
-			gstate.texlevel ^= diff;
-			Flush();
-			gstate.texlevel ^= diff;
-		}*/
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Execute_TexLevel(op, diff);
 		break;
 
 	//////////////////////////////////////////////////////////////////
