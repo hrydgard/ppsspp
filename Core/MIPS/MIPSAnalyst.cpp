@@ -17,6 +17,7 @@
 
 #include <map>
 #include <set>
+#include "base/mutex.h"
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -36,6 +37,7 @@ using namespace MIPSCodeUtils;
 
 // Not in a namespace because MSVC's debugger doesn't like it
 static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+recursive_mutex functions_lock;
 
 // TODO: Try multimap instead
 // One function can appear in multiple copies in memory, and they will all have 
@@ -91,7 +93,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0c65188f5bfb3915, 24, "vsgn_q", },
 	{ 0x0d898513a722ea3c, 40, "copysignf", },
 	{ 0x0e99b037b852c8ea, 68, "isnan", },
-	{ 0x0eb5f2e95f59276a, 40, "dl_write_lightmode", },
+	// Unsafe due to immediates.
+	//{ 0x0eb5f2e95f59276a, 40, "dl_write_lightmode", },
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
 	{ 0x0ffa5db8396d4274, 64, "memcpy", },
@@ -566,12 +569,14 @@ namespace MIPSAnalyst {
 		return results;
 	}
 	
-	void Reset()	{
+	void Reset() {
+		lock_guard guard(functions_lock);
 		functions.clear();
 		hashToFunction.clear();
 	}
 
 	void UpdateHashToFunctionMap() {
+		lock_guard guard(functions_lock);
 		hashToFunction.clear();
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
@@ -607,6 +612,7 @@ namespace MIPSAnalyst {
 	}
 
 	void HashFunctions() {
+		lock_guard guard(functions_lock);
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
@@ -720,6 +726,8 @@ skip:
 	}
 
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
+		lock_guard guard(functions_lock);
+
 		AnalyzedFunction currentFunction = {startAddr};
 
 		u32 furthestBranch = 0;
@@ -856,6 +864,8 @@ skip:
 	}
 
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
+		lock_guard guard(functions_lock);
+
 		// Check if we have this already
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
@@ -887,6 +897,8 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
+		lock_guard guard(functions_lock);
+
 		// It makes sense to forget functions as modules are unloaded but it breaks
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
@@ -907,12 +919,16 @@ skip:
 	}
 
 	void ReplaceFunctions() {
+		lock_guard guard(functions_lock);
+
 		for (size_t i = 0; i < functions.size(); i++) {
 			WriteReplaceInstruction(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 
 	void UpdateHashMap() {
+		lock_guard guard(functions_lock);
+
 		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 			const AnalyzedFunction &f = *it;
 			// Small functions aren't very interesting.
