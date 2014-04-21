@@ -367,11 +367,13 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		return true;
 	}
 
-	m_videoStream = streamNum;
 #ifdef USE_FFMPEG
-	if (m_pFormatCtx && m_pCodecCtxs.find(m_videoStream) == m_pCodecCtxs.end()) {
+	if (m_pFormatCtx && m_pCodecCtxs.find(streamNum) == m_pCodecCtxs.end()) {
 		// Get a pointer to the codec context for the video stream
-		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
+		if ((u32)streamNum >= m_pFormatCtx->nb_streams) {
+			return false;
+		}
+		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[streamNum]->codec;
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
@@ -384,9 +386,10 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		if (avcodec_open2(m_pCodecCtx, pCodec, &optionsDict) < 0) {
 			return false; // Could not open codec
 		}
-		m_pCodecCtxs[m_videoStream] = m_pCodecCtx;
+		m_pCodecCtxs[streamNum] = m_pCodecCtx;
 	}
 #endif
+	m_videoStream = streamNum;
 
 	return true;
 }

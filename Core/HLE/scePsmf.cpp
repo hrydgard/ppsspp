@@ -63,6 +63,7 @@ enum PsmfPlayerError {
 	ERROR_PSMF_INVALID_PSMF          = 0x80615501,
 
 	ERROR_PSMFPLAYER_INVALID_STATUS  = 0x80616001,
+	ERROR_PSMFPLAYER_INVALID_STREAM  = 0x80616003,
 	ERROR_PSMFPLAYER_BUFFER_SIZE     = 0x80616005,
 	ERROR_PSMFPLAYER_INVALID_CONFIG  = 0x80616006,
 	ERROR_PSMFPLAYER_INVALID_PARAM   = 0x80616008,
@@ -1545,17 +1546,24 @@ u32 scePsmfPlayerSelectAudio(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerSelectAudio(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSelectAudio(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerSelectAudio(%08x): not playing", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	ERROR_LOG(ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
-	psmfplayer->audioStreamNum++;
+	int next = psmfplayer->audioStreamNum + 1;
+	if (next >= psmfplayer->totalAudioStreams)
+		next = 0;
+
+	if (next == psmfplayer->audioStreamNum || !psmfplayer->mediaengine->setAudioStream(next)) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSelectAudio(%08x): no stream to switch to", psmfPlayer);
+		return ERROR_PSMFPLAYER_INVALID_STREAM;
+	}
+
+	WARN_LOG_REPORT(ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
+	psmfplayer->audioStreamNum = next;
 	return 0;
 }
 
@@ -1564,17 +1572,24 @@ u32 scePsmfPlayerSelectVideo(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerSelectVideo(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerSelectVideo(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerSelectVideo(%08x): not playing", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	ERROR_LOG(ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
-	psmfplayer->videoStreamNum++;
+	int next = psmfplayer->videoStreamNum + 1;
+	if (next >= psmfplayer->totalVideoStreams)
+		next = 0;
+
+	if (next == psmfplayer->videoStreamNum || !psmfplayer->mediaengine->setVideoStream(next)) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSelectVideo(%08x): no stream to switch to", psmfPlayer);
+		return ERROR_PSMFPLAYER_INVALID_STREAM;
+	}
+
+	WARN_LOG_REPORT(ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
+	psmfplayer->videoStreamNum = next;
 	return 0;
 }
 
