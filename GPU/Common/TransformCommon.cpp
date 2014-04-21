@@ -27,6 +27,9 @@ inline float clamp(float in, float min, float max) {
 }
 
 Lighter::Lighter(int vertType) {
+	if (!gstate.isLightingEnabled())
+		return;
+
 	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
@@ -43,26 +46,27 @@ Lighter::Lighter(int vertType) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	materialUpdate_ = hasColor ? (gstate.materialupdate & 7) : 0;
 
-	// TODO: Easy SSE
-	for (int l = 0; l < 12; l++) {
-		lpos[l] = getFloat24(gstate.lpos[l]);
-		ldir[l] = getFloat24(gstate.ldir[l]);
-		latt[l] = getFloat24(gstate.latt[l]);
-	}
 	for (int l = 0; l < 4; l++) {
-		lcutoff[l] = getFloat24(gstate.lcutoff[l]);
-		lconv[l] = getFloat24(gstate.lconv[l]);
-	}
-
-	for (int l = 0; l < 4; l++) {
-		for (int t = 0; t < 3; t++) {
-			u32 data = gstate.lcolor[l * 3 + t] & 0xFFFFFF;
-			float r = (float)(data & 0xff) * (1.0f / 255.0f);
-			float g = (float)((data >> 8) & 0xff) * (1.0f / 255.0f);
-			float b = (float)(data >> 16) * (1.0f / 255.0f);
-			lcolor[t][l][0] = r;
-			lcolor[t][l][1] = g;
-			lcolor[t][l][2] = b;
+		int i = l * 3;
+		if (gstate.isLightChanEnabled(l)) {
+			lpos[i] = getFloat24(gstate.lpos[i]);
+			lpos[i + 1] = getFloat24(gstate.lpos[i + 1]);
+			lpos[i + 2] = getFloat24(gstate.lpos[i + 2]);
+			ldir[i] = getFloat24(gstate.ldir[i]);
+			ldir[i + 1] = getFloat24(gstate.ldir[i + 1]);
+			ldir[i + 2] = getFloat24(gstate.ldir[i + 2]);
+			latt[i] = getFloat24(gstate.latt[i]);
+			latt[i + 1] = getFloat24(gstate.latt[i + 1]);
+			latt[i + 2] = getFloat24(gstate.latt[i + 2]);
+			for (int t = 0; t < 3; t++) {
+				u32 data = gstate.lcolor[l * 3 + t] & 0xFFFFFF;
+				float r = (float)(data & 0xff) * (1.0f / 255.0f);
+				float g = (float)((data >> 8) & 0xff) * (1.0f / 255.0f);
+				float b = (float)(data >> 16) * (1.0f / 255.0f);
+				lcolor[t][l][0] = r;
+				lcolor[t][l][1] = g;
+				lcolor[t][l][2] = b;
+			}
 		}
 	}
 }
