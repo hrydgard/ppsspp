@@ -203,7 +203,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
-  $(SRC)/Core/HLE/sceCtrl.cpp \
+  $(SRC)/Core/HLE/sceCtrl.cpp.arm \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
