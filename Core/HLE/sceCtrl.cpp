@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <math.h>
+#include "Globals.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -181,13 +182,15 @@ void __CtrlButtonUp(u32 buttonBit)
 void __CtrlSetAnalogX(float x, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = (u8)ceilf(x * 127.5f + 127.5f);
+	int scaled = (int)ceilf(x * 127.5f + 127.5f);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = clamp_u8(scaled);
 }
 
 void __CtrlSetAnalogY(float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = (u8)ceilf(-y * 127.5f + 127.5f);
+	int scaled = (int)ceilf(-y * 127.5f + 127.5f);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = clamp_u8(scaled);
 }
 
 void __CtrlSetRapidFire(bool state)
