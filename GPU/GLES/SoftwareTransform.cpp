@@ -69,6 +69,9 @@ private:
 };
 
 Lighter::Lighter(int vertType) {
+	if (!gstate.isLightingEnabled())
+		return;
+
 	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
