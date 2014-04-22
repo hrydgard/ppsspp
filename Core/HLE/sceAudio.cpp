@@ -412,7 +412,7 @@ u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 
 u32 sceAudioSRCChRelease() {
 	if (!chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChRelease() - channel already reserved ");
+		ERROR_LOG(SCEAUDIO, "sceAudioSRCChRelease() - channel not reserved ");
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(SCEAUDIO, "sceAudioSRCChRelease()");
