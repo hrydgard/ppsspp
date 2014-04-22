@@ -167,7 +167,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x3ea41eafb53fc99a, 388, "logf", },
 	{ 0x3fe38bff09ac3da0, 436, "_strtoul_r", },
 	{ 0x40a25c7e1fd44fe2, 24, "fabsf", },
-	{ 0x410d48d9b6580b4a, 36, "dl_write_ztest", },
+	// Unsafe due to immediates.
+	//{ 0x410d48d9b6580b4a, 36, "dl_write_ztest", },
 	{ 0x42dc17c8018f30f2, 44, "vtan.s", },
 	{ 0x436b07caa2aab931, 352, "acos", },
 	{ 0x444472537eedf966, 32, "vmzero_q", },
@@ -345,7 +346,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcdf64d21418b2667, 24, "vzero_q", },
 	{ 0xce1c95ee25b8e2ea, 448, "fmod", },
 	{ 0xce4d18a75b98859f, 40, "vector_add_t_2", },
-	{ 0xceb5372d0003d951, 52, "dl_write_stenciltest", },
+	// Unsafe due to immediates.
+	//{ 0xceb5372d0003d951, 52, "dl_write_stenciltest", },
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },

@@ -771,7 +771,6 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	easy_guard guard(listLock);
-	const u32 data = op & 0x00FFFFFF;
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc);
 	switch (prev >> 24) {
@@ -779,8 +778,8 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 		{
 			// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
 			SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
-			int signal = prev & 0xFFFF;
-			int enddata = data & 0xFFFF;
+			const int signal = prev & 0xFFFF;
+			const int enddata = op & 0xFFFF;
 			bool trigger = true;
 			currentList->subIntrToken = signal;
 
