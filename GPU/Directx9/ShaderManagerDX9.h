@@ -41,6 +41,8 @@ protected:
 	void SetMatrix(D3DXHANDLE uniform, const float* pMatrix);
 	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
 	void SetFloat(D3DXHANDLE uniform, float value);
+	void SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]);
+
 public:
 	LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShaderDX9();
