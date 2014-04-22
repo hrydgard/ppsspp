@@ -105,6 +105,7 @@ public:
 	void Execute_TexMapMode(u32 op, u32 diff);
 	void Execute_TexParamType(u32 op, u32 diff);
 	void Execute_TexEnvColor(u32 op, u32 diff);
+	void Execute_TexLevel(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 	void Execute_ClutFormat(u32 op, u32 diff);
 	void Execute_Ambient(u32 op, u32 diff);
@@ -112,6 +113,10 @@ public:
 	void Execute_MaterialEmissive(u32 op, u32 diff);
 	void Execute_MaterialAmbient(u32 op, u32 diff);
 	void Execute_MaterialSpecular(u32 op, u32 diff);
+	void Execute_Light0Param(u32 op, u32 diff);
+	void Execute_Light1Param(u32 op, u32 diff);
+	void Execute_Light2Param(u32 op, u32 diff);
+	void Execute_Light3Param(u32 op, u32 diff);
 	void Execute_ColorTest(u32 op, u32 diff);
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
@@ -127,7 +132,6 @@ public:
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
-	void Execute_TexLevel(u32 op, u32 diff);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);
