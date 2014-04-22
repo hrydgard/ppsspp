@@ -123,10 +123,10 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_ColorTest},
+	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_ColorTest},
+	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ColorTestMask},
 
 	// These change the vertex shader so need flushing.
 	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},  // TODO: This one is actually processed during vertex decoding which is wrong.
@@ -1046,7 +1046,7 @@ void GLES_GPU::Execute_Light3Param(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_LIGHT3);
 }
 
-void GLES_GPU::Execute_ColorTest(u32 op, u32 diff) {
+void GLES_GPU::Execute_ColorTestMask(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 }
 
@@ -1603,8 +1603,10 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_COLORTEST:
+		break;
+
 	case GE_CMD_COLORTESTMASK:
-		Execute_ColorTest(op, diff);
+		Execute_ColorTestMask(op, diff);
 		break;
 
 	case GE_CMD_ALPHATEST:
