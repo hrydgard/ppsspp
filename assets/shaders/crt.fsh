@@ -25,7 +25,7 @@ void main()
     float g = texture2D( sampler0, v_texcoord0 - colorShift + shift ).y;
     float b = texture2D( sampler0, v_texcoord0 ).z;
     
-    vec4 c = vec4( r, g * 0.99, b, 1 ) * clamp( line_intensity, 0.85, 1.0 );
+    vec4 c = vec4( r, g * 0.99, b, 1.0 ) * clamp( line_intensity, 0.85, 1.0 );
     
     float rollbar = sin( ( v_texcoord0.y + u_time.x ) * 4.0 );
     
