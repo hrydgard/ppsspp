@@ -139,7 +139,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1);
+		auto s = p.Section("Atrac", 1 , 2);
 		if (!s)
 			return;
 
@@ -184,6 +184,9 @@ struct Atrac {
 		p.Do(loopNum);
 
 		p.Do(atracContext);
+		
+		if (s >= 2)
+			p.Do(resetBuffer);
 	}
 
 	int Analyze();
