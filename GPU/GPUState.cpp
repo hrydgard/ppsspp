@@ -304,7 +304,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	if (s < 2) {
 		float l12[12];
-		float l4[3];
+		float l4[4];
 		p.Do(l12);  // lightpos
 		p.Do(l12);  // lightdir
 		p.Do(l12);  // lightattr
