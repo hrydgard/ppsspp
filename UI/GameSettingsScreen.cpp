@@ -572,10 +572,14 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!iosCanUseJit) {
 		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
 	} else {
-		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+		auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
+		jitCheckbox->SetEnabled(!PSP_IsInited());
+		list->Add(jitCheckbox);
 	}
 #else
-	list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
+	jitCheckbox->SetEnabled(!PSP_IsInited());
+	list->Add(jitCheckbox);
 #endif
 
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
