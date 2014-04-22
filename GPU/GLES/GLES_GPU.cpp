@@ -67,9 +67,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty uniforms
-	{GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_FogColor},
+	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_FogCoef},
+	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_FogCoef},
 
 	// Should these maybe flush?
 	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE},
@@ -1046,6 +1046,14 @@ void GLES_GPU::Execute_Light3Param(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_LIGHT3);
 }
 
+void GLES_GPU::Execute_FogColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
+}
+
+void GLES_GPU::Execute_FogCoef(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+}
+
 void GLES_GPU::Execute_ColorTestMask(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 }
@@ -1352,12 +1360,12 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_FOGCOLOR:
-		shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
+		Execute_FogColor(op, diff);
 		break;
 
 	case GE_CMD_FOG1:
 	case GE_CMD_FOG2:
-		shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+		Execute_FogCoef(op, diff);
 		break;
 
 	case GE_CMD_FOGENABLE:

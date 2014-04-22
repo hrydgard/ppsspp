@@ -117,6 +117,8 @@ public:
 	void Execute_Light1Param(u32 op, u32 diff);
 	void Execute_Light2Param(u32 op, u32 diff);
 	void Execute_Light3Param(u32 op, u32 diff);
+	void Execute_FogColor(u32 op, u32 diff);
+	void Execute_FogCoef(u32 op, u32 diff);
 	void Execute_ColorTestMask(u32 op, u32 diff);
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
