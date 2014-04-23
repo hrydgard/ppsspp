@@ -278,7 +278,8 @@ void fbo_bind_as_render_target(FBO *fbo) {
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 #endif
 	}
-	if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+	// Adreno & Mali needs us to reset the viewport after switching render targets.
+	if ((gl_extensions.gpuVendor == GPU_VENDOR_ARM) || (gl_extensions.gpuVendor == GPU_VENDOR_ADRENO)) {
 		glstate.viewport.restore();
 	}
 }
