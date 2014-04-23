@@ -278,6 +278,8 @@ void fbo_bind_as_render_target(FBO *fbo) {
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 #endif
 	}
+	// Always restore viewport after render target binding
+	glstate.viewport.restore();
 }
 
 void fbo_bind_for_read(FBO *fbo) {
