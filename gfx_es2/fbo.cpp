@@ -278,6 +278,9 @@ void fbo_bind_as_render_target(FBO *fbo) {
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 #endif
 	}
+	if (gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+		glstate.viewport.restore();
+	}
 }
 
 void fbo_bind_for_read(FBO *fbo) {
