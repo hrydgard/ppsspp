@@ -40,12 +40,9 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 		FirstCommentChar = 0;
 
 	// Allow preservation of spacing before comment
-	if (FirstCommentChar > 0)
+	while (FirstCommentChar > 0 && line[FirstCommentChar - 1] <= ' ')
 	{
-		while (line[FirstCommentChar - 1] == ' ' || line[FirstCommentChar - 1] == 9) // 9 == tab
-		{
-			FirstCommentChar--;
-		}
+		FirstCommentChar--;
 	}
 
 	if ((FirstEquals >= 0) && ((FirstCommentChar < 0) || (FirstEquals < FirstCommentChar)))
