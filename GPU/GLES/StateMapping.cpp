@@ -419,9 +419,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				amask = false;
 			}
 		}
-		if (g_Config.bAlphaMaskHack) {
-			amask = true;  // Yes, this makes no sense, but it "fixes" the 3rd Birthday by popular demand.
-		}
 
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
