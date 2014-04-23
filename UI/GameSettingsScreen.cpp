@@ -246,9 +246,6 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *lowAudio = audioSettings->Add(new CheckBox(&g_Config.bLowLatencyAudio, a->T("Low latency audio")));
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
 
-	audioSettings->Add(new ItemHeader(a->T("Audio hacks")));
-	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (DOA etc.)")));
-
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
