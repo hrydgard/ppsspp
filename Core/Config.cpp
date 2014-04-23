@@ -392,7 +392,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack),
-	ReportedConfigSetting("AlphaMaskHack", &g_Config.bAlphaMaskHack, false),
 	ReportedConfigSetting("LowQualitySplineBezier", &g_Config.bLowQualitySplineBezier, false),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
