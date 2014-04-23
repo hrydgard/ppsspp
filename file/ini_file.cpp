@@ -45,6 +45,7 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 		while (line[FirstCommentChar - 1] == ' ' || line[FirstCommentChar - 1] == 9) // 9 == tab
 		{
 			FirstCommentChar--;
+			if (FirstCommentChar <= 0) break;
 		}
 	}
 
