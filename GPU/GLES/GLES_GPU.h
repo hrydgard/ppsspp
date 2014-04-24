@@ -127,6 +127,8 @@ public:
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
+	void Execute_BlendFixa(u32 op, u32 diff);
+	void Execute_BlendFixb(u32 op, u32 diff);
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);
