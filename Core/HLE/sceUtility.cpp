@@ -412,8 +412,9 @@ int sceUtilityNetconfUpdate(int animSpeed)
 
 int sceUtilityNetconfGetStatus()
 {
+	// Spam in Danball Senki BOOST
 	if (currentDialogType != UTILITY_DIALOG_NET) {
-		WARN_LOG(SCEUTILITY, "sceUtilityNetconfGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilityNetconfGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
