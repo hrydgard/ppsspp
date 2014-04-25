@@ -434,7 +434,7 @@ u32 sceUtilityScreenshotInitStart(u32 paramAddr)
 	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
 	currentDialogActive = true;
 
-	u32 retval = screenshotDialog.Init();
+	u32 retval = screenshotDialog.Init(paramAddr);
 	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
 }
