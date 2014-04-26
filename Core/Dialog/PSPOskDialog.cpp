@@ -27,7 +27,6 @@
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
-#include "Common\LogManager.h"
 
 #if defined(USING_WIN_UI)
 #include "base/NativeApp.h"
@@ -38,11 +37,9 @@
 #include <math.h>
 #endif
 
-const u32 SceUtilitylog = 13;
-
 // These are rough, it seems to take a long time to init, and probably depends on threads.
 // TODO: This takes like 700ms on a PSP but that's annoyingly long.
-static int OSK_INIT_DELAY_US = 300000;
+const static int OSK_INIT_DELAY_US = 300000;
 const static int OSK_SHUTDOWN_DELAY_US = 40000;
 
 static std::map<std::string, std::pair<std::string, int>> languageMapping;
@@ -263,15 +260,6 @@ int PSPOskDialog::Init(u32 oskPtr) {
 		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
 	if (oskParams->fieldCount != 1)
 		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
-
-	// Fix Resistance Houfuku noToki cannot draw OSK in debug log
-	LogManager *logMan = LogManager::GetInstance();
-	LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)SceUtilitylog;
-	LogChannel *chan = logMan->GetLogChannel(type);
-	if (chan->level_ > 4)
-		OSK_INIT_DELAY_US = 10000;
-	else
-		OSK_INIT_DELAY_US = 300000;
 
 	ChangeStatusInit(OSK_INIT_DELAY_US);
 	selectedChar = 0;
