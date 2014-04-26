@@ -337,7 +337,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	audioCodec = -1;
 	audioStreamNum = -1;
 	playMode = 0;
-	playSpeed = 0;
+	playSpeed = 1;
 	psmfPlayerLastTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
@@ -1432,22 +1432,14 @@ u32 scePsmfPlayerGetCurrentPlayMode(u32 psmfPlayer, u32 playModeAddr, u32 playSp
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x): invalid psmf player", psmfPlayer, playModeAddr, playSpeedAddr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPlayMode(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	WARN_LOG(ME, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x)", psmfPlayer, playModeAddr, playSpeedAddr);
+	DEBUG_LOG(ME, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x)", psmfPlayer, playModeAddr, playSpeedAddr);
 	if (Memory::IsValidAddress(playModeAddr)) {
-		// Fixing for AKB MPEG wrong pointer
 		Memory::Write_U32(psmfplayer->playMode, playModeAddr);
 	}
 	if (Memory::IsValidAddress(playSpeedAddr)) {
-		// Fixing for AKB MPEG wrong pointer
 		Memory::Write_U32(psmfplayer->playSpeed, playSpeedAddr);
 	}
 	return 0;
@@ -1526,18 +1518,46 @@ u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpeed)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): invalid psmf player", psmfPlayer, playMode, playSpeed);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerChangePlayMode(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): not playing yet", psmfPlayer, playMode, playSpeed);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (playMode < 0 || playMode > (int)PSMF_PLAYER_MODE_REWIND) {
+		ERROR_LOG(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): invalid mode", psmfPlayer, playMode, playSpeed);
+		return ERROR_PSMFPLAYER_INVALID_CONFIG;
+	}
 
-	WARN_LOG(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer, playMode, playSpeed);
+	switch (playMode) {
+	case PSMF_PLAYER_MODE_FORWARD:
+	case PSMF_PLAYER_MODE_REWIND:
+		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): no EP data for FORWARD/REWIND", psmfPlayer, playMode, playSpeed);
+			return ERROR_PSMFPLAYER_INVALID_STREAM;
+		}
+		psmfplayer->playSpeed = playSpeed;
+		WARN_LOG_REPORT(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		break;
+
+	case PSMF_PLAYER_MODE_PLAY:
+	case PSMF_PLAYER_MODE_PAUSE:
+		if (psmfplayer->playSpeed != playSpeed) {
+			WARN_LOG_REPORT(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+		} else {
+			DEBUG_LOG(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer, playMode, playSpeed);
+		}
+		break;
+
+	default:
+		if (psmfplayer->playSpeed != playSpeed) {
+			WARN_LOG_REPORT(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+		}
+		WARN_LOG_REPORT(ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		break;
+	}
+
 	psmfplayer->playMode = playMode;
-	psmfplayer->playSpeed = playSpeed;
 	return 0;
 }
 
