@@ -87,7 +87,7 @@ public:
 	s64 getLastTimeStamp();
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
-	bool IsNoAudioData() { return m_noAudioData; }
+	bool IsNoAudioData();
 
 	void DoState(PointerWrap &p);
 
@@ -128,7 +128,6 @@ public:  // TODO: Very little of this below should be public.
 	s64 m_lastTimeStamp;
 
 	bool m_isVideoEnd;
-	bool m_noAudioData;
 
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];  // TODO: Allocate separately

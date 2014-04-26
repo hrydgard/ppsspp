@@ -148,7 +148,6 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_firstTimeStamp = 0;
 	m_lastTimeStamp = 0;
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
@@ -171,7 +170,6 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	AudioClose(&m_audioContext);
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 }
 
 void MediaEngine::DoState(PointerWrap &p){
@@ -212,11 +210,11 @@ void MediaEngine::DoState(PointerWrap &p){
 	}
 
 	p.Do(m_isVideoEnd);
-	p.Do(m_noAudioData);
-	if (s >= 3){
+	bool noAudioDataRemoved;
+	p.Do(noAudioDataRemoved);
+	if (s >= 3) {
 		p.Do(m_audioType);
-	}
-	else{
+	} else {
 		m_audioType = PSP_CODEC_AT3PLUS;
 	}
 }
@@ -288,7 +286,6 @@ bool MediaEngine::openContext() {
 	setVideoDim();
 	m_audioContext = new SimpleAudio(m_audioType);
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
@@ -343,7 +340,6 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		if (!m_pdata->push(buffer, size)) 
 			size  = 0;
 		if (m_demux) {
-			m_noAudioData = false;
 			m_demux->addStreamData(buffer, addSize);
 		}
 #ifdef USE_FFMPEG
@@ -729,7 +725,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		return 0;
 	}
 
-	// When m_demux , increment pts 
+	// When getting a frame, increment pts
 	m_audiopts += 4180;
 	
 	// Demux now (rather than on add data) so that we select the right stream.
@@ -737,9 +733,8 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 
 	u8 *audioFrame = 0;
 	int headerCode1, headerCode2;
-	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);
+	int frameSize = m_demux->getNextAudioFrame(&audioFrame, &headerCode1, &headerCode2);
 	if (frameSize == 0) {
-		m_noAudioData = true;
 		return 0;
 	}
 	int outbytes = 0;
@@ -761,8 +756,18 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		}
 	}
 
-	m_noAudioData = false;
 	return 0x2000;
+}
+
+bool MediaEngine::IsNoAudioData() {
+	if (!m_demux) {
+		return true;
+	}
+
+	// Let's double check.  Here should be a safe enough place to demux.
+	m_demux->demux(m_audioStream);
+	return !m_demux->hasNextAudioFrame(NULL, NULL, NULL, NULL);
+
 }
 
 s64 MediaEngine::getVideoTimeStamp() {

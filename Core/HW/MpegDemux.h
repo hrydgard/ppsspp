@@ -14,11 +14,12 @@ public:
 	MpegDemux(int size, int offset);
 	~MpegDemux();
 
-	bool addStreamData(u8* buf, int addSize);
+	bool addStreamData(const u8 *buf, int addSize);
 	void demux(int audioChannel);
 
 	// return its framesize
-	int getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2);
+	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
+	bool hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2);
 
 	inline int getRemainSize() {
 		return m_len - m_readSize;
