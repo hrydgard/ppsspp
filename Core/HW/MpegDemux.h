@@ -28,8 +28,8 @@ public:
 
 private:
 	struct PesHeader {
-		long pts;
-		long dts;
+		s64 pts;
+		s64 dts;
 		int channel;
 
 		PesHeader(int chan) {
@@ -40,16 +40,16 @@ private:
 	};
 
 	int read8() {
-		return m_buf[m_index++] & 0xFF;
+		return m_buf[m_index++];
 	}
 	int read16() {
 		return (read8() << 8) | read8();
 	}
-	long readPts() {
+	s64 readPts() {
 		return readPts(read8());
 	}
-	long readPts(int c) {
-		return (((long) (c & 0x0E)) << 29) | ((read16() >> 1) << 15) | (read16() >> 1);
+	s64 readPts(int c) {
+		return (((s64) (c & 0x0E)) << 29) | ((read16() >> 1) << 15) | (read16() >> 1);
 	}
 	bool isEOF() {
 		return m_index >= m_len;

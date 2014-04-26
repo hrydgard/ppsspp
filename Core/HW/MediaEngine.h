@@ -68,7 +68,8 @@ public:
 	int addStreamData(u8* buffer, int addSize);
 
 	bool setVideoStream(int streamNum, bool force = false);
-	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
+	// TODO: Return false if the stream doesn't exist.
+	bool setAudioStream(int streamNum) { m_audioStream = streamNum; return true; }
 
 	u8 *getFrameImage();
 	int getRemainSize();
