@@ -27,7 +27,7 @@
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
-#include "Common/LogManager.h"
+#include "Common\LogManager.h"
 
 #if defined(USING_WIN_UI)
 #include "base/NativeApp.h"
