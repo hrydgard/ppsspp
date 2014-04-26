@@ -381,7 +381,7 @@ int sceUtilityOskGetStatus()
 
 	int status = oskDialog.GetStatus();
 	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
-	return status;
+	return hleDelayResult(status, "sceUtilityOskGetStatus", 10);
 }
 
 
