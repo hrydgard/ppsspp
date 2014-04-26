@@ -347,6 +347,18 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &GLES_GPU::Execute_BoneMtxNum},
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, &GLES_GPU::Execute_BoneMtxData},
 
+	// Vertex Screen/Texture/Color
+	{GE_CMD_VSCX, FLAG_EXECUTE},
+	{GE_CMD_VSCY, FLAG_EXECUTE},
+	{GE_CMD_VSCZ, FLAG_EXECUTE},
+	{GE_CMD_VTCS, FLAG_EXECUTE},
+	{GE_CMD_VTCT, FLAG_EXECUTE},
+	{GE_CMD_VTCQ, FLAG_EXECUTE},
+	{GE_CMD_VCV, FLAG_EXECUTE},
+	{GE_CMD_VAP, FLAG_EXECUTE},
+	{GE_CMD_VFC, FLAG_EXECUTE},
+	{GE_CMD_VSCV, FLAG_EXECUTE},
+
 	// "Missing" commands (gaps in the sequence)
 	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE},
@@ -365,16 +377,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_EF, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F0, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F1, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F2, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F3, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F4, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F5, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F6, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F7, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F8, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_F9, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FA, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FB, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
@@ -1744,6 +1746,57 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_REVERSENORMAL:
 		break;
 
+	case GE_CMD_VSCX:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : % 06x", data);
+		break;
+
+	case GE_CMD_VSCY:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : % 06x", data);
+		break;
+
+	case GE_CMD_VSCZ:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : % 06x", data);
+		break;
+
+	case GE_CMD_VTCS:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : % 06x", data);
+		break;
+
+	case GE_CMD_VTCT:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : % 06x", data);
+		break;
+
+	case GE_CMD_VTCQ:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : % 06x", data);
+		break;
+
+	case GE_CMD_VCV:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : % 06x", data);
+		break;
+
+	case GE_CMD_VAP:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : % 06x", data);
+		break;
+
+	case GE_CMD_VFC:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : % 06x", data);
+		break;
+
+	case GE_CMD_VSCV:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : % 06x", data);
+		break;
+
+
 	case GE_CMD_UNKNOWN_03: 
 	case GE_CMD_UNKNOWN_0D:
 	case GE_CMD_UNKNOWN_11:
@@ -1761,16 +1814,6 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_UNKNOWN_D1:
 	case GE_CMD_UNKNOWN_ED:
 	case GE_CMD_UNKNOWN_EF:
-	case GE_CMD_UNKNOWN_F0:
-	case GE_CMD_UNKNOWN_F1:
-	case GE_CMD_UNKNOWN_F2:
-	case GE_CMD_UNKNOWN_F3:
-	case GE_CMD_UNKNOWN_F4:
-	case GE_CMD_UNKNOWN_F5:
-	case GE_CMD_UNKNOWN_F6:
-	case GE_CMD_UNKNOWN_F7:
-	case GE_CMD_UNKNOWN_F8:
-	case GE_CMD_UNKNOWN_F9:
 	case GE_CMD_UNKNOWN_FA:
 	case GE_CMD_UNKNOWN_FB:
 	case GE_CMD_UNKNOWN_FC:
