@@ -72,8 +72,12 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
+#endif
+
+#if !defined(MOBILE_DEVICE)
 	bool bEscapeExitsEmulator;
 #endif
+
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;

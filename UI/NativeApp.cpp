@@ -320,6 +320,10 @@ void NativeInit(int argc, const char *argv[],
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = argv[i] + strlen("--state=");
+#if !defined(MOBILE_DEVICE)
+				if (!strncmp(__argv[i], "--escape-exit", strlen("--escape-exit")))
+					g_Config.bEscapeExitsEmulator = true;
+#endif
 				break;
 			}
 		} else {
@@ -684,6 +688,11 @@ void NativeTouch(const TouchInput &touch) {
 
 void NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+#if !defined(MOBILE_DEVICE)
+	if (g_Config.bEscapeExitsEmulator && key.keyCode == NKCODE_ESCAPE) {
+		System_SendMessage("finish", "");
+	}
+#endif
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);
