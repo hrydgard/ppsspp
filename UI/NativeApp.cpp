@@ -321,7 +321,7 @@ void NativeInit(int argc, const char *argv[],
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = argv[i] + strlen("--state=");
 #if !defined(MOBILE_DEVICE)
-				if (!strncmp(__argv[i], "--escape-exit", strlen("--escape-exit")))
+				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bEscapeExitsEmulator = true;
 #endif
 				break;
