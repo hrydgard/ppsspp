@@ -28,6 +28,11 @@
 // in NativeShutdown.
 
 #include <locale.h>
+// Linux doesn't like using std::find with std::vector<int> without this :/
+#if !defined(MOBILE_DEVICE)
+#include <algorithm>
+#endif
+
 #ifdef _WIN32
 #include <libpng16/png.h>
 #include "ext/jpge/jpge.h"
