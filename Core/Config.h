@@ -75,7 +75,7 @@ public:
 #endif
 
 #if !defined(MOBILE_DEVICE)
-	bool bEscapeExitsEmulator;
+	bool bPauseExitsEmulator;
 #endif
 
 	// Core
