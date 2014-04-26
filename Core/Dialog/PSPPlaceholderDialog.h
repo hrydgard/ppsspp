@@ -24,9 +24,11 @@ public:
 	PSPPlaceholderDialog();
 	virtual ~PSPPlaceholderDialog();
 
-	virtual int Init();
+	virtual int Init(int paramAddr);
 	virtual int Update(int animSpeed);
 
 	virtual int ContStart();
+protected:
+	int mode;
 };
 
