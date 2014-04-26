@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
 	int set_xres = -1;
 	int set_yres = -1;
 #else
-	mode = SDL_OPENGL;
+	mode = SDL_OPENGL | SDL_RESIZABLE;
 	int set_xres = -1;
 	int set_yres = -1;
 
@@ -627,6 +627,23 @@ int main(int argc, char *argv[]) {
 			case SDL_QUIT:
 				g_QuitRequested = 1;
 				break;
+#if !defined(MOBILE_DEVICE)
+			case SDL_VIDEORESIZE:
+			{
+				g_Screen = SDL_SetVideoMode(event.resize.w, event.resize.h, 0, SDL_OPENGL | SDL_RESIZABLE);
+				if (g_Screen == NULL) {
+					fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
+					SDL_Quit();
+					return 2;
+				}
+				pixel_xres = event.resize.w;
+				pixel_yres = event.resize.h;
+				dp_xres = (float)pixel_xres * dpi_scale;
+				dp_yres = (float)pixel_yres * dpi_scale;
+				NativeResized();
+				break;
+			}
+#endif
 			case SDL_KEYDOWN:
 				{
 					int k = event.key.keysym.sym;
