@@ -168,7 +168,11 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
+void System_SendMessage(const char *command, const char *parameter) {
+	if (!strcmp(command, "finish")) {
+		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+	}
+}
 
 void EnableCrashingOnCrashes() 
 { 
@@ -340,9 +344,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
 				g_Config.bFullScreen = false;
-
-			if (!strncmp(__argv[i], "--escapeexitsemu", strlen("--escapeexitsemu")))
-				g_Config.bEscapeExitsEmulator = true;
 		}
 	}
 #ifdef _DEBUG
