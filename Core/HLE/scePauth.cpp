@@ -28,7 +28,7 @@
 
 int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	ERROR_LOG_REPORT_ONCE(1,HLE, "UNIMPL scePauth_F7AA47F6(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);	
+	ERROR_LOG_REPORT_ONCE(scePauth_F7AA47F6, HLE, "UNIMPL scePauth_F7AA47F6(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);
 	return 0;
 }
 
