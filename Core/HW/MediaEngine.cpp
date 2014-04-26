@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -614,6 +616,10 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(bufferPtr, true, videoImageSize, currentMIPS->pc);
+#endif
 	return videoImageSize;
 #endif // USE_FFMPEG
 	return 0;
@@ -649,6 +655,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
@@ -659,6 +668,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -669,6 +681,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -679,6 +694,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
