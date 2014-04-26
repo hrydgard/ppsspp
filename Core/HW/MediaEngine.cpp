@@ -761,6 +761,9 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
+#ifndef MOBILE_DEVICE
+		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
+#endif
 	}
 
 	if (headerCode1 == 0x24) {
