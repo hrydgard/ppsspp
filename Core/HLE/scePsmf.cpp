@@ -124,6 +124,12 @@ struct PsmfInfo {
 	s32_le playerVersion;
 };
 
+struct PsmfVideoData {
+	s32_le frameWidth;
+	u32_le displaybuf;
+	u32_le displaypts;
+};
+
 struct PsmfEntry {
 	int EPPts;
 	int EPOffset;
@@ -220,6 +226,7 @@ public:
 	int totalVideoStreams;
 	int totalAudioStreams;
 	int playerVersion;
+	int videoStep;
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
@@ -345,6 +352,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	fileoffset = 0;
 	readSize = 0;
 	streamSize = 0;
+	videoStep = 0;
 
 	displayBuffer = data->buffer.ptr;
 	displayBufferSize = data->bufferSize;
@@ -387,7 +395,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1, 2);
+	auto s = p.Section("PsmfPlayer", 1, 3);
 	if (!s)
 		return;
 
@@ -407,6 +415,15 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 		p.Do(totalVideoStreams);
 		p.Do(totalAudioStreams);
 		p.Do(playerVersion);
+	} else {
+		totalVideoStreams = 1;
+		totalAudioStreams = 1;
+		playerVersion = PSMF_PLAYER_VERSION_FULL;
+	}
+	if (s >= 3) {
+		p.Do(videoStep);
+	} else {
+		videoStep = 0;
 	}
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
@@ -1243,6 +1260,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
+	psmfplayer->videoStep++;
 
 	return 0;
 }
@@ -1291,30 +1309,47 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return 0;
 	}
 
-	if (Memory::IsValidAddress(videoDataAddr)) {
-		int frameWidth = Memory::Read_U32(videoDataAddr);
-        u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
-        int displaypts = Memory::Read_U32(videoDataAddr + 8);
+	hleEatCycles(20000);
+
+	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
+	if (videoData.IsValid()) {
+		if (!psmfplayer->mediaengine->IsNoAudioData()) {
+			const s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+			if (deltapts > 0) {
+				// Don't advance, just return the same frame again.
+				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
+				psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+				psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
+				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
+				return hleDelayResult(0, "psmfPlayer behind audio", 3000);
+			}
+		} else {
+			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
+			if (psmfplayer->videoStep <= 1) {
+				// In this case, don't advance but also don't write the video frame.
+				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
+				return hleDelayResult(0, "psmfPlayer behind", 3000);
+			}
+			psmfplayer->videoStep = 0;
+		}
+
 		if (psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
-			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(displaybuf, frameWidth, videoPixelMode);
-			gpu->InvalidateCache(displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
+			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+			gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		}
 		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
-		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
+		videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
 	}
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
 	int ret = psmfplayer->mediaengine->IsVideoEnd() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetVideoData(%08x, %08x)", ret, psmfPlayer, videoDataAddr);
-	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-	int delaytime = 3000;
-	if (deltapts > 0 && !psmfplayer->mediaengine->IsNoAudioData())
-		delaytime = deltapts * 1000000 / 90000;
-	if (!ret)
-		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
-	else
-		return hleDelayResult(ret, "psmfPlayer all data decoded", 3000);
+	if (ret != 0) {
+		return ret;
+	}
+
+	return hleDelayResult(ret, "psmfPlayer video decode", 3000);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
@@ -1352,7 +1387,13 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	
 	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
-	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
+	if (ret != 0) {
+		hleEatCycles(10000);
+	} else {
+		hleEatCycles(30000);
+	}
+	hleReSchedule("psmfplayer audio decode");
+	return ret;
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
