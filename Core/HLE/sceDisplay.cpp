@@ -101,6 +101,7 @@ static int numVBlanksSinceFlip;
 static u64 frameStartTicks;
 const int hCountPerVblank = 286;
 
+const int PSP_DISPLAY_MODE_LCD = 0;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 // Key is the callback id it was for, or if no callback, the thread id.
@@ -637,8 +638,17 @@ u32 sceDisplayIsVblank() {
 }
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+	if (displayWidth <= 0 || displayHeight <= 0 || (displayWidth & 0x7) != 0) {
+		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	
+	if (displayMode != PSP_DISPLAY_MODE_LCD) {
+		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID MODE(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+	}
 
+	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
