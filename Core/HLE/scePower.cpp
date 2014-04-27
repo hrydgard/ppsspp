@@ -44,6 +44,10 @@ const int PSP_POWER_CB_AC_POWER = 0x00001000;
 const int PSP_POWER_CB_BATTERY_EXIST = 0x00000080;
 const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
 
+const int KERNEL_POWER_TICK_SUSPEND_AND_DISPLAY = 0;
+const int KERNEL_POWER_TICK_SUSPEND = 1;
+const int KERNEL_POWER_TICK_DISPLAY = 6;
+
 const int POWER_CB_AUTO = -1;
 
 // These are the callback slots for user mode applications.
@@ -206,20 +210,37 @@ int sceKernelPowerUnlock(int lockType) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 }
+void __KernelPowerTick() {
 
-int sceKernelPowerTick(int flag) {
-	DEBUG_LOG(HLE, "UNIMPL 0=sceKernelPowerTick(%i)", flag);
-	return 0;
 }
 
-#define ERROR_POWER_VMEM_IN_USE 0x802b0200
+int sceKernelPowerTick(int flag) {
+	// The PSP is checking each of the lower 8 bits of the flag value to tick different
+	// components.
+	// Can be seen in various games like 3rd birthday (flag 0) and Dead or Alive(flag 6)
+	switch (flag) {
+		case KERNEL_POWER_TICK_SUSPEND:
+			WARN_LOG(HLE, "sceKernelPowerTick(%i) : KERNEL_POWER_TICK_SUSPEND ", flag);
+			break;
+		case KERNEL_POWER_TICK_DISPLAY:
+			__KernelPowerTick();
+			WARN_LOG(HLE, "sceKernelPowerTick(%i) : KERNEL_POWER_TICK_SUSPEND ", flag);
+			break;
+		case KERNEL_POWER_TICK_SUSPEND_AND_DISPLAY:
+			__KernelPowerTick();
+			WARN_LOG(HLE, "sceKernelPowerTick(%i) : KERNEL_POWER_TICK_SUSPEND_AND_DISPLAY ", flag);
+			break;
+	}
+
+	return 0;
+}
 
 int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 	if (volatileMemLocked) {
-		return ERROR_POWER_VMEM_IN_USE;
+		return SCE_KERNEL_ERROR_POWER_VMEM_IN_USE;
 	}
 
 	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
@@ -249,7 +270,7 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
 		break;
 
@@ -321,7 +342,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		{
 			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - already locked, waiting", type, paddr, psize);
 			const VolatileWaitingThread waitInfo = { __KernelGetCurThread(), paddr, psize };
