@@ -125,7 +125,7 @@ void GameSettingsScreen::CreateViews() {
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
@@ -410,7 +410,12 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	host->GoFullscreen(g_Config.bFullScreen);
+#else
+	// SDL, basically.
+	System_SendMessage("toggle_fullscreen", "");
+#endif
 	return UI::EVENT_DONE;
 }
 
