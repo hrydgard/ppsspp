@@ -403,7 +403,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true),
 	ConfigSetting("VolumeBGM", &g_Config.iBGMVolume, 7),
 	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
-	ConfigSetting("LowLatency", &g_Config.bLowLatencyAudio, false),
+	ConfigSetting("AudioLatency", &g_Config.IaudioLatency, 1),
 
 	ConfigSetting(false),
 };
