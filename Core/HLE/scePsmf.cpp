@@ -931,7 +931,7 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 		*player = 0;
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
-	if (data->bufferSize < 0x00300000) {
+	if (data->bufferSize < 0x00285800) {
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): buffer too small %08x", psmfPlayer, dataPtr, data->bufferSize);
 		*player = 0;
 		return ERROR_PSMFPLAYER_BUFFER_SIZE;
