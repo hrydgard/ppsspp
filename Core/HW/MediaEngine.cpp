@@ -788,7 +788,6 @@ bool MediaEngine::IsNoAudioData() {
 	// Let's double check.  Here should be a safe enough place to demux.
 	m_demux->demux(m_audioStream);
 	return !m_demux->hasNextAudioFrame(NULL, NULL, NULL, NULL);
-
 }
 
 s64 MediaEngine::getVideoTimeStamp() {

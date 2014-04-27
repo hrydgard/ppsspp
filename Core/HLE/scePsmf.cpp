@@ -1318,7 +1318,9 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 			if (deltapts > 0) {
 				// Don't advance, just return the same frame again.
 				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
-				psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+				int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+				// Need to invalidate, even if it didn't change, to trigger upload to framebuffer.
+				gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 				psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
 				return hleDelayResult(0, "psmfPlayer behind audio", 3000);
