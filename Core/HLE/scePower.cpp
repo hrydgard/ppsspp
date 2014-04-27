@@ -212,14 +212,12 @@ int sceKernelPowerTick(int flag) {
 	return 0;
 }
 
-#define ERROR_POWER_VMEM_IN_USE 0x802b0200
-
 int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 	if (volatileMemLocked) {
-		return ERROR_POWER_VMEM_IN_USE;
+		return SCE_KERNEL_ERROR_POWER_VMEM_IN_USE;
 	}
 
 	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
@@ -249,7 +247,7 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
 		break;
 
@@ -321,7 +319,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		{
 			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - already locked, waiting", type, paddr, psize);
 			const VolatileWaitingThread waitInfo = { __KernelGetCurThread(), paddr, psize };
