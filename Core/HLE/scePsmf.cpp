@@ -47,6 +47,8 @@ const int PSMF_PLAYER_CONFIG_NO_LOOP = 1;
 const int PSMF_PLAYER_CONFIG_MODE_LOOP = 0;
 const int PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE = 1;
 
+const int PSMF_PLAYER_WARMUP_FRAMES = 3;
+
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
@@ -112,8 +114,6 @@ struct PsmfPlayerData {
 	s32_le audioStreamNum;
 	s32_le playMode;
 	s32_le playSpeed;
-	// TODO: Was "long", which is 32, but should this be 64?  Not even used?
-	s32_le psmfPlayerLastTimestamp;
 };
 
 struct PsmfInfo {
@@ -217,7 +217,7 @@ public:
 	int audioStreamNum;
 	int playMode;
 	int playSpeed;
-	long psmfPlayerLastTimestamp;
+	u64 lastTimestamp;
 
 	int displayBuffer;
 	int displayBufferSize;
@@ -227,6 +227,7 @@ public:
 	int totalAudioStreams;
 	int playerVersion;
 	int videoStep;
+	int warmUp;
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
@@ -345,7 +346,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	audioStreamNum = -1;
 	playMode = 0;
 	playSpeed = 1;
-	psmfPlayerLastTimestamp = 0;
+	lastTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
 	filehandle = 0;
@@ -353,6 +354,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	readSize = 0;
 	streamSize = 0;
 	videoStep = 0;
+	warmUp = 0;
 
 	displayBuffer = data->buffer.ptr;
 	displayBufferSize = data->bufferSize;
@@ -410,7 +412,13 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(displayBufferSize);
 	p.Do(playbackThreadPriority);
 	p.Do(psmfMaxAheadTimestamp);
-	p.Do(psmfPlayerLastTimestamp);
+	if (s >= 4) {
+		p.Do(lastTimestamp);
+	} else {
+		long oldTimestamp;
+		p.Do(oldTimestamp);
+		lastTimestamp = oldTimestamp;
+	}
 	if (s >= 2) {
 		p.Do(totalVideoStreams);
 		p.Do(totalAudioStreams);
@@ -425,6 +433,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	} else {
 		videoStep = 0;
 	}
+	if (s >= 4) {
+		p.Do(warmUp);
+	} else {
+		warmUp = 10000;
+	}
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
 	p.Do(fileoffset);
@@ -432,6 +445,9 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(streamSize);
 
 	p.Do(status);
+	if (s >= 4) {
+		p.Do(psmfPlayerAtracAu);
+	}
 	p.Do(psmfPlayerAvcAu);
 }
 
@@ -1094,7 +1110,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
-		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->lastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
@@ -1191,14 +1207,6 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		psmfplayer->audioStreamNum = data.audioStreamNum;
 		psmfplayer->playMode = data.playMode;
 		psmfplayer->playSpeed = data.playSpeed;
-		/*data.videoCodec = psmfplayer->videoCodec;
-		data.videoStreamNum = psmfplayer->videoStreamNum;
-		data.audioCodec = psmfplayer->audioCodec;
-		data.audioStreamNum = psmfplayer->audioStreamNum;
-		data.playMode = psmfplayer->playMode;
-		data.playSpeed = psmfplayer->playSpeed;
-		data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
-		Memory::WriteStruct(psmfPlayerData, &data);*/
 	}
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
@@ -1311,6 +1319,17 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	hleEatCycles(20000);
 
+	// On a real PSP, this takes a potentially variable amount of time.
+	// Normally a minimum of 3 without audio, 5 with.  But if you don't delay sufficiently between, hundreds.
+	// It should be okay if we start videos quicker, but some games expect the first couple to fail.
+	if (psmfplayer->warmUp < PSMF_PLAYER_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): warming up", psmfPlayer, videoDataAddr);
+		++psmfplayer->warmUp;
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
+	}
+	// In case we change warm up later, save a high value in savestates - video started.
+	psmfplayer->warmUp = 10000;
+
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
@@ -1381,6 +1400,12 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		}
 		return 0;
+	}
+
+	// Don't return audio frames before we would return video frames.
+	if (psmfplayer->warmUp < PSMF_PLAYER_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): warming up", psmfPlayer, audioDataAddr);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
 	if (Memory::IsValidAddress(audioDataAddr)) {
@@ -1460,7 +1485,7 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 	}
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
-	info->lengthTS = psmfplayer->psmfPlayerLastTimestamp - 3003;
+	info->lengthTS = psmfplayer->lastTimestamp - 3003;
 	info->numVideoStreams = psmfplayer->totalVideoStreams;
 	info->numAudioStreams = psmfplayer->totalAudioStreams;
 	// pcm stream num?
