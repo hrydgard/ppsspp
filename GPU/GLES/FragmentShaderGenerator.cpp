@@ -32,6 +32,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "UI/OnScreenDisplay.h"
 
 #define WRITE p+=sprintf
 
@@ -137,6 +138,8 @@ const bool nonAlphaDestFactors[16] = {
 	true,  // GE_DSTBLEND_FIXB,
 };
 
+bool reportDualSourceOnce_;
+
 ReplaceAlphaType ReplaceAlphaWithStencil() {
 	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
@@ -146,9 +149,13 @@ ReplaceAlphaType ReplaceAlphaWithStencil() {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			if (gl_extensions.ARB_blend_func_extended) {
+			if (0) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
+				if (!reportDualSourceOnce_) {
+					osm.Show("Extension : GL_ARB_blend_func_extended is required", 2.5f, 0xFF3030FF, -1, true);
+					reportDualSourceOnce_ = true;
+				}
 				return REPLACE_ALPHA_NO;
 			}
 		}
