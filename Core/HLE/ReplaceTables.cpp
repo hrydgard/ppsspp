@@ -189,6 +189,11 @@ static int Replace_strncmp() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_fabsf() {
+	RETURNF(fabsf(PARAMF(0)));
+	return 4;
+}
+
 static int Replace_vmmul_q_transp() {
 	float *out = (float *)Memory::GetPointerUnchecked(PARAM(0));
 	const float *a = (const float *)Memory::GetPointerUnchecked(PARAM(1));
@@ -384,7 +389,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, 0},
 	{ "strcmp", &Replace_strcmp, 0, 0},
 	{ "strncmp", &Replace_strncmp, 0, 0},
-	{ "fabsf", 0, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
+	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},

@@ -1012,16 +1012,15 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-
 	void Int_Emuhack(MIPSOpcode op)
 	{
-		if (((op >> 24) & 3) != 1) {
+		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
 			_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
 		}
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
-		if (entry) {
+		if (entry && entry->replaceFunc) {
 			entry->replaceFunc();
 		} else {
 			ERROR_LOG(CPU, "Bad replacement function index %i", index);
