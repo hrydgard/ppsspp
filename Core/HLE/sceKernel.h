@@ -307,6 +307,8 @@ enum
 
 	SCE_KERNEL_ERROR_CACHE_ALIGNMENT                  = 0x8002044c,
 	SCE_KERNEL_ERROR_ERRORMAX                         = 0x8002044d,
+
+	SCE_KERNEL_ERROR_POWER_VMEM_IN_USE                = 0x802b0200,
 };
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
