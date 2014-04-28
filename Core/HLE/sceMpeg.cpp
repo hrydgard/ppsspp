@@ -740,7 +740,6 @@ bool InitPmp(MpegContext * ctx){
 	InitFFmpeg();
 	auto mediaengine = ctx->mediaengine;
 	mediaengine->m_isVideoEnd = false;
-	mediaengine->m_noAudioData = false;
 	mediaengine->m_firstTimeStamp = 0;
 	mediaengine->m_lastTimeStamp = 0;
 	ctx->mpegFirstTimestamp = 0;
