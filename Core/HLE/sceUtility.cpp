@@ -39,6 +39,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
+#include "Core/Dialog/PSPScreenshotDialog.h"
 
 #define PSP_AV_MODULE_AVCODEC     0
 #define PSP_AV_MODULE_SASCORE     1
@@ -74,7 +75,7 @@ static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
 static PSPNetconfDialog netDialog;
-static PSPPlaceholderDialog screenshotDialog;
+static PSPScreenshotDialog screenshotDialog;
 static PSPGamedataInstallDialog gamedataInstallDialog;
 
 static std::set<int> currentlyLoadedModules;
@@ -444,7 +445,7 @@ u32 sceUtilityScreenshotInitStart(u32 paramAddr)
 	
 	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
 	currentDialogActive = true;
-	u32 retval = screenshotDialog.Init();
+	u32 retval = screenshotDialog.Init(paramAddr);
 	WARN_LOG_REPORT(SCEUTILITY, "%08x=sceUtilityScreenshotInitStart(%08x)", retval, paramAddr);
 	return retval;
 }

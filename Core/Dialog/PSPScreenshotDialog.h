@@ -19,12 +19,17 @@
 
 #include "Core/Dialog/PSPDialog.h"
 
-class PSPPlaceholderDialog: public PSPDialog {
+class PSPScreenshotDialog : public PSPDialog {
 public:
-	PSPPlaceholderDialog();
-	virtual ~PSPPlaceholderDialog();
+	PSPScreenshotDialog();
+	virtual ~PSPScreenshotDialog();
 
-	virtual int Init();
+	virtual int Init(int paramAddr);
 	virtual int Update(int animSpeed);
+	virtual int ContStart();
+	virtual void DoState(PointerWrap &p);
+
+protected:
+	int mode;
 };
 

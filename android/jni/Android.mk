@@ -191,6 +191,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPNetconfDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
+  $(SRC)/Core/Dialog/PSPScreenshotDialog.cpp \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
