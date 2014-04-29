@@ -39,7 +39,7 @@ if not exist %PPSSPP_ROOT%\%RELEASEX86% (
 )
 call msbuild PPSSPP.sln /t:Clean %DBG_PPSSPP% /m
 call msbuild PPSSPP.sln /t:Build %DBG_PPSSPP% /m
-if not exist %PPSSPP_ROOT%\%RELEASEX86% (
+if not exist %PPSSPP_ROOT%\%DEBUGX86% (
     echo Debug build failed.
     goto Quit
 )
