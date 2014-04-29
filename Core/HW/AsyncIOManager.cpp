@@ -32,9 +32,11 @@ bool AsyncIOManager::HasOperation(u32 handle) {
 }
 
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
-	lock_guard guard(resultsLock_);
-	if (!resultsPending_.insert(ev.handle).second) {
-		ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+	{
+		lock_guard guard(resultsLock_);
+		if (!resultsPending_.insert(ev.handle).second) {
+			ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+		}
 	}
 	ScheduleEvent(ev);
 }
