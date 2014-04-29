@@ -773,6 +773,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 	easy_guard guard(listLock);
 	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 	UpdatePC(currentList->pc);
+	// Count in a few extra cycles on END.
+	cyclesExecuted += 60;
+
 	switch (prev >> 24) {
 	case GE_CMD_SIGNAL:
 		{
