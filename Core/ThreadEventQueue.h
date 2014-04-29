@@ -75,6 +75,10 @@ struct ThreadEventQueue : public B {
 		eventsHaveRun_ = true;
 
 		do {
+			if (!HasEvents()) {
+				eventsWait_.wait(eventsLock_);
+			}
+
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
 				eventsLock_.unlock();
 				switch (EventType(ev)) {
@@ -95,11 +99,6 @@ struct ThreadEventQueue : public B {
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
 			if (ShouldExitEventLoop() || !threadEnabled_) {
 				break;
-			}
-
-			// coreState changes won't wake us, so recheck periodically.
-			if (!HasEvents()) {
-				eventsWait_.wait(eventsLock_);
 			}
 		} while (CoreTiming::GetTicks() < globalticks);
 
