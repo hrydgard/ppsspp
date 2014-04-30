@@ -3,7 +3,8 @@
 
 #if defined(USING_GLES2)
 #ifdef IOS
-// I guess we can soon add ES 3.0 here too
+#include <OpenGLES/ES3/gl.h>
+#include <OpenGLES/ES3/glext.h>
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
 #else
