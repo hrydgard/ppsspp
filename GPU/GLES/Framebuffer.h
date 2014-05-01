@@ -204,6 +204,8 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
+	void SetPsmfWidth(int width);
+
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();

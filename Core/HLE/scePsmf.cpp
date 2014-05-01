@@ -25,6 +25,7 @@
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MediaEngine.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -234,6 +235,7 @@ public:
 	PsmfPlayerStatus status;
 
 	MediaEngine* mediaengine;
+	FramebufferManager framebuffer;
 };
 
 class PsmfStream {
@@ -1329,9 +1331,9 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 	// In case we change warm up later, save a high value in savestates - video started.
 	psmfplayer->warmUp = 10000;
-
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
+		psmfplayer->framebuffer.SetPsmfWidth(videoData->frameWidth);
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
 			const s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
