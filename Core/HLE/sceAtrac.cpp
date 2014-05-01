@@ -69,6 +69,7 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
+bool Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 static const int atracDecodeDelay = 2300;
 
 #ifdef USE_FFMPEG
@@ -139,10 +140,13 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1 , 2);
+		auto s = p.Section("Atrac", 1 , 3);
 		if (!s)
 			return;
-
+		if (s >= 3)
+			p.Do(Use_PSP_AV_MODULE_ATRAC3PLUS);
+		else
+			Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
 
@@ -589,10 +593,20 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 	} else {
 		// We already passed the end - return an error (many games check for this.)
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
-			*SamplesNum = 0;
-			*finish = 1;
-			*remains = 0;
-			ret = ATRAC_ERROR_ALL_DATA_DECODED;
+			// Fix Yu Gi Oh Tag Force 1 freeze when summoning a monster
+			// https://github.com/hrydgard/ppsspp/issues/3552
+			if (Use_PSP_AV_MODULE_ATRAC3PLUS) {
+				*SamplesNum = 1;
+				*finish = 1;
+				*remains = 1;
+				ret = 0;
+			}
+			else {
+				*SamplesNum = 0;
+				*finish = 1;
+				*remains = 0;
+				ret = ATRAC_ERROR_ALL_DATA_DECODED;
+			}
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
 			u32 numSamples = 0;

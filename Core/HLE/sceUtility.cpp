@@ -39,6 +39,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
+#include "Core/HLE/sceAtrac.cpp"
 
 #define PSP_AV_MODULE_AVCODEC     0
 #define PSP_AV_MODULE_SASCORE     1
@@ -55,6 +56,7 @@ const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 const u32 PSP_MODULE_NET_HTTP = 261;
 const u32 PSP_MODULE_NET_HTTPSTORAGE = 264;
+const u32 PSP_MODULE_AV_ATRAC3PLUS = 770;
 
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
@@ -191,13 +193,15 @@ u32 sceUtilityLoadAvModule(u32 module)
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
+	if (module == PSP_AV_MODULE_ATRAC3PLUS)
+		Use_PSP_AV_MODULE_ATRAC3PLUS = true;
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "0=sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -212,10 +216,13 @@ u32 sceUtilityLoadModule(u32 module)
 
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
 	{
-		DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
+		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+
+	if (module == PSP_MODULE_AV_ATRAC3PLUS)
+		Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 	// Fix Kamen Rider Climax Heroes OOO - ULJS00331 loading
 	// Fix Naruto Shippuden Kizuna Drive (error module load failed)
 	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end()))
