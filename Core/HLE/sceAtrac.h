@@ -64,7 +64,6 @@ typedef struct
     SceAtracIdInfo info;
 } SceAtracId;
 
-
 // provide some decoder interface
 
 u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd);
