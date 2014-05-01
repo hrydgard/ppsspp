@@ -61,7 +61,7 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
-		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()) && !gstate.isTextureMapEnabled())
 			return true;  // If alpha is full, it doesn't matter what the ref value is.
 		return gstate.getAlphaTestRef() == 0;
 
