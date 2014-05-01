@@ -1687,7 +1687,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					h = (h * vfb->renderHeight) / vfb->bufferHeight;
 					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
 					needUnbind = true;
-					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
+					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, displayFramebuf_->fb_stride);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);

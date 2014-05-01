@@ -24,6 +24,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"
+#include "GPU/GLES/framebuffer.h"
 #include "Core/HW/MediaEngine.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -234,6 +235,7 @@ public:
 	PsmfPlayerStatus status;
 
 	MediaEngine* mediaengine;
+	FramebufferManager framebuffer;
 };
 
 class PsmfStream {
@@ -1332,6 +1334,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
+		psmfplayer->framebuffer.SetPsmfWidth(videoData->frameWidth);
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
 			const s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
