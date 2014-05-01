@@ -64,6 +64,8 @@ typedef struct
     SceAtracIdInfo info;
 } SceAtracId;
 
+bool Use_PSP_AV_MODULE_ATRAC3PLUS = false;
+
 // provide some decoder interface
 
 u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd);

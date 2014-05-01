@@ -69,7 +69,6 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
-bool Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 static const int atracDecodeDelay = 2300;
 
 #ifdef USE_FFMPEG

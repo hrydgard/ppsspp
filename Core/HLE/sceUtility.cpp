@@ -39,7 +39,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
-#include "Core/HLE/sceAtrac.cpp"
+#include "Core/HLE/sceAtrac.h"
 
 #define PSP_AV_MODULE_AVCODEC     0
 #define PSP_AV_MODULE_SASCORE     1
