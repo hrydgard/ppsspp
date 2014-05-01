@@ -69,6 +69,8 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
+extern bool Use_PSP_AV_MODULE_ATRAC3PLUS;
+
 static const int atracDecodeDelay = 2300;
 
 #ifdef USE_FFMPEG
@@ -139,13 +141,9 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1 , 3);
+		auto s = p.Section("Atrac", 1 , 2);
 		if (!s)
 			return;
-		if (s >= 3)
-			p.Do(Use_PSP_AV_MODULE_ATRAC3PLUS);
-		else
-			Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
 
@@ -596,7 +594,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// https://github.com/hrydgard/ppsspp/issues/3552
 			if (Use_PSP_AV_MODULE_ATRAC3PLUS) {
 				*SamplesNum = 1;
-				*finish = 1;
+				*finish = 0;
 				*remains = 1;
 				ret = 0;
 			}

@@ -39,7 +39,6 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 #include "Core/Dialog/PSPNetconfDialog.h"
-#include "Core/HLE/sceAtrac.h"
 
 #define PSP_AV_MODULE_AVCODEC     0
 #define PSP_AV_MODULE_SASCORE     1
@@ -57,6 +56,8 @@ const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 const u32 PSP_MODULE_NET_HTTP = 261;
 const u32 PSP_MODULE_NET_HTTPSTORAGE = 264;
 const u32 PSP_MODULE_AV_ATRAC3PLUS = 770;
+
+bool Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
@@ -91,10 +92,13 @@ void __UtilityInit()
 
 void __UtilityDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUtility", 1);
+	auto s = p.Section("sceUtility", 1, 2);
 	if (!s)
 		return;
-
+	if (s >= 2)
+		p.Do(Use_PSP_AV_MODULE_ATRAC3PLUS);
+	else
+		Use_PSP_AV_MODULE_ATRAC3PLUS = false;
 	p.Do(currentDialogType);
 	p.Do(currentDialogActive);
 	saveDialog.DoState(p);
