@@ -54,6 +54,9 @@ static SDL_Surface*        g_Screen        = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
 static int g_QuitRequested = 0;
 
+static int g_DesktopWidth = 0;
+static int g_DesktopHeight = 0;
+
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
 #include "EGL/egl.h"
@@ -371,14 +374,21 @@ void ToggleFullScreenIfFlagSet() {
 		g_ToggleFullScreenNextFrame = false;
 
 #if 1
+		pixel_xres = g_DesktopWidth;
+		pixel_yres = g_DesktopHeight;
+		dp_xres = (float)pixel_xres;
+		dp_yres = (float)pixel_yres;
+
 		int flags = g_Screen->flags; // Save the current flags in case toggling fails
-		g_Screen = SDL_SetVideoMode(0, 0, 0, g_Screen->flags ^ SDL_FULLSCREEN); // Toggles FullScreen Mode
+		g_Screen = SDL_SetVideoMode(g_DesktopWidth, g_DesktopHeight, 0, g_Screen->flags ^ SDL_FULLSCREEN); // Toggles FullScreen Mode
 		if (g_Screen == NULL) {
 			g_Screen = SDL_SetVideoMode(0, 0, 0, flags); // If toggle FullScreen failed, then switch back
 		}
 		if (g_Screen == NULL) {
 			exit(1); // If you can't switch back for some reason, then epic fail
 		}
+
+		NativeResized();
 #endif
 	}
 }
@@ -419,6 +429,11 @@ int main(int argc, char *argv[]) {
 	if (EGL_Open())
 		return 1;
 #endif
+
+	// Get the video info before doing anything else, so we don't get skewed resolution results.
+	const SDL_VideoInfo* desktopVideoInfo = SDL_GetVideoInfo();
+	g_DesktopWidth = desktopVideoInfo->current_w;
+	g_DesktopHeight = desktopVideoInfo->current_h;
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
