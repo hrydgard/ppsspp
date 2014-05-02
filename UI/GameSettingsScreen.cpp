@@ -53,8 +53,8 @@
 extern bool iosCanUseJit;
 #endif
 
-static const int alternateSpeedTable[9] = {
-	0, 15, 30, 45, 60, 75, 90, 120, 180
+static const int alternateSpeedTable[11] = {
+	0, 3, 6, 15, 30, 45, 60, 75, 90, 120, 180
 };
 
 void GameSettingsScreen::CreateViews() {
@@ -117,7 +117,7 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
 	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
-	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
+	static const char *customSpeed[] = {"Unlimited", "5%", "10%", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
