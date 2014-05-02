@@ -51,6 +51,7 @@ struct GLExtensions {
 	bool ARB_blend_func_extended;  // dual source blending
 	bool ARB_shader_image_load_store;
 	bool EXT_bgra;
+	bool NV_framebuffer_blit;
 	// EGL extensions
 
 	bool EGL_NV_system_time;
