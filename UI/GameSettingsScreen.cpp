@@ -109,7 +109,7 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 
-	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 5, 600, gs->T("Alternative Speed", "Alternative Speed (in %)"), screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 600, gs->T("Alternative Speed", "Alternative Speed (in %, 0 = unlimited)"), screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
