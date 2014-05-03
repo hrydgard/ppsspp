@@ -62,6 +62,7 @@ struct VirtualFramebuffer {
 
 	u32 fb_address;
 	u32 z_address;
+	u32 block_address;
 	int fb_stride;
 	int z_stride;
 
@@ -162,6 +163,9 @@ public:
 	// Just for logging right now.  Might remove/change.
 	void NotifyBlockTransfer(u32 dst, u32 src);
 
+	// Handle Block Transfer (Download)
+	void BlockTransferDownload(u32 src);
+
 #ifdef USING_GLES2
   void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 #else
@@ -251,6 +255,8 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
+	bool updateVRAM_;
+	bool skipFrame_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;

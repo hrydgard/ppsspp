@@ -35,6 +35,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/PostShader.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -111,11 +112,15 @@ inline u16 RGBA8888toRGBA4444(u32 px) {
 	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-inline u16 RGBA8888toRGBA5551(u32 px) {
-	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+inline u16 BGRA8888toRGB565(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
 }
 
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
+inline u16 BGRA8888toRGBA4444(u32 px) {
+	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBufferFormat format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
@@ -336,6 +341,8 @@ FramebufferManager::FramebufferManager() :
 	ClearBuffer();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
+	skipFrame_ = (gpuStats.numFlips % 1 == 0);
 
 	SetLineWidth();
 }
@@ -849,11 +856,14 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-
-		if (updateVRAM && !vfb->memoryUpdated) {
+		if (updateVRAM_ && !vfb->memoryUpdated && skipFrame_) {
 			ReadFramebufferToMemory(vfb, true);
 		}
+
+		if (!updateVRAM_ && g_Config.bBlockTransfer && MaskedEqual(vfb->fb_address, vfb->block_address) && skipFrame_)  {
+			ReadFramebufferToMemory(vfb, true);
+		}
+
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -1108,7 +1118,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		PackFramebufferAsync_(NULL);
 	}
 #endif
 
@@ -1203,13 +1214,16 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		BlitFramebuffer_(vfb, nvfb, false);
 
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		// Always use synchronous glReadPixels on mobile platform
+		PackFramebufferSync_(nvfb);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				// asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				// synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
 		}
 #endif
@@ -1256,39 +1270,64 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	fbo_unbind();
 }
 
+static inline bool UseBGRA8888() {
+	// TODO: Other platforms?  May depend on vendor which is faster?
+#ifdef _WIN32
+	return gl_extensions.EXT_bgra;
+#endif
+	return false;
+}
+
 // TODO: SSE/NEON
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBufferFormat format) {
 	if (format == GE_FORMAT_8888) {
 		if (src == dst) {
 			return;
+		} else if (UseBGRA8888()) {
+			u32 numPixels = height * stride;
+			ConvertBGRA8888ToRGBA8888((u32 *)dst, (const u32 *)src, numPixels);
 		} else { // Here lets assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
-	} else { // But here it shouldn't matter if they do
+	} else { 
+		// But here it shouldn't matter if they do
 		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
 			case GE_FORMAT_565: // BGR 565
-				for (int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGB565(src32[i]);
+				if (UseBGRA8888()) {
+					for (int i = 0; i < size; i++) {
+						dst16[i] = BGRA8888toRGB565(src32[i]);
+					}
+				} else {
+					for (int i = 0; i < size; i++) {
+						dst16[i] = RGBA8888toRGB565(src32[i]);
+					}
 				}
 				break;
 			case GE_FORMAT_5551: // ABGR 1555
-				for (int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA5551(src32[i]);
+				if (UseBGRA8888()) {
+					ConvertBGRA8888ToRGBA5551(dst16, src32, size);
+				} else {
+					ConvertRGBA8888ToRGBA5551(dst16, src32, size);
 				}
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
-				for (int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA4444(src32[i]);
+				if (UseBGRA8888()) {
+					for (int i = 0; i < size; i++) {
+						dst16[i] = BGRA8888toRGBA4444(src32[i]);
+					}
+				} else {
+					for (int i = 0; i < size; i++) {
+						dst16[i] = RGBA8888toRGBA4444(src32[i]);
+					}
 				}
 				break;
 			case GE_FORMAT_8888:
+			case GE_FORMAT_INVALID:
 				// Not possible.
-				break;
-			default:
 				break;
 		}
 	}
@@ -1317,24 +1356,24 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	}
 
 	// Receive previously requested data from a PBO
-	if (pixelBufObj_[nextPBO].reading) {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
+	AsyncPBO &pbo = pixelBufObj_[nextPBO];
+	if (pbo.reading) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
 		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
 
 		if (packed) {
 			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
-			pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, pixelBufObj_[nextPBO].stride, nextPBO);
+			pbo.size, packed, pbo.fb_address, pbo.stride, nextPBO);
 
-			if (useCPU) {
-				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed,
-								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height,
-								pixelBufObj_[nextPBO].format);
+			if (useCPU || (UseBGRA8888() && pbo.format == GE_FORMAT_8888)) {
+				u8 *dst = Memory::GetPointer(pbo.fb_address);
+				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.height, pbo.format);
 			} else {
 				// We don't need to convert, GPU already did (or should have)
-				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
+				Memory::Memcpy(pbo.fb_address, packed, pbo.size);
 			}
 
-			pixelBufObj_[nextPBO].reading = false;
+			pbo.reading = false;
 		}
 
 		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
@@ -1371,13 +1410,14 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			case GE_FORMAT_8888: // 32 bit RGBA
 			default:
 				pixelType = GL_UNSIGNED_BYTE;
-				pixelFormat = GL_RGBA;
+				pixelFormat = UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA;
 				pixelSize = 4;
 				align = 4;
 				break;
 		}
 
-		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
+		// If using the CPU, we need 4 bytes per pixel always.
+		u32 bufSize = vfb->fb_stride * vfb->height * (useCPU ? 4 : pixelSize);
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
 		if (vfb->fbo) {
@@ -1404,19 +1444,14 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
 			// We reserve a buffer big enough to fit all those pixels
-			if (useCPU && pixelType != GL_UNSIGNED_BYTE) {
-				// Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
-				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
-			} else {
-				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
-			}
+			glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
 		if (useCPU) {
 			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		} else {
 			// Otherwise we'll directly request the format we need and let the GPU sort it out
 			glPixelStorei(GL_PACK_ALIGNMENT, align);
@@ -1491,7 +1526,8 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	if (vfb->format == GE_FORMAT_8888) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
-	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+	} else { 
+		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
 	}
 
@@ -1524,7 +1560,8 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 				break;
 		}
 
-		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+		if (vfb->format != GE_FORMAT_8888) { 
+			// If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
@@ -1538,8 +1575,10 @@ void FramebufferManager::EndFrame() {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
+		if (zoom == 0) {
+			// auto mode
 			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+		}
 
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
@@ -1603,14 +1642,14 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated) 
-				ReadFramebufferToMemory(vfb);
+		if (updateVRAM_ && age == 0 && !vfb->memoryUpdated) {
+			ReadFramebufferToMemory(vfb);
+		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
@@ -1698,6 +1737,15 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		if (needUnbind)
 			fbo_unbind();
+	}
+}
+
+void FramebufferManager::BlockTransferDownload(u32 src) {
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		if (MaskedEqual(vfb->fb_address, src)) {
+			vfb->block_address = src;
+		}
 	}
 }
 

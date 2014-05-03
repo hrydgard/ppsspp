@@ -663,8 +663,12 @@ void GPUCommon::ProcessDLQueueInternal() {
 			return;
 		} else {
 			easy_guard guard(listLock);
-			// At the end, we can remove it from the queue and continue.
-			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
+
+			// Some other list could've taken the spot while we dilly-dallied around.
+			if (l.state != PSP_GE_DL_STATE_QUEUED) {
+				// At the end, we can remove it from the queue and continue.
+				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
+			}
 			UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 		}
 	}
