@@ -44,6 +44,18 @@ public:
 	static int encode(char *dest, uint32_t ch) {
 		return u8_wc_toutf8(dest, ch);
 	}
+	static int encodeUnits(uint32_t ch) {
+		if (ch < 0x80) {
+			return 1;
+		} else if (ch < 0x800) {
+			return 2;
+		} else if (ch < 0x10000) {
+			return 3;
+		} else if (ch < 0x110000) {
+			return 4;
+		}
+		return 0;
+	}
 
 private:
 	const char *c_;
