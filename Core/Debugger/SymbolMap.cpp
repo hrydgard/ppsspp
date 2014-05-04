@@ -287,44 +287,38 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 	u32 functionAddress = INVALID_ADDRESS;
 	u32 dataAddress = INVALID_ADDRESS;
 
-	if (symmask & ST_FUNCTION)
+	if (symmask & ST_FUNCTION) {
 		functionAddress = GetFunctionStart(address);
 
-	if (symmask & ST_DATA)
-		dataAddress = GetDataStart(address);
-
-	if (functionAddress == INVALID_ADDRESS || dataAddress == INVALID_ADDRESS) {
+		// If both are found, we always return the function, so just do that early.
 		if (functionAddress != INVALID_ADDRESS) {
 			if (info != NULL) {
 				info->type = ST_FUNCTION;
 				info->address = functionAddress;
 				info->size = GetFunctionSize(functionAddress);
+				info->moduleAddress = GetFunctionModuleAddress(functionAddress);
 			}
 
 			return true;
 		}
+	}
+
+	if (symmask & ST_DATA) {
+		dataAddress = GetDataStart(address);
 		
 		if (dataAddress != INVALID_ADDRESS) {
 			if (info != NULL) {
 				info->type = ST_DATA;
 				info->address = dataAddress;
 				info->size = GetDataSize(dataAddress);
+				info->moduleAddress = GetDataModuleAddress(dataAddress);
 			}
 
 			return true;
 		}
-
-		return false;
 	}
 
-	// if both exist, return the function
-	if (info != NULL) {
-		info->type = ST_FUNCTION;
-		info->address = functionAddress;
-		info->size = GetFunctionSize(functionAddress);
-	}
-
-	return true;
+	return false;
 }
 
 u32 SymbolMap::GetNextSymbolAddress(u32 address, SymbolType symmask) {
@@ -586,6 +580,15 @@ u32 SymbolMap::GetFunctionSize(u32 startAddress) const {
 		return INVALID_ADDRESS;
 
 	return it->second.size;
+}
+
+u32 SymbolMap::GetFunctionModuleAddress(u32 startAddress) const {
+	lock_guard guard(lock_);
+	auto it = activeFunctions.find(startAddress);
+	if (it == activeFunctions.end())
+		return INVALID_ADDRESS;
+
+	return GetModuleAbsoluteAddr(0, it->second.module);
 }
 
 int SymbolMap::GetFunctionNum(u32 address) const {
@@ -902,6 +905,14 @@ u32 SymbolMap::GetDataSize(u32 startAddress) const {
 	if (it == activeData.end())
 		return INVALID_ADDRESS;
 	return it->second.size;
+}
+
+u32 SymbolMap::GetDataModuleAddress(u32 startAddress) const {
+	lock_guard guard(lock_);
+	auto it = activeData.find(startAddress);
+	if (it == activeData.end())
+		return INVALID_ADDRESS;
+	return GetModuleAbsoluteAddr(0, it->second.module);
 }
 
 DataType SymbolMap::GetDataType(u32 startAddress) const {
