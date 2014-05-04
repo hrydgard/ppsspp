@@ -199,8 +199,7 @@ private:
 
 	LinkedShaderCache linkedShaderCache_;
 
-	FragmentShaderID FSID_;
-	bool lastShaderSame_;
+	bool lastVShaderSame_;
 
 	FragmentShaderID lastFSID_;
 	VertexShaderID lastVSID_;

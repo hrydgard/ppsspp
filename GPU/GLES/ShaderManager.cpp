@@ -631,19 +631,16 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	VertexShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
-	ComputeFragmentShaderID(&FSID_);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_ && FSID_ == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType);
-		lastShaderSame_ = true;
+	if (lastShader_ != 0 && VSID == lastVSID_) {
+		lastVShaderSame_ = true;
 		return lastShader_->vs_;	// Already all set.
 	} else {
-		lastShaderSame_ = false;
+		lastVShaderSame_ = false;
 	}
 
 	lastVSID_ = VSID;
-	lastFSID_ = FSID_;
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
 	Shader *vs;
@@ -674,16 +671,22 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 }
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	if (lastShaderSame_)
+	FragmentShaderID FSID;
+	ComputeFragmentShaderID(&FSID);
+	if (lastVShaderSame_ && FSID == lastFSID_) {
+		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
+	}
 
-	FSCache::iterator fsIter = fsCache_.find(FSID_);
+	lastFSID_ = FSID;
+
+	FSCache::iterator fsIter = fsCache_.find(FSID);
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
-		fsCache_[FSID_] = fs;
+		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
 	}
