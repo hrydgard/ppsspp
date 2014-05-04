@@ -28,6 +28,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
@@ -267,75 +268,12 @@ private:
 
 	AsmRoutineManager asm_;
 	ThunkManager thunks;
+	JitSafeMemFuncs safeMemFuncs;
 
 	MIPSState *mips_;
 
-	class JitSafeMem {
-	public:
-		JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
-
-		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
-		bool PrepareWrite(OpArg &dest, int size);
-		// Emit code proceeding a slow write call, returns true if slow write is needed.
-		bool PrepareSlowWrite();
-		// Emit a slow write from src.
-		void DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset = 0);
-		template <typename T>
-		void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const OpArg src, int suboffset = 0) {
-			DoSlowWrite((const void *)safeFunc, src, suboffset);
-		}
-
-		// Emit code necessary for a memory read, returns true if MOV from src is needed.
-		bool PrepareRead(OpArg &src, int size);
-		// Emit code for a slow read call, and returns true if result is in EAX.
-		bool PrepareSlowRead(const void *safeFunc);
-		template <typename T>
-		bool PrepareSlowRead(T (*safeFunc)(u32 addr)) {
-			return PrepareSlowRead((const void *)safeFunc);
-		}
-		
-		// Cleans up final code for the memory access.
-		void Finish();
-
-		// Use this before anything else if you're gonna use the below.
-		void SetFar();
-		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-		OpArg NextFastAddress(int suboffset);
-		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-		void NextSlowRead(const void *safeFunc, int suboffset);
-		template <typename T>
-		void NextSlowRead(T (*safeFunc)(u32 addr), int suboffset) {
-			NextSlowRead((const void *)safeFunc, suboffset);
-		}
-
-	private:
-		enum ReadType {
-			MEM_READ,
-			MEM_WRITE,
-		};
-
-		OpArg PrepareMemoryOpArg(ReadType type);
-		void PrepareSlowAccess();
-		void MemCheckImm(ReadType type);
-		void MemCheckAsm(ReadType type);
-		bool ImmValid();
-
-		Jit *jit_;
-		MIPSGPReg raddr_;
-		s32 offset_;
-		int size_;
-		bool needsCheck_;
-		bool needsSkip_;
-		bool far_;
-		bool fast_;
-		u32 alignMask_;
-		u32 iaddr_;
-		X64Reg xaddr_;
-		FixupBranch tooLow_, tooHigh_, skip_;
-		std::vector<FixupBranch> skipChecks_;
-		const u8 *safe_;
-	};
 	friend class JitSafeMem;
+	friend class JitSafeMemFuncs;
 };
 
 typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);

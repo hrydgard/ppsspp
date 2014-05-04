@@ -45,6 +45,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/CompReplace.cpp \
   $(SRC)/Core/MIPS/x86/Asm.cpp \
   $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/GPU/GLES/VertexDecoderX86.cpp

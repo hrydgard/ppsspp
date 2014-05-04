@@ -112,7 +112,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			OpArg src;
 			if (safe.PrepareRead(src, 4))
 				MOVSS(fpr.RX(ft), src);
-			if (safe.PrepareSlowRead(&Memory::Read_U32))
+			if (safe.PrepareSlowRead(safeMemFuncs.readU32))
 				MOVD_xmm(fpr.RX(ft), R(EAX));
 			safe.Finish();
 
@@ -133,7 +133,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (safe.PrepareSlowWrite())
 			{
 				MOVSS(M(&ssLoadStoreTemp), fpr.RX(ft));
-				safe.DoSlowWrite(&Memory::Write_U32, M(&ssLoadStoreTemp));
+				safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp));
 			}
 			safe.Finish();
 
