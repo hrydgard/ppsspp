@@ -966,6 +966,12 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			}
 #endif
 		}
+		else {
+			if (!reportInvalidBlitOnce_) {
+				osm.Show("Extension : GL_ARB_framebuffer_object is required", 2.5f, 0xFF3030FF, -1, true);
+				reportInvalidBlitOnce_ = true;
+			}
+		}
 	}
 }
 
@@ -1007,6 +1013,10 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			fbo_bind_color_as_texture(renderCopy, 0);
 #endif
 		} else {
+			if (reportInvalidBlitOnce_) {
+				osm.Show("Extension : GL_ARB_framebuffer_object is required", 2.5f, 0xFF3030FF, -1, true);
+				reportInvalidBlitOnce_ = true;
+			}
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
 		}
 	} else {

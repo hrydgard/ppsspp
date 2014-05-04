@@ -251,7 +251,8 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
-
+	bool reportInvalidBlitOnce_;
+	
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
