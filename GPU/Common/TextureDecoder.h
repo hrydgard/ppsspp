@@ -201,3 +201,7 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }
+
+void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels);
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
