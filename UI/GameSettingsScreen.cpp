@@ -53,23 +53,14 @@
 extern bool iosCanUseJit;
 #endif
 
-static const int alternateSpeedTable[9] = {
-	0, 15, 30, 45, 60, 75, 90, 120, 180
-};
-
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 	showDebugStats_ = g_Config.bShowDebugStats;
 
-	iAlternateSpeedPercent_ = 3;
-	for (int i = 0; i < (int)ARRAY_SIZE(alternateSpeedTable); i++) {
-		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
-			iAlternateSpeedPercent_ = i;
-			break;
-		}
-	}
+	const float speedPercent = std::floor(((g_Config.iFpsLimit) / 60.0f) * 100);
+	iAlternateSpeedPercent_ = (int)speedPercent;
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -117,8 +108,8 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
 	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
-	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
-	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
+
+	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 600, gs->T("Alternative Speed", "Alternative Speed (in %, 0 = unlimited)"), screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
@@ -444,7 +435,10 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
-	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
+
+	const float fpsLimit = std::floor(60.0f * (iAlternateSpeedPercent_ / 100));
+	g_Config.iFpsLimit = (int)fpsLimit;
+
 	if (g_Config.bShowDebugStats != showDebugStats_) {
 		// This affects the jit.
 		NativeMessageReceived("clear jit", "");
