@@ -338,6 +338,12 @@
     <ClInclude Include="math\fast\fast_matrix.h">
       <Filter>math\fast</Filter>
     </ClInclude>
+    <ClInclude Include="util\text\utf16.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="util\text\shiftjis.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

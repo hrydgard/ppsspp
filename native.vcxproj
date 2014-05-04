@@ -287,6 +287,8 @@
     <ClInclude Include="util\random\perlin.h" />
     <ClInclude Include="util\random\rng.h" />
     <ClInclude Include="util\text\parsers.h" />
+    <ClInclude Include="util\text\shiftjis.h" />
+    <ClInclude Include="util\text\utf16.h" />
     <ClInclude Include="util\text\utf8.h" />
   </ItemGroup>
   <ItemGroup>

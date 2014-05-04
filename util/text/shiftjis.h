@@ -127,6 +127,13 @@ struct ShiftJIS {
 		return 2;
 	}
 
+	static int encodeUnits(uint32_t j) {
+		if ((j & ~0xFF) == 0) {
+			return 1;
+		}
+		return 2;
+	}
+
 private:
 	const char *c_;
 	int index_;

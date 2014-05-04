@@ -42,7 +42,7 @@ public:
 		return len;
 	}
 
-	int byteIndex() const {
+	int shortIndex() const {
 		return index_;
 	}
 
@@ -54,6 +54,14 @@ public:
 			return 2;
 		} else {
 			*dest = UTF16_Swap<is_little>((uint16_t)u);
+			return 1;
+		}
+	}
+
+	static int encodeUnits(uint32_t u) {
+		if (u >= 0x10000) {
+			return 2;
+		} else {
 			return 1;
 		}
 	}
