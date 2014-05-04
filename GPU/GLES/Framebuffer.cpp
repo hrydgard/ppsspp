@@ -1525,7 +1525,12 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 			(u32)bufSize, packed, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, packed);
+		GLenum glfmt = GL_RGBA;
+#if defined(MAY_HAVE_GLES3)
+		if (UseBGRA8888())
+			glfmt = GL_BGRA_EXT;
+#endif
+		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
 		GLenum error = glGetError();
 		switch(error) {
 			case 0:
