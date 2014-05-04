@@ -37,6 +37,7 @@ struct SymbolInfo {
 	SymbolType type;
 	u32 address;
 	u32 size;
+	u32 moduleAddress;
 };
 
 struct SymbolEntry {
@@ -93,6 +94,7 @@ public:
 	u32 GetFunctionStart(u32 address) const;
 	int GetFunctionNum(u32 address) const;
 	u32 GetFunctionSize(u32 startAddress) const;
+	u32 GetFunctionModuleAddress(u32 startAddress) const;
 	bool SetFunctionSize(u32 startAddress, u32 newSize);
 	bool RemoveFunction(u32 startAddress, bool removeName);
 	// Search for the first address their may be a function after address.
@@ -107,6 +109,7 @@ public:
 	void AddData(u32 address, u32 size, DataType type, int moduleIndex = -1);
 	u32 GetDataStart(u32 address) const;
 	u32 GetDataSize(u32 startAddress) const;
+	u32 GetDataModuleAddress(u32 startAddress) const;
 	DataType GetDataType(u32 startAddress) const;
 
 	static const u32 INVALID_ADDRESS = (u32)-1;

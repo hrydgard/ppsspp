@@ -751,7 +751,8 @@ skip:
 				// We still need to insert the func for hashing purposes.
 				currentFunction.start = syminfo.address;
 				currentFunction.end = syminfo.address + syminfo.size - 4;
-				currentFunction.foundInSymbolMap = true;
+				// Re-add it to the map if the module address is not known yet (only happens from loaded maps.)
+				currentFunction.foundInSymbolMap = syminfo.moduleAddress != 0;
 				functions.push_back(currentFunction);
 				currentFunction.foundInSymbolMap = false;
 				currentFunction.start = addr + 4;
