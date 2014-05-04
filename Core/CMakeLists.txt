@@ -9,6 +9,7 @@ set(SRCS
   Dialog/PSPOskDialog.cpp
   Dialog/PSPGamedataInstallDialog.cpp
   Dialog/PSPNetconfDialog.cpp
+  Dialog/PSPScreenshotDialog.cpp
   MIPS/MIPS.cpp
   MIPS/MIPSAnalyst.cpp
   MIPS/MIPSCodeUtils.cpp

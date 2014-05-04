@@ -981,6 +981,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPPlaceholderDialog.h
 	Core/Dialog/PSPSaveDialog.cpp
 	Core/Dialog/PSPSaveDialog.h
+	Core/Dialog/PSPScreenshotDialog.cpp
+	Core/Dialog/PSPScreenshotDialog.h
 	Core/Dialog/SavedataParam.cpp
 	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
