@@ -382,6 +382,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TrueColor", &g_Config.bTrueColor, true),
 
 	ReportedConfigSetting("MipMap", &g_Config.bMipMap, true),
+	ReportedConfigSetting("BlockTransfer", &g_Config.bBlockTransfer, false),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0),
