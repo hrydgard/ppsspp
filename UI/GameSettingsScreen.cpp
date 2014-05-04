@@ -59,7 +59,7 @@ void GameSettingsScreen::CreateViews() {
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 	showDebugStats_ = g_Config.bShowDebugStats;
 
-	const float speedPercent = std::floor(((g_Config.iFpsLimit) / 60.0f) * 100);
+	const float speedPercent = (g_Config.iFpsLimit / 60.0f) * 100.0f;
 	iAlternateSpeedPercent_ = (int)speedPercent;
 
 	// Information in the top left.
@@ -436,7 +436,7 @@ void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
-	const float fpsLimit = std::floor(60.0f * (iAlternateSpeedPercent_ / 100));
+	const float fpsLimit = (iAlternateSpeedPercent_ / 100.0f) * 60.0f;
 	g_Config.iFpsLimit = (int)fpsLimit;
 
 	if (g_Config.bShowDebugStats != showDebugStats_) {
