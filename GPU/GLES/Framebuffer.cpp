@@ -1377,7 +1377,8 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				break;
 		}
 
-		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
+		// If using the CPU, we need 4 bytes per pixel always.
+		u32 bufSize = vfb->fb_stride * vfb->height * (useCPU ? 4 : pixelSize);
 		u32 fb_address = (0x04000000) | vfb->fb_address;
 
 		if (vfb->fbo) {
@@ -1404,12 +1405,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		if (pixelBufObj_[currentPBO_].maxSize < bufSize) {
 			// We reserve a buffer big enough to fit all those pixels
-			if (useCPU && pixelType != GL_UNSIGNED_BYTE) {
-				// Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
-				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
-			} else {
-				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
-			}
+			glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
