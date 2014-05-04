@@ -560,7 +560,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg1));
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
-	FixupBranch skip = J_CC(CC_GE, false);
+	FixupBranch skip = J_CC(CC_AE, false);
 	MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));
 	SetJumpTarget(skip);
 }
