@@ -147,7 +147,7 @@ int8_t EGL_Init() {
 	// Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
-	if(SDL_GetWMInfo(&sysInfo) <= 0) {
+	if (SDL_GetWMInfo(&sysInfo) <= 0) {
 		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -596,7 +596,8 @@ int main(int argc, char *argv[]) {
 	NativeInitGraphics();
 	NativeResized();
 
-	SDL_AudioSpec fmt;
+	SDL_AudioSpec fmt, ret_fmt;
+	memset(&fmt, 0, sizeof(fmt));
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
@@ -604,8 +605,23 @@ int main(int argc, char *argv[]) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	if (SDL_OpenAudio(&fmt, NULL) < 0) {
+	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
+	} else {
+		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2 || fmt.samples != 2048) {
+			ELOG("Sound buffer format does not match requested format.");
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, 44100);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, AUDIO_S16);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, 2);
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, 2048);
+		}
+
+		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2) {
+			ELOG("Provided output format does not match requirement, turning audio off");
+			SDL_CloseAudio();
+		} else {
+			ELOG("Provided output audio format is usable, thus using it");
+		}
 	}
 
 	// Audio must be unpaused _after_ NativeInit()
