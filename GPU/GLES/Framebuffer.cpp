@@ -954,7 +954,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 #else
-		if (gl_extensions.GLES3) {
+		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
 #endif
 
 #ifdef MAY_HAVE_GLES3
@@ -962,6 +962,15 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
 				glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
+			}
+#else
+			// Let's only do this if not clearing.
+			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				fbo_bind_for_read(sourceframebuffer->fbo);
+				// Use the built-in high performance blit function
+				// http://www.khronos.org/registry/gles/extensions/NV/NV_framebuffer_blit.txt
+				BlitFramebufferNV(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
 			}
 #endif
