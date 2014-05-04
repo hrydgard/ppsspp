@@ -197,7 +197,7 @@ u32 sceUtilityLoadAvModule(u32 module)
 	}
 
 	INFO_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
-	//Some strange that Yu Gi Oh Tag Force 1 Japan version don't call sceUtilityLoadModule(2)
+	//Some strange that Yu Gi Oh Tag Force 1 Japan version don't call sceUtilityLoadAvModule(2)
 	Use_LoadAvModule = true;
 
 	return hleDelayResult(0, "utility av module loaded", 25000);
