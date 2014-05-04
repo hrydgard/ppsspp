@@ -401,7 +401,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
-			framebufferManager_->SetDepthUpdated();
+			if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
+				framebufferManager_->SetDepthUpdated();
+			}
 		} else {
 			glstate.depthTest.disable();
 		}
