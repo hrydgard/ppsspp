@@ -698,13 +698,12 @@ void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	easy_guard guard(listLock);
-	const u32 data = op & 0x00FFFFFF;
-	const u32 target = gstate_c.getRelativeAddress(data);
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (Memory::IsValidAddress(target)) {
 		UpdatePC(currentList->pc, target - 4);
 		currentList->pc = target - 4; // pc will be increased after we return, counteract that
 	} else {
-		ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
+		ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 	}
 }
 
@@ -712,13 +711,12 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
 		easy_guard guard(listLock);
-		const u32 data = op & 0x00FFFFFF;
-		const u32 target = gstate_c.getRelativeAddress(data);
+		const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 		if (Memory::IsValidAddress(target)) {
 			UpdatePC(currentList->pc, target - 4);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		} else {
-			ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, data);
+			ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		}
 	}
 }
@@ -728,8 +726,7 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 
 	// Saint Seiya needs correct support for relative calls.
 	const u32 retval = currentList->pc + 4;
-	const u32 data = op & 0x00FFFFFF;
-	const u32 target = gstate_c.getRelativeAddress(data);
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -745,7 +742,7 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 		ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
 	} else if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
+		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;
@@ -763,7 +760,8 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 	} else {
 		auto &stackEntry = currentList->stack[--currentList->stackptr];
 		gstate_c.offsetAddr = stackEntry.offsetAddr;
-		u32 target = (currentList->pc & 0xF0000000) | (stackEntry.pc & 0x0FFFFFFF);
+		// We always clear the top (uncached/etc.) bits
+		const u32 target = stackEntry.pc & 0x0FFFFFFF;
 		UpdatePC(currentList->pc, target - 4);
 		currentList->pc = target - 4;
 		if (!Memory::IsValidAddress(currentList->pc)) {

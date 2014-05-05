@@ -33,7 +33,7 @@
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
-static const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
+static const u8 possize[4] = {3,3,6,12}, posalign[4] = {1,1,2,4};
 static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
@@ -611,28 +611,28 @@ static const StepFunction nrmstep_morph[4] = {
 };
 
 static const StepFunction posstep[4] = {
-	0,
+	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
 };
 
 static const StepFunction posstep_skin[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Skin,
 	&VertexDecoder::Step_PosS8Skin,
 	&VertexDecoder::Step_PosS16Skin,
 	&VertexDecoder::Step_PosFloatSkin,
 };
 
 static const StepFunction posstep_morph[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
 };
 
 static const StepFunction posstep_through[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS16Through,
 	&VertexDecoder::Step_PosFloatThrough,
@@ -786,6 +786,10 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
+	if (!pos) {
+		ERROR_LOG_REPORT(G3D, "Vertices without position found");
+		pos = 1;
+	}
 	if (pos) { // there's always a position
 		size = align(size, posalign[pos]);
 		posoff = size;
@@ -818,8 +822,6 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	} else {
-		ERROR_LOG_REPORT(G3D, "Vertices without position found");
 	}
 
 	decFmt.stride = decOff;
