@@ -1611,14 +1611,14 @@ namespace MIPSComp
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 				VMRS_APSR();
-				flag = CC_LT;
+				flag = CC_LO;
 				break;
 
 			case VC_LE: // c = s[i] <= t[i]; 
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 				VMRS_APSR();
-				flag = CC_LE;
+				flag = CC_LS;
 				break;
 
 			case VC_NE: // c = s[i] != t[i]
