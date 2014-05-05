@@ -752,7 +752,7 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 	}
 #endif
 
-	int bytesRead;
+	int bytesRead = 0;
 	transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
 	int vertexCost = transformDraw_.EstimatePerVertexCost();
@@ -761,7 +761,7 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
-	// Q: Are these changed reflected in the real registers? Needs testing.
+	// The VADDR/IADDR registers are NOT updated.
 	if (inds) {
 		int indexSize = 1;
 		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
