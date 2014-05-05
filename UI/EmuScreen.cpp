@@ -172,17 +172,17 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "stop")) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
+		booted_ = false;
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
+		booted_ = false;
 		std::string resetError;
-		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
 			screenManager()->switchScreen(new MainScreen());
 			System_SendMessage("event", "failstartgame");
 			return;
 		}
-		host->BootDone();
-		host->UpdateDisassembly();
 #ifndef MOBILE_DEVICE
 		if (g_Config.bAutoRun) {
 			Core_EnableStepping(false);
@@ -192,6 +192,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 #endif
 	} else if (!strcmp(message, "boot")) {
 		PSP_Shutdown();
+		booted_ = false;
 		bootGame(value);
 	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -596,6 +597,7 @@ void EmuScreen::render() {
 		PSP_Shutdown();
 		ILOG("SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
+		booted_ = false;
 		invalid_ = true;
 	}
 
