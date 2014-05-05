@@ -1932,6 +1932,9 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 	framebufferManager_.NotifyBlockTransfer(dstBasePtr, srcBasePtr);
 
+	// Notify FBO with source address 
+	framebufferManager_.BlockTransferDownload(srcBasePtr);
+
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
 	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
 		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
