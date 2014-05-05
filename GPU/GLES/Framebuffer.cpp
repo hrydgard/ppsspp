@@ -341,6 +341,7 @@ FramebufferManager::FramebufferManager() :
 	ClearBuffer();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	SetLineWidth();
 }
@@ -854,11 +855,19 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
-		if (updateVRAM && !vfb->memoryUpdated) {
+		if (updateVRAM_ && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		}
+		if (!updateVRAM_ && g_Config.bBlockTransfer)  {
+			// Track block transfer
+			for (auto it = reportedBlits_.begin(), end = reportedBlits_.end(); it != end; ++it) {
+				if ((vfb->fb_address | 0x04000000) == it->second) {
+					ReadFramebufferToMemory(vfb);
+				}
+			}
+		}
+
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -1113,7 +1122,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		PackFramebufferAsync_(NULL);
 	}
 #endif
 
@@ -1208,13 +1218,16 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		BlitFramebuffer_(vfb, nvfb, false);
 
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		// Always use synchronous glReadPixels on mobile platform
+		PackFramebufferSync_(nvfb);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				// asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				// synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
 		}
 #endif
@@ -1281,7 +1294,8 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 		} else { // Here lets assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
-	} else { // But here it shouldn't matter if they do
+	} else { 
+		// But here it shouldn't matter if they do
 		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
@@ -1516,7 +1530,8 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	if (vfb->format == GE_FORMAT_8888) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
-	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+	} else { 
+		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
 	}
 
@@ -1554,7 +1569,8 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 				break;
 		}
 
-		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+		if (vfb->format != GE_FORMAT_8888) { 
+			// If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
@@ -1568,8 +1584,10 @@ void FramebufferManager::EndFrame() {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
+		if (zoom == 0) {
+			// auto mode
 			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+		}
 
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
@@ -1619,6 +1637,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
+
 // MotoGP workaround
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 	for (size_t i = 0; i < vfbs_.size(); i++) {
@@ -1633,14 +1652,14 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated) 
-				ReadFramebufferToMemory(vfb);
+		if (updateVRAM_ && age == 0 && !vfb->memoryUpdated) {
+			ReadFramebufferToMemory(vfb);
+		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;

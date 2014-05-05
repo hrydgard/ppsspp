@@ -157,7 +157,8 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
-
+	graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransfer, gs->T("Block Transfer")));
+	
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
