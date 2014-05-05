@@ -1186,28 +1186,43 @@ int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer)
 	return audioSamplesBytes;
 }
 
-int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts) 
+int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 {
-	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
-
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerStart(%08x): not initialized", psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid psmf player", psmfPlayer, psmfPlayerData, initPts);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (psmfplayer->status == PSMF_PLAYER_STATUS_INIT) {
+		ERROR_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d): psmf not yet set", psmfPlayer, psmfPlayerData, initPts);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	if (Memory::IsValidAddress(psmfPlayerData)) {
-		PsmfPlayerData data = {0};
-		Memory::ReadStruct(psmfPlayerData, &data);
-		psmfplayer->videoCodec = data.videoCodec;
-		psmfplayer->videoStreamNum = data.videoStreamNum;
-		psmfplayer->audioCodec = data.audioCodec;
-		psmfplayer->audioStreamNum = data.audioStreamNum;
-		psmfplayer->playMode = data.playMode;
-		psmfplayer->playSpeed = data.playSpeed;
+	auto playerData = PSPPointer<PsmfPlayerData>::Create(psmfPlayerData);
+	if (!playerData.IsValid()) {
+		// Crashes on a PSP.
+		ERROR_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d): bad data address", psmfPlayer, psmfPlayerData, initPts);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
 	}
+	if (playerData->playMode < 0 || playerData->playMode > (int)PSMF_PLAYER_MODE_REWIND) {
+		ERROR_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid mode", psmfPlayer, psmfPlayerData, initPts);
+		return ERROR_PSMFPLAYER_INVALID_PARAM;
+	}
+	if (initPts >= psmfplayer->mediaengine->getLastTimeStamp()) {
+		ERROR_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d): pts is outside video", psmfPlayer, psmfPlayerData, initPts);
+		return ERROR_PSMFPLAYER_INVALID_PARAM;
+	}
+
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d)", psmfPlayer, psmfPlayerData, initPts);
+
+	psmfplayer->videoCodec = playerData->videoCodec;
+	psmfplayer->videoStreamNum = playerData->videoStreamNum;
+	if (!psmfplayer->mediaengine->IsNoAudioData()) {
+		psmfplayer->audioCodec = playerData->audioCodec;
+		psmfplayer->audioStreamNum = playerData->audioStreamNum;
+	}
+	psmfplayer->playMode = playerData->playMode;
+	psmfplayer->playSpeed = playerData->playSpeed;
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
 	psmfplayer->psmfPlayerAtracAu.pts = initPts;
