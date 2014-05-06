@@ -59,8 +59,7 @@ void GameSettingsScreen::CreateViews() {
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 	showDebugStats_ = g_Config.bShowDebugStats;
 
-	const float speedPercent = (g_Config.iFpsLimit / 60.0f) * 100.0f;
-	iAlternateSpeedPercent_ = (int)speedPercent;
+	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -109,7 +108,7 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
 
-	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 600, gs->T("Alternative Speed", "Alternative Speed (in %, 0 = unlimited)"), screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 600, gs->T("Alternative Speed", "Alternative Speed (in %, 0 = unlimited)"), 5, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
@@ -436,8 +435,7 @@ void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
-	const float fpsLimit = (iAlternateSpeedPercent_ / 100.0f) * 60.0f;
-	g_Config.iFpsLimit = (int)fpsLimit;
+	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
 
 	if (g_Config.bShowDebugStats != showDebugStats_) {
 		// This affects the jit.
