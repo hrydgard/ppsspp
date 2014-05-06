@@ -1748,52 +1748,52 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 	case GE_CMD_VSCX:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : %06x", data);
 		break;
 
 	case GE_CMD_VSCY:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : %06x", data);
 		break;
 
 	case GE_CMD_VSCZ:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : %06x", data);
 		break;
 
 	case GE_CMD_VTCS:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : %06x", data);
 		break;
 
 	case GE_CMD_VTCT:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : %06x", data);
 		break;
 
 	case GE_CMD_VTCQ:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : %06x", data);
 		break;
 
 	case GE_CMD_VCV:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : %06x", data);
 		break;
 
 	case GE_CMD_VAP:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : %06x", data);
 		break;
 
 	case GE_CMD_VFC:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : %06x", data);
 		break;
 
 	case GE_CMD_VSCV:
 		if (data != 0)
-			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : % 06x", data);
+			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : %06x", data);
 		break;
 
 
