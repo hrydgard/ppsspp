@@ -114,7 +114,8 @@ namespace UI {
 
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1) 
+	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
 	void CreatePopupContents(ViewGroup *parent);
 
 	Event OnChange;
@@ -128,11 +129,13 @@ private:
 	int sliderValue_;
 	int minValue_;
 	int maxValue_;
+	float step_;
 };
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) 
+	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 	Event OnChange;
@@ -182,6 +185,7 @@ private:
 class PopupSliderChoice : public Choice {
 public:
 	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	void Draw(UIContext &dc);
 
@@ -194,6 +198,7 @@ private:
 	int *value_;
 	int minValue_;
 	int maxValue_;
+	float step_;
 	ScreenManager *screenManager_;
 };
 
