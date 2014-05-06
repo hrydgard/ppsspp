@@ -622,18 +622,18 @@ void Slider::Key(const KeyInput &input) {
 		case NKCODE_DPAD_LEFT:
 		case NKCODE_MINUS:
 		case NKCODE_NUMPAD_SUBTRACT:
-			*value_ -= 1;
+			*value_ -= step_;
 			break;
 		case NKCODE_DPAD_RIGHT:
 		case NKCODE_PLUS:
 		case NKCODE_NUMPAD_ADD:
-			*value_ += 1;
+			*value_ += step_;
 			break;
 		case NKCODE_PAGE_UP:
-			*value_ -= 10;
+			*value_ -= step_ * 10;
 			break;
 		case NKCODE_PAGE_DOWN:
-			*value_ += 10;
+			*value_ += step_ * 10;
 			break;
 		case NKCODE_MOVE_HOME:
 			*value_ = minValue_;
@@ -658,6 +658,9 @@ void Slider::Touch(const TouchInput &input) {
 void Slider::Clamp() {
 	if (*value_ < minValue_) *value_ = minValue_;
 	else if (*value_ > maxValue_) *value_ = maxValue_;
+
+	// Clamp the value to be a multiple of the nearest step (e.g. if step == 5, value == 293, it'll round down to 290).
+	*value_ = *value_ - fmodf(*value_, step_);
 }
 
 void Slider::Draw(UIContext &dc) {

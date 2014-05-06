@@ -271,13 +271,18 @@ PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, con
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, LayoutParams *layoutParams)
+: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager) {
+	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
+}
+
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
 	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
-	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
+	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_, step_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -327,13 +332,13 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 }
 
 EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
-	sliderValue_--;
+	sliderValue_ -= step_;
 	slider_->Clamp();
 	return EVENT_DONE;
 }
 
 EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
-	sliderValue_++;
+	sliderValue_ += step_;
 	slider_->Clamp();
 	return EVENT_DONE;
 }
@@ -342,7 +347,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 5))));
-	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(1.0f));
+	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, step_, new LinearLayoutParams(1.0f));
 	lin->Add(slider_);
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
