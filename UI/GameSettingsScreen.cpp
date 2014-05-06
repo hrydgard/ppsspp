@@ -270,7 +270,11 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
 
 	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
-	enablePauseBtn->SetEnabled(!PSP_IsInited());
+	if (!PSP_IsInited()) {
+		enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
+	} else {
+		enablePauseBtn->SetEnabled(false);
+	}
 #endif
 
 	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
