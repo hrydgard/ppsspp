@@ -1262,11 +1262,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 }
 
 static inline bool UseBGRA8888() {
-	// TODO: Other platforms?  May depend on vendor which is faster?
-#ifdef _WIN32
+	// GL_EXT_bgra can be seen on Tegra Platform and on Desktop Platform 
 	return gl_extensions.EXT_bgra;
-#endif
-	return false;
 }
 
 // TODO: SSE/NEON
