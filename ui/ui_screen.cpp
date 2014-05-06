@@ -267,7 +267,7 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager), step_(1) {
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
