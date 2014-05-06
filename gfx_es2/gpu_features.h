@@ -31,29 +31,39 @@ struct GLExtensions {
 	int gpuVendor;
 
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
+
+	// OES
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
 	bool OES_texture_npot;  // If this is set, can wrap non-pow-2 textures. Set on desktop.
-	bool EXT_discard_framebuffer;
-	bool FBO_ARB;
-	bool FBO_EXT;
-	bool PBO_ARB;
-	bool EXT_swap_control_tear;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
-	bool NV_shader_framebuffer_fetch;
-	bool EXT_shader_framebuffer_fetch;
-	bool EXT_blend_minmax;
-	bool NV_draw_texture;
-	bool NV_copy_image;
-	bool EXT_unpack_subimage;  // always supported on desktop and ES3
+
+	// ARB
+	bool FBO_ARB;
+	bool PBO_ARB;
 	bool ARB_blend_func_extended;  // dual source blending
 	bool ARB_shader_image_load_store;
-	bool EXT_bgra;
-	bool NV_framebuffer_blit;
-	// EGL extensions
 
+	// EXT
+	bool EXT_swap_control_tear;
+	bool EXT_discard_framebuffer;
+	bool EXT_unpack_subimage;  // always supported on desktop and ES3
+	bool EXT_bgra;
+	bool EXT_shader_framebuffer_fetch;
+	bool EXT_blend_minmax;
+	bool FBO_EXT;
+	bool PBO_EXT;
+
+	// NV
+	bool NV_shader_framebuffer_fetch;
+	bool NV_draw_texture;
+	bool NV_copy_image;
+	bool NV_framebuffer_blit;
+	bool PBO_NV; // GL_NV_pixel_buffer_object
+
+	// EGL
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
 
