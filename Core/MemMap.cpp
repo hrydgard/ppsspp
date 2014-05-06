@@ -65,14 +65,21 @@ u8 *m_pPhysicalRAM3;
 u8 *m_pUncachedRAM3;
 u8 *m_pKernelRAM3;
 
-u8 *m_pPhysicalVRAM;
-u8 *m_pUncachedVRAM;
+// VRAM is mirrored 4 times.  The second and fourth mirrors are swizzled.
+// In practice, a game accessing the mirrors most likely is deswizzling the depth buffer.
+u8 *m_pPhysicalVRAM1;
+u8 *m_pPhysicalVRAM2;
+u8 *m_pPhysicalVRAM3;
+u8 *m_pPhysicalVRAM4;
+u8 *m_pUncachedVRAM1;
+u8 *m_pUncachedVRAM2;
+u8 *m_pUncachedVRAM3;
+u8 *m_pUncachedVRAM4;
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
-// These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
+// This replaces RAM_NORMAL_SIZE at runtime.
 u32 g_MemorySize;
-u32 g_MemoryMask;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 
@@ -81,8 +88,14 @@ static MemoryView views[] =
 {
 	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
-	{&m_pVRAM,       &m_pPhysicalVRAM,        0x04000000, 0x00800000, 0},
-	{NULL,           &m_pUncachedVRAM,        0x44000000, 0x00800000, MV_MIRROR_PREVIOUS},
+	{&m_pVRAM,       &m_pPhysicalVRAM1,       0x04000000, 0x00200000, 0},
+	{NULL,           &m_pPhysicalVRAM2,       0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pPhysicalVRAM3,       0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pPhysicalVRAM4,       0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pUncachedVRAM1,       0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pUncachedVRAM2,       0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pUncachedVRAM3,       0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pUncachedVRAM4,       0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
@@ -104,10 +117,6 @@ static const int num_views = sizeof(views) / sizeof(MemoryView);
 void Init()
 {
 	int flags = 0;
-	// This mask is used ONLY after validating the address is in the correct range.
-	// So let's just use a fixed mask to remove the uncached/user memory bits.
-	// Using (Memory::g_MemorySize - 1) won't work for e.g. 0x04C00000.
-	Memory::g_MemoryMask = 0x07FFFFFF;
 
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
