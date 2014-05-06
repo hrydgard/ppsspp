@@ -143,7 +143,7 @@ public:
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
 	bool bAlphaMaskHack;
-	bool bLowQualitySplineBezier;
+	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	std::string sPostShaderName;  // Off for off.
 
 	// Sound
