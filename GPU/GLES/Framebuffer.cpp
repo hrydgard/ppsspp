@@ -1330,7 +1330,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
 	u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+	bool useCPU = gl_extensions.gpuVendor == GPU_VENDOR_AMD;
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
