@@ -220,10 +220,10 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 	gl_extensions.EXT_blend_minmax = strstr(extString, "GL_EXT_blend_minmax") != 0;
+	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 	gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
-	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 #if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
@@ -298,10 +298,12 @@ void CheckGLExtensions() {
 	gl_extensions.FBO_ARB = false;
 	gl_extensions.FBO_EXT = false;
 	gl_extensions.PBO_ARB = true;
+	gl_extensions.PBO_NV = true;
 	if (extString) {
 		gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 		gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
 		gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
+		gl_extensions.PBO_NV = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
 	}
 #endif
 
