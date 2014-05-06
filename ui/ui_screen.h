@@ -129,7 +129,7 @@ private:
 	int sliderValue_;
 	int minValue_;
 	int maxValue_;
-	float step_;
+	int step_;
 };
 
 class SliderFloatPopupScreen : public PopupScreen {
@@ -198,7 +198,7 @@ private:
 	int *value_;
 	int minValue_;
 	int maxValue_;
-	float step_;
+	int step_;
 	ScreenManager *screenManager_;
 };
 
