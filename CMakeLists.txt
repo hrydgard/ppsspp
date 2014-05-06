@@ -930,6 +930,8 @@ elseif(X86)
 		Core/MIPS/x86/CompReplace.cpp
 		Core/MIPS/x86/Jit.cpp
 		Core/MIPS/x86/Jit.h
+		Core/MIPS/x86/JitSafeMem.cpp
+		Core/MIPS/x86/JitSafeMem.h
 		Core/MIPS/x86/RegCache.cpp
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
