@@ -235,10 +235,16 @@ static bool AlphaToColorDoubling() {
 	if (!gstate.isAlphaBlendEnabled()) {
 		return false;
 	}
+
+	// Since we cannot handle the 2x dest ones , we simply return false here .
+	if (gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLESRCALPHA || gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLEINVSRCALPHA) {
+		return false;
+	}
+
 	// 2x alpha in the source function and full alpha = source color doubling.
 	// If we see this, we don't really need to care about the dest alpha function - sure we can't handle
 	// the doubling dest ones, but there's nothing we can do about that.
-	return (gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA) && (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()));
+	return (gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA);
 }
 
 static bool CanDoubleSrcBlendMode() {
@@ -251,8 +257,6 @@ static bool CanDoubleSrcBlendMode() {
 	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
 		funcB = funcA;
 		funcA = gstate.getBlendFuncB();
-	}
-	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
 		return false;
 	}
 
