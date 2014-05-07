@@ -45,12 +45,9 @@ enum {
 	FB_BUFFERED_MODE = 1,
 
 	// Hm, it's unfortunate that GPU has ended up as two separate values in GL and GLES.
-#ifndef USING_GLES2
 	FB_READFBOMEMORY_CPU = 2,
 	FB_READFBOMEMORY_GPU = 3,
-#else
-	FB_READFBOMEMORY_GPU = 2,
-#endif
+
 	FBO_READFBOMEMORY_MIN = 2
 };
 
@@ -94,7 +91,6 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
-#ifndef USING_GLES2
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
 	GLuint handle;
@@ -107,8 +103,6 @@ struct AsyncPBO {
 	GEBufferFormat format;
 	bool reading;
 };
-
-#endif
 
 class ShaderManager;
 
@@ -161,12 +155,8 @@ public:
 
 	// Just for logging right now.  Might remove/change.
 	void NotifyBlockTransfer(u32 dst, u32 src);
-
-#ifdef USING_GLES2
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
-#else
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
-#endif 
+  
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync);
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetVFBAt(u32 addr);
@@ -225,9 +215,7 @@ private:
 
 	// Used by ReadFramebufferToMemory
 	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
-#ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
-#endif
 	void PackFramebufferSync_(VirtualFramebuffer *vfb);
 
 	// Used by DrawPixels
@@ -257,10 +245,8 @@ private:
 
 	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 
-#ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
-#endif
 
 	std::set<std::pair<u32, u32>> reportedBlits_;
 };

@@ -1111,11 +1111,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
-#ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
 	}
-#endif
 
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
@@ -1157,19 +1155,19 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 			// When updating VRAM, it need to be exact format.
 			switch (vfb->format) {
-				case GE_FORMAT_4444:
-					nvfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					nvfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					nvfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					nvfb->colorDepth = FBO_8888;
-					break;
+			case GE_FORMAT_4444:
+				nvfb->colorDepth = FBO_4444;
+				break;
+			case GE_FORMAT_5551:
+				nvfb->colorDepth = FBO_5551;
+				break;
+			case GE_FORMAT_565:
+				nvfb->colorDepth = FBO_565;
+				break;
+			case GE_FORMAT_8888:
+			default:
+				nvfb->colorDepth = FBO_8888;
+				break;
 			}
 
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
@@ -1183,7 +1181,8 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			fbo_bind_as_render_target(nvfb->fbo);
 			ClearBuffer();
 			glEnable(GL_DITHER);
-		} else {
+		}
+		else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 			nvfb->last_frame_render = gpuStats.numFlips;
@@ -1207,15 +1206,29 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		vfb->memoryUpdated = true;
 		BlitFramebuffer_(vfb, nvfb, false);
 
-#ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
+		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
+
+#ifdef MOBILE_DEVICE
+		// PBOs has been supported in OpenGL ES 3.0.
+		if (gl_extensions.GLES3) {
+			if (!sync) {
+				PackFramebufferAsync_(nvfb);
+			} else {
+				PackFramebufferSync_(nvfb);
+			}
+		} else {
+			PackFramebufferSync_(nvfb);
+		}
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
+		} else {
+			PackFramebufferSync_(nvfb);
 		}
 #endif
 	}
@@ -1322,8 +1335,6 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 		}
 	}
 }
-
-#ifndef USING_GLES2
 
 void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	const int MAX_PBO = 2;
@@ -1495,8 +1506,6 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	}
 }
 
-#endif
-
 void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	if (vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
@@ -1576,10 +1585,8 @@ void FramebufferManager::EndFrame() {
 		resized_ = false;
 	}
 
-#ifndef USING_GLES2
 	// We flush to memory last requested framebuffer, if any
 	PackFramebufferAsync_(NULL);
-#endif
 }
 
 void FramebufferManager::DeviceLost() {
@@ -1640,7 +1647,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (updateVram && age == 0 && !vfb->memoryUpdated) 
-				ReadFramebufferToMemory(vfb);
+				ReadFramebufferToMemory(vfb, false);
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
