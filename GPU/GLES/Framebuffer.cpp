@@ -1113,7 +1113,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		PackFramebufferAsync_(NULL);
 	}
 #endif
 
@@ -1208,13 +1209,16 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		BlitFramebuffer_(vfb, nvfb, false);
 
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		// synchronous glReadPixels
+		PackFramebufferSync_(nvfb);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				// asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				// synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
 		}
 #endif
@@ -1233,9 +1237,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 		return;
 	}
 
@@ -1278,10 +1279,12 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 		} else if (UseBGRA8888()) {
 			u32 numPixels = height * stride;
 			ConvertBGRA8888ToRGBA8888((u32 *)dst, (const u32 *)src, numPixels);
-		} else { // Here lets assume they don't intersect
+		} else { 
+			// Here lets assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
-	} else { // But here it shouldn't matter if they do
+	} else { 
+		// But here it shouldn't matter if they do
 		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
@@ -1415,18 +1418,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		} else {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
 			return;
 		}
 
 		if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
 			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
 			return;
 		}
 
@@ -1469,14 +1466,11 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 				break;
 			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+				ERROR_LOG(SCEGE, "glReadPixels: Unknown OpenGL Error %u", error);
 				break;
 		}
 
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 
 		unbind = true;
 
@@ -1503,9 +1497,6 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 		return;
 	}
 
@@ -1521,14 +1512,14 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	}
 
 	if (packed) {
-		DEBUG_LOG(SCEGE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
-			(u32)bufSize, packed, fb_address);
+		DEBUG_LOG(SCEGE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", (u32)bufSize, packed, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		GLenum glfmt = GL_RGBA;
 #if defined(MAY_HAVE_GLES3)
-		if (UseBGRA8888())
+		if (UseBGRA8888()) {
 			glfmt = GL_BGRA_EXT;
+		}
 #endif
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
 		GLenum error = glGetError();
@@ -1550,11 +1541,12 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 				break;
 			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+				ERROR_LOG(SCEGE, "glReadPixels: Unknown OpenGL Error %u", error);
 				break;
 		}
 
-		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+		if (vfb->format != GE_FORMAT_8888) { 
+			// If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
@@ -1568,8 +1560,10 @@ void FramebufferManager::EndFrame() {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
+		if (zoom == 0) {
+			// auto mode
 			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+		}
 
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
