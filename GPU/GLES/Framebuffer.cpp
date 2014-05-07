@@ -854,11 +854,10 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-
-		if (updateVRAM && !vfb->memoryUpdated) {
+		if (updateVRAM_ && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		}
+		
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -1113,7 +1112,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		PackFramebufferAsync_(NULL);
 	}
 #endif
 
@@ -1206,15 +1206,18 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 		vfb->memoryUpdated = true;
 		BlitFramebuffer_(vfb, nvfb, false);
-
+		
+		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
+		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
+		
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		PackFramebufferSync_(nvfb);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
 		}
 #endif
@@ -1233,9 +1236,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 		return;
 	}
 
@@ -1278,10 +1278,12 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 		} else if (UseBGRA8888()) {
 			u32 numPixels = height * stride;
 			ConvertBGRA8888ToRGBA8888((u32 *)dst, (const u32 *)src, numPixels);
-		} else { // Here lets assume they don't intersect
+		} else { 
+			// Here lets assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
-	} else { // But here it shouldn't matter if they do
+	} else { 
+		// But here it shouldn't matter if they do
 		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
@@ -1415,18 +1417,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		} else {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
 			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
 			return;
 		}
 
 		if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
 			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
 			return;
 		}
 
@@ -1448,36 +1444,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
-		GLenum error = glGetError();
-		switch(error) {
-			case 0:
-				break;
-			case GL_INVALID_ENUM:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
-				break;
-			case GL_INVALID_VALUE:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
-				break;
-			case GL_INVALID_OPERATION:
-				// GL_INVALID_OPERATION will happen sometimes midframe but everything
-				// seems to work out when actually mapping buffers?
-				// GL_SAMPLE_BUFFERS, GL_READ_BUFFER, GL_BUFFER_SIZE/MAPPED,
-				// GL_PIXEL_PACK_BUFFER_BINDING, all have the expected values.
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-				break;
-			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
-				break;
-		}
-
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
-
 		unbind = true;
 
 		pixelBufObj_[currentPBO_].fb_address = fb_address;
@@ -1503,9 +1470,6 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
 		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 		return;
 	}
 
@@ -1531,30 +1495,9 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 			glfmt = GL_BGRA_EXT;
 #endif
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
-		GLenum error = glGetError();
-		switch(error) {
-			case 0:
-				break;
-			case GL_INVALID_ENUM:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
-				break;
-			case GL_INVALID_VALUE:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
-				break;
-			case GL_INVALID_OPERATION:
-				// GL_INVALID_OPERATION will happen sometimes midframe but everything
-				// seems to work out when actually reading?
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-				break;
-			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
-				break;
-		}
 
-		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+		if (vfb->format != GE_FORMAT_8888) { 
+			// If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
@@ -1592,6 +1535,7 @@ void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -1633,14 +1577,14 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated) 
-				ReadFramebufferToMemory(vfb);
+		if (updateVRAM_ && age == 0 && !vfb->memoryUpdated) {
+			ReadFramebufferToMemory(vfb);
+		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
