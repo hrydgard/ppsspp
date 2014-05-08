@@ -1332,6 +1332,33 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 
 #ifndef USING_GLES2
 
+// TODO: Make more generic.
+static void LogReadPixelsError(GLenum error) {
+	switch (error) {
+	case 0:
+		break;
+	case GL_INVALID_ENUM:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
+		break;
+	case GL_INVALID_VALUE:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
+		break;
+	case GL_INVALID_OPERATION:
+		// GL_INVALID_OPERATION will happen sometimes midframe but everything
+		// seems to work out when actually mapping buffers?
+		// GL_SAMPLE_BUFFERS, GL_READ_BUFFER, GL_BUFFER_SIZE/MAPPED,
+		// GL_PIXEL_PACK_BUFFER_BINDING, all have the expected values.
+		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
+		break;
+	case GL_INVALID_FRAMEBUFFER_OPERATION:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
+		break;
+	default:
+		ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+		break;
+	}
+}
+
 void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
@@ -1455,30 +1482,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
-		GLenum error = glGetError();
-		switch(error) {
-			case 0:
-				break;
-			case GL_INVALID_ENUM:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
-				break;
-			case GL_INVALID_VALUE:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
-				break;
-			case GL_INVALID_OPERATION:
-				// GL_INVALID_OPERATION will happen sometimes midframe but everything
-				// seems to work out when actually mapping buffers?
-				// GL_SAMPLE_BUFFERS, GL_READ_BUFFER, GL_BUFFER_SIZE/MAPPED,
-				// GL_PIXEL_PACK_BUFFER_BINDING, all have the expected values.
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-				break;
-			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
-				break;
-		}
+		LogReadPixelsError(glGetError());
 
 		fbo_unbind();
 		if (gl_extensions.FBO_ARB) {
@@ -1538,28 +1542,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 			glfmt = GL_BGRA_EXT;
 #endif
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
-		GLenum error = glGetError();
-		switch(error) {
-			case 0:
-				break;
-			case GL_INVALID_ENUM:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
-				break;
-			case GL_INVALID_VALUE:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
-				break;
-			case GL_INVALID_OPERATION:
-				// GL_INVALID_OPERATION will happen sometimes midframe but everything
-				// seems to work out when actually reading?
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
-				break;
-			default:
-				ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
-				break;
-		}
+		// LogReadPixelsError(glGetError());
 
 		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
