@@ -1214,14 +1214,17 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		vfb->memoryUpdated = true;
 		BlitFramebuffer_(vfb, nvfb, false);
 
+		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
+		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
+
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		PackFramebufferSync_(nvfb);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
-				PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb); // synchronous glReadPixels
+				PackFramebufferSync_(nvfb);
 			}
 		}
 #endif
@@ -1285,10 +1288,12 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 		} else if (UseBGRA8888()) {
 			u32 numPixels = height * stride;
 			ConvertBGRA8888ToRGBA8888((u32 *)dst, (const u32 *)src, numPixels);
-		} else { // Here lets assume they don't intersect
+		} else {
+			// Here let's assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
-	} else { // But here it shouldn't matter if they do
+	} else {
+		// But here it shouldn't matter if they do intersect
 		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
