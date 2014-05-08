@@ -1781,7 +1781,9 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
-			BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+			if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+			}
 		}
 		return true;  // No need to actually do the memory copy behind, probably.
 	} else if (dstBuffer) {
@@ -1790,7 +1792,9 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 		return false;
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
-		ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		}
 		return false;  // Let the bit copy happen
 	} else {
 		return false;
