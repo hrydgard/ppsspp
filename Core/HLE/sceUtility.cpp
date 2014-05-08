@@ -58,6 +58,8 @@ const u32 PSP_MODULE_NET_HTTP = 261;
 const u32 PSP_MODULE_NET_HTTPSTORAGE = 264;
 int oldStatus = 100; //random value
 
+bool Use_LoadAvModule = false;
+
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
 	UTILITY_DIALOG_SAVEDATA,
@@ -91,10 +93,13 @@ void __UtilityInit()
 
 void __UtilityDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceUtility", 1);
+	auto s = p.Section("sceUtility", 1, 2);
 	if (!s)
 		return;
-
+	if (s >= 2)
+		p.Do(Use_LoadAvModule);
+	else
+		Use_LoadAvModule = false;
 	p.Do(currentDialogType);
 	p.Do(currentDialogActive);
 	saveDialog.DoState(p);
@@ -197,13 +202,16 @@ u32 sceUtilityLoadAvModule(u32 module)
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
+	//Some strange that Yu Gi Oh Tag Force 1 Japan version don't call sceUtilityLoadAvModule(2)
+	Use_LoadAvModule = true;
+
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "0=sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -218,10 +226,12 @@ u32 sceUtilityLoadModule(u32 module)
 
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
 	{
-		DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
+		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+	
+	Use_LoadAvModule = false;
 	// Fix Kamen Rider Climax Heroes OOO - ULJS00331 loading
 	// Fix Naruto Shippuden Kizuna Drive (error module load failed)
 	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end()))
