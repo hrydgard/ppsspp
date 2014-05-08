@@ -1346,7 +1346,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBuffe
 // TODO: Make more generic.
 static void LogReadPixelsError(GLenum error) {
 	switch (error) {
-	case 0:
+	case GL_NO_ERROR:
 		break;
 	case GL_INVALID_ENUM:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_ENUM");
@@ -1355,17 +1355,19 @@ static void LogReadPixelsError(GLenum error) {
 		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_VALUE");
 		break;
 	case GL_INVALID_OPERATION:
-		// GL_INVALID_OPERATION will happen sometimes midframe but everything
-		// seems to work out when actually mapping buffers?
-		// GL_SAMPLE_BUFFERS, GL_READ_BUFFER, GL_BUFFER_SIZE/MAPPED,
-		// GL_PIXEL_PACK_BUFFER_BINDING, all have the expected values.
 		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_OPERATION");
 		break;
 	case GL_INVALID_FRAMEBUFFER_OPERATION:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION");
 		break;
-	default:
-		ERROR_LOG(SCEGE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+	case GL_OUT_OF_MEMORY:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_OUT_OF_MEMORY");
+		break;
+	case GL_STACK_UNDERFLOW:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_UNDERFLOW");
+		break;
+	case GL_STACK_OVERFLOW:
+		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
 	}
 }
@@ -1493,7 +1495,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
-		LogReadPixelsError(glGetError());
+		// LogReadPixelsError(glGetError());
 
 		fbo_unbind();
 		if (gl_extensions.FBO_ARB) {
