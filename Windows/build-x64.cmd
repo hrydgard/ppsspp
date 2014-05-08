@@ -28,8 +28,8 @@ set RELEASE_DIR=%CD%\bin-release
 set RELEASE_X64=PPSSPPWindows64.exe
 set DEBUG_X64=PPSSPPDebug64.exe
 
-set RLS_PPSSPP = /p:Configuration=Release;Platform=x64 /m
-set DBG_PPSSPP = /p:Configuration=Debug;Platform=x64 /m
+set RLS_PPSSPP=/m /p:Configuration=Release;Platform=x64
+set DBG_PPSSPP=/m /p:Configuration=Debug;Platform=x64
 
 call msbuild PPSSPP.sln /t:Clean %RLS_PPSSPP%
 call msbuild PPSSPP.sln /t:Build %RLS_PPSSPP%

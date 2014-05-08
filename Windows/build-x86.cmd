@@ -28,8 +28,8 @@ set RELEASE_DIR=%CD%\bin-release
 set RELEASE_X86=PPSSPPWindows.exe
 set DEBUG_X86=PPSSPPDebug.exe
 
-set RLS_PPSSPP = /p:Configuration=Release;Platform=win32 /m
-set DBG_PPSSPP = /p:Configuration=Debug;Platform=win32 /m
+set RLS_PPSSPP=/m /p:Configuration=Release;Platform=win32
+set DBG_PPSSPP=/m /p:Configuration=Debug;Platform=win32
 
 call msbuild PPSSPP.sln /t:Clean %RLS_PPSSPP%
 call msbuild PPSSPP.sln /t:Build %RLS_PPSSPP%
