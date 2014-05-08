@@ -226,7 +226,7 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
+	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif

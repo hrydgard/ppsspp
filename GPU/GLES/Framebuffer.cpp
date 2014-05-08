@@ -508,6 +508,7 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 	glsl_unbind();
 }
 
+// x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
@@ -1212,7 +1213,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		}
 
 		vfb->memoryUpdated = true;
-		BlitFramebuffer_(vfb, nvfb, false);
+		BlitFramebuffer_(vfb, nvfb);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
@@ -1231,15 +1232,26 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float uscale, float vscale) {
-	if (dst->fbo) {
-		fbo_bind_as_render_target(dst->fbo);
-	} else {
+// TODO: If glBlitFramebuffer is available, we can take a shortcut. If, in addition, the dimensions
+// are the same, we can use glCopyImageSubData.
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+	if (!dst->fbo) {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 		fbo_unbind();
 		return;
 	}
 
+	if (!src->fbo) {
+		ERROR_LOG_REPORT_ONCE(srcfbozero, SCEGE, "BlitFramebuffer_: src->fbo == 0");
+		fbo_unbind();
+		return;
+	}
+
+	fbo_bind_as_render_target(dst->fbo);
+	fbo_bind_color_as_texture(src->fbo, 0);
+
+	// glCheckFramebufferStatus should only be called at creation time. Here it's just silly - we just bound a draw buffer above.
+#if 0
 	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
 		fbo_unbind();
@@ -1248,25 +1260,20 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 		}
 		return;
 	}
+#endif
+	// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
+	CompileDraw2DProgram();
 
 	glstate.viewport.set(0, 0, dst->width, dst->height);
 	DisableState();
 
-	if (src->fbo) {
-		fbo_bind_color_as_texture(src->fbo, 0);
-	} else {
-		ERROR_LOG_REPORT_ONCE(srcfbozero, SCEGE, "BlitFramebuffer_: src->fbo == 0");
-		fbo_unbind();
-		return;
-	}
-
-	// It's pretty obvious that this CenterRect is incorrect.
-	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-
-	CompileDraw2DProgram();
-
-	DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, uscale, vscale, draw2dprogram_);
+	// These coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
+	// Really need to revamp that interface.
+	float x = 0.0f;
+	float y = 0.0f;
+	float w = 480.0f;
+	float h = 272.0f;
+	DrawActiveTexture(0, x, y, w, h, 480.0f, 272.0f, false, 1.0f, 1.0f, draw2dprogram_);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
