@@ -1729,7 +1729,27 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h) {
+bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
+	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
+		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
+		// The main thing this helps is videos, which will have a matching stride, and zero x/y.
+		if (dstStride == srcStride && dstY == 0 && dstX == 0 && srcX == 0 && srcY == 0) {
+			UpdateFromMemory(dstBasePtr, (dstY + height) * dstStride * bpp, true);
+		}
+	}
+
+	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
+	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
+
+	u32 backBuffer = PrevDisplayFramebufAddr();
+	u32 displayBuffer = DisplayFramebufAddr();
+
+	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
+		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
+		dstStride == 512 && height == 272) {
+		DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
+	}
+
 	// The stuff in the #ifdef is JUST for reporting, not used for anything else. 
 #ifndef MOBILE_DEVICE
 	if (reportedBlits_.insert(std::make_pair(dstBasePtr, srcBasePtr)).second) {
