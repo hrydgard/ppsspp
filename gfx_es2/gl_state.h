@@ -30,7 +30,7 @@ extern PFNGLMAPBUFFERPROC glMapBuffer;
 
 #endif
 
-#if !defined(IOS) && !defined(MAEMO)
+#if !defined(IOS) && !defined(MAEMO) && !defined(__SYMBIAN__)
 typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
@@ -38,6 +38,11 @@ typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
 																											GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei
 																											width, GLsizei height, GLsizei depth);
 extern PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
+typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
+	GLint srcX0, GLint srcY0, GLint srcX1, GLuint srcY1,
+	GLint dstX0, GLint dstY0, GLint dstX1, GLuint dstY1,
+	GLint mask, GLenum filter);
+extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 #endif
 
 #if defined(ANDROID) || defined(BLACKBERRY)

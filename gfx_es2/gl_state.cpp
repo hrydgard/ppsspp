@@ -13,7 +13,8 @@
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
-PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV ;
+PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
+PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 PFNGLMAPBUFFERPROC glMapBuffer;
 
 PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
@@ -224,6 +225,7 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
+
 #if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
@@ -241,6 +243,10 @@ void CheckGLExtensions() {
 		glCopyImageSubDataNV = (PFNGLCOPYIMAGESUBDATANVPROC)eglGetProcAddress("glCopyImageSubDataNV");
 	}
 
+	if (gl_extensions.NV_framebuffer_blit) {
+		glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC)eglGetProcAddress("glBlitFramebufferNV");
+	}
+
 	gl_extensions.OES_vertex_array_object = strstr(extString, "GL_OES_vertex_array_object") != 0;
 	if (gl_extensions.OES_vertex_array_object) {
 		glGenVertexArraysOES = (PFNGLGENVERTEXARRAYSOESPROC)eglGetProcAddress ( "glGenVertexArraysOES" );
@@ -249,6 +255,7 @@ void CheckGLExtensions() {
 		glIsVertexArrayOES = (PFNGLISVERTEXARRAYOESPROC)eglGetProcAddress ( "glIsVertexArrayOES" );
 	}
 
+	// Hm, this should be available on iOS too.
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
 	if (gl_extensions.EXT_discard_framebuffer) {
 		glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)eglGetProcAddress("glDiscardFramebufferEXT");
@@ -257,6 +264,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;
 #endif
+
 #else
 	// Desktops support minmax and subimage unpack (GL_UNPACK_ROW_LENGTH etc)
 	gl_extensions.EXT_blend_minmax = true;
