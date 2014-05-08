@@ -1929,8 +1929,10 @@ void GLES_GPU::DoBlockTransfer() {
 		}
 	}
 
-	// TODO: Notify all overlapping FBOs that they need to reload.
-	framebufferManager_.NotifyBlockTransfer(dstBasePtr, srcBasePtr);
+	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
+	if (framebufferManager_.NotifyBlockTransfer(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height)) {
+		goto doMemChecks;
+	}
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
 	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
@@ -1953,9 +1955,12 @@ void GLES_GPU::DoBlockTransfer() {
 		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 
+doMemChecks:
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+#else
+	;
 #endif
 }
 

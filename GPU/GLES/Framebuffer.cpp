@@ -1231,7 +1231,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float uscale, float vscale) {
 	if (dst->fbo) {
 		fbo_bind_as_render_target(dst->fbo);
 	} else {
@@ -1260,12 +1260,13 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 		return;
 	}
 
+	// It's pretty obvious that this CenterRect is incorrect.
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 	CompileDraw2DProgram();
 
-	DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, upscale, vscale, draw2dprogram_);
+	DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, uscale, vscale, draw2dprogram_);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
@@ -1572,8 +1573,10 @@ void FramebufferManager::EndFrame() {
 	}
 
 #ifndef USING_GLES2
-	// We flush to memory last requested framebuffer, if any
-	PackFramebufferAsync_(NULL);
+	// We flush to memory last requested framebuffer, if any.
+	// Only do this in the read-framebuffer modes.
+	if (g_Config.iRenderingMode == FB_READFBOMEMORY_CPU || g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
+		PackFramebufferAsync_(NULL);
 #endif
 }
 
@@ -1726,34 +1729,35 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-void FramebufferManager::NotifyBlockTransfer(u32 dst, u32 src) {
+bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h) {
+	// The stuff in the #ifdef is JUST for reporting, not used for anything else. 
 #ifndef MOBILE_DEVICE
-	if (!reportedBlits_.insert(std::make_pair(dst, src)).second) {
+	if (reportedBlits_.insert(std::make_pair(dstBasePtr, srcBasePtr)).second) {
 		// Already reported/checked.
-		return;
-	}
-
-	bool dstBuffer = false;
-	bool srcBuffer = false;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, dst)) {
-			dstBuffer = true;
+		bool dstBuffer = false;
+		bool srcBuffer = false;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			VirtualFramebuffer *vfb = vfbs_[i];
+			if (MaskedEqual(vfb->fb_address, dstBasePtr)) {
+				dstBuffer = true;
+			}
+			if (MaskedEqual(vfb->fb_address, srcBasePtr)) {
+				srcBuffer = true;
+			}
 		}
-		if (MaskedEqual(vfb->fb_address, src)) {
-			srcBuffer = true;
+
+		if (dstBuffer && srcBuffer) {
+			WARN_LOG_REPORT(G3D, "Intra buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		} else if (dstBuffer) {
+			WARN_LOG_REPORT(G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			WARN_LOG_REPORT(G3D, "Block transfer download (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
 		}
 	}
 
-	if (dstBuffer && srcBuffer) {
-		WARN_LOG_REPORT(G3D, "Intra buffer block transfer (not supported) %08x -> %08x", src, dst);
-	} else if (dstBuffer) {
-		WARN_LOG_REPORT(G3D, "Block transfer upload (not supported) %08x -> %08x", src, dst);
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		WARN_LOG_REPORT(G3D, "Block transfer download (not supported) %08x -> %08x", src, dst);
-	}
 #endif
+
+	return false;
 }
 
 void FramebufferManager::Resized() {

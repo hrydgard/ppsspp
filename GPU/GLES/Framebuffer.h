@@ -159,8 +159,10 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
 
-	// Just for logging right now.  Might remove/change.
-	void NotifyBlockTransfer(u32 dst, u32 src);
+	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
+	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
+	// read framebuffers is on, in which case this should always return false).
+	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h);
 
 #ifdef USING_GLES2
   void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
@@ -262,5 +264,7 @@ private:
 	u8 currentPBO_;
 #endif
 
+	// This is to be used only for reporting of strange blits. Don't control behaviour as
+	// this is "permanent" while framebuffers aren't.
 	std::set<std::pair<u32, u32>> reportedBlits_;
 };
