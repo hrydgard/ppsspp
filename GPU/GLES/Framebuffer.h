@@ -165,11 +165,8 @@ public:
 	// read framebuffers is on, in which case this should always return false).
 	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
 
-#ifdef USING_GLES2
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
-#else
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
-#endif 
+	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetVFBAt(u32 addr);
@@ -226,8 +223,8 @@ private:
 
 	VirtualFramebuffer *currentRenderVfb_;
 
-	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst);
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif

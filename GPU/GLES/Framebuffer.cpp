@@ -858,7 +858,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 		if (updateVRAM && !vfb->memoryUpdated) {
-			ReadFramebufferToMemory(vfb, true);
+			ReadFramebufferToMemory(vfb, true, 0, 0, 480, 272);
 		}
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -1118,7 +1118,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
+void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 #ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
@@ -1213,7 +1213,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		}
 
 		vfb->memoryUpdated = true;
-		BlitFramebuffer_(vfb, nvfb);
+		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
@@ -1234,7 +1234,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 // TODO: If glBlitFramebuffer is available, we can take a shortcut. If, in addition, the dimensions
 // are the same, we can use glCopyImageSubData.
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h) {
 	if (!dst->fbo) {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 		fbo_unbind();
@@ -1267,13 +1267,11 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	glstate.viewport.set(0, 0, dst->width, dst->height);
 	DisableState();
 
-	// These coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
-	// Really need to revamp that interface.
-	float x = 0.0f;
-	float y = 0.0f;
-	float w = 480.0f;
-	float h = 272.0f;
-	DrawActiveTexture(0, x, y, w, h, 480.0f, 272.0f, false, 0.0f, 0.0f, 1.0f, 1.0f, draw2dprogram_);
+	// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
+	// Should maybe revamp that interface.
+	float srcW = src->width;
+	float srcH = src->height;
+	DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcX / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
@@ -1644,8 +1642,14 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated) 
-				ReadFramebufferToMemory(vfb);
+		if (updateVram && age == 0 && !vfb->memoryUpdated) {
+#ifdef USING_GLES2
+			bool sync = true;
+#else
+			bool sync = false;
+#endif
+			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
+		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
