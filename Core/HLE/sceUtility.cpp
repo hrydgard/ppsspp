@@ -56,6 +56,7 @@ const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 const u32 PSP_MODULE_NET_HTTP = 261;
 const u32 PSP_MODULE_NET_HTTPSTORAGE = 264;
+int oldStatus = 100; //random value
 
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
@@ -132,7 +133,8 @@ int sceUtilitySavedataInitStart(u32 paramAddr)
 		WARN_LOG(SCEUTILITY, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
-	
+
+	oldStatus = 100;
 	currentDialogType = UTILITY_DIALOG_SAVEDATA;
 	currentDialogActive = true;
 	int ret = saveDialog.Init(paramAddr);
@@ -164,7 +166,10 @@ int sceUtilitySavedataGetStatus()
 	}
 
 	int status = saveDialog.GetStatus();
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
+	if (oldStatus != status) {
+		oldStatus = status;
+		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
+	}
 	hleEatCycles(200);
 	return status;
 }
@@ -268,6 +273,7 @@ int sceUtilityMsgDialogInitStart(u32 paramAddr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
+	oldStatus = 100;
 	currentDialogType = UTILITY_DIALOG_MSG;
 	currentDialogActive = true;
 	int ret = msgDialog.Init(paramAddr);
@@ -311,7 +317,10 @@ int sceUtilityMsgDialogGetStatus()
 	}
 
 	int status = msgDialog.GetStatus();
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogGetStatus()", status);
+	if (oldStatus != status) {
+		oldStatus = status;
+		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogGetStatus()", status);
+	}
 	return status;
 }
 
@@ -338,6 +347,7 @@ int sceUtilityOskInitStart(u32 oskPtr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
+	oldStatus = 100;
 	currentDialogType = UTILITY_DIALOG_OSK;
 	currentDialogActive = true;
 	int ret = oskDialog.Init(oskPtr);
@@ -381,7 +391,10 @@ int sceUtilityOskGetStatus()
 	}
 
 	int status = oskDialog.GetStatus();
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
+	if (oldStatus != status) {
+		oldStatus = status;
+		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
+	}
 	return status;
 }
 
@@ -393,6 +406,7 @@ int sceUtilityNetconfInitStart(u32 paramsAddr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
+	oldStatus = 100;
 	currentDialogType = UTILITY_DIALOG_NET;
 	currentDialogActive = true;	
 	int ret = netDialog.Init(paramsAddr);
@@ -429,13 +443,16 @@ int sceUtilityNetconfGetStatus()
 	}
 
 	int status = netDialog.GetStatus();
-	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfGetStatus()", status);
+	if (oldStatus != status) {
+		oldStatus = status;
+		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityNetconfGetStatus()", status);
+	}
 	return status;
 }
 
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
-u32 sceUtilityScreenshotInitStart(u32 paramAddr)
+int sceUtilityScreenshotInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -443,6 +460,7 @@ u32 sceUtilityScreenshotInitStart(u32 paramAddr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
+	oldStatus = 100;
 	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
 	currentDialogActive = true;
 	u32 retval = screenshotDialog.Init(paramAddr);
@@ -450,7 +468,7 @@ u32 sceUtilityScreenshotInitStart(u32 paramAddr)
 	return retval;
 }
 
-u32 sceUtilityScreenshotShutdownStart()
+int sceUtilityScreenshotShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -464,7 +482,7 @@ u32 sceUtilityScreenshotShutdownStart()
 	return ret;
 }
 
-u32 sceUtilityScreenshotUpdate(u32 animSpeed)
+int sceUtilityScreenshotUpdate(u32 animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -485,12 +503,15 @@ int sceUtilityScreenshotGetStatus()
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	u32 status = screenshotDialog.GetStatus(); 
-	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotGetStatus()", status);
+	int status = screenshotDialog.GetStatus(); 
+	if (oldStatus != status) {
+		oldStatus = status;
+		WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotGetStatus()", status);
+	}
 	return status;
 }
 
-u32 sceUtilityScreenshotContStart(u32 paramAddr)
+int sceUtilityScreenshotContStart(u32 paramAddr)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -498,7 +519,7 @@ u32 sceUtilityScreenshotContStart(u32 paramAddr)
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	
-	u32 ret = screenshotDialog.ContStart();
+	int ret = screenshotDialog.ContStart();
 	WARN_LOG(SCEUTILITY, "%08x=sceUtilityScreenshotContStart(%08x)", ret, paramAddr);
 	return ret;
 }
@@ -790,11 +811,11 @@ const HLEFunction sceUtility[] =
 	{0x2a2b3de0, &WrapU_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
 	{0xe49bfe92, &WrapU_U<sceUtilityUnloadModule>, "sceUtilityUnloadModule"},
 
-	{0x0251B134, &WrapU_U<sceUtilityScreenshotInitStart>, "sceUtilityScreenshotInitStart"},
-	{0xF9E0008C, &WrapU_V<sceUtilityScreenshotShutdownStart>, "sceUtilityScreenshotShutdownStart"},
-	{0xAB083EA9, &WrapU_U<sceUtilityScreenshotUpdate>, "sceUtilityScreenshotUpdate"},
+	{0x0251B134, &WrapI_U<sceUtilityScreenshotInitStart>, "sceUtilityScreenshotInitStart"},
+	{0xF9E0008C, &WrapI_V<sceUtilityScreenshotShutdownStart>, "sceUtilityScreenshotShutdownStart"},
+	{0xAB083EA9, &WrapI_U<sceUtilityScreenshotUpdate>, "sceUtilityScreenshotUpdate"},
 	{0xD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>, "sceUtilityScreenshotGetStatus"},
-	{0x86A03A27, &WrapU_U<sceUtilityScreenshotContStart>, "sceUtilityScreenshotContStart"},
+	{0x86A03A27, &WrapI_U<sceUtilityScreenshotContStart>, "sceUtilityScreenshotContStart"},
 
 	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
 	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
