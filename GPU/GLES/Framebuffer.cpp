@@ -1761,34 +1761,39 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 		DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 
-	// The stuff in the #ifdef is JUST for reporting, not used for anything else. 
-#ifndef MOBILE_DEVICE
-	if (reportedBlits_.insert(std::make_pair(dstBasePtr, srcBasePtr)).second) {
-		// Already reported/checked.
-		bool dstBuffer = false;
-		bool srcBuffer = false;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = vfbs_[i];
-			if (MaskedEqual(vfb->fb_address, dstBasePtr)) {
-				dstBuffer = true;
-			}
-			if (MaskedEqual(vfb->fb_address, srcBasePtr)) {
-				srcBuffer = true;
-			}
+	VirtualFramebuffer *dstBuffer = 0;
+	VirtualFramebuffer *srcBuffer = 0;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		if (MaskedEqual(vfb->fb_address, dstBasePtr)) {
+			dstBuffer = vfb;
 		}
-
-		if (dstBuffer && srcBuffer) {
-			WARN_LOG_REPORT(G3D, "Intra buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		} else if (dstBuffer) {
-			WARN_LOG_REPORT(G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-			WARN_LOG_REPORT(G3D, "Block transfer download (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		if (MaskedEqual(vfb->fb_address, srcBasePtr)) {
+			srcBuffer = vfb;
 		}
 	}
 
-#endif
-
-	return false;
+	if (dstBuffer && srcBuffer) {
+		if (srcBuffer == dstBuffer) {
+			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		} else {
+			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+			// Just do the blit!
+			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
+			BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+		}
+		return true;  // No need to actually do the memory copy behind, probably.
+	} else if (dstBuffer) {
+		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		// Here we should just draw the pixels into the buffer.
+		return false;
+	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
+		ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		return false;  // Let the bit copy happen
+	} else {
+		return false;
+	}
 }
 
 void FramebufferManager::Resized() {

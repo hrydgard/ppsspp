@@ -261,8 +261,4 @@ private:
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
-
-	// This is to be used only for reporting of strange blits. Don't control behaviour as
-	// this is "permanent" while framebuffers aren't.
-	std::set<std::pair<u32, u32>> reportedBlits_;
 };
