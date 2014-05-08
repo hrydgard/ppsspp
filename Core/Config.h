@@ -152,9 +152,6 @@ public:
 	int iSFXVolume;
 	int iBGMVolume;
 
-	// Audio Hack
-	bool bSoundSpeedHack;
-
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
