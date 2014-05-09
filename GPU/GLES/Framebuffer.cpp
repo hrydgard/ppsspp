@@ -1624,11 +1624,10 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
-// MotoGP workaround
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 	for (size_t i = 0; i < vfbs_.size(); i++) {
-		// This size fits for MotoGP. Might want to make this more flexible for other games if they do the same.
-		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == 512 * 272 * 2) {
+		int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
+		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == fsize ) {
 			// A framebuffer matched!
 			knownFramebufferCopies_.insert(std::pair<u32, u32>(src, dest));
 		}
