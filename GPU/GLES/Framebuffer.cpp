@@ -1119,10 +1119,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-	
-	// Null out currentRenderVfb_
-	currentRenderVfb_ = NULL;
-	
+
 #ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
@@ -1130,6 +1127,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #endif
 
 	if (vfb) {
+
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 		// For now we'll keep these on the same struct as the ones that can get displayed
 		// (and blatantly copy work already done above while at it).
@@ -1233,6 +1231,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			}
 		}
 #endif
+
+		// Null out currentRenderVfb_ so it gets set again properly.
+		currentRenderVfb_ = NULL;
 	}
 }
 
