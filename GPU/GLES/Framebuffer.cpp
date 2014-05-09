@@ -341,7 +341,8 @@ FramebufferManager::FramebufferManager() :
 	ClearBuffer();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-
+	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
+	
 	SetLineWidth();
 }
 
@@ -848,9 +849,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-		bool updateVRAM = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-
-		if (updateVRAM && !vfb->memoryUpdated) {
+	
+		if (updateVRAM_ && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, 480, 272);
 		}
 		// Use it as a render target.
@@ -1637,13 +1637,12 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVram && age == 0 && !vfb->memoryUpdated) {
+		if (updateVRAM_ && age == 0 && !vfb->memoryUpdated) {
 #ifdef USING_GLES2
 			bool sync = true;
 #else
@@ -1794,12 +1793,7 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 		return false;
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
-#ifdef USING_GLES2
-		bool sync = true;
-#else
-		bool sync = false;
-#endif
-		ReadFramebufferToMemory(srcBuffer, sync, srcX, srcY, width, height);
+		ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
 		return false;  // Let the bit copy happen
 	} else {
 		return false;
