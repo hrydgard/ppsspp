@@ -1236,8 +1236,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-// TODO: If glBlitFramebuffer is available, we can take a shortcut. If, in addition, the dimensions
-// are the same, we can use glCopyImageSubData.
+// TODO: If dimensions are the same, we can use glCopyImageSubData.
 void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h) {
 	if (!dst->fbo) {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
@@ -1252,32 +1251,46 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-	fbo_bind_color_as_texture(src->fbo, 0);
 
-	// glCheckFramebufferStatus should only be called at creation time. Here it's just silly - we just bound a draw buffer above.
-#if 0
-	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		ERROR_LOG(SCEGE, "Incomplete target framebuffer, aborting blit");
-		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
-		return;
-	}
+
+#ifndef USING_GLES2
+	if (gl_extensions.FBO_ARB) {
+#else
+	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
 #endif
-	// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
-	CompileDraw2DProgram();
 
-	glstate.viewport.set(0, 0, dst->width, dst->height);
-	DisableState();
+#ifdef MAY_HAVE_GLES3
+			fbo_bind_for_read(src->fbo);
+			if (gl_extensions.GLES3) {
+				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
+				glBlitFramebuffer(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			}
+#if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
+			else if (gl_extensions.NV_framebuffer_blit) {
+				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
+				glBlitFramebufferNV(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			}
+#endif // defined(ANDROID)
 
-	// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
-	// Should maybe revamp that interface.
-	float srcW = src->width;
-	float srcH = src->height;
-	DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
+#endif // MAY_HAVE_GLES3
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+	} else {
+		fbo_bind_color_as_texture(src->fbo, 0);
+
+		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
+		CompileDraw2DProgram();
+
+		glstate.viewport.set(0, 0, dst->width, dst->height);
+		DisableState();
+
+		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
+		// Should maybe revamp that interface.
+		float srcW = src->width;
+		float srcH = src->height;
+		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
 	fbo_unbind();
 }
 
