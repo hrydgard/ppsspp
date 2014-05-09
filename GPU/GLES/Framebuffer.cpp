@@ -1557,7 +1557,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 
 	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
 
-	if (convert) {
+	if (!convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
 	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
