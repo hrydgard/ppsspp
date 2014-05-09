@@ -1272,6 +1272,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 			}
 #endif // defined(ANDROID)
 
+#endif // MAY_HAVE_GLES3
+
 	} else {
 		fbo_bind_color_as_texture(src->fbo, 0);
 
@@ -1288,7 +1290,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
-#endif // MAY_HAVE_GLES3
 
 	fbo_unbind();
 }
