@@ -383,25 +383,27 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		drawPixelsTexFormat_ = srcPixelFormat;
+	} else {
+		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
+	// Could share code with the texture cache perhaps.
 	bool useConvBuf = false;
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
+	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		useConvBuf = true;
 		if (!convBuf) {
-			convBuf = new u8[512 * 272 * 4];
+			convBuf = new u8[width * height * 4];
 		}
-		for (int y = 0; y < 272; y++) {
+		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * 512 * y;
-					for (int x = 0; x < 480; x++)
+					u8 *dst = convBuf + 4 * width * y;
+					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
 						dst[x * 4] = ((col) & 0x1f) << 3;
@@ -415,8 +417,8 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * 512 * y;
-					for (int x = 0; x < 480; x++)
+					u8 *dst = convBuf + 4 * width * y;
+					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
 						dst[x * 4] = ((col) & 0x1f) << 3;
@@ -430,8 +432,8 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * 512 * y;
-					for (int x = 0; x < 480; x++)
+					u8 *dst = convBuf + 4 * width * y;
+					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
 						dst[x * 4] = ((col >> 8) & 0xf) << 4;
@@ -445,8 +447,8 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_8888:
 				{
 					const u8 *src = srcPixels + srcStride * 4 * y;
-					u8 *dst = convBuf + 4 * 512 * y;
-					memcpy(dst, src, 4 * 480);
+					u8 *dst = convBuf + 4 * width * y;
+					memcpy(dst, src, 4 * width);
 				}
 				break;
 
@@ -456,27 +458,26 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			}
 		}
 	}
-	glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : srcPixels);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : srcPixels);
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DisableState();
 	DrawActiveTexture(0, dstX, dstY, width, height, vfb->width, vfb->height, false, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	DisableState();
-	// This CenterRect is for when we're drawing directly to the backbuffer... Ugh. Should we really do that here?
-	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
 	// (it always runs at output resolution so FXAA may look odd).
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 	if (applyPostShader && usePostShader_ && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 	} else {
@@ -1855,6 +1856,8 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 		return true;  // No need to actually do the memory copy behind, probably.
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+		DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
 		// Here we should just draw the pixels into the buffer.
 		return false;
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
