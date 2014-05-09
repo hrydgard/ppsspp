@@ -364,14 +364,16 @@ FramebufferManager::~FramebufferManager() {
 	delete [] convBuf;
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader) {
-	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
+void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
 	}
 
 	if (!drawPixelsTex_) {
 		glGenTextures(1, &drawPixelsTex_);
+		drawPixelsTexW_ = width;
+		drawPixelsTexH_ = height;
 
 		// Initialize backbuffer texture for DrawPixels
 		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
@@ -383,21 +385,21 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
-		drawPixelsTexFormat_ = pixelFormat;
+		drawPixelsTexFormat_ = srcPixelFormat;
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	bool useConvBuf = false;
-	if (pixelFormat != GE_FORMAT_8888 || linesize != 512) {
+	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 		useConvBuf = true;
 		if (!convBuf) {
 			convBuf = new u8[512 * 272 * 4];
 		}
 		for (int y = 0; y < 272; y++) {
-			switch (pixelFormat) {
+			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				{
-					const u16 *src = (const u16 *)framebuf + linesize * y;
+					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf + 4 * 512 * y;
 					for (int x = 0; x < 480; x++)
 					{
@@ -412,7 +414,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 			case GE_FORMAT_5551:
 				{
-					const u16 *src = (const u16 *)framebuf + linesize * y;
+					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf + 4 * 512 * y;
 					for (int x = 0; x < 480; x++)
 					{
@@ -427,7 +429,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 			case GE_FORMAT_4444:
 				{
-					const u16 *src = (const u16 *)framebuf + linesize * y;
+					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf + 4 * 512 * y;
 					for (int x = 0; x < 480; x++)
 					{
@@ -442,7 +444,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 			case GE_FORMAT_8888:
 				{
-					const u8 *src = framebuf + linesize * 4 * y;
+					const u8 *src = srcPixels + srcStride * 4 * y;
 					u8 *dst = convBuf + 4 * 512 * y;
 					memcpy(dst, src, 4 * 480);
 				}
@@ -454,14 +456,23 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 			}
 		}
 	}
-
-	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 	glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : framebuf);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 272, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : srcPixels);
+}
+
+void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DrawActiveTexture(0, dstX, dstY, width, height, vfb->width, vfb->height, false, 0.0f, 0.0f, 1.0f, 1.0f);
+}
+
+void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
 	DisableState();
+	// This CenterRect is for when we're drawing directly to the backbuffer... Ugh. Should we really do that here?
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
@@ -1041,7 +1052,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			if (!vfb) {
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
-				DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+				DrawFramebuffer(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {
@@ -1736,7 +1747,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					h = (h * vfb->renderHeight) / vfb->bufferHeight;
 					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
 					needUnbind = true;
-					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
+					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride, vfb->width, vfb->height);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
@@ -1815,7 +1826,7 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272) {
-		DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
+		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
 	}
 
 	VirtualFramebuffer *dstBuffer = 0;

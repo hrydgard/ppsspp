@@ -124,7 +124,10 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -233,6 +236,8 @@ private:
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
