@@ -1556,7 +1556,10 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
-	if (vfb->format == GE_FORMAT_8888) {
+
+	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
+
+	if (convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
 	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
@@ -1569,13 +1572,14 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		GLenum glfmt = GL_RGBA;
 #if defined(MAY_HAVE_GLES3)
-		if (UseBGRA8888())
+		if (UseBGRA8888()) {
 			glfmt = GL_BGRA_EXT;
+		}
 #endif
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
 		// LogReadPixelsError(glGetError());
 
-		if (vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+		if (convert) {
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
