@@ -1033,7 +1033,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 
 			// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
-			for (auto iter = knownFramebufferCopies_.begin(); iter != knownFramebufferCopies_.end(); ++iter) {
+			for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
 				if (iter->second == displayFramebufPtr_) {
 					vfb = GetVFBAt(iter->first);
 				}
@@ -1646,16 +1646,6 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dest, int size) {
-	for (size_t i = 0; i < vfbs_.size(); i++) {
-		int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
-		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == fsize ) {
-			// A framebuffer matched!
-			knownFramebufferCopies_.insert(std::pair<u32, u32>(src, dest));
-		}
-	}
-}
-
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
@@ -1759,6 +1749,49 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		if (needUnbind)
 			fbo_unbind();
+	}
+}
+
+void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+	// MotoGP workaround
+	for (size_t i = 0; i < vfbs_.size(); i++) {
+		int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
+		int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
+		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == fsize) {
+			// A framebuffer matched!
+			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+		}
+	}
+
+	VirtualFramebuffer *dstBuffer = 0;
+	VirtualFramebuffer *srcBuffer = 0;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		if (MaskedEqual(vfb->fb_address, dst)) {
+			dstBuffer = vfb;
+		}
+		if (MaskedEqual(vfb->fb_address, src)) {
+			srcBuffer = vfb;
+		}
+	}
+
+	// TODO: Do ReadFramebufferToMemory etc where applicable.
+	// This will slow down MotoGP but make the hack above unnecessary.
+	if (dstBuffer && srcBuffer) {
+		if (srcBuffer == dstBuffer) {
+			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
+		} else {
+			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
+			// Just do the blit!
+			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
+			// BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height);
+		}
+	} else if (dstBuffer) {
+		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
+		// Here we should just draw the pixels into the buffer.
+	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		// ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
 	}
 }
 

@@ -256,7 +256,7 @@ private:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
