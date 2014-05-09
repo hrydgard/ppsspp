@@ -851,7 +851,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	} else if (vfb != currentRenderVfb_) {
 	
 		if (updateVRAM_ && !vfb->memoryUpdated) {
-			ReadFramebufferToMemory(vfb, true, 0, 0, 480, 272);
+			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		}
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -1119,6 +1119,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
+	
+	// Null out currentRenderVfb_
+	currentRenderVfb_ = NULL;
+	
 #ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
