@@ -1262,10 +1262,12 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 #ifdef MAY_HAVE_GLES3
 			fbo_bind_for_read(src->fbo);
 			if (gl_extensions.GLES3) {
+				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
 				glBlitFramebuffer(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			}
 #if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 			else if (gl_extensions.NV_framebuffer_blit) {
+				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
 				glBlitFramebufferNV(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			}
 #endif // defined(ANDROID)
