@@ -511,7 +511,9 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, GLSLProgram *program) {
 	if (flip) {
-		std::swap(v0, v1);
+		// We're flipping, so 0 is downward.  Reverse everything from 1.0f.
+		v0 = 1.0f - v0;
+		v1 = 1.0f - v1;
 	}
 	const float texCoords[8] = {u0,v0, u1,v0, u1,v1, u0,v1};
 	static const GLushort indices[4] = {0,1,3,2};
