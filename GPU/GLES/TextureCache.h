@@ -153,7 +153,6 @@ private:
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
 	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
-	bool AttachFramebufferCLUT(TextureCache::TexCacheEntry *entry, VirtualFramebuffer *framebuffer, u32 address);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry);
 
