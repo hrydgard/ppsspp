@@ -158,7 +158,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		if (shiftedMask & 0x3E0) WRITE(p, "  int g = int(index.g * 31.99);\n"); else WRITE(p, "  int g = 0;\n");
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(index.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(index.a);\n"); else WRITE(p, "  int a = 0;\n");
-		WRITE(p, "int color = (a << 15) | (b << 10) | (g << 5) | (r);");
+		WRITE(p, "  int color = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
 	}
 	float texturePixels = 256;
@@ -166,7 +166,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		texturePixels = 512;
 
 	WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
-	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) - 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
