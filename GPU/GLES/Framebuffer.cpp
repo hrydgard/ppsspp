@@ -962,14 +962,13 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
-				if (gl_extensions.GLES3) {
-					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				}
-#if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-				else if (gl_extensions.NV_framebuffer_blit) {
+
+#if defined(ANDROID)  		// We only support this extension on Android, it's not even available on PC.
+				if (gl_extensions.NV_framebuffer_blit) {
 					glBlitFramebufferNV(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				}
-#endif
+				} else 
+#endif // defined(ANDROID)
+					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
 			}
 #endif
@@ -1009,8 +1008,14 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			fbo_bind_as_render_target(renderCopy);
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 			fbo_bind_for_read(framebuffer->fbo);
-			glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
+			
+#if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
+			if (gl_extensions.NV_framebuffer_blit) {
+				glBlitFramebufferNV(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			} else 
+#endif // defined(ANDROID)
+				glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			fbo_bind_color_as_texture(renderCopy, 0);
 #endif
