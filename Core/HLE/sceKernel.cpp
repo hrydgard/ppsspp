@@ -78,6 +78,7 @@
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
+#include "sceMp4.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -138,6 +139,7 @@ void __KernelInit()
 	__HeapInit();
 	__DmacInit();
 	__AudioCodecInit();
+	__VideoPmpInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -162,6 +164,8 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__AudioCodecShutdown();
+	__VideoPmpShutdown();
+	__AACShutdown();
 	__NetShutdown();
 	__NetAdhocShutdown();
 	__FontShutdown();
@@ -261,6 +265,8 @@ void __KernelDoState(PointerWrap &p)
 		__PPGeDoState(p);
 		__CheatDoState(p);
 		__sceAudiocodecDoState(p);
+		__VideoPmpDoState(p);
+		__AACDoState(p);
 	}
 
 	{

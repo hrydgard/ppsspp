@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -148,7 +150,6 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_firstTimeStamp = 0;
 	m_lastTimeStamp = 0;
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
@@ -171,7 +172,6 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	AudioClose(&m_audioContext);
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 }
 
 void MediaEngine::DoState(PointerWrap &p){
@@ -212,11 +212,11 @@ void MediaEngine::DoState(PointerWrap &p){
 	}
 
 	p.Do(m_isVideoEnd);
-	p.Do(m_noAudioData);
-	if (s >= 3){
+	bool noAudioDataRemoved;
+	p.Do(noAudioDataRemoved);
+	if (s >= 3) {
 		p.Do(m_audioType);
-	}
-	else{
+	} else {
 		m_audioType = PSP_CODEC_AT3PLUS;
 	}
 }
@@ -286,9 +286,8 @@ bool MediaEngine::openContext() {
 		return false;
 
 	setVideoDim();
-	m_audioContext = AudioCreate(m_audioType);
+	m_audioContext = new SimpleAudio(m_audioType);
 	m_isVideoEnd = false;
-	m_noAudioData = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
@@ -313,8 +312,8 @@ void MediaEngine::closeContext()
 	m_pCodecCtxs.clear();
 	if (m_pFormatCtx)
 		avformat_close_input(&m_pFormatCtx);
-	if (m_sws_ctx != NULL)
-		sws_freeContext(m_sws_ctx);
+	sws_freeContext(m_sws_ctx);
+	m_sws_ctx = NULL;
 	m_pIOContext = 0;
 #endif
 	m_buffer = 0;
@@ -343,7 +342,6 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		if (!m_pdata->push(buffer, size)) 
 			size  = 0;
 		if (m_demux) {
-			m_noAudioData = false;
 			m_demux->addStreamData(buffer, addSize);
 		}
 #ifdef USE_FFMPEG
@@ -367,11 +365,13 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		return true;
 	}
 
-	m_videoStream = streamNum;
 #ifdef USE_FFMPEG
-	if (m_pFormatCtx && m_pCodecCtxs.find(m_videoStream) == m_pCodecCtxs.end()) {
+	if (m_pFormatCtx && m_pCodecCtxs.find(streamNum) == m_pCodecCtxs.end()) {
 		// Get a pointer to the codec context for the video stream
-		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
+		if ((u32)streamNum >= m_pFormatCtx->nb_streams) {
+			return false;
+		}
+		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[streamNum]->codec;
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
@@ -384,9 +384,10 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		if (avcodec_open2(m_pCodecCtx, pCodec, &optionsDict) < 0) {
 			return false; // Could not open codec
 		}
-		m_pCodecCtxs[m_videoStream] = m_pCodecCtx;
+		m_pCodecCtxs[streamNum] = m_pCodecCtx;
 	}
 #endif
+	m_videoStream = streamNum;
 
 	return true;
 }
@@ -414,9 +415,7 @@ bool MediaEngine::setVideoDim(int width, int height)
 	// Allocate video frame
 	m_pFrame = av_frame_alloc();
 
-	if (m_sws_ctx != NULL) {
-		sws_freeContext(m_sws_ctx);
-	}
+	sws_freeContext(m_sws_ctx);
 	m_sws_ctx = NULL;
 	m_sws_fmt = -1;
 	updateSwsFormat(GE_CMODE_32BIT_ABGR8888);
@@ -617,6 +616,10 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(bufferPtr, true, videoImageSize, currentMIPS->pc);
+#endif
 	return videoImageSize;
 #endif // USE_FFMPEG
 	return 0;
@@ -652,6 +655,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
@@ -662,6 +668,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -672,6 +681,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -682,6 +694,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+#endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -728,7 +743,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		return 0;
 	}
 
-	// When m_demux , increment pts 
+	// When getting a frame, increment pts
 	m_audiopts += 4180;
 	
 	// Demux now (rather than on add data) so that we select the right stream.
@@ -736,17 +751,19 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 
 	u8 *audioFrame = 0;
 	int headerCode1, headerCode2;
-	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);
+	int frameSize = m_demux->getNextAudioFrame(&audioFrame, &headerCode1, &headerCode2);
 	if (frameSize == 0) {
-		m_noAudioData = true;
 		return 0;
 	}
 	int outbytes = 0;
 
 	if (m_audioContext != NULL) {
-		if (!AudioDecode(m_audioContext, audioFrame, frameSize, &outbytes, buffer)) {
+		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
+#ifndef MOBILE_DEVICE
+		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
+#endif
 	}
 
 	if (headerCode1 == 0x24) {
@@ -760,8 +777,17 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		}
 	}
 
-	m_noAudioData = false;
 	return 0x2000;
+}
+
+bool MediaEngine::IsNoAudioData() {
+	if (!m_demux) {
+		return true;
+	}
+
+	// Let's double check.  Here should be a safe enough place to demux.
+	m_demux->demux(m_audioStream);
+	return !m_demux->hasNextAudioFrame(NULL, NULL, NULL, NULL);
 }
 
 s64 MediaEngine::getVideoTimeStamp() {

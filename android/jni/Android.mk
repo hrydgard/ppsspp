@@ -11,6 +11,9 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
+LOCAL_C_INCLUDES := \
+		$(LOCAL_PATH)/$(NATIVE) \
+		$(LOCAL_PATH)
 LOCAL_LDLIBS := -lOpenSLES -llog
 		
 include $(BUILD_SHARED_LIBRARY)
@@ -42,6 +45,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/CompReplace.cpp \
   $(SRC)/Core/MIPS/x86/Asm.cpp \
   $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/GPU/GLES/VertexDecoderX86.cpp
@@ -134,6 +138,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
+  $(SRC)/GPU/Common/TransformCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
@@ -188,6 +193,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPNetconfDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
+  $(SRC)/Core/Dialog/PSPScreenshotDialog.cpp \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
@@ -201,7 +207,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
-  $(SRC)/Core/HLE/sceCtrl.cpp \
+  $(SRC)/Core/HLE/sceCtrl.cpp.arm \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \

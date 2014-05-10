@@ -52,6 +52,14 @@ public:
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
 
+	void Execute_OffsetAddr(u32 op, u32 diff);
+	void Execute_Origin(u32 op, u32 diff);
+	void Execute_Jump(u32 op, u32 diff);
+	void Execute_BJump(u32 op, u32 diff);
+	void Execute_Call(u32 op, u32 diff);
+	void Execute_Ret(u32 op, u32 diff);
+	void Execute_End(u32 op, u32 diff);
+
 	virtual u64 GetTickEstimate() {
 #if defined(_M_X64) || defined(ANDROID)
 		return curTickEst_;
@@ -81,7 +89,10 @@ protected:
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);
-	void UpdatePC(u32 currentPC, u32 newPC = 0);
+	void UpdatePC(u32 currentPC, u32 newPC);
+	void UpdatePC(u32 currentPC) {
+		UpdatePC(currentPC, currentPC);
+	}
 	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();

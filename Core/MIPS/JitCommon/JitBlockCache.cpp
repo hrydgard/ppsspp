@@ -188,6 +188,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	}
 	b.exitAddress[0] = rootAddress;
 	b.blockNum = num_blocks_;
+	b.proxyFor = new std::vector<u32>();
 	b.SetPureProxy();  // flag as pure proxy block.
 
 	// Make binary searches and stuff work ok
@@ -446,7 +447,10 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	if (b->proxyFor) {
 		for (size_t i = 0; i < b->proxyFor->size(); i++) {
 			int proxied_blocknum = GetBlockNumberFromStartAddress((*b->proxyFor)[i], false);
-			DestroyBlock(proxied_blocknum, invalidate);
+			// If it was already cleared, we don't know which to destroy.
+			if (proxied_blocknum != -1) {
+				DestroyBlock(proxied_blocknum, invalidate);
+			}
 		}
 		b->proxyFor->clear();
 		delete b->proxyFor;

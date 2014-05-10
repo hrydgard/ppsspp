@@ -214,7 +214,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -226,7 +226,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -314,7 +314,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -385,7 +385,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate_c.lightpos[l][c] = val;
 		}
 		break;
 
@@ -399,7 +398,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate_c.lightdir[l][c] = val;
 		}
 		break;
 
@@ -413,7 +411,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate_c.lightatt[l][c] = val;
 		}
 		break;
 
@@ -428,10 +425,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l][0] = r;
-			gstate_c.lightColor[t][l][1] = g;
-			gstate_c.lightColor[t][l][2] = b;
-		}
+			// DEBUG_LOG(G3D, "DL Light color %i %c att: %f", l, c + 'X', val);
+	}
 		break;
 
 	case GE_CMD_VIEWPORTX1:

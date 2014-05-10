@@ -83,10 +83,11 @@ struct JitBlock {
 	std::vector<u32> *proxyFor;
 
 	bool IsPureProxy() const {
-		return originalFirstOpcode.encoding == 0;
+		return originalFirstOpcode.encoding == 0x68FF0000;
 	}
 	void SetPureProxy() {
-		originalFirstOpcode.encoding = 0;
+		// Magic number that won't be a real opcode.
+		originalFirstOpcode.encoding = 0x68FF0000;
 	}
 };
 

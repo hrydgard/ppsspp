@@ -45,7 +45,7 @@ void MpegDemux::DoState(PointerWrap &p) {
 	p.DoClass(m_audioStream);
 }
 
-bool MpegDemux::addStreamData(u8* buf, int addSize) {
+bool MpegDemux::addStreamData(const u8 *buf, int addSize) {
 	if (m_readSize + addSize > m_len)
 		return false;
 	memcpy(m_buf + m_readSize, buf, addSize);
@@ -234,25 +234,43 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 	return -1;
 }
 
-int MpegDemux::getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2)
+int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 {
-	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
-	if (gotsize == 0 || !isHeader(m_audioFrame, 0))
-		return 0;
-	u8 Code1 = m_audioFrame[2];
-	u8 Code2 = m_audioFrame[3];
-	int frameSize = (((Code1 & 0x03) << 8) | ((Code2 & 0xFF) * 8)) + 0x10;
-	if (frameSize > gotsize)
+	int gotsize;
+	int frameSize;
+	if (!hasNextAudioFrame(&gotsize, &frameSize, headerCode1, headerCode2))
 		return 0;
 	int audioPos = 8;
 	int nextHeader = getNextHeaderPosition(m_audioFrame, audioPos, gotsize, frameSize);
 	if (nextHeader >= 0) {
 		audioPos = nextHeader;
-	} else
+	} else {
 		audioPos = gotsize;
+	}
 	m_audioStream.pop_front(0, audioPos);
 	*buf = m_audioFrame + 8;
-	if (headerCode1) *headerCode1 = Code1;
-	if (headerCode2) *headerCode2 = Code2;
 	return frameSize - 8;
+}
+
+bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2)
+{
+	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
+	if (gotsize == 0 || !isHeader(m_audioFrame, 0))
+		return false;
+	u8 code1 = m_audioFrame[2];
+	u8 code2 = m_audioFrame[3];
+	int frameSize = (((code1 & 0x03) << 8) | ((code2 & 0xFF) * 8)) + 0x10;
+	if (frameSize > gotsize)
+		return false;
+
+	if (gotsizeOut)
+		*gotsizeOut = gotsize;
+	if (frameSizeOut)
+		*frameSizeOut = frameSize;
+	if (headerCode1)
+		*headerCode1 = code1;
+	if (headerCode2)
+		*headerCode2 = code2;
+
+	return true;
 }

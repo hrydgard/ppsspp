@@ -23,6 +23,7 @@ Debug
 Release
 Windows/x64
 Windows/ipch
+Windows/bin-release
 ui_atlas.zim.png
 android/assets
 # For Mac
@@ -63,8 +64,3 @@ local.properties
 # For vim
 *.swp
 tags
-
-libat3plusdecoder.dylib
-libat3plusdecoder.so
-at3plusdecoder.dll
-at3plusdecoder64.dll

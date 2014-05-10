@@ -17,6 +17,7 @@
 
 #include <map>
 #include <set>
+#include "base/mutex.h"
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -36,6 +37,7 @@ using namespace MIPSCodeUtils;
 
 // Not in a namespace because MSVC's debugger doesn't like it
 static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+recursive_mutex functions_lock;
 
 // TODO: Try multimap instead
 // One function can appear in multiple copies in memory, and they will all have 
@@ -46,6 +48,7 @@ struct HashMapFunc {
 	char name[64];
 	u64 hash;
 	u32 size; //number of bytes
+	bool hardcoded;  // should not be saved
 
 	bool operator < (const HashMapFunc &other) const {
 		return hash < other.hash || (hash == other.hash && size < other.size);
@@ -57,6 +60,352 @@ static std::set<HashMapFunc> hashMap;
 static std::string hashmapFileName;
 
 #define MIPSTABLE_IMM_MASK 0xFC000000
+
+// Similar to HashMapFunc but has a char pointer for the name for efficiency.
+struct HardHashTableEntry {
+	uint64_t hash;
+	int funcSize;
+	const char *funcName;
+
+	bool operator <(const HardHashTableEntry &e) const {
+		if (hash < e.hash) return true;
+		if (hash > e.hash) return false;
+		return funcSize < e.funcSize;
+	}
+};
+
+// Some hardcoded hashes.
+static const HardHashTableEntry hardcodedHashes[] = {
+	{ 0x006b570008068310, 184, "strtok_r", },
+	{ 0x019ba2099fb88f3c, 48, "vector_normalize_t", },
+	{ 0x02bd2859045d2383, 240, "bcmp", },
+	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
+	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
+	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
+	{ 0x05aedd0c04b451a1, 356, "sqrt", },
+	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
+	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
+	{ 0x06e2826e02056114, 56, "wcslen", },
+	{ 0x075fa9b234b41e9b, 32, "fmodf", },
+	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
+	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },
+	{ 0x0c0173ed70f84f66, 48, "vnormalize_t", },
+	{ 0x0c65188f5bfb3915, 24, "vsgn_q", },
+	{ 0x0d898513a722ea3c, 40, "copysignf", },
+	{ 0x0e99b037b852c8ea, 68, "isnan", },
+	// Unsafe due to immediates.
+	//{ 0x0eb5f2e95f59276a, 40, "dl_write_lightmode", },
+	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
+	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
+	{ 0x0ffa5db8396d4274, 64, "memcpy", },
+	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
+	{ 0x12df3d33a58d0298, 52, "vmidt_t", },
+	{ 0x12feef7b017d3431, 700, "memmove", },
+	{ 0x1322c7e3fe6dff4d, 784, "_free_r", },
+	{ 0x1376c115d5f1d90c, 36, "strlen", },
+	{ 0x1448134dd3acd1f9, 240, "memchr", },
+	{ 0x14800e59c04968d7, 100, "wcsstr", },
+	{ 0x14b56e858a27a8a4, 24, "vi2f_q", },
+	{ 0x15c4662d5d3c728e, 308, "acosf", },
+	{ 0x1616ee7052542059, 48, "vtfm_t", },
+	{ 0x16965ca11a4e7dac, 104, "vmmul_q_transp", },
+	{ 0x16afe830a5dd2de2, 40, "vdiv_q", },
+	{ 0x184e834a63a79016, 32, "isnanf", },
+	{ 0x189212bda9c94df1, 736, "atanf", },
+	{ 0x199821ce500ef9d2, 24, "vocp_t", },
+	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
+	{ 0x1a7564fa3e25c992, 844, "memcpy", },
+	{ 0x1aad94c0723edfc0, 124, "vmmul_t_transp", },
+	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
+	{ 0x1ac05627df1f87f4, 112, "memcpy16", },
+	{ 0x1bdf3600844373fd, 112, "strstr", },
+	{ 0x1c967be07917ddc9, 92, "strcat", },
+	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
+	{ 0x1e1525e3bc2f6703, 676, "rint", },
+	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
+	{ 0x1f53eac122f96b37, 224, "cosf", },
+	{ 0x2097a8b75c8fe651, 436, "atan2", },
+	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
+	{ 0x24d82a8675800808, 220, "ceilf", },
+	{ 0x26cc90cb25af9d27, 476, "log10", },
+	{ 0x2774614d57d4baa2, 28, "vsub_q", },
+	{ 0x279c6bf9cf99cc85, 436, "strncpy", },
+	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
+	{ 0x2965b1ad3ca15cc1, 44, "vtfm_t", },
+	{ 0x299a370587df078f, 116, "strange_copy_routine", },
+	{ 0x2abca53599f09ea7, 608, "dl_write_matrix_3", },
+	{ 0x2adb92e8855c454e, 48, "vtfm_q", },
+	{ 0x2adc229bef7bbc75, 40, "isnan", },
+	{ 0x2bcf5268dd26345a, 340, "acos", },
+	{ 0x2c4cb2028a1735bf, 600, "floor", },
+	{ 0x2ca5958bb816c72e, 44, "vector_i2f_t", },
+	{ 0x2e7022d9767c9018, 2100, "atan", },
+	{ 0x2f10d3faec84b5bb, 276, "sinf", },
+	{ 0x2f639673670caa0e, 772, "dl_write_matrix_2", },
+	{ 0x2f718936b371fc44, 40, "vcos_s", },
+	{ 0x3024e961d1811dea, 396, "fmod", },
+	{ 0x30c9c4f420573eb6, 540, "expf", },
+	{ 0x317afeb882ff324a, 212, "memcpy", },
+	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
+	{ 0x31f523ef18898e0e, 420, "logf", },
+	{ 0x32806967fe81568b, 40, "vector_sub_t_2", },
+	{ 0x32ceb9a7f72b9385, 440, "_strtoul_r", },
+	{ 0x32e6bc7c151491ed, 68, "memchr", },
+	{ 0x335df69db1073a8d, 96, "wcscpy", },
+	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
+	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
+	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
+	{ 0x38f19bc3be215acc, 388, "log10f", },
+	{ 0x393047f06eceaba1, 96, "strcspn", },
+	{ 0x39a651942a0b3861, 204, "tan", },
+	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
+	{ 0x3ab08b5659de1746, 40, "vsin_s", },
+	{ 0x3c421a9265f37ebc, 700, "memmove", },
+	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
+	{ 0x3ce1806699a91d9d, 148, "dl_write_light", },
+	{ 0x3d5e914011c181d4, 444, "scalbnf", },
+	{ 0x3ea41eafb53fc99a, 388, "logf", },
+	{ 0x3fe38bff09ac3da0, 436, "_strtoul_r", },
+	{ 0x40a25c7e1fd44fe2, 24, "fabsf", },
+	// Unsafe due to immediates.
+	//{ 0x410d48d9b6580b4a, 36, "dl_write_ztest", },
+	{ 0x42dc17c8018f30f2, 44, "vtan.s", },
+	{ 0x436b07caa2aab931, 352, "acos", },
+	{ 0x444472537eedf966, 32, "vmzero_q", },
+	{ 0x449ff96982626338, 28, "vmidt_q", },
+	{ 0x44f65b1a72c45703, 36, "strlen", },
+	{ 0x45528de3948615dc, 64, "memcpy", },
+	{ 0x456a0d78ac318d15, 164, "gta_dl_write_matrix", },
+	{ 0x497248c9d12f44fd, 68, "strcpy", },
+	{ 0x4a70207212a4c497, 24, "strlen", },
+	{ 0x4b16a5c602c74c6c, 24, "vsub_t", },
+	{ 0x4c4bdedcc13ac77c, 624, "dl_write_matrix_5", },
+	{ 0x4c91c556d1aa896b, 104, "dl_write_material_3", },
+	{ 0x4cf38c368078181e, 616, "dl_write_matrix", },
+	{ 0x4d72b294501cddfb, 80, "copysign", },
+	{ 0x4ddd83b7f4ed8d4e, 844, "memcpy", },
+	{ 0x4e266783291b0220, 28, "vsub_t", },
+	{ 0x4e5950928c0bb082, 44, "vmmul_q_transp4", },
+	{ 0x4f34fc596ecf5b25, 40, "vdiv_t", },
+	{ 0x500a949afb39133f, 24, "vf2iu_q", },
+	{ 0x50d8f01ea8fa713d, 48, "send_commandi", },
+	{ 0x50fa6db2fb14814a, 544, "rint", },
+	{ 0x513ce13cd7ce97ea, 332, "scalbnf", },
+	{ 0x514161da54d37416, 1416, "__umoddi3", },
+	{ 0x51c52d7dd4d2191c, 360, "cos", },
+	{ 0x5287d4b8abd5806b, 768, "_strtoll_r", },
+	{ 0x52d5141545a75eda, 60, "dl_write_clutformat", },
+	{ 0x530cbe1ce9b45d58, 108, "dl_write_light_vector", },
+	{ 0x53c9aa23504a630f, 96, "vmmul_q_5", },
+	{ 0x54015ccbcbc75374, 24, "strlen", },
+	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
+	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
+	{ 0x56c9929e8c8c5768, 24, "fabsf", },
+	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
+	{ 0x580200b840b47c58, 1856, "_realloc_r", },
+	{ 0x5961f681bbd69035, 28, "vfad_q", },
+	{ 0x598b91c64cf7e036, 2388, "qsort", },
+	{ 0x59a0cb08f5ecf8b6, 28, "copysignf", },
+	{ 0x5ae4ec2a5e133de3, 28, "vector_cross_t", },
+	{ 0x5b005f8375d7c364, 236, "floorf", },
+	{ 0x5b103d973fd1dd94, 92, "matrix_rot_y", },
+	{ 0x5b9d7e9d4c905694, 196, "_calloc_r", },
+	{ 0x5bf7a77b028e9f66, 324, "sqrtf", },
+	{ 0x5e898df42c4af6b8, 76, "wcsncmp", },
+	{ 0x5f473780835e3458, 52, "vclamp_q", },
+	{ 0x5fc58ed2c4d48b79, 40, "vtfm_q_transp", },
+	{ 0x6145029ef86f0365, 76, "__extendsfdf2", },
+	{ 0x62815f41fa86a131, 656, "scalbn", },
+	{ 0x6301fa5149bd973a, 120, "wcscat", },
+	{ 0x658b07240a690dbd, 36, "strlen", },
+	{ 0x66122f0ab50b2ef9, 296, "dl_write_dither_matrix_5", },
+	{ 0x679e647e34ecf7f1, 132, "roundf", },
+	{ 0x67afe74d9ec72f52, 4380, "_strtod_r", },
+	{ 0x68b22c2aa4b8b915, 400, "sqrt", },
+	{ 0x6962da85a6dad937, 60, "strrchr", },
+	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
+	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
+	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
+	{ 0x6b4148322c569cb3, 240, "wmemchr", },
+	{ 0x6c4cb6d25851553a, 44, "vtfm_t", },
+	{ 0x6c7b2462b9ec7bc7, 56, "vmmul_q", },
+	{ 0x6ca9cc8fa485d096, 304, "__ieee754_sqrtf", },
+	{ 0x6ccffc753d2c148e, 96, "strlwr", },
+	{ 0x6e40ec681fb5c571, 40, "matrix_copy_q", },
+	{ 0x6e9884c842a51142, 236, "strncasecmp", },
+	{ 0x6f101c5c4311c144, 276, "floorf", },
+	{ 0x6f1731f84bbf76c3, 116, "strcmp", },
+	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
+	{ 0x70649c7211f6a8da, 16, "fabsf", },
+	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
+	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
+	{ 0x736b34ebc702d873, 104, "vmmul_q_transp", },
+	{ 0x7499a2ce8b60d801, 12, "abs", },
+	{ 0x74ebbe7d341463f3, 72, "dl_write_colortest", },
+	{ 0x755a41f9183bb89a, 60, "vmmul_q", },
+	{ 0x759834c69bb12c12, 68, "strcpy", },
+	{ 0x75c5a88d62c9c99f, 276, "sinf", },
+	{ 0x76c661fecbb39990, 364, "sin", },
+	{ 0x770c9c07bf58fd14, 16, "fabsf", },
+	{ 0x774e479eb9634525, 464, "_strtol_r", },
+	{ 0x77aeb1c23f9aa2ad, 56, "strchr", },
+	{ 0x78e8c65b5a458f33, 148, "memcmp", },
+	{ 0x794d1b073c183c77, 24, "fabsf", },
+	{ 0x7978a886cf70b1c9, 56, "wcschr", },
+	{ 0x79faa339fff5a80c, 28, "finitef", },
+	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
+	{ 0x7f1fc0dce6be120a, 404, "fmod", },
+	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
+	{ 0x83ac39971df4b966, 336, "sqrtf", },
+	{ 0x84c6cd47834f4c79, 1284, "powf", },
+	{ 0x8734dc1d155ea493, 24, "vf2iz_q", },
+	{ 0x87fe3f7e621ddebb, 212, "memcpy", },
+	{ 0x891ca854e1c664e9, 2392, "qsort", },
+	{ 0x8965d4b004adad28, 420, "log10f", },
+	{ 0x89e1858ba11b84e4, 52, "memset", },
+	{ 0x8a00e7207e7dbc81, 232, "_exit", },
+	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
+	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
+	{ 0x8c3fd997a544d0b1, 268, "memcpy", },
+	{ 0x8df2928848857e97, 164, "strcat", },
+	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
+	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
+	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
+	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
+	{ 0x8ff11e9bed387401, 700, "memmove", },
+	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
+	{ 0x91606bd72ae90481, 44, "wmemcpy", },
+	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
+	{ 0x93d8a275ba288b26, 32, "vdot_t", },
+	{ 0x94c7083b64a946b4, 2028, "powf", },
+	{ 0x95a52ce1bc460108, 2036, "_malloc_r", },
+	{ 0x95bd33ac373c019a, 24, "fabsf", },
+	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
+	{ 0x9734cf721bc0f3a1, 732, "atanf", },
+	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
+	{ 0x9b88b739267d189e, 88, "strrchr", },
+	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
+	{ 0x9e6ce11f9d49f954, 292, "memcpy", },
+	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
+	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
+	{ 0xa1ca0640f11182e7, 72, "strcspn", },
+	{ 0xa243486be51ce224, 272, "cosf", },
+	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
+	{ 0xa41989db0f9bf97e, 1304, "pow", },
+	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
+	{ 0xa54967288afe8f26, 600, "ceil", },
+	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
+	{ 0xa662359e30b829e4, 148, "memcmp", },
+	{ 0xa8390e65fa087c62, 140, "vtfm_t_q", },
+	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
+	{ 0xa9194e55cc586557, 268, "memcpy", },
+	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
+	{ 0xab97ec58c58a7c75, 52, "vector_divide_t", },
+	{ 0xacc2c11c3ea28320, 268, "ceilf", },
+	{ 0xad67add5122b8c64, 52, "matrix_q_translate_t", },
+	{ 0xada952a1adcea4f5, 60, "vmmul_q_transp5", },
+	{ 0xadfbf8fb8c933193, 56, "fabs", },
+	{ 0xae50226363135bdd, 24, "vector_sub_t", },
+	{ 0xae6cd7dfac82c244, 48, "vpow_s", },
+	{ 0xaf85d47f95ad2921, 1936, "pow", },
+	{ 0xafb2c7e56c04c8e9, 48, "vtfm_q", },
+	{ 0xafc9968e7d246a5e, 1588, "atan", },
+	{ 0xafcb7dfbc4d72588, 44, "vector_transform_3x4", },
+	{ 0xb0db731f27d3aa1b, 40, "vmax_s", },
+	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
+	{ 0xb183a37baa12607b, 32, "vscl_t", },
+	{ 0xb1a3e60a89af9857, 20, "fabs", },
+	{ 0xb3fef47fb27d57c9, 44, "vector_scale_t", },
+	{ 0xb43fd5078ae78029, 84, "send_commandi_stall", },
+	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
+	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
+	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
+	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
+	{ 0xb7d88567dc22aab1, 820, "memcpy", },
+	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
+	{ 0xb89aa73b6f94ba95, 52, "vclamp_t", },
+	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
+	{ 0xb8cfaeebfeb2de20, 7548, "_vfprintf_r", },
+	{ 0xb97f352e85661af6, 32, "finitef", },
+	{ 0xbb3c6592ed319ba4, 132, "dl_write_fog_params", },
+	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
+	{ 0xbdf54d66079afb96, 200, "dl_write_bone_matrix_3", },
+	{ 0xbe773f78afd1a70f, 128, "rand", },
+	{ 0xbf5d02ccb8514881, 108, "strcmp", },
+	{ 0xbf791954ebef4afb, 396, "expf", },
+	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
+	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
+	{ 0xc319f0d107dd2f45, 888, "__muldf3", },
+	{ 0xc35c10300b6b6091, 620, "floor", },
+	{ 0xc3dbf3e6c80a0a51, 164, "dl_write_bone_matrix", },
+	{ 0xc51519f5dab342d4, 224, "cosf", },
+	{ 0xc52c14b9af8c3008, 76, "memcmp", },
+	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
+	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
+	{ 0xcb7a2edd603ecfef, 48, "vtfm_p", },
+	{ 0xcdf64d21418b2667, 24, "vzero_q", },
+	{ 0xce1c95ee25b8e2ea, 448, "fmod", },
+	{ 0xce4d18a75b98859f, 40, "vector_add_t_2", },
+	// Unsafe due to immediates.
+	//{ 0xceb5372d0003d951, 52, "dl_write_stenciltest", },
+	{ 0xcee11483b550ce8f, 24, "vocp_q", },
+	{ 0xcfecf208769ed5fd, 272, "cosf", },
+	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
+	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
+	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
+	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
+	{ 0xd7229fee680e7851, 40, "vmin_s", },
+	{ 0xd75670860a7f4b05, 144, "wcsncpy", },
+	{ 0xd76d1a8804c7ec2c, 100, "dl_write_material", },
+	{ 0xd7d350c0b33a4662, 28, "vadd_q", },
+	{ 0xd80051931427dca0, 116, "__subdf3", },
+	{ 0xda51dab503b06979, 32, "vmidt_q", },
+	{ 0xdc0cc8b400ecfbf2, 36, "strcmp", },
+	{ 0xdcab869acf2bacab, 292, "strncasecmp", },
+	{ 0xdcdf7e1c1a3dc260, 372, "strncmp", },
+	{ 0xdcfc28e624a81bf1, 5476, "_dtoa_r", },
+	{ 0xddfa5a85937aa581, 32, "vdot_q", },
+	{ 0xe0214719d8a0aa4e, 104, "strstr", },
+	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
+	{ 0xe1107cf3892724a0, 460, "_memalign_r", },
+	{ 0xe1724e6e29209d97, 24, "vector_length_t_2", },
+	{ 0xe1a5d939cc308195, 68, "wcscmp", },
+	{ 0xe2d9106e5b9e39e6, 80, "strnlen", },
+	{ 0xe32cb5c062d1a1c4, 700, "_strtoull_r", },
+	{ 0xe3835fb2c9c04e59, 44, "vmmul_q", },
+	{ 0xe527c62d8613f297, 136, "strcpy", },
+	{ 0xe7b36c2c1348551d, 148, "tan", },
+	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
+	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
+	{ 0xe8ad7719be44e7c8, 276, "strchr", },
+	{ 0xeabb9c1b4f83d2b4, 52, "memset", },
+	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
+	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
+	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },
+	{ 0xedc3f476221f96e6, 148, "tanf", },
+	{ 0xf1f660fdf349eac2, 1588, "_malloc_r", },
+	{ 0xf38a356a359dbe06, 28, "vmax_q", },
+	{ 0xf3fc2220ed0f2703, 32, "send_commandf", },
+	{ 0xf4d797cef4ac88cd, 684, "_free_r", },
+	{ 0xf4ea7d2ec943fa02, 224, "sinf", },
+	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
+	{ 0xf52f993e444b6c52, 44, "dl_write_shademode", },
+	{ 0xf56641884b36c638, 468, "scalbn", },
+	{ 0xf5f7826b4a61767c, 40, "matrix_copy_q", },
+	{ 0xf73c094e492bc163, 396, "hypot", },
+	{ 0xf7fc691db0147e25, 96, "strspn", },
+	{ 0xf842aea3baa61f29, 32, "vector_length_t", },
+	{ 0xf8e0902f4099a9d6, 2260, "qsort", },
+	{ 0xf972543ab7df071a, 32, "vsqrt_s", },
+	{ 0xf9b00ef163e8b9d4, 32, "vscl_q", },
+	{ 0xf9ea1bf2a897ef24, 588, "ceil", },
+	{ 0xfa156c48461eeeb9, 24, "vf2id_q", },
+	{ 0xfb4253a1d9d9df9f, 20, "isnanf", },
+	{ 0xfd34a9ad94fa6241, 76, "__extendsfdf2", },
+	{ 0xfe4f0280240008e9, 28, "vavg_q", },
+	{ 0xfe5dd338ab862291, 216, "memset", },
+	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
+};
 
 namespace MIPSAnalyst {
 	// Only can ever output a single reg.
@@ -222,12 +571,14 @@ namespace MIPSAnalyst {
 		return results;
 	}
 	
-	void Reset()	{
+	void Reset() {
+		lock_guard guard(functions_lock);
 		functions.clear();
 		hashToFunction.clear();
 	}
 
 	void UpdateHashToFunctionMap() {
+		lock_guard guard(functions_lock);
 		hashToFunction.clear();
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
@@ -263,6 +614,7 @@ namespace MIPSAnalyst {
 	}
 
 	void HashFunctions() {
+		lock_guard guard(functions_lock);
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
@@ -375,9 +727,9 @@ skip:
 		return furthestJumpbackAddr;
 	}
 
-	void ReplaceFunctions();
-
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
+		lock_guard guard(functions_lock);
+
 		AnalyzedFunction currentFunction = {startAddr};
 
 		u32 furthestBranch = 0;
@@ -399,7 +751,8 @@ skip:
 				// We still need to insert the func for hashing purposes.
 				currentFunction.start = syminfo.address;
 				currentFunction.end = syminfo.address + syminfo.size - 4;
-				currentFunction.foundInSymbolMap = true;
+				// Re-add it to the map if the module address is not known yet (only happens from loaded maps.)
+				currentFunction.foundInSymbolMap = syminfo.moduleAddress != 0;
 				functions.push_back(currentFunction);
 				currentFunction.foundInSymbolMap = false;
 				currentFunction.start = addr + 4;
@@ -514,6 +867,8 @@ skip:
 	}
 
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
+		lock_guard guard(functions_lock);
+
 		// Check if we have this already
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
@@ -545,6 +900,8 @@ skip:
 	}
 
 	void ForgetFunctions(u32 startAddr, u32 endAddr) {
+		lock_guard guard(functions_lock);
+
 		// It makes sense to forget functions as modules are unloaded but it breaks
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
@@ -559,16 +916,22 @@ skip:
 			}
 		}
 
+		RestoreReplacedInstructions(startAddr, endAddr);
+
 		// TODO: Also wipe them from hash->function map
 	}
 
 	void ReplaceFunctions() {
+		lock_guard guard(functions_lock);
+
 		for (size_t i = 0; i < functions.size(); i++) {
 			WriteReplaceInstruction(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 
 	void UpdateHashMap() {
+		lock_guard guard(functions_lock);
+
 		for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
 			const AnalyzedFunction &f = *it;
 			// Small functions aren't very interesting.
@@ -620,9 +983,11 @@ skip:
 
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
 			const HashMapFunc &mf = *it;
-			if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
-				WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
-				break;
+			if (!mf.hardcoded) {
+				if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
+					WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
+					break;
+				}
 			}
 		}
 		fclose(file);
@@ -656,6 +1021,17 @@ skip:
 	}
 
 	void LoadHashMap(std::string filename) {
+		// First insert the hardcoded entries.
+		HashMapFunc mf;
+		for (size_t i = 0; i < ARRAY_SIZE(hardcodedHashes); i++) {
+			mf.hash = hardcodedHashes[i].hash;
+			mf.size = hardcodedHashes[i].funcSize;
+			strncpy(mf.name, hardcodedHashes[i].funcName, sizeof(mf.name));
+			mf.name[sizeof(mf.name) - 1] = 0;
+			mf.hardcoded = true;
+			hashMap.insert(mf);
+		}
+
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
@@ -665,6 +1041,7 @@ skip:
 
 		while (!feof(file)) {
 			HashMapFunc mf = { "" };
+			mf.hardcoded = false;
 			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
 				char temp[1024];
 				fgets(temp, 1024, file);

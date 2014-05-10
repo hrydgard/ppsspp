@@ -212,7 +212,7 @@ enum NativeModuleStatus {
 
 class Module : public KernelObject {
 public:
-	Module() : memoryBlockAddr(0), isFake(false) {}
+	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
@@ -439,6 +439,10 @@ void __KernelModuleDoState(PointerWrap &p)
 
 	if (s >= 2) {
 		p.Do(loadedModules);
+	}
+
+	if (g_Config.bFuncHashMap) {
+		MIPSAnalyst::ReplaceFunctions();
 	}
 }
 
@@ -959,10 +963,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	SectionID textSection = reader.GetSectionByName(".text");
 
 	if (textSection != -1) {
-		u32 textStart = reader.GetSectionAddr(textSection);
+		module->textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
+		module->textEnd = module->textStart + textSize;
 
-		module->nm.text_addr = textStart;
+		module->nm.text_addr = module->textStart;
 		// TODO: This value appears to be wrong.  In one example, the PSP has a value > 0x1000 bigger.
 		module->nm.text_size = textSize;
 		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
@@ -970,11 +975,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 #if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
-		MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
+		MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 #else
 		if (g_Config.bFuncHashMap) {
 			bool gotSymbols = reader.LoadSymbols();
-			MIPSAnalyst::ScanForFunctions(textStart, textStart + textSize, !gotSymbols);
+			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 		}
 #endif
 	}
@@ -1127,15 +1132,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 
 	if (textSection == -1) {
-		u32 textStart = reader.GetVaddr();
-		u32 textEnd = firstImportStubAddr - 4;
+		module->textStart = reader.GetVaddr();
+		module->textEnd = firstImportStubAddr - 4;
 #if !defined(MOBILE_DEVICE)
 		bool gotSymbols = reader.LoadSymbols();
-		MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
+		MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 #else
 		if (g_Config.bFuncHashMap) {
 			bool gotSymbols = reader.LoadSymbols();
-			MIPSAnalyst::ScanForFunctions(textStart, textEnd, !gotSymbols);
+			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 		}
 #endif
 	}

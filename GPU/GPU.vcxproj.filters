@@ -162,6 +162,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TransformCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="GLES\DepalettizeShader.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -304,6 +307,9 @@
     </ClCompile>
     <ClCompile Include="GLES\VertexDecoderX86.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TransformCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="GLES\DepalettizeShader.cpp">
       <Filter>GLES</Filter>

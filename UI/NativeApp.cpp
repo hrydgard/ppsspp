@@ -28,6 +28,11 @@
 // in NativeShutdown.
 
 #include <locale.h>
+// Linux doesn't like using std::find with std::vector<int> without this :/
+#if !defined(MOBILE_DEVICE)
+#include <algorithm>
+#endif
+
 #ifdef _WIN32
 #include <libpng16/png.h>
 #include "ext/jpge/jpge.h"
@@ -78,6 +83,10 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
+
+#if !defined(MOBILE_DEVICE)
+#include "Common/KeyMap.h"
+#endif
 
 // The new UI framework, for initialization
 
@@ -320,6 +329,10 @@ void NativeInit(int argc, const char *argv[],
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = argv[i] + strlen("--state=");
+#if !defined(MOBILE_DEVICE)
+				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
+					g_Config.bPauseExitsEmulator = true;
+#endif
 				break;
 			}
 		} else {
@@ -684,6 +697,18 @@ void NativeTouch(const TouchInput &touch) {
 
 void NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+#if !defined(MOBILE_DEVICE)
+	if (g_Config.bPauseExitsEmulator) {
+		static std::vector<int> pspKeys;
+		pspKeys.clear();
+		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
+				System_SendMessage("finish", "");
+				return;
+			}
+		}
+	}
+#endif
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);

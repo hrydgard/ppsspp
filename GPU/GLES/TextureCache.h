@@ -92,7 +92,8 @@ public:
 			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
 			STATUS_DEPALETTIZE = 0x20,
 			STATUS_DEPALETTIZE_DIRTY = 0x40,
-			STATUS_TEXPARAM_DIRTY = 0x80
+			STATUS_TEXPARAM_DIRTY = 0x80,
+			STATUS_CLUT_RECHECK = 0x100,   // Another texture with same addr had a hashfail.
 		};
 
 		// Status, but int so we can zero initialize.
@@ -123,6 +124,18 @@ public:
 		bool sClamp;
 		bool tClamp;
 
+		Status GetHashStatus() {
+			return Status(status & STATUS_MASK);
+		}
+		void SetHashStatus(Status newStatus) {
+			status = (status & ~STATUS_MASK) | newStatus;
+		}
+		Status GetAlphaStatus() {
+			return Status(status & STATUS_ALPHA_MASK);
+		}
+		void SetAlphaStatus(Status newStatus) {
+			status = (status & ~STATUS_ALPHA_MASK) | newStatus;
+		}
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
@@ -131,10 +144,10 @@ private:
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, GLenum dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
-	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
+	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h, bool isPrimary);
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();

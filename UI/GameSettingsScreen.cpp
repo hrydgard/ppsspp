@@ -53,23 +53,13 @@
 extern bool iosCanUseJit;
 #endif
 
-static const int alternateSpeedTable[9] = {
-	0, 15, 30, 45, 60, 75, 90, 120, 180
-};
-
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 	showDebugStats_ = g_Config.bShowDebugStats;
 
-	iAlternateSpeedPercent_ = 3;
-	for (int i = 0; i < (int)ARRAY_SIZE(alternateSpeedTable); i++) {
-		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
-			iAlternateSpeedPercent_ = i;
-			break;
-		}
-	}
+	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -117,15 +107,15 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gs->T("Auto FrameSkip")));
 	frameSkipAuto_->SetEnabled(g_Config.iFrameSkip != 0);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
-	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
-	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, ARRAY_SIZE(customSpeed), gs, screenManager()));
+
+	graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 600, gs->T("Alternative Speed", "Alternative Speed (in %, 0 = unlimited)"), 5, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
@@ -165,8 +155,9 @@ void GameSettingsScreen::CreateViews() {
 		// vtxJit->SetEnabled(false);
 	}
 
-	graphicsSettings->Add(new CheckBox(&g_Config.bLowQualitySplineBezier, gs->T("LowCurves", "Low quality spline/bezier curves")));
-
+	static const char *quality[] = { "Low", "Medium", "High"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gs->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gs, screenManager()));
+	
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
@@ -199,8 +190,6 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
-	// Maybe hide this on non-PVR?
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
@@ -244,8 +233,12 @@ void GameSettingsScreen::CreateViews() {
 	bgmVol->SetEnabledPtr(&g_Config.bEnableSound);
 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
-	CheckBox *lowAudio = audioSettings->Add(new CheckBox(&g_Config.bLowLatencyAudio, a->T("Low latency audio")));
+	static const char *latency[] = { "Low", "Medium", "High" };
+	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.IaudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gs, screenManager()));
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
+
+	audioSettings->Add(new ItemHeader(a->T("Audio hacks")));
+	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (DOA etc.)")));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -277,7 +270,11 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
 
 	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
-	enablePauseBtn->SetEnabled(!PSP_IsInited());
+	if (!PSP_IsInited()) {
+		enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
+	} else {
+		enablePauseBtn->SetEnabled(false);
+	}
 #endif
 
 	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
@@ -408,7 +405,12 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	host->GoFullscreen(g_Config.bFullScreen);
+#else
+	// SDL, basically.
+	System_SendMessage("toggle_fullscreen", "");
+#endif
 	return UI::EVENT_DONE;
 }
 
@@ -437,7 +439,9 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
-	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
+
+	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
+
 	if (g_Config.bShowDebugStats != showDebugStats_) {
 		// This affects the jit.
 		NativeMessageReceived("clear jit", "");
@@ -570,10 +574,14 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!iosCanUseJit) {
 		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
 	} else {
-		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+		auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
+		jitCheckbox->SetEnabled(!PSP_IsInited());
+		list->Add(jitCheckbox);
 	}
 #else
-	list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
+	jitCheckbox->SetEnabled(!PSP_IsInited());
+	list->Add(jitCheckbox);
 #endif
 
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);

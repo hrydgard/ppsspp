@@ -55,6 +55,16 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(USE_FFMPEG ON)
 endif()
 
+if (NOT ARM AND NOT MIPS)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_X64")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_X64")
+	else()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_IX86")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_IX86")
+	endif()
+endif()
+
 if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
@@ -920,6 +930,8 @@ elseif(X86)
 		Core/MIPS/x86/CompReplace.cpp
 		Core/MIPS/x86/Jit.cpp
 		Core/MIPS/x86/Jit.h
+		Core/MIPS/x86/JitSafeMem.cpp
+		Core/MIPS/x86/JitSafeMem.h
 		Core/MIPS/x86/RegCache.cpp
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
@@ -971,6 +983,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPPlaceholderDialog.h
 	Core/Dialog/PSPSaveDialog.cpp
 	Core/Dialog/PSPSaveDialog.h
+	Core/Dialog/PSPScreenshotDialog.cpp
+	Core/Dialog/PSPScreenshotDialog.h
 	Core/Dialog/SavedataParam.cpp
 	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
@@ -1209,6 +1223,8 @@ add_library(GPU OBJECT
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/TransformCommon.cpp
+	GPU/Common/TransformCommon.h
 	GPU/Common/IndexGenerator.cpp
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp

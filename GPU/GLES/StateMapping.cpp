@@ -166,11 +166,9 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged && !gstate.isModeClear()) {
-		if (gstate.isTextureMapEnabled()) {
-			textureCache_->SetTexture();
-		}
-		gstate_c.textureChanged = false;
+	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 	}
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
@@ -325,7 +323,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
+				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
+				glstate.blend.set(false);
+			} else {
+				glstate.blendEquation.set(eqLookup[blendFuncEq]);
+			}
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
 		}
@@ -398,7 +401,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
-			framebufferManager_->SetDepthUpdated();
+			if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
+				framebufferManager_->SetDepthUpdated();
+			}
 		} else {
 			glstate.depthTest.disable();
 		}
@@ -445,15 +450,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
+		renderWidthFactor = renderWidth / 480.0f;
+		renderHeightFactor = renderHeight / 272.0f;
 	}
-
-	renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-	renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 
 	bool throughmode = gstate.isModeThrough();
 
@@ -533,8 +539,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65536.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65536.0f;
+		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);

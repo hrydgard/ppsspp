@@ -26,7 +26,5 @@ public:
 
 	virtual int Init();
 	virtual int Update(int animSpeed);
-
-	virtual int ContStart();
 };
 

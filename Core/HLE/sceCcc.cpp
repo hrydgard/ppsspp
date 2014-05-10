@@ -20,6 +20,7 @@
 #include "util/text/shiftjis.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -27,6 +28,8 @@
 
 typedef PSPPointer<char> PSPCharPointer;
 typedef PSPPointer<u16> PSPWCharPointer;
+typedef PSPPointer<const char> PSPConstCharPointer;
+typedef PSPPointer<const u16> PSPConstWCharPointer;
 
 static u16 errorUTF8;
 static u16 errorUTF16;
@@ -86,36 +89,42 @@ void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 	jis2ucsTable = jis2ucs;
 }
 
-int sceCccUTF8toUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPCharPointer src;
-	PSPWCharPointer dst;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstCharPointer::Create(srcAddr);
+	auto dst = PSPWCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF8toUTF16(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
 		return 0;
 	}
 
+	// Round dstSize down if it represents half a character.
+	const auto dstEnd = PSPWCharPointer::Create(dstAddr + (dstSize & ~1));
+
 	DEBUG_LOG(HLE, "sceCccUTF8toUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF8 utf(src);
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (dst + UTF16LE::encodeUnits(c) >= dstEnd)
+			break;
 		dst += UTF16LE::encode(dst, c);
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, utf.byteIndex(), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
-int sceCccUTF8toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPCharPointer dst, src;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstCharPointer::Create(srcAddr);
+	auto dst = PSPCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
@@ -127,48 +136,62 @@ int sceCccUTF8toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 		return 0;
 	}
 
+	const auto dstEnd = PSPCharPointer::Create(dstAddr + dstSize);
+
 	DEBUG_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF8 utf(src);
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (dst + ShiftJIS::encodeUnits(c) >= dstEnd)
+			break;
 		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, utf.byteIndex(), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
-int sceCccUTF16toUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPWCharPointer src;
-	PSPCharPointer dst;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstWCharPointer::Create(srcAddr);
+	auto dst = PSPCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
 		return 0;
 	}
 
+	const auto dstEnd = PSPCharPointer::Create(dstAddr + dstSize);
+
 	DEBUG_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF16LE utf(src);
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (dst + UTF8::encodeUnits(c) >= dstEnd)
+			break;
 		dst += UTF8::encode(dst, c);
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, utf.shortIndex() * sizeof(uint16_t), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
-int sceCccUTF16toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPWCharPointer src;
-	PSPCharPointer dst;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstWCharPointer::Create(srcAddr);
+	auto dst = PSPCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
@@ -180,23 +203,31 @@ int sceCccUTF16toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 		return 0;
 	}
 
+	const auto dstEnd = PSPCharPointer::Create(dstAddr + dstSize);
+
 	DEBUG_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF16LE utf(src);
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (dst + ShiftJIS::encodeUnits(c) >= dstEnd)
+			break;
 		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, utf.shortIndex() * sizeof(uint16_t), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
-int sceCccSJIStoUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPCharPointer dst, src;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstCharPointer::Create(srcAddr);
+	auto dst = PSPCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccSJIStoUTF8(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
@@ -208,24 +239,31 @@ int sceCccSJIStoUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
 		return 0;
 	}
 
+	const auto dstEnd = PSPCharPointer::Create(dstAddr + dstSize);
+
 	DEBUG_LOG(HLE, "sceCccSJIStoUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	ShiftJIS sjis(src);
 	int n = 0;
 	while (u32 c = sjis.next())
 	{
+		if (dst + UTF8::encodeUnits(c) >= dstEnd)
+			break;
 		dst += UTF8::encode(dst, __CccJIStoUCS(c, errorUTF8));
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, sjis.byteIndex(), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
-int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
+int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
-	PSPCharPointer src;
-	PSPWCharPointer dst;
-	dst = dstAddr;
-	src = srcAddr;
-
+	const auto src = PSPConstCharPointer::Create(srcAddr);
+	auto dst = PSPWCharPointer::Create(dstAddr);
 	if (!dst.IsValid() || !src.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccSJIStoUTF16(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
@@ -237,22 +275,30 @@ int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 		return 0;
 	}
 
+	const auto dstEnd = PSPWCharPointer::Create(dstAddr + (dstSize & ~1));
+
 	DEBUG_LOG(HLE, "sceCccSJIStoUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	ShiftJIS sjis(src);
 	int n = 0;
 	while (u32 c = sjis.next())
 	{
+		if (dst + UTF16LE::encodeUnits(c) >= dstEnd)
+			break;
 		dst += UTF16LE::encode(dst, __CccJIStoUCS(c, errorUTF16));
 		n++;
 	}
+
+	if (dst < dstEnd)
+		*dst++ = 0;
+
+	CBreakPoints::ExecMemCheck(srcAddr, false, sjis.byteIndex(), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstAddr, true, dst.ptr - dstAddr, currentMIPS->pc);
 	return n;
 }
 
 int sceCccStrlenUTF8(u32 strAddr)
 {
-	PSPCharPointer str;
-	str = strAddr;
-
+	const auto str = PSPConstCharPointer::Create(strAddr);
 	if (!str.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccStrlenUTF8(%08x): invalid pointer", strAddr);
@@ -264,9 +310,7 @@ int sceCccStrlenUTF8(u32 strAddr)
 
 int sceCccStrlenUTF16(u32 strAddr)
 {
-	PSPWCharPointer str;
-	str = strAddr;
-
+	const auto str = PSPConstWCharPointer::Create(strAddr);
 	if (!str.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccStrlenUTF16(%08x): invalid pointer", strAddr);
@@ -278,9 +322,7 @@ int sceCccStrlenUTF16(u32 strAddr)
 
 int sceCccStrlenSJIS(u32 strAddr)
 {
-	PSPCharPointer str;
-	str = strAddr;
-
+	const auto str = PSPCharPointer::Create(strAddr);
 	if (!str.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccStrlenSJIS(%08x): invalid pointer", strAddr);
@@ -336,7 +378,7 @@ u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 
 u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 {
-	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
+	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
 	if (!dstp.IsValid() || !dstp->IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeUTF8(%08x): invalid pointer", dstAddrAddr);
@@ -356,7 +398,7 @@ u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 
 u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 {
-	auto dstp = PSPPointer<PSPWCharPointer>::Create(dstAddrAddr);
+	auto dstp = PSPPointer<PSPConstWCharPointer>::Create(dstAddrAddr);
 
 	if (!dstp.IsValid() || !dstp->IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeUTF16(%08x): invalid pointer", dstAddrAddr);
@@ -368,7 +410,7 @@ u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 	// TODO: Does it do any detection of BOM?
 	UTF16LE utf(*dstp);
 	u32 result = utf.next();
-	*dstp += utf.byteIndex();
+	*dstp += utf.shortIndex();
 
 	if (result == UTF16LE::INVALID)
 		return errorUTF16;
@@ -377,7 +419,7 @@ u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 
 u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 {
-	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
+	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
 	if (!dstp.IsValid() || !dstp->IsValid()) {
 		ERROR_LOG(HLE, "sceCccDecodeSJIS(%08x): invalid pointer", dstAddrAddr);
@@ -492,12 +534,12 @@ u32 sceCccJIStoUCS(u32 c, u32 alt)
 const HLEFunction sceCcc[] =
 {	
 	{0xB4D1CBBF, WrapV_UU<sceCccSetTable>, "sceCccSetTable"},
-	{0x00D1378F, WrapI_UIU<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
-	{0x6F82EE03, WrapI_UIU<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
-	{0x41B724A5, WrapI_UIU<sceCccUTF16toUTF8>, "sceCccUTF16toUTF8"},
-	{0xF1B73D12, WrapI_UIU<sceCccUTF16toSJIS>, "sceCccUTF16toSJIS"},
-	{0xA62E6E80, WrapI_UIU<sceCccSJIStoUTF8>, "sceCccSJIStoUTF8"},
-	{0xBEB47224, WrapI_UIU<sceCccSJIStoUTF16>, "sceCccSJIStoUTF16"},
+	{0x00D1378F, WrapI_UUU<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
+	{0x6F82EE03, WrapI_UUU<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
+	{0x41B724A5, WrapI_UUU<sceCccUTF16toUTF8>, "sceCccUTF16toUTF8"},
+	{0xF1B73D12, WrapI_UUU<sceCccUTF16toSJIS>, "sceCccUTF16toSJIS"},
+	{0xA62E6E80, WrapI_UUU<sceCccSJIStoUTF8>, "sceCccSJIStoUTF8"},
+	{0xBEB47224, WrapI_UUU<sceCccSJIStoUTF16>, "sceCccSJIStoUTF16"},
 	{0xb7d3c112, WrapI_U<sceCccStrlenUTF8>, "sceCccStrlenUTF8"},
 	{0x4BDEB2A8, WrapI_U<sceCccStrlenUTF16>, "sceCccStrlenUTF16"},
 	{0xd9392ccb, WrapI_U<sceCccStrlenSJIS>, "sceCccStrlenSJIS"},

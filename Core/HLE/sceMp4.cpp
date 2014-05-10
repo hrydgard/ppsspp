@@ -18,11 +18,35 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/sceMp4.h"
+#include "Core/HW/SimpleAudioDec.h"
 
+static std::map<u32, AuCtx*> aacMap;
+
+AuCtx *getAacCtx(u32 id) {
+	if (aacMap.find(id) == aacMap.end())
+		return NULL;
+	return aacMap[id];
+}
+
+void __AACShutdown() {
+	for (auto it = aacMap.begin(), end = aacMap.end(); it != end; it++) {
+		delete it->second;
+	}
+	aacMap.clear();
+}
+
+void __AACDoState(PointerWrap &p) {
+	auto s = p.Section("sceAAC", 0, 1);
+	if (!s)
+		return;
+
+	p.Do(aacMap);
+}
 
 u32 sceMp4Init()
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Init()");
+	INFO_LOG(ME, "sceMp4Init()");
 	return 0;
 }
 
@@ -134,21 +158,88 @@ u32 sceMp4SearchSyncSampleNum()
 	return 0;
 }
 
-u32 sceAacInit()
+
+// sceAac module starts from here
+
+u32 sceAacExit(u32 id)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInit()");
+	INFO_LOG(ME, "sceAacExit(id %i)", id);
+	if (aacMap.find(id) != aacMap.end()) {
+		delete aacMap[id];
+		aacMap.erase(id);
+	}
+	else{
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
 	return 0;
 }
 
-u32 sceAacExit()
+u32 sceAacInit(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacExit()");
-	return 0;
+	INFO_LOG(ME, "UNIMPL sceAacInit(%08x)", id);
+	if (!Memory::IsValidAddress(id)){
+		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
+		return ERROR_AAC_INVALID_ADDRESS;
+	}
+	AuCtx *aac = new AuCtx;
+	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
+	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
+	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
+	aac->AuBufSize = Memory::Read_U32(id + 20);         // Input AAC data buffer size.
+	aac->PCMBuf = Memory::Read_U32(id + 24);            // Output PCM data buffer.
+	aac->PCMBufSize = Memory::Read_U32(id + 28);        // Output PCM data buffer size.
+	aac->freq = Memory::Read_U32(id + 32);              // Frequency.
+	if (aac->AuBuf == 0 || aac->PCMBuf == 0) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
+		delete aac;
+		return ERROR_AAC_INVALID_ADDRESS;
+	}
+	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i endPos %i", aac->startPos, aac->endPos);
+		delete aac;
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", aac->AuBufSize, aac->PCMBufSize);
+		delete aac; 
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+	if (aac->freq != 24000 && aac->freq != 32000 && aac->freq != 44100 && aac->freq != 48000) {
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID freq %i", aac->freq);
+		delete aac;
+		return ERROR_AAC_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(ME, "startPos %x endPos %x AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
+		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
+
+	aac->Channels = 2;
+	aac->SumDecodedSamples = 0;
+	aac->MaxOutputSample = aac->PCMBufSize / 4;
+	aac->LoopNum = -1;
+	aac->AuBufAvailable = 0;
+	aac->MaxOutputSample = 0;
+	aac->readPos = aac->startPos;
+	aac->audioType = PSP_CODEC_AAC;
+
+	// create aac decoder
+	aac->decoder = new SimpleAudio(aac->audioType);
+
+	// close the audio if id already exist.
+	if (aacMap.find(id) != aacMap.end()) {
+		delete aacMap[id];
+		aacMap.erase(id);
+	}
+	aacMap[id] = aac;
+
+	return id;
 }
 
-u32 sceAacInitResource()
+u32 sceAacInitResource(u32 numberIds)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacInitResource()");
+	// Do nothing here
+	INFO_LOG_REPORT(ME, "sceAacInitResource(%i)", numberIds);
 	return 0;
 }
 
@@ -158,58 +249,118 @@ u32 sceAacTermResource()
 	return 0;
 }
 
-u32 sceAacDecode()
+u32 sceAacDecode(u32 id, u32 pcmAddr)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacDecode()");
-	return 0;
+	// return the size of output pcm, <0 error
+	DEBUG_LOG(ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuDecode(pcmAddr);
 }
 
-u32 sceAacGetLoopNum()
+u32 sceAacGetLoopNum(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacGetLoopNum()");
-	return 0;
+	INFO_LOG(ME, "sceAacGetLoopNum(id %i)", id);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+	return ctx->AuGetLoopNum();
 }
 
-u32 sceAacSetLoopNum()
+u32 sceAacSetLoopNum(u32 id, int loop)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacSetLoopNum()");
-	return 0;
+	INFO_LOG(ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuSetLoopNum(loop);
 }
 
-u32 sceAacCheckStreamDataNeeded()
+int sceAacCheckStreamDataNeeded(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacCheckStreamDataNeeded()");
-	return 0;
+	// return 1 to read more data stream, 0 don't read, <0 error
+	DEBUG_LOG(ME, "sceAacCheckStreamDataNeeded(%i)", id);
+
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuCheckStreamDataNeeded();
 }
 
-u32 sceAacNotifyAddStreamData()
+u32 sceAacNotifyAddStreamData(u32 id, int size)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacNotifyAddStreamData()");
-	return 0;
+	// check how many bytes we have read from source file
+	DEBUG_LOG(ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
+
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuNotifyAddStreamData(size);
 }
 
-u32 sceAacGetInfoToAddStreamData()
+u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacGetInfoToAddStreamData()");
-	return 0;
+	// read from stream position srcPos of size bytes into buff
+	DEBUG_LOG(ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
+
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac handle %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuGetInfoToAddStreamData(buff, size, srcPos);
 }
 
-u32 sceAacGetMaxOutputSample()
+u32 sceAacGetMaxOutputSample(u32 id)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacGetMaxOutputSample()");
-	return 0;
+	DEBUG_LOG(ME, "sceAacGetMaxOutputSample(id %i)", id);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuGetMaxOutputSample();
 }
 
-u32 sceAacGetSumDecodedSample()
+u32 sceAacGetSumDecodedSample(u32 id)
 {
-	ERROR_LOG(ME, "UNIMPL sceAacGetSumDecodedSample()");
-	return 0;
+	DEBUG_LOG(ME, "sceAacGetSumDecodedSample(id %i)", id);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuGetSumDecodedSample();
 }
 
-u32 sceAacResetPlayPosition()
+u32 sceAacResetPlayPosition(u32 id)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAacResetPlayPosition()");
-	return 0;
+	INFO_LOG(ME, "sceAacResetPlayPosition(id %i)", id);
+	auto ctx = getAacCtx(id);
+	if (!ctx) {
+		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
+		return -1;
+	}
+
+	return ctx->AuResetPlayPosition();
 }
 
 const HLEFunction sceMp4[] =
@@ -257,19 +408,19 @@ const HLEFunction sceMp4[] =
 
 // 395
 const HLEFunction sceAac[] = {
-	{0xE0C89ACA, WrapU_V<sceAacInit>, "sceAacInit"},
-	{0x33B8C009, WrapU_V<sceAacExit>, "sceAacExit"},
-	{0x5CFFC57C, WrapU_V<sceAacInitResource>, "sceAacInitResource"},
+	{0xE0C89ACA, WrapU_U<sceAacInit>, "sceAacInit"},
+	{0x33B8C009, WrapU_U<sceAacExit>, "sceAacExit"},
+	{0x5CFFC57C, WrapU_U<sceAacInitResource>, "sceAacInitResource"},
 	{0x23D35CAE, WrapU_V<sceAacTermResource>, "sceAacTermResource"},
-	{0x7E4CFEE4, WrapU_V<sceAacDecode>, "sceAacDecode"},
-	{0x523347D9, WrapU_V<sceAacGetLoopNum>, "sceAacGetLoopNum"},
-	{0xBBDD6403, WrapU_V<sceAacSetLoopNum>, "sceAacSetLoopNum"},
-	{0xD7C51541, WrapU_V<sceAacCheckStreamDataNeeded>, "sceAacCheckStreamDataNeeded"},
-	{0xAC6DCBE3, WrapU_V<sceAacNotifyAddStreamData>, "sceAacNotifyAddStreamData"},
-	{0x02098C69, WrapU_V<sceAacGetInfoToAddStreamData>, "sceAacGetInfoToAddStreamData"},
-	{0x6DC7758A, WrapU_V<sceAacGetMaxOutputSample>, "sceAacGetMaxOutputSample"},
-	{0x506BF66C, WrapU_V<sceAacGetSumDecodedSample>, "sceAacGetSumDecodedSample"},
-	{0xD2DA2BBA, WrapU_V<sceAacResetPlayPosition>, "sceAacResetPlayPosition"},
+	{0x7E4CFEE4, WrapU_UU<sceAacDecode>, "sceAacDecode"},
+	{0x523347D9, WrapU_U<sceAacGetLoopNum>, "sceAacGetLoopNum"},
+	{0xBBDD6403, WrapU_UI<sceAacSetLoopNum>, "sceAacSetLoopNum"},
+	{0xD7C51541, WrapI_U<sceAacCheckStreamDataNeeded>, "sceAacCheckStreamDataNeeded"},
+	{0xAC6DCBE3, WrapU_UI<sceAacNotifyAddStreamData>, "sceAacNotifyAddStreamData"},
+	{0x02098C69, WrapU_UUUU<sceAacGetInfoToAddStreamData>, "sceAacGetInfoToAddStreamData"},
+	{0x6DC7758A, WrapU_U<sceAacGetMaxOutputSample>, "sceAacGetMaxOutputSample"},
+	{0x506BF66C, WrapU_U<sceAacGetSumDecodedSample>, "sceAacGetSumDecodedSample"},
+	{0xD2DA2BBA, WrapU_U<sceAacResetPlayPosition>, "sceAacResetPlayPosition"},
 };
 
 void Register_sceMp4()

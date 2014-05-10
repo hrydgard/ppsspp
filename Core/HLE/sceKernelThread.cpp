@@ -2814,12 +2814,12 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 			return SCE_KERNEL_ERROR_NOT_WAIT;
 		if (t->nt.waitType == WAITTYPE_HLEDELAY)
 		{
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelReleaseWaitThread(): Refusing to wake HLE-delayed thread, right thing to do?");
+			WARN_LOG_REPORT_ONCE(rwt_delay, SCEKERNEL, "sceKernelReleaseWaitThread(): Refusing to wake HLE-delayed thread, right thing to do?");
 			return SCE_KERNEL_ERROR_NOT_WAIT;
 		}
 		if (t->nt.waitType == WAITTYPE_MODULE)
 		{
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelReleaseWaitThread(): Refusing to wake start_module thread, right thing to do?");
+			WARN_LOG_REPORT_ONCE(rwt_sm, SCEKERNEL, "sceKernelReleaseWaitThread(): Refusing to wake start_module thread, right thing to do?");
 			return SCE_KERNEL_ERROR_NOT_WAIT;
 		}
 

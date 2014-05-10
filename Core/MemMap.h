@@ -72,28 +72,20 @@ extern u8 *m_pVRAM;
 extern u8 *m_pPhysicalRAM;
 extern u8 *m_pUncachedRAM;
 
-extern u8 *m_pPhysicalVRAM;
-extern u8 *m_pUncachedVRAM;
-
-// These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
+// This replaces RAM_NORMAL_SIZE at runtime.
 extern u32 g_MemorySize;
-extern u32 g_MemoryMask;
 extern u32 g_PSPModel;
 
 enum
 {
 	// This may be adjusted by remaster games.
 	RAM_NORMAL_SIZE = 0x02000000,
-	RAM_NORMAL_MASK = RAM_NORMAL_SIZE - 1,
-
 	// Used if the PSP model is PSP-2000 (Slim).
 	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
 
-	VRAM_SIZE       = 0x200000,
-	VRAM_MASK       = VRAM_SIZE - 1,
+	VRAM_SIZE       = 0x00200000,
 
-	SCRATCHPAD_SIZE = 0x4000,
-	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
+	SCRATCHPAD_SIZE = 0x00004000,
 
 #if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
 	// This wraparound should work for PSP too.
@@ -384,6 +376,15 @@ struct PSPPointer
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
+#endif
+	}
+
+	inline operator const T*() const
+	{
+#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+		return (const T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
 #endif
 	}
 

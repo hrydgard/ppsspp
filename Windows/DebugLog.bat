@@ -11,7 +11,7 @@ if exist PPSSPPWindows.exe (
     goto exit
 )
 
-echo Unable to find PPSSPPDebug.exe.
+echo Unable to find PPSSPPWindows.exe.
 pause
 
 :exit

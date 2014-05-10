@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef __SYMBIAN32__
+#include <sys/cdefs.h>
+#include <sys/syslimits.h>
+#endif
+
 #include "file/file_util.h"
 
 #include "Common/StringUtils.h"
@@ -185,6 +190,20 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
 
+static std::string NormalizePath(const std::string &path)
+{
+#ifdef _WIN32
+	char buf[512] = {0};
+	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
+		return "";
+#else
+	char buf[PATH_MAX + 1];
+	if (realpath(path.c_str(), buf) == NULL)
+		return "";
+#endif
+	return buf;
+}
+
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 {
 	// This is really just for headless, might need tweaking later.
@@ -206,6 +225,25 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 #ifdef _WIN32
 	path = ReplaceAll(path, "/", "\\");
 #endif
+
+	if (!PSP_CoreParameter().mountRoot.empty())
+	{
+		// We don't want to worry about .. and cwd and such.
+		const std::string rootNorm = NormalizePath(PSP_CoreParameter().mountRoot + "/");
+		const std::string pathNorm = NormalizePath(path + "/");
+
+		// If root is not a subpath of path, we can't boot the game.
+		if (!startsWith(pathNorm, rootNorm))
+		{
+			*error_string = "Cannot boot ELF located outside mountRoot.";
+			return false;
+		}
+
+		const std::string filepath = ReplaceAll(pathNorm.substr(rootNorm.size()), "\\", "/");
+		file = filepath + "/" + file;
+		path = rootNorm;
+		pspFileSystem.SetStartingDirectory(filepath);
+	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
 	pspFileSystem.Mount("umd0:", fs);

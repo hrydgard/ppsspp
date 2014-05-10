@@ -101,6 +101,7 @@ static int numVBlanksSinceFlip;
 static u64 frameStartTicks;
 const int hCountPerVblank = 286;
 
+const int PSP_DISPLAY_MODE_LCD = 0;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 // Key is the callback id it was for, or if no callback, the thread id.
@@ -226,7 +227,7 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
 
 	p.Do(gstate);
-	p.Do(gstate_c);
+	gstate_c.DoState(p);
 #ifndef _XBOX
 	if (s < 2) {
 		// This shouldn't have been savestated anyway, but it was.
@@ -637,8 +638,17 @@ u32 sceDisplayIsVblank() {
 }
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+	if (displayWidth <= 0 || displayHeight <= 0 || (displayWidth & 0x7) != 0) {
+		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	
+	if (displayMode != PSP_DISPLAY_MODE_LCD) {
+		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID MODE(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+	}
 
+	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
@@ -672,7 +682,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		const int FLIP_DELAY_MIN_FLIPS = 30;
 
 		u64 now = CoreTiming::GetTicks();
-		u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
+		// 1001 to account for NTSC timing (59.94 fps.)
+		u64 expected = msToCycles(1001) / g_Config.iForceMaxEmulatedFPS;
 		u64 actual = now - lastFlipCycles;
 		if (actual < expected - FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {

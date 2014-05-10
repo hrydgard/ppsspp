@@ -348,6 +348,9 @@
     <ClCompile Include="Dialog\PSPOskDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPScreenshotDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
     <ClCompile Include="HW\SasAudio.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -519,6 +522,9 @@
     </ClCompile>
     <ClCompile Include="HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\JitSafeMem.cpp">
+      <Filter>MIPS\x86</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -810,6 +816,9 @@
     <ClInclude Include="Dialog\PSPOskDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
+    <ClInclude Include="Dialog\PSPScreenshotDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
     <ClInclude Include="HW\SasAudio.h">
       <Filter>HW</Filter>
     </ClInclude>
@@ -959,6 +968,9 @@
     </ClInclude>
     <ClInclude Include="HW\SimpleAudioDec.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\JitSafeMem.h">
+      <Filter>MIPS\x86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -30,6 +30,7 @@ enum
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
 	SCE_KERNEL_ERROR_OUT_OF_MEMORY                    = 0x80000022,
+	SCE_KERNEL_ERROR_PRIV_REQUIRED                    = 0x80000023,
 	SCE_KERNEL_ERROR_INVALID_ID                       = 0x80000100,
 	SCE_KERNEL_ERROR_INVALID_NAME                     = 0x80000101,
 	SCE_KERNEL_ERROR_INVALID_INDEX                    = 0x80000102,
@@ -306,6 +307,8 @@ enum
 
 	SCE_KERNEL_ERROR_CACHE_ALIGNMENT                  = 0x8002044c,
 	SCE_KERNEL_ERROR_ERRORMAX                         = 0x8002044d,
+
+	SCE_KERNEL_ERROR_POWER_VMEM_IN_USE                = 0x802b0200,
 };
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().

@@ -37,9 +37,6 @@
 
 // #define DEBUG_SHADER
 
-// GL_NV_shader_framebuffer_fetch looks interesting....
-
-
 // Dest factors where it's safe to eliminate the alpha test under certain conditions
 const bool safeDestFactors[16] = {
 	true, // GE_DSTBLEND_SRCCOLOR,
@@ -283,7 +280,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool alphaToColorDoubling = AlphaToColorDoubling();
@@ -292,6 +289,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -326,11 +324,16 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			// 3 bits
 			id0 |= ReplaceAlphaWithStencilType() << 21;
 		}
+
 		id0 |= (alphaTestAgainstZero & 1) << 24;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
+
+		if (computeAbsdiff) {
+			id0 |= (computeAbsdiff & 1) << 25;
+		}
 	}
 
 	id->d[0] = id0;
@@ -364,6 +367,12 @@ void GenerateFragmentShader(char *buffer) {
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	
+	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
+	if (gl_extensions.NV_shader_framebuffer_fetch) {
+		WRITE(p, "  #extension GL_NV_shader_framebuffer_fetch : require\n");
+	}
+	
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
@@ -398,7 +407,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
+	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool alphaToColorDoubling = AlphaToColorDoubling();
@@ -407,6 +416,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -590,6 +600,12 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
+	}
+
+	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
+	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
+		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
 	}
 
 	switch (stencilToAlpha) {

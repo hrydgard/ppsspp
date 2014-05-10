@@ -74,11 +74,9 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	const int confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? I_CROSS : I_CIRCLE;
 	const int confirmBtn = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 
-	if (status == SCE_UTILITY_STATUS_INITIALIZE)
-	{
+	if (status == SCE_UTILITY_STATUS_INITIALIZE) {
 		status = SCE_UTILITY_STATUS_RUNNING;
-	}
-	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET)) {
+	} else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_APNET || request.netAction == NETCONF_STATUS_APNET)) {
 		UpdateFade(animSpeed);
 		StartDraw();
 		DrawBanner();
@@ -95,20 +93,16 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 		}
 		
-	}
-	else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || request.netAction == NETCONF_JOIN_ADHOC)) {
+	} else if (status == SCE_UTILITY_STATUS_RUNNING && (request.netAction == NETCONF_CONNECT_ADHOC || request.netAction == NETCONF_CREATE_ADHOC || request.netAction == NETCONF_JOIN_ADHOC)) {
 		if (request.NetconfData != NULL) {
 			Shutdown(true);
-			if (sceNetAdhocctlCreate(request.NetconfData->groupName) == 0)
-			{
+			if (sceNetAdhocctlCreate(request.NetconfData->groupName) == 0) {
 				status = SCE_UTILITY_STATUS_FINISHED;
 				return 0;
 			}
 			return -1;
 		}
-	}
-	else if (status == SCE_UTILITY_STATUS_FINISHED)
-	{
+	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 

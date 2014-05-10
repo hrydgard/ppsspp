@@ -308,6 +308,13 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
 	glUniform4fv(uniform, 1, col);
 }
 
+static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
+	const u32 col[3] = {
+		data[0] << 8, data[1] << 8, data[2] << 8
+	};
+	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
+}
+
 static void SetMatrix4x3(int uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
@@ -532,28 +539,30 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 	for (int i = 0; i < 4; i++) {
 		if (dirty & (DIRTY_LIGHT0 << i)) {
-			if (gstate.isDirectionalLight(i)) {
-				// Prenormalize
-				float x = gstate_c.lightpos[i][0];
-				float y = gstate_c.lightpos[i][1];
-				float z = gstate_c.lightpos[i][2];
-				float len = sqrtf(x*x+y*y+z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, vec);
-			} else {
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+			if (u_lightpos[i] != -1) {
+				if (gstate.isDirectionalLight(i)) {
+					// Prenormalize
+					float x = getFloat24(gstate.lpos[i * 3 + 0]);
+					float y = getFloat24(gstate.lpos[i * 3 + 1]);
+					float z = getFloat24(gstate.lpos[i * 3 + 2]);
+					float len = sqrtf(x*x + y*y + z*z);
+					if (len == 0.0f)
+						len = 1.0f;
+					else
+						len = 1.0f / len;
+					float vec[3] = { x * len, y * len, z * len };
+					glUniform3fv(u_lightpos[i], 1, vec);
+				} else {
+					SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
+				}
 			}
-			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
-			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
-			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);
-			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], gstate_c.lightspotCoef[i]);
-			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
-			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
-			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
+			if (u_lightdir[i] != -1) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != -1) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
+			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
+			if (u_lightambient[i] != -1) SetColorUniform3(u_lightambient[i], gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != -1) SetColorUniform3(u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != -1) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }
@@ -622,19 +631,16 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	VertexShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
-	ComputeFragmentShaderID(&FSID_);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_ && FSID_ == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType);
-		lastShaderSame_ = true;
+	if (lastShader_ != 0 && VSID == lastVSID_) {
+		lastVShaderSame_ = true;
 		return lastShader_->vs_;	// Already all set.
 	} else {
-		lastShaderSame_ = false;
+		lastVShaderSame_ = false;
 	}
 
 	lastVSID_ = VSID;
-	lastFSID_ = FSID_;
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
 	Shader *vs;
@@ -665,16 +671,22 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 }
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	if (lastShaderSame_)
+	FragmentShaderID FSID;
+	ComputeFragmentShaderID(&FSID);
+	if (lastVShaderSame_ && FSID == lastFSID_) {
+		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
+	}
 
-	FSCache::iterator fsIter = fsCache_.find(FSID_);
+	lastFSID_ = FSID;
+
+	FSCache::iterator fsIter = fsCache_.find(FSID);
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
-		fsCache_[FSID_] = fs;
+		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
 	}

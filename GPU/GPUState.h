@@ -23,6 +23,8 @@
 #include "ge_constants.h"
 #include "Common/Common.h"
 
+class PointerWrap;
+
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
 // This is used for light positions, transform matrices, you name it.
 inline float getFloat24(unsigned int data)
@@ -290,6 +292,7 @@ struct GPUgstate
 	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
+	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
@@ -432,6 +435,12 @@ struct UVScale {
 	float uOff, vOff;
 };
 
+enum TextureChangeReason {
+	TEXCHANGE_UNCHANGED = 0x00,
+	TEXCHANGE_UPDATED = 0x01,
+	TEXCHANGE_PARAMSONLY = 0x02,
+};
+
 struct GPUStateCache
 {
 	u32 vertexAddr;
@@ -439,7 +448,7 @@ struct GPUStateCache
 
 	u32 offsetAddr;
 
-	bool textureChanged;
+	u8 textureChanged;
 	bool textureFullAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
@@ -449,12 +458,6 @@ struct GPUStateCache
 	UVScale uv;
 	bool flipTexture;
 
-	float lightpos[4][3];
-	float lightdir[4][3];
-	float lightatt[4][3];
-	float lightColor[3][4][3];  // Ambient Diffuse Specular
-	float lightangle[4]; // spotlight cone angle (cosine)
-	float lightspotCoef[4]; // spotlight dropoff
 	float morphWeights[8];
 
 	u32 curTextureWidth;
@@ -468,6 +471,7 @@ struct GPUStateCache
 	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
+	void DoState(PointerWrap &p);
 };
 
 // TODO: Implement support for these.

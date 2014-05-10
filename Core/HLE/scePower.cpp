@@ -36,7 +36,6 @@ struct VolatileWaitingThread {
 
 const int PSP_POWER_ERROR_TAKEN_SLOT = 0x80000020;
 const int PSP_POWER_ERROR_SLOTS_FULL = 0x80000022;
-const int PSP_POWER_ERROR_PRIVATE_SLOT = 0x80000023;
 const int PSP_POWER_ERROR_EMPTY_SLOT = 0x80000025;
 const int PSP_POWER_ERROR_INVALID_CB = 0x80000100;
 const int PSP_POWER_ERROR_INVALID_SLOT = 0x80000102;
@@ -47,7 +46,10 @@ const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
 
 const int POWER_CB_AUTO = -1;
 
+// These are the callback slots for user mode applications.
 const int numberOfCBPowerSlots = 16;
+
+// These are the callback slots for kernel mode applications.
 const int numberOfCBPowerSlotsPrivate = 32;
 
 static bool volatileMemLocked;
@@ -132,7 +134,7 @@ int scePowerRegisterCallback(int slot, int cbId) {
 		return PSP_POWER_ERROR_INVALID_SLOT;
 	}
 	if (slot >= numberOfCBPowerSlots) {
-		return PSP_POWER_ERROR_PRIVATE_SLOT;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 	// TODO: If cbId is invalid return PSP_POWER_ERROR_INVALID_CB.
 	if (cbId == 0) {
@@ -173,7 +175,7 @@ int scePowerUnregisterCallback(int slotId) {
 		return PSP_POWER_ERROR_INVALID_SLOT;
 	}
 	if (slotId >= numberOfCBPowerSlots) {
-		return PSP_POWER_ERROR_PRIVATE_SLOT;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	}
 
 	if (powerCbSlots[slotId] != 0) {
@@ -210,14 +212,12 @@ int sceKernelPowerTick(int flag) {
 	return 0;
 }
 
-#define ERROR_POWER_VMEM_IN_USE 0x802b0200
-
 int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 	if (volatileMemLocked) {
-		return ERROR_POWER_VMEM_IN_USE;
+		return SCE_KERNEL_ERROR_POWER_VMEM_IN_USE;
 	}
 
 	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
@@ -247,7 +247,7 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
 		break;
 
@@ -319,7 +319,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		DEBUG_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
 		break;
 
-	case ERROR_POWER_VMEM_IN_USE:
+	case SCE_KERNEL_ERROR_POWER_VMEM_IN_USE:
 		{
 			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - already locked, waiting", type, paddr, psize);
 			const VolatileWaitingThread waitInfo = { __KernelGetCurThread(), paddr, psize };

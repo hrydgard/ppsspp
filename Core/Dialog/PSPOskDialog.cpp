@@ -874,22 +874,22 @@ int PSPOskDialog::Update(int animSpeed) {
 
 	I18NCategory *d = GetI18NCategory("Dialog");
 
-	PPGeDrawImage(I_SQUARE, 85, 195, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Space"), 115, 195, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(I_SQUARE, 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
-		PPGeDrawImage(I_CROSS, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CIRCLE, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CROSS, 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CIRCLE, 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	} else {
-		PPGeDrawImage(I_CIRCLE, 85, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CROSS, 85, 245, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CIRCLE, 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CROSS, 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 
-	PPGeDrawText(d->T("Select"), 115, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Delete"), 115, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Select"), 75, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Delete"), 75, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-	PPGeDrawText("Start", 195, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Finish"), 235, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Start", 135, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Finish"), 185, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
 	const char *countryCode;
@@ -907,12 +907,12 @@ int PSPOskDialog::Update(int animSpeed) {
 	countryCode = OskKeyboardNames[currentKeyboardLanguage].c_str();
 		
 	if (strcmp(countryCode, "ko_KR")) {
-		PPGeDrawText("Select", 195, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Shift"), 240, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 135, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Shift"), 185, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 		
-	PPGeDrawText("L", 307, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(language, 322, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("L", 235, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(language, 255, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	countryCode = OskKeyboardNames[(currentKeyboardLanguage + 1) % OSK_LANGUAGE_COUNT].c_str();
 	language = languageMapping[countryCode].first.c_str();
@@ -920,8 +920,8 @@ int PSPOskDialog::Update(int animSpeed) {
 	if (!strcmp(countryCode, "English Full-width"))
 		language = "English Full-width";
 
-	PPGeDrawText("R", 307, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(language, 322, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));	
+	PPGeDrawText("R", 235, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(language, 255, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));		
 
 	if (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
 		selectedChar -= numKeyCols[currentKeyboard];
