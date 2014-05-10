@@ -951,6 +951,9 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glDisable(GL_CULL_FACE);
 			glDisable(GL_DEPTH_TEST);
 			glDisable(GL_STENCIL_TEST);
+#if !defined(USING_GLES2)
+			glDisable(GL_LOGIC_OP);
+#endif
 			glViewport(0, 0, entry->framebuffer->renderWidth, entry->framebuffer->renderHeight);
 
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
