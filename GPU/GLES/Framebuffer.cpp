@@ -1764,7 +1764,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
-		return false;
+		return;
 	}
 	
 	// MotoGP workaround
