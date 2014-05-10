@@ -1763,6 +1763,10 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+		return false;
+	}
+	
 	// MotoGP workaround
 	for (size_t i = 0; i < vfbs_.size(); i++) {
 		int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
@@ -1792,15 +1796,17 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
 			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
-			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
+			// Just do the blit!
 			// BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height);
 		}
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
 		// Here we should just draw the pixels into the buffer.
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		// DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride, width, height);
+	} else if (srcBuffer) {
 		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		// Let the bit copy happen
 		// ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
 	}
 }
@@ -1847,21 +1853,22 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
 		} else {
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
-			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
+			// Just do the blit!
 			BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
 		}
 		return true;  // No need to actually do the memory copy behind, probably.
 	} else if (dstBuffer) {
-		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 		u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-		DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
 		// Here we should just draw the pixels into the buffer.
+		DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride, width, height);
 		return false;
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+	} else if (srcBuffer) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
+		// Let the bit copy happen
 		ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
-		return false;  // Let the bit copy happen
+		return false;
 	} else {
 		return false;
 	}
