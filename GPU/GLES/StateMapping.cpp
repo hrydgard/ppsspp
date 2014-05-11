@@ -318,14 +318,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
 		}
 
-		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
-			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
-		}
-
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
-				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
-				glstate.blend.set(false);
+			if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
+				// Handle GE_BLENDMODE_ABSDIFF in fragment shader.
 			} else {
 				glstate.blendEquation.set(eqLookup[blendFuncEq]);
 			}
