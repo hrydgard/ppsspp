@@ -314,7 +314,7 @@ bool ShouldUseShaderBlending() {
 			u32 fixA = gstate.getFixA();
 			u32 fixB = gstate.getFixB();
 			// OpenGL only supports one constant color, so check if we could be more exact.
-			if (fixA != fixB && fixA != 0xFFFFFF - fixB) {
+			if (fixA != fixB && fixA != 0xFFFFFF - fixB && fixA != 0 && fixB != 0 && fixA != 0xFFFFFF && fixB != 0xFFFFFF) {
 				return true;
 			}
 		}
