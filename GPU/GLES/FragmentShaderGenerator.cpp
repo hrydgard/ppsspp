@@ -145,6 +145,8 @@ ReplaceAlphaType ReplaceAlphaWithStencil() {
 	if (gstate.isAlphaBlendEnabled()) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
+		} else if (ShouldUseShaderBlending()) {
+			return REPLACE_ALPHA_YES;
 		} else {
 			if (gl_extensions.ARB_blend_func_extended) {
 				return REPLACE_ALPHA_DUALSOURCE;
@@ -277,10 +279,69 @@ static bool CanDoubleSrcBlendMode() {
 	}
 }
 
+// TODO: Setting to disable?
+bool ShouldUseShaderBlending() {
+	if (!gstate.isAlphaBlendEnabled()) {
+		return false;
+	}
+	// We can't blit on GLES2, so we don't support it.  We also want texelFetch (OpenGL 3.0+ / GLES3+.)
+	if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
+		return false;
+	}
+
+	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+	GEBlendDstFactor funcB = gstate.getBlendFuncB();
+	GEBlendMode eq = gstate.getBlendEq();
+
+	if (eq == GE_BLENDMODE_ABSDIFF) {
+		return true;
+	}
+
+	// This normally involves a blit, so try to skip it.
+	if (AlphaToColorDoubling() || CanDoubleSrcBlendMode()) {
+		return false;
+	}
+
+	switch (funcA) {
+	case GE_SRCBLEND_DOUBLESRCALPHA:
+	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+	case GE_SRCBLEND_DOUBLEDSTALPHA:
+	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		return true;
+
+	case GE_SRCBLEND_FIXA:
+		if (funcB == GE_DSTBLEND_FIXB) {
+			u32 fixA = gstate.getFixA();
+			u32 fixB = gstate.getFixB();
+			// OpenGL only supports one constant color, so check if we could be more exact.
+			if (fixA != fixB && fixA != 0xFFFFFF - fixB) {
+				return true;
+			}
+		}
+
+	default:
+		break;
+	}
+
+	switch (funcB) {
+	case GE_DSTBLEND_DOUBLESRCALPHA:
+	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+	case GE_DSTBLEND_DOUBLEDSTALPHA:
+	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+		return true;
+
+	default:
+		break;
+	}
+
+	return false;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
 	int id0 = 0;
+	int id1 = 0;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id0 = 1;
@@ -296,7 +357,6 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -338,12 +398,16 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		if (computeAbsdiff) {
-			id0 |= (computeAbsdiff & 1) << 25;
+		if (ShouldUseShaderBlending()) {
+			// 11 bits total.
+			id1 |= (gstate.getBlendEq() << 0);
+			id1 |= (gstate.getBlendFuncA() << 3);
+			id1 |= (gstate.getBlendFuncB() << 7);
 		}
 	}
 
 	id->d[0] = id0;
+	id->d[1] = id1;
 }
 
 // Missing: Z depth range
@@ -423,7 +487,6 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -431,6 +494,17 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
+	if (ShouldUseShaderBlending() && !gstate.isModeClear()) {
+		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+			WRITE(p, "uniform sampler2D fbotex;\n");
+		}
+		if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA) {
+			WRITE(p, "uniform vec3 u_blendFixA;\n");
+		}
+		if (gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
+			WRITE(p, "uniform vec3 u_blendFixB;\n");
+		}
+	}
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
@@ -607,12 +681,85 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
-	}
 
-	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
-	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
-		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
-		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
+		if (ShouldUseShaderBlending()) {
+			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
+			// We can just read the prev value more directly.
+			// TODO: EXT_shader_framebuffer_fetch on iOS 6, possibly others.
+			if (gl_extensions.NV_shader_framebuffer_fetch) {
+				WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+			} else {
+				WRITE(p, "  lowp vec4 destColor = texelFetch(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n");
+			}
+
+			GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+			GEBlendDstFactor funcB = gstate.getBlendFuncB();
+			GEBlendMode eq = gstate.getBlendEq();
+
+			const char *srcFactor = "vec3(1.0)";
+			const char *dstFactor = "vec3(0.0)";
+
+			switch (funcA)
+			{
+			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "destColor.rgb"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "(vec3(1.0) - destColor.rgb)"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "vec3(v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "vec3(1.0 - v.a)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "vec3(destColor.a)"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "vec3(1.0 - destColor.a)"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a + v.a)"; break;
+			// TODO: Double inverse, or inverse double?  Following softgpu for now...
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a - v.a)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a + destColor.a)"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a - destColor.a)"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			}
+			switch (funcB)
+			{
+			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
+			case GE_DSTBLEND_INVSRCCOLOR:       dstFactor = "(vec3(1.0) - v.rgb)"; break;
+			case GE_DSTBLEND_SRCALPHA:          dstFactor = "vec3(v.a)"; break;
+			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "vec3(1.0 - v.a)"; break;
+			case GE_DSTBLEND_DSTALPHA:          dstFactor = "vec3(destColor.a)"; break;
+			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "vec3(1.0 - destColor.a)"; break;
+			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "vec3(v.a + v.a)"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a - v.a)"; break;
+			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a + destColor.a)"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a - destColor.a)"; break;
+			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			}
+
+			switch (eq)
+			{
+			case GE_BLENDMODE_MUL_AND_ADD:
+				WRITE(p, "  v.rgb = v.rgb * %s + destColor.rgb * %s;\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT:
+				WRITE(p, "  v.rgb = v.rgb * %s - destColor.rgb * %s;\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+				WRITE(p, "  v.rgb = destColor.rgb * %s - v.rgb * %s;\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MIN:
+				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
+					WARN_LOG_REPORT(G3D, "Using MIN blend equation with odd factors: %d, %d", funcA, funcB);
+				}
+				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_MAX:
+				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
+					WARN_LOG_REPORT(G3D, "Using MAX blend equation with odd factors: %d, %d", funcA, funcB);
+				}
+				WRITE(p, "  v.rgb = max(v.rgb, destColor.rgb);\n", srcFactor, dstFactor);
+				break;
+			case GE_BLENDMODE_ABSDIFF:
+				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
+					WARN_LOG_REPORT(G3D, "Using ABSDIFF blend equation with odd factors: %d, %d", funcA, funcB);
+				}
+				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n", srcFactor, dstFactor);
+				break;
+			}
+		}
 	}
 
 	switch (stencilToAlpha) {

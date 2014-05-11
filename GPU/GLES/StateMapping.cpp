@@ -176,6 +176,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	// Set blend
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
+	if (wantBlend && ShouldUseShaderBlending()) {
+		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+			glActiveTexture(GL_TEXTURE1);
+			framebufferManager_->BindFramebufferColor(NULL);
+			glActiveTexture(GL_TEXTURE0);
+		}
+		// None of the below logic is interesting, we're gonna do it entirely in the shader.
+		wantBlend = false;
+	}
 	glstate.blend.set(wantBlend);
 	if (wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
@@ -323,12 +332,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
-				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
-				glstate.blend.set(false);
-			} else {
-				glstate.blendEquation.set(eqLookup[blendFuncEq]);
-			}
+			glstate.blendEquation.set(eqLookup[blendFuncEq]);
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
 		}

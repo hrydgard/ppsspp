@@ -162,8 +162,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_BlendFixA},
+	{GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_BlendFixB},
 	{GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
@@ -1080,6 +1080,14 @@ void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 }
 
+void GLES_GPU::Execute_BlendFixA(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_BLENDFIX);
+}
+
+void GLES_GPU::Execute_BlendFixB(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_BLENDFIX);
+}
+
 void GLES_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
@@ -1607,8 +1615,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
 	case GE_CMD_BLENDMODE:
+		break;
+
 	case GE_CMD_BLENDFIXEDA:
+		Execute_BlendFixA(op, diff);
+		break;
+
 	case GE_CMD_BLENDFIXEDB:
+		Execute_BlendFixB(op, diff);
 		break;
 
 	case GE_CMD_ALPHATESTENABLE:

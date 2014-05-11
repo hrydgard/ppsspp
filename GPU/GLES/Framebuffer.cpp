@@ -1007,6 +1007,10 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 }
 
 void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
+	if (framebuffer == NULL) {
+		framebuffer = currentRenderVfb_;
+	}
+
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;

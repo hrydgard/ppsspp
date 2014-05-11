@@ -155,6 +155,10 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_colormask = glGetUniformLocation(program, "u_colormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
 
+	u_fbotex = glGetUniformLocation(program, "fbotex");
+	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
+	u_blendFixB = glGetUniformLocation(program, "u_blendFixB");
+
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
@@ -225,6 +229,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
+	if (u_blendFixA != -1 || u_blendFixB != -1) availableUniforms |= DIRTY_BLENDFIX;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 	for (int i = 0; i < numBones; i++) {
@@ -247,6 +252,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 
 	// Default uniform values
 	glUniform1i(u_tex, 0);
+	glUniform1i(u_fbotex, 1);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 	use(vertType, previous);
@@ -519,6 +525,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		}
 	}
 #endif
+
+	if (dirty & DIRTY_BLENDFIX) {
+		SetColorUniform3(u_blendFixA, gstate.getFixA());
+		SetColorUniform3(u_blendFixB, gstate.getFixB());
+	}
 
 	// Lighting
 	if (dirty & DIRTY_AMBIENT) {
