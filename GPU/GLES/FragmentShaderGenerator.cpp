@@ -707,11 +707,11 @@ void GenerateFragmentShader(char *buffer) {
 			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "vec3(1.0 - v.a)"; break;
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "vec3(destColor.a)"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "vec3(1.0 - destColor.a)"; break;
-			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a + v.a)"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
 			// TODO: Double inverse, or inverse double?  Following softgpu for now...
-			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a - v.a)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a + destColor.a)"; break;
-			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a - destColor.a)"; break;
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
 			}
 			switch (funcB)
@@ -722,10 +722,10 @@ void GenerateFragmentShader(char *buffer) {
 			case GE_DSTBLEND_INVSRCALPHA:       dstFactor = "vec3(1.0 - v.a)"; break;
 			case GE_DSTBLEND_DSTALPHA:          dstFactor = "vec3(destColor.a)"; break;
 			case GE_DSTBLEND_INVDSTALPHA:       dstFactor = "vec3(1.0 - destColor.a)"; break;
-			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "vec3(v.a + v.a)"; break;
-			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a - v.a)"; break;
-			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a + destColor.a)"; break;
-			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a - destColor.a)"; break;
+			case GE_DSTBLEND_DOUBLESRCALPHA:    dstFactor = "vec3(v.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
+			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
 			}
 
