@@ -367,12 +367,7 @@ void GenerateFragmentShader(char *buffer) {
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
-	
-	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
-	if (gl_extensions.NV_shader_framebuffer_fetch) {
-		WRITE(p, "  #extension GL_NV_shader_framebuffer_fetch : require\n");
-	}
-	
+		
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
@@ -422,8 +417,9 @@ void GenerateFragmentShader(char *buffer) {
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
 
-	if (doTexture)
+	if (doTexture) {
 		WRITE(p, "uniform sampler2D tex;\n");
+	}
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
@@ -602,10 +598,10 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
-	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
-		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
-		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
+	// Handle ABSDIFF blending mode 
+	if (computeAbsdiff) {
+		WRITE(p, "  lowp vec4 destColor = texelFetch(tex, ivec2(gl_FragCoord.xy), 0);\n");
+		WRITE(p, "  v = abs(destColor - v);\n");
 	}
 
 	switch (stencilToAlpha) {
