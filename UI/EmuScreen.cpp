@@ -173,9 +173,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
 		booted_ = false;
+		invalid_ = true;
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		booted_ = false;
+		invalid_ = true;
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
