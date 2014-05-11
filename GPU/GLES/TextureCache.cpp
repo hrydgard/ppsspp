@@ -230,17 +230,6 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 	}
 }
 
-bool TextureCache::AttachFramebufferCLUT(TextureCache::TexCacheEntry *entry, VirtualFramebuffer *framebuffer, u32 address) {
-	GLuint program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
-	if (program) {
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = -1;
-		entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
-		return true;
-	}
-	return false;
-}
-
 void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
@@ -269,7 +258,10 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		bool clutSuccess = false;
 		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
 			   (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
-			clutSuccess = AttachFramebufferCLUT(entry, framebuffer, address);
+			AttachFramebufferValid(entry, framebuffer);
+			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
+			// We'll validate it later.
+			clutSuccess = true;
 		} else if (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) {
 			ERROR_LOG_REPORT_ONCE(fourEightBit, G3D, "4 and 8-bit CLUT format not supported for framebuffers");
 		}
@@ -893,7 +885,11 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
+		GLuint program = 0;
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
+			program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
+		}
+		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
 			if (!entry->depalFBO) {
 				entry->depalFBO = fbo_create(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, 1, false, FBO_8888);
@@ -913,7 +909,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			};
 			static const GLubyte indices[4] = { 0, 1, 3, 2 };
 
-			GLuint program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
 			glUseProgram(program);
 
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -936,6 +931,9 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glDisable(GL_CULL_FACE);
 			glDisable(GL_DEPTH_TEST);
 			glDisable(GL_STENCIL_TEST);
+#if !defined(USING_GLES2)
+			glDisable(GL_LOGIC_OP);
+#endif
 			glViewport(0, 0, entry->framebuffer->renderWidth, entry->framebuffer->renderHeight);
 
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
@@ -950,6 +948,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glstate.Restore();
 			framebufferManager_->RebindFramebuffer();
 		} else {
+			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 			framebufferManager_->BindFramebufferColor(entry->framebuffer);
 		}
 

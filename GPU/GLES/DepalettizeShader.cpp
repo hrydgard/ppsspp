@@ -158,7 +158,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		if (shiftedMask & 0x3E0) WRITE(p, "  int g = int(index.g * 31.99);\n"); else WRITE(p, "  int g = 0;\n");
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(index.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(index.a);\n"); else WRITE(p, "  int a = 0;\n");
-		WRITE(p, "int color = (a << 15) | (b << 10) | (g << 5) | (r);");
+		WRITE(p, "  int color = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
 	}
 	float texturePixels = 256;
@@ -166,7 +166,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		texturePixels = 512;
 
 	WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
-	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) - 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
@@ -284,26 +284,29 @@ u32 DepalShaderCache::GenerateShaderID(GEBufferFormat pixelFormat) {
 }
 
 GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
-	auto oldtex = texCache_.find(clutID);
+	GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
+	const u32 realClutID = clutID ^ palFormat;
+
+	auto oldtex = texCache_.find(realClutID);
 	if (oldtex != texCache_.end()) {
 		return oldtex->second->texture;
 	}
 
-	GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
 	GLuint dstFmt = getClutDestFormat(palFormat);
-	
+	int texturePixels = palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
+
 	DepalTexture *tex = new DepalTexture();
 	glGenTextures(1, &tex->texture);
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, 0, components, palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512, 1, 0, components, dstFmt, (void *)rawClut);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, texturePixels, 1, 0, components, dstFmt, (void *)rawClut);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	texCache_[clutID] = tex;
+	texCache_[realClutID] = tex;
 	return tex->texture;
 }
 
