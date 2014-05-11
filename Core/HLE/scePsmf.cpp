@@ -1104,9 +1104,9 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		}
 		// TODO: It seems like it's invalid if there's not at least 1 video stream.
 
-		int mpegoffset = bswap32(*(u32_le *)(buf + PSMF_STREAM_OFFSET_OFFSET));
+		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
 		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->streamSize = bswap32(*(u32_le *)(buf + PSMF_STREAM_SIZE_OFFSET));
+		psmfplayer->streamSize = *(s32_be *)(buf + PSMF_STREAM_SIZE_OFFSET);
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
@@ -1232,6 +1232,22 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
 
 	psmfplayer->mediaengine->openContext();
+	if (initPts < psmfplayer->mediaengine->getVideoTimeStamp()) {
+		// When seeking backwards, we just start populating the stream from the start.
+		// There's probably smarter ways, but haven't seen any games actually do this.
+		pspFileSystem.SeekFile(psmfplayer->filehandle, 0, FILEMOVE_BEGIN);
+
+		u8 *buf = psmfplayer->tempbuf;
+		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
+		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
+
+		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
+		psmfplayer->readSize = size - mpegoffset;
+		psmfplayer->readSize = 0;
+
+		_PsmfPlayerFillRingbuffer(psmfplayer);
+	}
 	// TODO: It would be better to spread this out into the Update() calls.
 	while (!psmfplayer->mediaengine->seekTo(initPts, videoPixelMode)) {
 		_PsmfPlayerFillRingbuffer(psmfplayer);
