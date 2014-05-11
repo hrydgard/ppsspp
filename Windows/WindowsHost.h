@@ -24,20 +24,17 @@
 extern float mouseDeltaX;
 extern float mouseDeltaY;
 
-class WindowsHost : public Host
-{
+class WindowsHost : public Host {
 public:
-	WindowsHost(HWND mainWindow, HWND displayWindow);
-
-	~WindowsHost()
-	{
+	WindowsHost(HWND mainWindow);
+	virtual ~WindowsHost() {
 		UpdateConsolePosition();
 	}
 
 	void UpdateMemView();
 	void UpdateDisassembly();
 	void UpdateUI();
-	virtual void UpdateScreen();
+	virtual void UpdateScreen() override;
 	void SetDebugMode(bool mode);
 
 	bool InitGL(std::string *error_message);
@@ -54,18 +51,18 @@ public:
 	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
-	virtual bool GPUDebuggingActive();
-	virtual void GPUNotifyCommand(u32 pc);
-	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format);
-	virtual void GPUNotifyDraw();
-	virtual void GPUNotifyTextureAttachment(u32 addr);
-	virtual bool GPUAllowTextureCache(u32 addr);
-	virtual void ToggleDebugConsoleVisibility();
+	virtual bool GPUDebuggingActive() override;
+	virtual void GPUNotifyCommand(u32 pc) override;
+	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format) override;
+	virtual void GPUNotifyDraw() override;
+	virtual void GPUNotifyTextureAttachment(u32 addr) override;
+	virtual bool GPUAllowTextureCache(u32 addr) override;
+	virtual void ToggleDebugConsoleVisibility() override;
 
-	virtual bool CanCreateShortcut() {return false;}  // Turn on when fixed
-	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
+	virtual bool CanCreateShortcut() override { return false; }  // Turn on when fixed
+	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;
 
-	virtual void GoFullscreen(bool);
+	virtual void GoFullscreen(bool) override;
 
 	std::shared_ptr<KeyboardDevice> keyboard;
 
@@ -73,8 +70,7 @@ private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
-	HWND displayWindow_;
-	HWND mainWindow_;
+	HWND window_;
 
 	std::list<std::shared_ptr<InputDevice>> input;
 };

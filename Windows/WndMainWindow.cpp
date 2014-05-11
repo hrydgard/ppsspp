@@ -84,6 +84,8 @@
 
 static const int numCPUs = 1;
 
+// These are for Unknown's modified "Very Sleepy" profiler with JIT support.
+
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
@@ -92,8 +94,7 @@ const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
 // Respond TRUE to a message wit this param value after filling in the addr name.
 const WPARAM VERYSLEEPY_WPARAM_GETADDRINFO = 1;
 
-struct VerySleepy_AddrInfo
-{
+struct VerySleepy_AddrInfo {
 	// Always zero for now.
 	int flags;
 	// This is the pointer (always passed as 64 bits.)
@@ -113,11 +114,8 @@ extern InputState input_state;
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
-namespace MainWindow
-{
+namespace MainWindow {
 	HWND hwndMain;
-	HWND hwndDisplay;
-	HWND hwndGameList;
 	TouchInputHandler touchHandler;
 	static HMENU menu;
 
@@ -139,15 +137,10 @@ namespace MainWindow
 
 	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND() {
 		return hwndMain;
-	}
-
-	HWND GetDisplayHWND() {
-		return hwndDisplay;
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -168,15 +161,6 @@ namespace MainWindow
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
 		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
-		RegisterClassEx(&wcex);
-
-		wcex.style = CS_HREDRAW | CS_VREDRAW;
-		wcex.lpfnWndProc = (WNDPROC)DisplayProc;
-		wcex.hIcon = 0;
-		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcex.lpszMenuName = 0;
-		wcex.lpszClassName = szDisplayClass;
-		wcex.hIconSm = 0;
 		RegisterClassEx(&wcex);
 	}
 
@@ -240,8 +224,6 @@ namespace MainWindow
 		if (!noWindowMovement) {
 			width = rc.right - rc.left;
 			height = rc.bottom - rc.top;
-			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
-			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
 			// Need to clean all of this up...
 			PSP_CoreParameter().pixelWidth = width;
@@ -778,11 +760,6 @@ namespace MainWindow
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
 
-		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
-			0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, hwndMain, 0, hInstance, 0);
-		if (!hwndDisplay)
-			return FALSE;
-
 		menu = GetMenu(hwndMain);
 
 #ifdef FINAL
@@ -810,7 +787,7 @@ namespace MainWindow
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		touchHandler.registerTouchWindow(hwndDisplay);
+		touchHandler.registerTouchWindow(hwndMain);
 
 		WindowsRawInput::Init();
 
@@ -921,21 +898,20 @@ namespace MainWindow
 		}
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 		// Only apply a factor > 1 in windowed mode.
 		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+		int wmId, wmEvent;
+		std::string fn;
+		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 
 		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
-
 		case WM_SETFOCUS:
 			break;
 
 		case WM_SIZE:
+			SavePosition();
+			ResizeDisplay();
 			break;
 
 		case WM_ERASEBKGND:
@@ -1033,18 +1009,6 @@ namespace MainWindow
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
-		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-		}
-		return 0;
-	}
-	
-	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
-		int wmId, wmEvent;
-		std::string fn;
-		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
-
-		switch (message) {
 		case WM_CREATE:
 			break;
 			
@@ -1072,11 +1036,6 @@ namespace MainWindow
 
 		case WM_MOVE:
 			SavePosition();
-			break;
-
-		case WM_SIZE:
-			SavePosition();
-			ResizeDisplay();
 			break;
 
 		case WM_TIMER:
@@ -1862,13 +1821,13 @@ namespace MainWindow
 	}
 
 	void Update() {
-		InvalidateRect(hwndDisplay,0,0);
-		UpdateWindow(hwndDisplay);
+		InvalidateRect(hwndMain,0,0);
+		UpdateWindow(hwndMain);
 		SendMessage(hwndMain,WM_SIZE,0,0);
 	}
 
 	void Redraw() {
-		InvalidateRect(hwndDisplay,0,0);
+		InvalidateRect(hwndMain, 0, 0);
 	}
 
 	void SaveStateActionFinished(bool result, void *userdata) {

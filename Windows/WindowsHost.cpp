@@ -79,10 +79,8 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
-{
-	mainWindow_ = mainWindow;
-	displayWindow_ = displayWindow;
+WindowsHost::WindowsHost(HWND mainWindow) {
+	window_ = mainWindow;
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
@@ -98,7 +96,7 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 
 bool WindowsHost::InitGL(std::string *error_message)
 {
-	return GL_Init(MainWindow::GetDisplayHWND(), error_message);
+	return GL_Init(MainWindow::GetHWND(), error_message);
 }
 
 void WindowsHost::ShutdownGL()
