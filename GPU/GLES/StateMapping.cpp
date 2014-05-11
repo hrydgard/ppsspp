@@ -171,9 +171,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 	}
 
-	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
-	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
-
 	// Set blend
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
 	if (wantBlend && ShouldUseShaderBlending()) {
