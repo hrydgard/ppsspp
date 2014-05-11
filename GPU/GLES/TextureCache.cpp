@@ -883,6 +883,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+		gstate_c.textureSimpleAlpha = false;
 	} else {
 		if (entry->framebuffer->fbo)
 			entry->framebuffer->fbo = 0;
@@ -1071,6 +1072,7 @@ void TextureCache::SetTexture(bool force) {
 				glBindTexture(GL_TEXTURE_2D, entry->texture);
 				lastBoundTexture = entry->texture;
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
+				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
 			UpdateSamplingParams(*entry, false);
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
@@ -1303,6 +1305,7 @@ void TextureCache::SetTexture(bool force) {
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
+	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 }
 
 GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

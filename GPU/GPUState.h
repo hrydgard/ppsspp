@@ -450,6 +450,7 @@ struct GPUStateCache
 
 	u8 textureChanged;
 	bool textureFullAlpha;
+	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
 

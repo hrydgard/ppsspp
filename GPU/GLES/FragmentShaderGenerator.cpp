@@ -238,7 +238,14 @@ static bool AlphaToColorDoubling() {
 	// 2x alpha in the source function and full alpha = source color doubling.
 	// If we see this, we don't really need to care about the dest alpha function - sure we can't handle
 	// the doubling dest ones, but there's nothing we can do about that.
-	return (gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA) && (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()));
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_DOUBLESRCALPHA) {
+		return false;
+	}
+	if (gstate.getBlendFuncB() == GE_DSTBLEND_INVSRCALPHA) {
+		// If it's 1.0 or 0.0, then we can still color double (since 0.0 will blend out anyway.)
+		return (gstate_c.vertexFullAlpha && (gstate_c.textureSimpleAlpha || !gstate.isTextureAlphaUsed()));
+	}
+	return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()));
 }
 
 static bool CanDoubleSrcBlendMode() {

@@ -270,7 +270,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 2);
+	auto s = p.Section("GPUStateCache", 0, 3);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -300,6 +300,12 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 		p.Do(uv);
 		p.Do(flipTexture);
+	}
+
+	if (s >= 3) {
+		p.Do(textureSimpleAlpha);
+	} else {
+		textureSimpleAlpha = false;
 	}
 
 	if (s < 2) {
