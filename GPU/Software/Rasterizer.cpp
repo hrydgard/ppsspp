@@ -1526,6 +1526,10 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 
 bool GetCurrentTexture(GPUDebugBuffer &buffer)
 {
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
+
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
