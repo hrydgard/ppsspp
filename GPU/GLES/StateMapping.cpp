@@ -178,6 +178,19 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
 	if (wantBlend && ShouldUseShaderBlending()) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+			static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+			static int lastFrameBlit = -1;
+			static int blitsThisFrame = 0;
+			if (lastFrameBlit != gpuStats.numFlips) {
+				if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+					WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+				}
+				blitsThisFrame = 0;
+				lastFrameBlit = gpuStats.numFlips;
+			}
+			++blitsThisFrame;
+
 			glActiveTexture(GL_TEXTURE1);
 			framebufferManager_->BindFramebufferColor(NULL);
 			glActiveTexture(GL_TEXTURE0);
