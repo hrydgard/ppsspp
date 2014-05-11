@@ -419,20 +419,25 @@ void GenerateFragmentShader(char *buffer) {
 	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
-	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
+	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
 		doTextureAlpha = false;
+	}
 
-	if (doTexture)
+	if (doTexture) {
 		WRITE(p, "uniform sampler2D tex;\n");
+	}
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 	}
+	
 	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
-	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND)
+	
+	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) {
 		WRITE(p, "uniform vec3 u_texenv;\n");
+	}
 
 	WRITE(p, "%s vec4 v_color0;\n", varying);
 	if (lmode)
@@ -605,7 +610,7 @@ void GenerateFragmentShader(char *buffer) {
 	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
 	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
 		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
-		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
+		WRITE(p, "  v = abs(destColor - v);\n");
 	}
 
 	switch (stencilToAlpha) {
