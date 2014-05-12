@@ -155,6 +155,10 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_colormask = glGetUniformLocation(program, "u_colormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
 
+	// Used for custom blending modes
+	u_blendfixa = glGetUniformLocation(program, "u_blendfixa");
+	u_blendfixb = glGetUniformLocation(program, "u_blendfixb");
+
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
@@ -225,6 +229,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
+	if (u_blendfixa != -1) availableUniforms |= DIRTY_BLENDFIXA;
+	if (u_blendfixb != -1) availableUniforms |= DIRTY_BLENDFIXB;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 	for (int i = 0; i < numBones; i++) {
@@ -485,6 +491,15 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
 		glUniform1f(u_stencilReplaceValue, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
 	}
+
+	if (dirty & DIRTY_BLENDFIXA) {
+		SetColorUniform3(u_blendfixa, gstate.getFixA());
+	}
+
+	if (dirty & DIRTY_BLENDFIXB) {
+		SetColorUniform3(u_blendfixb, gstate.getFixB());
+	}
+
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {

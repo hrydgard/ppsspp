@@ -59,6 +59,8 @@ public:
 	int attrMask;  // 1 << ATTR_ ... or-ed together.
 
 	int u_stencilReplaceValue;
+	int u_blendfixa;
+	int u_blendfixb;
 	int u_tex;
 	int u_proj;
 	int u_proj_through;
@@ -126,7 +128,8 @@ enum
 	// 1 << 17 is free!
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
-
+	DIRTY_BLENDFIXA = (1 << 19),
+	DIRTY_BLENDFIXB = (1 << 20),
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
 	DIRTY_TEXMATRIX = (1 << 23),

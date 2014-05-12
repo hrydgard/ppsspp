@@ -162,8 +162,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_BlendFixa},
+	{GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE, &GLES_GPU::Execute_BlendFixb},
 	{GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
@@ -1303,6 +1303,14 @@ void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
+void GLES_GPU::Execute_BlendFixa(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_BLENDFIXA);
+}
+
+void GLES_GPU::Execute_BlendFixb(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_BLENDFIXB);
+}
+
 void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -1603,8 +1611,14 @@ void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
 	case GE_CMD_BLENDMODE:
+		break;
+
 	case GE_CMD_BLENDFIXEDA:
+		Execute_BlendFixa(op, diff);
+		break;
+
 	case GE_CMD_BLENDFIXEDB:
+		Execute_BlendFixb(op, diff);
 		break;
 
 	case GE_CMD_ALPHATESTENABLE:
