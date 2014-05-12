@@ -49,6 +49,8 @@ const int PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE = 1;
 
 const int PSMF_PLAYER_WARMUP_FRAMES = 3;
 
+static const int VIDEO_FRAME_DURATION_TS = 3003;
+
 int psmfMaxAheadTimestamp = 40000;
 int audioSamples = 2048;  
 int audioSamplesBytes = audioSamples * 4;
@@ -117,7 +119,7 @@ struct PsmfPlayerData {
 };
 
 struct PsmfInfo {
-	u32_le lengthTS;
+	u32_le lastFrameTS;
 	s32_le numVideoStreams;
 	s32_le numAudioStreams;
 	s32_le numPCMStreams;
@@ -217,7 +219,7 @@ public:
 	int audioStreamNum;
 	int playMode;
 	int playSpeed;
-	u64 lastTimestamp;
+	u64 totalDurationTimestamp;
 
 	int displayBuffer;
 	int displayBufferSize;
@@ -346,7 +348,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	audioStreamNum = -1;
 	playMode = 0;
 	playSpeed = 1;
-	lastTimestamp = 0;
+	totalDurationTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
 	filehandle = 0;
@@ -355,6 +357,11 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	streamSize = 0;
 	videoStep = 0;
 	warmUp = 0;
+
+	psmfPlayerAtracAu.dts =-1;
+	psmfPlayerAtracAu.pts = -1;
+	psmfPlayerAvcAu.dts = -1;
+	psmfPlayerAvcAu.pts = -1;
 
 	displayBuffer = data->buffer.ptr;
 	displayBufferSize = data->bufferSize;
@@ -413,11 +420,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(playbackThreadPriority);
 	p.Do(psmfMaxAheadTimestamp);
 	if (s >= 4) {
-		p.Do(lastTimestamp);
+		p.Do(totalDurationTimestamp);
 	} else {
 		long oldTimestamp;
 		p.Do(oldTimestamp);
-		lastTimestamp = oldTimestamp;
+		totalDurationTimestamp = oldTimestamp;
 	}
 	if (s >= 2) {
 		p.Do(totalVideoStreams);
@@ -1110,7 +1117,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		psmfplayer->fileoffset = offset + mpegoffset;
 		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 		_PsmfPlayerFillRingbuffer(psmfplayer);
-		psmfplayer->lastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
@@ -1245,12 +1252,10 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->playMode = playerData->playMode;
 	psmfplayer->playSpeed = playerData->playSpeed;
 
-	psmfplayer->psmfPlayerAtracAu.dts = initPts;
-	psmfplayer->psmfPlayerAtracAu.pts = initPts;
-	psmfplayer->psmfPlayerAvcAu.dts = initPts;
-	psmfplayer->psmfPlayerAvcAu.pts = initPts;
+	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
+	psmfplayer->warmUp = 0;
 
 	psmfplayer->mediaengine->openContext();
 	if (initPts < psmfplayer->mediaengine->getVideoTimeStamp()) {
@@ -1351,6 +1356,14 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 	return 0;
 }
 
+void __PsmfUpdatePts(PsmfPlayer *psmfplayer, PsmfVideoData *videoData) {
+	// getVideoTimestamp() includes the frame duration, remove it for this frame's pts.
+	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp() - VIDEO_FRAME_DURATION_TS;
+	if (videoData) {
+		videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
+	}
+}
+
 int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1392,16 +1405,21 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
-			const s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
 				// Don't advance, just return the same frame again.
 				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
 				int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
 				// Need to invalidate, even if it didn't change, to trigger upload to framebuffer.
 				gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
-				psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
-				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
+				__PsmfUpdatePts(psmfplayer, videoData);
 				return hleDelayResult(0, "psmfPlayer behind audio", 3000);
+			} else {
+				// This is an approximation, it should allow a certain amount ahead before skipping frames.
+				while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
+					psmfplayer->mediaengine->stepVideo(videoPixelMode);
+					deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+				}
 			}
 		} else {
 			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
@@ -1417,8 +1435,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
 			gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		}
-		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
-		videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
+		__PsmfUpdatePts(psmfplayer, videoData);
 	}
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
@@ -1507,20 +1524,21 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): invalid psmf player", psmfPlayer, currentPtsAddr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized || psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
-		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
+		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): not initialized", psmfPlayer, currentPtsAddr);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (psmfplayer->psmfPlayerAvcAu.pts < 0) {
+		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): no frame yet", psmfPlayer, currentPtsAddr);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer, currentPtsAddr);
-
 	if (Memory::IsValidAddress(currentPtsAddr)) {
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
-	}	
+	}
 	return 0;
 }
 
@@ -1544,7 +1562,8 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 	}
 
 	DEBUG_LOG(ME, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
-	info->lengthTS = psmfplayer->lastTimestamp - 3003;
+	// The first frame is at 0, so subtract one frame's duration to get the last frame's timestamp.
+	info->lastFrameTS = psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS;
 	info->numVideoStreams = psmfplayer->totalVideoStreams;
 	info->numAudioStreams = psmfplayer->totalAudioStreams;
 	// pcm stream num?
