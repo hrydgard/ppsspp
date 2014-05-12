@@ -1270,7 +1270,6 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
 		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->readSize = 0;
 
 		_PsmfPlayerFillRingbuffer(psmfplayer);
 	}
