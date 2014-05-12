@@ -66,6 +66,7 @@ public:
 
 	// Returns number of packets actually added. I guess the buffer might be full.
 	int addStreamData(u8* buffer, int addSize);
+	bool seekTo(s64 timestamp, int videoPixelMode);
 
 	bool setVideoStream(int streamNum, bool force = false);
 	// TODO: Return false if the stream doesn't exist.
@@ -93,6 +94,7 @@ public:
 
 private:
 	void updateSwsFormat(int videoPixelMode);
+	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
 
 public:  // TODO: Very little of this below should be public.
 
