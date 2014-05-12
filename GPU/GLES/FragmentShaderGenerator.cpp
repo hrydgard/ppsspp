@@ -399,10 +399,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			gpuStats.numNonAlphaTestedDraws++;
 
 		if (ShouldUseShaderBlending()) {
-			// 11 bits total.
-			id1 |= (gstate.getBlendEq() << 0);
-			id1 |= (gstate.getBlendFuncA() << 3);
-			id1 |= (gstate.getBlendFuncB() << 7);
+			// 12 bits total.
+			id1 |= 1;
+			id1 |= (gstate.getBlendEq() << 1);
+			id1 |= (gstate.getBlendFuncA() << 4);
+			id1 |= (gstate.getBlendFuncB() << 8);
 		}
 	}
 
