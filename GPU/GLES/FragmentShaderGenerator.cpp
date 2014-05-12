@@ -744,19 +744,19 @@ void GenerateFragmentShader(char *buffer) {
 				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
 					WARN_LOG_REPORT(G3D, "Using MIN blend equation with odd factors: %d, %d", funcA, funcB);
 				}
-				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n", srcFactor, dstFactor);
+				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n");
 				break;
 			case GE_BLENDMODE_MAX:
 				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
 					WARN_LOG_REPORT(G3D, "Using MAX blend equation with odd factors: %d, %d", funcA, funcB);
 				}
-				WRITE(p, "  v.rgb = max(v.rgb, destColor.rgb);\n", srcFactor, dstFactor);
+				WRITE(p, "  v.rgb = max(v.rgb, destColor.rgb);\n");
 				break;
 			case GE_BLENDMODE_ABSDIFF:
 				if (funcA != GE_SRCBLEND_DSTCOLOR || funcB != GE_DSTBLEND_SRCCOLOR) {
 					WARN_LOG_REPORT(G3D, "Using ABSDIFF blend equation with odd factors: %d, %d", funcA, funcB);
 				}
-				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n", srcFactor, dstFactor);
+				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
 				break;
 			}
 		}
