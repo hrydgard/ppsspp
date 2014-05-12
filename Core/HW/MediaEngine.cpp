@@ -678,7 +678,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
@@ -691,7 +691,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
@@ -704,7 +704,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
@@ -717,7 +717,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
