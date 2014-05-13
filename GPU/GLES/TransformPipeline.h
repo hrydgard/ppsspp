@@ -243,4 +243,6 @@ private:
 	u32 dcid_;
 
 	UVScale *uvScale;
+
+	bool fboTexBound_;
 };

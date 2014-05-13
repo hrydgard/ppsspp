@@ -171,7 +171,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 	}
 
-	// Set blend
+	// Set blend - unless we need to do it in the shader.
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
 	if (wantBlend && ShouldUseShaderBlending()) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
@@ -191,10 +191,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glActiveTexture(GL_TEXTURE1);
 			framebufferManager_->BindFramebufferColor(NULL);
 			glActiveTexture(GL_TEXTURE0);
+			fboTexBound_ = true;
 		}
 		// None of the below logic is interesting, we're gonna do it entirely in the shader.
 		wantBlend = false;
+	} else if (fboTexBound_) {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
 	}
+
 	glstate.blend.set(wantBlend);
 	if (wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
