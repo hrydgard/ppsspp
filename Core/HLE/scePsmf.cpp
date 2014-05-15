@@ -230,6 +230,7 @@ public:
 	int playerVersion;
 	int videoStep;
 	int warmUp;
+	s64 seekDestTimeStamp;
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
@@ -357,6 +358,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	streamSize = 0;
 	videoStep = 0;
 	warmUp = 0;
+	seekDestTimeStamp = 0;
 
 	psmfPlayerAtracAu.dts =-1;
 	psmfPlayerAtracAu.pts = -1;
@@ -404,7 +406,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1, 3);
+	auto s = p.Section("PsmfPlayer", 1, 5);
 	if (!s)
 		return;
 
@@ -444,6 +446,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 		p.Do(warmUp);
 	} else {
 		warmUp = 10000;
+	}
+	if (s >= 5) {
+		p.Do(seekDestTimeStamp);
+	} else {
+		seekDestTimeStamp = 0;
 	}
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
@@ -1193,6 +1200,26 @@ int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer)
 	return audioSamplesBytes;
 }
 
+bool __PsmfPlayerContinueSeek(PsmfPlayer *psmfplayer, int tries = 50) {
+	if (psmfplayer->seekDestTimeStamp <= 0) {
+		return true;
+	}
+
+	while (!psmfplayer->mediaengine->seekTo(psmfplayer->seekDestTimeStamp, videoPixelMode)) {
+		if (--tries <= 0) {
+			return false;
+		}
+		_PsmfPlayerFillRingbuffer(psmfplayer);
+		if (psmfplayer->mediaengine->IsVideoEnd()) {
+			break;
+		}
+	}
+
+	// Seek is done, so forget about it.
+	psmfplayer->seekDestTimeStamp = 0;
+	return true;
+}
+
 int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1258,28 +1285,38 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->warmUp = 0;
 
 	psmfplayer->mediaengine->openContext();
-	if (initPts < psmfplayer->mediaengine->getVideoTimeStamp()) {
+
+	s64 dist = initPts - psmfplayer->mediaengine->getVideoTimeStamp();
+	if (dist < 0 || dist > VIDEO_FRAME_DURATION_TS * 60) {
 		// When seeking backwards, we just start populating the stream from the start.
-		// There's probably smarter ways, but haven't seen any games actually do this.
 		pspFileSystem.SeekFile(psmfplayer->filehandle, 0, FILEMOVE_BEGIN);
 
 		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
-		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
+		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, tempbufSize);
+		psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, tempbufSize));
 
 		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
 		psmfplayer->readSize = size - mpegoffset;
 
-		_PsmfPlayerFillRingbuffer(psmfplayer);
-	}
-	// TODO: It would be better to spread this out into the Update() calls.
-	while (!psmfplayer->mediaengine->seekTo(initPts, videoPixelMode)) {
-		_PsmfPlayerFillRingbuffer(psmfplayer);
-		if (psmfplayer->mediaengine->IsVideoEnd()) {
-			break;
+		Psmf psmf(psmfplayer->tempbuf, 0);
+
+		int lastOffset = 0;
+		for (auto it = psmf.EPMap.begin(), end = psmf.EPMap.end(); it != end; ++it) {
+			if (initPts <= it->EPPts) {
+				break;
+			}
+			lastOffset = it->EPOffset;
 		}
+
+		psmfplayer->readSize += lastOffset * 2048;
+		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset + psmfplayer->readSize, FILEMOVE_BEGIN);
+
+		_PsmfPlayerFillRingbuffer(psmfplayer);
 	}
+
+	psmfplayer->seekDestTimeStamp = initPts;
+	__PsmfPlayerContinueSeek(psmfplayer);
 	return 0;
 }
 
@@ -1389,6 +1426,11 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 
 	hleEatCycles(20000);
+
+	if (!__PsmfPlayerContinueSeek(psmfplayer)) {
+		DEBUG_LOG(HLE, "scePsmfPlayerGetVideoData(%08x, %08x): still seeking", psmfPlayer, videoDataAddr);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
+	}
 
 	// On a real PSP, this takes a potentially variable amount of time.
 	// Normally a minimum of 3 without audio, 5 with.  But if you don't delay sufficiently between, hundreds.
