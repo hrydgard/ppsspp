@@ -18,7 +18,7 @@ public:
 	void demux(int audioChannel);
 
 	// return its framesize
-	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
+	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts = NULL);
 	bool hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2);
 
 	inline int getRemainSize() {

@@ -153,7 +153,7 @@ class Psmf {
 public:
 	// For savestates only.
 	Psmf() {}
-	Psmf(u32 data);
+	Psmf(const u8 *ptr, u32 data);
 	~Psmf();
 	void DoState(PointerWrap &p);
 	
@@ -230,6 +230,7 @@ public:
 	int playerVersion;
 	int videoStep;
 	int warmUp;
+	s64 seekDestTimeStamp;
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
@@ -249,35 +250,35 @@ public:
 		this->channel = channel;
 	}
 
-	void readMPEGVideoStreamParams(u32 addr, u32 data, Psmf *psmf) {
-		int streamId = Memory::Read_U8(addr);
-		int privateStreamId = Memory::Read_U8(addr + 1);
+	void readMPEGVideoStreamParams(const u8 *addr, const u8 *data, Psmf *psmf) {
+		int streamId = addr[0];
+		int privateStreamId = addr[1];
 		// two unknowns here
-		psmf->EPMapOffset = bswap32(Memory::Read_U32(addr + 4));
-		psmf->EPMapEntriesNum = bswap32(Memory::Read_U32(addr + 8));
-		psmf->videoWidth = Memory::Read_U8(addr + 12) * 16;
-		psmf->videoHeight = Memory::Read_U8(addr + 13) * 16;
+		psmf->EPMapOffset = *(u32_be *)&addr[4];
+		psmf->EPMapEntriesNum = *(u32_be *)&addr[8];
+		psmf->videoWidth = addr[12] * 16;
+		psmf->videoHeight = addr[13] * 16;
 
 		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
 		psmf->EPMap.clear();
 		for (u32 i = 0; i < psmf->EPMapEntriesNum; i++) {
-			const u32 entryAddr = data + psmf->EPMapOffset + EP_MAP_STRIDE * i;
+			const u8 *const entryAddr = data + psmf->EPMapOffset + EP_MAP_STRIDE * i;
 			PsmfEntry entry;
-			entry.EPIndex = Memory::Read_U8(entryAddr + 0);
-			entry.EPPicOffset = Memory::Read_U8(entryAddr + 1);
-			entry.EPPts = *(u32_be*) Memory::GetPointer(entryAddr + 2);
-			entry.EPOffset = *(u32_be*) Memory::GetPointer(entryAddr + 6);
+			entry.EPIndex = entryAddr[0];
+			entry.EPPicOffset = entryAddr[1];
+			entry.EPPts = *(u32_be *)&entryAddr[2];
+			entry.EPOffset = *(u32_be *)&entryAddr[6];
 			psmf->EPMap.push_back(entry);
 		}
 
 		INFO_LOG(ME, "PSMF MPEG data found: id=%02x, privid=%02x, epmoff=%08x, epmnum=%08x, width=%i, height=%i", streamId, privateStreamId, psmf->EPMapOffset, psmf->EPMapEntriesNum, psmf->videoWidth, psmf->videoHeight);
 	}
 
-	void readPrivateAudioStreamParams(u32 addr, Psmf *psmf) {
-		int streamId = Memory::Read_U8(addr);
-		int privateStreamId = Memory::Read_U8(addr + 1);
-		psmf->audioChannels = Memory::Read_U8(addr + 14);
-		psmf->audioFrequency = Memory::Read_U8(addr + 15);
+	void readPrivateAudioStreamParams(const u8 *addr, Psmf *psmf) {
+		int streamId = addr[0];
+		int privateStreamId = addr[1];
+		psmf->audioChannels = addr[14];
+		psmf->audioFrequency = addr[15];
 		// two unknowns here
 		INFO_LOG(ME, "PSMF private audio found: id=%02x, privid=%02x, channels=%i, freq=%i", streamId, privateStreamId, psmf->audioChannels, psmf->audioFrequency);
 	}
@@ -297,18 +298,18 @@ public:
 };
 
 
-Psmf::Psmf(u32 data) {
+Psmf::Psmf(const u8 *ptr, u32 data) {
 	headerOffset = data;
-	magic = Memory::Read_U32(data);
-	version = Memory::Read_U32(data + 4);
-	streamOffset = bswap32(Memory::Read_U32(data + 8));
-	streamSize = bswap32(Memory::Read_U32(data + 12));
-	streamDataTotalSize = bswap32(Memory::Read_U32(data + 0x50));
-	presentationStartTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_FIRST_TIMESTAMP_OFFSET));
-	presentationEndTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET));
-	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
-	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
-	numStreams = bswap16(Memory::Read_U16(data + 0x80));
+	magic = *(u32_le *)&ptr[0];
+	version = *(u32_le *)&ptr[4];
+	streamOffset = *(u32_be *)&ptr[8];
+	streamSize = *(u32_be *)&ptr[12];
+	streamDataTotalSize = *(u32_be *)&ptr[0x50];
+	presentationStartTime = getMpegTimeStamp(ptr + PSMF_FIRST_TIMESTAMP_OFFSET);
+	presentationEndTime = getMpegTimeStamp(ptr + PSMF_LAST_TIMESTAMP_OFFSET);
+	streamDataNextBlockSize = *(u32_be *)&ptr[0x6A];
+	streamDataNextInnerBlockSize = *(u32_be *)&ptr[0x7C];
+	numStreams = *(u16_be *)&ptr[0x80];
 	// TODO: Always?
 	headerSize = 0x800;
 
@@ -318,11 +319,11 @@ Psmf::Psmf(u32 data) {
 
 	for (int i = 0; i < numStreams; i++) {
 		PsmfStream *stream = 0;
-		u32 currentStreamAddr = data + 0x82 + i * 16;
-		int streamId = Memory::Read_U8(currentStreamAddr);
+		const u8 *const currentStreamAddr = ptr + 0x82 + i * 16;
+		int streamId = currentStreamAddr[0];
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
 			stream = new PsmfStream(PSMF_AVC_STREAM, ++currentVideoStreamNum);
-			stream->readMPEGVideoStreamParams(currentStreamAddr, data, this);
+			stream->readMPEGVideoStreamParams(currentStreamAddr, ptr, this);
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
 			stream = new PsmfStream(PSMF_ATRAC_STREAM, ++currentAudioStreamNum);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
@@ -357,6 +358,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	streamSize = 0;
 	videoStep = 0;
 	warmUp = 0;
+	seekDestTimeStamp = 0;
 
 	psmfPlayerAtracAu.dts =-1;
 	psmfPlayerAtracAu.pts = -1;
@@ -404,7 +406,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1, 3);
+	auto s = p.Section("PsmfPlayer", 1, 5);
 	if (!s)
 		return;
 
@@ -444,6 +446,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 		p.Do(warmUp);
 	} else {
 		warmUp = 10000;
+	}
+	if (s >= 5) {
+		p.Do(seekDestTimeStamp);
+	} else {
+		seekDestTimeStamp = 0;
 	}
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
@@ -593,9 +600,15 @@ bool isInitializedStatus(u32 status) {
 
 u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 {
+	if (!Memory::IsValidAddress(psmfData)) {
+		// TODO: Check error code.
+		ERROR_LOG_REPORT(ME, "scePsmfSetPsmf(%08x, %08x): bad address", psmfStruct, psmfData);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+
 	INFO_LOG(ME, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
 
-	Psmf *psmf = new Psmf(psmfData);
+	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
 
 	PsmfData data = {0};
 	data.version = psmf->version;
@@ -1193,6 +1206,26 @@ int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer)
 	return audioSamplesBytes;
 }
 
+bool __PsmfPlayerContinueSeek(PsmfPlayer *psmfplayer, int tries = 50) {
+	if (psmfplayer->seekDestTimeStamp <= 0) {
+		return true;
+	}
+
+	while (!psmfplayer->mediaengine->seekTo(psmfplayer->seekDestTimeStamp, videoPixelMode)) {
+		if (--tries <= 0) {
+			return false;
+		}
+		_PsmfPlayerFillRingbuffer(psmfplayer);
+		if (psmfplayer->mediaengine->IsVideoEnd()) {
+			break;
+		}
+	}
+
+	// Seek is done, so forget about it.
+	psmfplayer->seekDestTimeStamp = 0;
+	return true;
+}
+
 int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1258,28 +1291,38 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->warmUp = 0;
 
 	psmfplayer->mediaengine->openContext();
-	if (initPts < psmfplayer->mediaengine->getVideoTimeStamp()) {
+
+	s64 dist = initPts - psmfplayer->mediaengine->getVideoTimeStamp();
+	if (dist < 0 || dist > VIDEO_FRAME_DURATION_TS * 60) {
 		// When seeking backwards, we just start populating the stream from the start.
-		// There's probably smarter ways, but haven't seen any games actually do this.
 		pspFileSystem.SeekFile(psmfplayer->filehandle, 0, FILEMOVE_BEGIN);
 
 		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
-		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
+		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, tempbufSize);
+		psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, tempbufSize));
 
 		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
 		psmfplayer->readSize = size - mpegoffset;
 
-		_PsmfPlayerFillRingbuffer(psmfplayer);
-	}
-	// TODO: It would be better to spread this out into the Update() calls.
-	while (!psmfplayer->mediaengine->seekTo(initPts, videoPixelMode)) {
-		_PsmfPlayerFillRingbuffer(psmfplayer);
-		if (psmfplayer->mediaengine->IsVideoEnd()) {
-			break;
+		Psmf psmf(psmfplayer->tempbuf, 0);
+
+		int lastOffset = 0;
+		for (auto it = psmf.EPMap.begin(), end = psmf.EPMap.end(); it != end; ++it) {
+			if (initPts <= it->EPPts) {
+				break;
+			}
+			lastOffset = it->EPOffset;
 		}
+
+		psmfplayer->readSize += lastOffset * 2048;
+		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset + psmfplayer->readSize, FILEMOVE_BEGIN);
+
+		_PsmfPlayerFillRingbuffer(psmfplayer);
 	}
+
+	psmfplayer->seekDestTimeStamp = initPts;
+	__PsmfPlayerContinueSeek(psmfplayer);
 	return 0;
 }
 
@@ -1389,6 +1432,11 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 
 	hleEatCycles(20000);
+
+	if (!__PsmfPlayerContinueSeek(psmfplayer)) {
+		DEBUG_LOG(HLE, "scePsmfPlayerGetVideoData(%08x, %08x): still seeking", psmfPlayer, videoDataAddr);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
+	}
 
 	// On a real PSP, this takes a potentially variable amount of time.
 	// Normally a minimum of 3 without audio, 5 with.  But if you don't delay sufficiently between, hundreds.
@@ -1530,7 +1578,7 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (psmfplayer->psmfPlayerAvcAu.pts < 0) {
-		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): no frame yet", psmfPlayer, currentPtsAddr);
+		WARN_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): no frame yet", psmfPlayer, currentPtsAddr);
 		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
