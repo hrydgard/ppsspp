@@ -153,7 +153,7 @@ class Psmf {
 public:
 	// For savestates only.
 	Psmf() {}
-	Psmf(u32 data);
+	Psmf(const u8 *ptr, u32 data);
 	~Psmf();
 	void DoState(PointerWrap &p);
 	
@@ -249,35 +249,35 @@ public:
 		this->channel = channel;
 	}
 
-	void readMPEGVideoStreamParams(u32 addr, u32 data, Psmf *psmf) {
-		int streamId = Memory::Read_U8(addr);
-		int privateStreamId = Memory::Read_U8(addr + 1);
+	void readMPEGVideoStreamParams(const u8 *addr, const u8 *data, Psmf *psmf) {
+		int streamId = addr[0];
+		int privateStreamId = addr[1];
 		// two unknowns here
-		psmf->EPMapOffset = bswap32(Memory::Read_U32(addr + 4));
-		psmf->EPMapEntriesNum = bswap32(Memory::Read_U32(addr + 8));
-		psmf->videoWidth = Memory::Read_U8(addr + 12) * 16;
-		psmf->videoHeight = Memory::Read_U8(addr + 13) * 16;
+		psmf->EPMapOffset = *(u32_be *)&addr[4];
+		psmf->EPMapEntriesNum = *(u32_be *)&addr[8];
+		psmf->videoWidth = addr[12] * 16;
+		psmf->videoHeight = addr[13] * 16;
 
 		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
 		psmf->EPMap.clear();
 		for (u32 i = 0; i < psmf->EPMapEntriesNum; i++) {
-			const u32 entryAddr = data + psmf->EPMapOffset + EP_MAP_STRIDE * i;
+			const u8 *const entryAddr = data + psmf->EPMapOffset + EP_MAP_STRIDE * i;
 			PsmfEntry entry;
-			entry.EPIndex = Memory::Read_U8(entryAddr + 0);
-			entry.EPPicOffset = Memory::Read_U8(entryAddr + 1);
-			entry.EPPts = *(u32_be*) Memory::GetPointer(entryAddr + 2);
-			entry.EPOffset = *(u32_be*) Memory::GetPointer(entryAddr + 6);
+			entry.EPIndex = entryAddr[0];
+			entry.EPPicOffset = entryAddr[1];
+			entry.EPPts = *(u32_be *)&entryAddr[2];
+			entry.EPOffset = *(u32_be *)&entryAddr[6];
 			psmf->EPMap.push_back(entry);
 		}
 
 		INFO_LOG(ME, "PSMF MPEG data found: id=%02x, privid=%02x, epmoff=%08x, epmnum=%08x, width=%i, height=%i", streamId, privateStreamId, psmf->EPMapOffset, psmf->EPMapEntriesNum, psmf->videoWidth, psmf->videoHeight);
 	}
 
-	void readPrivateAudioStreamParams(u32 addr, Psmf *psmf) {
-		int streamId = Memory::Read_U8(addr);
-		int privateStreamId = Memory::Read_U8(addr + 1);
-		psmf->audioChannels = Memory::Read_U8(addr + 14);
-		psmf->audioFrequency = Memory::Read_U8(addr + 15);
+	void readPrivateAudioStreamParams(const u8 *addr, Psmf *psmf) {
+		int streamId = addr[0];
+		int privateStreamId = addr[1];
+		psmf->audioChannels = addr[14];
+		psmf->audioFrequency = addr[15];
 		// two unknowns here
 		INFO_LOG(ME, "PSMF private audio found: id=%02x, privid=%02x, channels=%i, freq=%i", streamId, privateStreamId, psmf->audioChannels, psmf->audioFrequency);
 	}
@@ -297,18 +297,18 @@ public:
 };
 
 
-Psmf::Psmf(u32 data) {
+Psmf::Psmf(const u8 *ptr, u32 data) {
 	headerOffset = data;
-	magic = Memory::Read_U32(data);
-	version = Memory::Read_U32(data + 4);
-	streamOffset = bswap32(Memory::Read_U32(data + 8));
-	streamSize = bswap32(Memory::Read_U32(data + 12));
-	streamDataTotalSize = bswap32(Memory::Read_U32(data + 0x50));
-	presentationStartTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_FIRST_TIMESTAMP_OFFSET));
-	presentationEndTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET));
-	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
-	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
-	numStreams = bswap16(Memory::Read_U16(data + 0x80));
+	magic = *(u32_le *)&ptr[0];
+	version = *(u32_le *)&ptr[4];
+	streamOffset = *(u32_be *)&ptr[8];
+	streamSize = *(u32_be *)&ptr[12];
+	streamDataTotalSize = *(u32_be *)&ptr[0x50];
+	presentationStartTime = getMpegTimeStamp(ptr + PSMF_FIRST_TIMESTAMP_OFFSET);
+	presentationEndTime = getMpegTimeStamp(ptr + PSMF_LAST_TIMESTAMP_OFFSET);
+	streamDataNextBlockSize = *(u32_be *)&ptr[0x6A];
+	streamDataNextInnerBlockSize = *(u32_be *)&ptr[0x7C];
+	numStreams = *(u16_be *)&ptr[0x80];
 	// TODO: Always?
 	headerSize = 0x800;
 
@@ -318,11 +318,11 @@ Psmf::Psmf(u32 data) {
 
 	for (int i = 0; i < numStreams; i++) {
 		PsmfStream *stream = 0;
-		u32 currentStreamAddr = data + 0x82 + i * 16;
-		int streamId = Memory::Read_U8(currentStreamAddr);
+		const u8 *const currentStreamAddr = ptr + 0x82 + i * 16;
+		int streamId = currentStreamAddr[0];
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
 			stream = new PsmfStream(PSMF_AVC_STREAM, ++currentVideoStreamNum);
-			stream->readMPEGVideoStreamParams(currentStreamAddr, data, this);
+			stream->readMPEGVideoStreamParams(currentStreamAddr, ptr, this);
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
 			stream = new PsmfStream(PSMF_ATRAC_STREAM, ++currentAudioStreamNum);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
@@ -595,7 +595,7 @@ u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 {
 	INFO_LOG(ME, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
 
-	Psmf *psmf = new Psmf(psmfData);
+	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
 
 	PsmfData data = {0};
 	data.version = psmf->version;
