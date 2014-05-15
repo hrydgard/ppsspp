@@ -1572,7 +1572,7 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (psmfplayer->psmfPlayerAvcAu.pts < 0) {
-		ERROR_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): no frame yet", psmfPlayer, currentPtsAddr);
+		WARN_LOG(ME, "scePsmfPlayerGetCurrentPts(%08x, %08x): no frame yet", psmfPlayer, currentPtsAddr);
 		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
