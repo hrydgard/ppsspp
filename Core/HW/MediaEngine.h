@@ -76,7 +76,7 @@ public:
 	int getRemainSize();
 	int getAudioRemainSize();
 
-	bool stepVideo(int videoPixelMode);
+	bool stepVideo(int videoPixelMode, bool skipFrame = false);
 	int writeVideoImage(u32 bufferPtr, int frameWidth = 512, int videoPixelMode = 3);
 	int writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
 	                             int xpos, int ypos, int width, int height);
