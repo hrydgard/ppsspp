@@ -56,11 +56,8 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	// TODO: Cleaner exit
 	if (!strcmp(command, "finish")) {
-		NativeShutdown();
-		net::Shutdown();
-		exit(0);
+		qApp->exit(0);
 	}
 }
 
