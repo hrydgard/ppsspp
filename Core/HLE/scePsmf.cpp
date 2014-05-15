@@ -600,6 +600,12 @@ bool isInitializedStatus(u32 status) {
 
 u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 {
+	if (!Memory::IsValidAddress(psmfData)) {
+		// TODO: Check error code.
+		ERROR_LOG_REPORT(ME, "scePsmfSetPsmf(%08x, %08x): bad address", psmfStruct, psmfData);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+	}
+
 	INFO_LOG(ME, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
 
 	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
