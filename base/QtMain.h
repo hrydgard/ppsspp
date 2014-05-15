@@ -9,7 +9,7 @@
 
 #include <QAudioOutput>
 #include <QAudioFormat>
-#if defined(USING_GLES2) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE) && !defined(MAEMO)
 #include <QAccelerometer>
 QTM_USE_NAMESPACE
 #endif
@@ -45,7 +45,7 @@ public:
 #if QT_VERSION < 0x50000
 		setAttribute(Qt::WA_LockLandscapeOrientation);
 #endif
-#if defined(USING_GLES2) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE) && !defined(MAEMO)
 		acc = new QAccelerometer(this);
 		acc->start();
 #endif
@@ -54,7 +54,7 @@ public:
 		startTimer(16);
 	}
 	~MainUI() {
-#if defined(USING_GLES2) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE) && !defined(MAEMO)
 		delete acc;
 #endif
 		NativeShutdownGraphics();
@@ -192,20 +192,35 @@ protected:
 
 	void updateAccelerometer()
 	{
-#if defined(USING_GLES2) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE) && !defined(MAEMO)
 		// TODO: Toggle it depending on whether it is enabled
 		QAccelerometerReading *reading = acc->reading();
 		if (reading) {
 			input_state.acc.x = reading->x();
 			input_state.acc.y = reading->y();
 			input_state.acc.z = reading->z();
+			AxisInput axis;
+			axis.deviceId = DEVICE_ID_ACCELEROMETER;
+			axis.flags = 0;
+
+			axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+			axis.value = input_state.acc.x;
+			NativeAxis(axis);
+
+			axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+			axis.value = input_state.acc.y;
+			NativeAxis(axis);
+
+			axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+			axis.value = input_state.acc.z;
+			NativeAxis(axis);
 		}
 #endif
 	}
 
 private:
 	InputState input_state;
-#if defined(USING_GLES2) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE) && !defined(MAEMO)
 	QAccelerometer* acc;
 #endif
 };
