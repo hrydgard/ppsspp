@@ -163,13 +163,10 @@ private:
 		u64 pts = findPts(earliest, latest);
 
 		// If it wraps around, we have to look at the other half too.
-		if (start + packetSize > bufQueueSize) {
+		if (pts == 0 && start + packetSize > bufQueueSize) {
 			earliest = ptsMarks.begin();
 			latest = ptsMarks.lower_bound(start + packetSize - bufQueueSize);
-			u64 pts2 = findPts(earliest, latest);
-			if (pts2 != 0) {
-				pts = pts2;
-			}
+			return findPts(earliest, latest);
 		}
 
 		return pts;
