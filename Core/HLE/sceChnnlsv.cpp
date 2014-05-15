@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 
-#include "sceChnnlsv.h"
-#include "sceKernel.h"
+#include "Core/HLE/sceChnnlsv.h"
+#include "Core/HLE/sceKernel.h"
 extern "C"
 {
 #include "ext/libkirk/kirk_engine.h"

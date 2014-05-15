@@ -22,9 +22,10 @@
 
 #pragma once
 
-#include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
+
+class PointerWrap;
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -145,7 +146,7 @@ public:
 	void KeyOff();
 	void End();
 
-	void Step();
+	inline void Step();
 
 	int GetHeight() const {
 		return height_ > (s64)PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;

@@ -19,15 +19,16 @@
 #include <vector>
 #include <cstdio>
 
-#include "MsgHandler.h"
-#include "StdMutex.h"
-#include "Atomics.h"
-#include "CoreTiming.h"
-#include "Core.h"
-#include "Config.h"
-#include "HLE/sceKernelThread.h"
-#include "../Common/ChunkFile.h"
-#include "HLE/sceDisplay.h"
+#include "Common/MsgHandler.h"
+#include "Common/StdMutex.h"
+#include "Common/Atomics.h"
+#include "Core/CoreTiming.h"
+#include "Core/Core.h"
+#include "Core/Config.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/MIPS/MIPS.h"
+#include "Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
 
@@ -70,7 +71,7 @@ Event *eventPool = 0;
 Event *eventTsPool = 0;
 int allocatedTsEvents = 0;
 // Optimization to skip MoveEvents when possible.
-volatile u32 hasTsEvents = false;
+volatile u32 hasTsEvents = 0;
 
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
@@ -110,7 +111,7 @@ u64 GetGlobalTimeUsScaled()
 		float vps;
 		__DisplayGetVPS(&vps);
 		if (vps > 4.0f)
-			freq *= (vps / 60.0f);
+			freq *= (vps / 59.94f);
 	}
 	s64 usSinceLast = ticksSinceLast / freq;
 	return lastGlobalTimeUs + usSinceLast;

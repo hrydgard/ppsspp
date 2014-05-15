@@ -224,10 +224,9 @@ void Jit::Comp_SV(MIPSOpcode op) {
 			{
 				MOVSS(fpr.VX(vt), safe.NextFastAddress(0));
 			}
-			if (safe.PrepareSlowRead(&Memory::Read_U32))
+			if (safe.PrepareSlowRead(safeMemFuncs.readU32))
 			{
-				MOV(32, M(&ssLoadStoreTemp), R(EAX));
-				MOVSS(fpr.VX(vt), M(&ssLoadStoreTemp));
+				MOVD_xmm(fpr.VX(vt), R(EAX));
 			}
 			safe.Finish();
 
@@ -253,7 +252,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 			if (safe.PrepareSlowWrite())
 			{
 				MOVSS(M(&ssLoadStoreTemp), fpr.VX(vt));
-				safe.DoSlowWrite(&Memory::Write_U32, M(&ssLoadStoreTemp), 0);
+				safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp), 0);
 			}
 			safe.Finish();
 
@@ -361,13 +360,12 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 				for (int i = 0; i < 4; i++)
 					MOVSS(fpr.VX(vregs[i]), safe.NextFastAddress(i * 4));
 			}
-			if (safe.PrepareSlowRead(&Memory::Read_U32))
+			if (safe.PrepareSlowRead(safeMemFuncs.readU32))
 			{
 				for (int i = 0; i < 4; i++)
 				{
-					safe.NextSlowRead(&Memory::Read_U32, i * 4);
-					MOV(32, M(&ssLoadStoreTemp), R(EAX));
-					MOVSS(fpr.VX(vregs[i]), M(&ssLoadStoreTemp));
+					safe.NextSlowRead(safeMemFuncs.readU32, i * 4);
+					MOVD_xmm(fpr.VX(vregs[i]), R(EAX));
 				}
 			}
 			safe.Finish();
@@ -399,7 +397,7 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 				for (int i = 0; i < 4; i++)
 				{
 					MOVSS(M(&ssLoadStoreTemp), fpr.VX(vregs[i]));
-					safe.DoSlowWrite(&Memory::Write_U32, M(&ssLoadStoreTemp), i * 4);
+					safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp), i * 4);
 				}
 			}
 			safe.Finish();

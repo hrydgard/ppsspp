@@ -55,6 +55,16 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(USE_FFMPEG ON)
 endif()
 
+if (NOT ARM AND NOT MIPS)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_X64")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_X64")
+	else()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_IX86")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_IX86")
+	endif()
+endif()
+
 if(NOT DEFINED HEADLESS)
 	set(HEADLESS OFF)
 endif()
@@ -420,7 +430,7 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(IOS OR BLACKBERRY)
+	if(IOS OR BLACKBERRY OR MACOSX)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
 	endif()
 
@@ -610,6 +620,16 @@ endif()
 	
 set(nativeExtra)
 set(nativeExtraLibs)
+
+if(ARM)
+	set(nativeExtra ${nativeExtra}
+    native/math/fast/fast_matrix_neon.S)
+else()
+	set(nativeExtra ${nativeExtra}
+    native/math/fast/fast_matrix_sse.c)
+endif()
+
+
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		native/base/NativeApp.h
@@ -768,6 +788,8 @@ add_library(native STATIC
 	native/input/keycodes.h
 	native/input/input_state.h
 	native/input/input_state.cpp
+	native/math/fast/fast_math.c
+	native/math/fast/fast_matrix.c
 	native/math/curves.cpp
 	native/math/curves.h
 	native/math/expression_parser.cpp
@@ -908,6 +930,8 @@ elseif(X86)
 		Core/MIPS/x86/CompReplace.cpp
 		Core/MIPS/x86/Jit.cpp
 		Core/MIPS/x86/Jit.h
+		Core/MIPS/x86/JitSafeMem.cpp
+		Core/MIPS/x86/JitSafeMem.h
 		Core/MIPS/x86/RegCache.cpp
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
@@ -959,6 +983,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPPlaceholderDialog.h
 	Core/Dialog/PSPSaveDialog.cpp
 	Core/Dialog/PSPSaveDialog.h
+	Core/Dialog/PSPScreenshotDialog.cpp
+	Core/Dialog/PSPScreenshotDialog.h
 	Core/Dialog/SavedataParam.cpp
 	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
@@ -1105,8 +1131,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
-	Core/HW/SimpleAT3Dec.cpp
-	Core/HW/SimpleAT3Dec.h
+	Core/HW/SimpleAudioDec.cpp
+	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp
@@ -1197,6 +1223,8 @@ add_library(GPU OBJECT
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/TransformCommon.cpp
+	GPU/Common/TransformCommon.h
 	GPU/Common/IndexGenerator.cpp
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp

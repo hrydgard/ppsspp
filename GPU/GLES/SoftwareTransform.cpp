@@ -21,6 +21,8 @@
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 
@@ -42,157 +44,6 @@
 //
 
 extern const GLuint glprim[8];
-
-// Check for max first as clamping to max is more common than min when lighting.
-inline float clamp(float in, float min, float max) {
-	return in > max ? max : (in < min ? min : in);
-}
-
-// Convenient way to do precomputation to save the parts of the lighting calculation
-// that's common between the many vertices of a draw call.
-class Lighter {
-public:
-	Lighter(int vertType);
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
-
-private:
-	Color4 globalAmbient;
-	Color4 materialEmissive;
-	Color4 materialAmbient;
-	Color4 materialDiffuse;
-	Color4 materialSpecular;
-	float specCoef_;
-	// Vec3f viewer_;
-	bool doShadeMapping_;
-	int materialUpdate_;
-};
-
-Lighter::Lighter(int vertType) {
-	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
-	materialEmissive.GetFromRGB(gstate.materialemissive);
-	materialEmissive.a = 0.0f;
-	globalAmbient.GetFromRGB(gstate.ambientcolor);
-	globalAmbient.GetFromA(gstate.ambientalpha);
-	materialAmbient.GetFromRGB(gstate.materialambient);
-	materialAmbient.GetFromA(gstate.materialalpha);
-	materialDiffuse.GetFromRGB(gstate.materialdiffuse);
-	materialDiffuse.a = 1.0f;
-	materialSpecular.GetFromRGB(gstate.materialspecular);
-	materialSpecular.a = 1.0f;
-	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	materialUpdate_ = hasColor ? gstate.materialupdate & 7 : 0;
-}
-
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm) {
-	Color4 in(colorIn);
-
-	const Color4 *ambient;
-	if (materialUpdate_ & 1)
-		ambient = &in;
-	else
-		ambient = &materialAmbient;
-
-	const Color4 *diffuse;
-	if (materialUpdate_ & 2)
-		diffuse = &in;
-	else
-		diffuse = &materialDiffuse;
-
-	const Color4 *specular;
-	if (materialUpdate_ & 4)
-		specular = &in;
-	else
-		specular = &materialSpecular;
-
-	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
-	Color4 lightSum1(0, 0, 0, 0);
-
-	for (int l = 0; l < 4; l++) {
-		// can we skip this light?
-		if (!gstate.isLightChanEnabled(l))
-			continue;
-
-		GELightType type = gstate.getLightType(l);
-		
-		Vec3f toLight(0,0,0);
-		Vec3f lightDir(0,0,0);
-		
-		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3f(gstate_c.lightpos[l]);  // lightdir is for spotlights
-		else
-			toLight = Vec3f(gstate_c.lightpos[l]) - pos;
-
-		bool doSpecular = gstate.isUsingSpecularLight(l);
-		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
-		
-		float distanceToLight = toLight.Length();
-		float dot = 0.0f;
-		float angle = 0.0f;
-		float lightScale = 0.0f;
-		
-		if (distanceToLight > 0.0f) {
-			toLight /= distanceToLight;
-			dot = Dot(toLight, norm);
-		}
-		// Clamp dot to zero.
-		if (dot < 0.0f) dot = 0.0f;
-
-		if (poweredDiffuse)
-			dot = powf(dot, specCoef_);
-
-		// Attenuation
-		switch (type) {
-		case GE_LIGHTTYPE_DIRECTIONAL:
-			lightScale = 1.0f;
-			break;
-		case GE_LIGHTTYPE_POINT:
-			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
-			break;
-		case GE_LIGHTTYPE_SPOT:
-		case GE_LIGHTTYPE_UNKNOWN:
-			lightDir = gstate_c.lightdir[l];
-			angle = Dot(toLight.Normalized(), lightDir.Normalized());
-			if (angle >= gstate_c.lightangle[l])
-				lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, gstate_c.lightspotCoef[l]);
-			break;
-		default:
-			// ILLEGAL
-			break;
-		}
-
-		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * dot;
-
-		// Real PSP specular
-		Vec3f toViewer(0,0,1);
-		// Better specular
-		// Vec3f toViewer = (viewer - pos).Normalized();
-
-		if (doSpecular) {
-			Vec3f halfVec = (toLight + toViewer);
-			halfVec.Normalize();
-
-			dot = Dot(halfVec, norm);
-			if (dot > 0.0f) {
-				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
-			}
-		}
-
-		if (gstate.isLightChanEnabled(l)) {
-			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
-		}
-	}
-
-	// 4?
-	for (int i = 0; i < 4; i++) {
-		colorOut0[i] = lightSum0[i] > 1.0f ? 1.0f : lightSum0[i];
-		colorOut1[i] = lightSum1[i] > 1.0f ? 1.0f : lightSum1[i];
-	}
-}
 
 // The verts are in the order:  BR BL TL TR
 static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
@@ -312,14 +163,22 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// not really sure what a sensible value might be.
 		fog_slope = fog_slope < 0.0f ? -10000.0f : 10000.0f;
 	}
+	if (my_isnan(fog_slope))	{
+		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+		// Just put the fog far away at a large finite distance.
+		// Infinities and NaNs are rather unpredictable in shaders on many GPUs
+		// so it's best to just make it a sane calculation.
+		fog_end = 100000.0f;
+		fog_slope = 1.0f;
+	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	for (int index = 0; index < maxIndex; index++) {
 		reader.Goto(index);
 
 		float v[3] = {0, 0, 0};
-		float c0[4] = {1, 1, 1, 1};
-		float c1[4] = {0, 0, 0, 0};
+		Vec4f c0 = Vec4f(1, 1, 1, 1);
+		Vec4f c1 = Vec4f(0, 0, 0, 0);
 		float uv[3] = {0, 0, 1};
 		float fogCoef = 1.0f;
 
@@ -327,15 +186,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.ReadPos(v);
 			if (reader.hasColor0()) {
-				reader.ReadColor0(c0);
-				for (int j = 0; j < 4; j++) {
-					c1[j] = 0.0f;
-				}
+				reader.ReadColor0(&c0.x);
+				// c1 is already 0.
 			} else {
-				c0[0] = gstate.getMaterialAmbientR() / 255.f;
-				c0[1] = gstate.getMaterialAmbientG() / 255.f;
-				c0[2] = gstate.getMaterialAmbientB() / 255.f;
-				c0[3] = gstate.getMaterialAmbientA() / 255.f;
+				c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}
 
 			if (reader.hasUV()) {
@@ -389,20 +243,18 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
-			float unlitColor[4] = {1, 1, 1, 1};
+			Vec4f unlitColor = Vec4f(1, 1, 1, 1);
 			if (reader.hasColor0()) {
-				reader.ReadColor0(unlitColor);
+				reader.ReadColor0(&unlitColor.x);
 			} else {
-				unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
-				unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
-				unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
-				unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
+				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}
-			float litColor0[4];
-			float litColor1[4];
-			lighter.Light(litColor0, litColor1, unlitColor, out, normal);
 
 			if (gstate.isLightingEnabled()) {
+				float litColor0[4];
+				float litColor1[4];
+				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
+
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				for (int j = 0; j < 4; j++) {
 					c0[j] = litColor0[j];
@@ -424,15 +276,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c0[j] = unlitColor[j];
 					}
 				} else {
-					c0[0] = gstate.getMaterialAmbientR() / 255.f;
-					c0[1] = gstate.getMaterialAmbientG() / 255.f;
-					c0[2] = gstate.getMaterialAmbientB() / 255.f;
-					c0[3] = gstate.getMaterialAmbientA() / 255.f;
+					c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 				}
 				if (lmode) {
-					for (int j = 0; j < 4; j++) {
-						c1[j] = 0.0f;
-					}
+					// c1 is already 0.
 				}
 			}
 
@@ -498,11 +345,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
-					Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
-					Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
+					Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0() * 3]).Normalized();
+					Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1() * 3]).Normalized();
 
 					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
+					uv[1] = (1.0f + Dot(lightpos1, normal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;
@@ -528,12 +375,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		if (gstate_c.flipTexture) {
 			transformed[index].v = 1.0f - transformed[index].v;
 		}
-		for (int i = 0; i < 4; i++) {
-			transformed[index].color0[i] = c0[i] * 255.0f;
-		}
-		for (int i = 0; i < 3; i++) {
-			transformed[index].color1[i] = c1[i] * 255.0f;
-		}
+		transformed[index].color0_32 = c0.ToRGBA();
+		transformed[index].color1_32 = c1.ToRGBA();
 	}
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and

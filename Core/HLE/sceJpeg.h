@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "HLE.h"
+class PointerWrap;
 
 void Register_sceJpeg();
 void __JpegInit();

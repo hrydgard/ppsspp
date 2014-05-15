@@ -171,7 +171,7 @@ enum OskKeyboardLanguage
 	OSK_LANGUAGE_JAPANESE,
 	OSK_LANGUAGE_KOREAN,
 	OSK_LANGUAGE_RUSSIAN,
-	OSK_LANGUAGE_ENGLISH_FW, //English full-width(mostly used in Japanese games)
+	OSK_LANGUAGE_ENGLISH_FW, //English full-width (mostly used in Japanese games)
 	OSK_LANGUAGE_COUNT
 };
 

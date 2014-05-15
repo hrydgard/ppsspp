@@ -21,6 +21,9 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
 
@@ -30,7 +33,7 @@
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
-static const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
+static const u8 possize[4] = {3,3,6,12}, posalign[4] = {1,1,2,4};
 static const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
@@ -218,6 +221,7 @@ void VertexDecoder::Step_Color565() const
 	c[1] = Convert6To8((cdata>>5) & 0x3f);
 	c[2] = Convert5To8((cdata>>11) & 0x1f);
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoder::Step_Color5551() const
@@ -228,6 +232,7 @@ void VertexDecoder::Step_Color5551() const
 	c[1] = Convert5To8((cdata>>5) & 0x1f);
 	c[2] = Convert5To8((cdata>>10) & 0x1f);
 	c[3] = (cdata >> 15) ? 255 : 0;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] != 0;
 }
 
 void VertexDecoder::Step_Color4444() const
@@ -236,6 +241,7 @@ void VertexDecoder::Step_Color4444() const
 	u16 cdata = *(u16*)(ptr_ + coloff);
 	for (int j = 0; j < 4; j++)
 		c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color8888() const
@@ -243,6 +249,7 @@ void VertexDecoder::Step_Color8888() const
 	u8 *c = decoded_ + decFmt.c0off;
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
 	memcpy(c, cdata, sizeof(u8) * 4);
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color565Morph() const
@@ -258,9 +265,10 @@ void VertexDecoder::Step_Color565Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 3; i++) {
-		c[i] = (u8)col[i];
+		c[i] = clamp_u8((int)col[i]);
 	}
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoder::Step_Color5551Morph() const
@@ -277,8 +285,9 @@ void VertexDecoder::Step_Color5551Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)col[i];
+		c[i] = clamp_u8((int)col[i]);
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color4444Morph() const
@@ -293,8 +302,9 @@ void VertexDecoder::Step_Color4444Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)col[i];
+		c[i] = clamp_u8((int)col[i]);
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_Color8888Morph() const
@@ -309,8 +319,9 @@ void VertexDecoder::Step_Color8888Morph() const
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)(col[i]);
+		c[i] = clamp_u8((int)col[i]);
 	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoder::Step_NormalS8() const
@@ -600,28 +611,28 @@ static const StepFunction nrmstep_morph[4] = {
 };
 
 static const StepFunction posstep[4] = {
-	0,
+	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
 };
 
 static const StepFunction posstep_skin[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Skin,
 	&VertexDecoder::Step_PosS8Skin,
 	&VertexDecoder::Step_PosS16Skin,
 	&VertexDecoder::Step_PosFloatSkin,
 };
 
 static const StepFunction posstep_morph[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
 };
 
 static const StepFunction posstep_through[4] = {
-	0,
+	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS16Through,
 	&VertexDecoder::Step_PosFloatThrough,
@@ -775,6 +786,10 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
+	if (!pos) {
+		ERROR_LOG_REPORT(G3D, "Vertices without position found");
+		pos = 1;
+	}
 	if (pos) { // there's always a position
 		size = align(size, posalign[pos]);
 		posoff = size;
@@ -807,8 +822,6 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	} else {
-		ERROR_LOG_REPORT(G3D, "Vertices without position found");
 	}
 
 	decFmt.stride = decOff;

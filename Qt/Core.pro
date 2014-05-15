@@ -62,6 +62,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
+	$$P/GPU/Common/TransformCommon.cpp \
 	$$P/GPU/Common/PostShader.cpp \
 	$$P/ext/libkirk/*.c \ # Kirk
 	$$P/ext/xxhash.c \ # xxHash

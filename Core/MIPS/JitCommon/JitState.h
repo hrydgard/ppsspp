@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "Common/Common.h"
+
 struct JitBlock;
 
 namespace MIPSComp {

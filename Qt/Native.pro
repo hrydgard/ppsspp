@@ -91,6 +91,8 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/expression_parser.cpp \
 	$$P/native/math/math_util.cpp \
 	$$P/native/math/lin/*.cpp \
+	$$P/native/math/fast/fast_math.c \
+	$$P/native/math/fast/fast_matrix.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
 	$$P/native/thread/*.cpp \
@@ -100,6 +102,14 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/random/perlin.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
+
+x86 {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
+}
+arm:!symbian {
+	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
+}
+
 
 HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/base/backtrace.h \
@@ -135,5 +145,6 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/random/*.h \
 	$$P/native/util/text/utf8.h \
 	$$P/native/util/text/parsers.h
+
 INCLUDEPATH += $$P/native
 

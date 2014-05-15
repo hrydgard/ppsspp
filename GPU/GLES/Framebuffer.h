@@ -79,6 +79,10 @@ struct VirtualFramebuffer {
 
 	u16 usageFlags;
 
+	u16 newWidth;
+	u16 newHeight;
+	int lastFrameNewSize;
+
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
@@ -123,7 +127,8 @@ public:
 	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
 
 	// If texture != 0, will bind it.
-	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
+	// x,y,w,h are relative to destW, destH which fill out the target completely.
+	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f, GLSLProgram *program = 0);
 
 	void DrawPlainColor(u32 color);
 
@@ -135,7 +140,18 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
+	void DoSetRenderFrameBuffer();  // Uses parameters computed from gstate
+	void SetRenderFrameBuffer() {
+		// Inlining this part since it's so frequent.
+		if (!gstate_c.framebufChanged && currentRenderVfb_) {
+			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
+			currentRenderVfb_->dirtyAfterDisplay = true;
+			if (!gstate_c.skipDrawReason)
+				currentRenderVfb_->reallyDirtyAfterDisplay = true;
+			return;
+		}
+		DoSetRenderFrameBuffer();
+	}
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
@@ -144,14 +160,13 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
 
-	// Just for logging right now.  Might remove/change.
-	void NotifyBlockTransfer(u32 dst, u32 src);
+	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
+	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
+	// read framebuffers is on, in which case this should always return false).
+	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
 
-#ifdef USING_GLES2
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
-#else
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
-#endif 
+	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetVFBAt(u32 addr);
@@ -208,8 +223,8 @@ private:
 
 	VirtualFramebuffer *currentRenderVfb_;
 
-	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
@@ -247,5 +262,7 @@ private:
 	u8 currentPBO_;
 #endif
 
+	// This is to be used only for reporting of strange blits. Don't control behaviour as
+	// this is "permanent" while framebuffers aren't.
 	std::set<std::pair<u32, u32>> reportedBlits_;
 };

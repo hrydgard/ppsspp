@@ -118,11 +118,6 @@ namespace WindowsRawInput {
 			return;
 		}
 
-		if (g_Config.bEscapeExitsEmulator && raw->data.keyboard.VKey == VK_ESCAPE) {
-			DestroyWindow(MainWindow::GetHWND());
-			return;
-		}
-
 		KeyInput key;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 

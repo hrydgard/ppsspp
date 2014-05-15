@@ -16,11 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 // This is pretty much a stub implementation. Doesn't actually do anything, just tries to return values
-// to keep games happy anyway. So, no ATRAC3 music until someone has reverse engineered Atrac3+.
+// to keep games happy anyway.
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 
-#include "sceNp.h"
+#include "Core/HLE/sceNp.h"
 
 int sceNp_857B47D3()
 {

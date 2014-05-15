@@ -16,9 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <math.h>
+#include "Globals.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Common/ChunkFile.h"
 #include "Common/StdMutex.h"
 #include "Core/HLE/sceCtrl.h"
@@ -34,8 +37,6 @@
 
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
-
-const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const u32 NUM_CTRL_BUFFERS = 64;
 
@@ -181,13 +182,15 @@ void __CtrlButtonUp(u32 buttonBit)
 void __CtrlSetAnalogX(float x, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = (u8)ceilf(x * 127.5f + 127.5f);
+	int scaled = (int)ceilf(x * 127.5f + 127.5f);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = clamp_u8(scaled);
 }
 
 void __CtrlSetAnalogY(float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = (u8)ceilf(-y * 127.5f + 127.5f);
+	int scaled = (int)ceilf(-y * 127.5f + 127.5f);
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = clamp_u8(scaled);
 }
 
 void __CtrlSetRapidFire(bool state)
@@ -431,9 +434,9 @@ int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 	DEBUG_LOG(SCECTRL, "sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
 
 	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
-		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 
 	if (idleResetPtr)
 		Memory::Write_U32(ctrlIdleReset, idleResetPtr);

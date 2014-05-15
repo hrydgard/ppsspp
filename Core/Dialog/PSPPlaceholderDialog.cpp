@@ -33,18 +33,13 @@ int PSPPlaceholderDialog::Init()
 
 int PSPPlaceholderDialog::Update(int animSpeed)
 {
-	//__UtilityUpdate();
-	if (status == SCE_UTILITY_STATUS_INITIALIZE)
-	{
+	if (status == SCE_UTILITY_STATUS_INITIALIZE) {
 		status = SCE_UTILITY_STATUS_RUNNING;
-	}
-	else if (status == SCE_UTILITY_STATUS_RUNNING)
-	{
+	} else if (status == SCE_UTILITY_STATUS_RUNNING) {
 		status = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else if (status == SCE_UTILITY_STATUS_FINISHED)
-	{
+	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
+
 	return 0;
 }

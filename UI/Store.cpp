@@ -269,7 +269,7 @@ std::string StoreScreen::GetTranslatedString(const json_value *json, std::string
 	}
 	const char *str = 0;
 	if (dict) {
-		str = dict->getString(key.c_str());
+		str = dict->getString(key.c_str(), 0);
 	}
 	if (str) {
 		return std::string(str);

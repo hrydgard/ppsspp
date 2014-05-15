@@ -37,9 +37,6 @@
 
 // #define DEBUG_SHADER
 
-// GL_NV_shader_framebuffer_fetch looks interesting....
-
-
 // Dest factors where it's safe to eliminate the alpha test under certain conditions
 const bool safeDestFactors[16] = {
 	true, // GE_DSTBLEND_SRCCOLOR,
@@ -56,11 +53,7 @@ const bool safeDestFactors[16] = {
 };
 
 static bool IsAlphaTestTriviallyTrue() {
-	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-	int alphaTestRef = gstate.getAlphaTestRef();
-	int alphaTestMask = gstate.getAlphaTestMask();
-
-	switch (alphaTestFunc) {
+	switch (gstate.getAlphaTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -68,28 +61,49 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
-		return alphaTestRef == 0;
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;  // If alpha is full, it doesn't matter what the ref value is.
+		return gstate.getAlphaTestRef() == 0;
 
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
+		if (gstate.getAlphaTestRef() == 255) {
+			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
+			// complicated code to discard the draw or whatnot.
+			return false;
+		}
+		// Fallthrough on purpose
+
 	case GE_COMP_GREATER:
 		{
-			bool depthTest = gstate.isDepthTestEnabled();
+#if 0
+			// Easy way to check the values in the debugger without ruining && early-out
+			bool doTextureAlpha = gstate.isTextureAlphaUsed();
 			bool stencilTest = gstate.isStencilTestEnabled();
-			GEBlendSrcFactor src = gstate.getBlendFuncA();
-			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
-				return true;
-			return false;
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEComparison depthTestFunc = gstate.getDepthTestFunction();
+			int alphaRef = gstate.getAlphaTestRef();
+			int blendA = gstate.getBlendFuncA();
+			bool blendEnabled = gstate.isAlphaBlendEnabled();
+			int blendB = gstate.getBlendFuncA();
+#endif
+			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
+					(!gstate.isStencilTestEnabled() &&
+				  !gstate.isDepthTestEnabled() && 
+					gstate.getAlphaTestRef() == 0 &&
+					gstate.isAlphaBlendEnabled() &&
+					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && 
+					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
 	case GE_COMP_LEQUAL:
-		return alphaTestRef == 255;
+		return gstate.getAlphaTestRef() == 255;
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_LESS:
 		return false;
+
 	default:
 		return false;
 	}
@@ -202,8 +216,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 }
 
 static bool IsColorTestTriviallyTrue() {
-	GEComparison colorTestFunc = gstate.getColorTestFunction();
-	switch (colorTestFunc) {
+	switch (gstate.getColorTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -216,6 +229,23 @@ static bool IsColorTestTriviallyTrue() {
 	default:
 		return false;
 	}
+}
+
+static bool AlphaToColorDoubling() {
+	if (!gstate.isAlphaBlendEnabled()) {
+		return false;
+	}
+	// 2x alpha in the source function and full alpha = source color doubling.
+	// If we see this, we don't really need to care about the dest alpha function - sure we can't handle
+	// the doubling dest ones, but there's nothing we can do about that.
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_DOUBLESRCALPHA) {
+		return false;
+	}
+	if (gstate.getBlendFuncB() == GE_DSTBLEND_INVSRCALPHA) {
+		// If it's 1.0 or 0.0, then we can still color double (since 0.0 will blend out anyway.)
+		return (gstate_c.vertexFullAlpha && (gstate_c.textureSimpleAlpha || !gstate.isTextureAlphaUsed()));
+	}
+	return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()));
 }
 
 static bool CanDoubleSrcBlendMode() {
@@ -235,6 +265,8 @@ static bool CanDoubleSrcBlendMode() {
 
 	// One side should be doubled.  Let's check the other side.
 	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
+	// Persona 2 uses the same function, which is the reason for its darkness. It only ever passes
+	// 1.0 as src alpha though, so in effect it's a color doubling.
 	switch (funcB) {
 	case GE_DSTBLEND_SRCALPHA:
 	case GE_DSTBLEND_INVSRCALPHA:
@@ -245,59 +277,73 @@ static bool CanDoubleSrcBlendMode() {
 	}
 }
 
-
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
-	memset(&id->d[0], 0, sizeof(id->d));
+	int id0 = 0;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
-		id->d[0] = 1;
+		id0 = 1;
 	} else {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
+		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled();
+		bool alphaToColorDoubling = AlphaToColorDoubling();
+		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
+		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id->d[0] |= (gstate.isModeClear() & 1);
+		// id0 |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
-			id->d[0] |= 1 << 1;
-			id->d[0] |= gstate.getTextureFunction() << 2;
-			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
+			id0 |= 1 << 1;
+			id0 |= gstate.getTextureFunction() << 2;
+			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 
-		id->d[0] |= (lmode & 1) << 7;
-		id->d[0] |= enableAlphaTest << 8;
-		if (enableAlphaTest)
-			id->d[0] |= gstate.getAlphaTestFunction() << 9;
-		id->d[0] |= enableColorTest << 12;
-		if (enableColorTest)
-			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
-		id->d[0] |= (enableFog & 1) << 15;
-		id->d[0] |= (doTextureProjection & 1) << 16;
-		id->d[0] |= (enableColorDoubling & 1) << 17;
-		id->d[0] |= (enableAlphaDoubling & 1) << 18;
-		id->d[0] |= (stencilToAlpha) << 19;
+		// 6 is free.
+
+		id0 |= (lmode & 1) << 7;
+		if (enableAlphaTest) {
+			id0 |= 1 << 8;
+			id0 |= gstate.getAlphaTestFunction() << 9;
+		}
+		if (enableColorTest) {
+			id0 |= 1 << 12;
+			id0 |= gstate.getColorTestFunction() << 13;	 // color test func
+		}
+		id0 |= (enableFog & 1) << 15;
+		id0 |= (doTextureProjection & 1) << 16;
+		id0 |= (enableColorDoubling & 1) << 17;
+		id0 |= (enableAlphaDoubling & 1) << 18;
+		id0 |= (stencilToAlpha) << 19;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id->d[0] |= ReplaceAlphaWithStencilType() << 21;
+			id0 |= ReplaceAlphaWithStencilType() << 21;
 		}
+
+		id0 |= (alphaTestAgainstZero & 1) << 24;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
+
+		if (computeAbsdiff) {
+			id0 |= (computeAbsdiff & 1) << 25;
+		}
 	}
+
+	id->d[0] = id0;
 }
 
 // Missing: Z depth range
@@ -328,6 +374,12 @@ void GenerateFragmentShader(char *buffer) {
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	
+	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
+	if (gl_extensions.NV_shader_framebuffer_fetch) {
+		WRITE(p, "  #extension GL_NV_shader_framebuffer_fetch : require\n");
+	}
+	
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		fragColor0 = "fragColor0";
@@ -362,13 +414,16 @@ void GenerateFragmentShader(char *buffer) {
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
+	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
+	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
+	bool alphaToColorDoubling = AlphaToColorDoubling();
+	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
+	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool computeAbsdiff = gstate.getBlendEq() == GE_BLENDMODE_ABSDIFF;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -400,7 +455,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
 	}
 
-	if (enableAlphaTest) {
+	if (enableAlphaTest && !alphaTestAgainstZero) {
 		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
@@ -506,9 +561,18 @@ void GenerateFragmentShader(char *buffer) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+				if (alphaTestAgainstZero) {
+					// When testing against 0 (extremely common), we can avoid some math.
+					// 0.002 is approximately half of 1.0 / 255.0.
+					if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
+						WRITE(p, "  if (v.a < 0.002) discard;\n");
+					} else {
+						// Anything else is a test for == 0.  Happens sometimes, actually...
+						WRITE(p, "  if (v.a > 0.002) discard;\n");
+					}
+				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
-					if (alphaTestFunc != 3)
+					if (alphaTestFunc != GE_COMP_NOTEQUAL)
 						WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else {
 					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
@@ -543,6 +607,12 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
+	}
+
+	// Handle ABSDIFF blending mode using NV_shader_framebuffer_fetch
+	if (computeAbsdiff && gl_extensions.NV_shader_framebuffer_fetch) {
+		WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+		WRITE(p, "  gl_FragColor = abs(destColor - v);\n");
 	}
 
 	switch (stencilToAlpha) {

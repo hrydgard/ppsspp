@@ -26,11 +26,12 @@
 
 #include <map>
 #include "Common/CommonTypes.h"
-#include "Common/ChunkFile.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
+#include "Core/HW/SimpleAudioDec.h"
 
-struct SimpleAT3;
+class PointerWrap;
+struct SimpleAudio;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
@@ -65,9 +66,11 @@ public:
 
 	// Returns number of packets actually added. I guess the buffer might be full.
 	int addStreamData(u8* buffer, int addSize);
+	bool seekTo(s64 timestamp, int videoPixelMode);
 
 	bool setVideoStream(int streamNum, bool force = false);
-	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
+	// TODO: Return false if the stream doesn't exist.
+	bool setAudioStream(int streamNum) { m_audioStream = streamNum; return true; }
 
 	u8 *getFrameImage();
 	int getRemainSize();
@@ -85,12 +88,13 @@ public:
 	s64 getLastTimeStamp();
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
-	bool IsNoAudioData() { return m_noAudioData; }
+	bool IsNoAudioData();
 
 	void DoState(PointerWrap &p);
 
 private:
 	void updateSwsFormat(int videoPixelMode);
+	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
 
 public:  // TODO: Very little of this below should be public.
 
@@ -119,16 +123,18 @@ public:  // TODO: Very little of this below should be public.
 	BufferQueue *m_pdata;
 
 	MpegDemux *m_demux;
-	SimpleAT3 *m_audioContext;
+	SimpleAudio *m_audioContext;
 	s64 m_audiopts;
 
 	s64 m_firstTimeStamp;
 	s64 m_lastTimeStamp;
 
 	bool m_isVideoEnd;
-	bool m_noAudioData;
 
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
 	int m_mpegheaderReadPos;
+
+	// used for audio type 
+	int m_audioType;
 };

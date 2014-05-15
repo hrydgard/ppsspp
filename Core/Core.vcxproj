@@ -183,6 +183,7 @@
     <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\PSPScreenshotDialog.cpp" />
     <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
     <ClCompile Include="ELF\ParamSFO.cpp" />
@@ -257,12 +258,12 @@
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
-    <ClCompile Include="HW\SimpleAT3Dec.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="HW\AsyncIOManager.cpp" />
+    <ClCompile Include="HW\SimpleAudioDec.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -401,6 +402,7 @@
     <ClCompile Include="MIPS\x86\CompLoadStore.cpp" />
     <ClCompile Include="MIPS\x86\CompReplace.cpp" />
     <ClCompile Include="MIPS\x86\CompVFPU.cpp" />
+    <ClCompile Include="MIPS\x86\JitSafeMem.cpp" />
     <ClCompile Include="MIPS\x86\RegCacheFPU.cpp" />
     <ClCompile Include="MIPS\x86\Jit.cpp" />
     <ClCompile Include="MIPS\x86\RegCache.cpp" />
@@ -453,6 +455,7 @@
     <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\PSPScreenshotDialog.h" />
     <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
@@ -530,12 +533,12 @@
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\BufferQueue.h" />
-    <ClInclude Include="HW\SimpleAT3Dec.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="HW\AsyncIOManager.h" />
+    <ClInclude Include="HW\SimpleAudioDec.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">
@@ -596,9 +599,11 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Asm.h" />
+    <ClInclude Include="MIPS\x86\JitSafeMem.h" />
     <ClInclude Include="MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="MIPS\x86\Jit.h" />
     <ClInclude Include="MIPS\x86\RegCache.h" />
+    <ClInclude Include="Opcode.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="PSPMixer.h" />
     <ClInclude Include="Reporting.h" />

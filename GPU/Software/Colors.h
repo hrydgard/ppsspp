@@ -17,15 +17,17 @@
 
 #pragma once
 
-#include "CommonTypes.h"
+#include "Common/CommonTypes.h"
 
 static inline u32 DecodeRGBA4444(u16 src)
 {
-	u8 r = Convert4To8((src >> 0) & 0x0f);
-	u8 g = Convert4To8((src >> 4) & 0x0f);
-	u8 b = Convert4To8((src >> 8) & 0x0f);
-	u8 a = Convert4To8((src >> 12) & 0x0f);
-	return (a << 24) | (b << 16) | (g << 8) | r;
+	const u32 r = (src & 0x000F) << 0;
+	const u32 g = (src & 0x00F0) << 4;
+	const u32 b = (src & 0x0F00) << 8;
+	const u32 a = (src & 0xF000) << 12;
+
+	const u32 c = r | g | b | a;
+	return c | (c << 4);
 }
 
 static inline u32 DecodeRGBA5551(u16 src)
@@ -49,11 +51,16 @@ static inline u32 DecodeRGB565(u16 src)
 
 static inline u32 DecodeRGBA8888(u32 src)
 {
+#if 1
+	return src;
+#else
+	// This is the order of the bits.
 	u8 r = src & 0xFF;
 	u8 g = (src >> 8) & 0xFF;
 	u8 b = (src >> 16) & 0xFF;
 	u8 a = (src >> 24) & 0xFF;
 	return (a << 24) | (b << 16) | (g << 8) | r;
+#endif
 }
 
 static inline u16 RGBA8888To565(u32 value)
@@ -82,13 +89,10 @@ static inline u16 RGBA8888To5551(u32 value)
 
 static inline u16 RGBA8888To4444(u32 value)
 {
-	u8 r = value & 0xFF;
-	u8 g = (value >> 8) & 0xFF;
-	u8 b = (value >> 16) & 0xFF;
-	u8 a = (value >> 24) & 0xFF;
-	r >>= 4;
-	g >>= 4;
-	b >>= 4;
-	a >>= 4;
-	return (u16)r | ((u16)g << 4) | ((u16)b << 8) | ((u16)a << 12);
+	const u32 c = value >> 4;
+	const u16 r = (c >>  0) & 0x000F;
+	const u16 g = (c >>  4) & 0x00F0;
+	const u16 b = (c >>  8) & 0x0F00;
+	const u16 a = (c >> 12) & 0xF000;
+	return r | g | b | a;
 }

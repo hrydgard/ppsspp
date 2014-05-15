@@ -65,58 +65,65 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
-	memset(id->d, 0, sizeof(id->d));
-	id->d[0] = lmode & 1;
-	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
-	id->d[0] |= ((int)enableFog) << 2;
-	id->d[0] |= (doTexture & 1) << 3;
-	id->d[0] |= (hasColor & 1) << 4;
+	int id0 = 0;
+	int id1 = 1;
+
+	id0 = lmode & 1;
+	id0 |= (gstate.isModeThrough() & 1) << 1;
+	id0 |= (enableFog & 1) << 2;
+	id0 |= (hasColor & 1) << 3;
 	if (doTexture) {
-		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
-		id->d[0] |= (doTextureProjection & 1) << 6;
+		id0 |= 1 << 4;
+		id0 |= (gstate_c.flipTexture & 1) << 5;
+		id0 |= (doTextureProjection & 1) << 6;
 	}
 
 	if (useHWTransform) {
-		id->d[0] |= 1 << 8;
-		id->d[0] |= (hasNormal & 1) << 9;
+		id0 |= 1 << 8;
+		id0 |= (hasNormal & 1) << 9;
 
 		// UV generation mode
-		id->d[0] |= gstate.getUVGenMode() << 16;
+		id0 |= gstate.getUVGenMode() << 16;
 
 		// The next bits are used differently depending on UVgen mode
 		if (doTextureProjection) {
-			id->d[0] |= gstate.getUVProjMode() << 18;
+			id0 |= gstate.getUVProjMode() << 18;
 		} else if (doShadeMapping) {
-			id->d[0] |= gstate.getUVLS0() << 18;
-			id->d[0] |= gstate.getUVLS1() << 20;
+			id0 |= gstate.getUVLS0() << 18;
+			id0 |= gstate.getUVLS1() << 20;
 		}
 
 		// Bones
 		if (vertTypeIsSkinningEnabled(vertType))
-			id->d[0] |= (TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
+			id0 |= (TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= gstate.getLightComputation(i) << (i * 4);
-				id->d[1] |= gstate.getLightType(i) << (i * 4 + 2);
+				id1 |= gstate.getLightComputation(i) << (i * 4);
+				id1 |= gstate.getLightType(i) << (i * 4 + 2);
 			}
-			id->d[1] |= (gstate.materialupdate & 7) << 16;
+			id1 |= (gstate.materialupdate & 7) << 16;
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
+				id1 |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
 			}
+			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
+			id1 |= 1 << 24;
 		}
-		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
-		id->d[1] |= gstate.areNormalsReversed() << 26;
+		// 2 bits.
+		id1 |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id1 |= (gstate.areNormalsReversed() & 1) << 27;
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id->d[1] |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 27;  // two bits
+			id1 |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 28;  // two bits
 		} else {
-			id->d[1] |= (hasTexcoord & 1) << 27;
+			id1 |= (hasTexcoord & 1) << 28;
 		}
 	}
+
+	id->d[0] = id0;
+	id->d[1] = id1;
 }
 
 static const char * const boneWeightAttrDecl[9] = {
@@ -646,7 +653,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
+				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
 			default:

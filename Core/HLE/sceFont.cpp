@@ -9,9 +9,11 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceKernel.h"
@@ -256,8 +258,23 @@ public:
 	LoadedFont() : font_(NULL) {
 	}
 
-	LoadedFont(Font *font, u32 fontLibID, u32 handle)
-		: fontLibID_(fontLibID), font_(font), handle_(handle), open_(true) {}
+	LoadedFont(Font *font, FontOpenMode mode, u32 fontLibID, u32 handle)
+		: fontLibID_(fontLibID), font_(font), handle_(handle), open_(true), mode_(mode) {}
+
+	~LoadedFont() {
+		switch (mode_) {
+		case FONT_OPEN_USERBUFFER:
+		case FONT_OPEN_USERFILE_FULL:
+		case FONT_OPEN_USERFILE_HANDLERS:
+			// For these types, it's our responsibility to delete.
+			delete font_;
+			font_ = NULL;
+			break;
+		default:
+			// Otherwise, it's an internal font, we keep those.
+			break;
+		}
+	}
 
 	const Font *GetFont() const { return font_; }
 	const PGF *GetPGF() const { return font_->GetPGF(); }
@@ -276,7 +293,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("LoadedFont", 1, 2);
+		auto s = p.Section("LoadedFont", 1, 3);
 		if (!s)
 			return;
 
@@ -284,6 +301,7 @@ public:
 		p.Do(numInternalFonts);
 		if (numInternalFonts != (int)internalFonts.size()) {
 			ERROR_LOG(SCEFONT, "Unable to load state: different internal font count.");
+			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
 
@@ -301,12 +319,18 @@ public:
 		} else {
 			open_ = fontLibID_ != (u32)-1;
 		}
+		if (s >= 3) {
+			p.Do(mode_);
+		} else {
+			mode_ = FONT_OPEN_INTERNAL_FULL;
+		}
 	}
 
 private:
 	u32 fontLibID_;
 	Font *font_;
 	u32 handle_;
+	FontOpenMode mode_;
 	bool open_;
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
@@ -465,6 +489,7 @@ public:
 		return fonts_[index];
 	}
 
+	// For FONT_OPEN_USER* modes, the font will automatically be freed.
 	LoadedFont *OpenFont(Font *font, FontOpenMode mode, int &error) {
 		// TODO: Do something with mode, possibly save it where the PSP does in the struct.
 		// Maybe needed in Font, though?  Handlers seem... difficult to emulate.
@@ -485,8 +510,15 @@ public:
 			error = ERROR_FONT_INVALID_FONT_DATA;
 			return 0;
 		}
-		LoadedFont *loadedFont = new LoadedFont(font, GetListID(), fonts_[freeFontIndex]);
+		LoadedFont *loadedFont = new LoadedFont(font, mode, GetListID(), fonts_[freeFontIndex]);
 		isfontopen_[freeFontIndex] = 1;
+
+		auto prevFont = fontMap.find(loadedFont->Handle());
+		if (prevFont != fontMap.end()) {
+			// Before replacing it and forgetting about it, let's free it.
+			delete prevFont->second;
+		}
+		fontMap[loadedFont->Handle()] = loadedFont;
 		return loadedFont;
 	}
 
@@ -676,6 +708,7 @@ void __FontShutdown() {
 		FontLib *fontLib = iter->second->GetFontLib();
 		if (fontLib)
 			fontLib->CloseFont(iter->second);
+		delete iter->second;
 	}
 	fontMap.clear();
 	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
@@ -753,7 +786,7 @@ u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 		return -1;
 	}
 
-	INFO_LOG(SCEFONT, "sceFontOpen(%x, %x, %x, %x)", libHandle, index, mode, errorCodePtr);
+	DEBUG_LOG(SCEFONT, "sceFontOpen(%x, %x, %x, %x)", libHandle, index, mode, errorCodePtr);
 	FontLib *fontLib = GetFontLib(libHandle);
 	if (fontLib == NULL) {
 		*errorCode = ERROR_FONT_INVALID_LIBID;
@@ -767,7 +800,6 @@ u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 	FontOpenMode openMode = mode == 0 ? FONT_OPEN_INTERNAL_STINGY : FONT_OPEN_INTERNAL_FULL;
 	LoadedFont *font = fontLib->OpenFont(internalFonts[index], openMode, *errorCode);
 	if (font) {
-		fontMap[font->Handle()] = font;
 		*errorCode = 0;
 		return font->Handle();
 	} else {
@@ -795,12 +827,18 @@ u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLe
 		return 0;
 	}
 
-	INFO_LOG(SCEFONT, "sceFontOpenUserMemory(%08x, %08x, %08x, %08x)", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
+	DEBUG_LOG(SCEFONT, "sceFontOpenUserMemory(%08x, %08x, %08x, %08x)", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
 	const u8 *fontData = Memory::GetPointer(memoryFontAddrPtr);
+	// Games are able to overstate the size of a font.  Let's avoid crashing when we memcpy() it.
+	// Unsigned 0xFFFFFFFF is treated as max, but that's impossible, so let's clamp to 64MB.
+	if (memoryFontLength > 0x03FFFFFF)
+		memoryFontLength = 0x03FFFFFF;
+	while (!Memory::IsValidAddress(memoryFontAddrPtr + memoryFontLength - 1)) {
+		--memoryFontLength;
+	}
 	Font *f = new Font(fontData, memoryFontLength);
 	LoadedFont *font = fontLib->OpenFont(f, FONT_OPEN_USERBUFFER, *errorCode);
 	if (font) {
-		fontMap[font->Handle()] = font;
 		*errorCode = 0;
 		return font->Handle();
 	} else {
@@ -849,7 +887,6 @@ u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 error
 	FontOpenMode openMode = mode == 0 ? FONT_OPEN_USERFILE_HANDLERS : FONT_OPEN_USERFILE_FULL;
 	LoadedFont *font = fontLib->OpenFont(f, openMode, *errorCode);
 	if (font) {
-		fontMap[font->Handle()] = font;
 		*errorCode = 0;
 		return font->Handle();
 	} else {
@@ -862,7 +899,7 @@ int sceFontClose(u32 fontHandle) {
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
 	if (font)
 	{
-		INFO_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
+		DEBUG_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
 		FontLib *fontLib = font->GetFontLib();
 		if (fontLib)
 			fontLib->CloseFont(font);
@@ -893,7 +930,7 @@ int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 		return 0;
 	}
 
-	INFO_LOG(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x)", libHandle, fontStylePtr, errorCodePtr);
+	DEBUG_LOG(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x)", libHandle, fontStylePtr, errorCodePtr);
 
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
@@ -960,7 +997,7 @@ int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 		return 0;
 	}
 
-	INFO_LOG(SCEFONT, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
+	DEBUG_LOG(SCEFONT, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
 
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 
+#include "file/zip_read.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -13,6 +14,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
+#include "Core/SaveState.h"
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"
@@ -78,7 +80,7 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 InputState input_state;
 #endif
 
-void printUsage(const char *progname, const char *reason)
+int printUsage(const char *progname, const char *reason)
 {
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
@@ -86,7 +88,8 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
 	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
+	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
+	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
 
 #if HEADLESSHOST_CLASS != HeadlessHost
@@ -103,6 +106,8 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
+
+	return 1;
 }
 
 static HeadlessHost * getHost(GPUCore gpuCore) {
@@ -198,24 +203,29 @@ int main(int argc, const char* argv[])
 	bool useJit = true;
 	bool autoCompare = false;
 	bool verbose = false;
+	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPU_NULL;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
+	const char *mountRoot = 0;
 	const char *screenshotFilename = 0;
-	bool readMount = false;
 	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (readMount)
-		{
-			mountIso = argv[i];
-			readMount = false;
-			continue;
-		}
 		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount"))
-			readMount = true;
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -m");
+			mountIso = argv[i];
+		}
+		else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -r");
+			mountRoot = argv[i];
+		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
@@ -238,10 +248,7 @@ int main(int argc, const char* argv[])
 			else if (!strcasecmp(gpuName, "null"))
 				gpuCore = GPU_NULL;
 			else
-			{
-				printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
-				return 1;
-			}
+				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
@@ -252,11 +259,10 @@ int main(int argc, const char* argv[])
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
+		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
+			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-		{
-			printUsage(argv[0], NULL);
-			return 1;
-		}
+			return printUsage(argv[0], NULL);
 		else
 			testFilenames.push_back(argv[i]);
 	}
@@ -272,16 +278,8 @@ int main(int argc, const char* argv[])
 			testFilenames.push_back(temp);
 	}
 
-	if (readMount)
-	{
-		printUsage(argv[0], "Missing argument after -m");
-		return 1;
-	}
 	if (testFilenames.empty())
-	{
-		printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
-		return 1;
-	}
+		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
 	host = headlessHost;
@@ -307,6 +305,7 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
+	coreParameter.mountRoot = mountRoot ? mountRoot : "";
 	coreParameter.startPaused = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
@@ -345,6 +344,8 @@ int main(int argc, const char* argv[])
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.iBGMVolume = MAX_CONFIG_VOLUME;
 	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
+	g_Config.bSoftwareSkinning = true;
+	g_Config.bVertexDecoderJit = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
@@ -368,6 +369,19 @@ int main(int argc, const char* argv[])
 
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
+#ifdef ANDROID
+	// For some reason the debugger installs it with this name?
+	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+	}
+	if (File::Exists("/data/app/org.ppsspp.ppsspp.apk")) {
+		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+	}
+#endif
+
+	if (stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;

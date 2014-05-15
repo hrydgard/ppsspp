@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "PSPDialog.h"
+#include "Core/Dialog/PSPDialog.h"
 
 class PSPPlaceholderDialog: public PSPDialog {
 public:

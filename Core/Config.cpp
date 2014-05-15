@@ -392,7 +392,8 @@ static ConfigSetting graphicsSettings[] = {
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack),
-	ReportedConfigSetting("LowQualitySplineBezier", &g_Config.bLowQualitySplineBezier, false),
+	ReportedConfigSetting("AlphaMaskHack", &g_Config.bAlphaMaskHack, false),
+	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
 	ConfigSetting(false),
@@ -402,7 +403,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true),
 	ConfigSetting("VolumeBGM", &g_Config.iBGMVolume, 7),
 	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
-	ConfigSetting("LowLatency", &g_Config.bLowLatencyAudio, false),
+	ConfigSetting("AudioLatency", &g_Config.IaudioLatency, 1),
 
 	ConfigSetting(false),
 };
@@ -566,7 +567,6 @@ static ConfigSetting debuggerSettings[] = {
 
 static ConfigSetting speedHackSettings[] = {
 	ReportedConfigSetting("PrescaleUV", &g_Config.bPrescaleUV, false),
-	ReportedConfigSetting("DisableAlphaTest", &g_Config.bDisableAlphaTest, false),
 
 	ConfigSetting(false),
 };

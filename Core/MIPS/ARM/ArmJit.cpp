@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -120,20 +121,20 @@ void Jit::FlushAll()
 void Jit::FlushPrefixV()
 {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(R0, js.prefixS);
-		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		gpr.SetRegImm(SCRATCHREG1, js.prefixS);
+		STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(R0, js.prefixT);
-		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		gpr.SetRegImm(SCRATCHREG1, js.prefixT);
+		STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(R0, js.prefixD);
-		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		gpr.SetRegImm(SCRATCHREG1, js.prefixD);
+		STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
@@ -397,6 +398,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 		FlushAll();
+		// Flushed, so R1 is safe.
 		LDR(R1, CTXREG, MIPS_REG_RA * 4);
 		js.downcountAmount = cycles;
 		WriteExitDestInR(R1);
@@ -434,8 +436,8 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	if (func)
 	{
 		SaveDowncount();
-		gpr.SetRegImm(R0, js.compilerPC);
-		MovToPC(R0);
+		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
+		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);
 		RestoreDowncount();
@@ -483,17 +485,17 @@ void Jit::WriteDownCount(int offset)
 		}
 	} else {
 		int theDowncount = js.downcountAmount + offset;
-		LDR(R1, CTXREG, offsetof(MIPSState, downcount));
+		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, downcount));
 		Operand2 op2;
 		if (TryMakeOperand2(theDowncount, op2)) {
-			SUBS(R1, R1, op2);
+			SUBS(SCRATCHREG2, SCRATCHREG2, op2);
 		} else {
 			// Should be fine to use R2 here, flushed the regcache anyway.
 			// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
 			gpr.SetRegImm(R2, theDowncount);
-			SUBS(R1, R1, R2);
+			SUBS(SCRATCHREG2, SCRATCHREG2, R2);
 		}
-		STR(R1, CTXREG, offsetof(MIPSState, downcount));
+		STR(SCRATCHREG2, CTXREG, offsetof(MIPSState, downcount));
 	}
 }
 

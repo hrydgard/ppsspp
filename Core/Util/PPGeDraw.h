@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
 #include "ppge_atlas.h"
 #include "Common/CommonTypes.h"
 

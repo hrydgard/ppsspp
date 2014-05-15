@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/MemMap.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -49,20 +50,20 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 
 const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 	// Note that R0 is reserved as scratch for now.
-	// R1 could be used as it's only used for scratch outside "regalloc space" now.
 	// R12 is also potentially usable.
 	// R4-R7 are registers we could use for static allocation or downcount.
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
+	// R14 (LR) is used as a scratch reg (overwritten on calls/return.)
 	if (options_->downcountInRegister) {
 		static const ARMReg allocationOrder[] = {
-			R2, R3, R4, R5, R6, R12,
+			R1, R2, R3, R4, R5, R6, R12,
 		};
 		count = sizeof(allocationOrder) / sizeof(const int);
 		return allocationOrder;
 	} else {
 		static const ARMReg allocationOrder2[] = {
-			R2, R3, R4, R5, R6, R7, R12,
+			R1, R2, R3, R4, R5, R6, R7, R12,
 		};
 		count = sizeof(allocationOrder2) / sizeof(const int);
 		return allocationOrder2;
@@ -71,6 +72,7 @@ const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 
 void ArmRegCache::FlushBeforeCall() {
 	// R4-R11 are preserved. Others need flushing.
+	FlushArmReg(R1);
 	FlushArmReg(R2);
 	FlushArmReg(R3);
 	FlushArmReg(R12);
@@ -388,8 +390,8 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		if (r != MIPS_REG_ZERO) {
-			SetRegImm(R0, mr[r].imm);
-			emit_->STR(R0, CTXREG, GetMipsRegOffset(r));
+			SetRegImm(SCRATCHREG1, mr[r].imm);
+			emit_->STR(SCRATCHREG1, CTXREG, GetMipsRegOffset(r));
 		}
 		break;
 
@@ -509,8 +511,8 @@ void ArmRegCache::FlushAll() {
 				regs |= 1 << mr[i + j].reg;
 			}
 
-			emit_->ADD(R0, CTXREG, GetMipsRegOffset(mipsReg));
-			emit_->STMBitmask(R0, true, false, false, regs);
+			emit_->ADD(SCRATCHREG1, CTXREG, GetMipsRegOffset(mipsReg));
+			emit_->STMBitmask(SCRATCHREG1, true, false, false, regs);
 
 			// Okay, those are all done now, discard them.
 			for (int j = 0; j < c; ++j) {

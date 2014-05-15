@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "HLETables.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/HLE/FunctionWrappers.h"
 
 #include "sceAtrac.h"
 #include "sceAudio.h"
@@ -326,7 +326,7 @@ void RegisterAllModules() {
 	Register_SysclibForKernel();
 	Register_sceCtrl_driver();
 	Register_sceDisplay_driver();
-
+	Register_sceMpegbase();
 
 }
 

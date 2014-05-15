@@ -29,6 +29,7 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+struct TransformedVertex;
 
 struct DecVtxFormat;
 
@@ -42,6 +43,10 @@ struct DecVtxFormat;
 // UNRELIABLE -> death
 // DRAWN_ONCE -> death
 // DRAWN_RELIABLE -> death
+
+enum {
+	VAI_FLAG_VERTEXFULLALPHA = 1,
+};
 
 // Try to keep this POD.
 class VertexArrayInfo {
@@ -57,6 +62,7 @@ public:
 		lastFrame = gpuStats.numFlips;
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
+		flags = 0;
 	}
 	~VertexArrayInfo();
 
@@ -85,6 +91,7 @@ public:
 	int numFrames;
 	int lastFrame;  // So that we can forget.
 	u16 drawsUntilNextFullHash;
+	u8 flags;
 };
 
 // Handles transform, lighting and drawing.
@@ -117,9 +124,37 @@ public:
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	inline void SetupVertexDecoderInternal(u32 vertType);
 
 	// This requires a SetupVertexDecoder call first.
-	int EstimatePerVertexCost();
+	int EstimatePerVertexCost() {
+		// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
+		// runs in parallel with transform.
+
+		// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
+
+		// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
+		// went too fast and starts doing all the work over again).
+
+		int cost = 20;
+		if (gstate.isLightingEnabled()) {
+			cost += 10;
+
+			for (int i = 0; i < 4; i++) {
+				if (gstate.isLightChanEnabled(i))
+					cost += 10;
+			}
+		}
+
+		if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
+			cost += 20;
+		}
+		if (dec_ && dec_->morphcount > 1) {
+			cost += 5 * dec_->morphcount;
+		}
+
+		return cost;
+	}
 
 	// So that this can be inlined
 	void Flush() {
@@ -128,9 +163,7 @@ public:
 		DoFlush();
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
-	}
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	// Really just for convenience to share with softgpu.
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
@@ -167,7 +200,7 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int collectedVerts;
+	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
@@ -207,44 +240,7 @@ private:
 
 	int decimationCounter_;
 	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
-};
-
-// Only used by SW transform
-struct Color4 {
-	float r, g, b, a;
-
-	Color4() : r(0), g(0), b(0), a(0) { }
-	Color4(float _r, float _g, float _b, float _a=1.0f)
-		: r(_r), g(_g), b(_b), a(_a) {
-	}
-	Color4(const float in[4]) {r=in[0];g=in[1];b=in[2];a=in[3];}
-	Color4(const float in[3], float alpha) {r=in[0];g=in[1];b=in[2];a=alpha;}
-
-	const float &operator [](int i) const {return *(&r + i);}
-
-	Color4 operator *(float f) const {
-		return Color4(f*r,f*g,f*b,f*a);
-	}
-	Color4 operator *(const Color4 &c) const {
-		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
-	}
-	Color4 operator +(const Color4 &c) const {
-		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
-	}
-	void operator +=(const Color4 &c) {
-		r+=c.r;
-		g+=c.g;
-		b+=c.b;
-		a+=c.a;
-	}
-	void GetFromRGB(u32 col) {
-		b = ((col>>16) & 0xff)/255.0f;
-		g = ((col>>8) & 0xff)/255.0f;
-		r = ((col>>0) & 0xff)/255.0f;
-	}
-	void GetFromA(u32 col) {
-		a = (col&0xff)/255.0f;
-	}
 };

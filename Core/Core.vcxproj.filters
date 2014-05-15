@@ -348,6 +348,9 @@
     <ClCompile Include="Dialog\PSPOskDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPScreenshotDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
     <ClCompile Include="HW\SasAudio.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -433,9 +436,6 @@
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="HW\SimpleAT3Dec.cpp">
-      <Filter>HW</Filter>
-    </ClCompile>
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -519,6 +519,12 @@
     </ClCompile>
     <ClCompile Include="MIPS\PPC\PpcCompReplace.cpp">
       <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\SimpleAudioDec.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\JitSafeMem.cpp">
+      <Filter>MIPS\x86</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -726,6 +732,9 @@
     <ClInclude Include="MemMap.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Opcode.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="PSPLoaders.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -807,6 +816,9 @@
     <ClInclude Include="Dialog\PSPOskDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
+    <ClInclude Include="Dialog\PSPScreenshotDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
     <ClInclude Include="HW\SasAudio.h">
       <Filter>HW</Filter>
     </ClInclude>
@@ -878,9 +890,6 @@
     </ClInclude>
     <ClInclude Include="Cwcheat.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="HW\SimpleAT3Dec.h">
-      <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
@@ -956,6 +965,12 @@
     </ClInclude>
     <ClInclude Include="HW\BufferQueue.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SimpleAudioDec.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\JitSafeMem.h">
+      <Filter>MIPS\x86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

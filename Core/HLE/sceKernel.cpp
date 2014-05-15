@@ -19,9 +19,11 @@
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Common/LogManager.h"
 #include "Core/FileSystems/FileSystem.h"
@@ -37,6 +39,7 @@
 #include "__sceAudio.h"
 #include "sceAtrac.h"
 #include "sceAudio.h"
+#include "sceAudiocodec.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -49,6 +52,7 @@
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
+#include "sceKernelModule.h"
 #include "sceKernelMutex.h"
 #include "sceKernelMbx.h"
 #include "sceKernelMsgPipe.h"
@@ -74,6 +78,7 @@
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
+#include "sceMp4.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -133,6 +138,8 @@ void __KernelInit()
 	__CheatInit();
 	__HeapInit();
 	__DmacInit();
+	__AudioCodecInit();
+	__VideoPmpInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -156,6 +163,9 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__AudioCodecShutdown();
+	__VideoPmpShutdown();
+	__AACShutdown();
 	__NetShutdown();
 	__NetAdhocShutdown();
 	__FontShutdown();
@@ -254,6 +264,9 @@ void __KernelDoState(PointerWrap &p)
 
 		__PPGeDoState(p);
 		__CheatDoState(p);
+		__sceAudiocodecDoState(p);
+		__VideoPmpDoState(p);
+		__AACDoState(p);
 	}
 
 	{

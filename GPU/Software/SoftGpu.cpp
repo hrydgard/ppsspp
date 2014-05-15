@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
@@ -411,7 +412,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 			// Some games rely on this, they don't bother reloading VADDR and IADDR.
-			// Q: Are these changed reflected in the real registers? Needs testing.
+			// The VADDR/IADDR registers are NOT updated.
 			if (indices) {
 				int indexSize = 1;
 				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)

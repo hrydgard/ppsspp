@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ext/xxhash.h"
 #include "Common/CPUDetect.h"
 #include "GPU/Common/TextureDecoder.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
@@ -24,8 +25,11 @@
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
+#endif
 
-static u32 QuickTexHashSSE2(const void *checkp, u32 size) {
+u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	u32 check = 0;
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
@@ -105,16 +109,68 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	return check;
 }
 
+void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
+#ifdef _M_SSE
+	const __m128i *src = (const __m128i *)texptr;
+	for (int by = 0; by < byc; by++) {
+		__m128i *xdest = (__m128i *)ydestp;
+		for (int bx = 0; bx < bxc; bx++) {
+			__m128i *dest = xdest;
+			for (int n = 0; n < 2; n++) {
+				// Textures are always 16-byte aligned so this is fine.
+				__m128i temp1 = _mm_load_si128(src);
+				__m128i temp2 = _mm_load_si128(src + 1);
+				__m128i temp3 = _mm_load_si128(src + 2);
+				__m128i temp4 = _mm_load_si128(src + 3);
+				_mm_store_si128(dest, temp1);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp2);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp3);
+				dest += pitch >> 2;
+				_mm_store_si128(dest, temp4);
+				dest += pitch >> 2;
+				src += 4;
+			}
+			xdest ++;
+		}
+		ydestp += (rowWidth * 8) / 4;
+	}
+#else
+	const u32 *src = (const u32 *)texptr;
+	for (int by = 0; by < byc; by++) {
+		u32 *xdest = ydestp;
+		for (int bx = 0; bx < bxc; bx++) {
+			u32 *dest = xdest;
+			for (int n = 0; n < 8; n++) {
+				memcpy(dest, src, 16);
+				dest += pitch;
+				src += 4;
+			}
+			xdest += 4;
+		}
+		ydestp += (rowWidth * 8) / 4;
+	}
+#endif
+}
+
+#ifndef _M_SSE
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
+UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
+ReliableHashFunc DoReliableHash = &XXH32;
+#endif
 
 // This has to be done after CPUDetect has done its magic.
-void SetupQuickTexHash() {
+void SetupTextureDecoder() {
 #ifdef ARMV7
-	if (cpu_info.bNEON)
+	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
-#elif _M_SSE
-	if (cpu_info.bSSE2)
-		DoQuickTexHash = &QuickTexHashSSE2;
+		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
+#ifndef IOS
+		// Not sure if this is safe on iOS, it's had issues with xxhash.
+		DoReliableHash = &ReliableHashNEON;
+#endif
+	}
 #endif
 }
 
@@ -217,5 +273,130 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 			data >>= 3;
 		}
 		dst += pitch;
+	}
+}
+
+void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i maskGA = _mm_set1_epi32(0xFF00FF00);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = numPixels / 4;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		__m128i c = _mm_load_si128(&srcp[i]);
+		__m128i rb = _mm_andnot_si128(maskGA, c);
+		c = _mm_and_si128(c, maskGA);
+
+		__m128i b = _mm_srli_epi32(rb, 16);
+		__m128i r = _mm_slli_epi32(rb, 16);
+		c = _mm_or_si128(_mm_or_si128(c, r), b);
+		_mm_store_si128(&dstp[i], c);
+	}
+	// The remainder starts right after those done via SSE.
+	u32 i = sseChunks * 4;
+#else
+	u32 i = 0;
+#endif
+	for (; i < numPixels; i++) {
+		const u32 c = src[i];
+		dst[i] = ((c >> 16) & 0x000000FF) |
+		         ((c >> 0)  & 0xFF00FF00) |
+		         ((c << 16) & 0x00FF0000);
+	}
+}
+
+inline u16 RGBA8888toRGBA5551(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels) {
+#if _M_SSE >= 0x401
+	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
+	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
+	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = (numPixels / 4) & ~1;
+	// SSE 4.1 required for _mm_packus_epi32.
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; i += 2) {
+		__m128i c1 = _mm_load_si128(&srcp[i + 0]);
+		__m128i c2 = _mm_load_si128(&srcp[i + 1]);
+		__m128i ag, rb;
+
+		ag = _mm_and_si128(c1, maskAG);
+		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
+		rb = _mm_and_si128(c1, maskRB);
+		rb = _mm_or_si128(_mm_srli_epi32(rb, 3), _mm_srli_epi32(rb, 9));
+		c1 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
+
+		ag = _mm_and_si128(c2, maskAG);
+		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
+		rb = _mm_and_si128(c2, maskRB);
+		rb = _mm_or_si128(_mm_srli_epi32(rb, 3), _mm_srli_epi32(rb, 9));
+		c2 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
+
+		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
+	}
+	// The remainder starts right after those done via SSE.
+	u32 i = sseChunks * 4;
+#else
+	u32 i = 0;
+#endif
+	for (; i < numPixels; i++) {
+		dst[i] = RGBA8888toRGBA5551(src[i]);
+	}
+}
+
+inline u16 BGRA8888toRGBA5551(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels) {
+#if _M_SSE >= 0x401
+	const __m128i maskAG = _mm_set1_epi32(0x8000F800);
+	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
+	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = (numPixels / 4) & ~1;
+	// SSE 4.1 required for _mm_packus_epi32.
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF) || !cpu_info.bSSE4_1) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; i += 2) {
+		__m128i c1 = _mm_load_si128(&srcp[i + 0]);
+		__m128i c2 = _mm_load_si128(&srcp[i + 1]);
+		__m128i ag, rb;
+
+		ag = _mm_and_si128(c1, maskAG);
+		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
+		rb = _mm_and_si128(c1, maskRB);
+		rb = _mm_or_si128(_mm_srli_epi32(rb, 19), _mm_slli_epi32(rb, 7));
+		c1 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
+
+		ag = _mm_and_si128(c2, maskAG);
+		ag = _mm_or_si128(_mm_srli_epi32(ag, 16), _mm_srli_epi32(ag, 6));
+		rb = _mm_and_si128(c2, maskRB);
+		rb = _mm_or_si128(_mm_srli_epi32(rb, 19), _mm_slli_epi32(rb, 7));
+		c2 = _mm_and_si128(_mm_or_si128(ag, rb), mask);
+
+		_mm_store_si128(&dstp[i / 2], _mm_packus_epi32(c1, c2));
+	}
+	// The remainder starts right after those done via SSE.
+	u32 i = sseChunks * 4;
+#else
+	u32 i = 0;
+#endif
+	for (; i < numPixels; i++) {
+		dst[i] = BGRA8888toRGBA5551(src[i]);
 	}
 }

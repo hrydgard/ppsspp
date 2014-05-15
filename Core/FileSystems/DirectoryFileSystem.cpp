@@ -134,6 +134,11 @@ bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior b
 
 #endif
 
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags) : basePath(_basePath), flags(_flags) {
+	File::CreateFullPath(basePath);
+	hAlloc = _hAlloc;
+}
+
 std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string localpath)
 {
 	if (localpath.empty())
@@ -324,11 +329,6 @@ void DirectoryFileHandle::Close()
 	if (hFile != -1)
 		close(hFile);
 #endif
-}
-
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
-	File::CreateFullPath(basePath);
-	hAlloc = _hAlloc;
 }
 
 void DirectoryFileSystem::CloseAll() {
@@ -669,6 +669,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		if (!retval)
 			break;
 	}
+	FindClose(hFind);
 #else
 	dirent *dirp;
 	std::string localPath = GetLocalPath(path);
@@ -833,11 +834,14 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	std::string fullName = GetLocalPath(filename);
 	INFO_LOG(FILESYS,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
 	FileInfo fo;
-	VFSGetFileInfo(fullName.c_str(), &fo);
-	x.exists = fo.exists;
-	if (x.exists) {
-		x.size = fo.size;
-		x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
+		x.exists = fo.exists;
+		if (x.exists) {
+			x.size = fo.size;
+			x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+		}
+	} else {
+		x.exists = false;
 	}
 	INFO_LOG(FILESYS,"Got VFS file info: size = %i", (int)x.size);
 	return x;

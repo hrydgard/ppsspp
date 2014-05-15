@@ -15,9 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "sceParseHttp.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceParseHttp.h"
 
 const HLEFunction sceParseHttp [] = 
 {

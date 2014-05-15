@@ -154,8 +154,9 @@ namespace MIPSComp
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
 			u32 addr = iaddr & 0x3FFFFFFF;
-			// Must be OK even if rs == rt since we have the value from imm already.
-			gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+			// Need to initialize since this only loads part of the register.
+			// But rs no longer matters (even if rs == rt) since we have the address.
+			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
 			gpr.SetRegImm(R0, addr & ~3);
 
 			u8 shift = (addr & 3) * 8;
@@ -163,30 +164,30 @@ namespace MIPSComp
 			switch (o) {
 			case 34: // lwl
 				LDR(R0, MEMBASEREG, R0);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, R1);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, SCRATCHREG2);
 				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
 				break;
 
 			case 38: // lwr
 				LDR(R0, MEMBASEREG, R0);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), R1);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), SCRATCHREG2);
 				ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
 				break;
 
 			case 42: // swl
-				LDR(R1, MEMBASEREG, R0);
+				LDR(SCRATCHREG2, MEMBASEREG, R0);
 				// Don't worry, can't use temporary.
-				ANDI2R(R1, R1, 0xffffff00 << shift, R0);
-				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
-				STR(R1, MEMBASEREG, R0);
+				ANDI2R(SCRATCHREG2, SCRATCHREG2, 0xffffff00 << shift, R0);
+				ORR(SCRATCHREG2, SCRATCHREG2, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+				STR(SCRATCHREG2, MEMBASEREG, R0);
 				break;
 
 			case 46: // swr
-				LDR(R1, MEMBASEREG, R0);
+				LDR(SCRATCHREG2, MEMBASEREG, R0);
 				// Don't worry, can't use temporary.
-				ANDI2R(R1, R1, 0x00ffffff >> (24 - shift), R0);
-				ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
-				STR(R1, MEMBASEREG, R0);
+				ANDI2R(SCRATCHREG2, SCRATCHREG2, 0x00ffffff >> (24 - shift), R0);
+				ORR(SCRATCHREG2, SCRATCHREG2, Operand2(gpr.R(rt), ST_LSL, shift));
+				STR(SCRATCHREG2, MEMBASEREG, R0);
 				break;
 			}
 			return;
@@ -196,7 +197,7 @@ namespace MIPSComp
 		load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
 
 		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-			SetCCAndR0ForSafeAddress(rs, offset, R1, true);
+			SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2, true);
 			doCheck = true;
 		} else {
 			SetR0ToEffectiveAddress(rs, offset);
@@ -207,61 +208,63 @@ namespace MIPSComp
 		SetCC(CC_AL);
 
 		// Need temp regs.  TODO: Get from the regcache?
+		static const ARMReg LR_SCRATCHREG3 = R9;
+		static const ARMReg LR_SCRATCHREG4 = R10;
 		if (load) {
-			PUSH(1, R10);
+			PUSH(1, LR_SCRATCHREG3);
 		} else {
-			PUSH(2, R9, R10);
+			PUSH(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
 		}
 
 		// Here's our shift amount.
-		AND(R1, R0, 3);
-		LSL(R1, R1, 3);
+		AND(SCRATCHREG2, R0, 3);
+		LSL(SCRATCHREG2, SCRATCHREG2, 3);
 
 		// Now align the address for the actual read.
 		BIC(R0, R0, 3);
 
 		switch (o) {
 		case 34: // lwl
-			MOVI2R(R10, 0x00ffffff);
+			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
 			LDR(R0, MEMBASEREG, R0);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(R10, ST_LSR, R1));
-			RSB(R1, R1, 24);
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, R1));
+			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, SCRATCHREG2));
 			break;
 
 		case 38: // lwr
-			MOVI2R(R10, 0xffffff00);
+			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
 			LDR(R0, MEMBASEREG, R0);
-			LSR(R0, R0, R1);
-			RSB(R1, R1, 24);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(R10, ST_LSL, R1));
+			LSR(R0, R0, SCRATCHREG2);
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
 			ORR(gpr.R(rt), gpr.R(rt), R0);
 			break;
 
 		case 42: // swl
-			MOVI2R(R10, 0xffffff00);
-			LDR(R9, MEMBASEREG, R0);
-			AND(R9, R9, Operand2(R10, ST_LSL, R1));
-			RSB(R1, R1, 24);
-			ORR(R9, R9, Operand2(gpr.R(rt), ST_LSR, R1));
-			STR(R9, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
+			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSR, SCRATCHREG2));
+			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
 			break;
 
 		case 46: // swr
-			MOVI2R(R10, 0x00ffffff);
-			LDR(R9, MEMBASEREG, R0);
-			RSB(R1, R1, 24);
-			AND(R9, R9, Operand2(R10, ST_LSR, R1));
-			RSB(R1, R1, 24);
-			ORR(R9, R9, Operand2(gpr.R(rt), ST_LSL, R1));
-			STR(R9, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
+			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
+			RSB(SCRATCHREG2, SCRATCHREG2, 24);
+			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSL, SCRATCHREG2));
+			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
 			break;
 		}
 
 		if (load) {
-			POP(1, R10);
+			POP(1, LR_SCRATCHREG3);
 		} else {
-			POP(2, R9, R10);
+			POP(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
 		}
 
 		if (doCheck) {
@@ -344,7 +347,7 @@ namespace MIPSComp
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-					SetCCAndR0ForSafeAddress(rs, offset, R1);
+					SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 					doCheck = true;
 				} else {
 					SetR0ToEffectiveAddress(rs, offset);

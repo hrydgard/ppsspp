@@ -22,9 +22,27 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
-void SetupQuickTexHash();
+void SetupTextureDecoder();
+
+#ifdef _M_SSE
+u32 QuickTexHashSSE2(const void *checkp, u32 size);
+#define DoQuickTexHash QuickTexHashSSE2
+
+void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
+#define DoUnswizzleTex16 DoUnswizzleTex16Basic
+
+#include "ext/xxhash.h"
+#define DoReliableHash XXH32
+#else
 typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
 extern QuickTexHashFunc DoQuickTexHash;
+
+typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
+extern UnswizzleTex16Func DoUnswizzleTex16;
+
+typedef u32 (*ReliableHashFunc)(const void *input, int len, u32 seed);
+extern ReliableHashFunc DoReliableHash;
+#endif
 
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
@@ -183,3 +201,7 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }
+
+void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels);
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);

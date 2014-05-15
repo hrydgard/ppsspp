@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstring>
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/MIPSTables.h"
 
 using namespace ArmGen;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32), initialReady(false) {
 	if (cpu_info.bNEON) {
 		numARMFpuReg_ = 32;
 	} else {
@@ -34,22 +36,33 @@ void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+	if (!initialReady) {
+		SetupInitialRegs();
+		initialReady = true;
+	}
+
+	memcpy(ar, arInitial, sizeof(ar));
+	memcpy(mr, mrInitial, sizeof(mr));
+	pendingFlush = false;
+}
+
+void ArmRegCacheFPU::SetupInitialRegs() {
 	for (int i = 0; i < numARMFpuReg_; i++) {
-		ar[i].mipsReg = -1;
-		ar[i].isDirty = false;
+		arInitial[i].mipsReg = -1;
+		arInitial[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		mr[i].loc = ML_MEM;
-		mr[i].reg = INVALID_REG;
-		mr[i].spillLock = false;
-		mr[i].tempLock = false;
+		mrInitial[i].loc = ML_MEM;
+		mrInitial[i].reg = INVALID_REG;
+		mrInitial[i].spillLock = false;
+		mrInitial[i].tempLock = false;
 	}
 }
 
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
-							S2,  S3,
+		          S2,  S3,
 		S4,  S5,  S6,  S7,
 		S8,  S9,  S10, S11,
 		S12, S13, S14, S15
@@ -85,6 +98,7 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 }
 
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
+	pendingFlush = true;
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -255,8 +269,7 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 		return;
 	}
 	if (ar[reg].mipsReg != -1) {
-		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-		{
+		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG) {
 			//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
 			emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
@@ -302,6 +315,105 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+int ArmRegCacheFPU::GetNumARMFPURegs() {
+	if (cpu_info.bNEON)
+		return 32;
+	else
+		return 16;
+}
+
+int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
+	int c = 1;
+	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+	a++;
+	while (a < maxArmReg) {
+		if (!ar[a].isDirty || ar[a].mipsReg == -1)
+			break;
+		int mipsOffset = GetMipsRegOffset(ar[a].mipsReg);
+		if (mipsOffset != lastMipsOffset + 4) {
+			break;
+		}
+
+		lastMipsOffset = mipsOffset;
+		a++;
+		c++;
+	}
+	return c;
+}
+
+void ArmRegCacheFPU::FlushAll() {
+	if (!pendingFlush) {
+		// Nothing allocated.  FPU regs are not nearly as common as GPR.
+		return;
+	}
+
+	// Discard temps!
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
+		DiscardR(i);
+	}
+
+	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
+	// sequential. This is necessary because we store VFPU registers in a staggered order to get
+	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
+	
+	int numArmRegs;
+	// We rely on the allocation order being sequential.
+	const ARMReg baseReg = GetMIPSAllocationOrder(numArmRegs)[0];
+
+	for (int i = 0; i < numArmRegs; i++) {
+		int a = (baseReg - S0) + i;
+		int m = ar[a].mipsReg;
+
+		if (ar[a].isDirty) {
+			if (m == -1) {
+				ILOG("ARM reg %i is dirty but has no mipsreg", a);
+				continue;
+			}
+
+			int c = FlushGetSequential(a, GetNumARMFPURegs());
+			if (c == 1) {
+				// ILOG("Got single register: %i (%i)", a, m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, GetMipsRegOffset(m));
+			} else if (c == 2) {
+				// Probably not worth using VSTMIA for two.
+				int offset = GetMipsRegOffset(m);
+				emit_->VSTR((ARMReg)(a + S0), CTXREG, offset);
+				emit_->VSTR((ARMReg)(a + 1 + S0), CTXREG, offset + 4);
+			} else {
+				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
+				emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
+				// ILOG("VSTMIA R0, %i, %i", a, c);
+				emit_->VSTMIA(SCRATCHREG1, false, (ARMReg)(S0 + a), c);
+			}
+
+			// Skip past, and mark as non-dirty.
+			for (int j = 0; j < c; j++) {
+				int b = a + j;
+				mr[ar[b].mipsReg].loc = ML_MEM;
+				mr[ar[b].mipsReg].reg = (int)INVALID_REG;
+				ar[a + j].mipsReg = -1;
+				ar[a + j].isDirty = false;
+			}
+			i += c - 1;
+		} else {
+			if (m != -1) {
+				mr[m].loc = ML_MEM;
+				mr[m].reg = (int)INVALID_REG;
+			}
+			ar[a].mipsReg = -1;
+			// already not dirty
+		}
+	}
+
+	// Sanity check
+	for (int i = 0; i < numARMFpuReg_; i++) {
+		if (ar[i].mipsReg != -1) {
+			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+		}
+	}
+	pendingFlush = false;
+}
+
 void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
@@ -313,10 +425,11 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
+		} else {
+			// Note that we DO NOT write it back here. That's the whole point of Discard.
+			ar[mr[r].reg].isDirty = false;
+			ar[mr[r].reg].mipsReg = -1;
 		}
-		// Note that we DO NOT write it back here. That's the whole point of Discard.
-		ar[mr[r].reg].isDirty = false;
-		ar[mr[r].reg].mipsReg = -1;
 		break;
 
 	case ML_MEM:
@@ -333,12 +446,12 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	mr[r].spillLock = false;
 }
 
-
 bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
 	return ar[r - S0].mipsReg >= TEMP0;
 }
 
 int ArmRegCacheFPU::GetTempR() {
+	pendingFlush = true;
 	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
 		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
 			mr[r].tempLock = true;
@@ -349,23 +462,6 @@ int ArmRegCacheFPU::GetTempR() {
 	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
 	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
-}
-
-
-void ArmRegCacheFPU::FlushAll() {
-	// Discard temps!
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
-		DiscardR(i);
-	}
-	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		FlushR(i);
-	} 
-	// Sanity check
-	for (int i = 0; i < numARMFpuReg_; i++) {
-		if (ar[i].mipsReg != -1) {
-			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
-		}
-	}
 }
 
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
@@ -403,11 +499,11 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, compilerPC_, MIPSDisasmAt(compilerPC_));
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, compilerPC_, MIPSDisasmAt(compilerPC_));
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
+			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, compilerPC_, MIPSDisasmAt(compilerPC_));
 		}
 		return INVALID_REG;  // BAAAD
 	}

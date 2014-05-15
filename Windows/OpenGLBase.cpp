@@ -159,16 +159,17 @@ bool GL_Init(HWND window, std::string *error_message) {
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
 			"Your GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\n"
 			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
-			"Visit the forums at http://forums.ppsspp.org for more information.\n\n"
-			"Exit now?";
+			"Visit the forums at http://forums.ppsspp.org for more information.\n\n";
 
+		std::wstring versionDetected = ConvertUTF8ToWString(glVersion + "\n\n");
 		std::wstring error = ConvertUTF8ToWString(err->T("InsufficientOpenGLDriver", defaultError));
 		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
+		std::wstring combined = versionDetected + error;
 
-		if (MessageBox(hWnd, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO) == IDYES) {
-			// Avoid further error messages. Let's just bail, it's safe.
-			ExitProcess(0);
-		}
+		MessageBox(hWnd, combined.c_str(), title.c_str(), MB_ICONERROR);
+
+		// Avoid further error messages. Let's just bail, it's safe, and we can't continue.
+		ExitProcess(0);
 	}
 
 	if (GLEW_OK != glewInit()) {
@@ -176,17 +177,41 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;
 	}
 
-	// Alright, now for the modernity.
-	static const int attribs[] = {
+	CheckGLExtensions();
+
+	int contextFlags = enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+
+	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
+	// I can't seem to find a way that lets you simply request the newest version available.
+	const int attribs44[] = {
+		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 4,
+		WGL_CONTEXT_FLAGS_ARB, contextFlags,
+		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		0
+	};
+	const int attribs43[] = {
+		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+		WGL_CONTEXT_FLAGS_ARB, contextFlags,
+		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		0
+	};
+	const int attribs33[] = {
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 1,
-		WGL_CONTEXT_FLAGS_ARB, enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+		WGL_CONTEXT_FLAGS_ARB, contextFlags,
+		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 		0
 	};
 
 	HGLRC	m_hrc;
 	if(wglewIsSupported("WGL_ARB_create_context") == 1) {
-		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs);
+		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
+		if (!m_hrc)
+			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs43);
+		if (!m_hrc)
+			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs33);
 		if (!m_hrc) {
 			// Fall back
 			m_hrc = hRC;
@@ -220,8 +245,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_RENDERER)).c_str(),0,0);
 	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str(),0,0);
 	*/
-
-	CheckGLExtensions();
 
 	glstate.Initialize();
 	if (wglSwapIntervalEXT)

@@ -17,10 +17,11 @@
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "../MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "ElfReader.h"
-#include "../Debugger/SymbolMap.h"
-#include "../HLE/sceKernelMemory.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceKernelMemory.h"
 
 
 const char *ElfReader::GetSectionName(int section)
@@ -442,6 +443,7 @@ int ElfReader::LoadInto(u32 loadAddress)
 			}
 
 			memcpy(dst, src, srcSize);
+			CBreakPoints::ExecMemCheck(writeAddr, true, dstSize, currentMIPS->pc);
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}

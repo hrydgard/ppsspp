@@ -168,7 +168,11 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {}
+void System_SendMessage(const char *command, const char *parameter) {
+	if (!strcmp(command, "finish")) {
+		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+	}
+}
 
 void EnableCrashingOnCrashes() 
 { 
@@ -310,6 +314,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load(configFilename, controlsConfigFilename);
 
+	bool debugLogLevel = false;
+
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
 	{
@@ -328,6 +334,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				g_Config.bAutoRun = false;
 				g_Config.bSaveSettings = false;
 				break;
+			case 'd':
+				debugLogLevel = true;
+				break;
 			}
 
 			if (!strncmp(__argv[i], "--fullscreen", strlen("--fullscreen")))
@@ -335,9 +344,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
 				g_Config.bFullScreen = false;
-
-			if (!strncmp(__argv[i], "--escapeexitsemu", strlen("--escapeexitsemu")))
-				g_Config.bEscapeExitsEmulator = true;
 		}
 	}
 #ifdef _DEBUG
@@ -351,7 +357,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
 	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120, "PPSSPP Debug Console");
-
+	
+	if (debugLogLevel)
+		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
 	//Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;
@@ -366,7 +374,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance, iCmdShow);
 
 	HWND hwndMain = MainWindow::GetHWND();
-	HWND hwndDisplay = MainWindow::GetDisplayHWND();
 	
 	//initialize custom controls
 	CtrlDisAsmView::init();
@@ -376,13 +383,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	host = new WindowsHost(hwndMain, hwndDisplay);
+	host = new WindowsHost(hwndMain);
 	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();
 
 	// Emu thread is always running!
 	EmuThread_Start();
+	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	HACCEL hDebugAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_DEBUGACCELS);
@@ -433,6 +441,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	VFSShutdown();
 
+	InputDevice::StopPolling();
 	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();

@@ -23,6 +23,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
@@ -133,13 +134,13 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	{
 		prefix = inPath.substr(0, inColon + 1);
 		inAfterColon = inPath.substr(inColon + 1);
-	}
 
-	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
-	if (inAfterColon == "/")
-	{
-		outPath = prefix + inAfterColon;
-		return true;
+		// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+		if (inAfterColon == "/")
+		{
+			outPath = prefix + inAfterColon;
+			return true;
+		}
 	}
 
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
@@ -197,7 +198,13 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
-		inpath = inpath.substr(strlen("host0:"));
+		// However, this causes trouble when running tests, since our test framework uses host0:.
+		// Maybe it's really just supposed to map to umd0 or something?
+		if (PSP_CoreParameter().headLess) {
+			inpath = "umd0:" + inpath.substr(strlen("host0:"));
+		} else {
+			inpath = inpath.substr(strlen("host0:"));
+		}
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
@@ -255,6 +262,10 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	if (startsWith(prefix, "host"))
 		prefix = "host0:";
 
+	// Should we simply make this case insensitive?
+	if (prefix == "DISC0:")
+		prefix = "disc0:";
+
 	return prefix;
 }
 
@@ -282,6 +293,13 @@ void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
 			it->system = newSystem;
 		}
 	}
+}
+
+IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
+	size_t prefixPos = filename.find(':');
+	if (prefixPos == filename.npos)
+		return 0;
+	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {

@@ -64,11 +64,18 @@ void RunTests()
 {
 	std::string output;
 
+#ifdef IOS
+	const std::string baseDirectory = g_Config.flash0Directory + "../";
+#else
+	const std::string baseDirectory = g_Config.memCardDirectory;
+#endif
+
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.mountIso = "";
+	coreParam.mountRoot = baseDirectory + "pspautotests/";
 	coreParam.startPaused = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = true;
@@ -79,12 +86,6 @@ void RunTests()
 	coreParam.collectEmuLog = &output;
 	coreParam.unthrottle = true;
 	coreParam.updateRecent = false;
-
-#ifdef IOS
-	std::string baseDirectory = g_Config.flash0Directory + "../";
-#else
-	std::string baseDirectory = g_Config.memCardDirectory;
-#endif
 
 	// Never report from tests.
 	std::string savedReportHost = g_Config.sReportHost;

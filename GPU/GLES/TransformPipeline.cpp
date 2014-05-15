@@ -73,12 +73,12 @@
 #include "Core/CoreTiming.h"
 
 #include "native/gfx_es2/gl_state.h"
-#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -86,7 +86,6 @@
 #include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
-#include "GPU/Common/SplineCommon.h"
 
 extern const GLuint glprim[8] = {
 	GL_POINTS,
@@ -112,8 +111,11 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
+enum { VAI_KILL_AGE = 120 };
+
+
 TransformDrawEngine::TransformDrawEngine()
-	: collectedVerts(0),
+	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		dec_(0),
 		lastVType_(-1),
@@ -253,9 +255,13 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 }
 
 void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+	SetupVertexDecoderInternal(vertType);
+}
+
+inline void TransformDrawEngine::SetupVertexDecoderInternal(u32 vertType) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
-	u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
@@ -263,34 +269,6 @@ void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
-}
-
-int TransformDrawEngine::EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	if (dec_ && dec_->morphcount > 1) {
-		cost += 5 * dec_->morphcount;
-	}
-
-	return cost;
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
@@ -306,7 +284,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	}
 	prevPrim_ = prim;
 
-	SetupVertexDecoder(vertType);
+	SetupVertexDecoderInternal(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
 
@@ -323,6 +301,19 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
+
+	u32 dhash = dcid_;
+	dhash ^= (u32)(uintptr_t)verts;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)(uintptr_t)inds;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertType;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertexCount;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)prim;
+	dcid_ = dhash;
+
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
@@ -367,16 +358,16 @@ void TransformDrawEngine::DecodeVertsStep() {
 
 	const DeferredDrawCall &dc = drawCalls[i];
 
-	indexGen.SetIndex(collectedVerts);
+	indexGen.SetIndex(decodedVerts_);
 	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
 	u32 indexType = dc.indexType;
 	void *inds = dc.inds;
 	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts and apply morphing. Simple.
-		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);
-		collectedVerts += indexUpperBound - indexLowerBound + 1;
+		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
 		indexGen.AddPrim(dc.prim, dc.vertexCount);
 	} else {
 		// It's fairly common that games issue long sequences of PRIM calls, with differing
@@ -386,37 +377,49 @@ void TransformDrawEngine::DecodeVertsStep() {
 
 		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
 		//    Expand the lower and upper bounds as we go.
-		int j = i + 1;
 		int lastMatch = i;
-		while (j < numDrawCalls) {
-			if (drawCalls[j].verts != dc.verts)
-				break;
-			if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-				break;
+		const int total = numDrawCalls;
+		if (uvScale) {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+					break;
 
-			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-			lastMatch = j;
-			j++;
-		}
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
+			}
+		} else {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
 
-		// 2. Loop through the drawcalls, translating indices as we go.
-		for (j = i; j <= lastMatch; j++) {
-			switch (indexType) {
-			case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-				break;
-			case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-				break;
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
 			}
 		}
 
-		int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		}
+
+		const int vertexCount = indexUpperBound - indexLowerBound + 1;
 		// 3. Decode that range of vertex data.
-		dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);
-		collectedVerts += vertexCount;
+		decodedVerts_ += vertexCount;
 
 		// 4. Advance indexgen vertex counter.
 		indexGen.Advance(vertexCount);
@@ -433,7 +436,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	for (int i = 0; i < numDrawCalls; i++) {
 		const DeferredDrawCall &dc = drawCalls[i];
 		if (!dc.inds) {
-			fullhash += XXH32((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
+			fullhash += DoReliableHash((const char *)dc.verts, vertexSize * dc.vertexCount, 0x1DE8CAC4);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
@@ -448,38 +451,20 @@ u32 TransformDrawEngine::ComputeHash() {
 			}
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += XXH32((const char *)dc.verts + vertexSize * indexLowerBound,
+			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += XXH32((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
+			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
 		}
 	}
 	if (uvScale) {
-		fullhash += XXH32(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+		fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	}
 
 	return fullhash;
 }
-
-u32 TransformDrawEngine::ComputeFastDCID() {
-	u32 hash = 0;
-	for (int i = 0; i < numDrawCalls; i++) {
-		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)(uintptr_t)drawCalls[i].inds;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertType;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertexCount;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].prim;
-	}
-	return hash;
-}
-
-enum { VAI_KILL_AGE = 120 };
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
@@ -523,12 +508,12 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShader *program = shaderManager_->ApplyShader(prim, lastVType_);
+	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
 
 	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 	int maxIndex = 0;
 
-	if (program->useHWTransform_) {
+	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;
@@ -540,7 +525,7 @@ void TransformDrawEngine::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = ComputeFastDCID();
+			u32 id = dcid_;
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
 			if (iter != vai_.end()) {
@@ -563,6 +548,8 @@ void TransformDrawEngine::DoFlush() {
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
+					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
+
 					goto rotateVBO;
 				}
 
@@ -610,6 +597,7 @@ void TransformDrawEngine::DoFlush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
+						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
@@ -636,6 +624,7 @@ void TransformDrawEngine::DoFlush() {
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
+						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -662,6 +651,8 @@ void TransformDrawEngine::DoFlush() {
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
+
+					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
@@ -695,8 +686,16 @@ rotateVBO:
 		}
 
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		if (gstate.isModeThrough()) {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+		} else {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
 
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
+
 		if (useElements) {
 #if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
@@ -712,6 +711,14 @@ rotateVBO:
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
+		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		if (gstate.isModeThrough()) {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+		} else {
+			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
+
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
 		// Undo the strip optimization, not supported by the SW code yet.
@@ -725,11 +732,13 @@ rotateVBO:
 	}
 
 	indexGen.Reset();
-	collectedVerts = 0;
+	decodedVerts_ = 0;
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
 	decodeCounter_ = 0;
+	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
+	gstate_c.vertexFullAlpha = true;
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
@@ -822,6 +831,10 @@ bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount,
 	return true;
 }
 
+bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
+}
+
 // TODO: Probably move this to common code (with normalization?)
 
 static Vec3f ClipToScreen(const Vec4f& coords) {
@@ -854,6 +867,8 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 	// This is always for the current vertices.
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
+
+	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
 
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
@@ -941,6 +956,8 @@ bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDeb
 			}
 		}
 	}
+
+	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
 
 	return true;
 }

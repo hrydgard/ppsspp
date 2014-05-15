@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "base/colorutil.h"
+#include "base/display.h"
 #include "base/timeutil.h"
 #include "file/path.h"
 #include "gfx_es2/draw_buffer.h"
@@ -53,6 +54,11 @@
 #ifdef _WIN32
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/WndMainWindow.h"
+#endif
+
+#ifdef ANDROID_NDK_PROFILER
+#include <stdlib.h>
+#include "android/android-ndk-profiler/prof.h"
 #endif
 
 #ifdef USING_QT_UI
@@ -684,7 +690,7 @@ void MainScreen::CreateViews() {
 	using namespace UI;
 
 	// Vertical mode is not finished.
-	bool vertical = false;  // dp_yres > dp_xres;
+	bool vertical = dp_yres > dp_xres;
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
@@ -953,6 +959,9 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 
 	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
 #ifdef ANDROID
+#ifdef ANDROID_NDK_PROFILER
+	moncleanup();
+#endif
 	exit(0);
 #endif
 

@@ -37,6 +37,12 @@
 atomic_flag atomicLock_;
 recursive_mutex mutex_;
 
+enum latency {
+	LOW_LATENCY = 0,
+	MEDIUM_LATENCY = 1,
+	HIGH_LATENCY = 2,
+};
+
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1; 
 int mixFrequency = 44100;
@@ -92,16 +98,26 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 void __AudioInit() {
 	mixFrequency = 44100;
 
-	if (g_Config.bLowLatencyAudio) {
+	switch (g_Config.IaudioLatency) {
+	case LOW_LATENCY:
 		chanQueueMaxSizeFactor = 1;
 		chanQueueMinSizeFactor = 1;
 		hwBlockSize = 16;
 		hostAttemptBlockSize = 256;
-	} else {
+		break;
+	case MEDIUM_LATENCY:
 		chanQueueMaxSizeFactor = 2;
 		chanQueueMinSizeFactor = 1;
 		hwBlockSize = 64;
 		hostAttemptBlockSize = 512;
+		break;
+	case HIGH_LATENCY:
+		chanQueueMaxSizeFactor = 4;
+		chanQueueMinSizeFactor = 2;
+		hwBlockSize = 64;
+		hostAttemptBlockSize = 512;
+		break;
+
 	}
 
 	audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);

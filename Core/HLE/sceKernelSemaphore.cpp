@@ -19,6 +19,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "Core/HLE/sceKernel.h"

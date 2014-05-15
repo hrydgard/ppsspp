@@ -18,7 +18,6 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
-#include "Core/System.h"
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;

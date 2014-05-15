@@ -17,6 +17,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 

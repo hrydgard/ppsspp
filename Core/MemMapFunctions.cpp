@@ -41,18 +41,18 @@ namespace Memory
 u8 *GetPointer(const u32 address)
 {
 	if ((address & 0x3E000000) == 0x08000000) {
+		// RAM
 		return GetPointerUnchecked(address);
-	}
-	else if ((address & 0x3F800000) == 0x04000000) {
-		return m_pVRAM + (address & VRAM_MASK);
-	}
-	else if ((address & 0xBFFF0000) == 0x00010000) {
-		return m_pScratchPad + (address & SCRATCHPAD_MASK);
-	}
-	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		// VRAM
 		return GetPointerUnchecked(address);
-	}
-	else {
+	} else if ((address & 0xBFFF0000) == 0x00010000) {
+		// Scratchpad
+		return GetPointerUnchecked(address);
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		// More RAM (remasters, etc.)
+		return GetPointerUnchecked(address);
+	} else {
 		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		static bool reported = false;
 		if (!reported) {
@@ -76,20 +76,18 @@ inline void ReadFromHardware(T &var, const u32 address)
 	// Could just do a base-relative read, too.... TODO
 
 	if ((address & 0x3E000000) == 0x08000000) {
+		// RAM
 		var = *((const T*)GetPointerUnchecked(address));
-	}
-	else if ((address & 0x3F800000) == 0x04000000) {
-		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
-	}
-	else if ((address & 0xBFFF0000) == 0x00010000) {
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		// VRAM
+		var = *((const T*)GetPointerUnchecked(address));
+	} else if ((address & 0xBFFF0000) == 0x00010000) {
 		// Scratchpad
-		var = *((const T*)&m_pScratchPad[address & SCRATCHPAD_MASK]);
-	}
-	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		var = *((const T*)GetPointerUnchecked(address));
-	}
-	else
-	{
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		// More RAM (remasters, etc.)
+		var = *((const T*)GetPointerUnchecked(address));
+	} else {
 		if (g_Config.bJit) {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
 		} else {
@@ -114,19 +112,18 @@ inline void WriteToHardware(u32 address, const T data)
 	// Could just do a base-relative write, too.... TODO
 
 	if ((address & 0x3E000000) == 0x08000000) {
+		// RAM
 		*(T*)GetPointerUnchecked(address) = data;
-	}
-	else if ((address & 0x3F800000) == 0x04000000) {
-		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
-	}
-	else if ((address & 0xBFFF0000) == 0x00010000) {
-		*(T*)&m_pScratchPad[address & SCRATCHPAD_MASK] = data;
-	}
-	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		// VRAM
 		*(T*)GetPointerUnchecked(address) = data;
-	}
-	else
-	{
+	} else if ((address & 0xBFFF0000) == 0x00010000) {
+		// Scratchpad
+		*(T*)GetPointerUnchecked(address) = data;
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		// More RAM (remasters, etc.)
+		*(T*)GetPointerUnchecked(address) = data;
+	} else {
 		if (g_Config.bJit) {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x", address);
 		} else {

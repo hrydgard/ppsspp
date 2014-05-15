@@ -779,7 +779,7 @@ void ADSREnvelope::SetState(ADSRState state) {
 	state_ = state;
 }
 
-void ADSREnvelope::Step() {
+inline void ADSREnvelope::Step() {
 	switch (state_) {
 	case STATE_ATTACK:
 		WalkCurve(attackType, attackRate);

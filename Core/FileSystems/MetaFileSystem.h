@@ -54,6 +54,7 @@ public:
 	void Remount(IFileSystem *oldSystem, IFileSystem *newSystem);
 
 	IFileSystem *GetSystem(const std::string &prefix);
+	IFileSystem *GetSystemFromFilename(const std::string &filename);
 
 	void ThreadEnded(int threadID);
 
@@ -106,6 +107,7 @@ public:
 	virtual bool RemoveFile(const std::string &filename);
 	virtual int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 	virtual int  DevType(u32 handle);
+	virtual int  Flags() { return 0; }
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);

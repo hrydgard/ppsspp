@@ -17,9 +17,8 @@
 
 #pragma once
 
-#include "JitCommon/JitCommon.h"
 #include "Common/CommonTypes.h"
-#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
 
 // Invalid branch target address
 #define INVALIDTARGET 0xFFFFFFFF

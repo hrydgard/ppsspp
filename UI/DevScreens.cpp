@@ -259,18 +259,24 @@ void SystemInfoScreen::CreateViews() {
 		oglExtensions->Add(new TextView(exts[i]));
 	}
 
-	ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
-	eglExtensions->SetSpacing(0);
-	eglExtensionsScroll->Add(eglExtensions);
-	tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
-
-	eglExtensions->Add(new ItemHeader("EGL Extensions"));
 	exts.clear();
 	SplitString(g_all_egl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
-	for (size_t i = 0; i < exts.size(); i++) {
-		eglExtensions->Add(new TextView(exts[i]));
+
+	// If there aren't any EGL extensions, no need to show the tab.
+	if (exts.size() > 0) {
+		ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
+		eglExtensions->SetSpacing(0);
+		eglExtensionsScroll->Add(eglExtensions);
+
+		tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
+
+		eglExtensions->Add(new ItemHeader("EGL Extensions"));
+
+		for (size_t i = 0; i < exts.size(); i++) {
+			eglExtensions->Add(new TextView(exts[i]));
+		}
 	}
 }
 

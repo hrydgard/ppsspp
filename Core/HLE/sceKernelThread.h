@@ -20,11 +20,11 @@
 #include <string>
 #include <vector>
 
+#include "Common/CommonTypes.h"
+#include "Core/HLE/sceKernel.h"
+
 // There's a good description of the thread scheduling rules in:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
-
-#include "sceKernelModule.h"
-#include "HLE.h"
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);

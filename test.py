@@ -285,8 +285,12 @@ tests_next = [
   "gpu/ge/get",
   "gpu/reflection/reflection",
   "gpu/rendertarget/rendertarget",
+  "gpu/signals/continue",
   "gpu/signals/jumps",
+  "gpu/signals/pause",
   "gpu/signals/simple",
+  "gpu/signals/suspend",
+  "gpu/signals/sync",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
   "font/fonttest",
@@ -381,7 +385,7 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--compare', '--timeout=' + str(TIMEOUT), '@-']
+    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout=' + str(TIMEOUT), '@-']
     cmdline.extend([i for i in args if i not in ['-g', '-m']])
 
     c = Command(cmdline, '\n'.join(test_filenames))

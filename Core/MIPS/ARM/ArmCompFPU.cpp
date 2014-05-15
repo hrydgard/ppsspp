@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -114,7 +115,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetR0ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 				doCheck = true;
 			}
 			ADD(R0, R0, MEMBASEREG);
@@ -158,7 +159,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetR0ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 				doCheck = true;
 			}
 			ADD(R0, R0, MEMBASEREG);
@@ -284,13 +285,13 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, R0);
+		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
 		VADD(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, R0);
+		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
 		VSUB(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
@@ -300,20 +301,20 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
-		LDR(R0, CTXREG, offsetof(MIPSState, fcr31));
-		AND(R0, R0, Operand2(3));
+		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
+		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
 		// MIPS Rounding Mode:
 		//	 0: Round nearest
 		//	 1: Round to zero
 		//	 2: Round up (ceil)
 		//	 3: Round down (floor)
-		CMP(R0, Operand2(2));
-		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, R1);
+		CMP(SCRATCHREG1, Operand2(2));
+		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, SCRATCHREG2);
 		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
 		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
 		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
 		SetCC(CC_AL);
-		CMP(R0, Operand2(1));
+		CMP(SCRATCHREG1, Operand2(1));
 		SetCC(CC_EQ); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO); /* 1 */
 		SetCC(CC_LT); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED); /* 0 */
 		SetCC(CC_AL);
@@ -345,9 +346,9 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 #ifdef HAVE_ARMV7
 			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 #else
-			AND(R0, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
-			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), R1);  // R1 won't be used, this turns into a simple BIC.
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+			AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
 #endif
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
@@ -370,19 +371,19 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			// Hardware rounding method.
 			// Left here in case it is faster than conditional method.
 			/*
-			AND(R0, gpr.R(rt), Operand2(3));
+			AND(SCRATCHREG1, gpr.R(rt), Operand2(3));
 			// MIPS Rounding Mode <-> ARM Rounding Mode
 			//         0, 1, 2, 3 <->  0, 3, 1, 2
-			CMP(R0, Operand2(1));
-			SetCC(CC_EQ); ADD(R0, R0, Operand2(2));
-			SetCC(CC_GT); SUB(R0, R0, Operand2(1));
+			CMP(SCRATCHREG1, Operand2(1));
+			SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
+			SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
 			SetCC(CC_AL);
 
 			// Load and Store RM to FPSCR
-			VMRS(R1);
-			BIC(R1, R1, Operand2(0x3 << 22));
-			ORR(R1, R1, Operand2(R0, ST_LSL, 22));
-			VMSR(R1);
+			VMRS(SCRATCHREG2);
+			BIC(SCRATCHREG2, SCRATCHREG2, Operand2(0x3 << 22));
+			ORR(SCRATCHREG2, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
+			VMSR(SCRATCHREG2);
 			*/
 			// Update MIPS state
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
@@ -390,8 +391,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 #ifdef HAVE_ARMV7
 			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 #else
-			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
-			AND(gpr.R(MIPS_REG_FPCOND), R0, Operand2(1));
+			MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
+			AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
 		}
 		return;

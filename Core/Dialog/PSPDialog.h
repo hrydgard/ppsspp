@@ -19,7 +19,6 @@
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
-#include "Core/Config.h"
 
 class PointerWrap;
 
@@ -62,7 +61,8 @@ public:
 		SCE_UTILITY_STATUS_INITIALIZE = 1,
 		SCE_UTILITY_STATUS_RUNNING    = 2,
 		SCE_UTILITY_STATUS_FINISHED   = 3,
-		SCE_UTILITY_STATUS_SHUTDOWN   = 4
+		SCE_UTILITY_STATUS_SHUTDOWN   = 4,
+		SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN = 5,
 	};
 
 	enum DialogStockButton

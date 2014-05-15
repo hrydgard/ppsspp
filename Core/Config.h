@@ -72,8 +72,12 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-	bool bEscapeExitsEmulator;
 #endif
+
+#if !defined(MOBILE_DEVICE)
+	bool bPauseExitsEmulator;
+#endif
+
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
@@ -138,14 +142,18 @@ public:
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
-	bool bLowQualitySplineBezier;
+	bool bAlphaMaskHack;
+	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	std::string sPostShaderName;  // Off for off.
 
 	// Sound
 	bool bEnableSound;
-	bool bLowLatencyAudio;
+	int IaudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iSFXVolume;
 	int iBGMVolume;
+
+	// Audio Hack
+	bool bSoundSpeedHack;
 
 	// UI
 	bool bShowDebuggerOnLoad;
@@ -243,7 +251,6 @@ public:
 	//   * Still has major problems so off by default - need to store tex scale/offset per DeferredDrawCall, 
 	//     which currently isn't done so if texscale/offset isn't static (like in Tekken 6) things go wrong.
 	bool bPrescaleUV;
-	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
 	// End GLES hacks.
 
 	// Risky JIT optimizations

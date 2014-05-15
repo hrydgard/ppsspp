@@ -94,6 +94,9 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	getFilesInDir(memc.c_str(), &dirs);
 
 	std::vector<std::string> directories;
+	if (id.empty()) {
+		return directories;
+	}
 	for (size_t i = 0; i < dirs.size(); i++) {
 		if (startsWith(dirs[i].name, id)) {
 			directories.push_back(dirs[i].fullName);
@@ -362,7 +365,6 @@ handleELF:
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
 
-					ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
 					if (info_->wantBG) {
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 					}
@@ -370,7 +372,10 @@ handleELF:
 				} else {
 					// Fall back to the filename for title if ISO is broken
 					info_->title = gamePath_;
-					// Fall back to unknown icon if ISO is broken, override is allowed though
+				}
+
+				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
+				if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock)) {
 					size_t sz;
 					uint8_t *contents = VFSReadFile("unknown.png", &sz);
 					DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");

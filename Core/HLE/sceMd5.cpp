@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
 #include "Common/Crypto/sha1.h"

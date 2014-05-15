@@ -75,6 +75,10 @@ struct ThreadEventQueue : public B {
 		eventsHaveRun_ = true;
 
 		do {
+			if (!HasEvents()) {
+				eventsWait_.wait(eventsLock_);
+			}
+
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
 				eventsLock_.unlock();
 				switch (EventType(ev)) {
@@ -96,11 +100,6 @@ struct ThreadEventQueue : public B {
 			if (ShouldExitEventLoop() || !threadEnabled_) {
 				break;
 			}
-
-			// coreState changes won't wake us, so recheck periodically.
-			if (!HasEvents()) {
-				eventsWait_.wait(eventsLock_);
-			}
 		} while (CoreTiming::GetTicks() < globalticks);
 
 		// This will force the waiter to check coreState, even if we didn't actually drain.
@@ -113,6 +112,22 @@ struct ThreadEventQueue : public B {
 		eventsHaveRun_ = false;
 	}
 
+	inline bool ShouldSyncThread(bool force) {
+		if (!HasEvents())
+			return false;
+		if (coreState != CORE_RUNNING && !force)
+			return false;
+
+		// Don't run if it's not running, but wait for startup.
+		if (!eventsRunning_) {
+			if (eventsHaveRun_ || coreState == CORE_ERROR || coreState == CORE_POWERDOWN) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	// Force ignores coreState.
 	void SyncThread(bool force = false) {
 		if (!threadEnabled_) {
@@ -123,7 +138,7 @@ struct ThreadEventQueue : public B {
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
-		while (HasEvents() && (eventsRunning_ || !eventsHaveRun_) && (force || coreState == CORE_RUNNING)) {
+		while (ShouldSyncThread(force)) {
 			eventsDrain_.wait(eventsLock_);
 		}
 	}

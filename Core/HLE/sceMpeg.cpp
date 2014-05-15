@@ -21,8 +21,10 @@
 #include <algorithm>
 
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -82,6 +84,40 @@ static const s64 UNKNOWN_TIMESTAMP = -1;
 
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
 static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
+
+// For PMP media
+static u32 pmp_videoSource = 0; //pointer to the video source (SceMpegLLi structure) 
+static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegbase_BEA18F91 call
+static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decoded and will be played
+static std::list<u32> pmp_ContextList; //list of pmp media contexts
+static bool pmp_oldStateLoaded = false; // for dostate
+
+#ifdef USE_FFMPEG 
+static AVPixelFormat pmp_want_pix_fmt;
+extern "C" {
+#include <libswscale/swscale.h>
+}
+#endif
+
+struct SceMpegLLI
+{
+	u32 pSrc;
+	u32 pDst;
+	u32 Next;
+	int iSize;
+};
+
+void SceMpegAu::read(u32 addr) {
+	Memory::ReadStruct(addr, this);
+	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
+}
+
+void SceMpegAu::write(u32 addr) {
+	pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+	dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
+	Memory::WriteStruct(addr, this);
+}
 
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
@@ -234,26 +270,19 @@ u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
 
+u32 getMpegVersion(u32 mpegRawVersion) {
+	switch (mpegRawVersion) {
+		case PSMF_VERSION_0012: return MPEG_VERSION_0012;
+		case PSMF_VERSION_0013: return MPEG_VERSION_0013;
+		case PSMF_VERSION_0014: return MPEG_VERSION_0014;
+		case PSMF_VERSION_0015: return MPEG_VERSION_0015;
+		default: return -1;
+	}
+}
 void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
-	switch (ctx->mpegRawVersion) {
-	case PSMF_VERSION_0012:
-		ctx->mpegVersion = MPEG_VERSION_0012;
-		break;
-	case PSMF_VERSION_0013:
-		ctx->mpegVersion = MPEG_VERSION_0013;
-		break;
-	case PSMF_VERSION_0014:
-		ctx->mpegVersion = MPEG_VERSION_0014;
-		break;
-	case PSMF_VERSION_0015:
-		ctx->mpegVersion = MPEG_VERSION_0015;
-		break;
-	default:
-		ctx->mpegVersion = -1;
-		break;
-	}
+	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
 	ctx->mpegOffset = bswap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
 	ctx->mpegStreamSize = bswap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
 	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
@@ -329,7 +358,7 @@ void __MpegInit() {
 	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
-#ifdef USING_FFMPEG
+#ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
 #endif
@@ -342,10 +371,10 @@ void __MpegDoState(PointerWrap &p) {
 
 	if (s < 2) {
 		int oldLastMpeg = -1;
-		bool oldIsMpegAnaltized = false;
+		bool oldIsMpegAnalyzed = false;
 		p.Do(oldLastMpeg);
 		p.Do(streamIdGen);
-		p.Do(oldIsMpegAnaltized);
+		p.Do(oldIsMpegAnalyzed);
 		// Let's assume the oldest version.
 		mpegLibVersion = 0x0101;
 	} else {
@@ -456,6 +485,11 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext;
+	if (mpegMap.find(mpegHandle) != mpegMap.end()) {
+		WARN_LOG_REPORT(HLE, "Replacing existing mpeg context at %08x", mpegAddr);
+		// Otherwise, it would leak.
+		delete mpegMap[mpegHandle];
+	}
 	mpegMap[mpegHandle] = ctx;
 
 	// Initialize mpeg values.
@@ -671,6 +705,330 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 	return 0;
 }
 
+// this function is used for dumping a video frame into a file.
+// you can use it when you want to output the decoded frame. 
+static void SaveFrame(AVFrame *pFrame, int width, int height)
+{
+	FILE *pFile;
+	char szFilename[] = "frame.ppm";
+	int y;
+
+	pFile = fopen(szFilename, "wb");
+	if (!pFile)
+		return;
+	// width * 4 is for 32-bit RGBA format. 
+	// You could change to your desired format as width*(4:32-bit,3:24-bit, 2:16-bit,1:8-bit) 
+	for (y = 0; y < height; y++)
+		fwrite(pFrame->data[0] + y * pFrame->linesize[0], 1, width * 4, pFile);
+
+	fclose(pFile);
+}
+
+// check the existence of pmp media context 
+bool isContextExist(u32 ctxAddr){
+	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+		if (*it == ctxAddr){
+			return true;
+		}
+	}
+	return false;
+}
+
+// Initialize Pmp video parameters and decoder.
+bool InitPmp(MpegContext * ctx){
+#ifdef USE_FFMPEG
+	InitFFmpeg();
+	auto mediaengine = ctx->mediaengine;
+	mediaengine->m_isVideoEnd = false;
+	mediaengine->m_firstTimeStamp = 0;
+	mediaengine->m_lastTimeStamp = 0;
+	ctx->mpegFirstTimestamp = 0;
+	ctx->mpegLastTimestamp = 0;
+
+	// wanted output pixel format
+	// reference values for pix_fmt:
+	// GE_CMODE_16BIT_BGR5650 <--> AV_PIX_FMT_BGR565LE 
+	// GE_CMODE_16BIT_ABGR5551 <--> AV_PIX_FMT_BGR555LE;
+	// GE_CMODE_16BIT_ABGR4444 <--> AV_PIX_FMT_BGR444LE;
+	// GE_CMODE_32BIT_ABGR8888 <--> AV_PIX_FMT_RGBA;
+	pmp_want_pix_fmt = PIX_FMT_RGBA;
+
+	// Create H264 video codec
+	AVCodec * pmp_Codec = avcodec_find_decoder(CODEC_ID_H264);
+	if (pmp_Codec == NULL){
+		ERROR_LOG(ME, "Can not find H264 codec, please update ffmpeg");
+		return false;
+	}
+
+	// Create CodecContext
+	AVCodecContext * pmp_CodecCtx = avcodec_alloc_context3(pmp_Codec);
+	if (pmp_CodecCtx == NULL){
+		ERROR_LOG(ME, "Can not allocate pmp Codec Context");
+		return false;
+	}
+
+	// each pmp video context is corresponding to one pmp video codec
+	mediaengine->m_pCodecCtxs[0] = pmp_CodecCtx;
+
+	// initialize H264 video parameters
+	// set pmp video size. Better to get from pmp file directly if possible. Any idea?
+	pmp_CodecCtx->width = 480;
+	pmp_CodecCtx->height = 272;
+	mediaengine->m_desHeight = pmp_CodecCtx->height;
+	mediaengine->m_desWidth = pmp_CodecCtx->width;
+
+	// Open pmp video codec
+	if (avcodec_open2(pmp_CodecCtx, pmp_Codec, NULL) < 0){
+		ERROR_LOG(ME, "Can not open pmp video codec");
+		return false;
+	}
+
+	// initialize ctx->mediaengine->m_pFrame and ctx->mediaengine->m_pFrameRGB
+	if (!mediaengine->m_pFrame){
+		mediaengine->m_pFrame = avcodec_alloc_frame();
+	}
+	if (!mediaengine->m_pFrameRGB){
+		mediaengine->m_pFrameRGB = avcodec_alloc_frame();
+	}
+
+	// get RGBA picture buffer
+	mediaengine->m_bufSize = avpicture_get_size(pmp_want_pix_fmt, pmp_CodecCtx->width, pmp_CodecCtx->height);
+	mediaengine->m_buffer = (u8*)av_malloc(mediaengine->m_bufSize);
+
+	return true;
+#else
+	// we can not play pmp video without ffmpeg
+	return false;
+#endif
+}
+
+// This class H264Frames is used for collecting small pieces of frames into larger frames for ffmpeg to decode
+// Basically, this will avoid incomplete frame decoding issue and improve much better the video quality. 
+class H264Frames{
+public:
+	int size;
+	u8* stream;
+	
+	H264Frames() :size(0), stream(NULL){};
+	
+	H264Frames(u8* str, int sz) :size(sz){
+		stream = new u8[size];
+		memcpy(stream, str, size);
+	};
+
+	H264Frames(H264Frames *frame){
+		size = frame->size;
+		stream = new u8[size];
+		memcpy(stream, frame->stream, size);
+	};
+
+	~H264Frames(){
+		size = 0;
+		if (stream){
+			delete[] stream;
+			stream = NULL;
+		}
+	};
+	
+	void add(H264Frames *p){
+		add(p->stream, p->size);
+	};
+
+	void add(u8* str, int sz){
+		int newsize = size + sz;
+		u8* newstream = new u8[newsize];
+		// join two streams
+		memcpy(newstream, stream, size);
+		memcpy(newstream + size, str, sz);
+		// delete old stream
+		if (stream)
+			delete[] stream;
+		// replace with new stream
+		stream = newstream;
+		size = newsize;
+	};
+
+	void remove(int pos){
+		// remove stream from begining to pos
+		if (pos == 0){
+			// nothing to remove
+		}
+		else if (pos >= size){
+			// we remove all
+			size = 0;
+			if (stream){
+				delete[] stream;
+				stream = NULL;
+			}
+		}
+		else{
+			// we remove the front part
+			size -= pos;
+			u8* str = new u8[size];
+			memcpy(str, stream + pos, size);
+			delete[] stream;
+			stream = str;
+		}
+	};
+#ifndef USE_FFMPEG
+#define FF_INPUT_BUFFER_PADDING_SIZE 16
+#endif
+	void addpadding(){
+		u8* str = new u8[size + FF_INPUT_BUFFER_PADDING_SIZE];
+		memcpy(str, stream, size);
+		memset(str + size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+		size += FF_INPUT_BUFFER_PADDING_SIZE;
+		delete[] stream;
+		stream = str;
+	}
+};
+
+// collect pmp video frames
+static H264Frames *pmpframes;
+
+// decode pmp video to RGBA format
+bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
+	// the current video is pmp iff pmp_videoSource is a valid addresse
+	MpegContext* ctx = getMpegCtx(pmpctxAddr);
+	if (Memory::IsValidAddress(pmp_videoSource)){
+		// We should initialize pmp codec for each pmp context
+		if (isContextExist(pmpctxAddr) == false){
+			bool ret = InitPmp(ctx);
+			if (!ret){
+				ERROR_LOG(ME, "Pmp video initialization failed");
+				return false;
+			}
+			// add the initialized context into ContextList
+			pmp_ContextList.push_front(pmpctxAddr);
+		}
+
+		ringbuffer->packetsRead = pmp_nBlocks;
+
+		MediaEngine* mediaengine = ctx->mediaengine;
+		AVFrame* pFrame = mediaengine->m_pFrame;
+		AVFrame* pFrameRGB = mediaengine->m_pFrameRGB;
+		auto pCodecCtx = mediaengine->m_pCodecCtxs[0];
+
+		// pmpframes could be destroied when close a video to load another one 
+		if (!pmpframes)
+			pmpframes = new H264Frames;
+
+		// joint all blocks into H264Frames
+		SceMpegLLI lli;
+		for (int i = 0; i < pmp_nBlocks; i++){
+			Memory::ReadStruct(pmp_videoSource, &lli);
+			// add source block into pmpframes
+			pmpframes->add(Memory::GetPointer(lli.pSrc), lli.iSize);
+			// get next block
+			pmp_videoSource += sizeof(SceMpegLLI);
+		}
+
+		pmpframes->addpadding();
+
+		// initialize packet
+		AVPacket packet;
+		av_new_packet(&packet, pCodecCtx->width*pCodecCtx->height);
+
+		// set packet to source block
+		packet.data = pmpframes->stream;
+		packet.size = pmpframes->size;
+
+		// reuse pFrame and pFrameRGB
+		int got_picture = 0;
+		av_frame_unref(pFrame);
+		av_frame_unref(pFrameRGB);
+
+		// hook pFrameRGB output to buffer
+		avpicture_fill((AVPicture *)pFrameRGB, mediaengine->m_buffer, pmp_want_pix_fmt, pCodecCtx->width, pCodecCtx->height);
+
+		// decode video frame
+		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
+		DEBUG_LOG(ME, "got_picture %d", got_picture);
+		if (got_picture){
+			SwsContext *img_convert_ctx = NULL;
+			img_convert_ctx = sws_getContext(
+				pCodecCtx->width,
+				pCodecCtx->height,
+				pCodecCtx->pix_fmt,
+				pCodecCtx->width,
+				pCodecCtx->height,
+				pmp_want_pix_fmt,
+				SWS_BILINEAR,
+				NULL, NULL, NULL);
+
+			if (!img_convert_ctx) {
+				ERROR_LOG(ME, "Cannot initialize sws conversion context");
+				return false;
+			}
+
+			// Convert to RGBA
+			int swsRet = sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data,
+				pFrame->linesize, 0, pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
+			if (swsRet < 0){
+				ERROR_LOG(ME, "sws_scale: Error while converting %d", swsRet);
+				return false;
+			}
+			// free sws context 
+			sws_freeContext(img_convert_ctx);
+
+			// update timestamp
+			if (av_frame_get_best_effort_timestamp(mediaengine->m_pFrame) != AV_NOPTS_VALUE)
+				mediaengine->m_videopts = av_frame_get_best_effort_timestamp(mediaengine->m_pFrame) + av_frame_get_pkt_duration(mediaengine->m_pFrame) - mediaengine->m_firstTimeStamp;
+			else
+				mediaengine->m_videopts += av_frame_get_pkt_duration(mediaengine->m_pFrame);
+
+			// push the decoded frame into pmp_queue
+			pmp_queue.push_back(pFrameRGB);
+
+			// write frame into ppm file
+			// SaveFrame(pNewFrameRGB, pCodecCtx->width, pCodecCtx->height);
+		}
+		// free some pointers
+		av_free_packet(&packet);
+		pmpframes->~H264Frames();
+		// must reset pmp_VideoSource address to zero after decoding. 
+		pmp_videoSource = 0;
+		return true;
+	}
+	// not a pmp video, return false
+	return false;
+}
+
+
+void __VideoPmpInit() {
+	pmp_oldStateLoaded = false;
+	pmpframes = new H264Frames();
+}
+
+void __VideoPmpShutdown() {
+#ifdef USE_FFMPEG
+	// We need to empty pmp_queue to not leak memory.
+	for (std::list<AVFrame *>::iterator it = pmp_queue.begin(); it != pmp_queue.end(); it++){
+		av_free(*it);
+	}
+	pmp_queue.clear();
+	pmp_ContextList.clear();
+	delete pmpframes;
+	pmpframes = NULL;
+#endif
+}
+
+void __VideoPmpDoState(PointerWrap &p){
+	auto s = p.Section("PMPVideo", 0, 1);
+	if (!s) {
+		if (p.mode == PointerWrap::MODE_READ)
+			pmp_oldStateLoaded = true;
+		return;
+	}
+
+	p.Do(pmp_videoSource);
+	p.Do(pmp_nBlocks);
+	if (p.mode == PointerWrap::MODE_READ){
+		// for loadstate, we will reinitialize the pmp codec
+		__VideoPmpShutdown();
+	}
+}
+
 u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
@@ -689,11 +1047,22 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
-
+	
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(ME, "Bogus mpegringbufferaddr");
 		return -1;
+	}
+	
+	u32 buffer = Memory::Read_U32(bufferAddr);
+	u32 init = Memory::Read_U32(initAddr);
+	DEBUG_LOG(ME, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
+
+	// check and decode pmp video
+	bool ispmp = false;
+	if (decodePmpVideo(ringbuffer, mpeg)){
+		DEBUG_LOG(ME, "Using ffmpeg to decode pmp video");
+		ispmp = true;
 	}
 
 	if (ringbuffer->packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
@@ -701,11 +1070,21 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
-	DEBUG_LOG(ME, "*buffer = %08x, *init = %08x", buffer, init);
-
-	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
+	if (ispmp){
+		while (pmp_queue.size() != 0){
+			// playing all pmp_queue frames
+			ctx->mediaengine->m_pFrameRGB = pmp_queue.front();
+			int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
+			gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
+			ctx->avc.avcFrameStatus = 1;
+			ctx->videoFrameCount++;
+			
+			// free front frame
+			hleDelayResult(0, "pmp video decode", 30);
+			pmp_queue.pop_front();
+		}
+	}
+	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
 		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
 		ctx->avc.avcFrameStatus = 1;
@@ -1135,6 +1514,7 @@ u32 sceMpegFinish()
 		//return ERROR_MPEG_NOT_YET_INIT;
 	} else {
 		INFO_LOG(ME, "sceMpegFinish(...)");
+		__VideoPmpShutdown();
 	}
 	isMpegInit = false;
 	//__MpegFinish();
@@ -1779,3 +2159,39 @@ void Register_sceMpeg()
 {
 	RegisterModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
+
+// This function is currently only been used for PMP videos
+// p pointing to a SceMpegLLI structure consists of video frame blocks.
+u32 sceMpegbase_BEA18F91(u32 p)
+{
+	pmp_videoSource = p;
+	pmp_nBlocks = 0;
+	SceMpegLLI lli;
+	while (1){
+		Memory::ReadStruct(p, &lli);
+		pmp_nBlocks++;
+		// lli.Next ==0 for last block
+		if (lli.Next == 0){
+			break;
+		}
+		p = p + sizeof(SceMpegLLI);
+	}
+	
+	DEBUG_LOG(ME, "sceMpegbase_BEA18F91(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
+	return 0;
+}
+
+const HLEFunction sceMpegbase[] =
+{
+	{ 0xBEA18F91, WrapU_U<sceMpegbase_BEA18F91>, "sceMpegbase_BEA18F91" },
+	{ 0x492B5E4B, 0, "sceMpegBaseCscInit" },
+	{ 0x0530BE4E, 0, "sceMpegbase_0530BE4E" },
+	{ 0x91929A21, 0, "sceMpegBaseCscAvc" },
+	{ 0x304882E1, 0, "sceMpegBaseCscAvcRange" },
+	{ 0x7AC0321A, 0, "sceMpegBaseYCrCbCopy" }
+};
+
+void Register_sceMpegbase()
+{
+	RegisterModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
+};

@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "ChunkFile.h"
-#include "sceUsb.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceUsb.h"
 
 bool usbActivated = false;
 

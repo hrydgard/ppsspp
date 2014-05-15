@@ -24,12 +24,14 @@
 #include <codecvt>
 #endif
 
+#include "math/math_util.h"
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
 #include "native/base/mutex.h"
 #include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
+#include "Core/HDRemaster.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -53,6 +55,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
 #include "Common/LogManager.h"
+#include "Core/HLE/sceAudiocodec.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -73,6 +76,7 @@ GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
 static std::thread *cpuThread = NULL;
+static std::thread::id cpuThreadID;
 static recursive_mutex cpuThreadLock;
 static condition_variable cpuThreadCond;
 static condition_variable cpuThreadReplyCond;
@@ -105,7 +109,7 @@ void Audio_Init() {
 
 bool IsOnSeparateCPUThread() {
 	if (cpuThread != NULL) {
-		return cpuThread->get_id() == std::this_thread::get_id();
+		return cpuThreadID == std::this_thread::get_id();
 	} else {
 		return false;
 	}
@@ -243,6 +247,8 @@ void CPU_Shutdown() {
 
 void CPU_RunLoop() {
 	setCurrentThreadName("CPUThread");
+	FPU_SetFastMode();
+
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
 		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 		return;
@@ -331,6 +337,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		XSetThreadProcessor(cpuThread->native_handle(), 2);
 		ResumeThread(cpuThread->native_handle());
 #endif
+		cpuThreadID = cpuThread->get_id();
 		cpuThread->detach();
 	} else {
 		CPU_Init();
@@ -406,10 +413,12 @@ void PSP_Shutdown() {
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
 		delete cpuThread;
 		cpuThread = 0;
+		cpuThreadID = std::thread::id();
 	} else {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
+	resetAudioList();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;

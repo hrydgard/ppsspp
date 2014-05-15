@@ -28,6 +28,11 @@
 // in NativeShutdown.
 
 #include <locale.h>
+// Linux doesn't like using std::find with std::vector<int> without this :/
+#if !defined(MOBILE_DEVICE)
+#include <algorithm>
+#endif
+
 #ifdef _WIN32
 #include <libpng16/png.h>
 #include "ext/jpge/jpge.h"
@@ -48,6 +53,7 @@
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
+#include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "ui/ui.h"
@@ -56,6 +62,7 @@
 #include "ui/view.h"
 #include "util/text/utf8.h"
 
+#include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Core/Config.h"
@@ -76,6 +83,10 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
+
+#if !defined(MOBILE_DEVICE)
+#include "Common/KeyMap.h"
+#endif
 
 // The new UI framework, for initialization
 
@@ -211,8 +222,16 @@ void NativeInit(int argc, const char *argv[],
 	monstartup("ppsspp_jni.so");
 #endif
 
+	InitFastMath(cpu_info.bNEON);
+
+	// Sets both FZ and DefaultNaN on ARM, flipping some ARM implementations into "RunFast" mode for VFP.
+	// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
+	// Do we need to do this on all threads?
+	// Also, the FZ thing may actually be a little bit dangerous, I'm not sure how compliant the MIPS
+	// CPU is with denormal handling. Needs testing. Default-NAN should be reasonably safe though.
+	FPU_SetFastMode();
+
 	bool skipLogo = false;
-	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
 	pendingMessages.clear();
@@ -310,6 +329,10 @@ void NativeInit(int argc, const char *argv[],
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = argv[i] + strlen("--state=");
+#if !defined(MOBILE_DEVICE)
+				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
+					g_Config.bPauseExitsEmulator = true;
+#endif
 				break;
 			}
 		} else {
@@ -400,6 +423,8 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics() {
+	FPU_SetFastMode();
+
 	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
@@ -672,6 +697,18 @@ void NativeTouch(const TouchInput &touch) {
 
 void NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
+#if !defined(MOBILE_DEVICE)
+	if (g_Config.bPauseExitsEmulator) {
+		static std::vector<int> pspKeys;
+		pspKeys.clear();
+		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
+			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
+				System_SendMessage("finish", "");
+				return;
+			}
+		}
+	}
+#endif
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);

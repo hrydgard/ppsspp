@@ -89,3 +89,4 @@ struct AudioChannel
 extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();
+

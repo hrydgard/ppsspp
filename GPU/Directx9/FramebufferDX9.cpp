@@ -428,7 +428,7 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 
 	// None found? Create one.
 	if (!vfb) {
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		vfb = new VirtualFramebufferDX9();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
@@ -512,7 +512,7 @@ void FramebufferManagerDX9::SetRenderFrameBuffer() {
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
-		gstate_c.textureChanged = true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
