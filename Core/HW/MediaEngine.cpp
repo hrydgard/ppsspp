@@ -319,7 +319,7 @@ void MediaEngine::closeContext()
 	m_buffer = 0;
 }
 
-bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
+bool MediaEngine::loadStream(const u8 *buffer, int readSize, int RingbufferSize)
 {
 	closeMedia();
 
@@ -336,7 +336,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 	return true;
 }
 
-int MediaEngine::addStreamData(u8* buffer, int addSize) {
+int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 	int size = addSize;
 	if (size > 0 && m_pdata) {
 		if (!m_pdata->push(buffer, size)) 
@@ -762,7 +762,13 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 	// Demux now (rather than on add data) so that we select the right stream.
 	m_demux->demux(m_audioStream);
 
-	return m_demux->getNextAudioFrame(buf, headerCode1, headerCode2);
+	s64 pts = 0;
+	int result = m_demux->getNextAudioFrame(buf, headerCode1, headerCode2, &pts);
+	if (pts != 0) {
+		// m_audiopts is supposed to be after the returned frame.
+		m_audiopts = pts - m_firstTimeStamp + 4180;
+	}
+	return result;
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {

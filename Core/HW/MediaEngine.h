@@ -41,7 +41,7 @@ struct AVFormatContext;
 struct AVCodecContext;
 #endif
 
-inline s64 getMpegTimeStamp(u8* buf) {
+inline s64 getMpegTimeStamp(const u8 *buf) {
 	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
@@ -59,13 +59,13 @@ public:
 	~MediaEngine();
 
 	void closeMedia();
-	bool loadStream(u8* buffer, int readSize, int RingbufferSize);
+	bool loadStream(const u8 *buffer, int readSize, int RingbufferSize);
 	// open the mpeg context
 	bool openContext();
 	void closeContext();
 
 	// Returns number of packets actually added. I guess the buffer might be full.
-	int addStreamData(u8* buffer, int addSize);
+	int addStreamData(const u8 *buffer, int addSize);
 	bool seekTo(s64 timestamp, int videoPixelMode);
 
 	bool setVideoStream(int streamNum, bool force = false);

@@ -145,7 +145,7 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 		length = readPesHeader(pesHeader, length, startCode);
 		if (pesHeader.channel == channel || channel < 0) {
 			channel = pesHeader.channel;
-			m_audioStream.push(m_buf + m_index, length);
+			m_audioStream.push(m_buf + m_index, length, pesHeader.pts);
 		}
 		skip(length);
 	} else {
@@ -234,7 +234,7 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 	return -1;
 }
 
-int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
+int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts)
 {
 	int gotsize;
 	int frameSize;
@@ -247,7 +247,7 @@ int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 	} else {
 		audioPos = gotsize;
 	}
-	m_audioStream.pop_front(0, audioPos);
+	m_audioStream.pop_front(0, audioPos, pts);
 	if (buf) {
 		*buf = m_audioFrame + 8;
 	}
