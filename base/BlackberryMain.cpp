@@ -280,6 +280,21 @@ void BlackberryMain::runMain() {
 			} else if (domain == sensor_get_domain()) {
 				if (SENSOR_ACCELEROMETER_READING == bps_event_get_code(event)) {
 					sensor_event_get_xyz(event, &(input_state.acc.y), &(input_state.acc.x), &(input_state.acc.z));
+					AxisInput axis;
+					axis.deviceId = DEVICE_ID_ACCELEROMETER;
+					axis.flags = 0;
+
+					axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+					axis.value = input_state.acc.x;
+					NativeAxis(axis);
+
+					axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+					axis.value = input_state.acc.y;
+					NativeAxis(axis);
+
+					axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+					axis.value = input_state.acc.z;
+					NativeAxis(axis);
 				}
 			}
 		}
