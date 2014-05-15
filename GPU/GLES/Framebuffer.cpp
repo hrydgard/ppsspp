@@ -60,6 +60,9 @@
 
 extern int g_iNumVideos;
 
+bool psmfVideo = false;
+int psmfWidth = 0;
+
 static const char tex_fs[] =
 #ifdef USING_GLES2
 	"precision mediump float;\n"
@@ -930,6 +933,11 @@ void FramebufferManager::SetLineWidth() {
 #endif
 }
 
+void FramebufferManager::SetPsmfWidth(int width) {
+	psmfVideo = true;
+	psmfWidth = width;
+}
+
 void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
 	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
@@ -1726,7 +1734,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					h = (h * vfb->renderHeight) / vfb->bufferHeight;
 					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
 					needUnbind = true;
-					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
+					DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, psmfVideo ? psmfWidth : vfb->fb_stride);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
