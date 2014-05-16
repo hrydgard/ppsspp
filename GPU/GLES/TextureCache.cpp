@@ -26,6 +26,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -521,12 +522,18 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if ((g_Config.iTexFiltering == LINEAR && !gstate.isColorTestEnabled() && !gstate.isAlphaTestEnabled()) || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) {
+	if (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos > 0 && (entry.dim & 0xF) >= 9) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
+	if (g_Config.iTexFiltering == LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
+		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
+			magFilt |= 1;
+			minFilt |= 1;
+		}
+	}
 	// Force Nearest when color test enabled and rendering resolution greater than 480x272
-	if (g_Config.iTexFiltering == NEAREST || (gstate.isColorTestEnabled() && g_Config.iInternalResolution != 1 && gstate.isModeThrough())) {
+	if (g_Config.iTexFiltering == NEAREST || ((gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue()) && g_Config.iInternalResolution != 1 && gstate.isModeThrough())) {
 		magFilt &= ~1;
 		minFilt &= ~1;
 	}
@@ -878,12 +885,12 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		entry->framebuffer->last_frame_used = gpuStats.numFlips;
 
 		// We need to force it, since we may have set it on a texture before attaching.
-		UpdateSamplingParams(*entry, true);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
 		gstate_c.textureSimpleAlpha = false;
+		UpdateSamplingParams(*entry, true);
 	} else {
 		if (entry->framebuffer->fbo)
 			entry->framebuffer->fbo = 0;
@@ -1296,15 +1303,15 @@ void TextureCache::SetTexture(bool force) {
 	float anisotropyLevel = (float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 
+	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
+	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+
 	UpdateSamplingParams(*entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 }
 
 GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

@@ -52,7 +52,7 @@ const bool safeDestFactors[16] = {
 	true, //GE_DSTBLEND_FIXB,
 };
 
-static bool IsAlphaTestTriviallyTrue() {
+bool IsAlphaTestTriviallyTrue() {
 	switch (gstate.getAlphaTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
@@ -215,7 +215,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_UNKNOWN;
 }
 
-static bool IsColorTestTriviallyTrue() {
+bool IsColorTestTriviallyTrue() {
 	switch (gstate.getColorTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;

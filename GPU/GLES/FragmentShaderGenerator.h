@@ -58,6 +58,8 @@ enum ReplaceAlphaType {
 	REPLACE_ALPHA_DUALSOURCE = 2,
 };
 
+bool IsAlphaTestTriviallyTrue();
+bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil();
 
