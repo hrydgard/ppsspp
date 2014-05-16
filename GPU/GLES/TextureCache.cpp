@@ -532,8 +532,16 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 			minFilt |= 1;
 		}
 	}
+	bool forceNearest = g_Config.iTexFiltering == NEAREST;
 	// Force Nearest when color test enabled and rendering resolution greater than 480x272
-	if (g_Config.iTexFiltering == NEAREST || ((gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue()) && g_Config.iInternalResolution != 1 && gstate.isModeThrough())) {
+	if ((gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue()) && g_Config.iInternalResolution != 1 && gstate.isModeThrough()) {
+		// Some games use 0 as the color test color, which won't be too bad if it bleeds.
+		// Fuchsia and green, etc. are the problem colors.
+		if (gstate.getColorTestRef() != 0) {
+			forceNearest = true;
+		}
+	}
+	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
 	}
