@@ -59,7 +59,7 @@ private:
 
 	void autoLoad();
 
-	bool booted_;
+	bool bootPending_;
 	std::string gamePath_;
 
 	// Something invalid was loaded, don't try to emulate
