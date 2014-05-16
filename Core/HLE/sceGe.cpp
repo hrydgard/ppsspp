@@ -490,7 +490,10 @@ u32 sceGeDrawSync(u32 mode)
 int sceGeContinue()
 {
 	DEBUG_LOG(SCEGE, "sceGeContinue");
-	return gpu->Continue();
+	int ret = gpu->Continue();
+	hleEatCycles(220);
+	hleReSchedule("ge continue");
+	return ret;
 }
 
 int sceGeBreak(u32 mode, u32 unknownPtr)
