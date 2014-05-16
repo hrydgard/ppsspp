@@ -165,14 +165,33 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		if (sat == 1)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&zero));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, M(&zero));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 		else if (sat == 3)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&minus_one));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Check for < -1.0f, but careful of NANs.
+			MOVSS(XMM1, M(&minus_one));
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, R(XMM1));
+			// If it was NOT less, the three ops below do nothing.
+			// Otherwise, they replace the value with -1.0f.
+			ANDPS(XMM1, R(XMM0));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+			ORPS(XMM0, R(XMM1));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 	}
 }
