@@ -194,7 +194,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LE);
+				SetCC(CC_LS);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -209,7 +209,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LT);
+				SetCC(CC_LO);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
