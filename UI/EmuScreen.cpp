@@ -61,14 +61,14 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: booted_(false), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
-		booted_ = PSP_InitUpdate(&error_string);
-		if (booted_) {
+		bootPending_ = !PSP_InitUpdate(&error_string);
+		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
 				errorMessage_ = error_string;
@@ -108,7 +108,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
-		booted_ = true;
+		bootPending_ = false;
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
@@ -172,11 +172,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "stop")) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
-		booted_ = false;
+		bootPending_ = false;
 		invalid_ = true;
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
-		booted_ = false;
+		bootPending_ = true;
 		invalid_ = true;
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
@@ -194,7 +194,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 #endif
 	} else if (!strcmp(message, "boot")) {
 		PSP_Shutdown();
-		booted_ = false;
+		bootPending_ = true;
 		bootGame(value);
 	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -473,7 +473,7 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 }
 
 void EmuScreen::update(InputState &input) {
-	if (!booted_)
+	if (bootPending_)
 		bootGame(gamePath_);
 
 	UIScreen::update(input);
@@ -599,7 +599,7 @@ void EmuScreen::render() {
 		PSP_Shutdown();
 		ILOG("SELF-POWERDOWN!");
 		screenManager()->switchScreen(new MainScreen());
-		booted_ = false;
+		bootPending_ = false;
 		invalid_ = true;
 	}
 
