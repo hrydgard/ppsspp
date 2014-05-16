@@ -1537,16 +1537,19 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
-		// positive NAN always loses, unlike SSE
-		// negative NAN seems different? TODO
+
+		// If both are zero, take t's sign.
+		// TODO: Otherwise: -NAN < -INF < real < INF < NAN
+
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
-			for (int i = 0; i < numElements; i++)
-				d[i] = my_isnan(t[i]) ? s[i] : (my_isnan(s[i]) ? t[i] : std::min(s[i], t[i]));
+			for (int i = 0; i < numElements; i++) {
+				d[i] = my_isnan(t[i]) ? s[i] : (my_isnan(s[i]) ? t[i] : std::min(t[i], s[i]));
+			}
 			break;
 		case 3: // vmax
 			for (int i = 0; i < numElements; i++)
-				d[i] = my_isnan(t[i]) ? t[i] : (my_isnan(s[i]) ? s[i] : std::max(s[i], t[i]));
+				d[i] = my_isnan(t[i]) ? t[i] : (my_isnan(s[i]) ? s[i] : std::max(t[i], s[i]));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
