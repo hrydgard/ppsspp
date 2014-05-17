@@ -6,6 +6,7 @@
 #import <stdlib.h>
 
 #import "AppDelegate.h"
+#import <AudioToolbox/AudioToolbox.h>
 
 #include "base/NativeApp.h"
 
@@ -26,8 +27,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-void Vibrate(int length_ms) {
-	// TODO: Haptic feedback?
+void Vibrate(int length_ms)
+{
+	AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
 }
 
 int main(int argc, char *argv[])
