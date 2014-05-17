@@ -651,6 +651,13 @@ int sysclib_sprintf(u32 dst, u32 fmt) {
 	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
 }
 
+int sysclib_memset(u32 destAddr, int data, int size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
+	if (destAddr != 0)
+		memset(Memory::GetPointer(destAddr), data, size);
+	return 0;
+}
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, WrapU_UUU<sysclib_memcpy>, "memcpy"},
@@ -660,6 +667,7 @@ const HLEFunction SysclibForKernel[] =
 	{0x52DF196C, WrapU_U<sysclib_strlen>, "strlen"},
 	{0x81D0D1F7, WrapI_UUU<sysclib_memcmp>, "memcmp"},
 	{0x7661e728, WrapI_UU<sysclib_sprintf>, "sprintf"},
+	{0x10F3BB61, WrapI_UII<sysclib_memset>, "memset" },
 };
 
 void Register_Kernel_Library()
