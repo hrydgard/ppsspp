@@ -117,7 +117,12 @@ ViewController* sharedViewController;
 
 	self.view.frame = [[UIScreen mainScreen] bounds];
 	self.view.multipleTouchEnabled = YES;
-	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    
+    if (!self.context)
+    {
+        self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    }
 
 	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
