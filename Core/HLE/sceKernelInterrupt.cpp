@@ -653,7 +653,7 @@ int sysclib_sprintf(u32 dst, u32 fmt) {
 
 u32 sysclib_memset(u32 destAddr, int data, int size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
-	if (destAddr != 0)
+	if (Memory::IsValidAddress(destAddr))
 		memset(Memory::GetPointer(destAddr), data, size);
 	return 0;
 }
