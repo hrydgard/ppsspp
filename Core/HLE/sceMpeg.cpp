@@ -1799,7 +1799,10 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
-	return hleDelayResult(0, "mpeg avc csc", avcDecodeDelayMs);
+	// Do not hleDelayResult
+	// Will cause video 's screen dislocation in Bleach heat of soul 6
+	// https://github.com/hrydgard/ppsspp/issues/5535
+	return 0;
 }
 
 u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
