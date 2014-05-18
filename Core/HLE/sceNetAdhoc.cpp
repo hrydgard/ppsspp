@@ -1474,7 +1474,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					}
 					
 					// Connection in Progress
-					else if (connectresult == -1 && errorcode == EINPROGRESS) {
+					else if (connectresult == -1 && connectInProgress(errorcode)) {
 						// Nonblocking Mode
 						if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
 						
