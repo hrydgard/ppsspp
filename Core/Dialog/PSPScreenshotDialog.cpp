@@ -56,12 +56,14 @@ int PSPScreenshotDialog::Update(int animSpeed)
 		if (status == SCE_UTILITY_STATUS_INITIALIZE) {
 			status = SCE_UTILITY_STATUS_RUNNING;
 		} else if (status == SCE_UTILITY_STATUS_RUNNING) {
-			if ((mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_AUTO || (mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_FINISH) {
+			// There is some unknown reason that don't work correctly
+			// Temp disable
+//			if ((mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_AUTO || (mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_FINISH) {
 				// When screenshot cont. mode is specified , sceUtilityScreenshotContStart will be called in next call.
-				status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
-			} else {
+//				status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
+//			} else {
 				status = SCE_UTILITY_STATUS_FINISHED;
-			}
+//			}
 		} else if (status == SCE_UTILITY_STATUS_FINISHED) {
 			status = SCE_UTILITY_STATUS_SHUTDOWN;
 		}
