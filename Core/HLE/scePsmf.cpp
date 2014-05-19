@@ -1101,6 +1101,11 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 
 		// TODO: Merge better with Psmf.
 		u16 numStreams = *(u16_be *)(buf + 0x80);
+		if (numStreams > 128) {
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: too many streams in PSMF video, bogus data");
+			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		}
+
 		psmfplayer->totalVideoStreams = 0;
 		psmfplayer->totalAudioStreams = 0;
 		psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
