@@ -1282,6 +1282,25 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		return ERROR_PSMFPLAYER_INVALID_CONFIG;
 	}
 
+	switch ((PsmfPlayerMode)(s32)playerData->playMode) {
+	case PSMF_PLAYER_MODE_FORWARD:
+	case PSMF_PLAYER_MODE_REWIND:
+		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
+			WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
+			return ERROR_PSMFPLAYER_INVALID_PARAM;
+		}
+		WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		break;
+
+	case PSMF_PLAYER_MODE_PLAY:
+	case PSMF_PLAYER_MODE_PAUSE:
+		break;
+
+	default:
+		WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		break;
+	}
+
 	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d)", psmfPlayer, psmfPlayerData, initPts);
 
 	psmfplayer->mediaengine->setVideoStream(playerData->videoStreamNum);
