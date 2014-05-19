@@ -20,6 +20,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <set>
 #include "input/keycodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 
@@ -156,9 +157,13 @@ namespace KeyMap {
 
 	void UpdateConfirmCancelKeys();
 
+	void NotifyPadConnected(const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
 	bool IsBlackberryQWERTY(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
 	bool IsOuya(const std::string &name);
 	bool HasBuiltinController(const std::string &name);
+
+	const std::set<std::string> &GetSeenPads();
+	void AutoConfForPad(const std::string &name);
 }

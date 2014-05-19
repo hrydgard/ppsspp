@@ -2,6 +2,7 @@
 
 #include "base/NativeApp.h"
 #include "Core/Config.h"
+#include "Common/KeyMap.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "XinputDevice.h"
@@ -116,14 +117,16 @@ int XinputDevice::UpdateState(InputState &input_state) {
 	if (!s_pXInputDLL)
 		return 0;
 
-	if (this->check_delay-- > 0) return -1;
+	if (this->check_delay-- > 0)
+		return -1;
+
 	XINPUT_STATE state;
 	ZeroMemory( &state, sizeof(XINPUT_STATE) );
 
 	DWORD dwResult;
-	if (this->gamepad_idx >= 0)
+	if (this->gamepad_idx >= 0) {
 		dwResult = PPSSPP_XInputGetState( this->gamepad_idx, &state );
-	else {
+	} else {
 		// use the first gamepad that responds
 		for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 			dwResult = PPSSPP_XInputGetState( i, &state );
@@ -135,6 +138,11 @@ int XinputDevice::UpdateState(InputState &input_state) {
 	}
 	
 	if ( dwResult == ERROR_SUCCESS ) {
+		static bool notified = false;
+		if (!notified) {
+			notified = true;
+			KeyMap::NotifyPadConnected("Xbox 360 Pad");
+		}
 		ApplyButtons(state, input_state);
 
 		if (prevState.Gamepad.sThumbLX != state.Gamepad.sThumbLX || prevState.Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
