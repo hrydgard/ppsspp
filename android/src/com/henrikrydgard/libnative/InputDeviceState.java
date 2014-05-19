@@ -20,6 +20,11 @@ public class InputDeviceState {
 		
 	InputDevice getDevice() { return mDevice; }
 	
+	@TargetApi(19)
+	void logAdvanced(InputDevice device) {
+	     Log.i(TAG, "Vendor ID:" + device.getVendorId() + " productId: " + device.getProductId());
+	}
+	
 	public InputDeviceState(InputDevice device) {
 	     mDevice = device;
 	     int numAxes = 0;
@@ -39,6 +44,10 @@ public class InputDeviceState {
 	     }
 	     
 	     Log.i(TAG, "Registering input device with " + numAxes + " axes: " + device.getName());
+	     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+	    	 logAdvanced(device);
+	     }
+	     NativeApp.sendMessage("inputDeviceConnected", device.getName());
 	}
 	
 	public static float ProcessAxis(InputDevice.MotionRange range, float axisvalue) {
@@ -84,7 +93,6 @@ public class InputDeviceState {
 			NativeApp.joystickAxis(deviceId, axisId, value);
 		}
 		NativeApp.endJoystickEvent();
-
 		return true;
 	}
 }

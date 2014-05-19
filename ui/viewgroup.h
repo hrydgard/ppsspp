@@ -320,7 +320,7 @@ public:
 	virtual View *CreateItemView(int index) = 0;
 	virtual int GetNumItems() = 0;
 	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) { return false; }
-	virtual std::string GetTitle(int index) { return ""; }
+	virtual std::string GetTitle(int index) const { return ""; }
 	virtual void SetSelected(int sel) { }
 	virtual int GetSelected() { return -1; }
 };
@@ -343,12 +343,12 @@ class StringVectorListAdaptor : public ListAdaptor {
 public:
 	StringVectorListAdaptor() : selected_(-1) {}
 	StringVectorListAdaptor(const std::vector<std::string> &items, int selected = -1) : items_(items), selected_(selected) {}
-	virtual View *CreateItemView(int index);
-	virtual int GetNumItems() { return (int)items_.size(); }
-	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback);
+	virtual View *CreateItemView(int index) override;
+	virtual int GetNumItems() override { return (int)items_.size(); }
+	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) override;
 	void SetSelected(int sel) { selected_ = sel; }
-	virtual std::string GetTitle(int index) { return items_[index]; }
-	virtual int GetSelected() { return selected_; }
+	virtual std::string GetTitle(int index) const override { return items_[index]; }
+	virtual int GetSelected() override { return selected_; }
 
 private:
 	std::vector<std::string> items_;

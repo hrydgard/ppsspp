@@ -76,8 +76,18 @@ public:
 	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback, bool showButtons = false)
 		: PopupScreen(title, "OK", "Cancel"), adaptor_(items, selected), callback_(callback), showButtons_(showButtons) {
 	}
+	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, bool showButtons = false)
+		: PopupScreen(title, "OK", "Cancel"), adaptor_(items, selected), showButtons_(showButtons) {
+	}
 
+	int GetChoice() const {
+		return listView_->GetSelected();
+	}
+	std::string GetChoiceString() const {
+		return adaptor_.GetTitle(listView_->GetSelected());
+	}
 	UI::Event OnChoice;
+	virtual std::string tag() const override { return std::string("listpopup"); }
 
 protected:
 	virtual bool FillVertical() const { return false; }

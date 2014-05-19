@@ -122,6 +122,7 @@ public class NativeActivity extends Activity {
     // Actually this is not entirely true, see the code.
     InputDeviceState inputPlayerA;
     InputDeviceState inputPlayerB;
+    InputDeviceState inputPlayerC;
     String inputPlayerADesc;
     
     // Functions for the app activity to override to change behaviour.
@@ -499,6 +500,15 @@ public class NativeActivity extends Activity {
 
         if (inputPlayerB.getDevice() == device) {
             return inputPlayerB;
+        }
+
+        if (inputPlayerC == null) {
+        	Log.i(TAG, "Input player C registered");
+            inputPlayerC = new InputDeviceState(device);
+        }
+
+        if (inputPlayerC.getDevice() == device) {
+            return inputPlayerC;
         }
 
         return inputPlayerA;
