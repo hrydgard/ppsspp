@@ -246,7 +246,8 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	for (auto s : KeyMap::GetSeenPads()) {
 		items.push_back(s);
 	}
-	ListPopupScreen *autoConfList = new ListPopupScreen("Autoconfigure for device", items, -1);
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
 	screenManager()->push(autoConfList);
 	return UI::EVENT_DONE;
 }
