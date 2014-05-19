@@ -1451,16 +1451,13 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
+		bool doVideoStep = true;
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
 			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
 				// Don't advance, just return the same frame again.
 				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
-				int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
-				// Need to invalidate, even if it didn't change, to trigger upload to framebuffer.
-				gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
-				__PsmfUpdatePts(psmfplayer, videoData);
-				return hleDelayResult(0, "psmfPlayer behind audio", 3000);
+				doVideoStep = false;
 			} else {
 				// This is an approximation, it should allow a certain amount ahead before skipping frames.
 				while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
@@ -1471,14 +1468,13 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		} else {
 			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
 			if (psmfplayer->videoStep <= 1) {
-				// In this case, don't advance but also don't write the video frame.
-				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
-				return hleDelayResult(0, "psmfPlayer behind", 3000);
+				doVideoStep = false;
+			} else {
+				psmfplayer->videoStep = 0;
 			}
-			psmfplayer->videoStep = 0;
 		}
 
-		if (psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
+		if (!doVideoStep || psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
 			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
 			gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		}
