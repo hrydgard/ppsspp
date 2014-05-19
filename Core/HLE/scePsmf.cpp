@@ -1297,6 +1297,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
+	int delayUs = psmfplayer->status == PSMF_PLAYER_STATUS_PLAYING ? 3000 : 0;
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
 	psmfplayer->warmUp = 0;
 
@@ -1333,7 +1334,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	psmfplayer->seekDestTimeStamp = initPts;
 	__PsmfPlayerContinueSeek(psmfplayer);
-	return 0;
+	return delayUs == 0 ? 0 : hleDelayResult(0, "psmfplayer start", delayUs);
 }
 
 int scePsmfPlayerDelete(u32 psmfPlayer) 
