@@ -1081,9 +1081,12 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 	if (!filename) {
 		return ERROR_PSMFPLAYER_INVALID_PARAM;
 	}
+
+	int delayUs = 1100;
+
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	if (!psmfplayer->filehandle) {
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
 	}
 
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
@@ -1092,6 +1095,8 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		delayUs += 2000;
+
 		const u32 magic = *(u32_le *)buf;
 		if (magic != PSMF_MAGIC) {
 			// TODO: Let's keep trying as we were before.
@@ -1103,7 +1108,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		u16 numStreams = *(u16_be *)(buf + 0x80);
 		if (numStreams > 128) {
 			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: too many streams in PSMF video, bogus data");
-			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
 		}
 
 		psmfplayer->totalVideoStreams = 0;
@@ -1140,7 +1145,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 
-	return 0;
+	return hleDelayResult(0, "psmfplayer set", delayUs);
 }
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
