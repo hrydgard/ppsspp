@@ -1287,7 +1287,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->mediaengine->setVideoStream(playerData->videoStreamNum);
 	psmfplayer->videoCodec = playerData->videoCodec;
 	psmfplayer->videoStreamNum = playerData->videoStreamNum;
-	if (!psmfplayer->mediaengine->IsNoAudioData()) {
+	if (psmfplayer->totalAudioStreams > 0) {
 		psmfplayer->mediaengine->setAudioStream(playerData->audioStreamNum);
 		psmfplayer->audioCodec = playerData->audioCodec;
 		psmfplayer->audioStreamNum = playerData->audioStreamNum;
