@@ -1081,9 +1081,12 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 	if (!filename) {
 		return ERROR_PSMFPLAYER_INVALID_PARAM;
 	}
+
+	int delayUs = 1100;
+
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	if (!psmfplayer->filehandle) {
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
 	}
 
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
@@ -1092,6 +1095,8 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 		u8 *buf = psmfplayer->tempbuf;
 		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		delayUs += 2000;
+
 		const u32 magic = *(u32_le *)buf;
 		if (magic != PSMF_MAGIC) {
 			// TODO: Let's keep trying as we were before.
@@ -1101,6 +1106,11 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 
 		// TODO: Merge better with Psmf.
 		u16 numStreams = *(u16_be *)(buf + 0x80);
+		if (numStreams > 128) {
+			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: too many streams in PSMF video, bogus data");
+			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
+		}
+
 		psmfplayer->totalVideoStreams = 0;
 		psmfplayer->totalAudioStreams = 0;
 		psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
@@ -1135,7 +1145,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 
-	return 0;
+	return hleDelayResult(0, "psmfplayer set", delayUs);
 }
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
@@ -1272,12 +1282,36 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		return ERROR_PSMFPLAYER_INVALID_CONFIG;
 	}
 
+	switch ((PsmfPlayerMode)(s32)playerData->playMode) {
+	case PSMF_PLAYER_MODE_FORWARD:
+	case PSMF_PLAYER_MODE_REWIND:
+		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
+			WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
+			return ERROR_PSMFPLAYER_INVALID_PARAM;
+		}
+		WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		break;
+
+	case PSMF_PLAYER_MODE_PLAY:
+	case PSMF_PLAYER_MODE_PAUSE:
+		break;
+
+	default:
+		WARN_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		break;
+	}
+
+	if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC && initPts != 0) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to seek without EPmap", psmfPlayer, psmfPlayerData, initPts);
+		return ERROR_PSMFPLAYER_INVALID_PARAM;
+	}
+
 	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d)", psmfPlayer, psmfPlayerData, initPts);
 
 	psmfplayer->mediaengine->setVideoStream(playerData->videoStreamNum);
 	psmfplayer->videoCodec = playerData->videoCodec;
 	psmfplayer->videoStreamNum = playerData->videoStreamNum;
-	if (!psmfplayer->mediaengine->IsNoAudioData()) {
+	if (psmfplayer->totalAudioStreams > 0) {
 		psmfplayer->mediaengine->setAudioStream(playerData->audioStreamNum);
 		psmfplayer->audioCodec = playerData->audioCodec;
 		psmfplayer->audioStreamNum = playerData->audioStreamNum;
@@ -1287,6 +1321,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
+	int delayUs = psmfplayer->status == PSMF_PLAYER_STATUS_PLAYING ? 3000 : 0;
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
 	psmfplayer->warmUp = 0;
 
@@ -1323,7 +1358,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	psmfplayer->seekDestTimeStamp = initPts;
 	__PsmfPlayerContinueSeek(psmfplayer);
-	return 0;
+	return delayUs == 0 ? 0 : hleDelayResult(0, "psmfplayer start", delayUs);
 }
 
 int scePsmfPlayerDelete(u32 psmfPlayer) 
@@ -1451,34 +1486,30 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
+		bool doVideoStep = true;
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {
 			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
 				// Don't advance, just return the same frame again.
 				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
-				int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
-				// Need to invalidate, even if it didn't change, to trigger upload to framebuffer.
-				gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
-				__PsmfUpdatePts(psmfplayer, videoData);
-				return hleDelayResult(0, "psmfPlayer behind audio", 3000);
+				doVideoStep = false;
 			} else {
 				// This is an approximation, it should allow a certain amount ahead before skipping frames.
 				while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
-					psmfplayer->mediaengine->stepVideo(videoPixelMode);
+					psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
 					deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 				}
 			}
 		} else {
 			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
 			if (psmfplayer->videoStep <= 1) {
-				// In this case, don't advance but also don't write the video frame.
-				videoData->displaypts = (u32)psmfplayer->psmfPlayerAvcAu.pts;
-				return hleDelayResult(0, "psmfPlayer behind", 3000);
+				doVideoStep = false;
+			} else {
+				psmfplayer->videoStep = 0;
 			}
-			psmfplayer->videoStep = 0;
 		}
 
-		if (psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
+		if (!doVideoStep || psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
 			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
 			gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		}
