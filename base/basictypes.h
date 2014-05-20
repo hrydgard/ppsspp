@@ -118,3 +118,8 @@ inline uint64 swap64(const uint8* _pData) {return swap64(*(const uint64*)_pData)
 #ifndef _TCHAR_DEFINED
 typedef char TCHAR;
 #endif
+
+// Workaround for Symbian's old GCC
+#ifdef __SYMBIAN32__
+#define override
+#endif  // __SYMBIAN32__
