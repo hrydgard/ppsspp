@@ -827,8 +827,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			char temp[256];
-			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %08x", head->modname, head->devkitversion);
-			INFO_LOG_REPORT(SCEMODULE, temp, ver);
+			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %%08x", head->modname);
+			INFO_LOG_REPORT(SCEMODULE, temp, ver, head->devkitversion);
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
