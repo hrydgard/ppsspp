@@ -196,12 +196,12 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i endPos %i", aac->startPos, aac->endPos);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", aac->AuBufSize, aac->PCMBufSize);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
 		delete aac; 
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
@@ -211,7 +211,7 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	DEBUG_LOG(ME, "startPos %x endPos %x AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
+	DEBUG_LOG(ME, "startPos %llx endPos %llx AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d",
 		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;

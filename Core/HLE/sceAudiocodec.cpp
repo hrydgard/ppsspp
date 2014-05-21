@@ -79,7 +79,7 @@ int sceAudiocodecInit(u32 ctxPtr, int codec) {
 		auto decoder = new SimpleAudio(ctxPtr, codec);
 		audioList.push_front(decoder);
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
-		DEBUG_LOG(ME, "Number of playing sceAudioCodec audios : %d", audioList.size());
+		DEBUG_LOG(ME, "Number of playing sceAudioCodec audios : %d", (int)audioList.size());
 		return 0;
 	}
 	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(codec), codec);
