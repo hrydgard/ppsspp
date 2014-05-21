@@ -811,6 +811,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	bool reportedModule = false;
 	u8 *newptr = 0;
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
@@ -826,8 +827,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			char temp[256];
-			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", head->modname);
-			INFO_LOG_REPORT(SCEMODULE,temp, ver);
+			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %08x", head->modname, head->devkitversion);
+			INFO_LOG_REPORT(SCEMODULE, temp, ver);
+			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
 				__MpegLoadModule(ver);
@@ -932,7 +934,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	char moduleName[29] = {0};
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
 
-	if (IsHLEVersionedModule(modinfo->name)) {
+	if (!reportedModule && IsHLEVersionedModule(modinfo->name)) {
 		char temp[256];
 		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", modinfo->name);
 		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion);
