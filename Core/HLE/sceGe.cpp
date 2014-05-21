@@ -390,9 +390,9 @@ bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitin
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 {
 	// We check for the old type for old savestate compatibility.
-	if (type == GPU_SYNC_DRAW || type == WAITTYPE_GEDRAWSYNC)
+	if (type == GPU_SYNC_DRAW || (WaitType)type == WAITTYPE_GEDRAWSYNC)
 		return __GeTriggerWait(WAITTYPE_GEDRAWSYNC, waitId, drawWaitingThreads);
-	else if (type == GPU_SYNC_LIST || type == WAITTYPE_GELISTSYNC)
+	else if (type == GPU_SYNC_LIST || (WaitType)type == WAITTYPE_GELISTSYNC)
 		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
 		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
