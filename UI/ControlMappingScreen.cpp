@@ -33,9 +33,6 @@
 #include "UI/UIShader.h"
 #include "UI/GameSettingsScreen.h"
 
-using std::begin;
-using std::end;
-
 class ControlMapper : public UI::LinearLayout {
 public:
 	ControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
@@ -246,8 +243,9 @@ UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) 
 
 UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	std::vector<std::string> items;
-	for (auto s : KeyMap::GetSeenPads()) {
-		items.push_back(s);
+	const auto seenPads = KeyMap::GetSeenPads();
+	for (auto s = seenPads.begin(), end = seenPads.end(); s != end; ++s) {
+		items.push_back(*s);
 	}
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
