@@ -120,6 +120,6 @@ typedef char TCHAR;
 #endif
 
 // Workaround for Symbian's old GCC
-#ifdef __SYMBIAN32__
+#if defined(__GNUC__) && (__cplusplus < 201103 || (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) < 40700)
 #define override
-#endif  // __SYMBIAN32__
+#endif  // defined(__GNUC__) && (__cplusplus < 201103 || (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) < 40700)
