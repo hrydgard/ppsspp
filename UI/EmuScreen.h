@@ -58,6 +58,7 @@ private:
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
 	void autoLoad();
+	void checkPowerDown();
 
 	bool bootPending_;
 	std::string gamePath_;

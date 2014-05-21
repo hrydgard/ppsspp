@@ -485,7 +485,9 @@ void EmuScreen::update(InputState &input) {
 	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 
-	UpdateUIState(UISTATE_INGAME);
+	if (!invalid_) {
+		UpdateUIState(UISTATE_INGAME);
+	}
 
 	if (errorMessage_.size()) {
 		// Special handling for ZIP files. It's not very robust to check an error message but meh,
@@ -565,9 +567,25 @@ void EmuScreen::update(InputState &input) {
 	}
 }
 
+void EmuScreen::checkPowerDown() {
+	if (coreState == CORE_POWERDOWN && !PSP_IsIniting()) {
+		if (PSP_IsInited()) {
+			PSP_Shutdown();
+		}
+		ILOG("SELF-POWERDOWN!");
+		screenManager()->switchScreen(new MainScreen());
+		bootPending_ = false;
+		invalid_ = true;
+	}
+}
+
 void EmuScreen::render() {
-	if (invalid_)
+	if (invalid_) {
+		// It's possible this might be set outside PSP_RunLoopFor().
+		// In this case, we need to double check it here.
+		checkPowerDown();
 		return;
+	}
 
 	if (PSP_CoreParameter().freezeNext) {
 		PSP_CoreParameter().frozen = true;
@@ -595,13 +613,8 @@ void EmuScreen::render() {
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
-	} else if (coreState == CORE_POWERDOWN)	{
-		PSP_Shutdown();
-		ILOG("SELF-POWERDOWN!");
-		screenManager()->switchScreen(new MainScreen());
-		bootPending_ = false;
-		invalid_ = true;
 	}
+	checkPowerDown();
 
 	if (invalid_)
 		return;
