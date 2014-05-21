@@ -33,6 +33,9 @@
 #include "UI/UIShader.h"
 #include "UI/GameSettingsScreen.h"
 
+using std::begin;
+using std::end;
+
 class ControlMapper : public UI::LinearLayout {
 public:
 	ControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
