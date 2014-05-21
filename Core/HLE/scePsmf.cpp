@@ -1387,24 +1387,16 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): not playing yet", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	bool psmfplayerstatus = isPlayingStatus(psmfplayer->status);
-	if (!psmfplayerstatus) {
-		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): psmf not playing", psmfPlayer);
-		return ERROR_PSMF_NOT_INITIALIZED;
-	}
-
 	DEBUG_LOG(ME, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
-	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
-		if (psmfplayer->mediaengine->IsVideoEnd()) {
+	if ((s64)psmfplayer->psmfPlayerAvcAu.pts >= (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
+		if (videoLoopStatus == PSMF_PLAYER_CONFIG_NO_LOOP && psmfplayer->videoStep >= 1) {
 			INFO_LOG(ME, "video end reached");
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
