@@ -30,14 +30,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 
 void Vibrate(int length_ms) {
-    
-    NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
-    NSArray *pattern = @[@YES, @30, @NO, @2];
-    
-    dictionary[@"VibePattern"] = pattern;
-    dictionary[@"Intensity"] = @2;
-    
-    AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
+	
+	NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+	NSArray *pattern = @[@YES, @30, @NO, @2];
+	
+	dictionary[@"VibePattern"] = pattern;
+	dictionary[@"Intensity"] = @2;
+	
+	AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
 	// TODO: Actually make use of length_ms if PPSSPP ever adds that in the config
 }
 
