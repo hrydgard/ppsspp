@@ -1344,13 +1344,13 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 		int lastOffset = 0;
 		for (auto it = psmf.EPMap.begin(), end = psmf.EPMap.end(); it != end; ++it) {
-			if (initPts <= it->EPPts) {
+			if (initPts <= it->EPPts - (int)psmf.presentationStartTime) {
 				break;
 			}
 			lastOffset = it->EPOffset;
 		}
 
-		psmfplayer->readSize += lastOffset * 2048;
+		psmfplayer->readSize = lastOffset * 2048;
 		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset + psmfplayer->readSize, FILEMOVE_BEGIN);
 
 		_PsmfPlayerFillRingbuffer(psmfplayer);
