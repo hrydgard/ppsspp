@@ -976,7 +976,9 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 		return;
 	}
 
-	if (MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
+	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
+	// Let's just not bother with the copy in that case.
+	if (currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 #else
