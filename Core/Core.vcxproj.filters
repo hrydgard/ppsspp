@@ -526,6 +526,9 @@
     <ClCompile Include="MIPS\x86\JitSafeMem.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\HLEHelperThread.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -971,6 +974,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\x86\JitSafeMem.h">
       <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\HLEHelperThread.h">
+      <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

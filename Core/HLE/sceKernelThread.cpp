@@ -2080,6 +2080,16 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	return id;
 }
 
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr)
+{
+	SceUID id;
+	Thread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	if (newThread->currentStack.start == 0)
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+
+	return id;
+}
+
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
 	if (threadName == NULL)
@@ -2125,9 +2135,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
 		attr |= PSP_THREAD_ATTR_USER;
 
-	SceUID id;
-	Thread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
-	if (newThread->currentStack.start == 0)
+	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
+	if (id == SCE_KERNEL_ERROR_NO_MEMORY)
 	{
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
@@ -2152,6 +2161,54 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 	return __KernelCreateThread(threadName, __KernelGetCurThreadModuleId(), entry, prio, stacksize, attr, optionAddr);
 }
 
+int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs)
+{
+	u32 error;
+	Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
+	if (startThread == 0)
+		return error;
+
+	Thread *cur = __GetCurrentThread();
+	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
+
+	u32 &sp = startThread->context.r[MIPS_REG_SP];
+	// Force args means just use those as a0/a1 without any special treatment.
+	// This is a hack to avoid allocating memory for helper threads which take args.
+	if ((argBlockPtr && argSize > 0) || forceArgs)
+	{
+		// Make room for the arguments, always 0x10 aligned.
+		if (!forceArgs)
+			sp -= (argSize + 0xf) & ~0xf;
+		startThread->context.r[MIPS_REG_A0] = argSize;
+		startThread->context.r[MIPS_REG_A1] = sp;
+	}
+	else
+	{
+		startThread->context.r[MIPS_REG_A0] = 0;
+		startThread->context.r[MIPS_REG_A1] = 0;
+	}
+
+	// Now copy argument to stack.
+	if (!forceArgs && Memory::IsValidAddress(argBlockPtr))
+		Memory::Memcpy(sp, Memory::GetPointer(argBlockPtr), argSize);
+
+	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
+	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
+	sp -= 64;
+
+	// Smaller is better for priority.  Only switch if the new thread is better.
+	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
+	{
+		__KernelChangeReadyState(cur, currentThread, true);
+		hleReSchedule("thread started");
+	}
+
+	// Starting a thread automatically resumes the dispatch thread.
+	dispatchEnabled = true;
+
+	__KernelChangeReadyState(startThread, threadToStartID, true);
+	return 0;
+}
 
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
@@ -2185,44 +2242,7 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	}
 
 	INFO_LOG(SCEKERNEL, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
-
-	Thread *cur = __GetCurrentThread();
-	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
-
-	u32 &sp = startThread->context.r[MIPS_REG_SP];
-	if (argBlockPtr && argSize > 0)
-	{
-		// Make room for the arguments, always 0x10 aligned.
-		sp -= (argSize + 0xf) & ~0xf;
-		startThread->context.r[MIPS_REG_A0] = argSize;
-		startThread->context.r[MIPS_REG_A1] = sp;
-	}
-	else
-	{
-		startThread->context.r[MIPS_REG_A0] = 0;
-		startThread->context.r[MIPS_REG_A1] = 0;
-	}
-
-	// Now copy argument to stack.
-	if (Memory::IsValidAddress(argBlockPtr))
-		Memory::Memcpy(sp, Memory::GetPointer(argBlockPtr), argSize);
-
-	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
-	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
-	sp -= 64;
-
-	// Smaller is better for priority.  Only switch if the new thread is better.
-	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
-	{
-		__KernelChangeReadyState(cur, currentThread, true);
-		hleReSchedule("thread started");
-	}
-
-	// Starting a thread automatically resumes the dispatch thread.
-	dispatchEnabled = true;
-
-	__KernelChangeReadyState(startThread, threadToStartID, true);
-	return 0;
+	return __KernelStartThread(threadToStartID, argSize, argBlockPtr);
 }
 
 int sceKernelGetThreadStackFreeSize(SceUID threadID)
