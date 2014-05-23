@@ -1026,12 +1026,11 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 	return hleDelayResult(0, "player create", 20000);
 }
 
-int scePsmfPlayerStop(u32 psmfPlayer)
-{
+int scePsmfPlayerStop(u32 psmfPlayer) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	bool isInitialized = isInitializedStatus(psmfplayer->status);
@@ -1043,7 +1042,7 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return 0;
+	return hleDelayResult(0, "psmfplayer stop", 3000);
 }
 
 int scePsmfPlayerBreak(u32 psmfPlayer)
