@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
@@ -207,6 +208,19 @@ public:
 	~PsmfPlayer() { if (mediaengine) delete mediaengine; pspFileSystem.CloseFile(filehandle);}
 	void DoState(PointerWrap &p);
 
+	void ScheduleFinish(u32 handle) {
+		if (!finishThread) {
+			finishThread = new HLEHelperThread("scePsmfPlayer", "scePsmfPlayer", "__PsmfPlayerFinish", playbackThreadPriority, 0x100);
+			finishThread->Start(handle, 0);
+		}
+	}
+	void AbortFinish() {
+		if (finishThread) {
+			delete finishThread;
+			finishThread = NULL;
+		}
+	}
+
 	u32 filehandle;
 	u32 fileoffset;
 	int readSize;
@@ -236,7 +250,8 @@ public:
 	SceMpegAu psmfPlayerAvcAu;
 	PsmfPlayerStatus status;
 
-	MediaEngine* mediaengine;
+	MediaEngine *mediaengine;
+	HLEHelperThread *finishThread;
 };
 
 class PsmfStream {
@@ -352,6 +367,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	totalDurationTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
+	finishThread = NULL;
 	filehandle = 0;
 	fileoffset = 0;
 	readSize = 0;
@@ -406,7 +422,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1, 5);
+	auto s = p.Section("PsmfPlayer", 1, 6);
 	if (!s)
 		return;
 
@@ -463,6 +479,11 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 		p.Do(psmfPlayerAtracAu);
 	}
 	p.Do(psmfPlayerAvcAu);
+	if (s >= 6) {
+		p.Do(finishThread);
+	} else {
+		finishThread = NULL;
+	}
 }
 
 void Psmf::setStreamNum(int num) {
@@ -1005,12 +1026,11 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 	return hleDelayResult(0, "player create", 20000);
 }
 
-int scePsmfPlayerStop(u32 psmfPlayer)
-{
+int scePsmfPlayerStop(u32 psmfPlayer) {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	bool isInitialized = isInitializedStatus(psmfplayer->status);
@@ -1018,10 +1038,11 @@ int scePsmfPlayerStop(u32 psmfPlayer)
 		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+	psmfplayer->AbortFinish();
 
 	INFO_LOG(ME, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	return 0;
+	return hleDelayResult(0, "psmfplayer stop", 3000);
 }
 
 int scePsmfPlayerBreak(u32 psmfPlayer)
@@ -1038,6 +1059,7 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+	psmfplayer->AbortFinish();
 
 	// Fix everybody stress buster
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
@@ -1308,6 +1330,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d)", psmfPlayer, psmfPlayerData, initPts);
 
+	psmfplayer->AbortFinish();
 	psmfplayer->mediaengine->setVideoStream(playerData->videoStreamNum);
 	psmfplayer->videoCodec = playerData->videoCodec;
 	psmfplayer->videoStreamNum = playerData->videoStreamNum;
@@ -1344,13 +1367,13 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 		int lastOffset = 0;
 		for (auto it = psmf.EPMap.begin(), end = psmf.EPMap.end(); it != end; ++it) {
-			if (initPts <= it->EPPts) {
+			if (initPts <= it->EPPts - (int)psmf.presentationStartTime) {
 				break;
 			}
 			lastOffset = it->EPOffset;
 		}
 
-		psmfplayer->readSize += lastOffset * 2048;
+		psmfplayer->readSize = lastOffset * 2048;
 		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset + psmfplayer->readSize, FILEMOVE_BEGIN);
 
 		_PsmfPlayerFillRingbuffer(psmfplayer);
@@ -1387,26 +1410,20 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): not playing yet", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
-	bool psmfplayerstatus = isPlayingStatus(psmfplayer->status);
-	if (!psmfplayerstatus) {
-		ERROR_LOG(ME, "scePsmfPlayerUpdate(%08x): psmf not playing", psmfPlayer);
-		return ERROR_PSMF_NOT_INITIALIZED;
-	}
-
 	DEBUG_LOG(ME, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
-	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
-		if (psmfplayer->mediaengine->IsVideoEnd()) {
-			INFO_LOG(ME, "video end reached");
-			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	if ((s64)psmfplayer->psmfPlayerAvcAu.pts >= (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
+		if (videoLoopStatus == PSMF_PLAYER_CONFIG_NO_LOOP && psmfplayer->videoStep >= 1) {
+			if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING_FINISHED) {
+				psmfplayer->ScheduleFinish(psmfPlayer);
+				INFO_LOG(ME, "scePsmfPlayerUpdate(%08x): video end scheduled", psmfPlayer);
+			}
 		}
 	}
 	psmfplayer->videoStep++;
@@ -1446,19 +1463,11 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): invalid psmf player", psmfPlayer, videoDataAddr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool psmfplayerstatus = isPlayingStatus(psmfplayer->status);
-	if (!psmfplayerstatus) {
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
 		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x): psmf not playing", psmfPlayer);
-		return ERROR_PSMF_NOT_INITIALIZED;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
@@ -1509,22 +1518,20 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 			}
 		}
 
-		if (!doVideoStep || psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
-			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
-			gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
+		if (doVideoStep) {
+			psmfplayer->mediaengine->stepVideo(videoPixelMode);
 		}
+
+		// Always write the video frame, even after the video has ended.
+		int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+		gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		__PsmfUpdatePts(psmfplayer, videoData);
 	}
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
-	int ret = psmfplayer->mediaengine->IsVideoEnd() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
-	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetVideoData(%08x, %08x)", ret, psmfPlayer, videoDataAddr);
-	if (ret != 0) {
-		return ret;
-	}
-
-	return hleDelayResult(ret, "psmfPlayer video decode", 3000);
+	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetVideoData(%08x, %08x)", 0, psmfPlayer, videoDataAddr);
+	return hleDelayResult(0, "psmfPlayer video decode", 3000);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
@@ -1952,6 +1959,22 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 	return 0;
 }
 
+int __PsmfPlayerFinish(u32 psmfPlayer) {
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG_REPORT(ME, "__PsmfPlayerFinish(%08x): invalid psmf player", psmfPlayer);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG_REPORT(ME, "__PsmfPlayerFinish(%08x): unexpected status %d", psmfPlayer, psmfplayer->status);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+
+	INFO_LOG(ME, "__PsmfPlayerFinish(%08x): video end reached", psmfPlayer);
+	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	return 0;
+}
+
 const HLEFunction scePsmf[] = {
 	{0xc22c8327, WrapU_UU<scePsmfSetPsmf>, "scePsmfSetPsmf"},
 	{0xC7DB3A5B, WrapU_UUU<scePsmfGetCurrentStreamType>, "scePsmfGetCurrentStreamType"},
@@ -2010,6 +2033,8 @@ const HLEFunction scePsmfPlayer[] =
 	{0x76C0F4AE, WrapI_UCI<scePsmfPlayerSetPsmfOffset>, "scePsmfPlayerSetPsmfOffset"},
 	{0xA72DB4F9, WrapI_UCI<scePsmfPlayerSetPsmfOffsetCB>, "scePsmfPlayerSetPsmfOffsetCB"},
 	{0x340c12cb, 0, "scePsmfPlayer_340C12CB"},
+	// Fake function for PPSSPP's use.
+	{0x05b193b7, WrapI_U<__PsmfPlayerFinish>, "__PsmfPlayerFinish"},
 };
 
 void Register_scePsmf() {

@@ -197,6 +197,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
   $(SRC)/Core/Font/PGF.cpp \
+  $(SRC)/Core/HLE/HLEHelperThread.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \

@@ -27,6 +27,7 @@ set(SRCS
   ELF/PrxDecrypter.cpp
   Font/PGF.cpp
   HLE/HLE.cpp
+  HLE/HLEHelperThread.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
   HLE/__sceAudio.cpp
