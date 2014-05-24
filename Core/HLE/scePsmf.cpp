@@ -1044,18 +1044,11 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+
 	psmfplayer->AbortFinish();
 
-	// Fix everybody stress buster
-	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
 
@@ -1566,7 +1559,7 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 
 	int ret = 0;
 	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
-		if (psmfplayer->totalAudioStreams > 0 && psmfplayer->psmfPlayerAvcAu.pts < psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
+		if (psmfplayer->totalAudioStreams > 0 && (s64)psmfplayer->psmfPlayerAvcAu.pts < (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
 			// Write zeros for any missing trailing frames so it syncs with the video.
 			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		} else {
