@@ -605,20 +605,6 @@ void __PsmfShutdown()
 	psmfPlayerMap.clear();
 }
 
-bool isPlayingStatus(u32 status) {
-	if (status != PSMF_PLAYER_STATUS_PLAYING && status != PSMF_PLAYER_STATUS_PLAYING_FINISHED) {
-		return false;
-	}
-	return true;
-}
-
-bool isInitializedStatus(u32 status) {
-	if (status == PSMF_PLAYER_STATUS_NONE) {
-		return false;
-	}
-	return true;
-}
-
 u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 {
 	if (!Memory::IsValidAddress(psmfData)) {
@@ -1032,10 +1018,8 @@ int scePsmfPlayerStop(u32 psmfPlayer) {
 		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not yet playing", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	psmfplayer->AbortFinish();
@@ -1051,18 +1035,11 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerBreak(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+
 	psmfplayer->AbortFinish();
 
-	// Fix everybody stress buster
-	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
 
@@ -1234,6 +1211,11 @@ int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offse
 
 int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer) 
 {
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(ME, "scePsmfPlayerGetAudioOutSize(%08x): invalid psmf player", psmfPlayer);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
 	WARN_LOG(ME, "%i = scePsmfPlayerGetAudioOutSize(%08x)", audioSamplesBytes, psmfPlayer);
 	return audioSamplesBytes;
 }
@@ -1389,20 +1371,15 @@ int scePsmfPlayerDelete(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerDelete(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerDelete(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	INFO_LOG(ME, "scePsmfPlayerDelete(%08x)", psmfPlayer);
 	delete psmfplayer;
-	psmfPlayerMap.erase(psmfPlayer);
+	psmfPlayerMap.erase(Memory::Read_U32(psmfPlayer));
+	Memory::Write_U32(0, psmfPlayer);
 
-	return 0;
+	return hleDelayResult(0, "psmfplayer deleted", 20000);
 }
 
 int scePsmfPlayerUpdate(u32 psmfPlayer) 
@@ -1436,12 +1413,10 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerReleasePsmf(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerReleasePsmf(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
+		ERROR_LOG(ME, "scePsmfPlayerReleasePsmf(%08x): not set yet", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
@@ -1466,13 +1441,22 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
-		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x): psmf not playing", psmfPlayer);
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): psmf not playing", psmfPlayer, videoDataAddr);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
-		INFO_LOG(HLE, "scePsmfPlayerGetVideoData(%08x): paused mode", psmfPlayer);
-		return 0;
+	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
+	if (!videoData.IsValid() || !Memory::IsValidAddress(videoData->displaybuf)) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): invalid data pointer", psmfPlayer, videoDataAddr);
+		// Technically just crashes if videoData is not valid.
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+	if (videoData->frameWidth < 0) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): illegal bufw %d", psmfPlayer, videoDataAddr, videoData->frameWidth);
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+	}
+	if (videoData->frameWidth != 0 && videoData->frameWidth < psmfplayer->mediaengine->VideoWidth()) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): bufw %d smaller than width %d", psmfPlayer, videoDataAddr, videoData->frameWidth, psmfplayer->mediaengine->VideoWidth());
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
 	hleEatCycles(20000);
@@ -1493,40 +1477,41 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	// In case we change warm up later, save a high value in savestates - video started.
 	psmfplayer->warmUp = 10000;
 
-	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
-	if (videoData.IsValid()) {
-		bool doVideoStep = true;
-		if (!psmfplayer->mediaengine->IsNoAudioData()) {
-			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-			if (deltapts > 0) {
-				// Don't advance, just return the same frame again.
-				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
-				doVideoStep = false;
-			} else {
-				// This is an approximation, it should allow a certain amount ahead before skipping frames.
-				while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
-					psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
-					deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-				}
-			}
+	bool doVideoStep = true;
+	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+		doVideoStep = false;
+	} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
+		s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+		if (deltapts > 0) {
+			// Don't advance, just return the same frame again.
+			// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
+			doVideoStep = false;
 		} else {
-			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
-			if (psmfplayer->videoStep <= 1) {
-				doVideoStep = false;
-			} else {
-				psmfplayer->videoStep = 0;
+			// This is an approximation, it should allow a certain amount ahead before skipping frames.
+			while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
+				psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
+				deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			}
 		}
-
-		if (doVideoStep) {
-			psmfplayer->mediaengine->stepVideo(videoPixelMode);
+	} else {
+		// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
+		if (psmfplayer->videoStep <= 1) {
+			doVideoStep = false;
+		} else {
+			psmfplayer->videoStep = 0;
 		}
-
-		// Always write the video frame, even after the video has ended.
-		int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
-		gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
-		__PsmfUpdatePts(psmfplayer, videoData);
 	}
+
+	if (doVideoStep) {
+		psmfplayer->mediaengine->stepVideo(videoPixelMode);
+	}
+
+	// It seems the frameWidth is rounded down to even values, and defaults to 512.
+	int bufw = videoData->frameWidth == 0 ? 512 : videoData->frameWidth & ~1;
+	// Always write the video frame, even after the video has ended.
+	int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, bufw, videoPixelMode);
+	gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
+	__PsmfUpdatePts(psmfplayer, videoData);
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
 
@@ -1539,28 +1524,15 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): invalid psmf player", psmfPlayer, audioDataAddr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool psmfplayerstatus = isPlayingStatus(psmfplayer->status);
-	if (!psmfplayerstatus) {
-		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x): psmf not playing", psmfPlayer);
-		return ERROR_PSMF_NOT_INITIALIZED;
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): not yet playing", psmfPlayer, audioDataAddr);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
-		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
-		// Clear the audio when paused.
-		if (Memory::IsValidAddress(audioDataAddr)) {
-			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-		}
-		return 0;
+	if (!Memory::IsValidAddress(audioDataAddr)) {
+		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): invalid audio pointer", psmfPlayer, audioDataAddr);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
 	// Don't return audio frames before we would return video frames.
@@ -1569,11 +1541,21 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
-	if (Memory::IsValidAddress(audioDataAddr)) {
-		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
+	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
+	}
+
+	int ret = 0;
+	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
+		if (psmfplayer->totalAudioStreams > 0 && (s64)psmfplayer->psmfPlayerAvcAu.pts < (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
+			// Write zeros for any missing trailing frames so it syncs with the video.
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		} else {
+			ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
+		}
 	}
 	
-	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
 	if (ret != 0) {
 		hleEatCycles(10000);
@@ -1593,9 +1575,7 @@ int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer)
 		VERBOSE_LOG(ME, "scePsmfPlayerGetCurrentStatus(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
+	if (psmfplayer->status == PSMF_PLAYER_STATUS_NONE) {
 		ERROR_LOG(ME, "scePsmfPlayerGetCurrentStatus(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
