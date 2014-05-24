@@ -1532,8 +1532,10 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 			psmfplayer->mediaengine->stepVideo(videoPixelMode);
 		}
 
+		// It seems the frameWidth is rounded down to even values, and defaults to 512.
+		int bufw = videoData->frameWidth == 0 ? 512 : videoData->frameWidth & ~1;
 		// Always write the video frame, even after the video has ended.
-		int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, videoData->frameWidth, videoPixelMode);
+		int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, bufw, videoPixelMode);
 		gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
 		__PsmfUpdatePts(psmfplayer, videoData);
 	}
