@@ -1561,16 +1561,17 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
 		INFO_LOG(HLE, "scePsmfPlayerGetAudioData(%08x): paused mode", psmfPlayer);
-		// Clear the audio when paused.
-		if (Memory::IsValidAddress(audioDataAddr)) {
-			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-		}
-		return 0;
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
 	int ret = 0;
 	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
-		ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
+		if (psmfplayer->totalAudioStreams > 0 && psmfplayer->psmfPlayerAvcAu.pts < psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS) {
+			// Write zeros for any missing trailing frames so it syncs with the video.
+			Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		} else {
+			ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
+		}
 	}
 	
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
