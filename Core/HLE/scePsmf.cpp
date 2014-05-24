@@ -1484,11 +1484,6 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
-	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
-		INFO_LOG(HLE, "scePsmfPlayerGetVideoData(%08x): paused mode", psmfPlayer);
-		return 0;
-	}
-
 	hleEatCycles(20000);
 
 	if (!__PsmfPlayerContinueSeek(psmfplayer)) {
@@ -1509,7 +1504,9 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	if (videoData.IsValid()) {
 		bool doVideoStep = true;
-		if (!psmfplayer->mediaengine->IsNoAudioData()) {
+		if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+			doVideoStep = false;
+		} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
 			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			if (deltapts > 0) {
 				// Don't advance, just return the same frame again.
