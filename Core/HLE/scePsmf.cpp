@@ -1025,10 +1025,8 @@ int scePsmfPlayerStop(u32 psmfPlayer) {
 		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not initialized", psmfPlayer);
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerStop(%08x): not yet playing", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	psmfplayer->AbortFinish();
