@@ -605,13 +605,6 @@ void __PsmfShutdown()
 	psmfPlayerMap.clear();
 }
 
-bool isPlayingStatus(u32 status) {
-	if (status != PSMF_PLAYER_STATUS_PLAYING && status != PSMF_PLAYER_STATUS_PLAYING_FINISHED) {
-		return false;
-	}
-	return true;
-}
-
 bool isInitializedStatus(u32 status) {
 	if (status == PSMF_PLAYER_STATUS_NONE) {
 		return false;
@@ -1549,19 +1542,21 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): invalid psmf player", psmfPlayer, audioDataAddr);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
+		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): not yet playing", psmfPlayer, audioDataAddr);
+		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	if (!Memory::IsValidAddress(audioDataAddr)) {
+		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): invalid audio pointer", psmfPlayer, audioDataAddr);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 
-	bool psmfplayerstatus = isPlayingStatus(psmfplayer->status);
-	if (!psmfplayerstatus) {
-		ERROR_LOG(ME, "scePsmfPlayerGetAudioData(%08x): psmf not playing", psmfPlayer);
-		return ERROR_PSMF_NOT_INITIALIZED;
+	// Don't return audio frames before we would return video frames.
+	if (psmfplayer->warmUp < PSMF_PLAYER_WARMUP_FRAMES) {
+		DEBUG_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): warming up", psmfPlayer, audioDataAddr);
+		return ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
@@ -1573,17 +1568,11 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return 0;
 	}
 
-	// Don't return audio frames before we would return video frames.
-	if (psmfplayer->warmUp < PSMF_PLAYER_WARMUP_FRAMES) {
-		DEBUG_LOG(ME, "scePsmfPlayerGetAudioData(%08x, %08x): warming up", psmfPlayer, audioDataAddr);
-		return ERROR_PSMFPLAYER_NO_MORE_DATA;
-	}
-
-	if (Memory::IsValidAddress(audioDataAddr)) {
-		psmfplayer->mediaengine->getAudioSamples(audioDataAddr);
+	int ret = 0;
+	if (psmfplayer->mediaengine->getAudioSamples(audioDataAddr) == 0) {
+		ret = (int)ERROR_PSMFPLAYER_NO_MORE_DATA;
 	}
 	
-	int ret = psmfplayer->mediaengine->IsNoAudioData() ? (int)ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 	DEBUG_LOG(ME, "%08x=scePsmfPlayerGetAudioData(%08x, %08x)", ret, psmfPlayer, audioDataAddr);
 	if (ret != 0) {
 		hleEatCycles(10000);
