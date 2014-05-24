@@ -2049,67 +2049,93 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
 
 int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingStop(int matchingId) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStop(%i)", matchingId);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingDelete(int matchingId) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingDelete(%i)", matchingId);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x)", matchingId, optLenAddr, optDataAddr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetMembers(%i, %08x, %08x)", matchingId, sizeAddr, buf);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac, dataLen, dataAddr);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac);
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingGetPoolMaxAlloc() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 int sceNetAdhocMatchingGetPoolStat() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolStat()");
-	return -1;
+	if (!g_Config.bEnableWlan)
+		return -1;
+	return 0;
 }
 
 const HLEFunction sceNetAdhoc[] = {
