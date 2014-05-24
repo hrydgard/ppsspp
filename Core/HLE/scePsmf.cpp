@@ -1502,43 +1502,41 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	// In case we change warm up later, save a high value in savestates - video started.
 	psmfplayer->warmUp = 10000;
 
-	if (videoData.IsValid()) {
-		bool doVideoStep = true;
-		if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+	bool doVideoStep = true;
+	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
+		doVideoStep = false;
+	} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
+		s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+		if (deltapts > 0) {
+			// Don't advance, just return the same frame again.
+			// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
 			doVideoStep = false;
-		} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
-			s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-			if (deltapts > 0) {
-				// Don't advance, just return the same frame again.
-				// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
-				doVideoStep = false;
-			} else {
-				// This is an approximation, it should allow a certain amount ahead before skipping frames.
-				while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
-					psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
-					deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-				}
-			}
 		} else {
-			// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
-			if (psmfplayer->videoStep <= 1) {
-				doVideoStep = false;
-			} else {
-				psmfplayer->videoStep = 0;
+			// This is an approximation, it should allow a certain amount ahead before skipping frames.
+			while (deltapts <= -(VIDEO_FRAME_DURATION_TS * 5)) {
+				psmfplayer->mediaengine->stepVideo(videoPixelMode, true);
+				deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 			}
 		}
-
-		if (doVideoStep) {
-			psmfplayer->mediaengine->stepVideo(videoPixelMode);
+	} else {
+		// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
+		if (psmfplayer->videoStep <= 1) {
+			doVideoStep = false;
+		} else {
+			psmfplayer->videoStep = 0;
 		}
-
-		// It seems the frameWidth is rounded down to even values, and defaults to 512.
-		int bufw = videoData->frameWidth == 0 ? 512 : videoData->frameWidth & ~1;
-		// Always write the video frame, even after the video has ended.
-		int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, bufw, videoPixelMode);
-		gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
-		__PsmfUpdatePts(psmfplayer, videoData);
 	}
+
+	if (doVideoStep) {
+		psmfplayer->mediaengine->stepVideo(videoPixelMode);
+	}
+
+	// It seems the frameWidth is rounded down to even values, and defaults to 512.
+	int bufw = videoData->frameWidth == 0 ? 512 : videoData->frameWidth & ~1;
+	// Always write the video frame, even after the video has ended.
+	int displaybufSize = psmfplayer->mediaengine->writeVideoImage(videoData->displaybuf, bufw, videoPixelMode);
+	gpu->InvalidateCache(videoData->displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
+	__PsmfUpdatePts(psmfplayer, videoData);
 
 	_PsmfPlayerFillRingbuffer(psmfplayer);
 
