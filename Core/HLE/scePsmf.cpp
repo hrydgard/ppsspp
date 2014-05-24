@@ -1373,20 +1373,15 @@ int scePsmfPlayerDelete(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(ME, "scePsmfPlayerDelete(%08x): invalid psmf player", psmfPlayer);
-		return ERROR_PSMF_NOT_FOUND;
-	}
-
-	bool isInitialized = isInitializedStatus(psmfplayer->status);
-	if (!isInitialized) {
-		ERROR_LOG(ME, "scePsmfPlayerDelete(%08x): not initialized", psmfPlayer);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 
 	INFO_LOG(ME, "scePsmfPlayerDelete(%08x)", psmfPlayer);
 	delete psmfplayer;
-	psmfPlayerMap.erase(psmfPlayer);
+	psmfPlayerMap.erase(Memory::Read_U32(psmfPlayer));
+	Memory::Write_U32(0, psmfPlayer);
 
-	return 0;
+	return hleDelayResult(0, "psmfplayer deleted", 20000);
 }
 
 int scePsmfPlayerUpdate(u32 psmfPlayer) 
