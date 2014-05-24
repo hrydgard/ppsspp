@@ -1466,8 +1466,22 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	if (psmfplayer->status < PSMF_PLAYER_STATUS_PLAYING) {
-		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x): psmf not playing", psmfPlayer);
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): psmf not playing", psmfPlayer, videoDataAddr);
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
+	}
+	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
+	if (!videoData.IsValid() || !Memory::IsValidAddress(videoData->displaybuf)) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): invalid data pointer", psmfPlayer, videoDataAddr);
+		// Technically just crashes if videoData is not valid.
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+	if (videoData->frameWidth < 0) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): illegal bufw %d", psmfPlayer, videoDataAddr, videoData->frameWidth);
+		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
+	}
+	if (videoData->frameWidth != 0 && videoData->frameWidth < psmfplayer->mediaengine->VideoWidth()) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): bufw %d smaller than width %d", psmfPlayer, videoDataAddr, videoData->frameWidth, psmfplayer->mediaengine->VideoWidth());
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
@@ -1493,7 +1507,6 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	// In case we change warm up later, save a high value in savestates - video started.
 	psmfplayer->warmUp = 10000;
 
-	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
 	if (videoData.IsValid()) {
 		bool doVideoStep = true;
 		if (!psmfplayer->mediaengine->IsNoAudioData()) {

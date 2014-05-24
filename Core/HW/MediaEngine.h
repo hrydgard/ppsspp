@@ -89,6 +89,8 @@ public:
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
 	bool IsNoAudioData();
+	int VideoWidth() { return m_desWidth; }
+	int VideoHeight() { return m_desHeight; }
 
 	void DoState(PointerWrap &p);
 
