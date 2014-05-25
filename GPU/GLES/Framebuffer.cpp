@@ -1796,14 +1796,20 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
 			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
-			// BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height);
+			// if (g_Config.bBlockTransferGPU) {
+			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height);
+			// }
 		}
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
 		// Here we should just draw the pixels into the buffer.
+		// if (g_Config.bBlockTransferGPU) {
+		// }
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
-		// ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
+		// if (g_Config.bBlockTransferGPU) {
+		//   ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
+		// }
 	}
 }
 
@@ -1851,18 +1857,24 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
-			BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+			if (g_Config.bBlockTransferGPU) {
+				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+			}
 		}
 		return true;  // No need to actually do the memory copy behind, probably.
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-		DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
+		if (g_Config.bBlockTransferGPU) {
+			u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+			DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
+		}
 		// Here we should just draw the pixels into the buffer.
 		return false;
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
-		ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		if (g_Config.bBlockTransferGPU) {
+			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		}
 		return false;  // Let the bit copy happen
 	} else {
 		return false;
