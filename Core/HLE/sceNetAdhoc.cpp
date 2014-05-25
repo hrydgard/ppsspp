@@ -89,6 +89,51 @@ enum {
 	PSP_ADHOC_POLL_CAN_ACCEPT     = 8,
 };
 
+enum {
+/**
+* Matching events used in pspAdhocMatchingCallback
+*/
+	/** Hello event. optdata contains data if optlen > 0. */
+	PSP_ADHOC_MATCHING_EVENT_HELLO = 1,
+	/** Join request. optdata contains data if optlen > 0. */
+	PSP_ADHOC_MATCHING_EVENT_JOIN = 2,
+	/** Target left matching. */
+	PSP_ADHOC_MATCHING_EVENT_LEFT = 3,
+	/** Join request rejected. */
+	PSP_ADHOC_MATCHING_EVENT_REJECT = 4,
+	/** Join request cancelled. */
+	PSP_ADHOC_MATCHING_EVENT_CANCEL = 5,
+	/** Join request accepted. optdata contains data if optlen > 0. */
+	PSP_ADHOC_MATCHING_EVENT_ACCEPT = 6,
+	/** Matching is complete. */
+	PSP_ADHOC_MATCHING_EVENT_COMPLETE = 7,
+	/** Ping timeout event. */
+	PSP_ADHOC_MATCHING_EVENT_TIMEOUT = 8,
+	/** Error event. */
+	PSP_ADHOC_MATCHING_EVENT_ERROR = 9,
+	/** Peer disconnect event. */
+	PSP_ADHOC_MATCHING_EVENT_DISCONNECT = 10,
+	/** Data received event. optdata contains data if optlen > 0. */
+	PSP_ADHOC_MATCHING_EVENT_DATA = 11,
+	/** Data acknowledged event. */
+	PSP_ADHOC_MATCHING_EVENT_DATA_CONFIRM = 12,
+	/** Data timeout event. */
+	PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT = 13,
+
+	/** Internal ping message. */
+	PSP_ADHOC_MATCHING_EVENT_INTERNAL_PING = 100,
+
+	/**
+	* Matching modes used in sceNetAdhocMatchingCreate
+	*/
+	/** Host */
+	PSP_ADHOC_MATCHING_MODE_HOST = 1,
+	/** Client */
+	PSP_ADHOC_MATCHING_MODE_CLIENT = 2,
+	/** Peer to peer */
+	PSP_ADHOC_MATCHING_MODE_PTP = 3,
+};
+
 const size_t MAX_ADHOCCTL_HANDLERS = 32;
 
 static bool netAdhocInited;
