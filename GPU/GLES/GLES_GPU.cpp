@@ -1908,30 +1908,31 @@ void GLES_GPU::DoBlockTransfer() {
 		return;
 	}
 
-	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-	// entirely by walking a couple of pointers...
-	if (srcStride == dstStride && width == srcStride) {
-		// Common case in God of War, let's do it all in one chunk.
-		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-		const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-		u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-		memcpy(dst, src, width * height * bpp);
-	} else {
-		for (int y = 0; y < height; y++) {
-			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
+	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
+	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
+		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
+		// entirely by walking a couple of pointers...
+		if (srcStride == dstStride && width == srcStride) {
+			// Common case in God of War, let's do it all in one chunk.
+			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * bpp);
-		}
-	}
+			memcpy(dst, src, width * height * bpp);
+		} else {
+			for (int y = 0; y < height; y++) {
+				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransfer(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
+				memcpy(dst, src, width * bpp);
+			}
+		}
+
 		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp);
 	}
 
 #ifndef MOBILE_DEVICE

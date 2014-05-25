@@ -166,7 +166,8 @@ public:
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
@@ -210,6 +211,8 @@ public:
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
+
+	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const;
 
 	void SetNumExtraFBOs(int num);
 
