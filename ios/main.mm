@@ -7,6 +7,7 @@
 #import <AudioToolbox/AudioToolbox.h>
 
 #import "AppDelegate.h"
+#import <AudioToolbox/AudioToolbox.h>
 
 #include "base/NativeApp.h"
 
@@ -30,7 +31,6 @@ void System_SendMessage(const char *command, const char *parameter) {
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 
 void Vibrate(int length_ms) {
-	
 	NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 	NSArray *pattern = @[@YES, @30, @NO, @2];
 	
