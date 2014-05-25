@@ -312,6 +312,9 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
+#if defined(USING_WIN_UI)
+	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, s->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
+#endif
 
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
