@@ -959,8 +959,10 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 		
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
+			bool useNV = false;
 #else
 		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+			bool useNV = !gl_extensions.GLES3;
 #endif
 
 #ifdef MAY_HAVE_GLES3
@@ -969,7 +971,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 				fbo_bind_for_read(sourceframebuffer->fbo);
 
 #if defined(ANDROID)  		// We only support this extension on Android, it's not even available on PC.
-				if (gl_extensions.NV_framebuffer_blit) {
+				if (useNV) {
 					glBlitFramebufferNV(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				} else 
 #endif // defined(ANDROID)
@@ -993,8 +995,10 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 	if (currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
+			bool useNV = false;
 #else
-		if (gl_extensions.GLES3) {
+		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+			bool useNV = !gl_extensions.GLES3;
 #endif
 #ifdef MAY_HAVE_GLES3
 
@@ -1017,7 +1021,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			fbo_bind_for_read(framebuffer->fbo);
 			
 #if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-			if (gl_extensions.NV_framebuffer_blit) {
+			if (useNV) {
 				glBlitFramebufferNV(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			} else 
 #endif // defined(ANDROID)
@@ -1268,13 +1272,15 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 
 #ifndef USING_GLES2
 	if (gl_extensions.FBO_ARB) {
+		bool useNV = false;
 #else
 	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+		bool useNV = !gl_extensions.GLES3;
 #endif
 
 #ifdef MAY_HAVE_GLES3
 			fbo_bind_for_read(src->fbo);
-			if (gl_extensions.GLES3) {
+			if (!useNV) {
 				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
 				glBlitFramebuffer(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			}
