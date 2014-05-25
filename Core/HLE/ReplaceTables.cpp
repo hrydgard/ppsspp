@@ -28,6 +28,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 
 #include "GPU/Math3D.h"
+#include "GPU/GPUInterface.h"
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include <emmintrin.h>
@@ -113,6 +114,9 @@ static int Replace_memcpy() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -130,6 +134,9 @@ static int Replace_memcpy16() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -147,6 +154,9 @@ static int Replace_memmove() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -160,6 +170,9 @@ static int Replace_memset() {
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
+		gpu->UpdateMemory(destPtr, destPtr, bytes);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
