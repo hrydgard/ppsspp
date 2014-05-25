@@ -282,9 +282,6 @@ public:
 	void Cleanup();
 
 	void ImportFunc(const FuncSymbolImport &func) {
-		if (isFake) {
-			return;
-		}
 		if (!Memory::IsValidAddress(func.stubAddr)) {
 			WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
 			return;
@@ -304,9 +301,6 @@ public:
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
-		if (isFake) {
-			return;
-		}
 		// Keep track and actually hook it up if possible.
 		importedVars.push_back(var);
 		impExpModuleNames.insert(var.moduleName);
