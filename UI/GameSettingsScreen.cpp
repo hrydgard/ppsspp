@@ -312,6 +312,9 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
+#if defined(USING_WIN_UI)
+	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, s->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
+#endif
 
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
@@ -336,6 +339,22 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
+#if defined(_WIN32) || defined(USING_QT_UI)
+	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+#else
+	std::string str1 = s->T("proAdhocServer Address:");
+	std::string str2 = " ";
+	std::string str3 = g_Config.proAdhocServer;
+	str1.append(str2);
+	str1.append(str3);
+	systemSettings->Add(new Choice(str1));
+	str1 = s->T("Mac Address:");
+	str3 = g_Config.localMacAddress;
+	str1.append(str2);
+	str1.append(str3);
+	systemSettings->Add(new Choice(str1));
+#endif
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
@@ -494,7 +513,34 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 		g_Config.sNickName = name;
 	}
 #endif
+	return UI::EVENT_DONE;
+}
 
+UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
+#if defined(_WIN32) || defined(USING_QT_UI)
+	const size_t name_len = 256;
+
+	char name[name_len];
+	memset(name, 0, sizeof(name));
+
+	if (System_InputBoxGetString("Enter a IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
+		g_Config.proAdhocServer = name;
+	}
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
+#if defined(_WIN32) || defined(USING_QT_UI)
+	const size_t name_len = 256;
+
+	char name[name_len];
+	memset(name, 0, sizeof(name));
+
+	if (System_InputBoxGetString("Enter a Mac address", g_Config.localMacAddress.c_str(), name, name_len)) {
+		g_Config.localMacAddress = name;
+	}
+#endif
 	return UI::EVENT_DONE;
 }
 
