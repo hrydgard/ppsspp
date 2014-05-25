@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -108,6 +109,10 @@ static int Replace_memcpy() {
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -121,6 +126,10 @@ static int Replace_memcpy16() {
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -134,6 +143,10 @@ static int Replace_memmove() {
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -144,6 +157,9 @@ static int Replace_memset() {
 	u32 bytes = PARAM(2);
 	memset(dst, value, bytes);
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -354,6 +370,12 @@ static int Replace_dl_write_matrix() {
 		dest[11] = matrix | (src[14] >> 8);
 #endif
 	}
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(PARAM(2), false, count * sizeof(float), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(PARAM(0) + 2 * sizeof(u32), true, sizeof(u32), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dlStruct[2], true, (count + 1) * sizeof(u32), currentMIPS->pc);
+#endif
 
 	dlStruct[2] += (1 + count) * 4;
 	RETURN(dlStruct[2]);
