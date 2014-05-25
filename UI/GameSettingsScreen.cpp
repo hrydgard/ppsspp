@@ -343,11 +343,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 #else
-	std::string str1 = s->T("proAdhocServer Address:");
+	std::string str1 = s->T("proAdhocServer Address: ");
 	std::string str2 = g_Config.proAdhocServer;
 	str1.append(str2);
 	systemSettings->Add(new Choice(str1));
-	str1 = s->T("Mac Address:");
+	str1 = s->T("Mac Address: ");
 	str2 = g_Config.localMacAddress;
 	str1.append(str2);
 	systemSettings->Add(new Choice(str1));
