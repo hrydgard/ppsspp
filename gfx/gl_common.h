@@ -3,13 +3,10 @@
 
 #if defined(USING_GLES2)
 #ifdef IOS
-#ifdef MAY_HAVE_GLES3
+#define MAY_HAVE_GLES3 1
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
-#else
-#include <OpenGLES/ES2/gl.h>
-#include <OpenGLES/ES2/glext.h>
-#endif // MAY_HAVE_GLES3
+#include "../gfx_es2/gl3stub.h"
 #else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>

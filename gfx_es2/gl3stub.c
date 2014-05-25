@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
+#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 
 #include "../gfx/gl_common.h"
 
 #if defined(USING_GLES2)
 
 GLboolean gl3stubInit() {
+#if !defined(IOS)
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
     FIND_PROC(glReadBuffer);
     FIND_PROC(glDrawRangeElements);
@@ -128,6 +129,7 @@ GLboolean gl3stubInit() {
     FIND_PROC(glGetInternalformativ);
     #undef FIND_PROC
 
+#endif // IOS
     if (!glReadBuffer ||
         !glDrawRangeElements ||
         !glTexImage3D ||
@@ -239,6 +241,8 @@ GLboolean gl3stubInit() {
     return GL_TRUE;
 }
 
+#if !defined(IOS)
+
 /* Function pointer definitions */
 GL_APICALL void           (* GL_APIENTRY glReadBuffer) (GLenum mode);
 GL_APICALL void           (* GL_APIENTRY glDrawRangeElements) (GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid* indices);
@@ -345,5 +349,6 @@ GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 
+#endif // IOS
 #endif
 #endif
