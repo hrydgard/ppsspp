@@ -1859,9 +1859,10 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
-		return true;  // No need to actually do the memory copy behind, probably.
+		return false;
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
 		if (g_Config.bBlockTransferGPU) {
