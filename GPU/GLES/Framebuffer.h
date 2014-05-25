@@ -239,7 +239,8 @@ private:
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
 
-	u8 *convBuf;
+	u8 *convBuf_;
+	u32 convBufSize_;
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;

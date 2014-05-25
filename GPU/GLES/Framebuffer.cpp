@@ -318,7 +318,7 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf(0),
+	convBuf_(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
 	plainColorLoc_(-1),
@@ -361,7 +361,7 @@ FramebufferManager::~FramebufferManager() {
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
 #endif
-	delete [] convBuf;
+	delete [] convBuf_;
 }
 
 void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -394,15 +394,18 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 	bool useConvBuf = false;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		useConvBuf = true;
-		if (!convBuf) {
-			convBuf = new u8[width * height * 4];
+		u32 neededSize = width * height * 4;
+		if (!convBuf_ || convBufSize_ < neededSize) {
+			delete [] convBuf_;
+			convBuf_ = new u8[neededSize];
+			convBufSize_ = neededSize;
 		}
 		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -417,7 +420,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -432,7 +435,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -447,7 +450,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_8888:
 				{
 					const u8 *src = srcPixels + srcStride * 4 * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					memcpy(dst, src, 4 * width);
 				}
 				break;
@@ -458,7 +461,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			}
 		}
 	}
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : srcPixels);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
