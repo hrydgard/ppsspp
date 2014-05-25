@@ -959,8 +959,10 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 		
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
+			bool useNV = false;
 #else
 		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+			bool useNV = !gl_extensions.GLES3;
 #endif
 
 #ifdef MAY_HAVE_GLES3
@@ -968,11 +970,11 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
 
-#if defined(ANDROID)  		// We only support this extension on Android, it's not even available on PC.
-				if (gl_extensions.NV_framebuffer_blit) {
+#if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
+				if (useNV) {
 					glBlitFramebufferNV(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				} else 
-#endif // defined(ANDROID)
+#endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
 					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
 			}
@@ -993,8 +995,10 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 	if (currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
+			bool useNV = false;
 #else
-		if (gl_extensions.GLES3) {
+		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+			bool useNV = !gl_extensions.GLES3;
 #endif
 #ifdef MAY_HAVE_GLES3
 
@@ -1016,11 +1020,11 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 			fbo_bind_for_read(framebuffer->fbo);
 			
-#if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-			if (gl_extensions.NV_framebuffer_blit) {
+#if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
+			if (useNV) {
 				glBlitFramebufferNV(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			} else 
-#endif // defined(ANDROID)
+#endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
 				glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
@@ -1227,7 +1231,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		}
 
 		vfb->memoryUpdated = true;
-		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h);
+		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
@@ -1250,7 +1254,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 }
 
 // TODO: If dimensions are the same, we can use glCopyImageSubData.
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h) {
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo) {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 		fbo_unbind();
@@ -1268,22 +1272,44 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 
 #ifndef USING_GLES2
 	if (gl_extensions.FBO_ARB) {
+		bool useNV = false;
 #else
 	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+		bool useNV = !gl_extensions.GLES3;
 #endif
 
+		float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
+		float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
+		int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
+		if (srcBpp != bpp && bpp != 0) {
+			srcXFactor = (srcXFactor * bpp) / srcBpp;
+		}
+		int srcX1 = srcX * srcXFactor;
+		int srcX2 = (srcX + w) * srcXFactor;
+		int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
+		int srcY1 = srcY2 + h * srcYFactor;
+
+		float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
+		float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
+		int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
+		if (dstBpp != bpp && bpp != 0) {
+			dstXFactor = (dstXFactor * bpp) / dstBpp;
+		}
+		int dstX1 = dstX * dstXFactor;
+		int dstX2 = (dstX + w) * dstXFactor;
+		int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
+		int dstY1 = dstY2 + h * dstYFactor;
+
 #ifdef MAY_HAVE_GLES3
-			fbo_bind_for_read(src->fbo);
-			if (gl_extensions.GLES3) {
-				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
-				glBlitFramebuffer(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			}
-#if defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-			else if (gl_extensions.NV_framebuffer_blit) {
-				// Render buffer is upside down , swap srcY0 with srcY1 to flip it correct
-				glBlitFramebufferNV(0, src->renderHeight, src->renderWidth, 0, 0, 0, dst->width, dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			}
-#endif // defined(ANDROID)
+		fbo_bind_for_read(src->fbo);
+		if (!useNV) {
+			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		}
+#if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
+		else if (gl_extensions.NV_framebuffer_blit) {
+			glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		}
+#endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
 
 #endif // MAY_HAVE_GLES3
 
@@ -1797,7 +1823,7 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			// if (g_Config.bBlockTransferGPU) {
-			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height);
+			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
 			// }
 		}
 	} else if (dstBuffer) {
@@ -1835,6 +1861,7 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272) {
+		// TODO: Use displayFormat_ instead of GE_FORMAT_8888?
 		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
 	}
 
@@ -1842,10 +1869,14 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 	VirtualFramebuffer *srcBuffer = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, dstBasePtr)) {
+		const u32 vfb_address = 0x04000000 | vfb->fb_address;
+		const u32 vfb_size = vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
+			dstY += (dstBasePtr - vfb_address) / (dstStride * bpp);
 			dstBuffer = vfb;
 		}
-		if (MaskedEqual(vfb->fb_address, srcBasePtr)) {
+		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
+			srcY += (srcBasePtr - vfb_address) / (srcStride * bpp);
 			srcBuffer = vfb;
 		}
 	}
@@ -1858,7 +1889,7 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 			// Just do the blit!
 			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			if (g_Config.bBlockTransferGPU) {
-				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height);
+				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
