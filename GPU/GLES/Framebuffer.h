@@ -124,7 +124,10 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -233,6 +236,8 @@ private:
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram_;
@@ -251,18 +256,15 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
-
+	bool updateVRAM_;
+	
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
-
-	// This is to be used only for reporting of strange blits. Don't control behaviour as
-	// this is "permanent" while framebuffers aren't.
-	std::set<std::pair<u32, u32>> reportedBlits_;
 };
