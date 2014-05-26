@@ -1954,15 +1954,6 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		return;
 	}
 
-	// TODO: This can probably just be handled by a normal block transfer upload, no?
-	if (Memory::IsRAMAddress(srcBasePtr) && MayIntersectFramebuffer(dstBasePtr)) {
-		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
-		// The main thing this helps is videos, which will have a matching stride, and zero x/y.
-		if (dstStride == srcStride && dstY == 0 && dstX == 0 && srcX == 0 && srcY == 0) {
-			UpdateFromMemory(dstBasePtr, (dstY + height) * dstStride * bpp, true);
-		}
-	}
-
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 
@@ -1986,7 +1977,13 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
+				fbo_bind_as_render_target(dstBuffer->fbo);
+				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride, width, height);
+				if (currentRenderVfb_) {
+					fbo_bind_as_render_target(currentRenderVfb_->fbo);
+				} else {
+					fbo_unbind();
+				}
 			}
 		}
 	}
