@@ -328,6 +328,7 @@ FramebufferManager::FramebufferManager() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
+	gameUsesSequentialCopies_(false),
 	framebufRangeEnd_(0)
 #ifndef USING_GLES2
 	,
@@ -1240,7 +1241,29 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #endif
 		}
 
-		vfb->memoryUpdated = true;
+		if (gameUsesSequentialCopies_) {
+			// Ignore the x/y/etc., read the entire thing.
+			x = 0;
+			y = 0;
+			w = vfb->width;
+			h = vfb->height;
+		}
+		if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+			vfb->memoryUpdated = true;
+		} else {
+			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+			static int frameLastCopy = 0;
+			static u32 bufferLastCopy = 0;
+			static int copiesThisFrame = 0;
+			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+				frameLastCopy = gpuStats.numFlips;
+				bufferLastCopy = vfb->fb_address;
+				copiesThisFrame = 0;
+			}
+			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+				gameUsesSequentialCopies_ = true;
+			}
+		}
 		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0, true);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels

@@ -272,6 +272,7 @@ private:
 	bool resized_;
 	bool useBufferedRendering_;
 	bool updateVRAM_;
+	bool gameUsesSequentialCopies_;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_;
