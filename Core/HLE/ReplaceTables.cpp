@@ -104,7 +104,11 @@ static int Replace_memcpy() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
@@ -114,9 +118,6 @@ static int Replace_memcpy() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		gpu->UpdateMemory(destPtr, srcPtr, bytes);
-	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -124,7 +125,11 @@ static int Replace_memcpy16() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2) * 16;
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
@@ -134,9 +139,6 @@ static int Replace_memcpy16() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		gpu->UpdateMemory(destPtr, srcPtr, bytes);
-	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -144,7 +146,11 @@ static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
@@ -154,9 +160,6 @@ static int Replace_memmove() {
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		gpu->UpdateMemory(destPtr, srcPtr, bytes);
-	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -165,14 +168,17 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	memset(dst, value, bytes);
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->UpdateMemory(destPtr, destPtr, bytes);
+	}
+	if (!skip) {
+		memset(dst, value, bytes);
+	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
-		gpu->UpdateMemory(destPtr, destPtr, bytes);
-	}
 	return 10 + bytes / 4;  // approximation
 }
 
