@@ -30,6 +30,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -344,7 +345,13 @@ FramebufferManager::FramebufferManager() :
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-	
+
+	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
+	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
+	// We force this framebuffer to 1x and force download it automatically.
+	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164";
+
 	SetLineWidth();
 }
 
@@ -770,6 +777,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
+	if (hackForce04154000Download_ && MaskedEqual(fb_address, 0x04154000)) {
+		renderWidthFactor = 1.0;
+		renderHeightFactor = 1.0;
+	}
+
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -873,7 +885,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 	
-		if (updateVRAM_ && !vfb->memoryUpdated) {
+		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		}
 		// Use it as a render target.
@@ -1143,6 +1155,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+}
+
+inline bool FramebufferManager::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
+	return updateVRAM_ || (hackForce04154000Download_ && MaskedEqual(vfb->fb_address, 0x04154000));
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
@@ -1736,7 +1752,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-		if (updateVRAM_ && age == 0 && !vfb->memoryUpdated) {
+		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
 #ifdef USING_GLES2
 			bool sync = true;
 #else

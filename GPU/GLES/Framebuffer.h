@@ -209,6 +209,7 @@ public:
 		}
 		return true;
 	}
+	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size);
 
@@ -273,6 +274,8 @@ private:
 	bool useBufferedRendering_;
 	bool updateVRAM_;
 	bool gameUsesSequentialCopies_;
+
+	bool hackForce04154000Download_;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_;
