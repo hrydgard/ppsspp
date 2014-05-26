@@ -1914,24 +1914,34 @@ u32 FramebufferManager::FramebufferByteSize(const VirtualFramebuffer *vfb) const
 }
 
 void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const {
-	int dstYOffset = 0;
-	int srcYOffset = 0;
+	u32 dstYOffset = -1;
+	u32 srcYOffset = -1;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		const u32 vfb_address = 0x04000000 | vfb->fb_address;
 		const u32 vfb_size = FramebufferByteSize(vfb);
 		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
-			dstYOffset = (dstBasePtr - vfb_address) / (dstStride * bpp);
-			dstBuffer = vfb;
+			const u32 yOffset = (dstBasePtr - vfb_address) / (dstStride * bpp);
+			if (yOffset < dstYOffset) {
+				dstYOffset = yOffset;
+				dstBuffer = vfb;
+			}
 		}
 		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
-			srcYOffset = (srcBasePtr - vfb_address) / (srcStride * bpp);
-			srcBuffer = vfb;
+			const u32 yOffset = (srcBasePtr - vfb_address) / (srcStride * bpp);
+			if (yOffset < srcYOffset) {
+				srcYOffset = yOffset;
+				srcBuffer = vfb;
+			}
 		}
 	}
 
-	dstY += dstYOffset;
-	srcY += srcYOffset;
+	if (dstYOffset != (u32)-1) {
+		dstY += dstYOffset;
+	}
+	if (srcYOffset >= (u32)-1) {
+		srcY += srcYOffset;
+	}
 }
 
 bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
