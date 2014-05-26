@@ -837,7 +837,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
-		u32 byteSize = vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+		u32 byteSize = FramebufferByteSize(vfb);
 		if (fb_address + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = ((fb_address + byteSize) & 0x3FFFFFFF) | 0x04000000;
 		}
@@ -1808,7 +1808,7 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
 		for (size_t i = 0; i < vfbs_.size(); i++) {
 			int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
-			int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
+			int fsize = FramebufferByteSize(vfbs_[i]);
 			if (MaskedEqual(vfbs_[i]->fb_address, src) && size == fsize) {
 				// A framebuffer matched!
 				knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
@@ -1853,11 +1853,15 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 	}
 }
 
+u32 FramebufferManager::FramebufferByteSize(const VirtualFramebuffer *vfb) const {
+	return vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+}
+
 void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const {
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		const u32 vfb_address = 0x04000000 | vfb->fb_address;
-		const u32 vfb_size = vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+		const u32 vfb_size = FramebufferByteSize(vfb);
 		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
 			dstY += (dstBasePtr - vfb_address) / (dstStride * bpp);
 			dstBuffer = vfb;
