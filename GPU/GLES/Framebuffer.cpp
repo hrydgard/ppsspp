@@ -2013,7 +2013,9 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				fbo_bind_as_render_target(dstBuffer->fbo);
-				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride, width, height);
+				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
+				float dstXFactor = (float)bpp / dstBpp;
+				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, width * dstXFactor, height);
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 					dstBuffer->reallyDirtyAfterDisplay = true;
