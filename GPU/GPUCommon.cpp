@@ -214,7 +214,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		//stack = NULL;
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
 			if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
-				if (dls[i].pc == listpc) {
+				// Logically, if the CPU has not interrupted yet, it hasn't seen the latest pc either.
+				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
+				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
 					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
 					return 0x80000021;
 				}
