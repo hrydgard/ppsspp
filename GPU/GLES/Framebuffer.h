@@ -210,7 +210,7 @@ public:
 		return true;
 	}
 
-	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 

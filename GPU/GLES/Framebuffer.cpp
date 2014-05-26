@@ -1834,7 +1834,11 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+		return false;
+	}
+
 	// MotoGP workaround
 	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
 		for (size_t i = 0; i < vfbs_.size(); i++) {
@@ -1871,16 +1875,24 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
 			// }
 		}
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		return true;
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
 		// Here we should just draw the pixels into the buffer.
 		// if (g_Config.bBlockTransferGPU) {
 		// }
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		return true;
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download (not supported) %08x -> %08x", src, dst);
-		// if (g_Config.bBlockTransferGPU) {
-		//   ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
-		// }
+		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		if (g_Config.bBlockTransferGPU) {
+			// TODO: Validate x/y/w/h based on size and offset?
+			ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
+		}
+		return false;
+	} else {
+		return false;
 	}
 }
 

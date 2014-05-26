@@ -1963,10 +1963,12 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 bool GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
-		// TODO: Copy in the right order.
-		Memory::Memcpy(dest, Memory::GetPointer(src), size);
-		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+		if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+			Memory::Memcpy(dest, Memory::GetPointer(src), size);
+			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+		} else {
+			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+		}
 		return true;
 	}
 
