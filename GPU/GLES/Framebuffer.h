@@ -200,6 +200,16 @@ public:
 		}
 	}
 
+	bool MayIntersectFramebuffer(u32 start) {
+		// Clear the cache/kernel bits.
+		start = start & 0x3FFFFFFF;
+		// Most games only have two framebuffers at the start.
+		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
+			return false;
+		}
+		return true;
+	}
+
 	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
@@ -261,7 +271,10 @@ private:
 	bool resized_;
 	bool useBufferedRendering_;
 	bool updateVRAM_;
-	
+
+	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
+	u32 framebufRangeEnd_;
+
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 

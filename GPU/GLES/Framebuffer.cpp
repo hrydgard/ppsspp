@@ -327,7 +327,8 @@ FramebufferManager::FramebufferManager() :
 	shaderManager_(0),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
-	resized_(false)
+	resized_(false),
+	framebufRangeEnd_(0)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -835,6 +836,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		ClearBuffer();
 		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
+
+		u32 byteSize = vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+		if (fb_address + byteSize > framebufRangeEnd_) {
+			framebufRangeEnd_ = ((fb_address + byteSize) & 0x3FFFFFFF) | 0x04000000;
+		}
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
@@ -1798,6 +1804,11 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+	if (!MayIntersectFramebuffer(src) && !MayIntersectFramebuffer(dst)) {
+		// Don't waste time looking if neither can be a framebuffer.
+		return;
+	}
+
 	// MotoGP workaround
 	for (size_t i = 0; i < vfbs_.size(); i++) {
 		int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
@@ -1867,6 +1878,11 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		return false;
 	}
 
+	// Skip checking if there's no framebuffers in that area.
+	if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
+		return false;
+	}
+
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
 	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
@@ -1903,7 +1919,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		return;
 	}
 
-	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
+	// TODO: This can probably just be handled by a normal block transfer upload, no?
+	if (Memory::IsRAMAddress(srcBasePtr) && MayIntersectFramebuffer(dstBasePtr)) {
 		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
 		// The main thing this helps is videos, which will have a matching stride, and zero x/y.
 		if (dstStride == srcStride && dstY == 0 && dstX == 0 && srcX == 0 && srcY == 0) {
@@ -1917,6 +1934,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	u32 backBuffer = PrevDisplayFramebufAddr();
 	u32 displayBuffer = DisplayFramebufAddr();
 
+	// TODO: Is this not handled by upload?  Should we check !dstBuffer to avoid a double copy?
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272) {
@@ -1924,15 +1942,17 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
 	}
 
-	VirtualFramebuffer *dstBuffer = 0;
-	VirtualFramebuffer *srcBuffer = 0;
-	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
+	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+		VirtualFramebuffer *dstBuffer = 0;
+		VirtualFramebuffer *srcBuffer = 0;
+		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
 
-	if (dstBuffer && !srcBuffer) {
-		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		if (g_Config.bBlockTransferGPU) {
-			u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
+		if (dstBuffer && !srcBuffer) {
+			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+			if (g_Config.bBlockTransferGPU) {
+				u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
+			}
 		}
 	}
 }

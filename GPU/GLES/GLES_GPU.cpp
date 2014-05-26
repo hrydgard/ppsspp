@@ -1955,8 +1955,9 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	else
 		textureCache_.InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL)
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
 		framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+	}
 }
 
 void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
