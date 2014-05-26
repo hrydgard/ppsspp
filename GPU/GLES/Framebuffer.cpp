@@ -1878,13 +1878,25 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		Memory::Memcpy(dst, Memory::GetPointer(src), size);
 		return true;
 	} else if (dstBuffer) {
-		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
-		// Here we should just draw the pixels into the buffer.
-		// if (g_Config.bBlockTransferGPU) {
-		// }
-		Memory::Memcpy(dst, Memory::GetPointer(src), size);
-		return true;
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
+		if (g_Config.bBlockTransferGPU) {
+			const u8 *srcBase = Memory::GetPointerUnchecked(src);
+			fbo_bind_as_render_target(dstBuffer->fbo);
+			// TODO: Validate x/y/w/h based on size and offset?
+			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
+			dstBuffer->dirtyAfterDisplay = true;
+			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+				dstBuffer->reallyDirtyAfterDisplay = true;
+			if (currentRenderVfb_) {
+				fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			} else {
+				fbo_unbind();
+			}
+			// This is a memcpy, let's still copy just in case.
+			return false;
+		}
+		return false;
+	} else if (srcBuffer) {
 		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
 			// TODO: Validate x/y/w/h based on size and offset?
@@ -1988,9 +2000,12 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
-				u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				fbo_bind_as_render_target(dstBuffer->fbo);
 				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride, width, height);
+				dstBuffer->dirtyAfterDisplay = true;
+				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+					dstBuffer->reallyDirtyAfterDisplay = true;
 				if (currentRenderVfb_) {
 					fbo_bind_as_render_target(currentRenderVfb_->fbo);
 				} else {
