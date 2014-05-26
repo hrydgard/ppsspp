@@ -245,7 +245,7 @@ private:
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
-	void PackFramebufferSync_(VirtualFramebuffer *vfb);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;

@@ -1270,13 +1270,13 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
 
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb);
+		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb);
+				PackFramebufferSync_(nvfb, x, y, w, h);
 			}
 		}
 #endif
@@ -1615,7 +1615,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 #endif
 
-void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
+void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
@@ -1638,7 +1638,13 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	if (!convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
 	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+		u32 neededSize = (u32)bufSize * sizeof(GLubyte);
+		if (!convBuf_ || convBufSize_ < neededSize) {
+			delete [] convBuf_;
+			convBuf_ = new u8[neededSize];
+			convBufSize_ = neededSize;
+		}
+		packed = convBuf_;
 	}
 
 	if (packed) {
@@ -1652,12 +1658,12 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 			glfmt = GL_BGRA_EXT;
 		}
 #endif
-		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
+		int byteOffset = y * vfb->fb_stride * 4;
+		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 		// LogReadPixelsError(glGetError());
 
 		if (convert) {
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
-			free(packed);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + byteOffset), packed + byteOffset, vfb->fb_stride, h, vfb->format);
 		}
 	}
 
