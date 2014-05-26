@@ -553,6 +553,9 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 	u8 c = fillc & 0xff;
 	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	Memory::Memset(addr, c, n);
+	if (Memory::IsVRAMAddress(addr)) {
+		gpu->UpdateMemory(addr, addr, n);
+	}
 	return addr;
 }
 

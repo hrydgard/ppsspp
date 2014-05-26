@@ -168,12 +168,9 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	bool skip = false;
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
-		skip = gpu->UpdateMemory(destPtr, destPtr, bytes);
-	}
-	if (!skip) {
-		memset(dst, value, bytes);
+	memset(dst, value, bytes);
+	if (Memory::IsVRAMAddress(destPtr)) {
+		gpu->UpdateMemory(destPtr, destPtr, bytes);
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE

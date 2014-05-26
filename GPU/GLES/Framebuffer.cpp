@@ -1880,9 +1880,11 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		}
 	}
 
+	bool actuallyMemset = src == dst;
+
 	// TODO: Do ReadFramebufferToMemory etc where applicable.
 	// This will slow down MotoGP but make the hack above unnecessary.
-	if (dstBuffer && srcBuffer) {
+	if (dstBuffer && srcBuffer && !actuallyMemset) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
