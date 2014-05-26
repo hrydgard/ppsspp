@@ -142,6 +142,42 @@ static int Replace_memcpy16() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy_swizzled() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 pitch = PARAM(2);
+	u32 h = PARAM(4);
+	if (Memory::IsVRAMAddress(srcPtr)) {
+		// Cheat a bit to force a download of the framebuffer.
+		// VRAM + 0x00400000 is simply a VRAM mirror.
+		gpu->UpdateMemory(srcPtr ^ 0x00400000, srcPtr, pitch * h);
+	}
+	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
+	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
+
+	const u8 *ysrcp = srcp;
+	for (u32 y = 0; y < h; y += 8) {
+		const u8 *xsrcp = ysrcp;
+		for (u32 x = 0; x < pitch; x += 16) {
+			const u8 *src = xsrcp;
+			for (int n = 0; n < 8; ++n) {
+				memcpy(dstp, src, 16);
+				src += pitch;
+				dstp += 16;
+			}
+			xsrcp += 16;
+		}
+		ysrcp += 8 * pitch;
+	}
+
+	RETURN(0);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, pitch * h, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, pitch * h, currentMIPS->pc);
+#endif
+	return 10 + (pitch * h) / 4;  // approximation
+}
+
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -420,6 +456,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "ceilf", &Replace_ceilf, 0, 0},
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memcpy16", &Replace_memcpy16, 0, 0},
+	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},

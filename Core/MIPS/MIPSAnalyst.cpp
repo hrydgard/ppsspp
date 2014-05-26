@@ -220,6 +220,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6301fa5149bd973a, 120, "wcscat", },
 	{ 0x658b07240a690dbd, 36, "strlen", },
 	{ 0x66122f0ab50b2ef9, 296, "dl_write_dither_matrix_5", },
+	{ 0x66f7f1beccbc104a, 256, "memcpy_swizzled", }, // God Eater 2
 	{ 0x679e647e34ecf7f1, 132, "roundf", },
 	{ 0x67afe74d9ec72f52, 4380, "_strtod_r", },
 	{ 0x68b22c2aa4b8b915, 400, "sqrt", },
@@ -738,6 +739,7 @@ skip:
 		bool looking = false;
 		bool end = false;
 		bool isStraightLeaf = true;
+		bool decreasedSp = false;
 
 		u32 addr;
 		u32 addrNextSym = 0;
@@ -761,6 +763,8 @@ skip:
 				furthestBranch = 0;
 				looking = false;
 				end = false;
+				isStraightLeaf = false;
+				decreasedSp = false;
 				continue;
 			}
 
@@ -771,6 +775,7 @@ skip:
 				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
+			// j X
 			} else if ((op & 0xFC000000) == 0x08000000) {
 				u32 sureTarget = GetJumpTarget(addr);
 				// Check for a tail call.  Might not even have a jr ra.
@@ -782,6 +787,18 @@ skip:
 						end = true;
 					}
 				} else if (sureTarget != INVALIDTARGET && sureTarget > addr && sureTarget > furthestBranch) {
+					static const u32 MAX_JUMP_FORWARD = 128;
+					// If it's a nearby forward jump, and not a stackless leaf, assume not a tail call.
+					if (sureTarget <= addr + MAX_JUMP_FORWARD && decreasedSp) {
+						// But let's check the delay slot.
+						MIPSOpcode op = Memory::Read_Instruction(addr + 4);
+						// addiu sp, sp, +X
+						if ((op & 0xFFFF8000) != 0x27BD0000) {
+							furthestBranch = sureTarget;
+							continue;
+						}
+					}
+
 					// A jump later.  Probably tail, but let's check if it jumps back.
 					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
 					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
@@ -805,6 +822,14 @@ skip:
 				} else {
 					end = true;
 				}
+			}
+			// addiu sp, sp, -X
+			if ((op & 0xFFFF8000) == 0x27BD8000) {
+				decreasedSp = true;
+			}
+			// addiu sp, sp, +X
+			if ((op & 0xFFFF8000) == 0x27BD0000) {
+				decreasedSp = false;
 			}
 
 			if (looking) {
@@ -838,6 +863,7 @@ skip:
 				looking = false;
 				end = false;
 				isStraightLeaf = true;
+				decreasedSp = false;
 				currentFunction.start = addr+4;
 			}
 		}
