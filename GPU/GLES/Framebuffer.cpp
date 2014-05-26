@@ -1882,6 +1882,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		if (g_Config.bBlockTransferGPU) {
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
 			fbo_bind_as_render_target(dstBuffer->fbo);
+			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			// TODO: Validate x/y/w/h based on size and offset?
 			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 			dstBuffer->dirtyAfterDisplay = true;
@@ -1892,6 +1893,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			} else {
 				fbo_unbind();
 			}
+			glstate.viewport.restore();
 			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
 			// This is a memcpy, let's still copy just in case.
 			return false;
@@ -2015,6 +2017,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				fbo_bind_as_render_target(dstBuffer->fbo);
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
+				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, width * dstXFactor, height);
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -2024,6 +2027,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				} else {
 					fbo_unbind();
 				}
+				glstate.viewport.restore();
 				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
 			}
 		}
