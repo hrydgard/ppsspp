@@ -838,8 +838,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		currentRenderVfb_ = vfb;
 
 		u32 byteSize = FramebufferByteSize(vfb);
-		if (fb_address + byteSize > framebufRangeEnd_) {
-			framebufRangeEnd_ = ((fb_address + byteSize) & 0x3FFFFFFF) | 0x04000000;
+		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
+		if (fb_address_mem + byteSize > framebufRangeEnd_) {
+			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
