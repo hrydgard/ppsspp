@@ -350,7 +350,7 @@ FramebufferManager::FramebufferManager() :
 	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
 	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
 	// We force this framebuffer to 1x and force download it automatically.
-	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164";
+	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
 
 	SetLineWidth();
 }
