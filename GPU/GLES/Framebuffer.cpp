@@ -1834,9 +1834,8 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
-			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
+			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy (not supported) %08x -> %08x", src, dst);
 			// Just do the blit!
-			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			// if (g_Config.bBlockTransferGPU) {
 			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
 			// }
@@ -1847,7 +1846,7 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		// if (g_Config.bBlockTransferGPU) {
 		// }
 	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download (not supported) %08x -> %08x", src, dst);
 		// if (g_Config.bBlockTransferGPU) {
 		//   ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
 		// }
@@ -1890,7 +1889,6 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		} else {
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
-			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
 				return true;  // No need to actually do the memory copy behind, probably.
@@ -1945,7 +1943,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
 
 		if (dstBuffer && !srcBuffer) {
-			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
