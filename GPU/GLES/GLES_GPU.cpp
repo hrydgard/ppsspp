@@ -1964,7 +1964,7 @@ void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dest)) {
+	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
 		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
 	}
 }

@@ -1804,18 +1804,15 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
-	if (!MayIntersectFramebuffer(src) && !MayIntersectFramebuffer(dst)) {
-		// Don't waste time looking if neither can be a framebuffer.
-		return;
-	}
-
 	// MotoGP workaround
-	for (size_t i = 0; i < vfbs_.size(); i++) {
-		int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
-		int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
-		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == fsize) {
-			// A framebuffer matched!
-			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
+		for (size_t i = 0; i < vfbs_.size(); i++) {
+			int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
+			int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
+			if (MaskedEqual(vfbs_[i]->fb_address, src) && size == fsize) {
+				// A framebuffer matched!
+				knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+			}
 		}
 	}
 
