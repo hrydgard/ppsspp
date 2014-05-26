@@ -163,6 +163,7 @@ enum GPUEventType {
 	GPU_EVENT_INVALIDATE_CACHE,
 	GPU_EVENT_FINISH_EVENT_LOOP,
 	GPU_EVENT_SYNC_THREAD,
+	GPU_EVENT_FB_MEMCPY,
 };
 
 struct GPUEvent {
@@ -175,6 +176,12 @@ struct GPUEvent {
 			int size;
 			GPUInvalidationType type;
 		} invalidate_cache;
+		// GPU_EVENT_FB_MEMCPY
+		struct {
+			u32 dst;
+			u32 src;
+			int size;
+		} fb_memcpy;
 	};
 
 	operator GPUEventType() const {

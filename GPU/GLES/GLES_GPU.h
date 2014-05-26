@@ -151,6 +151,7 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
+	void UpdateMemoryInternal(u32 dest, u32 src, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	static CommandInfo cmdInfo_[256];

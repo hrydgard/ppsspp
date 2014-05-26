@@ -661,6 +661,10 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
 		break;
 
+	case GPU_EVENT_FB_MEMCPY:
+		UpdateMemoryInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		break;
+
 	default:
 		GPUCommon::ProcessEvent(ev);
 	}
@@ -1964,14 +1968,29 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	}
 }
 
+void GLES_GPU::UpdateMemoryInternal(u32 dest, u32 src, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+		Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	} else {
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	}
+}
+
 bool GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
-		if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
-			Memory::Memcpy(dest, Memory::GetPointer(src), size);
-			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+			ev.fb_memcpy.dst = dest;
+			ev.fb_memcpy.src = src;
+			ev.fb_memcpy.size = size;
+			ScheduleEvent(ev);
+
+			// This is a memcpy, so we need to wait for it to complete.
+			SyncThread();
 		} else {
-			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+			UpdateMemoryInternal(dest, src, size);
 		}
 		return true;
 	}
