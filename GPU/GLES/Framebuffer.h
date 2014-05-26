@@ -166,7 +166,8 @@ public:
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
@@ -199,7 +200,17 @@ public:
 		}
 	}
 
-	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool MayIntersectFramebuffer(u32 start) {
+		// Clear the cache/kernel bits.
+		start = start & 0x3FFFFFFF;
+		// Most games only have two framebuffers at the start.
+		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
+			return false;
+		}
+		return true;
+	}
+
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
@@ -210,6 +221,9 @@ public:
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
+
+	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const;
+	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
 
@@ -227,11 +241,11 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp);
+	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
-	void PackFramebufferSync_(VirtualFramebuffer *vfb);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
@@ -239,7 +253,8 @@ private:
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
 
-	u8 *convBuf;
+	u8 *convBuf_;
+	u32 convBufSize_;
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
@@ -257,7 +272,11 @@ private:
 	bool resized_;
 	bool useBufferedRendering_;
 	bool updateVRAM_;
-	
+	bool gameUsesSequentialCopies_;
+
+	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
+	u32 framebufRangeEnd_;
+
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 

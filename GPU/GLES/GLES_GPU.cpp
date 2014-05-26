@@ -661,6 +661,10 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
 		break;
 
+	case GPU_EVENT_FB_MEMCPY:
+		UpdateMemoryInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		break;
+
 	default:
 		GPUCommon::ProcessEvent(ev);
 	}
@@ -1908,30 +1912,31 @@ void GLES_GPU::DoBlockTransfer() {
 		return;
 	}
 
-	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-	// entirely by walking a couple of pointers...
-	if (srcStride == dstStride && width == srcStride) {
-		// Common case in God of War, let's do it all in one chunk.
-		u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-		u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-		const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-		u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-		memcpy(dst, src, width * height * bpp);
-	} else {
-		for (int y = 0; y < height; y++) {
-			u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
+	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
+	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
+		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
+		// entirely by walking a couple of pointers...
+		if (srcStride == dstStride && width == srcStride) {
+			// Common case in God of War, let's do it all in one chunk.
+			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * bpp);
-		}
-	}
+			memcpy(dst, src, width * height * bpp);
+		} else {
+			for (int y = 0; y < height; y++) {
+				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransfer(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
+				memcpy(dst, src, width * bpp);
+			}
+		}
+
 		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -1954,17 +1959,44 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	else
 		textureCache_.InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL)
-		framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
+		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
+		// Vempire invalidates (with writeback) after drawing, but before blitting.
+		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
+			framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+		}
+	}
 }
 
-void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dest)) {
-		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
+void GLES_GPU::UpdateMemoryInternal(u32 dest, u32 src, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+		Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	} else {
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	}
+}
+
+bool GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+			ev.fb_memcpy.dst = dest;
+			ev.fb_memcpy.src = src;
+			ev.fb_memcpy.size = size;
+			ScheduleEvent(ev);
+
+			// This is a memcpy, so we need to wait for it to complete.
+			SyncThread();
+		} else {
+			UpdateMemoryInternal(dest, src, size);
+		}
+		return true;
+	}
+
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
 }
 
 void GLES_GPU::ClearCacheNextFrame() {

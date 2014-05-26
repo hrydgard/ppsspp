@@ -1315,8 +1315,9 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 		framebufferManager_.UpdateFromMemory(addr, size);
 }
 
-void DIRECTX9_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool DIRECTX9_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
 }
 
 void DIRECTX9_GPU::ClearCacheNextFrame() {

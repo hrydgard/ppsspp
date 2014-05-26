@@ -318,7 +318,7 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf(0),
+	convBuf_(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
 	plainColorLoc_(-1),
@@ -327,7 +327,9 @@ FramebufferManager::FramebufferManager() :
 	shaderManager_(0),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
-	resized_(false)
+	resized_(false),
+	gameUsesSequentialCopies_(false),
+	framebufRangeEnd_(0)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -361,7 +363,7 @@ FramebufferManager::~FramebufferManager() {
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
 #endif
-	delete [] convBuf;
+	delete [] convBuf_;
 }
 
 void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -394,15 +396,18 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 	bool useConvBuf = false;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		useConvBuf = true;
-		if (!convBuf) {
-			convBuf = new u8[width * height * 4];
+		u32 neededSize = width * height * 4;
+		if (!convBuf_ || convBufSize_ < neededSize) {
+			delete [] convBuf_;
+			convBuf_ = new u8[neededSize];
+			convBufSize_ = neededSize;
 		}
 		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -417,7 +422,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -432,7 +437,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
@@ -447,7 +452,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			case GE_FORMAT_8888:
 				{
 					const u8 *src = srcPixels + srcStride * 4 * y;
-					u8 *dst = convBuf + 4 * width * y;
+					u8 *dst = convBuf_ + 4 * width * y;
 					memcpy(dst, src, 4 * width);
 				}
 				break;
@@ -458,7 +463,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 			}
 		}
 	}
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf : srcPixels);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, useConvBuf ? convBuf_ : srcPixels);
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -832,6 +837,12 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		ClearBuffer();
 		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
+
+		u32 byteSize = FramebufferByteSize(vfb);
+		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
+		if (fb_address_mem + byteSize > framebufRangeEnd_) {
+			framebufRangeEnd_ = fb_address_mem + byteSize;
+		}
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
@@ -1230,20 +1241,42 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #endif
 		}
 
-		vfb->memoryUpdated = true;
-		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0);
+		if (gameUsesSequentialCopies_) {
+			// Ignore the x/y/etc., read the entire thing.
+			x = 0;
+			y = 0;
+			w = vfb->width;
+			h = vfb->height;
+		}
+		if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+			vfb->memoryUpdated = true;
+		} else {
+			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+			static int frameLastCopy = 0;
+			static u32 bufferLastCopy = 0;
+			static int copiesThisFrame = 0;
+			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+				frameLastCopy = gpuStats.numFlips;
+				bufferLastCopy = vfb->fb_address;
+				copiesThisFrame = 0;
+			}
+			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+				gameUsesSequentialCopies_ = true;
+			}
+		}
+		BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0, true);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
 
 #ifdef USING_GLES2
-		PackFramebufferSync_(nvfb);
+		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
 		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
-				PackFramebufferSync_(nvfb);
+				PackFramebufferSync_(nvfb, x, y, w, h);
 			}
 		}
 #endif
@@ -1254,7 +1287,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 }
 
 // TODO: If dimensions are the same, we can use glCopyImageSubData.
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
 	if (!dst->fbo) {
 		ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
 		fbo_unbind();
@@ -1299,6 +1332,11 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		int dstX2 = (dstX + w) * dstXFactor;
 		int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
 		int dstY1 = dstY2 + h * dstYFactor;
+
+		if (flip) {
+			dstY1 = dst->renderHeight - dstY1;
+			dstY2 = dst->renderHeight - dstY2;
+		}
 
 #ifdef MAY_HAVE_GLES3
 		fbo_bind_for_read(src->fbo);
@@ -1577,7 +1615,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 #endif
 
-void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
+void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
@@ -1600,7 +1638,13 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	if (!convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
 	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+		u32 neededSize = (u32)bufSize * sizeof(GLubyte);
+		if (!convBuf_ || convBufSize_ < neededSize) {
+			delete [] convBuf_;
+			convBuf_ = new u8[neededSize];
+			convBufSize_ = neededSize;
+		}
+		packed = convBuf_;
 	}
 
 	if (packed) {
@@ -1614,12 +1658,12 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 			glfmt = GL_BGRA_EXT;
 		}
 #endif
-		glReadPixels(0, 0, vfb->fb_stride, vfb->height, glfmt, GL_UNSIGNED_BYTE, packed);
+		int byteOffset = y * vfb->fb_stride * 4;
+		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 		// LogReadPixelsError(glGetError());
 
 		if (convert) {
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
-			free(packed);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + byteOffset), packed + byteOffset, vfb->fb_stride, h, vfb->format);
 		}
 	}
 
@@ -1790,14 +1834,20 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+		return false;
+	}
+
 	// MotoGP workaround
-	for (size_t i = 0; i < vfbs_.size(); i++) {
-		int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
-		int fsize = vfbs_[i]->fb_stride * vfbs_[i]->height * (vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2);
-		if ((vfbs_[i]->fb_address | 0x04000000) == src && size == fsize) {
-			// A framebuffer matched!
-			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
+		for (size_t i = 0; i < vfbs_.size(); i++) {
+			int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
+			int fsize = FramebufferByteSize(vfbs_[i]);
+			if (MaskedEqual(vfbs_[i]->fb_address, src) && size == fsize) {
+				// A framebuffer matched!
+				knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+			}
 		}
 	}
 
@@ -1819,37 +1869,126 @@ void FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
-			WARN_LOG_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
+			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy (not supported) %08x -> %08x", src, dst);
 			// Just do the blit!
-			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
 			// if (g_Config.bBlockTransferGPU) {
 			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
 			// }
 		}
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		return true;
 	} else if (dstBuffer) {
-		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload (not supported) %08x -> %08x", src, dst);
-		// Here we should just draw the pixels into the buffer.
-		// if (g_Config.bBlockTransferGPU) {
-		// }
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
-		// if (g_Config.bBlockTransferGPU) {
-		//   ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
-		// }
+		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
+		if (g_Config.bBlockTransferGPU) {
+			const u8 *srcBase = Memory::GetPointerUnchecked(src);
+			fbo_bind_as_render_target(dstBuffer->fbo);
+			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
+			// TODO: Validate x/y/w/h based on size and offset?
+			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
+			dstBuffer->dirtyAfterDisplay = true;
+			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+				dstBuffer->reallyDirtyAfterDisplay = true;
+			if (currentRenderVfb_) {
+				fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			} else {
+				fbo_unbind();
+			}
+			glstate.viewport.restore();
+			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
+			// This is a memcpy, let's still copy just in case.
+			return false;
+		}
+		return false;
+	} else if (srcBuffer) {
+		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		if (g_Config.bBlockTransferGPU) {
+			// TODO: Validate x/y/w/h based on size and offset?
+			ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
+		}
+		return false;
+	} else {
+		return false;
 	}
 }
 
-bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
+u32 FramebufferManager::FramebufferByteSize(const VirtualFramebuffer *vfb) const {
+	return vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
+}
+
+void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const {
+	u32 dstYOffset = -1;
+	u32 srcYOffset = -1;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		const u32 vfb_address = 0x04000000 | vfb->fb_address;
+		const u32 vfb_size = FramebufferByteSize(vfb);
+		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
+			const u32 yOffset = (dstBasePtr - vfb_address) / (dstStride * bpp);
+			if (yOffset < dstYOffset) {
+				dstYOffset = yOffset;
+				dstBuffer = vfb;
+			}
+		}
+		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
+			const u32 yOffset = (srcBasePtr - vfb_address) / (srcStride * bpp);
+			if (yOffset < srcYOffset) {
+				srcYOffset = yOffset;
+				srcBuffer = vfb;
+			}
+		}
+	}
+
+	if (dstYOffset != (u32)-1) {
+		dstY += dstYOffset;
+	}
+	if (srcYOffset >= (u32)-1) {
+		srcY += srcYOffset;
+	}
+}
+
+bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
 	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
 		return false;
 	}
-	
-	if (Memory::IsRAMAddress(srcBasePtr) && Memory::IsVRAMAddress(dstBasePtr)) {
-		// TODO: This causes glitches in Tactics Ogre if we don't implement both ways (which will probably be slow...)
-		// The main thing this helps is videos, which will have a matching stride, and zero x/y.
-		if (dstStride == srcStride && dstY == 0 && dstX == 0 && srcX == 0 && srcY == 0) {
-			UpdateFromMemory(dstBasePtr, (dstY + height) * dstStride * bpp, true);
+
+	// Skip checking if there's no framebuffers in that area.
+	if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
+		return false;
+	}
+
+	VirtualFramebuffer *dstBuffer = 0;
+	VirtualFramebuffer *srcBuffer = 0;
+	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
+
+	if (dstBuffer && srcBuffer) {
+		if (srcBuffer == dstBuffer) {
+			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+		} else {
+			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+			// Just do the blit!
+			if (g_Config.bBlockTransferGPU) {
+				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
+				return true;  // No need to actually do the memory copy behind, probably.
+			}
 		}
+		return false;
+	} else if (dstBuffer) {
+		// Here we should just draw the pixels into the buffer.  Copy first.
+		return false;
+	} else if (srcBuffer) {
+		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
+		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
+			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+		}
+		return false;  // Let the bit copy happen
+	} else {
+		return false;
+	}
+}
+
+void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
+	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+		return;
 	}
 
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
@@ -1858,6 +1997,7 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 	u32 backBuffer = PrevDisplayFramebufAddr();
 	u32 displayBuffer = DisplayFramebufAddr();
 
+	// TODO: Is this not handled by upload?  Should we check !dstBuffer to avoid a double copy?
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272) {
@@ -1865,51 +2005,32 @@ bool FramebufferManager::NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int 
 		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
 	}
 
-	VirtualFramebuffer *dstBuffer = 0;
-	VirtualFramebuffer *srcBuffer = 0;
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		const u32 vfb_address = 0x04000000 | vfb->fb_address;
-		const u32 vfb_size = vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
-		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
-			dstY += (dstBasePtr - vfb_address) / (dstStride * bpp);
-			dstBuffer = vfb;
-		}
-		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
-			srcY += (srcBasePtr - vfb_address) / (srcStride * bpp);
-			srcBuffer = vfb;
-		}
-	}
+	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+		VirtualFramebuffer *dstBuffer = 0;
+		VirtualFramebuffer *srcBuffer = 0;
+		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
 
-	if (dstBuffer && srcBuffer) {
-		if (srcBuffer == dstBuffer) {
-			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		} else {
-			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
-			// Just do the blit!
-			// TODO: Possibly take bpp into account somehow if games are doing really crazy things?
+		if (dstBuffer && !srcBuffer) {
+			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
-				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
-				return true;  // No need to actually do the memory copy behind, probably.
+				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+				fbo_bind_as_render_target(dstBuffer->fbo);
+				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
+				float dstXFactor = (float)bpp / dstBpp;
+				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
+				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, width * dstXFactor, height);
+				dstBuffer->dirtyAfterDisplay = true;
+				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+					dstBuffer->reallyDirtyAfterDisplay = true;
+				if (currentRenderVfb_) {
+					fbo_bind_as_render_target(currentRenderVfb_->fbo);
+				} else {
+					fbo_unbind();
+				}
+				glstate.viewport.restore();
+				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
 			}
 		}
-		return false;
-	} else if (dstBuffer) {
-		WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
-		if (g_Config.bBlockTransferGPU) {
-			u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			DrawPixels(dstBuffer, dstX, dstY, srcBase, dstBuffer->format, srcStride * bpp, width, height);
-		}
-		// Here we should just draw the pixels into the buffer.
-		return false;
-	} else if (srcBuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
-		if (g_Config.bBlockTransferGPU) {
-			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
-		}
-		return false;  // Let the bit copy happen
-	} else {
-		return false;
 	}
 }
 

@@ -34,7 +34,7 @@ public:
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual void UpdateMemory(u32 dest, u32 src, int size);
+	virtual bool UpdateMemory(u32 dest, u32 src, int size);
 	virtual void ClearCacheNextFrame() {};
 
 	virtual void DeviceLost() {}
