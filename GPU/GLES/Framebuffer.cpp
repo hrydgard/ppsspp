@@ -1892,6 +1892,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 			} else {
 				fbo_unbind();
 			}
+			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
 			// This is a memcpy, let's still copy just in case.
 			return false;
 		}
@@ -2011,6 +2012,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				} else {
 					fbo_unbind();
 				}
+				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
 			}
 		}
 	}
