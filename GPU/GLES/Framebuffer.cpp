@@ -1310,7 +1310,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		int dstY1 = dstY2 + h * dstYFactor;
 
 		if (flip) {
-			std::swap(dstY1, dstY2);
+			dstY1 = dst->renderHeight - dstY1;
+			dstY2 = dst->renderHeight - dstY2;
 		}
 
 #ifdef MAY_HAVE_GLES3
