@@ -65,6 +65,11 @@ public:
 		return cache.size();
 	}
 
+	void ForgetLastTexture() {
+		lastBoundTexture = -1;
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	}
+
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, GPUgstate state);
 

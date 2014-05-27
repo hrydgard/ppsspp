@@ -784,7 +784,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// None found? Create one.
 	if (!vfb) {
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		textureCache_->ForgetLastTexture();
 		vfb = new VirtualFramebuffer();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
@@ -891,7 +891,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		textureCache_->ForgetLastTexture();
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
@@ -1248,7 +1248,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			textureCache_->ForgetLastTexture();
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
@@ -1392,6 +1392,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		float srcH = src->height;
 		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
+		textureCache_->ForgetLastTexture();
 	}
 
 	glstate.scissorTest.restore();
@@ -1923,7 +1924,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 				fbo_unbind();
 			}
 			glstate.viewport.restore();
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
+			textureCache_->ForgetLastTexture();
 			// This is a memcpy, let's still copy just in case.
 			return false;
 		}
@@ -2057,7 +2058,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 					fbo_unbind();
 				}
 				glstate.viewport.restore();
-				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
+				textureCache_->ForgetLastTexture();
 			}
 		}
 	}
