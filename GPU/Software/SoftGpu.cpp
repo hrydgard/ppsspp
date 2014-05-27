@@ -851,7 +851,16 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 	// Nothing to invalidate.
 }
 
-bool SoftGPU::UpdateMemory(u32 dest, u32 src, int size)
+bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
+{
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	// Let's just be safe.
+	framebufferDirty_ = true;
+	return false;
+}
+
+bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);

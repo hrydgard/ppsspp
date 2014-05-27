@@ -211,7 +211,7 @@ public:
 	}
 	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 

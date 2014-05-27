@@ -552,7 +552,13 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
 	u8 c = fillc & 0xff;
 	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
-	Memory::Memset(addr, c, n);
+	bool skip = false;
+	if (Memory::IsVRAMAddress(addr)) {
+		skip = gpu->PerformMemorySet(addr, fillc, n);
+	}
+	if (!skip) {
+		Memory::Memset(addr, c, n);
+	}
 	return addr;
 }
 
@@ -562,7 +568,7 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
-		skip = gpu->UpdateMemory(dst, src, size);
+		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 
 	// Technically should crash if these are invalid and size > 0...

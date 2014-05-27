@@ -106,7 +106,7 @@ static int Replace_memcpy() {
 	u32 bytes = PARAM(2);
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -127,7 +127,7 @@ static int Replace_memcpy16() {
 	u32 bytes = PARAM(2) * 16;
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -142,13 +142,49 @@ static int Replace_memcpy16() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy_swizzled() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 pitch = PARAM(2);
+	u32 h = PARAM(4);
+	if (Memory::IsVRAMAddress(srcPtr)) {
+		// Cheat a bit to force a download of the framebuffer.
+		// VRAM + 0x00400000 is simply a VRAM mirror.
+		gpu->PerformMemoryCopy(srcPtr ^ 0x00400000, srcPtr, pitch * h);
+	}
+	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
+	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
+
+	const u8 *ysrcp = srcp;
+	for (u32 y = 0; y < h; y += 8) {
+		const u8 *xsrcp = ysrcp;
+		for (u32 x = 0; x < pitch; x += 16) {
+			const u8 *src = xsrcp;
+			for (int n = 0; n < 8; ++n) {
+				memcpy(dstp, src, 16);
+				src += pitch;
+				dstp += 16;
+			}
+			xsrcp += 16;
+		}
+		ysrcp += 8 * pitch;
+	}
+
+	RETURN(0);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, pitch * h, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, pitch * h, currentMIPS->pc);
+#endif
+	return 10 + (pitch * h) / 4;  // approximation
+}
+
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -169,8 +205,8 @@ static int Replace_memset() {
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
-		skip = gpu->UpdateMemory(destPtr, destPtr, bytes);
+	if (Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip) {
 		memset(dst, value, bytes);
@@ -423,6 +459,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "ceilf", &Replace_ceilf, 0, 0},
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memcpy16", &Replace_memcpy16, 0, 0},
+	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},
@@ -521,6 +558,27 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	}
 	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
 	replacedInstructions.erase(start, end);
+}
+
+std::map<u32, u32> SaveAndClearReplacements() {
+	std::map<u32, u32> saved;
+	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		const u32 curInstr = Memory::Read_U32(addr);
+		if (MIPS_IS_REPLACEMENT(curInstr)) {
+			saved[addr] = curInstr;
+			Memory::Write_U32(it->second, addr);
+		}
+	}
+	return saved;
+}
+
+void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
+	for (auto it = saved.begin(), end = saved.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		// Just put the replacements back.
+		Memory::Write_U32(it->second, addr);
+	}
 }
 
 bool GetReplacedOpAt(u32 address, u32 *op) {

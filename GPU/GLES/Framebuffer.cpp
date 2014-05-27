@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -1851,7 +1851,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
+bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset) {
 	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
 	}
@@ -1882,7 +1882,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
 
 	// TODO: Do ReadFramebufferToMemory etc where applicable.
 	// This will slow down MotoGP but make the hack above unnecessary.
-	if (dstBuffer && srcBuffer) {
+	if (dstBuffer && srcBuffer && !isMemset) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {

@@ -657,7 +657,13 @@ void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
-bool NullGPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemorySet(u32 dest, u8 v, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;

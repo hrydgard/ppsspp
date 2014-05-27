@@ -164,6 +164,7 @@ enum GPUEventType {
 	GPU_EVENT_FINISH_EVENT_LOOP,
 	GPU_EVENT_SYNC_THREAD,
 	GPU_EVENT_FB_MEMCPY,
+	GPU_EVENT_FB_MEMSET,
 };
 
 struct GPUEvent {
@@ -182,6 +183,12 @@ struct GPUEvent {
 			u32 src;
 			int size;
 		} fb_memcpy;
+		// GPU_EVENT_FB_MEMSET
+		struct {
+			u32 dst;
+			u8 v;
+			int size;
+		} fb_memset;
 	};
 
 	operator GPUEventType() const {
@@ -234,7 +241,8 @@ public:
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
-	virtual bool UpdateMemory(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;
