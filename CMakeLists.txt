@@ -658,6 +658,10 @@ elseif(IOS)
     if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
         set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
     endif()
+    
+    set_source_files_properties(ios/AppDelegate.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+    set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -1016,6 +1020,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLE.h
 	Core/HLE/ReplaceTables.cpp
 	Core/HLE/ReplaceTables.h
+	Core/HLE/HLEHelperThread.cpp
+	Core/HLE/HLEHelperThread.h
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
@@ -1476,6 +1482,7 @@ if(IOS)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+        XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 	)
 endif()
 

@@ -194,7 +194,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LE);
+				SetCC(CC_LS);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -209,7 +209,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LT);
+				SetCC(CC_LO);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -744,6 +744,7 @@ namespace MIPSComp
 				case 2:  // vmin
 					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 					VMRS_APSR();
+					// TODO: Technically should use NaN sign bit.
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
@@ -753,6 +754,7 @@ namespace MIPSComp
 				case 3:  // vmax
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					// TODO: Technically should use NaN sign bit.
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
@@ -763,6 +765,7 @@ namespace MIPSComp
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					// Unordered is always 0.
 					SetCC(CC_GE);
 					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
 					SetCC(CC_LT);
@@ -773,9 +776,10 @@ namespace MIPSComp
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
-					SetCC(CC_LT);
+					// Unordered is always 0.
+					SetCC(CC_LO);
 					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
-					SetCC(CC_GE);
+					SetCC(CC_HS);
 					MOVI2F(fpr.V(tempregs[i]), 0.0f, SCRATCHREG1);
 					SetCC(CC_AL);
 					break;

@@ -199,6 +199,9 @@ void ControlMappingScreen::CreateViews() {
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
 	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
 	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
+	if (KeyMap::GetSeenPads().size()) {
+		leftColumn->Add(new Choice(k->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+	}
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
@@ -236,6 +239,26 @@ UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) 
 	KeyMap::RestoreDefault();
 	RecreateViews();
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
+	std::vector<std::string> items;
+	const auto seenPads = KeyMap::GetSeenPads();
+	for (auto s = seenPads.begin(), end = seenPads.end(); s != end; ++s) {
+		items.push_back(*s);
+	}
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
+	screenManager()->push(autoConfList);
+	return UI::EVENT_DONE;
+}
+
+void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (result == DR_OK && dialog->tag() == "listpopup") {
+		ListPopupScreen *popup = (ListPopupScreen *)dialog;
+		KeyMap::AutoConfForPad(popup->GetChoiceString());
+		RecreateViews();
+	}
 }
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {

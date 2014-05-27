@@ -47,6 +47,8 @@ Lighter::Lighter(int vertType) {
 	materialUpdate_ = hasColor ? (gstate.materialupdate & 7) : 0;
 
 	for (int l = 0; l < 4; l++) {
+		lcutoff[l] = getFloat24(gstate.lcutoff[l]);
+		lconv[l] = getFloat24(gstate.lconv[l]);
 		int i = l * 3;
 		if (gstate.isLightChanEnabled(l)) {
 			lpos[i] = getFloat24(gstate.lpos[i]);

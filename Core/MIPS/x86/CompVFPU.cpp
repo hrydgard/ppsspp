@@ -165,14 +165,33 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		if (sat == 1)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&zero));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, M(&zero));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 		else if (sat == 3)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&minus_one));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Check for < -1.0f, but careful of NANs.
+			MOVSS(XMM1, M(&minus_one));
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, R(XMM1));
+			// If it was NOT less, the three ops below do nothing.
+			// Otherwise, they replace the value with -1.0f.
+			ANDPS(XMM1, R(XMM0));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+			ORPS(XMM0, R(XMM1));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 	}
 }
@@ -835,12 +854,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			switch ((op >> 23) & 7)
 			{
 			case 2:  // vmin
+				// TODO: Mishandles NaN.
 				MINSS(tempxregs[i], fpr.V(tregs[i]));
 				break;
 			case 3:  // vmax
+				// TODO: Mishandles NaN.
 				MAXSS(tempxregs[i], fpr.V(tregs[i]));
 				break;
 			case 6:  // vsge
+				// TODO: Mishandles NaN.
 				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
 				ANDPS(tempxregs[i], M(&oneOneOneOne));
 				break;
@@ -1560,16 +1582,33 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			// TODO: Doesn't handle NaN correctly.
-			MAXSS(tempxregs[i], M(&zero));
-			MINSS(tempxregs[i], M(&one));
+
+			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
+			MOVSS(R(XMM0), tempxregs[i]);
+			CMPLESS(XMM0, M(&zero));
+			ANDNPS(XMM0, R(tempxregs[i]));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(tempxregs[i], M(&one));
+			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			// TODO: Doesn't handle NaN correctly.
-			MAXSS(tempxregs[i], M(&minus_one));
-			MINSS(tempxregs[i], M(&one));
+
+			// Check for < -1.0f, but careful of NANs.
+			MOVSS(XMM1, M(&minus_one));
+			MOVSS(R(XMM0), tempxregs[i]);
+			CMPLESS(XMM0, R(XMM1));
+			// If it was NOT less, the three ops below do nothing.
+			// Otherwise, they replace the value with -1.0f.
+			ANDPS(XMM1, R(XMM0));
+			ANDNPS(XMM0, R(tempxregs[i]));
+			ORPS(XMM0, R(XMM1));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(tempxregs[i], M(&one));
+			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 			MOVSS(XMM0, M(&one));

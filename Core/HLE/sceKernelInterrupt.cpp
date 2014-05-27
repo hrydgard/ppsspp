@@ -559,11 +559,14 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-	// Hm, sceDmacMemcpy seems to be the popular one for this. Ignoring for now.
-	// gpu->UpdateMemory(dst, src, size);
+
+	bool skip = false;
+	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
+		skip = gpu->UpdateMemory(dst, src, size);
+	}
 
 	// Technically should crash if these are invalid and size > 0...
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
+	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{
 		u8 *dstp = Memory::GetPointer(dst);
 		u8 *srcp = Memory::GetPointer(src);
@@ -651,6 +654,13 @@ int sysclib_sprintf(u32 dst, u32 fmt) {
 	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
 }
 
+u32 sysclib_memset(u32 destAddr, int data, int size) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
+	if (Memory::IsValidAddress(destAddr))
+		memset(Memory::GetPointer(destAddr), data, size);
+	return 0;
+}
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, WrapU_UUU<sysclib_memcpy>, "memcpy"},
@@ -660,6 +670,7 @@ const HLEFunction SysclibForKernel[] =
 	{0x52DF196C, WrapU_U<sysclib_strlen>, "strlen"},
 	{0x81D0D1F7, WrapI_UUU<sysclib_memcmp>, "memcmp"},
 	{0x7661e728, WrapI_UU<sysclib_sprintf>, "sprintf"},
+	{0x10F3BB61, WrapU_UII<sysclib_memset>, "memset" },
 };
 
 void Register_Kernel_Library()

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include <cstring>
 #include "Common/ChunkFile.h"
 
@@ -60,11 +61,12 @@ struct BufferQueue {
 		return bufQueueSize - getQueueSize();
 	}
 
-	bool push(unsigned char *buf, int addsize) {
+	bool push(const unsigned char *buf, int addsize, s64 pts = 0) {
 		int queuesz = getQueueSize();
 		int space = bufQueueSize - queuesz;
 		if (space < addsize || addsize < 0)
 			return false;
+		savePts(pts);
 		if (end + addsize <= bufQueueSize) {
 			memcpy(bufQueue + end, buf, addsize);
 			end += addsize;
@@ -77,12 +79,15 @@ struct BufferQueue {
 		return true;
 	}
 
-	int pop_front(unsigned char *buf, int wantedsize) {
+	int pop_front(unsigned char *buf, int wantedsize, s64 *pts = NULL) {
 		if (wantedsize <= 0)
 			return 0;
 		int bytesgot = getQueueSize();
 		if (wantedsize < bytesgot)
 			bytesgot = wantedsize;
+		if (pts != NULL) {
+			*pts = findPts(bytesgot);
+		}
 		if (buf) {
 			if (start + bytesgot <= bufQueueSize) {
 				memcpy(buf, bufQueue + start, bytesgot);
@@ -120,14 +125,56 @@ struct BufferQueue {
 	}
 
 	void DoState(PointerWrap &p) {
+		auto s = p.Section("BufferQueue", 0, 1);
+
 		p.Do(bufQueueSize);
 		p.Do(start);
 		p.Do(end);
-		if (bufQueue)
+		if (bufQueue) {
 			p.DoArray(bufQueue, bufQueueSize);
+		}
+
+		if (s >= 1) {
+			p.Do(ptsMarks);
+		}
+	}
+
+private:
+	void savePts(u64 pts) {
+		if (pts != 0) {
+			ptsMarks[end] = pts;
+		}
+	}
+
+	u64 findPts(std::map<u32, s64>::iterator earliest, std::map<u32, s64>::iterator latest) {
+		u64 pts = 0;
+		// Take the first one, that is the pts of this packet.
+		if (earliest != latest) {
+			pts = earliest->second;
+		}
+		ptsMarks.erase(earliest, latest);
+		return pts;
+	}
+
+	u64 findPts(int packetSize) {
+		auto earliest = ptsMarks.lower_bound(start);
+		auto latest = ptsMarks.lower_bound(start + packetSize);
+
+		u64 pts = findPts(earliest, latest);
+
+		// If it wraps around, we have to look at the other half too.
+		if (pts == 0 && start + packetSize > bufQueueSize) {
+			earliest = ptsMarks.begin();
+			latest = ptsMarks.lower_bound(start + packetSize - bufQueueSize);
+			return findPts(earliest, latest);
+		}
+
+		return pts;
 	}
 
 	unsigned char* bufQueue;
 	int start, end;
 	int bufQueueSize;
+
+	std::map<u32, s64> ptsMarks;
 };

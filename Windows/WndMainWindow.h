@@ -60,7 +60,6 @@ namespace MainWindow
 	void Redraw();
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
-	HWND GetDisplayHWND();
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);

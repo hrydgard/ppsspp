@@ -74,10 +74,11 @@ struct HardHashTableEntry {
 	}
 };
 
-// Some hardcoded hashes.
+// Some hardcoded hashes.  Some have a comment specifying at least one game they are found in.
 static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x006b570008068310, 184, "strtok_r", },
 	{ 0x019ba2099fb88f3c, 48, "vector_normalize_t", },
+	{ 0x0266f96d740c7e03, 912, "memcpy", }, // Final Fantasy 4
 	{ 0x02bd2859045d2383, 240, "bcmp", },
 	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
@@ -97,7 +98,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	//{ 0x0eb5f2e95f59276a, 40, "dl_write_lightmode", },
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
-	{ 0x0ffa5db8396d4274, 64, "memcpy", },
+	{ 0x0ffa5db8396d4274, 64, "memcpy", }, // CRUSH
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "vmidt_t", },
 	{ 0x12feef7b017d3431, 700, "memmove", },
@@ -114,10 +115,10 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x189212bda9c94df1, 736, "atanf", },
 	{ 0x199821ce500ef9d2, 24, "vocp_t", },
 	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
-	{ 0x1a7564fa3e25c992, 844, "memcpy", },
+	{ 0x1a7564fa3e25c992, 844, "memcpy", }, // Valkyria Chronicles 3
 	{ 0x1aad94c0723edfc0, 124, "vmmul_t_transp", },
 	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
-	{ 0x1ac05627df1f87f4, 112, "memcpy16", },
+	{ 0x1ac05627df1f87f4, 112, "memcpy16", }, // Valkyria Chronicles 3
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
@@ -145,7 +146,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
 	{ 0x30c9c4f420573eb6, 540, "expf", },
-	{ 0x317afeb882ff324a, 212, "memcpy", },
+	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
 	{ 0x31f523ef18898e0e, 420, "logf", },
 	{ 0x32806967fe81568b, 40, "vector_sub_t_2", },
@@ -160,7 +161,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
 	{ 0x3ab08b5659de1746, 40, "vsin_s", },
-	{ 0x3c421a9265f37ebc, 700, "memmove", },
+	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4
 	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
 	{ 0x3ce1806699a91d9d, 148, "dl_write_light", },
 	{ 0x3d5e914011c181d4, 444, "scalbnf", },
@@ -266,13 +267,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8a00e7207e7dbc81, 232, "_exit", },
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
 	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
-	{ 0x8c3fd997a544d0b1, 268, "memcpy", },
+	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
-	{ 0x8ff11e9bed387401, 700, "memmove", },
+	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
@@ -285,7 +286,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
-	{ 0x9e6ce11f9d49f954, 292, "memcpy", },
+	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet
+	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
@@ -321,7 +323,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
-	{ 0xb7d88567dc22aab1, 820, "memcpy", },
+	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
 	{ 0xb89aa73b6f94ba95, 52, "vclamp_t", },
 	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },

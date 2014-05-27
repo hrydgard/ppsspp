@@ -271,8 +271,8 @@ void CGEDebugger::SetBreakNext(BreakNextType type) {
 	attached = true;
 	SetupPreviews();
 
-	ResumeFromStepping();
 	breakNext = type;
+	ResumeFromStepping();
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -455,7 +455,9 @@ static void DeliverMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
-	EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
+	if (attached) {
+		EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
+	}
 }
 
 void WindowsHost::GPUNotifyCommand(u32 pc) {

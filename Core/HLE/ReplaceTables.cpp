@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -27,6 +28,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 
 #include "GPU/Math3D.h"
+#include "GPU/GPUInterface.h"
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include <emmintrin.h>
@@ -102,12 +104,20 @@ static int Replace_memcpy() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -115,12 +125,20 @@ static int Replace_memcpy16() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2) * 16;
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -128,12 +146,20 @@ static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -142,8 +168,17 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	memset(dst, value, bytes);
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->UpdateMemory(destPtr, destPtr, bytes);
+	}
+	if (!skip) {
+		memset(dst, value, bytes);
+	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -354,6 +389,12 @@ static int Replace_dl_write_matrix() {
 		dest[11] = matrix | (src[14] >> 8);
 #endif
 	}
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(PARAM(2), false, count * sizeof(float), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(PARAM(0) + 2 * sizeof(u32), true, sizeof(u32), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dlStruct[2], true, (count + 1) * sizeof(u32), currentMIPS->pc);
+#endif
 
 	dlStruct[2] += (1 + count) * 4;
 	RETURN(dlStruct[2]);

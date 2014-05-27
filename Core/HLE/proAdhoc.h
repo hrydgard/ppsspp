@@ -40,11 +40,13 @@ typedef int socklen_t;
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
+inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINVAL || errcode == WSAEALREADY); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
 #define PACK __attribute__((packed))
+inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #endif
 
 // psp strutcs and definitions

@@ -18,10 +18,12 @@
 #if defined(_WIN32) && !defined(_XBOX)
 #include <windows.h>
 #endif
+#include <set>
 
+#include "base/logging.h"
+#include "base/NativeApp.h"
 #include "file/ini_file.h"
 #include "input/input_state.h"
-#include "base/NativeApp.h"
 
 #include "KeyMap.h"
 #include "../Core/HLE/sceUtility.h"
@@ -40,6 +42,7 @@ struct DefMappingStruct {
 };
 
 KeyMapping g_controllerMap;
+std::set<std::string> g_seenPads;
 
 static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{CTRL_SQUARE, NKCODE_A},
@@ -202,10 +205,11 @@ static const DefMappingStruct defaultPadMap[] = {
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
 	{CTRL_SQUARE         , NKCODE_BUTTON_X},
 	{CTRL_TRIANGLE       , NKCODE_BUTTON_Y},
-	{CTRL_UP             , NKCODE_DPAD_UP}, 
-	{CTRL_RIGHT          , NKCODE_DPAD_RIGHT},
-	{CTRL_DOWN           , NKCODE_DPAD_DOWN}, 
-	{CTRL_LEFT           , NKCODE_DPAD_LEFT}, 
+	// The hat for DPAD is standard for bluetooth pads, which is the most likely pads on Android I think.
+	{CTRL_LEFT           , JOYSTICK_AXIS_HAT_X, -1},
+	{CTRL_RIGHT          , JOYSTICK_AXIS_HAT_X, +1},
+	{CTRL_UP             , JOYSTICK_AXIS_HAT_Y, -1},
+	{CTRL_DOWN           , JOYSTICK_AXIS_HAT_Y, +1},
 	{CTRL_START          , NKCODE_BUTTON_START}, 
 	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1}, 
@@ -893,5 +897,23 @@ bool IsBlackberryQWERTY(const std::string &name) {
 bool HasBuiltinController(const std::string &name) {
 	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsBlackberryQWERTY(name);
 }
+
+void NotifyPadConnected(const std::string &name) {
+	g_seenPads.insert(name);
+}
+
+void AutoConfForPad(const std::string &name) {
+	ILOG("Autoconfiguring pad for %s", name.c_str());
+	if (name == "Xbox 360 Pad") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_X360, true);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+	}
+}
+
+const std::set<std::string> &GetSeenPads() {
+	return g_seenPads;
+}
+
 
 }  // KeyMap

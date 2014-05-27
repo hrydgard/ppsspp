@@ -308,12 +308,18 @@ public:
 	}
 
 	void ExportFunc(const FuncSymbolExport &func) {
+		if (isFake) {
+			return;
+		}
 		exportedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
 		ExportFuncSymbol(func);
 	}
 
 	void ExportVar(const VarSymbolExport &var) {
+		if (isFake) {
+			return;
+		}
 		exportedVars.push_back(var);
 		impExpModuleNames.insert(var.moduleName);
 		ExportVarSymbol(var);
@@ -811,6 +817,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	bool reportedModule = false;
+	u32 devkitVersion = 0;
 	u8 *newptr = 0;
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
@@ -822,12 +830,14 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (*magic == 0x5053507e) { // "~PSP"
 		DEBUG_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
+		devkitVersion = head->devkitversion;
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
 			char temp[256];
-			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", head->modname);
-			INFO_LOG_REPORT(SCEMODULE,temp, ver);
+			snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %%08x", head->modname);
+			INFO_LOG_REPORT(SCEMODULE, temp, ver, head->devkitversion);
+			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
 				__MpegLoadModule(ver);
@@ -932,33 +942,18 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	char moduleName[29] = {0};
 	strncpy(moduleName, modinfo->name, ARRAY_SIZE(module->nm.name));
 
-	if (IsHLEVersionedModule(modinfo->name)) {
-		char temp[256];
-		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x", modinfo->name);
-		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion);
-
-		if (!strcmp(modinfo->name, "sceMpeg_library")) {
-			__MpegLoadModule(modinfo->moduleVersion);
-		}
-	}
-
 	// Check for module blacklist - we don't allow games to load these modules from disc
 	// as we have HLE implementations and the originals won't run in the emu because they
 	// directly access hardware or for other reasons.
 	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
 		if (strncmp(modinfo->name, blacklistedModules[i], ARRAY_SIZE(modinfo->name)) == 0) {
-			*error_string = "Blacklisted";
-			if (newptr)
-			{
-				delete [] newptr;
-			}
 			module->isFake = true;
-			module->nm.entry_addr = -1;
-			return module;
 		}
 	}
 
-	symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
+	if (!module->isFake) {
+		symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
+	}
 
 	SectionID textSection = reader.GetSectionByName(".text");
 
@@ -973,18 +968,20 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
 		module->nm.data_size -= textSize;
 
+		if (!module->isFake) {
 #if !defined(MOBILE_DEVICE)
-		bool gotSymbols = reader.LoadSymbols();
-		MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-#else
-		if (g_Config.bFuncHashMap) {
 			bool gotSymbols = reader.LoadSymbols();
 			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-		}
+#else
+			if (g_Config.bFuncHashMap) {
+				bool gotSymbols = reader.LoadSymbols();
+				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
+			}
 #endif
+		}
 	}
 
-	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
+	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
 
 	struct PspLibStubEntry {
 		u32_le name;
@@ -1134,15 +1131,18 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
 		module->textEnd = firstImportStubAddr - 4;
+
+		if (!module->isFake) {
 #if !defined(MOBILE_DEVICE)
-		bool gotSymbols = reader.LoadSymbols();
-		MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-#else
-		if (g_Config.bFuncHashMap) {
 			bool gotSymbols = reader.LoadSymbols();
 			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-		}
+#else
+			if (g_Config.bFuncHashMap) {
+				bool gotSymbols = reader.LoadSymbols();
+				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
+			}
 #endif
+		}
 	}
 
 	// Look at the exports, too.
@@ -1240,6 +1240,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			int size;
 			switch (nid) {
 			case NID_MODULE_INFO:
+				// Points to a PspModuleInfo, often the exact one .rodata.sceModuleInfo points to.
 				break;
 			case NID_MODULE_START_THREAD_PARAMETER:
 				size = Memory::Read_U32(exportAddr);
@@ -1273,6 +1274,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				break;
 			case NID_MODULE_SDK_VERSION:
 				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
+				devkitVersion = Memory::Read_U32(exportAddr);
 				break;
 			default:
 				var.nid = nid;
@@ -1283,14 +1285,28 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	module->nm.entry_addr = reader.GetEntryPoint();
+	if (!module->isFake) {
+		module->nm.entry_addr = reader.GetEntryPoint();
 	
-	// use module_start_func instead of entry_addr if entry_addr is 0
-	if (module->nm.entry_addr == 0)
-		module->nm.entry_addr = module->nm.module_start_func;
+		// use module_start_func instead of entry_addr if entry_addr is 0
+		if (module->nm.entry_addr == 0)
+			module->nm.entry_addr = module->nm.module_start_func;
+	} else {
+		module->nm.entry_addr = -1;
+	}
 
 	if (newptr)
 		delete [] newptr;
+
+	if (!reportedModule && IsHLEVersionedModule(modinfo->name)) {
+		char temp[256];
+		snprintf(temp, sizeof(temp), "Loading module %s with version %%04x, devkit %%08x", modinfo->name);
+		INFO_LOG_REPORT(SCEMODULE, temp, modinfo->moduleVersion, devkitVersion);
+
+		if (!strcmp(modinfo->name, "sceMpeg_library")) {
+			__MpegLoadModule(modinfo->moduleVersion);
+		}
+	}
 
 	return module;
 }
@@ -2197,6 +2213,8 @@ const HLEFunction ModuleMgrForKernel[] =
 	{0x50f0c1ec,&WrapV_UUUUU<ModuleMgrForKernel_50f0c1ec>, "ModuleMgrForKernel_50f0c1ec"},//Not sure right
 	{0x977de386, &WrapU_CUU<ModuleMgrForKernel_977de386>, "ModuleMgrForKernel_977de386"},//Not sure right
 	{0xa1a78c58, &WrapU_CUU<ModuleMgrForKernel_a1a78c58>, "ModuleMgrForKernel_a1a78c58"}, //fix for tiger x dragon
+	{0x748CBED9, WrapU_UU<sceKernelQueryModuleInfo>, "sceKernelQueryModuleInfo" },//Bugz Homebrew
+	{0x644395e2, WrapU_UUU<sceKernelGetModuleIdList>, "sceKernelGetModuleIdList" },//Bugz Homebrew
 };
 
 void Register_ModuleMgrForUser()

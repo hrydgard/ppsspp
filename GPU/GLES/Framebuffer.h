@@ -125,7 +125,10 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -164,7 +167,8 @@ public:
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransfer(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
@@ -197,7 +201,18 @@ public:
 		}
 	}
 
-	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool MayIntersectFramebuffer(u32 start) {
+		// Clear the cache/kernel bits.
+		start = start & 0x3FFFFFFF;
+		// Most games only have two framebuffers at the start.
+		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
+			return false;
+		}
+		return true;
+	}
+	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
+
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
@@ -210,6 +225,9 @@ public:
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
+
+	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const;
+	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
 
@@ -227,17 +245,20 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h);
+	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
-	void PackFramebufferSync_(VirtualFramebuffer *vfb);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
-	u8 *convBuf;
+	u8 *convBuf_;
+	u32 convBufSize_;
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
@@ -254,18 +275,21 @@ private:
 
 	bool resized_;
 	bool useBufferedRendering_;
+	bool updateVRAM_;
+	bool gameUsesSequentialCopies_;
+
+	bool hackForce04154000Download_;
+
+	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
+	u32 framebufRangeEnd_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<std::pair<int, int>, FBO *> renderCopies_;
 
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
-
-	// This is to be used only for reporting of strange blits. Don't control behaviour as
-	// this is "permanent" while framebuffers aren't.
-	std::set<std::pair<u32, u32>> reportedBlits_;
 };

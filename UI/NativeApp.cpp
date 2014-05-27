@@ -657,10 +657,17 @@ void NativeRender() {
 	}
 }
 
+void HandleGlobalMessage(const std::string &msg, const std::string &value) {
+	if (msg == "inputDeviceConnected") {
+		KeyMap::NotifyPadConnected(value);
+	}
+}
+
 void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
 		for (size_t i = 0; i < pendingMessages.size(); i++) {
+			HandleGlobalMessage(pendingMessages[i].msg, pendingMessages[i].value);
 			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
 		}
 		pendingMessages.clear();

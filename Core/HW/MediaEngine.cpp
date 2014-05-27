@@ -319,7 +319,7 @@ void MediaEngine::closeContext()
 	m_buffer = 0;
 }
 
-bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
+bool MediaEngine::loadStream(const u8 *buffer, int readSize, int RingbufferSize)
 {
 	closeMedia();
 
@@ -336,7 +336,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 	return true;
 }
 
-int MediaEngine::addStreamData(u8* buffer, int addSize) {
+int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 	int size = addSize;
 	if (size > 0 && m_pdata) {
 		if (!m_pdata->push(buffer, size)) 
@@ -357,6 +357,37 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 		m_isVideoEnd = false;
 	}
 	return size;
+}
+
+bool MediaEngine::seekTo(s64 timestamp, int videoPixelMode) {
+	if (timestamp <= 0) {
+		return true;
+	}
+
+	// Just doing it the not so great way to be sure audio is in sync.
+	int timeout = 1000;
+	while (getVideoTimeStamp() < timestamp - 3003) {
+		if (getAudioTimeStamp() < getVideoTimeStamp() - 4180 * 2) {
+			getNextAudioFrame(NULL, NULL, NULL);
+		}
+		if (!stepVideo(videoPixelMode, true)) {
+			return false;
+		}
+		if (--timeout <= 0) {
+			return true;
+		}
+	}
+
+	while (getAudioTimeStamp() < getVideoTimeStamp() - 4180 * 2) {
+		if (getNextAudioFrame(NULL, NULL, NULL) == 0) {
+			return false;
+		}
+		if (--timeout <= 0) {
+			return true;
+		}
+	}
+
+	return true;
 }
 
 bool MediaEngine::setVideoStream(int streamNum, bool force) {
@@ -457,7 +488,7 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 #endif
 }
 
-bool MediaEngine::stepVideo(int videoPixelMode) {
+bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 #ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
@@ -489,8 +520,10 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 
 			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
 			if (frameFinished) {
-				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
-					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
+				if (!skipFrame) {
+					sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
+						m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
+				}
 
 				if (av_frame_get_best_effort_timestamp(m_pFrame) != AV_NOPTS_VALUE)
 					m_videopts = av_frame_get_best_effort_timestamp(m_pFrame) + av_frame_get_pkt_duration(m_pFrame) - m_firstTimeStamp;
@@ -656,7 +689,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
@@ -669,7 +702,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
@@ -682,7 +715,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
@@ -695,7 +728,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 #ifndef MOBILE_DEVICE
-			CBreakPoints::ExecMemCheck(bufferPtr + frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
@@ -733,6 +766,22 @@ int MediaEngine::getAudioRemainSize() {
 	return m_demux->getRemainSize();
 }
 
+int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2) {
+	// When getting a frame, increment pts
+	m_audiopts += 4180;
+
+	// Demux now (rather than on add data) so that we select the right stream.
+	m_demux->demux(m_audioStream);
+
+	s64 pts = 0;
+	int result = m_demux->getNextAudioFrame(buf, headerCode1, headerCode2, &pts);
+	if (pts != 0) {
+		// m_audiopts is supposed to be after the returned frame.
+		m_audiopts = pts - m_firstTimeStamp + 4180;
+	}
+	return result;
+}
+
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	if (!Memory::IsValidAddress(bufferPtr)) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
@@ -743,15 +792,9 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		return 0;
 	}
 
-	// When getting a frame, increment pts
-	m_audiopts += 4180;
-	
-	// Demux now (rather than on add data) so that we select the right stream.
-	m_demux->demux(m_audioStream);
-
 	u8 *audioFrame = 0;
 	int headerCode1, headerCode2;
-	int frameSize = m_demux->getNextAudioFrame(&audioFrame, &headerCode1, &headerCode2);
+	int frameSize = getNextAudioFrame(&audioFrame, &headerCode1, &headerCode2);
 	if (frameSize == 0) {
 		return 0;
 	}

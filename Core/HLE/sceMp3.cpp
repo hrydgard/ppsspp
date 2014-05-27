@@ -193,7 +193,7 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->PCMBuf = Memory::Read_U32(mp3Addr + 24);            // Output PCM data buffer.
 	Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28);        // Output PCM data buffer size.
 
-	DEBUG_LOG(ME, "startPos %x endPos %x mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
+	DEBUG_LOG(ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
 		Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
 
 	Au->audioType = PSP_CODEC_MP3;

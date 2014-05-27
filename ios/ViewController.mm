@@ -42,28 +42,26 @@ ViewController* sharedViewController;
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
 }
 
-@property (strong, nonatomic) EAGLContext *context;
-@property (nonatomic,retain) NSString* documentsPath;
-@property (nonatomic,retain) NSString* bundlePath;
-@property (nonatomic,retain) NSMutableArray* touches;
-@property (nonatomic,retain) AudioEngine* audioEngine;
-@property (nonatomic,retain) iCadeReaderView *iCadeView;
+@property (nonatomic) EAGLContext* context;
+@property (nonatomic) NSString* documentsPath;
+@property (nonatomic) NSString* bundlePath;
+@property (nonatomic) NSMutableArray* touches;
+@property (nonatomic) AudioEngine* audioEngine;
+@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
-@property (nonatomic,retain) GCController *gameController __attribute__((weak_import));
+@property (nonatomic) GCController *gameController __attribute__((weak_import));
 #endif
 
 @end
 
 @implementation ViewController
-@synthesize documentsPath,bundlePath,touches,audioEngine,iCadeView;
 
 - (id)init
 {
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
-		self.touches = [[[NSMutableArray alloc] init] autorelease];
-
+		self.touches = [NSMutableArray array];
 		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
@@ -103,7 +101,8 @@ ViewController* sharedViewController;
 		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
-		if ([GCController class]) { // Checking the availability of a GameController framework
+		if ([GCController class]) // Checking the availability of a GameController framework
+        {
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
             [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 		}
@@ -118,9 +117,14 @@ ViewController* sharedViewController;
 
 	self.view.frame = [[UIScreen mainScreen] bounds];
 	self.view.multipleTouchEnabled = YES;
-	self.context = [[[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2] autorelease];
+	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    
+    if (!self.context)
+    {
+        self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    }
 
-	GLKView *view = (GLKView *)self.view;
+	GLKView* view = (GLKView *)self.view;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	[EAGLContext setCurrentContext:self.context];
@@ -129,7 +133,8 @@ ViewController* sharedViewController;
 	float scale = [UIScreen mainScreen].scale;
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
 
-	if (size.height > size.width) {
+	if (size.height > size.width)
+    {
 		float h = size.height;
 		size.height = size.width;
 		size.width = h;
@@ -148,12 +153,7 @@ ViewController* sharedViewController;
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
-
-/*
-	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
-	[self.view addGestureRecognizer:gesture];
-*/
-
+    
 	self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
@@ -194,14 +194,8 @@ ViewController* sharedViewController;
         self.gameController = nil;
     }
 #endif
-	self.iCadeView = nil;
-	self.audioEngine = nil;
-	self.touches = nil;
-	self.documentsPath = nil;
-	self.bundlePath = nil;
-
+    
 	NativeShutdown();
-	[super dealloc];
 }
 
 // For iOS before 6.0
@@ -227,11 +221,6 @@ ViewController* sharedViewController;
 
 	NativeRender();
 	time_update();
-}
-
-- (void)swipeGesture:(id)sender
-{
-	// TODO: Use a swipe gesture to handle BACK
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
@@ -292,9 +281,10 @@ ViewController* sharedViewController;
 	return index;
 }
 
-- (void)touchesBegan:(NSSet *)_touches withEvent:(UIEvent *)event
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in _touches) {
+	for(UITouch* touch in touches)
+    {
 		NSDictionary* dict = @{@"touch":touch,@"index":@([self freeTouchIndex])};
 		[self.touches addObject:dict];
 		CGPoint point = [touch locationInView:self.view];
@@ -302,18 +292,20 @@ ViewController* sharedViewController;
 	}
 }
 
-- (void)touchesMoved:(NSSet *)_touches withEvent:(UIEvent *)event
+- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in _touches) {
+	for(UITouch* touch in touches)
+    {
 		CGPoint point = [touch locationInView:self.view];
 		NSDictionary* dict = [self touchDictBy:touch];
 		[self touchX:point.x y:point.y code:0 pointerId:[[dict objectForKey:@"index"] intValue]];
 	}
 }
 
-- (void)touchesEnded:(NSSet *)_touches withEvent:(UIEvent *)event
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
 {
-	for(UITouch* touch in _touches) {
+	for(UITouch* touch in touches)
+    {
 		CGPoint point = [touch locationInView:self.view];
 		NSDictionary* dict = [self touchDictBy:touch];
 		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
@@ -325,19 +317,6 @@ ViewController* sharedViewController;
 {
 	[(GLKView*)self.view bindDrawable];
 }
-
-void LaunchBrowser(char const* url)
-{
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
-}
-
-void bindDefaultFBO()
-{
-	[sharedViewController bindDefaultFBO];
-}
-
-void EnableFZ(){};
-void DisableFZ(){};
 
 - (void)buttonDown:(iCadeState)button
 {
@@ -591,3 +570,16 @@ void DisableFZ(){};
 #endif
 
 @end
+
+void LaunchBrowser(char const* url)
+{
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+}
+
+void bindDefaultFBO()
+{
+	[sharedViewController bindDefaultFBO];
+}
+
+void EnableFZ(){};
+void DisableFZ(){};
