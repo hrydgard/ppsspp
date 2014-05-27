@@ -1702,7 +1702,7 @@ void FramebufferManager::EndFrame() {
 #ifndef USING_GLES2
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
-	if (g_Config.iRenderingMode == FB_READFBOMEMORY_CPU || g_Config.iRenderingMode == FB_READFBOMEMORY_GPU)
+	if (updateVRAM_)
 		PackFramebufferAsync_(NULL);
 #endif
 }
@@ -1717,6 +1717,7 @@ void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
