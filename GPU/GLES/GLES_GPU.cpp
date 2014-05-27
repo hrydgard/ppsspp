@@ -662,7 +662,11 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		break;
 
 	case GPU_EVENT_FB_MEMCPY:
-		UpdateMemoryInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		break;
+
+	case GPU_EVENT_FB_MEMSET:
+		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
 		break;
 
 	default:
@@ -1968,16 +1972,20 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	}
 }
 
-void GLES_GPU::UpdateMemoryInternal(u32 dest, u32 src, int size) {
+void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
 		Memory::Memcpy(dest, Memory::GetPointer(src), size);
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	} else {
+	}
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+}
+
+void GLES_GPU::PerformMemorySetInternal(u32 dest, u8 v, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true)) {
 		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	}
 }
 
-bool GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool GLES_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
 		if (IsOnSeparateCPUThread()) {
@@ -1990,11 +1998,35 @@ bool GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 			// This is a memcpy, so we need to wait for it to complete.
 			SyncThread();
 		} else {
-			UpdateMemoryInternal(dest, src, size);
+			PerformMemoryCopyInternal(dest, src, size);
 		}
 		return true;
 	}
 
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool GLES_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// This may indicate a memset, usually to 0, of a framebuffer.
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		Memory::Memset(dest, v, size);
+
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMSET);
+			ev.fb_memset.dst = dest;
+			ev.fb_memset.v = v;
+			ev.fb_memset.size = size;
+			ScheduleEvent(ev);
+
+			// We don't need to wait for the framebuffer to be updated.
+		} else {
+			PerformMemorySetInternal(dest, v, size);
+		}
+		return true;
+	}
+
+	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }

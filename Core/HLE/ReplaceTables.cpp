@@ -106,7 +106,7 @@ static int Replace_memcpy() {
 	u32 bytes = PARAM(2);
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -127,7 +127,7 @@ static int Replace_memcpy16() {
 	u32 bytes = PARAM(2) * 16;
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -150,7 +150,7 @@ static int Replace_memcpy_swizzled() {
 	if (Memory::IsVRAMAddress(srcPtr)) {
 		// Cheat a bit to force a download of the framebuffer.
 		// VRAM + 0x00400000 is simply a VRAM mirror.
-		gpu->UpdateMemory(srcPtr ^ 0x00400000, srcPtr, pitch * h);
+		gpu->PerformMemoryCopy(srcPtr ^ 0x00400000, srcPtr, pitch * h);
 	}
 	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
 	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
@@ -184,7 +184,7 @@ static int Replace_memmove() {
 	u32 bytes = PARAM(2);
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->UpdateMemory(destPtr, srcPtr, bytes);
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
@@ -204,9 +204,12 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	memset(dst, value, bytes);
+	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr)) {
-		gpu->UpdateMemory(destPtr, destPtr, bytes);
+		skip = gpu->PerformMemorySet(destPtr, value, bytes);
+	}
+	if (!skip) {
+		memset(dst, value, bytes);
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE

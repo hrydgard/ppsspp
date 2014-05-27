@@ -44,7 +44,8 @@ public:
 	virtual void BeginFrame();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual bool UpdateMemory(u32 dest, u32 src, int size);
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size);
+	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
 	virtual void ClearCacheNextFrame();
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 
@@ -151,7 +152,8 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
-	void UpdateMemoryInternal(u32 dest, u32 src, int size);
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	static CommandInfo cmdInfo_[256];

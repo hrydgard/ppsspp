@@ -50,7 +50,7 @@ int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
-		skip = gpu->UpdateMemory(dst, src, size);
+		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 	if (!skip) {
 		Memory::Memcpy(dst, Memory::GetPointer(src), size);
