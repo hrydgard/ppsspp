@@ -935,7 +935,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
 			glActiveTexture(GL_TEXTURE0);
 
-			framebufferManager_->BindFramebufferColor(entry->framebuffer);
+			framebufferManager_->BindFramebufferColor(entry->framebuffer, true);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			entry->status |= TexCacheEntry::STATUS_TEXPARAM_DIRTY;
