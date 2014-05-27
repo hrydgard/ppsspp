@@ -1852,7 +1852,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
-	if (useBufferedRendering_ && !updateVRAM_) {
+	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
 	}
 
@@ -1964,7 +1964,7 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 }
 
 bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (useBufferedRendering_ && !updateVRAM_) {
+	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
 	}
 
@@ -2004,7 +2004,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 }
 
 void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (useBufferedRendering_ && !updateVRAM_) {
+	if (!useBufferedRendering_ || updateVRAM_) {
 		return;
 	}
 
