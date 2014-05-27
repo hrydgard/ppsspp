@@ -615,18 +615,14 @@ void DeveloperToolsScreen::CreateViews() {
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(s->T("General")));
 
+	bool canUseJit = true;
 #ifdef IOS
 	if (!iosCanUseJit) {
+		canUseJit = false;
 		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
-	} else {
-		auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
-		jitCheckbox->SetEnabled(!PSP_IsInited());
-		list->Add(jitCheckbox);
 	}
 #else
-	auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
-	jitCheckbox->SetEnabled(!PSP_IsInited());
-	list->Add(jitCheckbox);
+	list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
 #endif
 
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
@@ -700,5 +696,10 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 	screenManager()->push(new LogConfigScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
+	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
 }

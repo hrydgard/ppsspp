@@ -135,6 +135,7 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		if (MIPSComp::jit && PSP_IsInited()) {
 			MIPSComp::jit->ClearCache();
 		}
+		currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 	}
 }
 

@@ -215,6 +215,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (MIPSComp::jit) {
 			MIPSComp::jit->ClearCache();
 		}
+		currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 	}
 }
 

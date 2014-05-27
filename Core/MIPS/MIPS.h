@@ -19,6 +19,7 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
+#include "Core/CoreParameter.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
@@ -131,6 +132,7 @@ public:
 	void Init();
 	void Shutdown();
 	void Reset();
+	void UpdateCore(CPUCore desired);
 
 	void DoState(PointerWrap &p);
 
