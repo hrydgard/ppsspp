@@ -73,6 +73,7 @@ private:
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
+	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
@@ -81,7 +82,6 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
-	bool showDebugStats_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
