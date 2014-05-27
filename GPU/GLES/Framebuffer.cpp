@@ -784,7 +784,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// None found? Create one.
 	if (!vfb) {
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		textureCache_->ForgetLastTexture();
 		vfb = new VirtualFramebuffer();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
@@ -891,7 +891,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Use it as a render target.
 		DEBUG_LOG(SCEGE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		textureCache_->ForgetLastTexture();
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
@@ -992,6 +992,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
+				glDisable(GL_SCISSOR_TEST);
 
 #if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
 				if (useNV) {
@@ -1000,6 +1001,8 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 #endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
 					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
+
+				glstate.scissorTest.restore();
 			}
 #endif
 		}
@@ -1007,6 +1010,10 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 }
 
 void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
+	if (framebuffer == NULL) {
+		framebuffer = currentRenderVfb_;
+	}
+
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
@@ -1041,6 +1048,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 
 			fbo_bind_as_render_target(renderCopy);
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+			glDisable(GL_SCISSOR_TEST);
 			fbo_bind_for_read(framebuffer->fbo);
 			
 #if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
@@ -1052,6 +1060,8 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			fbo_bind_color_as_texture(renderCopy, 0);
+			glstate.viewport.restore();
+			glstate.scissorTest.restore();
 #endif
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
@@ -1238,7 +1248,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			textureCache_->ForgetLastTexture();
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
@@ -1317,7 +1327,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-
+	glDisable(GL_SCISSOR_TEST);
 
 #ifndef USING_GLES2
 	if (gl_extensions.FBO_ARB) {
@@ -1373,7 +1383,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glstate.viewport.set(0, 0, dst->width, dst->height);
+		glViewport(0, 0, dst->width, dst->height);
 		DisableState();
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
@@ -1382,8 +1392,11 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		float srcH = src->height;
 		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
+		textureCache_->ForgetLastTexture();
 	}
 
+	glstate.scissorTest.restore();
+	glstate.viewport.restore();
 	fbo_unbind();
 }
 
@@ -1911,7 +1924,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 				fbo_unbind();
 			}
 			glstate.viewport.restore();
-			gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
+			textureCache_->ForgetLastTexture();
 			// This is a memcpy, let's still copy just in case.
 			return false;
 		}
@@ -2045,7 +2058,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 					fbo_unbind();
 				}
 				glstate.viewport.restore();
-				gstate_c.textureChanged = TEXCHANGE_PARAMSONLY;
+				textureCache_->ForgetLastTexture();
 			}
 		}
 	}

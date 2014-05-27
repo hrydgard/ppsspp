@@ -171,11 +171,36 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 	}
 
-	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
-	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
-
-	// Set blend
+	// Set blend - unless we need to do it in the shader.
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
+	if (wantBlend && ShouldUseShaderBlending()) {
+		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+			static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+			static int lastFrameBlit = -1;
+			static int blitsThisFrame = 0;
+			if (lastFrameBlit != gpuStats.numFlips) {
+				if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+					WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+				}
+				blitsThisFrame = 0;
+				lastFrameBlit = gpuStats.numFlips;
+			}
+			++blitsThisFrame;
+
+			glActiveTexture(GL_TEXTURE1);
+			framebufferManager_->BindFramebufferColor(NULL);
+			glActiveTexture(GL_TEXTURE0);
+			fboTexBound_ = true;
+		}
+		// None of the below logic is interesting, we're gonna do it entirely in the shader.
+		wantBlend = false;
+	} else if (fboTexBound_) {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
+	}
+
 	glstate.blend.set(wantBlend);
 	if (wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
@@ -323,12 +348,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			if (blendFuncEq == GE_BLENDMODE_ABSDIFF && gl_extensions.NV_shader_framebuffer_fetch) {
-				// Handle GE_BLENDMODE_ABSDIFF in fragment shader and turn off regular alpha blending here.
-				glstate.blend.set(false);
-			} else {
-				glstate.blendEquation.set(eqLookup[blendFuncEq]);
-			}
+			glstate.blendEquation.set(eqLookup[blendFuncEq]);
 		} else {
 			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
 		}
