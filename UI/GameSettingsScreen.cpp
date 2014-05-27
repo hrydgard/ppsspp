@@ -507,8 +507,13 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
 		g_Config.sNickName = name;
+	if (tFullScreen)
+		host->GoFullscreen(true);
 	}
 #endif
 	return UI::EVENT_DONE;
@@ -521,8 +526,13 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
 		g_Config.proAdhocServer = name;
+	if (tFullScreen)
+		host->GoFullscreen(true);
 	}
 #endif
 	return UI::EVENT_DONE;
@@ -535,8 +545,13 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a Mac address", g_Config.localMacAddress.c_str(), name, name_len)) {
 		g_Config.localMacAddress = name;
+	if (tFullScreen)
+		host->GoFullscreen(true);
 	}
 #endif
 	return UI::EVENT_DONE;

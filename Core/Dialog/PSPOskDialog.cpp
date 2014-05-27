@@ -30,6 +30,7 @@
 
 #if defined(USING_WIN_UI)
 #include "base/NativeApp.h"
+#include "Core/host.h"
 #endif
 
 #ifndef _WIN32
@@ -862,8 +863,18 @@ int PSPOskDialog::Update(int animSpeed) {
 #if defined(USING_WIN_UI)
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
-	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
-		return NativeKeyboard();
+	// Work arround by temp disable fullscreen
+
+	if (g_Config.bBypassOSKWithKeyboard) {
+		bool tFullScreen = g_Config.bFullScreen;
+		if (tFullScreen)
+			host->GoFullscreen(false);
+		int ret = NativeKeyboard();
+		if (tFullScreen)
+			host->GoFullscreen(true);
+		return ret;
+	}
+
 #endif
 
 	UpdateFade(animSpeed);
