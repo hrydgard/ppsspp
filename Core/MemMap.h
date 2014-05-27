@@ -108,7 +108,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
-u8	Read_U8(const u32 _Address);
+u8  Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);

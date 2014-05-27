@@ -297,7 +297,11 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 		} else {
 #ifdef __SYMBIAN32__
 			*(view.out_ptr_low) = (u8*)((int)arena->memmap->Base() + view.virtual_address);
-			arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
+			// Over allocate VRAM to span the mirrors. Hopefully resolves crash.
+			if (i == 2)
+				arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size * 4);
+			else
+				arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
 		}
 		*(view.out_ptr) = (u8*)((int)arena->memmap->Base() + view.virtual_address & 0x3FFFFFFF);
 #elif defined(_XBOX)
