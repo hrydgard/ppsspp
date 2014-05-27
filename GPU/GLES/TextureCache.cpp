@@ -925,6 +925,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			static const GLubyte indices[4] = { 0, 1, 3, 2 };
 
 			glUseProgram(program);
+			gstate_c.shaderChanged = true;
 
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);

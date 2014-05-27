@@ -453,6 +453,8 @@ struct GPUStateCache
 	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
+	// Doesn't need savestating.
+	bool shaderChanged;
 
 	int skipDrawReason;
 
