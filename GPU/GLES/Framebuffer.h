@@ -162,7 +162,7 @@ public:
 	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
+	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);
 
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
