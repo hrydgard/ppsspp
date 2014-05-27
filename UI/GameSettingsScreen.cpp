@@ -339,6 +339,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
 #if defined(_WIN32) || defined(USING_QT_UI)
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 #else
@@ -365,11 +368,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
 	static const char *models[] = {"PSP-1000" , "PSP-2000/3000"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), models, 0, ARRAY_SIZE(models), s, screenManager()));
-	// TODO: Come up with a way to display a keyboard for mobile users,
-	// so until then, this is Windows/Desktop only.
-#if defined(_WIN32) || defined(USING_QT_UI)
-	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
-#endif
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
@@ -507,9 +505,14 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
 		g_Config.sNickName = name;
 	}
+	if (tFullScreen)
+		host->GoFullscreen(true);
 #endif
 	return UI::EVENT_DONE;
 }
@@ -521,9 +524,15 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
 		g_Config.proAdhocServer = name;
 	}
+	if (tFullScreen)
+		host->GoFullscreen(true);	
+
 #endif
 	return UI::EVENT_DONE;
 }
@@ -535,9 +544,15 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
+	bool tFullScreen = g_Config.bFullScreen;
+	if (tFullScreen)
+		host->GoFullscreen(false);
 	if (System_InputBoxGetString("Enter a Mac address", g_Config.localMacAddress.c_str(), name, name_len)) {
 		g_Config.localMacAddress = name;
 	}
+	if (tFullScreen)
+		host->GoFullscreen(true);
+
 #endif
 	return UI::EVENT_DONE;
 }
