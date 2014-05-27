@@ -490,7 +490,7 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	if (applyPostShader && usePostShader_ && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (applyPostShader && usePostShader_ && useBufferedRendering_) {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 	} else {
 		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
@@ -686,7 +686,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::DoSetRenderFrameBuffer() {
 	/*
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && currentRenderVfb_) {
+	if (useBufferedRendering_ && currentRenderVfb_) {
 		// Hack is enabled, and there was a previous framebuffer.
 		// Before we switch, let's do a series of trickery to copy one bit of stencil to
 		// destination alpha. Or actually, this is just a bunch of hackery attempts on Wipeout.
@@ -1852,7 +1852,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size) {
-	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+	if (useBufferedRendering_ && !updateVRAM_) {
 		return false;
 	}
 
@@ -1964,7 +1964,7 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 }
 
 bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+	if (useBufferedRendering_ && !updateVRAM_) {
 		return false;
 	}
 
@@ -2004,7 +2004,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 }
 
 void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE)) {
+	if (useBufferedRendering_ && !updateVRAM_) {
 		return;
 	}
 
