@@ -975,7 +975,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-		gstate_c.textureSimpleAlpha = false;
+		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		UpdateSamplingParams(*entry, true);
 	} else {
 		if (entry->framebuffer->fbo)
