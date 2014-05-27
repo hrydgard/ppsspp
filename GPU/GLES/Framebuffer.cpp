@@ -1405,14 +1405,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	fbo_unbind();
 }
 
-static inline bool UseBGRA8888() {
-	// TODO: Other platforms?  May depend on vendor which is faster?
-#ifdef _WIN32
-	return gl_extensions.EXT_bgra;
-#endif
-	return false;
-}
-
 // TODO: SSE/NEON
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBufferFormat format) {

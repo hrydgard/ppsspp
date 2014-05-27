@@ -17,11 +17,13 @@
 
 #pragma once
 
-#include "../Globals.h"
 #include "gfx_es2/fbo.h"
+#include "gfx_es2/gpu_features.h"
+
+#include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "TextureScaler.h"
+#include "GPU/GLES/TextureScaler.h"
 
 struct VirtualFramebuffer;
 class FramebufferManager;
@@ -39,6 +41,14 @@ enum FramebufferNotification {
 	NOTIFY_FB_UPDATED,
 	NOTIFY_FB_DESTROYED,
 };
+
+inline bool UseBGRA8888() {
+	// TODO: Other platforms?  May depend on vendor which is faster?
+#ifdef _WIN32
+	return gl_extensions.EXT_bgra;
+#endif
+	return false;
+}
 
 class TextureCache {
 public:

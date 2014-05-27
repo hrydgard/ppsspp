@@ -295,11 +295,20 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 	GLuint dstFmt = getClutDestFormat(palFormat);
 	int texturePixels = palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
+	bool useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+
 	DepalTexture *tex = new DepalTexture();
 	glGenTextures(1, &tex->texture);
 	glBindTexture(GL_TEXTURE_2D, tex->texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, 0, components, texturePixels, 1, 0, components, dstFmt, (void *)rawClut);
+
+	GLuint components2 = components;
+#if defined(MAY_HAVE_GLES3)
+	if (useBGRA) {
+		components2 = GL_BGRA_EXT;
+	}
+#endif
+	glTexImage2D(GL_TEXTURE_2D, 0, components, texturePixels, 1, 0, components2, dstFmt, (void *)rawClut);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
