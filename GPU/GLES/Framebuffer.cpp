@@ -992,6 +992,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
+				glDisable(GL_SCISSOR_TEST);
 
 #if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
 				if (useNV) {
@@ -1000,6 +1001,8 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 #endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
 					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
+
+				glstate.scissorTest.restore();
 			}
 #endif
 		}
@@ -1045,6 +1048,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 
 			fbo_bind_as_render_target(renderCopy);
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+			glDisable(GL_SCISSOR_TEST);
 			fbo_bind_for_read(framebuffer->fbo);
 			
 #if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
@@ -1056,6 +1060,8 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 			
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			fbo_bind_color_as_texture(renderCopy, 0);
+			glstate.viewport.restore();
+			glstate.scissorTest.restore();
 #endif
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
@@ -1321,7 +1327,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-
+	glDisable(GL_SCISSOR_TEST);
 
 #ifndef USING_GLES2
 	if (gl_extensions.FBO_ARB) {
@@ -1377,7 +1383,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glstate.viewport.set(0, 0, dst->width, dst->height);
+		glViewport(0, 0, dst->width, dst->height);
 		DisableState();
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
@@ -1388,6 +1394,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
+	glstate.scissorTest.restore();
+	glstate.viewport.restore();
 	fbo_unbind();
 }
 
