@@ -215,6 +215,26 @@ void MIPSState::Init() {
 	rng.Init(0x1337);
 }
 
+void MIPSState::UpdateCore(CPUCore desired) {
+	if (PSP_CoreParameter().cpuCore == desired) {
+		return;
+	}
+
+	PSP_CoreParameter().cpuCore = desired;
+	switch (PSP_CoreParameter().cpuCore) {
+	case CPU_JIT:
+		if (!MIPSComp::jit) {
+			MIPSComp::jit = new MIPSComp::Jit(this);
+		}
+		break;
+
+	case CPU_INTERPRETER:
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+		break;
+	}
+}
+
 void MIPSState::DoState(PointerWrap &p) {
 	auto s = p.Section("MIPSState", 1, 3);
 	if (!s)
