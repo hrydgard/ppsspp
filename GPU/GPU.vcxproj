@@ -190,6 +190,7 @@
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h" />
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
+    <ClInclude Include="GLES\DepalettizeShader.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
     <ClInclude Include="GLES\GLES_GPU.h" />
@@ -242,6 +243,7 @@
     <ClCompile Include="Directx9\VertexDecoderDX9.cpp" />
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GLES\DepalettizeShader.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\GLES_GPU.cpp" />

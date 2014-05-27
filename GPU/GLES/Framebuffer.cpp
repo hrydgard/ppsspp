@@ -610,6 +610,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	shaderManager_->DirtyLastShader();  // dirty lastShader_
 }
 
+
 VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -682,6 +683,10 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 		prevPrevDisplayFramebuf_ = 0;
 
 	delete v;
+}
+
+void FramebufferManager::RebindFramebuffer() {
+	fbo_bind_as_render_target(currentRenderVfb_->fbo);
 }
 
 void FramebufferManager::DoSetRenderFrameBuffer() {
@@ -1009,7 +1014,7 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	}
 }
 
-void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
+void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
 	}
@@ -1022,7 +1027,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer) {
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
-	if (currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
+	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 			bool useNV = false;
@@ -1398,14 +1403,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	glstate.scissorTest.restore();
 	glstate.viewport.restore();
 	fbo_unbind();
-}
-
-static inline bool UseBGRA8888() {
-	// TODO: Other platforms?  May depend on vendor which is faster?
-#ifdef _WIN32
-	return gl_extensions.EXT_bgra;
-#endif
-	return false;
 }
 
 // TODO: SSE/NEON

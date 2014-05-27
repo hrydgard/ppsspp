@@ -165,6 +165,9 @@
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\DepalettizeShader.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -307,6 +310,9 @@
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\DepalettizeShader.cpp">
+      <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

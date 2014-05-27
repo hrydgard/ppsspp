@@ -1243,6 +1243,8 @@ add_library(GPU OBJECT
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
+	GPU/GLES/DepalettizeShader.cpp
+	GPU/GLES/DepalettizeShader.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp

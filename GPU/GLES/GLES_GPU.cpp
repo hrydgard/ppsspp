@@ -410,6 +410,7 @@ GLES_GPU::GLES_GPU()
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
+	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -459,6 +460,7 @@ GLES_GPU::GLES_GPU()
 GLES_GPU::~GLES_GPU() {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
+	depalShaderCache_.Clear();
 	delete shaderManager_;
 }
 
@@ -495,6 +497,7 @@ void GLES_GPU::DeviceLost() {
 	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	depalShaderCache_.Clear();
 	framebufferManager_.DeviceLost();
 }
 
@@ -2069,6 +2072,7 @@ void GLES_GPU::DoState(PointerWrap &p) {
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
 		textureCache_.Clear(true);
+		depalShaderCache_.Clear();
 		transformDraw_.ClearTrackedVertexArrays();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
