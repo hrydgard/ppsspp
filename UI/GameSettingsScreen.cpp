@@ -521,7 +521,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
-	if (System_InputBoxGetString("Enter a IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
+	if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
 		g_Config.proAdhocServer = name;
 	}
 #endif
@@ -535,7 +535,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
-	if (System_InputBoxGetString("Enter a Mac address", g_Config.localMacAddress.c_str(), name, name_len)) {
+	if (System_InputBoxGetString("Enter a MAC address", g_Config.localMacAddress.c_str(), name, name_len)) {
 		g_Config.localMacAddress = name;
 	}
 #endif
