@@ -567,22 +567,16 @@ u32 sceIoUnassign(const char *alias)
 }
 
 u32 sceKernelStdin() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdin()", PSP_STDIN);
 	return PSP_STDIN;
 }
 
 u32 sceKernelStdout() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdout()", PSP_STDOUT);
 	return PSP_STDOUT;
 }
 
 u32 sceKernelStderr() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStderr()", PSP_STDERR);
 	return PSP_STDERR;
 }
