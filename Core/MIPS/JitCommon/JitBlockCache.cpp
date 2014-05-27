@@ -270,9 +270,11 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) 
 	}
 
 	int bl = binary_search(blocks_, baseoff, 0, num_blocks_ - 1);
-	if (blocks_[bl].invalid)
+	if (bl >= 0 && blocks_[bl].invalid) {
 		return -1;
-	return bl;
+	} else {
+		return bl;
+	}
 }
 
 MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
