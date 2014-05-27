@@ -62,6 +62,7 @@ linux {
 		PKGCONFIG += sdl
 	}
 }
+macx: LIBS += -liconv
 qnx: LIBS += -lscreen
 symbian: LIBS += -lremconcoreapi -lremconinterfacebase
 contains(QT_CONFIG, system-zlib) {
