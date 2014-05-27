@@ -61,3 +61,7 @@ void WriteReplaceInstruction(u32 address, u64 hash, int size);
 void RestoreReplacedInstruction(u32 address);
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
 bool GetReplacedOpAt(u32 address, u32 *op);
+
+// For savestates.  If you call SaveAndClearReplacements(), you must call RestoreSavedReplacements().
+std::map<u32, u32> SaveAndClearReplacements();
+void RestoreSavedReplacements(const std::map<u32, u32> &saved);

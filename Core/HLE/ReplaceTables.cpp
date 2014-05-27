@@ -560,6 +560,27 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	replacedInstructions.erase(start, end);
 }
 
+std::map<u32, u32> SaveAndClearReplacements() {
+	std::map<u32, u32> saved;
+	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		const u32 curInstr = Memory::Read_U32(addr);
+		if (MIPS_IS_REPLACEMENT(curInstr)) {
+			saved[addr] = curInstr;
+			Memory::Write_U32(it->second, addr);
+		}
+	}
+	return saved;
+}
+
+void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
+	for (auto it = saved.begin(), end = saved.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		// Just put the replacements back.
+		Memory::Write_U32(it->second, addr);
+	}
+}
+
 bool GetReplacedOpAt(u32 address, u32 *op) {
 	u32 instr = Memory::Read_Opcode_JIT(address).encoding;
 	if (MIPS_IS_REPLACEMENT(instr)) {
