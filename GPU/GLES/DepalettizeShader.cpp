@@ -169,7 +169,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	if (shift) {
 		WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
 	} else {
-		WRITE(p, "  color = (color & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
+		WRITE(p, "  color = (color & 0x%02x) | %i;\n", mask, offset);  // '|' matches what we have in gstate.h
 	}
 	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");

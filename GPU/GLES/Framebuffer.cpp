@@ -1968,7 +1968,7 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 	if (dstYOffset != (u32)-1) {
 		dstY += dstYOffset;
 	}
-	if (srcYOffset >= (u32)-1) {
+	if (srcYOffset != (u32)-1) {
 		srcY += srcYOffset;
 	}
 }
