@@ -34,7 +34,7 @@ extern std::string gameTitle;
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
 	CwCheatScreen() {}
-	std::vector<std::string> CreateCodeList();
+	void CreateCodeList();
 	std::ifstream is;
 	std::ofstream os;
 	void processFileOn(std::string activatedCheat);

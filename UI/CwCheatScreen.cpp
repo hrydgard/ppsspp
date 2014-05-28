@@ -40,10 +40,11 @@ static std::vector<std::string> cheatList;
 static CWCheatEngine *cheatEngine2;
 static std::deque<bool> bEnableCheat;
 
-std::vector<std::string> CwCheatScreen::CreateCodeList() {
+void CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
 	cheatList = cheatEngine2->GetCodesList();
 	bEnableCheat.clear();
+	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList_.push_back(cheatList[i].substr(4));
@@ -55,15 +56,13 @@ std::vector<std::string> CwCheatScreen::CreateCodeList() {
 		}
 	}
 	delete cheatEngine2;
-	return formattedList_;
 }
 
 void CwCheatScreen::CreateViews() {
 	using namespace UI;
-	std::vector<std::string> formattedList_;
 	I18NCategory *k = GetI18NCategory("CwCheats");
 	I18NCategory *d = GetI18NCategory("Dialog");
-	formattedList_ = CreateCodeList();
+	CreateCodeList();
 	g_Config.bReloadCheats = true;
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Margins actionMenuMargins(50, -15, 15, 0);
