@@ -899,6 +899,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		}
 		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
+			// TODO: What if the renderWidth or renderHeight changes for the attached FBO?
 			if (!entry->depalFBO) {
 				entry->depalFBO = fbo_create(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, 1, false, FBO_8888);
 			}
@@ -1196,6 +1197,12 @@ void TextureCache::SetTexture(bool force) {
 						it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
 					}
 				}
+			}
+
+			// If we had a depalFBO, get rid of it now.
+			if (entry->depalFBO) {
+				fbo_destroy(entry->depalFBO);
+				entry->depalFBO = 0;
 			}
 		}
 	} else {
