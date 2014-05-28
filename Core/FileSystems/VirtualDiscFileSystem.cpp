@@ -105,7 +105,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		size_t handler_pos = line.find(':', filename_pos);
 		if (handler_pos != line.npos) {
 			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos - 1);
-			std::string handler = line.substr(handler_pos + 1).c_str();
+			std::string handler = line.substr(handler_pos + 1);
 			size_t trunc = handler.find_last_not_of("\r\n");
 			if (trunc != handler.npos && trunc != handler.size())
 				handler.resize(trunc + 1);
@@ -113,7 +113,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 				handlers[handler] = new Handler(handler.c_str(), this);
 			entry.handler = handlers[handler];
 		} else {
-			entry.fileName = line.substr(filename_pos + 1).c_str();
+			entry.fileName = line.substr(filename_pos + 1);
 		}
 		size_t trunc = entry.fileName.find_last_not_of("\r\n");
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
