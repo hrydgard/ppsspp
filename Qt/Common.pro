@@ -31,12 +31,16 @@ win32 {
 	HEADERS += $$P/Common/stdafx.h
 }
 
+!symbian {
+	SOURCES += $$P/Common/MemArena.cpp
+	HEADERS += $$P/Common/MemArena.h
+}
+
 SOURCES += $$P/Common/ChunkFile.cpp \
 	$$P/Common/ConsoleListener.cpp \
 	$$P/Common/FileUtil.cpp \
 	$$P/Common/LogManager.cpp \
 	$$P/Common/KeyMap.cpp \
-	$$P/Common/MemArena.cpp \
 	$$P/Common/MemoryUtil.cpp \
 	$$P/Common/Misc.cpp \
 	$$P/Common/MsgHandler.cpp \
@@ -49,7 +53,6 @@ HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/FileUtil.h \
 	$$P/Common/LogManager.h \
 	$$P/Common/KeyMap.h \
-	$$P/Common/MemArena.h \
 	$$P/Common/MemoryUtil.h \
 	$$P/Common/MsgHandler.h \
 	$$P/Common/StringUtils.h \
