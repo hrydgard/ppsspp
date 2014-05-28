@@ -89,10 +89,10 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 
 DepalShaderCache::DepalShaderCache() {
 	// Pre-build the vertex program
-	bool useGL3 = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
+	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
 	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader_, 1, useGL3 ? &depalVShader300 : &depalVShader100, 0);
+	glShaderSource(vertexShader_, 1, useGL3_ ? &depalVShader300 : &depalVShader100, 0);
 	glCompileShader(vertexShader_);
 
 	if (CheckShaderCompileSuccess(vertexShader_, depalVShader100)) {
@@ -161,11 +161,16 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		WRITE(p, "  int color = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
 	}
+
 	float texturePixels = 256;
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888)
 		texturePixels = 512;
 
-	WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
+	if (shift) {
+		WRITE(p, "  color = ((color >> %i) & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
+	} else {
+		WRITE(p, "  color = (color & 0x%02x) | %i;\n", shift, mask, offset);  // '|' matches what we have in gstate.h
+	}
 	WRITE(p, "  fragColor0 = texture2D(pal, vec2((floor(float(color)) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
@@ -222,13 +227,17 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	case GE_FORMAT_565:
 		if ((mask & 0x3f) == 0x3F) {
 			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
 			case 5: strcpy(lookupMethod, "index.g"); multiplier = 1.0f / 64.0f; break;
+			default:
+				formatOK = false;
+			}
+		} else if ((mask & 0x1f) == 0x1f) {
+			switch (shift) {  // bgra?
+			case 0: strcpy(lookupMethod, "index.r"); multiplier = 1.0f / 32.0f; break;
 			case 11: strcpy(lookupMethod, "index.b"); multiplier = 1.0f / 32.0f; break;
 			default:
 				formatOK = false;
 			}
-		} else {
 			formatOK = false;
 		}
 		break;
@@ -259,7 +268,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
-	sprintf(offset, " + %f", (float)clutBase / texturePixels - 0.5f / texturePixels);
+	sprintf(offset, " + %f", (float)clutBase / texturePixels + 0.5f / texturePixels);
 
 #ifdef USING_GLES
 	WRITE(p, "#version 100\n");
@@ -340,8 +349,6 @@ void DepalShaderCache::Decimate() {
 GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(pixelFormat);
 
-	bool useGL3 = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
-
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
 		return shader->second->program;
@@ -349,7 +356,7 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 
 	char *buffer = new char[2048];
 
-	if (useGL3) {
+	if (useGL3_) {
 		GenerateDepalShader300(buffer, pixelFormat);
 	} else {
 		GenerateDepalShader100(buffer, pixelFormat);
@@ -370,7 +377,7 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	glBindAttribLocation(program, 0, "a_position");
 	glBindAttribLocation(program, 1, "a_texcoord0");
 
-	if (useGL3) {
+	if (useGL3_) {
 		// This call is not really necessary, I think.
 #ifndef MOBILE_DEVICE
 		glBindFragDataLocation(program, 0, "fragColor0");
