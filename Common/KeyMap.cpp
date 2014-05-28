@@ -69,8 +69,9 @@ static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
-	{VIRTKEY_REWIND, NKCODE_DEL},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
@@ -98,8 +99,9 @@ static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
 	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
-	{VIRTKEY_REWIND, NKCODE_DEL},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
@@ -127,8 +129,9 @@ static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
 	{VIRTKEY_RAPID_FIRE, NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE, NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
-	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
-	{VIRTKEY_REWIND, NKCODE_DEL},
+	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
+	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct default360KeyMap[] = {
@@ -627,6 +630,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_X_MIN, "An.Left"},
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
+#ifndef MOBILE_DEVICE
+	{ VIRTKEY_ANALOG_LIGHTLY, "Analog limiter" },
+#endif
 
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
