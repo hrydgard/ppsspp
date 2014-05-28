@@ -71,6 +71,7 @@ static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
 	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
@@ -100,6 +101,7 @@ static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
 	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
@@ -129,6 +131,7 @@ static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE       , NKCODE_ESCAPE},
 	{VIRTKEY_REWIND      , NKCODE_DEL},
+	{VIRTKEY_ANALOG_LIGHTLY, NKCODE_SHIFT_RIGHT},
 };
 
 static const DefMappingStruct default360KeyMap[] = {
@@ -634,6 +637,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_PAUSE, "Pause"},
 #ifndef MOBILE_DEVICE
 	{VIRTKEY_REWIND, "Rewind"},
+	{VIRTKEY_ANALOG_LIGHTLY, "Analog lightly"},
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
