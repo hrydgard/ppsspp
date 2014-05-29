@@ -107,7 +107,9 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), failedDecode(false), resetBuffer(false) , codecType(0) {
+		currentSample(0), endSample(0), firstSampleoffset(0),
+		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
+		failedDecode(false), resetBuffer(false), codecType(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -116,8 +118,8 @@ struct Atrac {
 		pCodecCtx = 0;
 		pSwrCtx = 0;
 		pFrame = 0;
+		audio_stream_index = 0;
 #endif // USE_FFMPEG
-		decoder_context = 0;
 		atracContext = 0;
 	}
 
@@ -243,8 +245,6 @@ struct Atrac {
 
 	InputBuffer first;
 	InputBuffer second;
-
-	void* decoder_context;
 
 	PSPPointer<SceAtracId> atracContext;
 
@@ -1781,6 +1781,9 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+			if (atrac->decodePos >= atrac->first.size) {
+				atrac->decodePos = atrac->first.size;
+			}
 			atrac->first.size += sourcebytes;
 		}
 
