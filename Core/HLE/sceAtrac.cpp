@@ -1781,6 +1781,9 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+			if (atrac->decodePos >= atrac->first.size) {
+				atrac->decodePos = atrac->first.size;
+			}
 			atrac->first.size += sourcebytes;
 		}
 
