@@ -418,7 +418,6 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
-	resetAudioList();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;
