@@ -195,8 +195,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 				ctxPtr_[i] = decoder->ctxPtr;
 				i++;
 			}
-			p.DoArray(codec_, ARRAY_SIZE(codec_));
-			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+			p.DoArray(codec_, count);
+			p.DoArray(ctxPtr_, count);
 			delete[] codec_;
 			delete[] ctxPtr_;
 		}
