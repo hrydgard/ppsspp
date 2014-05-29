@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
@@ -86,9 +88,9 @@ u32 sceMp4Delete()
 	return 0;
 }
 
-u32 sceMp4AacDecodeInitResource()
+u32 sceMp4AacDecodeInitResource(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
 	return 0;
 }
 
@@ -98,16 +100,18 @@ u32 sceMp4GetAvcTrackInfoData()
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufConstruct()
+u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct()");
+	// unknown4 == value returned by sceMp4_BCA9389C
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufQueryMemSize()
+u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufQueryMemSize()");
-	return 0;
+	int value = std::max(unknown2 * unknown3, unknown4 << 1) + (unknown2 << 6) + unknown5 + 256;
+	ERROR_LOG(ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
+	return value;
 }
 
 u32 sceMp4GetSampleInfo()
@@ -128,9 +132,9 @@ u32 sceMp4TrackSampleBufFlush()
 	return 0;
 }
 
-u32 sceMp4AacDecodeInit()
+u32 sceMp4AacDecodeInit(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
 	return 0;
 }
 
@@ -146,9 +150,9 @@ u32 sceMp4GetNumberOfMetaData()
 	return 0;
 }
 
-u32 sceMp4RegistTrack()
+u32 sceMp4RegistTrack(int mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack()");
+	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
 	return 0;
 }
 
@@ -372,13 +376,13 @@ const HLEFunction sceMp4[] =
 	{0x113E9E7B, WrapU_V<sceMp4GetNumberOfMetaData>, "sceMp4GetNumberOfMetaData"},
 	{0x7443AF1D, WrapU_V<sceMp4GetMovieInfo>, "sceMp4GetMovieInfo"},
 	{0x5EB65F26, WrapU_V<sceMp4GetNumberOfSpecificTrack>, "sceMp4GetNumberOfSpecificTrack"},
-	{0x7ADFD01C, WrapU_V<sceMp4RegistTrack>, "sceMp4RegistTrack"},
-	{0xBCA9389C, WrapU_V<sceMp4TrackSampleBufQueryMemSize>, "sceMp4TrackSampleBufQueryMemSize"},
-	{0x9C8F4FC1, WrapU_V<sceMp4TrackSampleBufConstruct>, "sceMp4TrackSampleBufConstruct"},
+	{0x7ADFD01C, WrapU_IUUUU<sceMp4RegistTrack>, "sceMp4RegistTrack"},
+	{0xBCA9389C, WrapU_UUUUU<sceMp4TrackSampleBufQueryMemSize>, "sceMp4TrackSampleBufQueryMemSize"},
+	{0x9C8F4FC1, WrapU_UUUUUUU<sceMp4TrackSampleBufConstruct>, "sceMp4TrackSampleBufConstruct"},
 	{0x0F0187D2, WrapU_V<sceMp4GetAvcTrackInfoData>, "sceMp4GetAvcTrackInfoData"},
 	{0x9CE6F5CF, WrapU_V<sceMp4GetAacTrackInfoData>, "sceMp4GetAacTrackInfoData"},
-	{0x4ED4AB1E, WrapU_V<sceMp4AacDecodeInitResource>, "sceMp4AacDecodeInitResource"},
-	{0x10EE0D2C, WrapU_V<sceMp4AacDecodeInit>, "sceMp4AacDecodeInit"},
+	{0x4ED4AB1E, WrapU_I<sceMp4AacDecodeInitResource>, "sceMp4AacDecodeInitResource"},
+	{0x10EE0D2C, WrapU_I<sceMp4AacDecodeInit>, "sceMp4AacDecodeInit"},
 	{0x496E8A65, WrapU_V<sceMp4TrackSampleBufFlush>, "sceMp4TrackSampleBufFlush"},
 	{0xB4B400D1, WrapU_V<sceMp4GetSampleNumWithTimeStamp>, "sceMp4GetSampleNumWithTimeStamp"},
 	{0xF7C51EC1, WrapU_V<sceMp4GetSampleInfo>, "sceMp4GetSampleInfo"},
