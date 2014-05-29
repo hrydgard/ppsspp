@@ -197,7 +197,7 @@ u32 sceUtilityLoadAvModule(u32 module)
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 	
-	INFO_LOG_REPORT(SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
