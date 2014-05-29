@@ -157,14 +157,14 @@ static bool Memory_TryBase(u32 flags) {
 		
 #ifdef __SYMBIAN32__
 		if (!(view.flags & MV_MIRROR_PREVIOUS)) {
-			*(view.out_ptr_low) = (u8*)((int)memmap->Base() + view.virtual_address);
+			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
 			// Over allocate VRAM to span the mirrors. Hopefully resolves crash.
 			if (i == 2)
 				memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size * 4);
 			else
 				memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
 		}
-		*(view.out_ptr) = (u8*)((int)memmap->Base() + view.virtual_address & 0x3FFFFFFF);
+		*(view.out_ptr) = (u8*)base + (view.virtual_address & 0x3FFFFFFF);
 #elif defined(_XBOX)
 		if (!(view.flags & MV_MIRROR_PREVIOUS)) {
 			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
@@ -239,7 +239,7 @@ void MemoryMap_Setup(u32 flags)
 	memmap = new RChunk();
 	memmap->CreateDisconnectedLocal(0 , 0, 0x10000000);
 	base = memmap->Base();
-#elif defined(_M_X64) || !defined(_WIN32)
+#else
 	size_t total_mem = 0;
 
 	for (int i = 0; i < num_views; i++)
@@ -252,14 +252,17 @@ void MemoryMap_Setup(u32 flags)
 	}
 	// Grab some pagefile backed memory out of the void ...
 	g_arena.GrabLowMemSpace(total_mem);
+	// 32-bit Windows retrieves base a different way
+#if defined(_M_X64) || !defined(_WIN32)
 	// This really shouldn't fail - in 64-bit, there will always be enough address space.
 	// Linux32 is fine with the x64 method, although limited to 32-bit with no automirrors.
 	base = MemArena::Find4GBBase();
 #endif
+#endif
 
 
 	// Now, create views in high memory where there's plenty of space.
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_M_X64) && !defined(_XBOX)
 	// Try a whole range of possible bases. Return once we got a valid one.
 	int base_attempts = 0;
 	u32 max_base_addr = 0x7FFF0000 - 0x10000000;
