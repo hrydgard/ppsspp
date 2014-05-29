@@ -158,7 +158,7 @@ void Register_sceAudiocodec()
 }
 
 void __sceAudiocodecDoState(PointerWrap &p){
-	auto s = p.Section("AudioList", 0, 1);
+	auto s = p.Section("AudioList", 0, 2);
 	if (!s) {
 		if (p.mode == PointerWrap::MODE_READ)
 			oldStateLoaded = true;
@@ -172,8 +172,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			// loadstate if audioList is nonempty
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
-			p.DoArray(codec_, ARRAY_SIZE(codec_));
-			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+			p.DoArray(codec_, count);
+			p.DoArray(ctxPtr_, count);
 			for (int i = 0; i < count; i++){
 				auto decoder = new SimpleAudio(ctxPtr_[i], codec_[i]);
 				audioList.push_front(decoder);
@@ -193,8 +193,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 				ctxPtr_[i] = (*it)->ctxPtr;
 				i++;
 			}
-			p.DoArray(codec_, ARRAY_SIZE(codec_));
-			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
+			p.DoArray(codec_, count);
+			p.DoArray(ctxPtr_, count);
 			delete[] codec_;
 			delete[] ctxPtr_;
 		}
