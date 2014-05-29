@@ -35,6 +35,7 @@ struct AudioCodecContext {
 };
 
 // audioList is to store current playing audios.
+// TODO: Why is this a list and not a map?
 static std::list<SimpleAudio *> audioList;
 
 static bool oldStateLoaded = false;
@@ -158,23 +159,23 @@ void Register_sceAudiocodec()
 }
 
 void __sceAudiocodecDoState(PointerWrap &p){
-	auto s = p.Section("AudioList", 0, 1);
+	auto s = p.Section("AudioList", 0, 2);
 	if (!s) {
-		if (p.mode == PointerWrap::MODE_READ)
-			oldStateLoaded = true;
+		oldStateLoaded = true;
 		return;
 	}
 
-	auto count = (int)audioList.size();
+	int count = (int)audioList.size();
 	p.Do(count);
+
 	if (count > 0) {
-		if (p.mode == PointerWrap::MODE_READ){
+		if (p.mode == PointerWrap::MODE_READ) {
 			// loadstate if audioList is nonempty
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
-			p.DoArray(codec_, ARRAY_SIZE(codec_));
-			p.DoArray(ctxPtr_, ARRAY_SIZE(ctxPtr_));
-			for (int i = 0; i < count; i++){
+			p.DoArray(codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
+			p.DoArray(ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
+			for (int i = 0; i < count; i++) {
 				auto decoder = new SimpleAudio(ctxPtr_[i], codec_[i]);
 				audioList.push_front(decoder);
 			}
@@ -188,9 +189,10 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
 			int i = 0;
-			for (std::list<SimpleAudio *>::iterator it = audioList.begin(); it != audioList.end(); it++){
-				codec_[i] = (*it)->audioType;
-				ctxPtr_[i] = (*it)->ctxPtr;
+			for (auto it = audioList.begin(); it != audioList.end(); it++) {
+				const SimpleAudio *decoder = *it;
+				codec_[i] = decoder->audioType;
+				ctxPtr_[i] = decoder->ctxPtr;
 				i++;
 			}
 			p.DoArray(codec_, ARRAY_SIZE(codec_));
