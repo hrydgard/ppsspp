@@ -131,6 +131,7 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DNR",
 	"disc0:/PSP_GAME/SYSDIR/DBZ2.BIN",
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
+	"disc0:/PSP_GAME/SYSDIR/OLEOB_DAT",
 };
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
