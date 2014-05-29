@@ -3,10 +3,8 @@
 
 #if defined(USING_GLES2)
 #ifdef IOS
-#define MAY_HAVE_GLES3 1
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
-#include "../gfx_es2/gl3stub.h"
 #else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -14,12 +12,12 @@
 #include <EGL/egl.h>
 #endif // !MAEMO
 #endif // IOS
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 // Support OpenGL ES 3.0
 // This uses the "DYNAMIC" approach from the gles3jni NDK sample.
-// Should work on non-Android mobile platforms too.
-#include "../gfx_es2/gl3stub.h"
+// Should work on desktop and non-Android mobile platforms too.
 #define MAY_HAVE_GLES3 1
+#include "../gfx_es2/gl3stub.h"
 #endif
 #else // OpenGL
 // Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on GL platforms
