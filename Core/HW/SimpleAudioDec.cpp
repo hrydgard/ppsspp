@@ -32,11 +32,10 @@ extern "C" {
 
 #endif  // USE_FFMPEG
 
-bool SimpleAudio::GetAudioCodecID(int audioType){
+bool SimpleAudio::GetAudioCodecID(int audioType) {
 #ifdef USE_FFMPEG
 
-	switch (audioType)
-	{
+	switch (audioType) {
 	case PSP_CODEC_AAC:
 		audioCodecId = AV_CODEC_ID_AAC;
 		break;
@@ -53,7 +52,7 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 		audioType = 0;
 		break;
 	}
-	if (audioType != 0){
+	if (audioType != 0) {
 		return true;
 	}
 	return false;
@@ -63,49 +62,17 @@ bool SimpleAudio::GetAudioCodecID(int audioType){
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0), wanted_resample_freq(44100){
-#ifdef USE_FFMPEG
-	avcodec_register_all();
-	av_register_all();
-	InitFFmpeg();
-
-	frame_ = av_frame_alloc();
-
-	// Get Audio Codec ID
-	if (!GetAudioCodecID(audioType)){
-		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
-		return;
-	}
-	// Find decoder
-	codec_ = avcodec_find_decoder(audioCodecId);
-	if (!codec_) {
-		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ID for audio (%s). Update your submodule.", GetCodecName(audioType));
-		return;
-	}
-	// Allocate codec context
-	codecCtx_ = avcodec_alloc_context3(codec_);
-	if (!codecCtx_) {
-		ERROR_LOG(ME, "Failed to allocate a codec context");
-		return;
-	}
-	codecCtx_->channels = 2;
-	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
-	codecCtx_->sample_rate = 44100;
-	// Open codec
-	AVDictionary *opts = 0;
-	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
-		ERROR_LOG(ME, "Failed to open codec");
-		return;
-	}
-
-	av_dict_free(&opts);
-#endif  // USE_FFMPEG
+: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0), wanted_resample_freq(44100) {
+	Init();
 }
 
 
 SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0), wanted_resample_freq(44100){
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0), wanted_resample_freq(44100) {
+	Init();
+}
+
+void SimpleAudio::Init() {
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
