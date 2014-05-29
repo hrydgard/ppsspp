@@ -443,20 +443,19 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
+#ifdef USING_GLES2
+	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
+#else
+	mode = SDL_OPENGL | SDL_RESIZABLE;
+#endif
+	int set_xres = -1;
+	int set_yres = -1;
+	bool portrait = false;
+	bool set_ipad = false;
 	int mode;
 	float set_dpi = 1.0f;
 	float set_scale = 1.0f;
-#ifdef USING_GLES2
-	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
-	int set_xres = -1;
-	int set_yres = -1;
-#else
-	mode = SDL_OPENGL | SDL_RESIZABLE;
-	int set_xres = -1;
-	int set_yres = -1;
 
-	int set_ipad = 0;
-	bool portrait = false;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			mode |= SDL_FULLSCREEN;
@@ -480,11 +479,11 @@ int main(int argc, char *argv[]) {
 			set_scale = -2;
 	
 		if (!strcmp(argv[i],"--ipad"))
-			set_ipad = 1;
+			set_ipad = true;
 		if (!strcmp(argv[i],"--portrait"))
 			portrait = true;
 	}
-#endif
+
 	if (mode & SDL_FULLSCREEN) {
 		const SDL_VideoInfo* info = SDL_GetVideoInfo();
 		pixel_xres = info->current_w;
