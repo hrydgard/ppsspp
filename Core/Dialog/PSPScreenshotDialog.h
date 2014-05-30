@@ -18,18 +18,22 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/MemMap.h"
+
+struct SceUtilityScreenshotParams;
 
 class PSPScreenshotDialog : public PSPDialog {
 public:
 	PSPScreenshotDialog();
 	virtual ~PSPScreenshotDialog();
 
-	virtual int Init(int paramAddr);
+	virtual int Init(u32 paramAddr);
 	virtual int Update(int animSpeed);
 	virtual int ContStart();
 	virtual void DoState(PointerWrap &p);
 
 protected:
 	int mode;
+	PSPPointer<SceUtilityScreenshotParams> params_;
 };
 
