@@ -592,39 +592,43 @@ include_directories(native/ext/libzip)
 set(LIBZIP_LIBRARY libzip)
 
 # FindPNG does a few things we don't want. So do it ourselves.
-# Fixed to libpng16, otherwise it can pick up earlier even if newer exists.
-find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng16/png.h")
-find_library(PNG_LIBRARY NAMES png16 libpng16 )
+# Fixed to libpng16/17, otherwise it can pick up earlier even if newer exists.
+find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng16/png.h" "libpng17/png.h")
+find_library(PNG_LIBRARY NAMES png16 libpng16 png17 libpng17)
 find_package(PackageHandleStandardArgs)
 find_package_handle_standard_args(PNG REQUIRED_VARS PNG_LIBRARY PNG_PNG_INCLUDE_DIR)
 if (PNG_FOUND)
 	include_directories(${PNG_PNG_INCLUDE_DIR})
 else()
-	add_library(png16 STATIC
-		native/ext/libpng16/pngconf.h
-		native/ext/libpng16/pngdebug.h
-		native/ext/libpng16/png.c
-		native/ext/libpng16/png.h
-		native/ext/libpng16/pngerror.c
-		native/ext/libpng16/pngget.c
-		native/ext/libpng16/pnginfo.h
-		native/ext/libpng16/pnglibconf.h
-		native/ext/libpng16/pngmem.c
-		native/ext/libpng16/pngpread.c
-		native/ext/libpng16/pngpriv.h
-		native/ext/libpng16/pngread.c
-		native/ext/libpng16/pngrio.c
-		native/ext/libpng16/pngrtran.c
-		native/ext/libpng16/pngrutil.c
-		native/ext/libpng16/pngset.c
-		native/ext/libpng16/pngstruct.h
-		native/ext/libpng16/pngtest.c
-		native/ext/libpng16/pngtrans.c
-		native/ext/libpng16/pngwio.c
-		native/ext/libpng16/pngwrite.c
-		native/ext/libpng16/pngwtran.c
-		native/ext/libpng16/pngwutil.c)
-	set(PNG_LIBRARY png16)
+	if(ARM)
+		file(GLOB PNG_ARM_INCLUDES native/ext/libpng17/arm/*)
+	endif()
+	add_library(png17 STATIC
+		native/ext/libpng17/pngconf.h
+		native/ext/libpng17/pngdebug.h
+		native/ext/libpng17/png.c
+		native/ext/libpng17/png.h
+		native/ext/libpng17/pngerror.c
+		native/ext/libpng17/pngget.c
+		native/ext/libpng17/pnginfo.h
+		native/ext/libpng17/pnglibconf.h
+		native/ext/libpng17/pngmem.c
+		native/ext/libpng17/pngpread.c
+		native/ext/libpng17/pngpriv.h
+		native/ext/libpng17/pngread.c
+		native/ext/libpng17/pngrio.c
+		native/ext/libpng17/pngrtran.c
+		native/ext/libpng17/pngrutil.c
+		native/ext/libpng17/pngset.c
+		native/ext/libpng17/pngstruct.h
+		native/ext/libpng17/pngtest.c
+		native/ext/libpng17/pngtrans.c
+		native/ext/libpng17/pngwio.c
+		native/ext/libpng17/pngwrite.c
+		native/ext/libpng17/pngwtran.c
+		native/ext/libpng17/pngwutil.c
+		${PNG_ARM_INCLUDES} )
+	set(PNG_LIBRARY png17)
 	include_directories(native/ext)
 endif()
 	

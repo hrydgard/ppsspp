@@ -161,6 +161,8 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(color.a);\n"); else WRITE(p, "  int a = 0;\n");
 		WRITE(p, "  int index = (a << 15) | (b << 10) | (g << 5) | (r);");
 		break;
+	default:
+		break;
 	}
 
 	float texturePixels = 256;
@@ -269,6 +271,8 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			}
 			index_multiplier = 1.0f / 256.0f;
 		}
+		break;
+	default:
 		break;
 	}
 
