@@ -84,10 +84,14 @@ WindowsHost::WindowsHost(HWND mainWindow) {
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
-#define PUSH_BACK(Cls) do { list.push_back(std::shared_ptr<InputDevice>(new Cls())); } while (0)
-
+	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
-	input.push_back(std::shared_ptr<InputDevice>(new DinputDevice()));
+	//find all connected DInput devices of class GamePad
+	int numDInputDevs = DinputDevice::getNumPads();
+	for (int i = 0; i < numDInputDevs; i++)
+	{
+		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(i)));
+	}
 	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
 	input.push_back(keyboard);
 
