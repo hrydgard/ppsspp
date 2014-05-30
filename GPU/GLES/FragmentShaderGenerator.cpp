@@ -288,6 +288,9 @@ bool ShouldUseShaderBlending() {
 	if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
 		return false;
 	}
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		return false;
+	}
 
 	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
 	GEBlendDstFactor funcB = gstate.getBlendFuncB();

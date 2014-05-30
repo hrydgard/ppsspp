@@ -1028,49 +1028,27 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
 	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
-#ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB) {
-			bool useNV = false;
-#else
-		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-			bool useNV = !gl_extensions.GLES3;
-#endif
-#ifdef MAY_HAVE_GLES3
-
-			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			FBO *renderCopy = NULL;
-			std::pair<int, int> copySize = std::make_pair((int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
-			for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
-				if (it->first == copySize) {
-					renderCopy = it->second;
-					break;
-				}
+		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+		FBO *renderCopy = NULL;
+		std::pair<int, int> copySize = std::make_pair((int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
+		for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
+			if (it->first == copySize) {
+				renderCopy = it->second;
+				break;
 			}
-			if (!renderCopy) {
-				renderCopy = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
-				renderCopies_[copySize] = renderCopy;
-			}
-
-			fbo_bind_as_render_target(renderCopy);
-			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
-			glDisable(GL_SCISSOR_TEST);
-			fbo_bind_for_read(framebuffer->fbo);
-			
-#if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
-			if (useNV) {
-				glBlitFramebufferNV(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			} else 
-#endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
-				glBlitFramebuffer(0, 0, framebuffer->renderWidth, framebuffer->renderHeight, 0, 0, framebuffer->renderWidth, framebuffer->renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			
-			fbo_bind_as_render_target(currentRenderVfb_->fbo);
-			fbo_bind_color_as_texture(renderCopy, 0);
-			glstate.viewport.restore();
-			glstate.scissorTest.restore();
-#endif
-		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo, 0);
 		}
+		if (!renderCopy) {
+			renderCopy = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
+			renderCopies_[copySize] = renderCopy;
+		}
+
+		VirtualFramebuffer copyInfo = *framebuffer;
+		copyInfo.fbo = renderCopy;
+		BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
+
+		fbo_bind_as_render_target(currentRenderVfb_->fbo);
+		fbo_bind_color_as_texture(renderCopy, 0);
+		glstate.viewport.restore();
 	} else {
 		fbo_bind_color_as_texture(framebuffer->fbo, 0);
 	}
@@ -1862,7 +1840,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset) {
-	if (!useBufferedRendering_ || updateVRAM_) {
+	if (updateVRAM_) {
 		return false;
 	}
 
@@ -1890,6 +1868,13 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
+	if (!useBufferedRendering_) {
+		// If we're copying into a recently used display buf, it's probably destined for the screen.
+		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
+			return false;
+		}
+	}
+
 	// TODO: Do ReadFramebufferToMemory etc where applicable.
 	// This will slow down MotoGP but make the hack above unnecessary.
 	if (dstBuffer && srcBuffer && !isMemset) {
@@ -1908,14 +1893,16 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
-			fbo_bind_as_render_target(dstBuffer->fbo);
+			if (useBufferedRendering_) {
+				fbo_bind_as_render_target(dstBuffer->fbo);
+			}
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			// TODO: Validate x/y/w/h based on size and offset?
 			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 			dstBuffer->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				dstBuffer->reallyDirtyAfterDisplay = true;
-			if (currentRenderVfb_) {
+			if (currentRenderVfb_ && useBufferedRendering_) {
 				fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			} else {
 				fbo_unbind();
@@ -2014,7 +2001,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 }
 
 void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (!useBufferedRendering_ || updateVRAM_) {
+	if (updateVRAM_) {
 		return;
 	}
 
@@ -2037,11 +2024,17 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		VirtualFramebuffer *srcBuffer = 0;
 		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
 
+		if (!useBufferedRendering_ && currentRenderVfb_ != dstBuffer) {
+			return;
+		}
+
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				fbo_bind_as_render_target(dstBuffer->fbo);
+				if (useBufferedRendering_) {
+					fbo_bind_as_render_target(dstBuffer->fbo);
+				}
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
 				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
@@ -2049,7 +2042,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 					dstBuffer->reallyDirtyAfterDisplay = true;
-				if (currentRenderVfb_) {
+				if (currentRenderVfb_ && useBufferedRendering_) {
 					fbo_bind_as_render_target(currentRenderVfb_->fbo);
 				} else {
 					fbo_unbind();
