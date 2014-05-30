@@ -7,7 +7,6 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h> // TODO: Does Maemo like this?
-#include <EGL/eglext.h>
 // At least Nokia platforms (Symbian/Maemo/Meego) need the three below?
 #include <KHR/khrplatform.h>
 typedef char GLchar;
