@@ -36,10 +36,15 @@ if(LOONGSON)
 endif()
 
 if(ARM OR SIMULATOR)
-	set(USING_GLES2 ON)
+	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
 else() # Assume x86
 	set(X86 ON)
+endif()
+
+if(USING_EGL)
+	# Default to GLES2 but could be GL.
+	set(USING_GLES2 ON)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -75,20 +80,26 @@ endif()
 #endif()
 
 # User-editable options (go into CMakeCache.txt)
+# :: Processors
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
+# :: Platforms
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
-option(PANDORA "Set to ON if targeting an OpenPandora device" ${PANDORA})
-option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
+option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
+# :: Environments
+option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
+option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
+# :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targetting a mobile device" ${MOBILE_DEVICE})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
+# :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
 if(ANDROID OR BLACKBERRY OR IOS)
@@ -132,38 +143,37 @@ endif()
 # Needed for Globals.h
 include_directories("${CMAKE_SOURCE_DIR}")
 
-if(BLACKBERRY)
-	add_definitions(-DBLACKBERRY=${BLACKBERRY})
+if(ARM)
+	add_definitions(-DARM)
+endif()
+if(MIPS)
+	add_definitions(-DMIPS)
 endif()
 
 if(ANDROID)
 	add_definitions(-DANDROID)
 endif()
-
+if(BLACKBERRY)
+	add_definitions(-DBLACKBERRY=${BLACKBERRY})
+endif()
 if(IOS)
 	add_definitions(-DIOS)
 endif()
-
 if(MAEMO)
 	add_definitions(-DMAEMO)
 endif()
 
-if(PANDORA)
-	add_definitions(-DPANDORA)
+if(USING_EGL)
+	add_definitions(-DUSING_EGL)
 endif()
-
-if(ARM)
-	add_definitions(-DARM)
+if(USING_FBDEV)
+	add_definitions(-DUSING_FBDEV)
 endif()
 if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
 endif()
 if(MOBILE_DEVICE)
 	add_definitions(-DMOBILE_DEVICE)
-endif()
-
-if(MIPS)
-	add_definitions(-DMIPS)
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
@@ -655,12 +665,12 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
-    if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
-        set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
-    endif()
-    
-    set_source_files_properties(ios/AppDelegate.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
-    set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
+		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
+	endif()
+
+	set_source_files_properties(ios/AppDelegate.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
@@ -690,8 +700,8 @@ elseif(SDL_FOUND)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
-	elseif(PANDORA OR MAEMO)
-		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
+	elseif(USING_EGL)
+		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
@@ -947,7 +957,7 @@ endif()
 
 # Core needs to be linked with dl on these platforms
 if(LINUX)
-  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
+  set(CoreExtraLibs ${CoreExtraLibs} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else

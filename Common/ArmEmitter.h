@@ -24,11 +24,7 @@
 #include <stdint.h>
 
 #include "Common.h"
-#if defined(__SYMBIAN32__) || defined(PANDORA)
-#include <signal.h>
-#endif
-
-#undef R0
+// TODO: Check if Pandora still needs signal.h/kill here. Symbian doesn't.
 
 // VCVT flags
 #define TO_FLOAT      0
