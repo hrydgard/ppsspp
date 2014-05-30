@@ -15,18 +15,40 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPScreenshotDialog.h"
+#include "Common/ChunkFile.h"
+#include "Core/Dialog/PSPDialog.h"
+#include "Core/Dialog/PSPScreenshotDialog.h"
+#include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
-#include "ChunkFile.h"
+#include "Core/Reporting.h"
 
-enum SceUtilityScreenshotType
-{
+enum SceUtilityScreenshotType {
 	SCE_UTILITY_SCREENSHOT_TYPE_GUI = 0,
 	SCE_UTILITY_SCREENSHOT_TYPE_AUTO = 1,
 	SCE_UTILITY_SCREENSHOT_TYPE_SAVE = 2,
 	SCE_UTILITY_SCREENSHOT_TYPE_VIEW = 3,
-	SCE_UTILITY_SCREENSHOT_TYPE_CONT_FINISH = 4,
-	SCE_UTILITY_SCREENSHOT_TYPE_CONT_AUTO = 5,
+
+	// Names are just guesses based on status value behavior.
+	SCE_UTILITY_SCREENSHOT_TYPE_CONT_START = 100,
+	SCE_UTILITY_SCREENSHOT_TYPE_CONT_FINISH = 101,
+	SCE_UTILITY_SCREENSHOT_TYPE_CONT_STOP = 102,
+};
+
+static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V1 = 436;
+static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V2 = 928;
+static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V3 = 932;
+
+#if COMMON_LITTLE_ENDIAN
+typedef SceUtilityScreenshotType SceUtilityScreenshotType_le;
+#else
+typedef swap_struct_t<SceUtilityScreenshotType, swap_32_t<SceUtilityScreenshotType> > SceUtilityScreenshotType_le;
+#endif
+
+struct SceUtilityScreenshotParams {
+	pspUtilityDialogCommon base;
+	SceUtilityScreenshotType_le mode;
+
+	// TODO
 };
 
 PSPScreenshotDialog::PSPScreenshotDialog() : PSPDialog() {
@@ -36,43 +58,54 @@ PSPScreenshotDialog::PSPScreenshotDialog() : PSPDialog() {
 PSPScreenshotDialog::~PSPScreenshotDialog() {
 }
 
-int PSPScreenshotDialog::Init(int paramAddr)
-{
+int PSPScreenshotDialog::Init(u32 paramAddr) {
 	// Already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN) {
+		ERROR_LOG_REPORT(HLE, "sceUtilityScreenshotInitStart(%08x): invalid status", paramAddr);
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	mode = Memory::Read_U32(paramAddr);
+	params_ = PSPPointer<SceUtilityScreenshotParams>::Create(paramAddr);
+	if (!params_.IsValid()) {
+		ERROR_LOG_REPORT(HLE, "sceUtilityScreenshotInitStart(%08x): invalid pointer", paramAddr);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
+
+	switch ((u32)params_->base.size) {
+	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V1:
+	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V2:
+	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V3:
+		break;
+
+	default:
+		ERROR_LOG_REPORT(HLE, "sceUtilityScreenshotInitStart(%08x): invalid size %d", paramAddr, (u32)params_->base.size);
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
+
+	mode = params_->mode;
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
 	return 0;
 }
 
-int PSPScreenshotDialog::Update(int animSpeed)
-{
-	PSPDialog::DialogStatus retval = status;
+int PSPScreenshotDialog::Update(int animSpeed) {
 	if (UseAutoStatus()) {
 		if (status == SCE_UTILITY_STATUS_INITIALIZE) {
 			status = SCE_UTILITY_STATUS_RUNNING;
 		} else if (status == SCE_UTILITY_STATUS_RUNNING) {
-			// There is some unknown reason that don't work correctly
-			// Temp disable
-//			if ((mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_AUTO || (mode & 0x7) == SCE_UTILITY_SCREENSHOT_TYPE_CONT_FINISH) {
-				// When screenshot cont. mode is specified , sceUtilityScreenshotContStart will be called in next call.
-//				status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
-//			} else {
+			if (mode == SCE_UTILITY_SCREENSHOT_TYPE_CONT_START) {
+				status = SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN;
+			} else {
 				status = SCE_UTILITY_STATUS_FINISHED;
-//			}
+			}
 		} else if (status == SCE_UTILITY_STATUS_FINISHED) {
 			status = SCE_UTILITY_STATUS_SHUTDOWN;
 		}
 	}
-	return retval;
+	return 0;
 }
 
-int PSPScreenshotDialog::ContStart()
-{
+int PSPScreenshotDialog::ContStart() {
 	// Based on JPCSP http://code.google.com/p/jpcsp/source/detail?r=3381
 	if (status != SCE_UTILITY_STATUS_SCREENSHOT_UNKNOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
@@ -86,9 +119,12 @@ int PSPScreenshotDialog::ContStart()
 void PSPScreenshotDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPScreenshotDialog", 0, 1);
+	auto s = p.Section("PSPScreenshotDialog", 0, 2);
 	if (!s)
 		return;
 
 	p.Do(mode);
+	if (s >= 2) {
+		p.Do(params_);
+	}
 }
