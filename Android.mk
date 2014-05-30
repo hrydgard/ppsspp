@@ -20,22 +20,22 @@ LOCAL_SRC_FILES :=\
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
-    ext/libpng16/png.c \
-    ext/libpng16/pngerror.c \
-    ext/libpng16/pngget.c \
-    ext/libpng16/pngmem.c \
-    ext/libpng16/pngpread.c \
-    ext/libpng16/pngread.c \
-    ext/libpng16/pngrio.c \
-    ext/libpng16/pngrtran.c \
-    ext/libpng16/pngrutil.c \
-    ext/libpng16/pngset.c \
-    ext/libpng16/pngtest.c \
-    ext/libpng16/pngtrans.c \
-    ext/libpng16/pngwio.c \
-    ext/libpng16/pngwrite.c \
-    ext/libpng16/pngwtran.c \
-    ext/libpng16/pngwutil.c \
+    ext/libpng17/png.c \
+    ext/libpng17/pngerror.c \
+    ext/libpng17/pngget.c \
+    ext/libpng17/pngmem.c \
+    ext/libpng17/pngpread.c \
+    ext/libpng17/pngread.c \
+    ext/libpng17/pngrio.c \
+    ext/libpng17/pngrtran.c \
+    ext/libpng17/pngrutil.c \
+    ext/libpng17/pngset.c \
+    ext/libpng17/pngtest.c \
+    ext/libpng17/pngtrans.c \
+    ext/libpng17/pngwio.c \
+    ext/libpng17/pngwrite.c \
+    ext/libpng17/pngwtran.c \
+    ext/libpng17/pngwutil.c \
     ext/jpge/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
@@ -110,7 +110,10 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-    math/fast/fast_matrix_neon.S.neon
+    math/fast/fast_matrix_neon.S.neon \
+    ext/libpng17/arm/arm_init.c \
+    ext/libpng17/arm/filter_neon_intrinsics.c \
+    ext/libpng17/arm/filter_neon.S.neon
 
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
