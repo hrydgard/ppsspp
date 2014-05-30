@@ -110,7 +110,7 @@ namespace MIPSAnalyst
 	void LoadHashMap(std::string filename);
 	void StoreHashMap(std::string filename = "");
 
-	const char *LookupHash(u64 hash, int funcSize);
+	const char *LookupHash(u64 hash, u32 funcSize);
 	void ReplaceFunctions();
 
 	void UpdateHashMap();

@@ -978,11 +978,11 @@ skip:
 		}
 	}
 
-	const char *LookupHash(u64 hash, int funcsize) {
-		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
-			if (it->hash == hash && (int)it->size == funcsize) {
-				return it->name;
-			}
+	const char *LookupHash(u64 hash, u32 funcsize) {
+		const HashMapFunc f = { "", hash, funcsize };
+		auto it = hashMap.find(f);
+		if (it != hashMap.end()) {
+			return it->name;
 		}
 		return 0;
 	}
