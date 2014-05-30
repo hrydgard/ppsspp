@@ -240,8 +240,6 @@ GLboolean gl3stubInit() {
     return GL_TRUE;
 }
 
-#endif
-
 #if !defined(IOS)
 
 /* Function pointer definitions */
@@ -352,4 +350,5 @@ GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, 
 
 #endif // IOS
 
+#endif // GLES2
 #endif
