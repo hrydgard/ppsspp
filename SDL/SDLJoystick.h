@@ -90,7 +90,7 @@ private:
 	std::map<int, int> SDLJoyButtonMap;
 	std::map<int, int> SDLJoyAxisMap;
 
-	SDL_Joystick *joy ;
+	std::vector<SDL_Joystick *> joys;
 	SDL_Thread *thread ;
 	bool running ;
 
