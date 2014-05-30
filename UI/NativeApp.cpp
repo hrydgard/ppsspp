@@ -34,7 +34,7 @@
 #endif
 
 #ifdef _WIN32
-#include <libpng16/png.h>
+#include <libpng17/png.h>
 #include "ext/jpge/jpge.h"
 #endif
 
