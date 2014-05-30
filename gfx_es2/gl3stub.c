@@ -19,7 +19,6 @@
 #include "../gfx/gl_common.h"
 
 #if defined(USING_GLES2)
-
 GLboolean gl3stubInit() {
 #if !defined(IOS)
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
@@ -241,6 +240,8 @@ GLboolean gl3stubInit() {
     return GL_TRUE;
 }
 
+#endif
+
 #if !defined(IOS)
 
 /* Function pointer definitions */
@@ -350,5 +351,5 @@ GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 
 #endif // IOS
-#endif
+
 #endif

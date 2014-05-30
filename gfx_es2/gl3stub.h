@@ -1,5 +1,4 @@
-#ifndef __gl3_h_
-#define __gl3_h_
+#pragma once
 
 /*
  * stub gl3.h for dynamic loading, based on:
@@ -493,4 +492,3 @@ extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum t
 
 #endif   // USING_GLES2
 
-#endif

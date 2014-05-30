@@ -1,27 +1,18 @@
-#ifndef _GL_COMMON_H
-#define _GL_COMMON_H
+#pragma once
 
-#if defined(USING_GLES2)
 #ifdef IOS
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
-#else
+#elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#ifndef USING_EGL
-#include <EGL/egl.h>
-#endif // !USING_EGL
-#endif // IOS
-#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
-// Support OpenGL ES 3.0
-// This uses the "DYNAMIC" approach from the gles3jni NDK sample.
-// Should work on desktop and non-Android mobile platforms too.
-#define MAY_HAVE_GLES3 1
-#include "../gfx_es2/gl3stub.h"
-#endif
+#include <EGL/egl.h> // TODO: Does Maemo like this?
+#include <EGL/eglext.h>
+// At least Nokia platforms (Symbian/Maemo/Meego) need the three below?
+#include <KHR/khrplatform.h>
+typedef char GLchar;
+#define GL_BGRA_EXT 0x80E1
 #else // OpenGL
-// Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on GL platforms
-#define MAY_HAVE_GLES3 1
 #include <GL/glew.h>
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
@@ -30,8 +21,16 @@
 #endif
 #endif
 
-#if !defined(GLchar) && !defined(__APPLE__)
-typedef char GLchar;
+// Gets 'undefined reference' if enabled
+#if !defined(__SYMBIAN32__) && !defined(MAEMO) && !defined(MEEGO_EDITION_HARMATTAN)
+
+#ifdef USING_GLES2
+// Support OpenGL ES 3.0
+// This uses the "DYNAMIC" approach from the gles3jni NDK sample.
+#include "../gfx_es2/gl3stub.h"
 #endif
 
-#endif //_GL_COMMON_H
+// Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on GL platforms
+#define MAY_HAVE_GLES3 1
+
+#endif
