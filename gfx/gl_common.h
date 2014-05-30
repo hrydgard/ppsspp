@@ -8,9 +8,9 @@
 #else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#ifndef MAEMO
+#ifndef USING_EGL
 #include <EGL/egl.h>
-#endif // !MAEMO
+#endif // !USING_EGL
 #endif // IOS
 #if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
 // Support OpenGL ES 3.0

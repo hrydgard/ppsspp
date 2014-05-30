@@ -1,6 +1,7 @@
 // SDL/EGL implementation of the framework.
 // This is quite messy due to platform-specific implementations and #ifdef's.
-// It is suggested to use the Qt implementation instead.
+// Note: SDL1.2 implementation is deprecated and will soon be replaced by SDL2.0.
+// If your platform is not supported, it is suggested to use Qt instead.
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -8,17 +9,19 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <ShellAPI.h>
-#include "SDL.h"
-#include "SDL_timer.h"
-#include "SDL_audio.h"
-#include "SDL_video.h"
 #else
 #include <unistd.h>
 #include <pwd.h>
+#endif
+
 #include "SDL.h"
 #include "SDL_timer.h"
 #include "SDL_audio.h"
 #include "SDL_video.h"
+#ifndef _WIN32
+#include "SDL/SDLJoystick.h"
+//SDL_Joystick *ljoy = NULL;
+//SDL_Joystick *rjoy = NULL;
 #endif
 
 #ifdef RPI
@@ -38,10 +41,6 @@
 #include "util/const_map.h"
 #include "math/math_util.h"
 
-#ifndef _WIN32
-#include "SDL/SDLJoystick.h"
-#endif
-
 #ifdef PPSSPP
 // Bad: PPSSPP includes from native
 #include "Core/Core.h"
@@ -50,15 +49,14 @@
 GlobalUIState lastUIState = UISTATE_MENU;
 #endif
 
-static SDL_Surface*        g_Screen        = NULL;
+static SDL_Surface* g_Screen        = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
 static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 
-#if defined(MAEMO) || defined(PANDORA)
-#define EGL
+#if defined(USING_EGL)
 #include "EGL/egl.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -104,8 +102,8 @@ int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	}
 
 int8_t EGL_Open() {
-#ifdef PANDORA
-	g_Display = EGL_DEFAULT_DISPLAY;
+#ifdef USING_FBDEV
+	g_Display = ((EGLNativeDisplayType)0);
 #else
 	if ((g_Display = XOpenDisplay(NULL)) == NULL)
 		EGL_ERROR("Unable to get display!", false);
@@ -121,7 +119,8 @@ int8_t EGL_Init() {
 	EGLConfig g_eglConfig;
 	EGLint g_numConfigs = 0;
 	EGLint attrib_list[]= {
-#ifdef PANDORA
+	// TODO: Should cycle through fallbacks, like on Android
+#ifdef USING_FBDEV
 		EGL_RED_SIZE,        5,
 		EGL_GREEN_SIZE,      6,
 		EGL_BLUE_SIZE,       5,
@@ -152,7 +151,7 @@ int8_t EGL_Init() {
 		return 1;
 	}
 
-#ifdef PANDORA
+#ifdef USING_FBDEV
 	g_Window = (NativeWindowType)NULL;
 #else
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
@@ -186,16 +185,6 @@ void EGL_Close() {
 	g_eglSurface = NULL;
 	g_eglContext = NULL;
 }
-#else
-#endif
-
-#ifdef PANDORA
-SDL_Joystick    *ljoy = NULL;
-SDL_Joystick    *rjoy = NULL;
-#else
-#ifndef _WIN32
-SDLJoystick *joystick = NULL;
-#endif
 #endif
 
 // Simple implementations of System functions
@@ -327,19 +316,19 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
 
-#ifdef PANDORA
+/*#ifndef _WIN32
 	if (ljoy || rjoy) {
 		SDL_JoystickUpdate();
 		if (ljoy) {
-			input->pad_lstick_x = max(min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f), -1.0f);
-			input->pad_lstick_y = max(min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f), -1.0f);
+			input->pad_lstick_x = std::max(std::min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f), -1.0f);
+			input->pad_lstick_y = std::max(std::min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f), -1.0f);
 		}
 		if (rjoy) {
-			input->pad_rstick_x = max(min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f), -1.0f);
-			input->pad_rstick_y = max(min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f), -1.0f);
+			input->pad_rstick_x = std::max(std::min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f), -1.0f);
+			input->pad_rstick_y = std::max(std::min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f), -1.0f);
 		}
 	}
-#endif
+#endif*/
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -400,11 +389,7 @@ int main(int argc, char *argv[]) {
 #ifdef RPI
 	bcm_host_init();
 #endif
-
-	// Avoid warning about conversion from const char * to char *
-	char envTemp[256];
-	strcpy(envTemp, "SDL_VIDEO_CENTERED=1");
-	putenv(envTemp);
+	putenv((char*)"SDL_VIDEO_CENTERED=1");
 
 	std::string app_name;
 	std::string app_name_nice;
@@ -425,7 +410,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
-#ifdef EGL
+#ifdef USING_EGL
 	if (EGL_Open())
 		return 1;
 #endif
@@ -443,6 +428,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
+	int mode;
 #ifdef USING_GLES2
 	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
 #else
@@ -452,7 +438,6 @@ int main(int argc, char *argv[]) {
 	int set_yres = -1;
 	bool portrait = false;
 	bool set_ipad = false;
-	int mode;
 	float set_dpi = 1.0f;
 	float set_scale = 1.0f;
 
@@ -534,7 +519,7 @@ int main(int argc, char *argv[]) {
 		return 2;
 	}
 
-#ifdef EGL
+#ifdef USING_EGL
 	EGL_Init();
 #endif
 
@@ -542,7 +527,7 @@ int main(int argc, char *argv[]) {
 	SDL_WM_SetCaption((app_name_nice + " " + PPSSPP_GIT_VERSION).c_str(), NULL);
 #endif
 
-#ifdef MAEMO
+#ifdef MOBILE_DEVICE
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
 
@@ -625,18 +610,14 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
-#ifdef PANDORA
-	int numjoys = SDL_NumJoysticks();
-	// Joysticks init, we the nubs if setup as Joystick
+#ifndef _WIN32
+/*	int numjoys = SDL_NumJoysticks();
+	// Joysticks init
 	if (numjoys > 0) {
 		ljoy = SDL_JoystickOpen(0);
 		if (numjoys > 1)
 			rjoy = SDL_JoystickOpen(1);
-	}
-#else
-#ifndef _WIN32
-	joystick = new SDLJoystick();
-#endif
+	}*/
 #endif
 	EnableFZ();
 
@@ -806,9 +787,6 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
-#ifndef _WIN32
-				joystick->ProcessInput(event);
-#endif
 				break;
 			}
 		}
@@ -822,7 +800,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested)
 			break;
 		NativeRender();
-#if defined(PPSSPP) && !defined(MAEMO)
+#if defined(PPSSPP) && !defined(MOBILE_DEVICE)
 		if (lastUIState != globalUIState) {
 			lastUIState = globalUIState;
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
@@ -838,7 +816,7 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-#ifdef EGL
+#ifdef USING_EGL
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
 		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
@@ -853,22 +831,22 @@ int main(int argc, char *argv[]) {
 		t = time_now();
 		framecount++;
 	}
-#ifndef PANDORA
-#ifndef _WIN32
-	delete joystick;
-	joystick = NULL;
-#endif
-#endif
+/*#ifndef _WIN32
+	if (ljoy)
+		delete ljoy;
+	if (rjoy)
+		delete rjoy;
+#endif*/
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 	exit(0);
 #endif
 	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
 	NativeShutdown();
-#ifdef EGL
+#ifdef USING_EGL
 	EGL_Close();
 #endif
 	SDL_Quit();
