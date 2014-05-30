@@ -1840,7 +1840,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset) {
-	if (!useBufferedRendering_ || updateVRAM_) {
+	if (updateVRAM_) {
 		return false;
 	}
 
@@ -1868,6 +1868,13 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
+	if (!useBufferedRendering_) {
+		// If we're copying into a recently used display buf, it's probably destined for the screen.
+		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
+			return false;
+		}
+	}
+
 	// TODO: Do ReadFramebufferToMemory etc where applicable.
 	// This will slow down MotoGP but make the hack above unnecessary.
 	if (dstBuffer && srcBuffer && !isMemset) {
@@ -1886,14 +1893,16 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
-			fbo_bind_as_render_target(dstBuffer->fbo);
+			if (useBufferedRendering_) {
+				fbo_bind_as_render_target(dstBuffer->fbo);
+			}
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			// TODO: Validate x/y/w/h based on size and offset?
 			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 			dstBuffer->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				dstBuffer->reallyDirtyAfterDisplay = true;
-			if (currentRenderVfb_) {
+			if (currentRenderVfb_ && useBufferedRendering_) {
 				fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			} else {
 				fbo_unbind();
