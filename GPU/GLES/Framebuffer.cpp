@@ -1992,7 +1992,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 }
 
 void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (!useBufferedRendering_ || updateVRAM_) {
+	if (updateVRAM_) {
 		return;
 	}
 
@@ -2015,11 +2015,17 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		VirtualFramebuffer *srcBuffer = 0;
 		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
 
+		if (!useBufferedRendering_ && currentRenderVfb_ != dstBuffer) {
+			return;
+		}
+
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				fbo_bind_as_render_target(dstBuffer->fbo);
+				if (useBufferedRendering_) {
+					fbo_bind_as_render_target(dstBuffer->fbo);
+				}
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
 				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
@@ -2027,7 +2033,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 					dstBuffer->reallyDirtyAfterDisplay = true;
-				if (currentRenderVfb_) {
+				if (currentRenderVfb_ && useBufferedRendering_) {
 					fbo_bind_as_render_target(currentRenderVfb_->fbo);
 				} else {
 					fbo_unbind();
