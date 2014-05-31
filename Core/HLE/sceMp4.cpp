@@ -141,8 +141,9 @@ u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency
 	// - init: 1 at first call, 0 afterwards
 	// - frequency: 44100
 	ERROR_LOG(ME, "sceMp4AacDecode(mp4 %i,auAddr %08x,bufferAddr %08x,init %i,frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
-	//return 0;
-	return -1;
+	return 0;
+	//This is hack
+	//return -1;
 }
 
 u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
