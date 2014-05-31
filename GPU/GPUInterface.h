@@ -243,6 +243,7 @@ public:
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
 	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
+	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;

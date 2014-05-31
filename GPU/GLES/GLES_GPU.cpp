@@ -2048,6 +2048,12 @@ bool GLES_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
 	return false;
 }
 
+bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
+	// Cheat a bit to force a download of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	return gpu->PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+}
+
 void GLES_GPU::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
 }

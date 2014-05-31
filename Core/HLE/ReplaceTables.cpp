@@ -149,9 +149,7 @@ static int Replace_memcpy_swizzled() {
 	u32 pitch = PARAM(2);
 	u32 h = PARAM(4);
 	if (Memory::IsVRAMAddress(srcPtr)) {
-		// Cheat a bit to force a download of the framebuffer.
-		// VRAM + 0x00400000 is simply a VRAM mirror.
-		gpu->PerformMemoryCopy(srcPtr ^ 0x00400000, srcPtr, pitch * h);
+		gpu->PerformMemoryDownload(srcPtr, pitch * h);
 	}
 	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
 	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
@@ -465,9 +463,7 @@ static int Hook_godseaterburst_blit_texture() {
 	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
 	const u32 fb_address = Memory::Read_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
-		// Cheat a bit to force a download of the framebuffer.
-		// VRAM + 0x00400000 is simply a VRAM mirror.
-		gpu->PerformMemoryCopy(fb_address ^ 0x00400000, fb_address, 0x00048000);
+		gpu->PerformMemoryDownload(fb_address, 0x00048000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00048000, currentMIPS->pc);
 	}
 	return 0;
@@ -481,9 +477,7 @@ static int Hook_hexyzforce_monoclome_thread() {
 
 	const u32 fb_address = Memory::Read_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
-		// Cheat a bit to force a download of the framebuffer.
-		// VRAM + 0x00400000 is simply a VRAM mirror.
-		gpu->PerformMemoryCopy(fb_address ^ 0x00400000, fb_address, 0x00088000);
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;

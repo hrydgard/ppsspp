@@ -1325,6 +1325,11 @@ bool DIRECTX9_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
 	return false;
 }
 
+bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
 void DIRECTX9_GPU::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
 }

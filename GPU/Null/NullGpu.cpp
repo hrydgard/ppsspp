@@ -668,3 +668,9 @@ bool NullGPU::PerformMemorySet(u32 dest, u8 v, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
+
+bool NullGPU::PerformMemoryDownload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
