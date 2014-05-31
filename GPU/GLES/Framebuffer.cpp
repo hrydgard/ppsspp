@@ -528,6 +528,7 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 	glEnableVertexAttribArray(program->a_position);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	// TODO: Really disable this?
 	glDisableVertexAttribArray(program->a_position);
 
 	glsl_unbind();
@@ -602,6 +603,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
+	// TODO: Really disable these?
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 

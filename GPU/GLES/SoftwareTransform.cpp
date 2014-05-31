@@ -23,6 +23,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 
@@ -88,8 +89,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
-	u32 matchcolor;
-	memcpy(&matchcolor, transformed[0].color0, 4);
+	u32 matchcolor = transformed[0].color0_32;
 	float matchz = transformed[0].z;
 
 	int bufW = gstate_c.curRTWidth;
@@ -97,9 +97,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 
 	float prevX = 0.0f;
 	for (int i = 1; i < numVerts; i++) {
-		u32 vcolor;
-		memcpy(&vcolor, transformed[i].color0, 4);
-		if (vcolor != matchcolor || transformed[i].z != matchz)
+		if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
 			return false;
 
 		if ((i & 1) == 0) {
@@ -386,8 +384,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
 	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
-		u32 clearColor;
-		memcpy(&clearColor, transformed[0].color0, 4);
+		u32 clearColor = transformed[0].color0_32;
 		float clearDepth = transformed[0].z;
 		const float col[4] = {
 			((clearColor & 0xFF)) / 255.0f,
@@ -398,22 +395,17 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
-		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-		if (alphaMask) {
-			glstate.stencilTest.set(true);
-			// Clear stencil
-			// TODO: extract the stencilValue properly, see below
-			int stencilValue = 0;
-			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
-		} else {
-			// Don't touch stencil
-			glstate.stencilTest.set(false);
-		}
-		glstate.scissorTest.set(false);
 		bool depthMask = gstate.isClearModeDepthMask();
+		if (depthMask) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
-		int target = 0;
-		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		glstate.stencilTest.set(false);
+		glstate.scissorTest.set(false);
+
+		GLbitfield target = 0;
+		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
+		if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 		glClearColor(col[0], col[1], col[2], col[3]);
@@ -422,8 +414,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 #else
 		glClearDepth(clearDepth);
 #endif
-		glClearStencil(0);  // TODO - take from alpha?
+		// Stencil takes alpha.
+		glClearStencil(clearColor >> 24);
 		glClear(target);
+
+		// TODO: Now we may have enabled vertex arrays with no data.
+		// This will crash later in DrawActiveTexture().  So we just give it dummy values.
+		if (program->attrMask & (1 << ATTR_COLOR0)) {
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4, transformed);
+		}
 		return;
 	}
 
