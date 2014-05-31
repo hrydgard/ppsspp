@@ -438,6 +438,41 @@ static int Replace_dl_write_matrix() {
 	return 60;
 }
 
+static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
+	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset);
+	if (upper != MIPS_MAKE_LUI(MIPS_GET_RT(upper), upper & 0xffff)) {
+		return false;
+	}
+	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset);
+	if (lower != MIPS_MAKE_LW(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
+		return false;
+	}
+	addr = ((upper & 0xffff) << 16) + (s16)(lower & 0xffff);
+	return true;
+}
+
+static int Hook_godseaterburst_blit_texture() {
+	u32 texaddr;
+	// Only if there's no texture.
+	if (!GetMIPSStaticAddress(texaddr, 0x000c, 0x0030)) {
+		return 0;
+	}
+	u32 fb_infoaddr;
+	if (Memory::Read_U32(texaddr) != 0 || !GetMIPSStaticAddress(fb_infoaddr, 0x01d0, 0x01d4)) {
+		return 0;
+	}
+
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const u32 fb_address = Memory::Read_U32(fb_info);
+	if (Memory::IsVRAMAddress(fb_address)) {
+		// Cheat a bit to force a download of the framebuffer.
+		// VRAM + 0x00400000 is simply a VRAM mirror.
+		gpu->PerformMemoryCopy(fb_address ^ 0x00400000, fb_address, 0x00048000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00048000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -476,6 +511,8 @@ static const ReplacementTableEntry entries[] = {
 	// Haven't investigated write_matrix_4 and 5 but I think they are similar to 1 and 2.
 
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+
+	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
 	{}
 };
 
