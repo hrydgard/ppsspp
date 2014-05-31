@@ -711,25 +711,30 @@ void ProAdhocServerScreen::CreateViews() {
 	using namespace UI;	
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *d = GetI18NCategory("Dialog");
+
+	
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	leftColumn->Add(new ItemHeader(s->T("ProAdhocServer")));
-	leftColumn->Add(new Choice(tempProAdhocServer));	
-	leftColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
-	leftColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);	
-	leftColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
-	leftColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
-	leftColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
-	leftColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
-	leftColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
-	leftColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
-	leftColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
-	leftColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
-	leftColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
-	leftColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
-	leftColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
-	leftColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	
+	leftColumn->Add(new ItemHeader(s->T("ProAdhocServer")));	
+	leftColumn->Add(new Choice(tempProAdhocServer));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
+	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
 	root_->Add(leftColumn);	
+	root_->Add(rightColumn);
 }
 
 UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
