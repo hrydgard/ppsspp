@@ -892,8 +892,10 @@ namespace MIPSComp
 				VNEG(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				MOVI2F(S0, 0.0f, SCRATCHREG1);
-				MOVI2F(S1, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, 0.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
 				VCMP(fpr.V(sregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
@@ -907,8 +909,10 @@ namespace MIPSComp
 				SetCC(CC_AL);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				MOVI2F(S0, -1.0f, SCRATCHREG1);
-				MOVI2F(S1, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
 				VCMP(fpr.V(sregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
@@ -922,11 +926,15 @@ namespace MIPSComp
 				SetCC(CC_AL);
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				MOVI2F(S0, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				MOVI2F(S0, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VSQRT(S1, fpr.V(sregs[i]));
 				VDIV(fpr.V(tempregs[i]), S0, S1);
 				break;
@@ -964,7 +972,9 @@ namespace MIPSComp
 				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				MOVI2F(S0, -1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			default:
