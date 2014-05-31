@@ -953,7 +953,7 @@ skip:
 		lock_guard guard(functions_lock);
 
 		for (size_t i = 0; i < functions.size(); i++) {
-			WriteReplaceInstruction(functions[i].start, functions[i].hash, functions[i].size);
+			WriteReplaceInstructions(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 

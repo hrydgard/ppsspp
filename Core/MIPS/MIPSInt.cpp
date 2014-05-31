@@ -1022,11 +1022,16 @@ namespace MIPSInt
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry && entry->replaceFunc) {
 			entry->replaceFunc();
+
+			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+				// Interpret the original instruction under the hook.
+				MIPSInterpret(Memory::Read_Instruction(PC, true));
+			} else {
+				PC = currentMIPS->r[MIPS_REG_RA];
+			}
 		} else {
 			ERROR_LOG(CPU, "Bad replacement function index %i", index);
-		}	
-
-		PC = currentMIPS->r[MIPS_REG_RA];
+		}
 	}
 
 

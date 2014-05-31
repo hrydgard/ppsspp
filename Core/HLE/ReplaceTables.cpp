@@ -23,6 +23,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -515,20 +516,35 @@ const ReplacementTableEntry *GetReplacementFunc(int i) {
 	return &entries[i];
 }
 
-void WriteReplaceInstruction(u32 address, u64 hash, int size) {
+static void WriteReplaceInstruction(u32 address, int index) {
+	const u32 prevInstr = Memory::Read_U32(address);
+	if (MIPS_IS_REPLACEMENT(prevInstr)) {
+		return;
+	}
+	if (MIPS_IS_RUNBLOCK(prevInstr)) {
+		// Likely already both replaced and jitted. Ignore.
+		return;
+	}
+	replacedInstructions[address] = prevInstr;
+	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
+}
+
+void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	int index = GetReplacementFuncIndex(hash, size);
 	if (index >= 0) {
-		u32 prevInstr = Memory::Read_U32(address);
-		if (MIPS_IS_REPLACEMENT(prevInstr)) {
-			return;
+		auto entry = GetReplacementFunc(index);
+		if (entry->flags & REPFLAG_HOOKEXIT) {
+			// When hooking func exit, we search for jr ra, and replace those.
+			for (u32 offset = 0; offset < (u32)size; offset += 4) {
+				const u32 op = Memory::Read_U32(address + offset);
+				if (op == MIPS_MAKE_JR_RA()) {
+					WriteReplaceInstruction(address, index);
+				}
+			}
+		} else {
+			WriteReplaceInstruction(address, index);
 		}
-		if (MIPS_IS_RUNBLOCK(prevInstr)) {
-			// Likely already both replaced and jitted. Ignore.
-			return;
-		}
-		replacedInstructions[address] = prevInstr;
 		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
-		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
 	}
 }
 
