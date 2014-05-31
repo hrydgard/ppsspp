@@ -155,25 +155,25 @@ DinputDevice::DinputDevice(int devnum) {
 		return;
 	}
 
-	DIPROPRANGE diprg;
-	diprg.diph.dwSize = sizeof(DIPROPRANGE);
+	DIPROPRANGE diprg; 
+	diprg.diph.dwSize       = sizeof(DIPROPRANGE); 
 	diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-	diprg.diph.dwHow = DIPH_DEVICE;
-	diprg.diph.dwObj = 0;
-	diprg.lMin = -10000;
-	diprg.lMax = 10000;
+	diprg.diph.dwHow        = DIPH_DEVICE; 
+	diprg.diph.dwObj        = 0;
+	diprg.lMin              = -10000; 
+	diprg.lMax              = 10000;
 
 	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph)) ? false : true;
 
 	// Other devices suffer if the deadzone is not set. 
 	// TODO: The dead zone will be made configurable in the Control dialog.
 	DIPROPDWORD dipw;
-	dipw.diph.dwSize = sizeof(DIPROPDWORD);
+	dipw.diph.dwSize       = sizeof(DIPROPDWORD);
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-	dipw.diph.dwHow = DIPH_DEVICE;
-	dipw.diph.dwObj = 0;
+	dipw.diph.dwHow        = DIPH_DEVICE;
+	dipw.diph.dwObj        = 0;
 	// dwData 1000 is deadzone(0% - 10%)
-	dipw.dwData = 1000;
+	dipw.dwData            = 1000;
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
