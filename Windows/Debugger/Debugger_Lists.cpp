@@ -455,6 +455,9 @@ int CtrlBreakpointList::getBreakpointIndex(int itemIndex, bool& isMemory)
 
 void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
 	bool isMemory;
 	int index = getBreakpointIndex(row,isMemory);
 	if (index == -1) return;

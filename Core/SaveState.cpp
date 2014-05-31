@@ -225,17 +225,17 @@ namespace SaveState
 		CoreTiming::DoState(p);
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
+		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE)
 		{
 			auto blockCache = MIPSComp::jit->GetBlockCache();
-			auto savedReplacements = SaveAndClearReplacements();
 			auto savedBlocks = blockCache->SaveAndClearEmuHackOps();
 			Memory::DoState(p);
 			blockCache->RestoreSavedEmuHackOps(savedBlocks);
-			RestoreSavedReplacements(savedReplacements);
 		}
 		else
 			Memory::DoState(p);
+		RestoreSavedReplacements(savedReplacements);
 
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
