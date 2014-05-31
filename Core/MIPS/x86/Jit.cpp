@@ -442,6 +442,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
 		js.downcountAmount = 0;  // we just subtracted most of it
@@ -491,6 +492,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {

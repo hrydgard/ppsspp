@@ -416,6 +416,9 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
+		MovToPC(SCRATCHREG1);
+
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
 		if (BLInRange((const void *)(entry->replaceFunc))) {
