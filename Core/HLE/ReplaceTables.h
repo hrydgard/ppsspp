@@ -52,6 +52,7 @@ struct ReplacementTableEntry {
 	ReplaceFunc replaceFunc;
 	MIPSComp::MIPSReplaceFunc jitReplaceFunc;
 	int flags;
+	s32 hookOffset;
 };
 
 void Replacement_Init();

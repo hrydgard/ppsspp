@@ -87,6 +87,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
 	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
 	{ 0x06e2826e02056114, 56, "wcslen", },
+	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force
 	{ 0x075fa9b234b41e9b, 32, "fmodf", },
 	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
 	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },
@@ -149,7 +150,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
 	{ 0x31f523ef18898e0e, 420, "logf", },
-	{ 0x32215b1d2196377f, 844, "godseaterburst_blit_texture", },
+	{ 0x32215b1d2196377f, 844, "godseaterburst_blit_texture", }, // Gods Eater Burst
 	{ 0x32806967fe81568b, 40, "vector_sub_t_2", },
 	{ 0x32ceb9a7f72b9385, 440, "_strtoul_r", },
 	{ 0x32e6bc7c151491ed, 68, "memchr", },

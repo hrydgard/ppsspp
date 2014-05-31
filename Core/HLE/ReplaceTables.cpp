@@ -439,11 +439,11 @@ static int Replace_dl_write_matrix() {
 }
 
 static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
-	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset);
+	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset, true);
 	if (upper != MIPS_MAKE_LUI(MIPS_GET_RT(upper), upper & 0xffff)) {
 		return false;
 	}
-	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset);
+	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset, true);
 	if (lower != MIPS_MAKE_LW(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
 		return false;
 	}
@@ -469,6 +469,22 @@ static int Hook_godseaterburst_blit_texture() {
 		// VRAM + 0x00400000 is simply a VRAM mirror.
 		gpu->PerformMemoryCopy(fb_address ^ 0x00400000, fb_address, 0x00048000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00048000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_hexyzforce_monoclome_thread() {
+	u32 fb_info;
+	if (!GetMIPSStaticAddress(fb_info, -4, 0)) {
+		return 0;
+	}
+
+	const u32 fb_address = Memory::Read_U32(fb_info);
+	if (Memory::IsVRAMAddress(fb_address)) {
+		// Cheat a bit to force a download of the framebuffer.
+		// VRAM + 0x00400000 is simply a VRAM mirror.
+		gpu->PerformMemoryCopy(fb_address ^ 0x00400000, fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -513,6 +529,7 @@ static const ReplacementTableEntry entries[] = {
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
+	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
 	{}
 };
 
@@ -578,6 +595,8 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 					WriteReplaceInstruction(address, index);
 				}
 			}
+		} else if (entry->flags & REPFLAG_HOOKENTER) {
+			WriteReplaceInstruction(address + entry->hookOffset, index);
 		} else {
 			WriteReplaceInstruction(address, index);
 		}
