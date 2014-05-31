@@ -24,6 +24,8 @@
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
 
+static const int DEPAL_TEXTURE_OLD_AGE = 120;
+
 #ifdef _WIN32
 #define SHADERLOG
 #endif
@@ -95,7 +97,7 @@ DepalShaderCache::DepalShaderCache() {
 	glShaderSource(vertexShader_, 1, useGL3_ ? &depalVShader300 : &depalVShader100, 0);
 	glCompileShader(vertexShader_);
 
-	if (CheckShaderCompileSuccess(vertexShader_, depalVShader100)) {
+	if (!CheckShaderCompileSuccess(vertexShader_, useGL3_ ? depalVShader300 : depalVShader100)) {
 		// ...
 	}
 }
@@ -322,6 +324,7 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 
 	auto oldtex = texCache_.find(realClutID);
 	if (oldtex != texCache_.end()) {
+		oldtex->second->lastFrame = gpuStats.numFlips;
 		return oldtex->second->texture;
 	}
 
@@ -348,6 +351,7 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+	tex->lastFrame = gpuStats.numFlips;
 	texCache_[realClutID] = tex;
 	return tex->texture;
 }
@@ -367,7 +371,15 @@ void DepalShaderCache::Clear() {
 }
 
 void DepalShaderCache::Decimate() {
-	// TODO
+	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
+		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+			glDeleteTextures(1, &tex->second->texture);
+			delete tex->second;
+			texCache_.erase(tex++);
+		} else {
+			++tex;
+		}
+	}
 }
 
 GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {

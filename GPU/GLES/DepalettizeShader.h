@@ -30,6 +30,7 @@ public:
 class DepalTexture {
 public:
 	GLuint texture;
+	int lastFrame;
 };
 
 // Caches both shaders and palette textures.
