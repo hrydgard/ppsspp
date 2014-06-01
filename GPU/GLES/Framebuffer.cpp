@@ -1771,6 +1771,16 @@ void FramebufferManager::DecimateFBOs() {
 		}
 	}
 
+	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
+		int age = frameLastFramebufUsed - it->second.last_frame_used;
+		if (age > FBO_OLD_AGE) {
+			fbo_destroy(it->second.fbo);
+			tempFBOs_.erase(it++);
+		} else {
+			++it;
+		}
+	}
+
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
