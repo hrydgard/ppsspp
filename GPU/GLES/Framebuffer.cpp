@@ -521,6 +521,8 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 		((color & 0xFF000000) >> 24) / 255.0f,
 	};
 
+	shaderManager_->DirtyLastShader();
+
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -528,7 +530,6 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 	glEnableVertexAttribArray(program->a_position);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-	// TODO: Really disable this?
 	glDisableVertexAttribArray(program->a_position);
 
 	glsl_unbind();
@@ -589,6 +590,8 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+	shaderManager_->DirtyLastShader();  // dirty lastShader_
+
 	glsl_bind(program);
 	if (program == postShaderProgram_ && timeLoc_ != -1) {
 		int flipCount = __DisplayGetFlipCount();
@@ -603,13 +606,10 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
-	// TODO: Really disable these?
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 
 	glsl_unbind();
-
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
 }
 
 

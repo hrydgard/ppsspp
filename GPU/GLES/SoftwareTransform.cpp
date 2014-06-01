@@ -417,13 +417,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// Stencil takes alpha.
 		glClearStencil(clearColor >> 24);
 		glClear(target);
-
-		// TODO: Now we may have enabled vertex arrays with no data.
-		// This will crash later in DrawActiveTexture().  So we just give it dummy values.
-		if (program->attrMask & (1 << ATTR_COLOR0)) {
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4, transformed);
-		}
 		return;
 	}
 
