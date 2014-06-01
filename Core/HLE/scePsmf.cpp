@@ -1118,6 +1118,8 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 			const int streamId = *currentStreamAddr;
 			if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
 				++psmfplayer->totalVideoStreams;
+#ifndef __SYMBIAN32__
+				// HACK: When using 'basic' player version, it crashes Symbian.
 				// If we don't have EP info for /any/ video stream, revert to BASIC.
 				const u32 epOffset = *(const u32_be *)(currentStreamAddr + 4);
 				const u32 epEntries = *(const u32_be *)(currentStreamAddr + 8);
@@ -1125,6 +1127,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 				if (epOffset == 0 || epEntries == 0) {
 					psmfplayer->playerVersion = PSMF_PLAYER_VERSION_BASIC;
 				}
+#endif
 			} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
 				++psmfplayer->totalAudioStreams;
 			} else {
