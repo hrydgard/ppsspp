@@ -879,6 +879,12 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
+
+				if (destroyVfb) {
+					// Copy over the contents of the framebuffer we're replacing.
+					BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, vfb->width, vfb->height, 0);
+					fbo_bind_as_render_target(vfb->fbo);
+				}
 			} else {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 			}
