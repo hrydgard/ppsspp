@@ -752,15 +752,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	gstate_c.framebufChanged = false;
 
 	// Get parameters
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
+	const u32 fb_address = gstate.getFrameBufRawAddress();
+	const int fb_stride = gstate.FrameBufStride();
 
-	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.DepthBufStride();
-
-	// Yeah this is not completely right. but it'll do for now.
-	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	const u32 z_address = gstate.getDepthBufRawAddress();
+	const int z_stride = gstate.DepthBufStride();
 
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 
@@ -768,9 +764,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(drawing_width, drawing_height);
-
-	int buffer_width = drawing_width;
-	int buffer_height = drawing_height;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -845,8 +838,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
-		vfb->bufferWidth = buffer_width;
-		vfb->bufferHeight = buffer_height;
+		vfb->bufferWidth = drawing_width;
+		vfb->bufferHeight = drawing_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
