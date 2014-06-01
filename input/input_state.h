@@ -23,9 +23,21 @@ enum {
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
 	DEVICE_ID_MOUSE = 2,  // PC mouse only (not touchscreen!)
 	DEVICE_ID_PAD_0 = 10,  // Generic joypads
+	DEVICE_ID_PAD_1 = 11,  // these should stay as contiguous numbers
+	DEVICE_ID_PAD_2 = 12,
+	DEVICE_ID_PAD_3 = 13,
+	DEVICE_ID_PAD_4 = 14,
+	DEVICE_ID_PAD_5 = 15,
+	DEVICE_ID_PAD_6 = 16,
+	DEVICE_ID_PAD_7 = 17,
+	DEVICE_ID_PAD_8 = 18,
+	DEVICE_ID_PAD_9 = 19,
 	DEVICE_ID_X360_0 = 20,  // XInput joypads
 	DEVICE_ID_ACCELEROMETER = 30,
 };
+
+//number of contiguous generic joypad IDs
+const int MAX_NUM_PADS = 10;
 
 const char *GetDeviceName(int deviceId);
 
