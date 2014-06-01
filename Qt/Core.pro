@@ -54,6 +54,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/GLES/SoftwareTransform.cpp \
 	$$P/GPU/GLES/Spline.cpp \
 	$$P/GPU/GLES/StateMapping.cpp \
+	$$P/GPU/GLES/StencilBuffer.cpp \
 	$$P/GPU/GLES/TextureCache.cpp \
 	$$P/GPU/GLES/TextureScaler.cpp \
 	$$P/GPU/GLES/TransformPipeline.cpp \

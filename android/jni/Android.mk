@@ -146,6 +146,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DepalettizeShader.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
+  $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
   $(SRC)/GPU/GLES/SoftwareTransform.cpp.arm \

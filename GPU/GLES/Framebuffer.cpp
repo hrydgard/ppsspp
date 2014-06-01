@@ -101,7 +101,7 @@ enum {
 	FBO_OLD_AGE = 5,
 };
 
-static bool MaskedEqual(u32 addr1, u32 addr2) {
+bool FramebufferManager::MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
 }
 
@@ -160,7 +160,7 @@ void CenterRect(float *x, float *y, float *w, float *h,
 	*h = outH;
 }
 
-static void ClearBuffer() {
+void FramebufferManager::ClearBuffer() {
 	glstate.scissorTest.disable();
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -175,7 +175,7 @@ static void ClearBuffer() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-static void DisableState() {
+void FramebufferManager::DisableState() {
 	glstate.blend.disable();
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
@@ -322,6 +322,7 @@ FramebufferManager::FramebufferManager() :
 	convBuf_(0),
 	draw2dprogram_(0),
 	postShaderProgram_(0),
+	stencilUploadProgram_(0),
 	plainColorLoc_(-1),
 	timeLoc_(-1),
 	textureCache_(0),
@@ -360,6 +361,9 @@ FramebufferManager::~FramebufferManager() {
 		glDeleteTextures(1, &drawPixelsTex_);
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
+	}
+	if (stencilUploadProgram_) {
+		glsl_destroy(stencilUploadProgram_);
 	}
 	SetNumExtraFBOs(0);
 
@@ -418,9 +422,9 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col) & 0x1f) << 3;
-						dst[x * 4 + 1] = ((col >> 5) & 0x3f) << 2;
-						dst[x * 4 + 2] = ((col >> 11) & 0x1f) << 3;
+						dst[x * 4] = Convert5To8((col) & 0x1f);
+						dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
+						dst[x * 4 + 2] = Convert5To8((col >> 11) & 0x1f);
 						dst[x * 4 + 3] = 255;
 					}
 				}
@@ -433,9 +437,9 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col) & 0x1f) << 3;
-						dst[x * 4 + 1] = ((col >> 5) & 0x1f) << 3;
-						dst[x * 4 + 2] = ((col >> 10) & 0x1f) << 3;
+						dst[x * 4] = Convert5To8((col) & 0x1f);
+						dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
+						dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
 						dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
 					}
 				}
@@ -448,10 +452,10 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col >> 8) & 0xf) << 4;
-						dst[x * 4 + 1] = ((col >> 4) & 0xf) << 4;
-						dst[x * 4 + 2] = (col & 0xf) << 4;
-						dst[x * 4 + 3] = (col >> 12) << 4;
+						dst[x * 4] = Convert4To8((col >> 8) & 0xf);
+						dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
+						dst[x * 4 + 2] = Convert4To8(col & 0xf);
+						dst[x * 4 + 3] = Convert4To8(col >> 12);
 					}
 				}
 				break;

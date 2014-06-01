@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -111,8 +112,20 @@ static int Replace_memcpy() {
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+
+		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+			const u32 blocks = bytes & ~0x0f;
+			for (u32 offset = 0; offset < blocks; offset += 0x10) {
+				memcpy(dst + offset, src + offset, 0x10);
+			}
+			for (u32 offset = blocks; offset < bytes; ++offset) {
+				dst[offset] = src[offset];
+			}
+		} else {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -483,6 +496,14 @@ static int Hook_hexyzforce_monoclome_thread() {
 	return 0;
 }
 
+static int Hook_starocean_write_stencil() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_T7];
+	if (Memory::IsVRAMAddress(fb_address) && !g_Config.bDisableStencilTest) {
+		gpu->PerformStencilUpload(fb_address, 0x00088000);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -524,6 +545,7 @@ static const ReplacementTableEntry entries[] = {
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
 	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
+	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
 	{}
 };
 
@@ -586,7 +608,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
 				const u32 op = Memory::Read_U32(address + offset);
 				if (op == MIPS_MAKE_JR_RA()) {
-					WriteReplaceInstruction(address, index);
+					WriteReplaceInstruction(address + offset, index);
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOKENTER) {
