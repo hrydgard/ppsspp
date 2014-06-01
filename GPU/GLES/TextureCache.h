@@ -28,6 +28,7 @@
 struct VirtualFramebuffer;
 class FramebufferManager;
 class DepalShaderCache;
+class ShaderManager;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -73,6 +74,9 @@ public:
 	}
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
+	}
+	void SetShaderManager(ShaderManager *sm) {
+		shaderManager_ = sm;
 	}
 
 	size_t NumLoadedTextures() const {
@@ -203,6 +207,7 @@ private:
 	int decimationCounter_;
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
+	ShaderManager *shaderManager_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);

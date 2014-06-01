@@ -521,6 +521,8 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 		((color & 0xFF000000) >> 24) / 255.0f,
 	};
 
+	shaderManager_->DirtyLastShader();
+
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -588,6 +590,8 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+	shaderManager_->DirtyLastShader();  // dirty lastShader_
+
 	glsl_bind(program);
 	if (program == postShaderProgram_ && timeLoc_ != -1) {
 		int flipCount = __DisplayGetFlipCount();
@@ -606,8 +610,6 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glDisableVertexAttribArray(program->a_texcoord0);
 
 	glsl_unbind();
-
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
 }
 
 
