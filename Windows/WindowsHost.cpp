@@ -87,7 +87,7 @@ WindowsHost::WindowsHost(HWND mainWindow) {
 	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
 	//find all connected DInput devices of class GamePad
-	int numDInputDevs = DinputDevice::getNumPads();
+	size_t numDInputDevs = DinputDevice::getNumPads();
 	for (int i = 0; i < numDInputDevs; i++)
 	{
 		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(i)));

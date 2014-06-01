@@ -143,8 +143,6 @@ DinputDevice::DinputDevice(int devnum) {
 		return;
 	}
 
-	const int MAX_NUM_PADS = 4;
-
 	if (devnum >= MAX_NUM_PADS)
 	{
 		return;
