@@ -400,8 +400,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			framebufferManager_->SetDepthUpdated();
 		}
 
-		glstate.stencilTest.set(false);
-		glstate.scissorTest.set(false);
+		// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
+		glstate.stencilTest.disable();
+		glstate.depthTest.disable();
 
 		GLbitfield target = 0;
 		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
