@@ -19,6 +19,7 @@
 #include "gfx_es2/gl_state.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/ShaderManager.h"
 
 static const char *stencil_fs =
 #ifdef USING_GLES
@@ -83,7 +84,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	} else {
 		glsl_bind(stencilUploadProgram_);
 	}
-	gstate_c.shaderChanged = true;
+
+	shaderManager_->DirtyLastShader();
 
 	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 	DisableState();
