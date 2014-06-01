@@ -876,6 +876,11 @@ bool SoftGPU::PerformMemoryDownload(u32 dest, int size)
 	return false;
 }
 
+bool SoftGPU::PerformStencilUpload(u32 dest, int size)
+{
+	return false;
+}
+
 bool SoftGPU::FramebufferDirty() {
 	if (g_Config.bSeparateCPUThread) {
 		// Allow it to process fully before deciding if it's dirty.

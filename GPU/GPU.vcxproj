@@ -250,6 +250,7 @@
     <ClCompile Include="GLES\ShaderManager.cpp" />
     <ClCompile Include="GLES\Spline.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
+    <ClCompile Include="GLES\StencilBuffer.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp" />
     <ClCompile Include="GLES\SoftwareTransform.cpp" />

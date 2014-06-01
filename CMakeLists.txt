@@ -1269,6 +1269,7 @@ add_library(GPU OBJECT
 	GPU/GLES/Spline.cpp
 	GPU/GLES/StateMapping.cpp
 	GPU/GLES/StateMapping.h
+	GPU/GLES/StencilBuffer.cpp
 	GPU/GLES/TextureCache.cpp
 	GPU/GLES/TextureCache.h
 	GPU/GLES/TextureScaler.cpp

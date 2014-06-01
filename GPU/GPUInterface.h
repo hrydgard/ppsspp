@@ -165,6 +165,7 @@ enum GPUEventType {
 	GPU_EVENT_SYNC_THREAD,
 	GPU_EVENT_FB_MEMCPY,
 	GPU_EVENT_FB_MEMSET,
+	GPU_EVENT_FB_STENCIL_UPLOAD,
 };
 
 struct GPUEvent {
@@ -189,6 +190,11 @@ struct GPUEvent {
 			u8 v;
 			int size;
 		} fb_memset;
+		// GPU_EVENT_FB_STENCIL_UPLOAD
+		struct {
+			u32 dst;
+			int size;
+		} fb_stencil_upload;
 	};
 
 	operator GPUEventType() const {
@@ -244,6 +250,7 @@ public:
 	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
 	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
+	virtual bool PerformStencilUpload(u32 dest, int size) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;

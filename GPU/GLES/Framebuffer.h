@@ -213,6 +213,7 @@ public:
 	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
+	bool NotifyStencilUpload(u32 addr, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
@@ -230,6 +231,10 @@ private:
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
+
+	static void DisableState();
+	static void ClearBuffer();
+	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
@@ -262,6 +267,7 @@ private:
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
+	GLSLProgram *stencilUploadProgram_;
 	int plainColorLoc_;
 	int timeLoc_;
 

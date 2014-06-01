@@ -314,6 +314,9 @@
     <ClCompile Include="GLES\DepalettizeShader.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="GLES\StencilBuffer.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

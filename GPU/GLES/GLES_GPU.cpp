@@ -672,6 +672,10 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
 		break;
 
+	case GPU_EVENT_FB_STENCIL_UPLOAD:
+		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
+		break;
+
 	default:
 		GPUCommon::ProcessEvent(ev);
 	}
@@ -2002,6 +2006,10 @@ void GLES_GPU::PerformMemorySetInternal(u32 dest, u8 v, int size) {
 	}
 }
 
+void GLES_GPU::PerformStencilUploadInternal(u32 dest, int size) {
+	framebufferManager_.NotifyStencilUpload(dest, size);
+}
+
 bool GLES_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
 	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
@@ -2052,6 +2060,21 @@ bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
 	// Cheat a bit to force a download of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	return gpu->PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+}
+
+bool GLES_GPU::PerformStencilUpload(u32 dest, int size) {
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
+			ev.fb_stencil_upload.dst = dest;
+			ev.fb_stencil_upload.size = size;
+			ScheduleEvent(ev);
+		} else {
+			PerformStencilUploadInternal(dest, size);
+		}
+		return true;
+	}
+	return false;
 }
 
 void GLES_GPU::ClearCacheNextFrame() {
