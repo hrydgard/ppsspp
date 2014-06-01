@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -495,6 +496,14 @@ static int Hook_hexyzforce_monoclome_thread() {
 	return 0;
 }
 
+static int Hook_starocean_write_stencil() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_T7];
+	if (Memory::IsVRAMAddress(fb_address) && !g_Config.bDisableStencilTest) {
+		gpu->PerformStencilUpload(fb_address, 0x00088000);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -536,6 +545,7 @@ static const ReplacementTableEntry entries[] = {
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
 	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
+	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
 	{}
 };
 
