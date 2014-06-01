@@ -119,9 +119,6 @@ void TextureCache::Decimate() {
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
-			if (iter->second.depalFBO) {
-				fbo_destroy(iter->second.depalFBO);
-			}
 			cache.erase(iter++);
 		} else {
 			++iter;
@@ -133,9 +130,6 @@ void TextureCache::Decimate() {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				glDeleteTextures(1, &iter->second.texture);
-				if (iter->second.depalFBO) {
-					fbo_destroy(iter->second.depalFBO);
-				}
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -899,11 +893,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		}
 		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
-			// TODO: What if the renderWidth or renderHeight changes for the attached FBO?
-			if (!entry->depalFBO) {
-				entry->depalFBO = fbo_create(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, 1, false, FBO_8888);
-			}
-			fbo_bind_as_render_target(entry->depalFBO);
+			FBO *depalFBO = framebufferManager_->GetTempFBO(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, FBO_8888);
+			fbo_bind_as_render_target(depalFBO);
 			static const float pos[12] = {
 				-1, -1, -1,
 				 1, -1, -1,
@@ -956,7 +947,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glDisableVertexAttribArray(a_position);
 			glDisableVertexAttribArray(a_texcoord0);
 
-			fbo_bind_color_as_texture(entry->depalFBO, 0);
+			fbo_bind_color_as_texture(depalFBO, 0);
 			glstate.Restore();
 			framebufferManager_->RebindFramebuffer();
 		} else {
@@ -1198,12 +1189,6 @@ void TextureCache::SetTexture(bool force) {
 					}
 				}
 			}
-
-			// If we had a depalFBO, get rid of it now.
-			if (entry->depalFBO) {
-				fbo_destroy(entry->depalFBO);
-				entry->depalFBO = 0;
-			}
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
@@ -1230,7 +1215,6 @@ void TextureCache::SetTexture(bool force) {
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
-	entry->depalFBO = 0;
 
 	entry->dim = gstate.getTextureDimension(0);
 	entry->bufw = bufw;

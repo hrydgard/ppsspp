@@ -363,8 +363,8 @@ FramebufferManager::~FramebufferManager() {
 	}
 	SetNumExtraFBOs(0);
 
-	for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
-		fbo_destroy(it->second);
+	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
+		fbo_destroy(it->second.fbo);
 	}
 
 #ifndef USING_GLES2
@@ -1016,6 +1016,22 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	}
 }
 
+FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
+	u32 key = ((u64)depth << 32) | (w << 16) | h;
+	auto it = tempFBOs_.find(key);
+	if (it != tempFBOs_.end()) {
+		it->second.last_frame_used = gpuStats.numFlips;
+		return it->second.fbo;
+	}
+
+	FBO *fbo = fbo_create(w, h, 1, false, depth);
+	if (!fbo)
+		return fbo;
+	const TempFBO info = {fbo, gpuStats.numFlips};
+	tempFBOs_[key] = info;
+	return fbo;
+}
+
 void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
@@ -1031,26 +1047,18 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 	// Let's just not bother with the copy in that case.
 	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		FBO *renderCopy = NULL;
-		std::pair<int, int> copySize = std::make_pair((int)framebuffer->renderWidth, (int)framebuffer->renderHeight);
-		for (auto it = renderCopies_.begin(), end = renderCopies_.end(); it != end; ++it) {
-			if (it->first == copySize) {
-				renderCopy = it->second;
-				break;
-			}
-		}
-		if (!renderCopy) {
-			renderCopy = fbo_create(framebuffer->renderWidth, framebuffer->renderHeight, 1, true, framebuffer->colorDepth);
-			renderCopies_[copySize] = renderCopy;
-		}
+		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->colorDepth);
+		if (renderCopy) {
+			VirtualFramebuffer copyInfo = *framebuffer;
+			copyInfo.fbo = renderCopy;
+			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
 
-		VirtualFramebuffer copyInfo = *framebuffer;
-		copyInfo.fbo = renderCopy;
-		BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
-
-		fbo_bind_as_render_target(currentRenderVfb_->fbo);
-		fbo_bind_color_as_texture(renderCopy, 0);
-		glstate.viewport.restore();
+			fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			fbo_bind_color_as_texture(renderCopy, 0);
+			glstate.viewport.restore();
+		} else {
+			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+		}
 	} else {
 		fbo_bind_color_as_texture(framebuffer->fbo, 0);
 	}

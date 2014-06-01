@@ -120,7 +120,6 @@ public:
 		u32 addr;
 		u32 hash;
 		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
-		FBO *depalFBO;
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
