@@ -32,7 +32,7 @@ public:
 	~DinputDevice();
 	virtual int UpdateState(InputState &input_state);
 	virtual bool IsPad() { return true; }
-	static int getNumPads();
+	static size_t getNumPads();
 private:
 	void ApplyButtons(DIJOYSTATE2 &state, InputState &input_state);
 	//unfortunate and unclean way to keep only one DirectInput instance around
