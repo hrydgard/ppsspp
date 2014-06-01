@@ -383,7 +383,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
-	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
+	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
 		u32 clearColor = transformed[0].color0_32;
 		float clearDepth = transformed[0].z;
 		const float col[4] = {
