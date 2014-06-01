@@ -86,7 +86,6 @@ struct VirtualFramebuffer {
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
-	FBO *depalFBO;
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
@@ -222,6 +221,8 @@ public:
 
 	void RebindFramebuffer();
 
+	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
@@ -283,8 +284,13 @@ private:
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_;
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-	std::map<std::pair<int, int>, FBO *> renderCopies_;
+	struct TempFBO {
+		FBO *fbo;
+		int last_frame_used;
+	};
+
+	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
+	std::map<u64, TempFBO> tempFBOs_;
 
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
