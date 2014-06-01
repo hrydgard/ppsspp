@@ -143,8 +143,13 @@ DinputDevice::DinputDevice(int devnum) {
 		return;
 	}
 
+	if (devnum >= MAX_NUM_PADS)
+	{
+		return;
+	}
+
 	getDevices();
-	if ( (devnum > devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
+	if ( (devnum >= devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
 	{
 		return;
 	}
