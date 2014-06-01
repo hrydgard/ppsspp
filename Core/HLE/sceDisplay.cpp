@@ -167,11 +167,11 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 int __DisplayGetFlipCount() { return actualFlips; }
 int __DisplayGetVCount() { return vCount; }
 
-static void ScheduleLagSync() {
+static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
 	if (lagSyncScheduled) {
 		CoreTiming::ScheduleEvent(msToCycles(1), lagSyncEvent, 0);
-		lastLagSync = real_time_now();
+		lastLagSync = real_time_now() - (over / 1000000.0f);
 	}
 }
 
@@ -702,7 +702,6 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 		scale = g_Config.iFpsLimit / 60.0f;
 	}
 
-	// TODO: Smarter, adaptive?  Account for cyclesLate?  Let's just try this for now.
 	const double goal = lastLagSync + (scale / 1000.0f);
 	time_update();
 	while (time_now_d() < goal) {
@@ -711,7 +710,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 		time_update();
 	}
 
-	ScheduleLagSync();
+	const int emuOver = (int)cyclesToUs(cyclesLate);
+	const int over = (int)((time_now_d() - goal) * 1000000);
+	ScheduleLagSync(over - emuOver);
 }
 
 u32 sceDisplayIsVblank() {
