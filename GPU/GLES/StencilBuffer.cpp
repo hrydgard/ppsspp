@@ -124,8 +124,13 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	for (int i = 0; i < passes; ++i) {
 		glsl_bind(stencilUploadProgram_);
 		glUniform1f(u_stencilValue, i * scale);
-		// TODO: 4444, 5551
-		glstate.stencilFunc.set(GL_ALWAYS, i, 0xFF);
+		if (dstBuffer->format == GE_FORMAT_4444) {
+			glstate.stencilFunc.set(GL_ALWAYS, Convert4To8(i), 0xFF);
+		} else if (dstBuffer->format == GE_FORMAT_5551) {
+			glstate.stencilFunc.set(GL_ALWAYS, i ? 0xFF : 0x00, 0xFF);
+		} else if (dstBuffer->format == GE_FORMAT_8888) {
+			glstate.stencilFunc.set(GL_ALWAYS, i, 0xFF);
+		}
 		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->width, dstBuffer->height, false, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_);
 	}
 
