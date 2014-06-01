@@ -418,9 +418,9 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col) & 0x1f) << 3;
-						dst[x * 4 + 1] = ((col >> 5) & 0x3f) << 2;
-						dst[x * 4 + 2] = ((col >> 11) & 0x1f) << 3;
+						dst[x * 4] = Convert5To8((col) & 0x1f);
+						dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
+						dst[x * 4 + 2] = Convert5To8((col >> 11) & 0x1f);
 						dst[x * 4 + 3] = 255;
 					}
 				}
@@ -433,9 +433,9 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col) & 0x1f) << 3;
-						dst[x * 4 + 1] = ((col >> 5) & 0x1f) << 3;
-						dst[x * 4 + 2] = ((col >> 10) & 0x1f) << 3;
+						dst[x * 4] = Convert5To8((col) & 0x1f);
+						dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
+						dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
 						dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
 					}
 				}
@@ -448,10 +448,10 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 					for (int x = 0; x < width; x++)
 					{
 						u16 col = src[x];
-						dst[x * 4] = ((col >> 8) & 0xf) << 4;
-						dst[x * 4 + 1] = ((col >> 4) & 0xf) << 4;
-						dst[x * 4 + 2] = (col & 0xf) << 4;
-						dst[x * 4 + 3] = (col >> 12) << 4;
+						dst[x * 4] = Convert4To8((col >> 8) & 0xf);
+						dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
+						dst[x * 4 + 2] = Convert4To8(col & 0xf);
+						dst[x * 4 + 3] = Convert4To8(col >> 12);
 					}
 				}
 				break;
