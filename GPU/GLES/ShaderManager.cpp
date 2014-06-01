@@ -684,11 +684,10 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
 	FragmentShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
-	if (lastVShaderSame_ && FSID == lastFSID_ && !gstate_c.shaderChanged) {
+	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
 	}
-	gstate_c.shaderChanged = false;
 
 	lastFSID_ = FSID;
 

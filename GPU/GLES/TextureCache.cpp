@@ -28,6 +28,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/DepalettizeShader.h"
+#include "GPU/GLES/ShaderManager.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -916,13 +917,17 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			};
 			static const GLubyte indices[4] = { 0, 1, 3, 2 };
 
+			shaderManager_->DirtyLastShader();
+
 			glUseProgram(program);
-			gstate_c.shaderChanged = true;
+
+			GLint a_position = glGetAttribLocation(program, "a_position");
+			GLint a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
 
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
+			glEnableVertexAttribArray(a_position);
+			glEnableVertexAttribArray(a_texcoord0);
 
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
@@ -944,14 +949,12 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 #endif
 			glViewport(0, 0, entry->framebuffer->renderWidth, entry->framebuffer->renderHeight);
 
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glVertexAttribPointer(a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+			glVertexAttribPointer(a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
 			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+			glDisableVertexAttribArray(a_position);
+			glDisableVertexAttribArray(a_texcoord0);
 
-			/*
-			glDisableVertexAttribArray(0);
-			glDisableVertexAttribArray(1);
-			*/
 			fbo_bind_color_as_texture(entry->depalFBO, 0);
 			glstate.Restore();
 			framebufferManager_->RebindFramebuffer();
