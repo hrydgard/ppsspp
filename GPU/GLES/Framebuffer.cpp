@@ -637,38 +637,66 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 }
 
 // Heuristics to figure out the size of FBO to create.
-static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
-	int default_width = 480;
-	int default_height = 272;
-	int viewport_width = (int) gstate.getViewportX1();
-	int viewport_height = (int) gstate.getViewportY1();
-	int region_width = gstate.getRegionX2() + 1;
-	int region_height = gstate.getRegionY2() + 1;
-	int scissor_width = gstate.getScissorX2() + 1;
-	int scissor_height = gstate.getScissorY2() + 1;
-	int fb_stride = gstate.FrameBufStride();
+void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
+	const int default_width = 480;
+	const int default_height = 272;
+	const int viewport_width = (int) gstate.getViewportX1();
+	const int viewport_height = (int) gstate.getViewportY1();
+	const int region_width = gstate.getRegionX2() + 1;
+	const int region_height = gstate.getRegionY2() + 1;
+	const int scissor_width = gstate.getScissorX2() + 1;
+	const int scissor_height = gstate.getScissorY2() + 1;
+	const int fb_stride = gstate.FrameBufStride();
 
 	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
-	// Viewport may return 0x0 for example FF Type-0 / God of War and we set it to 480x272
-	if (viewport_width <= 1 && viewport_height <=1) {
-		viewport_width = default_width;
-		viewport_height = default_height;
-	}
+	// TODO: God of War sets region = 1024x1024 on a buffer that is used only as 64x64, and occupies 1024x64 of VRAM.
+	// In this case, viewport=64x64, region=1024x1024, scissor varies (480x272 sometimes), stride=1024
 
-	if (fb_stride > 0 && fb_stride <= 512) {
-		if (fb_stride == viewport_width) {
-			drawing_width = viewport_width;
-			drawing_height = viewport_height;
-		} else {
+	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
+	if (viewport_width <= fb_stride) {
+		drawing_width = viewport_width;
+		drawing_height = viewport_height;
+		// Sometimes region is set larger than the VRAM for the framebuffer.
+		if (region_width <= fb_stride && region_width > drawing_width) {
+			drawing_width = region_width;
+			drawing_height = region_height;
+		}
+		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
+		if (scissor_width <= fb_stride && scissor_width > drawing_width) {
 			drawing_width = scissor_width;
 			drawing_height = scissor_height;
 		}
 	} else {
-		drawing_width = default_width;
-		drawing_height = default_height;
+		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
+		drawing_width = std::min(std::max(region_width, scissor_width), fb_stride);
+		drawing_height = std::max(region_height, scissor_height);
 	}
 
+	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
+	drawing_height = std::min(drawing_height, 512);
+
+	if (viewport_width != region_width) {
+		// The majority of the time, these are equal.  If not, let's check what we know.
+		const u32 fb_address = gstate.getFrameBufAddress();
+		u32 nearest_address = 0xFFFFFFFF;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			const u32 other_address = vfbs_[i]->fb_address | 0x44000000;
+			if (other_address > fb_address && other_address < nearest_address) {
+				nearest_address = other_address;
+			}
+		}
+
+		// Unless the game is using overlapping buffers, the next buffer should be far enough away.
+		// This catches some cases where we can know this.
+		// Hmm.  The problem is that we could only catch it for the first of two buffers...
+		const u32 bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
+		if (avail_height < drawing_height && avail_height == region_height) {
+			drawing_width = std::min(region_width, fb_stride);
+			drawing_height = avail_height;
+		}
+	}
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {

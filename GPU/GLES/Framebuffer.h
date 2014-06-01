@@ -233,6 +233,7 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
+	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
 	static void DisableState();
 	static void ClearBuffer();
 	static bool MaskedEqual(u32 addr1, u32 addr2);
