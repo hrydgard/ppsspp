@@ -781,31 +781,39 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
-			if (v->width < drawing_width && v->height < drawing_height) {
+			v->format = fmt;
+			if (v->width < drawing_width) {
 				v->width = drawing_width;
-				v->height = drawing_height;
 			}
-			if (v->format != fmt) {
-				v->width = drawing_width;
+			if (v->height < drawing_height) {
 				v->height = drawing_height;
-				v->format = fmt;
 			}
 			break;
 		}
 	}
 
+	VirtualFramebuffer *destroyVfb = 0;
 	if (vfb) {
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
-			// If it's newly wrong, or changing every frame, just keep track.
-			if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+			// Even if it's not newly wrong, if this is larger we need to resize up.
+			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
+				destroyVfb = vfb;
+				vfb = NULL;
+			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
 				vfb->newHeight = drawing_height;
 				vfb->lastFrameNewSize = gpuStats.numFlips;
 			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.numFlips) {
 				// Okay, it's changed for a while (and stayed that way.)  Let's start over.
-				DestroyFramebuf(vfb);
-				vfbs_.erase(vfbs_.begin() + i);
-				vfb = NULL;
+				// But only if we really need to, to avoid blinking.
+				bool needsRecreate = vfb->bufferWidth > fb_stride;
+				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
+				needsRecreate = needsRecreate || vfb->newHeight > vfb->newHeight || vfb->newHeight * 2 < vfb->newHeight;
+				if (needsRecreate) {
+					destroyVfb = vfb;
+					vfb = NULL;
+				}
 			}
 		} else {
 			// It's not different, let's keep track of that too.
@@ -880,6 +888,17 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 
+		if (destroyVfb) {
+			// Do this before notifying of creation at the same address.
+			DestroyFramebuf(destroyVfb);
+			destroyVfb = 0;
+			vfbs_.erase(vfbs_.begin() + i);
+
+			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		} else {
+			INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		}
+
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -894,8 +913,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		if (fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
-
-		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
