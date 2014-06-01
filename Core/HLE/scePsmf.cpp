@@ -1149,7 +1149,7 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
-	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, false);
+	u32 result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, false);
 	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
 	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
@@ -1165,7 +1165,7 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	// TODO: hleCheckCurrentCallbacks?
-	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, true);
+	u32 result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, 0, true);
 	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
 	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
@@ -1180,7 +1180,7 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 
 int scePsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset) 
 {
-	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, false);
+	u32 result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, false);
 	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfOffset(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
 	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {
@@ -1196,7 +1196,7 @@ int scePsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset)
 int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offset) 
 {
 	// TODO: hleCheckCurrentCallbacks?
-	int result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, true);
+	u32 result = _PsmfPlayerSetPsmfOffset(psmfPlayer, filename, offset, true);
 	if (result == ERROR_PSMFPLAYER_INVALID_STATUS) {
 		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s): invalid psmf player or status", psmfPlayer, filename);
 	} else if (result == ERROR_PSMFPLAYER_INVALID_PARAM) {

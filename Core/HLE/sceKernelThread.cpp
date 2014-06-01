@@ -2136,7 +2136,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		attr |= PSP_THREAD_ATTR_USER;
 
 	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
-	if (id == SCE_KERNEL_ERROR_NO_MEMORY)
+	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY)
 	{
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;

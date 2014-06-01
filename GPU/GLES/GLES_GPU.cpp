@@ -1938,7 +1938,7 @@ void GLES_GPU::DoBlockTransfer() {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && width == srcStride) {
+		if (srcStride == dstStride && (u32)width == srcStride) {
 			// Common case in God of War, let's do it all in one chunk.
 			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;

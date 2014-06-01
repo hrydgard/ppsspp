@@ -286,7 +286,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	// index_multiplier -= 0.01f / texturePixels;
 
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x offset=%i", pixelFormat, shift, mask, offset);
+		ERROR_LOG_REPORT_ONCE(depal, G3D, "%i depal unsupported: shift=%i mask=%02x offset=%d", pixelFormat, shift, mask, clutBase);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.

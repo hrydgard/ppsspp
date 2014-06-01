@@ -90,7 +90,7 @@ static const char *const codecNames[4] = {
 };
 
 void AudioClose(SimpleAudio **ctx);
-static const char *GetCodecName(int codec) {
+static inline const char *GetCodecName(int codec) {
 	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
 		return codecNames[codec - PSP_CODEC_AT3PLUS];
 	}
