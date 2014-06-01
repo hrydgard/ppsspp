@@ -32,8 +32,9 @@ static const char *stencil_fs =
 "float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
 "void main() {\n"
 "  vec4 index = texture2D(tex, v_texcoord0);\n"
-"  gl_FragColor = vec4(u_stencilValue);\n"
-"  if (roundAndScaleTo255f(u_stencilValue) != roundAndScaleTo255f(index.a)) discard;\n"
+"  gl_FragColor = vec4(1.0);\n"
+"  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue);\n"
+"  if (mod(floor(shifted), 2.0) < 0.99) discard;\n"
 "}\n";
 
 static const char *stencil_vs =
@@ -96,20 +97,20 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
 	// TODO: Doing it the slow way for now.
-	int passes = 0;
+	int values = 0;
 
 	switch (dstBuffer->format) {
 	case GE_FORMAT_565:
 		// Well, this doesn't make much sense.
 		return false;
 	case GE_FORMAT_5551:
-		passes = 2;
+		values = 2;
 		break;
 	case GE_FORMAT_4444:
-		passes = 16;
+		values = 16;
 		break;
 	case GE_FORMAT_8888:
-		passes = 256;
+		values = 256;
 		break;
 	}
 
@@ -121,20 +122,25 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);
 
-	const float scale = 1.0f / (passes - 1);
+	glstate.stencilFunc.set(GL_ALWAYS, 0xFF, 0xFF);
+
 	GLint u_stencilValue = glsl_uniform_loc(stencilUploadProgram_, "u_stencilValue");
-	for (int i = 0; i < passes; ++i) {
+	for (int i = 1; i < values; i += i) {
+		// DrawActiveTexture unbinds it, so rebind here before setting uniforms.
 		glsl_bind(stencilUploadProgram_);
-		glUniform1f(u_stencilValue, i * scale);
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			glstate.stencilFunc.set(GL_ALWAYS, Convert4To8(i), 0xFF);
+			glStencilMask(Convert4To8(i));
+			glUniform1f(u_stencilValue, i * (16.0f / 255.0f));
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			glstate.stencilFunc.set(GL_ALWAYS, i ? 0xFF : 0x00, 0xFF);
-		} else if (dstBuffer->format == GE_FORMAT_8888) {
-			glstate.stencilFunc.set(GL_ALWAYS, i, 0xFF);
+			glStencilMask(0xFF);
+			glUniform1f(u_stencilValue, i * (128.0f / 255.0f));
+		} else {
+			glStencilMask(i);
+			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
 		}
 		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->width, dstBuffer->height, false, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_);
 	}
+	glStencilMask(0xFF);
 
 	if (currentRenderVfb_) {
 		RebindFramebuffer();
