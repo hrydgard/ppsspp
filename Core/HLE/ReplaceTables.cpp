@@ -111,8 +111,20 @@ static int Replace_memcpy() {
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+
+		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+			const u32 blocks = bytes & ~0x0f;
+			for (u32 offset = 0; offset < blocks; offset += 0x10) {
+				memcpy(dst + offset, src + offset, 0x10);
+			}
+			for (u32 offset = blocks; offset < bytes; ++offset) {
+				dst[offset] = src[offset];
+			}
+		} else {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
