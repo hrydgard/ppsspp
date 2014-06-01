@@ -586,7 +586,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
 				const u32 op = Memory::Read_U32(address + offset);
 				if (op == MIPS_MAKE_JR_RA()) {
-					WriteReplaceInstruction(address, index);
+					WriteReplaceInstruction(address + offset, index);
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOKENTER) {
