@@ -32,7 +32,7 @@ static const char *stencil_fs =
 "float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
 "void main() {\n"
 "  vec4 index = texture2D(tex, v_texcoord0);\n"
-"  gl_FragColor = vec4(u_stencilValue);\n"
+"  gl_FragColor = vec4(index.a);\n"
 "  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue);\n"
 "  if (mod(floor(shifted), 2.0) < 0.99) discard;\n"
 "}\n";
