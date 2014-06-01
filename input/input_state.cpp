@@ -6,7 +6,16 @@ const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
 	case DEVICE_ID_DEFAULT: return "built-in";
 	case DEVICE_ID_KEYBOARD: return "kbd";
-	case DEVICE_ID_PAD_0: return "pad";
+	case DEVICE_ID_PAD_0: return "pad1";
+	case DEVICE_ID_PAD_1: return "pad2";
+	case DEVICE_ID_PAD_2: return "pad3";
+	case DEVICE_ID_PAD_3: return "pad4";
+	case DEVICE_ID_PAD_4: return "pad5";
+	case DEVICE_ID_PAD_5: return "pad6";
+	case DEVICE_ID_PAD_6: return "pad7";
+	case DEVICE_ID_PAD_7: return "pad8";
+	case DEVICE_ID_PAD_8: return "pad9";
+	case DEVICE_ID_PAD_9: return "pad10";
 	case DEVICE_ID_X360_0: return "x360";
 	case DEVICE_ID_ACCELEROMETER: return "accelerometer";
 	case DEVICE_ID_MOUSE: return "mouse";
