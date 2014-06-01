@@ -32,7 +32,7 @@ static const char *stencil_fs =
 "float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
 "void main() {\n"
 "  vec4 index = texture2D(tex, v_texcoord0);\n"
-"  gl_FragColor = vec4(1.0);\n"
+"  gl_FragColor = vec4(u_stencilValue);\n"
 "  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue);\n"
 "  if (mod(floor(shifted), 2.0) < 0.99) discard;\n"
 "}\n";
@@ -90,9 +90,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 
 	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
 	DisableState();
-	glstate.blend.set(true);
-	glstate.blendEquation.set(GL_FUNC_ADD);
-	glstate.blendFuncSeparate.set(GL_ZERO, GL_ONE, GL_ONE, GL_ZERO);
+	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 	glstate.stencilTest.enable();
 	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
