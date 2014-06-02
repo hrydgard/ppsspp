@@ -4,6 +4,9 @@ TARGET = Native
 TEMPLATE = lib
 CONFIG += staticlib
 
+# Allows Symbian to compile gl3stub
+symbian: DEFINES+=SYMBIAN_OGLES_DLL_EXPORTS
+
 include(Settings.pri)
 
 !mobile_platform: {
