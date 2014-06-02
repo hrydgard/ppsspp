@@ -11,7 +11,9 @@
 #include <QAudioFormat>
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
 #include <QAccelerometer>
+#if QT_VERSION < 0x50000
 QTM_USE_NAMESPACE
+#endif
 #endif
 
 #include "base/display.h"
@@ -23,7 +25,6 @@ QTM_USE_NAMESPACE
 #include "input/keycodes.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
-#include "display.h"
 #include "base/NKCodeFromQt.h"
 
 // Bad: PPSSPP includes from native
