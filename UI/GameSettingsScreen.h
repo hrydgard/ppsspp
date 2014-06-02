@@ -146,6 +146,7 @@ private:
 	UI::EventReturn OnCClick(UI::EventParams &e);
 	UI::EventReturn OnDClick(UI::EventParams &e);
 	UI::EventReturn OnEClick(UI::EventParams &e);
+	UI::EventReturn OnFClick(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
 	UI::EventReturn On1Click(UI::EventParams &e);
 	UI::EventReturn On2Click(UI::EventParams &e);

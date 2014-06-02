@@ -838,12 +838,13 @@ void MacAddressScreen::CreateViews() {
 
 	leftColumn->Add(new ItemHeader(s->T("Mac address:")));
 	leftColumn->Add(new Choice(tempMacAddress));
-	LinearLayout *A_E_Column = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 480, 10, 300, NONE, 150));
-	A_E_Column->Add(new Button("A"))->OnClick.Handle(this, &MacAddressScreen::OnAClick);
-	A_E_Column->Add(new Button("B"))->OnClick.Handle(this, &MacAddressScreen::OnBClick);
-	A_E_Column->Add(new Button("C"))->OnClick.Handle(this, &MacAddressScreen::OnCClick);
-	A_E_Column->Add(new Button("D"))->OnClick.Handle(this, &MacAddressScreen::OnDClick);
-	A_E_Column->Add(new Button("E"))->OnClick.Handle(this, &MacAddressScreen::OnEClick);
+	LinearLayout *A_F_Column = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 480, 10, 300, NONE, 150));
+	A_F_Column->Add(new Button("A"))->OnClick.Handle(this, &MacAddressScreen::OnAClick);
+	A_F_Column->Add(new Button("B"))->OnClick.Handle(this, &MacAddressScreen::OnBClick);
+	A_F_Column->Add(new Button("C"))->OnClick.Handle(this, &MacAddressScreen::OnCClick);
+	A_F_Column->Add(new Button("D"))->OnClick.Handle(this, &MacAddressScreen::OnDClick);
+	A_F_Column->Add(new Button("E"))->OnClick.Handle(this, &MacAddressScreen::OnEClick);
+	A_F_Column->Add(new Button("F"))->OnClick.Handle(this, &MacAddressScreen::OnFClick);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE, 10));	
 	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &MacAddressScreen::On0Click);
 	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &MacAddressScreen::On1Click);
@@ -860,7 +861,7 @@ void MacAddressScreen::CreateViews() {
 	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &MacAddressScreen::OnOKClick);
 	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &MacAddressScreen::OnCancelClick);	
 	root_->Add(leftColumn);
-	root_->Add(A_E_Column);
+	root_->Add(A_F_Column);
 	root_->Add(rightColumn);
 }
 
@@ -917,6 +918,16 @@ UI::EventReturn MacAddressScreen::OnDClick(UI::EventParams &e) {
 UI::EventReturn MacAddressScreen::OnEClick(UI::EventParams &e) {
 	if (tempMacAddress.length() < 17) {
 		tempMacAddress.append("E");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnFClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("F");
 		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
 			tempMacAddress.append(":");
 	}
