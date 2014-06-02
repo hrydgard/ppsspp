@@ -151,8 +151,6 @@ void CheckGLExtensions() {
 #endif
 
 #if defined(USING_GLES2)
-	// MAY_HAVE_GLES3 defined on all platforms that support it
-#if defined(MAY_HAVE_GLES3)
 	// Try to load GLES 3.0 only if "3.0" found in version
 	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
 	// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
@@ -166,7 +164,6 @@ void CheckGLExtensions() {
 			gl_extensions.GLES3 = false;
 		}
 	}
-#endif
 #else
 	// If the GL version >= 4.3, we know it's a true superset of OpenGL ES 3.0 and can thus enable
 	// all the same modern paths.

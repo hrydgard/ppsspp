@@ -26,6 +26,3 @@ typedef char GLchar;
 #include "../gfx_es2/gl3stub.h"
 #endif
 
-// Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on GL platforms
-#define MAY_HAVE_GLES3 1
-
