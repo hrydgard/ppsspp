@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#if !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN) && !defined(MAEMO)
-
 #include "../gfx/gl_common.h"
 
 #if defined(USING_GLES2)
@@ -351,4 +349,4 @@ GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, 
 #endif // IOS
 
 #endif // GLES2
-#endif
+

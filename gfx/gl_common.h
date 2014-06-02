@@ -3,6 +3,9 @@
 #ifdef IOS
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
+#elif defined(BLACKBERRY)
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 #elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -20,9 +23,6 @@ typedef char GLchar;
 #endif
 #endif
 
-// Gets 'undefined reference' if enabled
-#if !defined(__SYMBIAN32__) && !defined(MAEMO) && !defined(MEEGO_EDITION_HARMATTAN)
-
 #ifdef USING_GLES2
 // Support OpenGL ES 3.0
 // This uses the "DYNAMIC" approach from the gles3jni NDK sample.
@@ -32,4 +32,3 @@ typedef char GLchar;
 // Now that glew is upgraded beyond 4.3, we can define MAY_HAVE_GLES3 on GL platforms
 #define MAY_HAVE_GLES3 1
 
-#endif
