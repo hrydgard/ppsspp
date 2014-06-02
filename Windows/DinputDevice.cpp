@@ -97,7 +97,7 @@ LPDIRECTINPUT8 DinputDevice::getPDI()
 	return pDI;
 }
 
-BOOL DinputDevice::DevicesCallback(
+BOOL CALLBACK DinputDevice::DevicesCallback(
 	LPCDIDEVICEINSTANCE lpddi,
 	LPVOID pvRef
 	)

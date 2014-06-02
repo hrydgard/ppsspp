@@ -43,7 +43,7 @@ private:
 	//also, it excludes the devices that are compatible with XInput
 	static void getDevices();
 	//callback for the WinAPI to call
-	static BOOL DevicesCallback(
+	static BOOL CALLBACK DevicesCallback(
 	                LPCDIDEVICEINSTANCE lpddi,
 	                LPVOID pvRef
 	            );
