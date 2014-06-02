@@ -638,15 +638,13 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 
 // Heuristics to figure out the size of FBO to create.
 void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
-	const int default_width = 480;
-	const int default_height = 272;
 	const int viewport_width = (int) gstate.getViewportX1();
 	const int viewport_height = (int) gstate.getViewportY1();
 	const int region_width = gstate.getRegionX2() + 1;
 	const int region_height = gstate.getRegionY2() + 1;
 	const int scissor_width = gstate.getScissorX2() + 1;
 	const int scissor_height = gstate.getScissorY2() + 1;
-	const int fb_stride = gstate.FrameBufStride();
+	const int fb_stride = std::max(gstate.FrameBufStride(), 4);
 
 	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
