@@ -64,7 +64,7 @@ private:
 
 	void  handleInput(screen_event_t screen_event);
 
-	char* displayTypeString(int type);
+	const char* displayTypeString(int type);
 	void  startDisplays();
 	void* startDisplay(int idx);
 	void  realiseDisplay(int idx);

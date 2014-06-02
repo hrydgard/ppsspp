@@ -5,7 +5,7 @@
 // Blackberry implementation of the framework.
 #include "BlackberryMain.h"
 
-char* BlackberryMain::displayTypeString(int type)
+const char* BlackberryMain::displayTypeString(int type)
 {
 	switch (type)
 	{

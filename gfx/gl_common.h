@@ -3,9 +3,6 @@
 #ifdef IOS
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
-#elif defined(BLACKBERRY)
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
 #elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
