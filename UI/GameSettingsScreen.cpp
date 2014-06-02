@@ -514,6 +514,8 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
+	screenManager()->push(new ProAdhocServerScreen);
+	/*
 #if defined(_WIN32) || defined(USING_QT_UI)
 	const size_t name_len = 256;
 
@@ -524,6 +526,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 		g_Config.proAdhocServer = name;
 	}
 #endif
+	*/
 	return UI::EVENT_DONE;
 }
 
@@ -701,5 +704,122 @@ UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
+	return UI::EVENT_DONE;
+}
+
+void ProAdhocServerScreen::CreateViews() {
+	using namespace UI;	
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	
+	leftColumn->Add(new ItemHeader(s->T("ProAdhocServer")));	
+	leftColumn->Add(new Choice(tempProAdhocServer));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
+	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	root_->Add(leftColumn);	
+	root_->Add(rightColumn);
+}
+
+UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
+	tempProAdhocServer.append("1");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On2Click(UI::EventParams &e) {
+	tempProAdhocServer.append("2");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On3Click(UI::EventParams &e) {
+	tempProAdhocServer.append("3");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On4Click(UI::EventParams &e) {
+	tempProAdhocServer.append("4");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On5Click(UI::EventParams &e) {
+	tempProAdhocServer.append("5");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On6Click(UI::EventParams &e) {
+	tempProAdhocServer.append("6");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On7Click(UI::EventParams &e) {
+	tempProAdhocServer.append("7");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On8Click(UI::EventParams &e) {
+	tempProAdhocServer.append("8");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On9Click(UI::EventParams &e) {
+	tempProAdhocServer.append("9");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
+	if (tempProAdhocServer.at(tempProAdhocServer.length() -1) != '.')
+		tempProAdhocServer.append(".");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0)
+		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
+	tempProAdhocServer = "";
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
+	g_Config.proAdhocServer = tempProAdhocServer;
+	UIScreen::OnBack(e);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
+	tempProAdhocServer = g_Config.proAdhocServer;
+	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }
