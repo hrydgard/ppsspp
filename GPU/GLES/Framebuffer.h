@@ -186,6 +186,8 @@ public:
 	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }
 	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
 	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
+	int GetTargetBufferWidth() const { return currentRenderVfb_ ? currentRenderVfb_->bufferWidth : 480; }
+	int GetTargetBufferHeight() const { return currentRenderVfb_ ? currentRenderVfb_->bufferHeight : 272; }
 
 	u32 PrevDisplayFramebufAddr() {
 		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;

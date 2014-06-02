@@ -480,7 +480,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
-	DrawActiveTexture(0, dstX, dstY, width, height, vfb->width, vfb->height, false, 0.0f, 0.0f, 1.0f, 1.0f);
+	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -773,12 +773,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
 			v->format = fmt;
-			if (v->width < drawing_width) {
-				v->width = drawing_width;
-			}
-			if (v->height < drawing_height) {
-				v->height = drawing_height;
-			}
+			v->width = drawing_width;
+			v->height = drawing_height;
 			break;
 		}
 	}
@@ -1101,7 +1097,6 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			fbo_bind_color_as_texture(renderCopy, 0);
-			glstate.viewport.restore();
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
 		}
@@ -1174,7 +1169,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		if (!usePostShader_) {
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
@@ -1194,12 +1189,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
 		} else {
 			// Use post-shader, but run shader at output resolution.
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight, postShaderProgram_);
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -1422,14 +1417,14 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glViewport(0, 0, dst->width, dst->height);
+		glViewport(0, 0, dst->renderWidth, dst->renderHeight);
 		DisableState();
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
 		// Should maybe revamp that interface.
-		float srcW = src->width;
-		float srcH = src->height;
-		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
+		float srcW = src->bufferWidth;
+		float srcH = src->bufferHeight;
+		DrawActiveTexture(0, dstX, dstY, w, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 	}

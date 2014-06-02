@@ -959,8 +959,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		entry->framebuffer->last_frame_used = gpuStats.numFlips;
 
 		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = entry->framebuffer->width;
-		gstate_c.curTextureHeight = entry->framebuffer->height;
+		gstate_c.curTextureWidth = entry->framebuffer->bufferWidth;
+		gstate_c.curTextureHeight = entry->framebuffer->bufferHeight;
 		gstate_c.flipTexture = true;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
 		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;

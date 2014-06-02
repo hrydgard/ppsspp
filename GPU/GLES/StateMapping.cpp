@@ -461,6 +461,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
+	bool throughmode = gstate.isModeThrough();
+
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;
@@ -470,8 +472,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
@@ -480,8 +482,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
-
-	bool throughmode = gstate.isModeThrough();
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
@@ -518,6 +518,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
+		// If the buffer is too large, offset the viewport to the top.
+		renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
+
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set(
 			renderX + (0 + regionX1) * renderWidthFactor, 
