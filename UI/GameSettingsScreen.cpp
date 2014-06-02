@@ -709,6 +709,7 @@ void ProAdhocServerScreen::CreateViews() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	
+	tempProAdhocServer = g_Config.proAdhocServer;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	
@@ -834,6 +835,7 @@ void MacAddressScreen::CreateViews() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *d = GetI18NCategory("Dialog");
 
+	tempMacAddress = g_Config.localMacAddress;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 

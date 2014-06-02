@@ -19,7 +19,6 @@
 
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
-#include "Core/Config.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
@@ -112,7 +111,7 @@ protected:
 	virtual void CreateViews();
 
 private:	
-	std::string tempProAdhocServer = g_Config.proAdhocServer;
+	std::string tempProAdhocServer;
 	UI::TextView *addrView_;
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
@@ -140,7 +139,7 @@ protected:
 	virtual void CreateViews();
 
 private:
-	std::string tempMacAddress = g_Config.localMacAddress;
+	std::string tempMacAddress;
 	UI::TextView *addrView_;
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnAClick(UI::EventParams &e);
