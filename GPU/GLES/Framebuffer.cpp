@@ -655,6 +655,11 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	if (viewport_width > 4 && viewport_width <= fb_stride) {
 		drawing_width = viewport_width;
 		drawing_height = viewport_height;
+		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
+		if (viewport_width == 481 && region_width == 480 && viewport_height == 273 && region_height == 272) {
+			drawing_width = 480;
+			drawing_height = 272;
+		}
 		// Sometimes region is set larger than the VRAM for the framebuffer.
 		if (region_width <= fb_stride && region_width > drawing_width) {
 			drawing_width = region_width;
