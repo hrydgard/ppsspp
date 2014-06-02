@@ -1319,7 +1319,6 @@ void TextureCache::SetTexture(bool force) {
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
 
-#if defined(MAY_HAVE_GLES3)
 	if (gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
 		GLenum storageFmt = GL_RGBA8;
@@ -1337,7 +1336,6 @@ void TextureCache::SetTexture(bool force) {
 		// Make sure we don't use glTexImage2D after glTexStorage2D.
 		replaceImages = true;
 	}
-#endif
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -1366,7 +1364,7 @@ void TextureCache::SetTexture(bool force) {
 	} else {
 #ifndef USING_GLES2
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-#elif defined(MAY_HAVE_GLES3)
+#else
 		if (gl_extensions.GLES3) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 		}
@@ -1747,11 +1745,9 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
 	GLuint components2 = components;
-#if defined(MAY_HAVE_GLES3)
 	if (useBGRA) {
 		components2 = GL_BGRA_EXT;
 	}
-#endif
 
 	if (replaceImages) {
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);

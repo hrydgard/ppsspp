@@ -999,7 +999,6 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 			bool useNV = !gl_extensions.GLES3;
 #endif
 
-#ifdef MAY_HAVE_GLES3
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 				fbo_bind_for_read(sourceframebuffer->fbo);
@@ -1015,7 +1014,6 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 
 				glstate.scissorTest.restore();
 			}
-#endif
 		}
 	}
 }
@@ -1361,7 +1359,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 			dstY2 = dst->renderHeight - dstY2;
 		}
 
-#ifdef MAY_HAVE_GLES3
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
 			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -1371,8 +1368,6 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 			glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 		}
 #endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
-
-#endif // MAY_HAVE_GLES3
 
 	} else {
 		fbo_bind_color_as_texture(src->fbo, 0);
@@ -1671,11 +1666,10 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		GLenum glfmt = GL_RGBA;
-#if defined(MAY_HAVE_GLES3)
 		if (UseBGRA8888()) {
 			glfmt = GL_BGRA_EXT;
 		}
-#endif
+
 		int byteOffset = y * vfb->fb_stride * 4;
 		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 		// LogReadPixelsError(glGetError());
