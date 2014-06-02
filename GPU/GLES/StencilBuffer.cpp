@@ -88,7 +88,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 
 	shaderManager_->DirtyLastShader();
 
-	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
+	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->renderWidth, dstBuffer->renderHeight);
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 	glstate.stencilTest.enable();
@@ -136,7 +136,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 			glStencilMask(i);
 			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->width, dstBuffer->height, false, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_);
+		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_);
 	}
 	glStencilMask(0xFF);
 
