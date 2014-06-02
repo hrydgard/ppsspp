@@ -19,6 +19,7 @@
 
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
+#include "Core/Config.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
@@ -101,4 +102,62 @@ private:
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+};
+
+class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+public:
+	ProAdhocServerScreen() {}	
+
+protected:
+	virtual void CreateViews();
+
+private:	
+	std::string tempProAdhocServer = g_Config.proAdhocServer;
+	UI::EventReturn OnBack(UI::EventParams &e);
+	UI::EventReturn On0Click(UI::EventParams &e);
+	UI::EventReturn On1Click(UI::EventParams &e);
+	UI::EventReturn On2Click(UI::EventParams &e);
+	UI::EventReturn On3Click(UI::EventParams &e);
+	UI::EventReturn On4Click(UI::EventParams &e);
+	UI::EventReturn On5Click(UI::EventParams &e);
+	UI::EventReturn On6Click(UI::EventParams &e);
+	UI::EventReturn On7Click(UI::EventParams &e);
+	UI::EventReturn On8Click(UI::EventParams &e);
+	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnPointClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnOKClick(UI::EventParams &e);
+	UI::EventReturn OnCancelClick(UI::EventParams &e);
+};
+
+class MacAddressScreen : public UIDialogScreenWithBackground {
+public:
+	MacAddressScreen() {}
+
+protected:
+	virtual void CreateViews();
+
+private:
+	std::string tempMacAddress = g_Config.localMacAddress;
+	UI::EventReturn OnBack(UI::EventParams &e);
+	UI::EventReturn OnAClick(UI::EventParams &e);
+	UI::EventReturn OnBClick(UI::EventParams &e);
+	UI::EventReturn OnCClick(UI::EventParams &e);
+	UI::EventReturn OnDClick(UI::EventParams &e);
+	UI::EventReturn OnEClick(UI::EventParams &e);
+	UI::EventReturn On0Click(UI::EventParams &e);
+	UI::EventReturn On1Click(UI::EventParams &e);
+	UI::EventReturn On2Click(UI::EventParams &e);
+	UI::EventReturn On3Click(UI::EventParams &e);
+	UI::EventReturn On4Click(UI::EventParams &e);
+	UI::EventReturn On5Click(UI::EventParams &e);
+	UI::EventReturn On6Click(UI::EventParams &e);
+	UI::EventReturn On7Click(UI::EventParams &e);
+	UI::EventReturn On8Click(UI::EventParams &e);
+	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnDeleteClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnOKClick(UI::EventParams &e);
+	UI::EventReturn OnCancelClick(UI::EventParams &e);
 };

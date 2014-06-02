@@ -337,22 +337,8 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
-#if defined(_WIN32) || defined(USING_QT_UI)
 	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
-#else
-	std::string str1 = s->T("proAdhocServer Address:");
-	std::string str2 = " ";
-	std::string str3 = g_Config.proAdhocServer;
-	str1.append(str2);
-	str1.append(str3);
-	systemSettings->Add(new Choice(str1));
-	str1 = s->T("Mac Address:");
-	str3 = g_Config.localMacAddress;
-	str1.append(str2);
-	str1.append(str3);
-	systemSettings->Add(new Choice(str1));
-#endif
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
@@ -513,31 +499,45 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-#if defined(_WIN32) || defined(USING_QT_UI)
-	const size_t name_len = 256;
+UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {	
+#if defined(_WIN32) || defined(USING_QT_UI)	
+	if (!g_Config.bFullScreen) {
+		const size_t name_len = 256;
 
-	char name[name_len];
-	memset(name, 0, sizeof(name));
+		char name[name_len];
+		memset(name, 0, sizeof(name));
 
-	if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
-		g_Config.proAdhocServer = name;
+		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
+			g_Config.proAdhocServer = name;
+		}
 	}
+	else
+		screenManager()->push(new ProAdhocServerScreen);
+#else
+	screenManager()->push(new ProAdhocServerScreen);
 #endif
+	
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 #if defined(_WIN32) || defined(USING_QT_UI)
-	const size_t name_len = 256;
+	if (!g_Config.bFullScreen) {
+		const size_t name_len = 256;
 
-	char name[name_len];
-	memset(name, 0, sizeof(name));
+		char name[name_len];
+		memset(name, 0, sizeof(name));
 
-	if (System_InputBoxGetString("Enter a MAC address", g_Config.localMacAddress.c_str(), name, name_len)) {
-		g_Config.localMacAddress = name;
+		if (System_InputBoxGetString("Enter a MAC address", g_Config.localMacAddress.c_str(), name, name_len)) {
+			g_Config.localMacAddress = name;
+		}
 	}
+	else
+		screenManager()->push(new MacAddressScreen);
+#else
+	screenManager()->push(new MacAddressScreen);
 #endif
+
 	return UI::EVENT_DONE;
 }
 
@@ -701,5 +701,346 @@ UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
+	return UI::EVENT_DONE;
+}
+
+void ProAdhocServerScreen::CreateViews() {
+	using namespace UI;	
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *d = GetI18NCategory("Dialog");
+	
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	
+	leftColumn->Add(new ItemHeader(s->T("proAdhocServer Address:")));
+	leftColumn->Add(new Choice(tempProAdhocServer));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE,10));
+	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &ProAdhocServerScreen::On0Click);
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
+	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
+}
+
+UI::EventReturn ProAdhocServerScreen::On0Click(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0)
+		tempProAdhocServer.append("0");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
+	tempProAdhocServer.append("1");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On2Click(UI::EventParams &e) {
+	tempProAdhocServer.append("2");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On3Click(UI::EventParams &e) {
+	tempProAdhocServer.append("3");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On4Click(UI::EventParams &e) {
+	tempProAdhocServer.append("4");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On5Click(UI::EventParams &e) {
+	tempProAdhocServer.append("5");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On6Click(UI::EventParams &e) {
+	tempProAdhocServer.append("6");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On7Click(UI::EventParams &e) {
+	tempProAdhocServer.append("7");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On8Click(UI::EventParams &e) {
+	tempProAdhocServer.append("8");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On9Click(UI::EventParams &e) {
+	tempProAdhocServer.append("9");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0 && tempProAdhocServer.at(tempProAdhocServer.length() - 1) != '.')
+		tempProAdhocServer.append(".");
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0)
+		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
+	tempProAdhocServer = "";
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
+	g_Config.proAdhocServer = tempProAdhocServer;
+	UIScreen::OnBack(e);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
+	tempProAdhocServer = g_Config.proAdhocServer;
+	UIScreen::OnBack(e);
+	return UI::EVENT_DONE;
+}
+
+void MacAddressScreen::CreateViews() {
+	using namespace UI;
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	leftColumn->Add(new ItemHeader(s->T("Mac address:")));
+	leftColumn->Add(new Choice(tempMacAddress));
+	LinearLayout *A_E_Column = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 480, 10, 300, NONE, 150));
+	A_E_Column->Add(new Button("A"))->OnClick.Handle(this, &MacAddressScreen::OnAClick);
+	A_E_Column->Add(new Button("B"))->OnClick.Handle(this, &MacAddressScreen::OnBClick);
+	A_E_Column->Add(new Button("C"))->OnClick.Handle(this, &MacAddressScreen::OnCClick);
+	A_E_Column->Add(new Button("D"))->OnClick.Handle(this, &MacAddressScreen::OnDClick);
+	A_E_Column->Add(new Button("E"))->OnClick.Handle(this, &MacAddressScreen::OnEClick);
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE, 10));	
+	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &MacAddressScreen::On0Click);
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &MacAddressScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &MacAddressScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &MacAddressScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &MacAddressScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &MacAddressScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &MacAddressScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &MacAddressScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &MacAddressScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &MacAddressScreen::On9Click);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &MacAddressScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &MacAddressScreen::OnDeleteAllClick);	
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &MacAddressScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &MacAddressScreen::OnCancelClick);	
+	root_->Add(leftColumn);
+	root_->Add(A_E_Column);
+	root_->Add(rightColumn);
+}
+
+UI::EventReturn MacAddressScreen::On0Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("0");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnAClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("A");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnBClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("B");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnCClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("C");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("D");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnEClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("E");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On1Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("1");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On2Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("2");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On3Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("3");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On4Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("4");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On5Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("5");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On6Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("6");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On7Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("7");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On8Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("8");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On9Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("9");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDeleteClick(UI::EventParams &e) {
+	if (tempMacAddress.length() > 0) {
+		if (tempMacAddress.at(tempMacAddress.length() - 1) == ':')
+			tempMacAddress.erase(tempMacAddress.length() - 1, 1);
+		tempMacAddress.erase(tempMacAddress.length() - 1, 1);
+		
+	}
+	CreateViews();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDeleteAllClick(UI::EventParams &e) {
+	tempMacAddress = "";
+	CreateViews();	
+	return UI::EVENT_DONE;	
+}
+
+UI::EventReturn MacAddressScreen::OnOKClick(UI::EventParams &e) {
+	if (tempMacAddress.length() == 17) {
+		g_Config.localMacAddress = tempMacAddress;
+		UIScreen::OnBack(e);
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnCancelClick(UI::EventParams &e) {
+	tempMacAddress = g_Config.proAdhocServer;
+	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }
