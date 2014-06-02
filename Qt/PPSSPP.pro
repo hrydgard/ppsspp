@@ -19,9 +19,10 @@ linux:lessThan(QT_MAJOR_VERSION,5):!packagesExist(QtMultimedia) {
 }
 else: QT += multimedia
 
-greaterThan(QT_MAJOR_VERSION,4): QT += widgets
-
-!maemo5:mobile_platform {
+greaterThan(QT_MAJOR_VERSION,4) {
+	QT += widgets
+	mobile_platform: QT += sensors
+} else:!maemo5:mobile_platform {
 	CONFIG += mobility
 	MOBILITY += sensors
 	symbian: MOBILITY += systeminfo feedback
@@ -39,6 +40,7 @@ macx:	QMAKE_LIBDIR += $$P/ffmpeg/macosx/x86_64/lib/
 ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
 qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
 symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
+android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv6/lib/
 
 contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 
@@ -52,7 +54,7 @@ win32 {
 	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files($$P/dx9sdk/Lib/x64/*.lib)
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
-linux {
+linux:!android {
 	LIBS += -ldl -lrt -lz
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	packagesExist(sdl) {
@@ -68,6 +70,7 @@ symbian: LIBS += -lremconcoreapi -lremconinterfacebase
 contains(QT_CONFIG, system-zlib) {
 	unix: LIBS += -lz
 }
+android: LIBS += -lEGL
 
 # Main
 SOURCES += $$P/native/base/QtMain.cpp
@@ -89,6 +92,8 @@ SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/UIShader.cpp \
 	$$P/UI/ui_atlas_lowmem.cpp \
 	$$P/android/jni/TestRunner.cpp
+
+arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 
 HEADERS += $$P/UI/*.h
 INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
@@ -142,4 +147,6 @@ maemo {
 	QMAKE_LFLAGS += -pie -rdynamic
 	CONFIG += qt-boostable
 }
+
+ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android
 

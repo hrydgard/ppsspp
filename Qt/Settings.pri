@@ -1,7 +1,8 @@
 VERSION = 0.9.8
 DEFINES += USING_QT_UI USE_FFMPEG
-unix:!qnx:!symbian:!mac: CONFIG += linux
+unix:!qnx:!symbian:!android:!mac: CONFIG += linux
 maemo5|contains(MEEGO_EDITION,harmattan): CONFIG += maemo
+arm:!symbian:!android: CONFIG += armv7
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
@@ -50,7 +51,7 @@ else { # Assume ARM
 
 gleslib = $$lower($$QMAKE_LIBS_OPENGL)
 gleslib = $$find(gleslib, "gles")
-maemo|!count(gleslib,0) {
+android|maemo|!count(gleslib,0) {
 	DEFINES += USING_GLES2
 	DEFINES += MOBILE_DEVICE
 }
@@ -90,4 +91,9 @@ symbian {
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
 	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis
 	INCLUDEPATH += $$P/ffmpeg/symbian/armv6/include
+}
+android {
+	DEFINES += ANDROID
+	INCLUDEPATH += $$P/native/ext/libzip
+	INCLUDEPATH += $$P/ffmpeg/android/armv6/include
 }
