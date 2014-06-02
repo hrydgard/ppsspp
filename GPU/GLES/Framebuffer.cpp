@@ -652,18 +652,18 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	// In this case, viewport=64x64, region=1024x1024, scissor varies (480x272 sometimes), stride=1024
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
-	if (viewport_width <= fb_stride) {
+	if (viewport_width > 4 && viewport_width <= fb_stride) {
 		drawing_width = viewport_width;
 		drawing_height = viewport_height;
 		// Sometimes region is set larger than the VRAM for the framebuffer.
 		if (region_width <= fb_stride && region_width > drawing_width) {
 			drawing_width = region_width;
-			drawing_height = region_height;
+			drawing_height = std::max(drawing_height, region_height);
 		}
 		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
 		if (scissor_width <= fb_stride && scissor_width > drawing_width) {
 			drawing_width = scissor_width;
-			drawing_height = scissor_height;
+			drawing_height = std::max(drawing_height, scissor_height);
 		}
 	} else {
 		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
