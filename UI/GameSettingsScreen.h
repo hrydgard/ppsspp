@@ -113,6 +113,7 @@ protected:
 
 private:	
 	std::string tempProAdhocServer = g_Config.proAdhocServer;
+	UI::TextView *addrView_;
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
 	UI::EventReturn On1Click(UI::EventParams &e);
@@ -140,6 +141,7 @@ protected:
 
 private:
 	std::string tempMacAddress = g_Config.localMacAddress;
+	UI::TextView *addrView_;
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnAClick(UI::EventParams &e);
 	UI::EventReturn OnBClick(UI::EventParams &e);
