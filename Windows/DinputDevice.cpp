@@ -318,7 +318,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 	}
 }
 
-int DinputDevice::getNumPads()
+size_t DinputDevice::getNumPads()
 {
 	if (devices.empty())
 	{
