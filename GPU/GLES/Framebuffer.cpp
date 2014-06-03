@@ -621,7 +621,7 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, addr) && v->format == displayFormat_ && v->width >= 480) {
+		if (MaskedEqual(v->fb_address, addr)) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
