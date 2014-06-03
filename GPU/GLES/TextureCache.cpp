@@ -1645,7 +1645,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int stride, int w, int h, bool isPrimary) {
+TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
@@ -1703,11 +1703,11 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 	}
 
 	if (hitSomeAlpha != 0)
-		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
-	else if (hitZeroAlpha != 0 && (isPrimary || entry.GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN))
-		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_SIMPLE);
-	else if (isPrimary)
-		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_FULL);
+		return TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+	else if (hitZeroAlpha != 0)
+		return TexCacheEntry::STATUS_ALPHA_SIMPLE;
+	else
+		return TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
 void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
@@ -1741,10 +1741,12 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
-	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
-		CheckAlpha(entry, pixelData, dstFmt, useUnpack ? bufw : w, w, h, level == 0);
-	else
+	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+		TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
+		entry.SetAlphaStatus(alphaStatus, level);
+	} else {
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+	}
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 
