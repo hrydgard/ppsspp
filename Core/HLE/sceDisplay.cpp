@@ -699,7 +699,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 			return;
 		}
 
-		scale = g_Config.iFpsLimit / 60.0f;
+		scale = 60.0f / g_Config.iFpsLimit;
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
