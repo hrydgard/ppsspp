@@ -96,5 +96,6 @@ static const std::map<int, int> KeyMapRawQttoNative = InitConstMap<int, int>
 	(Qt::Key_Left, NKCODE_DPAD_LEFT)
 	(Qt::Key_Up, NKCODE_DPAD_UP)
 	(Qt::Key_Right, NKCODE_DPAD_RIGHT)
-	(Qt::Key_Down, NKCODE_DPAD_DOWN);
+	(Qt::Key_Down, NKCODE_DPAD_DOWN)
+	(Qt::Key_Back, NKCODE_BACK);
 
