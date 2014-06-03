@@ -24,16 +24,6 @@
 #ifndef _WIN32
 #include <unistd.h>
 #include <sys/time.h>
-#else
-#define NOMINMAX
-#include <winsock2.h>
-
-static inline int usleep(long us) {
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = us;
-	return select(0, NULL, NULL, NULL, &tv);
-}
 #endif
 
 // TODO: Move the relevant parts into common. Don't want the core
@@ -706,7 +696,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	time_update();
 	while (time_now_d() < goal) {
 		const double left = goal - time_now_d();
+#ifndef _WIN32
 		usleep((long)(left * 1000000));
+#endif
 		time_update();
 	}
 
