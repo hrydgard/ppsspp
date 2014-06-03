@@ -20,6 +20,12 @@
 #include <cmath>
 #include <algorithm>
 
+// TODO: Move this somewhere else, cleanup.
+#ifndef _WIN32
+#include <unistd.h>
+#include <sys/time.h>
+#endif
+
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
 // and move everything into native...
@@ -79,6 +85,10 @@ static bool framebufIsLatched;
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 static int afterFlipEvent = -1;
+static int lagSyncEvent = -1;
+
+static double lastLagSync = 0.0;
+static bool lagSyncScheduled = false;
 
 // hCount is computed now.
 static int vCount;
@@ -140,11 +150,20 @@ static int lastFlipsTooFrequent = 0;
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
+void hleLagSync(u64 userdata, int cyclesLate);
 
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 int __DisplayGetFlipCount() { return actualFlips; }
 int __DisplayGetVCount() { return vCount; }
+
+static void ScheduleLagSync(int over = 0) {
+	lagSyncScheduled = g_Config.bForceLagSync;
+	if (lagSyncScheduled) {
+		CoreTiming::ScheduleEvent(msToCycles(1), lagSyncEvent, 0);
+		lastLagSync = real_time_now() - (over / 1000000.0f);
+	}
+}
 
 void __DisplayInit() {
 	gpuStats.Reset();
@@ -168,6 +187,9 @@ void __DisplayInit() {
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
 	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
 
+	lagSyncEvent = CoreTiming::RegisterEvent("LagSync", &hleLagSync);
+	ScheduleLagSync();
+
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
@@ -189,7 +211,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 4);
+	auto s = p.Section("sceDisplay", 1, 5);
 	if (!s)
 		return;
 
@@ -225,6 +247,19 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
 	p.Do(afterFlipEvent);
 	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlip", &hleAfterFlip);
+
+	if (s >= 5) {
+		p.Do(lagSyncEvent);
+		p.Do(lagSyncScheduled);
+		CoreTiming::RestoreRegisterEvent(lagSyncEvent, "LagSync", &hleLagSync);
+		lastLagSync = real_time_now();
+		if (lagSyncScheduled != g_Config.bForceLagSync) {
+			ScheduleLagSync();
+		}
+	} else {
+		lagSyncEvent = CoreTiming::RegisterEvent("LagSync", &hleLagSync);
+		ScheduleLagSync();
+	}
 
 	p.Do(gstate);
 	gstate_c.DoState(p);
@@ -621,6 +656,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 void hleAfterFlip(u64 userdata, int cyclesLate)
 {
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
+
+	// This seems like as good a time as any to check if the config changed.
+	if (lagSyncScheduled != g_Config.bForceLagSync) {
+		ScheduleLagSync();
+	}
 }
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
@@ -630,6 +670,41 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 
 	// Fire the vblank listeners after the vblank completes.
 	__DisplayFireVblank();
+}
+
+void hleLagSync(u64 userdata, int cyclesLate) {
+	// The goal here is to prevent network, audio, and input lag from the real world.
+	// Our normal timing is very "stop and go".  This is efficient, but causes real world lag.
+	// This event (optionally) runs every 1ms to sync with the real world.
+
+	if (PSP_CoreParameter().unthrottle) {
+		lagSyncScheduled = false;
+		return;
+	}
+
+	float scale = 1.0f;
+	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
+		if (g_Config.iFpsLimit == 0) {
+			lagSyncScheduled = false;
+			return;
+		}
+
+		scale = 60.0f / g_Config.iFpsLimit;
+	}
+
+	const double goal = lastLagSync + (scale / 1000.0f);
+	time_update();
+	while (time_now_d() < goal) {
+		const double left = goal - time_now_d();
+#ifndef _WIN32
+		usleep((long)(left * 1000000));
+#endif
+		time_update();
+	}
+
+	const int emuOver = (int)cyclesToUs(cyclesLate);
+	const int over = (int)((time_now_d() - goal) * 1000000);
+	ScheduleLagSync(over - emuOver);
 }
 
 u32 sceDisplayIsVblank() {

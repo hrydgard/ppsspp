@@ -265,6 +265,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
+	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false),
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false),

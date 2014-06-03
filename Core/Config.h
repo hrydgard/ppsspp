@@ -83,6 +83,7 @@ public:
 	bool bFastMemory;
 	bool bJit;
 	bool bCheckForNewVersion;
+	bool bForceLagSync;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
