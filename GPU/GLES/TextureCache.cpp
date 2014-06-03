@@ -950,9 +950,15 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			fbo_bind_color_as_texture(depalFBO, 0);
 			glstate.Restore();
 			framebufferManager_->RebindFramebuffer();
+
+			gstate_c.textureFullAlpha = false;
+			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 			framebufferManager_->BindFramebufferColor(entry->framebuffer);
+
+			gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 
 		// Keep the framebuffer alive.
@@ -962,8 +968,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = true;
-		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		UpdateSamplingParams(*entry, true);
 	} else {
 		if (entry->framebuffer->fbo)
