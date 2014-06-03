@@ -480,7 +480,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
-	DrawActiveTexture(0, dstX, dstY, width, height, vfb->width, vfb->height, false, 0.0f, 0.0f, 1.0f, 1.0f);
+	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -621,7 +621,7 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	VirtualFramebuffer *match = NULL;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, addr) && v->format == displayFormat_ && v->width >= 480) {
+		if (MaskedEqual(v->fb_address, addr)) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
@@ -637,38 +637,75 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 }
 
 // Heuristics to figure out the size of FBO to create.
-static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
-	int default_width = 480;
-	int default_height = 272;
-	int viewport_width = (int) gstate.getViewportX1();
-	int viewport_height = (int) gstate.getViewportY1();
-	int region_width = gstate.getRegionX2() + 1;
-	int region_height = gstate.getRegionY2() + 1;
-	int scissor_width = gstate.getScissorX2() + 1;
-	int scissor_height = gstate.getScissorY2() + 1;
-	int fb_stride = gstate.FrameBufStride();
+void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
+	const int viewport_width = (int) gstate.getViewportX1();
+	const int viewport_height = (int) gstate.getViewportY1();
+	const int region_width = gstate.getRegionX2() + 1;
+	const int region_height = gstate.getRegionY2() + 1;
+	const int scissor_width = gstate.getScissorX2() + 1;
+	const int scissor_height = gstate.getScissorY2() + 1;
+	const int fb_stride = std::max(gstate.FrameBufStride(), 4);
 
 	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
 
-	// Viewport may return 0x0 for example FF Type-0 / God of War and we set it to 480x272
-	if (viewport_width <= 1 && viewport_height <=1) {
-		viewport_width = default_width;
-		viewport_height = default_height;
-	}
+	// TODO: God of War sets region = 1024x1024 on a buffer that is used only as 64x64, and occupies 1024x64 of VRAM.
+	// In this case, viewport=64x64, region=1024x1024, scissor varies (480x272 sometimes), stride=1024
 
-	if (fb_stride > 0 && fb_stride <= 512) {
-		if (fb_stride == viewport_width) {
-			drawing_width = viewport_width;
-			drawing_height = viewport_height;
-		} else {
+	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
+	if (viewport_width > 4 && viewport_width <= fb_stride) {
+		drawing_width = viewport_width;
+		drawing_height = viewport_height;
+		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
+		if (viewport_width == 481 && region_width == 480 && viewport_height == 273 && region_height == 272) {
+			drawing_width = 480;
+			drawing_height = 272;
+		}
+		// Sometimes region is set larger than the VRAM for the framebuffer.
+		if (region_width <= fb_stride && region_width > drawing_width) {
+			drawing_width = region_width;
+			drawing_height = std::max(drawing_height, region_height);
+		}
+		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
+		if (scissor_width <= fb_stride && scissor_width > drawing_width) {
 			drawing_width = scissor_width;
-			drawing_height = scissor_height;
+			drawing_height = std::max(drawing_height, scissor_height);
 		}
 	} else {
-		drawing_width = default_width;
-		drawing_height = default_height;
+		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
+		drawing_width = std::min(std::max(region_width, scissor_width), fb_stride);
+		drawing_height = std::max(region_height, scissor_height);
 	}
 
+	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
+	if (drawing_height > 512) {
+		if (region_height < 512) {
+			drawing_height = region_height;
+		} else if (scissor_height < 512) {
+			drawing_height = scissor_height;
+		}
+	}
+
+	if (viewport_width != region_width) {
+		// The majority of the time, these are equal.  If not, let's check what we know.
+		const u32 fb_address = gstate.getFrameBufAddress();
+		u32 nearest_address = 0xFFFFFFFF;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			const u32 other_address = vfbs_[i]->fb_address | 0x44000000;
+			if (other_address > fb_address && other_address < nearest_address) {
+				nearest_address = other_address;
+			}
+		}
+
+		// Unless the game is using overlapping buffers, the next buffer should be far enough away.
+		// This catches some cases where we can know this.
+		// Hmm.  The problem is that we could only catch it for the first of two buffers...
+		const u32 bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
+		if (avail_height < drawing_height && avail_height == region_height) {
+			drawing_width = std::min(region_width, fb_stride);
+			drawing_height = avail_height;
+		}
+	}
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -724,15 +761,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	gstate_c.framebufChanged = false;
 
 	// Get parameters
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
+	const u32 fb_address = gstate.getFrameBufRawAddress();
+	const int fb_stride = gstate.FrameBufStride();
 
-	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.DepthBufStride();
-
-	// Yeah this is not completely right. but it'll do for now.
-	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	const u32 z_address = gstate.getDepthBufRawAddress();
+	const int z_stride = gstate.DepthBufStride();
 
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 
@@ -740,9 +773,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(drawing_width, drawing_height);
-
-	int buffer_width = drawing_width;
-	int buffer_height = drawing_height;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -753,31 +783,35 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
-			if (v->width < drawing_width && v->height < drawing_height) {
-				v->width = drawing_width;
-				v->height = drawing_height;
-			}
-			if (v->format != fmt) {
-				v->width = drawing_width;
-				v->height = drawing_height;
-				v->format = fmt;
-			}
+			v->format = fmt;
+			v->width = drawing_width;
+			v->height = drawing_height;
 			break;
 		}
 	}
 
+	VirtualFramebuffer *destroyVfb = 0;
 	if (vfb) {
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
-			// If it's newly wrong, or changing every frame, just keep track.
-			if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+			// Even if it's not newly wrong, if this is larger we need to resize up.
+			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
+				destroyVfb = vfb;
+				vfb = NULL;
+			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
+				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
 				vfb->newHeight = drawing_height;
 				vfb->lastFrameNewSize = gpuStats.numFlips;
 			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.numFlips) {
 				// Okay, it's changed for a while (and stayed that way.)  Let's start over.
-				DestroyFramebuf(vfb);
-				vfbs_.erase(vfbs_.begin() + i);
-				vfb = NULL;
+				// But only if we really need to, to avoid blinking.
+				bool needsRecreate = vfb->bufferWidth > fb_stride;
+				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
+				needsRecreate = needsRecreate || vfb->newHeight > vfb->newHeight || vfb->newHeight * 2 < vfb->newHeight;
+				if (needsRecreate) {
+					destroyVfb = vfb;
+					vfb = NULL;
+				}
 			}
 		} else {
 			// It's not different, let's keep track of that too.
@@ -809,8 +843,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->lastFrameNewSize = gpuStats.numFlips;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
-		vfb->bufferWidth = buffer_width;
-		vfb->bufferHeight = buffer_height;
+		vfb->bufferWidth = drawing_width;
+		vfb->bufferHeight = drawing_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
@@ -843,6 +877,12 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
+
+				if (destroyVfb) {
+					// Copy over the contents of the framebuffer we're replacing.
+					BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, vfb->width, vfb->height, 0);
+					fbo_bind_as_render_target(vfb->fbo);
+				}
 			} else {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 			}
@@ -850,6 +890,17 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+		}
+
+		if (destroyVfb) {
+			// Do this before notifying of creation at the same address.
+			DestroyFramebuf(destroyVfb);
+			destroyVfb = 0;
+			vfbs_.erase(vfbs_.begin() + i);
+
+			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		} else {
+			INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		}
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
@@ -866,8 +917,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		if (fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
-
-		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
@@ -1057,7 +1106,6 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 
 			fbo_bind_as_render_target(currentRenderVfb_->fbo);
 			fbo_bind_color_as_texture(renderCopy, 0);
-			glstate.viewport.restore();
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
 		}
@@ -1130,7 +1178,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		if (!usePostShader_) {
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
@@ -1150,12 +1198,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
 		} else {
 			// Use post-shader, but run shader at output resolution.
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight, postShaderProgram_);
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -1375,14 +1423,14 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glViewport(0, 0, dst->width, dst->height);
+		glViewport(0, 0, dst->renderWidth, dst->renderHeight);
 		DisableState();
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
 		// Should maybe revamp that interface.
-		float srcW = src->width;
-		float srcH = src->height;
-		DrawActiveTexture(0, dstX, dstY, w, h, dst->width, dst->height, false, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
+		float srcW = src->bufferWidth;
+		float srcH = src->bufferHeight;
+		DrawActiveTexture(0, dstX, dstY, w, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 	}
