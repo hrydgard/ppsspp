@@ -677,7 +677,13 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
-	drawing_height = std::min(drawing_height, 512);
+	if (drawing_height > 512) {
+		if (region_height < 512) {
+			drawing_height = region_height;
+		} else if (scissor_height < 512) {
+			drawing_height = scissor_height;
+		}
+	}
 
 	if (viewport_width != region_width) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
