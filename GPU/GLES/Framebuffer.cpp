@@ -638,6 +638,7 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 
 // Heuristics to figure out the size of FBO to create.
 void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
+	static const int MAX_FRAMEBUF_HEIGHT = 512;
 	const int viewport_width = (int) gstate.getViewportX1();
 	const int viewport_height = (int) gstate.getViewportY1();
 	const int region_width = gstate.getRegionX2() + 1;
@@ -645,11 +646,6 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	const int scissor_width = gstate.getScissorX2() + 1;
 	const int scissor_height = gstate.getScissorY2() + 1;
 	const int fb_stride = std::max(gstate.FrameBufStride(), 4);
-
-	DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
-
-	// TODO: God of War sets region = 1024x1024 on a buffer that is used only as 64x64, and occupies 1024x64 of VRAM.
-	// In this case, viewport=64x64, region=1024x1024, scissor varies (480x272 sometimes), stride=1024
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
 	if (viewport_width > 4 && viewport_width <= fb_stride) {
@@ -661,12 +657,12 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 			drawing_height = 272;
 		}
 		// Sometimes region is set larger than the VRAM for the framebuffer.
-		if (region_width <= fb_stride && region_width > drawing_width) {
+		if (region_width <= fb_stride && region_width > drawing_width && region_height <= MAX_FRAMEBUF_HEIGHT) {
 			drawing_width = region_width;
 			drawing_height = std::max(drawing_height, region_height);
 		}
 		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
-		if (scissor_width <= fb_stride && scissor_width > drawing_width) {
+		if (scissor_width <= fb_stride && scissor_width > drawing_width && scissor_height <= MAX_FRAMEBUF_HEIGHT) {
 			drawing_width = scissor_width;
 			drawing_height = std::max(drawing_height, scissor_height);
 		}
@@ -677,10 +673,10 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
-	if (drawing_height > 512) {
-		if (region_height < 512) {
+	if (drawing_height > MAX_FRAMEBUF_HEIGHT) {
+		if (region_height < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = region_height;
-		} else if (scissor_height < 512) {
+		} else if (scissor_height < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = scissor_height;
 		}
 	}
@@ -706,6 +702,8 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 			drawing_height = avail_height;
 		}
 	}
+
+	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", gstate.getFrameBufAddress(), viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
