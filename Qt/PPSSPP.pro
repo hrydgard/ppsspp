@@ -11,8 +11,7 @@ lessThan(QT_MAJOR_VERSION, 5) {
 }
 
 # Extra Qt modules
-linux: CONFIG += link_pkgconfig
-linux:lessThan(QT_MAJOR_VERSION,5):!packagesExist(QtMultimedia) {
+linux:lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
 	# Ubuntu et al workaround. They forgot QtMultimedia
 	CONFIG += mobility
 	MOBILITY += multimedia
@@ -40,7 +39,7 @@ macx:	QMAKE_LIBDIR += $$P/ffmpeg/macosx/x86_64/lib/
 ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
 qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
 symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
-android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv6/lib/
+android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv7/lib/
 
 contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 
@@ -57,6 +56,7 @@ win32 {
 linux:!android {
 	LIBS += -ldl -lrt -lz
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
+	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp
@@ -67,10 +67,10 @@ linux:!android {
 macx: LIBS += -liconv
 qnx: LIBS += -lscreen
 symbian: LIBS += -lremconcoreapi -lremconinterfacebase
-contains(QT_CONFIG, system-zlib) {
-	unix: LIBS += -lz
-}
 android: LIBS += -lEGL
+unix:contains(QT_CONFIG, system-zlib) {
+	LIBS += -lz
+}
 
 # Main
 SOURCES += $$P/native/base/QtMain.cpp
