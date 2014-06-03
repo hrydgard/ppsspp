@@ -13,6 +13,10 @@
 #include <QLocale>
 #include <QThread>
 
+#ifdef ANDROID
+#include <QStandardPaths>
+#endif
+
 #ifdef __SYMBIAN32__
 #include <e32std.h>
 #include <QSystemScreenSaver>
@@ -39,6 +43,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "Qt:Meego";
 #elif defined(MAEMO)
 		return "Qt:Maemo";
+#elif defined(ANDROID)
+		return "Qt:Android";
 #elif defined(Q_OS_LINUX)
 		return "Qt:Linux";
 #elif defined(_WIN32)
@@ -158,6 +164,10 @@ int main(int argc, char *argv[])
 #elif defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
 	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
 	const char *assets_dir = "/opt/PPSSPP/";
+#elif defined(ANDROID)
+	const char *savegame_dir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).at(0).toStdString().c_str();
+	const char *assets_dir = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation).at(0).toStdString().c_str();
+	setenv("QT_USE_ANDROID_NATIVE_DIALOGS", "1", 1); // Which Qt version does this need?
 #else
 	const char *savegame_dir = "./";
 	const char *assets_dir = "./";
