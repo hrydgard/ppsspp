@@ -62,6 +62,7 @@ count(gleslib,0) { # OpenGL
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 maemo5: DEFINES += MAEMO
 
+maemo: INCLUDEPATH += $$P/ffmpeg/linux/arm/include
 macx: INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
 ios: INCLUDEPATH += $$P/ffmpeg/ios/universal/include
 

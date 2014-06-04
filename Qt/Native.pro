@@ -6,6 +6,7 @@ CONFIG += staticlib
 
 # Allows Symbian to compile gl3stub
 symbian: DEFINES+=SYMBIAN_OGLES_DLL_EXPORTS
+maemo: DEFINES+=__GL_EXPORTS
 
 include(Settings.pri)
 

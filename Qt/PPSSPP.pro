@@ -40,6 +40,7 @@ ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
 qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
 symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
 android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv7/lib/
+maemo:  QMAKE_LIBDIR += $$P/ffmpeg/linux/arm/lib/
 
 contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 
