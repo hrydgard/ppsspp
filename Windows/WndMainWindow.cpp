@@ -19,6 +19,7 @@
 // It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
+#include "Common/KeyMap.h"
 
 #include <map>
 #include <string>
@@ -574,7 +575,7 @@ namespace MainWindow {
 		TranslateMenuItem(ID_FILE_LOAD_DIR);
 		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK);
 		TranslateMenuItem(ID_FILE_MEMSTICK);
-		TranslateSubMenu("Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF3");
+		TranslateSubMenu("Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF2");
 		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, L"\tF4");
 		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, L"\tF2");
 		TranslateMenuItem(ID_FILE_LOADSTATEFILE);
