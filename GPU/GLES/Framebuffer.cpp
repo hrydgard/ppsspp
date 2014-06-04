@@ -1875,19 +1875,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
 					fbo_bind_as_render_target(vfb->fbo);
-
-					int w = vfb->bufferWidth;
-					int h = vfb->bufferHeight;
-					// Often, the framebuffer size is incorrect.  But here we have the size.  Bit of a hack.
-					if (vfb->fb_stride == 512 && (size == 512 * 272 * 4 || size == 512 * 272 * 2)) {
-						// Looks like a standard 480x272 sized framebuffer/video/etc.
-						w = 480;
-						h = 272;
-					}
-					// Scale by the render resolution factor.
-					w = (w * vfb->renderWidth) / vfb->bufferWidth;
-					h = (h * vfb->renderHeight) / vfb->bufferHeight;
-					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
+					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					needUnbind = true;
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride, vfb->width, vfb->height);
 				} else {
@@ -2048,12 +2036,29 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
-			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+			if (srcX != dstX || srcY != dstY) {
+				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+				if (g_Config.bBlockTransferGPU) {
+					FBO *tempFBO = GetTempFBO(dstBuffer->width, dstBuffer->height, dstBuffer->colorDepth);
+					VirtualFramebuffer tempBuffer = *dstBuffer;
+					tempBuffer.fbo = tempFBO;
+					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, width, height, bpp);
+					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, width, height, bpp);
+					RebindFramebuffer();
+					return true;
+				}
+			} else {
+				// Ignore, nothing to do.  Tales of Phantasia X does this by accident.
+				if (g_Config.bBlockTransferGPU) {
+					return true;
+				}
+			}
 		} else {
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
+				RebindFramebuffer();
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
@@ -2073,10 +2078,6 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 }
 
 void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
-	if (updateVRAM_) {
-		return;
-	}
-
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 
@@ -2101,7 +2102,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		}
 
 		if (dstBuffer && !srcBuffer) {
-			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
+			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				if (useBufferedRendering_) {
