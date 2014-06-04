@@ -1875,19 +1875,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
 					fbo_bind_as_render_target(vfb->fbo);
-
-					int w = vfb->bufferWidth;
-					int h = vfb->bufferHeight;
-					// Often, the framebuffer size is incorrect.  But here we have the size.  Bit of a hack.
-					if (vfb->fb_stride == 512 && (size == 512 * 272 * 4 || size == 512 * 272 * 2)) {
-						// Looks like a standard 480x272 sized framebuffer/video/etc.
-						w = 480;
-						h = 272;
-					}
-					// Scale by the render resolution factor.
-					w = (w * vfb->renderWidth) / vfb->bufferWidth;
-					h = (h * vfb->renderHeight) / vfb->bufferHeight;
-					glstate.viewport.set(0, vfb->renderHeight - h, w, h);
+					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					needUnbind = true;
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride, vfb->width, vfb->height);
 				} else {
