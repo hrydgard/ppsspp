@@ -2114,7 +2114,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		}
 
 		if (dstBuffer && !srcBuffer) {
-			WARN_LOG_REPORT_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
+			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				if (useBufferedRendering_) {
