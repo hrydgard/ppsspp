@@ -727,7 +727,9 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 }
 
 void FramebufferManager::RebindFramebuffer() {
-	fbo_bind_as_render_target(currentRenderVfb_->fbo);
+	if (currentRenderVfb_) {
+		fbo_bind_as_render_target(currentRenderVfb_->fbo);
+	}
 }
 
 void FramebufferManager::DoSetRenderFrameBuffer() {
