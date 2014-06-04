@@ -2048,12 +2048,29 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
-			WARN_LOG_REPORT_ONCE(dstsrc, G3D, "Intra-buffer block transfer (not supported) %08x -> %08x", srcBasePtr, dstBasePtr);
+			if (srcX != dstX || srcY != dstY) {
+				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
+				if (g_Config.bBlockTransferGPU) {
+					FBO *tempFBO = GetTempFBO(dstBuffer->width, dstBuffer->height, dstBuffer->colorDepth);
+					VirtualFramebuffer tempBuffer = *dstBuffer;
+					tempBuffer.fbo = tempFBO;
+					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, width, height, bpp);
+					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, width, height, bpp);
+					RebindFramebuffer();
+					return true;
+				}
+			} else {
+				// Ignore, nothing to do.  Tales of Phantasia X does this by accident.
+				if (g_Config.bBlockTransferGPU) {
+					return true;
+				}
+			}
 		} else {
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
+				RebindFramebuffer();
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
