@@ -1251,8 +1251,8 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->z_stride = vfb->z_stride;
 			nvfb->width = vfb->width;
 			nvfb->height = vfb->height;
-			nvfb->renderWidth = vfb->width;
-			nvfb->renderHeight = vfb->height;
+			nvfb->renderWidth = vfb->bufferWidth;
+			nvfb->renderHeight = vfb->bufferHeight;
 			nvfb->bufferWidth = vfb->bufferWidth;
 			nvfb->bufferHeight = vfb->bufferHeight;
 			nvfb->format = vfb->format;
