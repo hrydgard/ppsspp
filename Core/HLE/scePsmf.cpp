@@ -142,6 +142,11 @@ struct PsmfEntry {
 
 int getMaxAheadTimestamp(int packets) {return std::max(40000, packets * 700);}
 
+// Some of our platforms don't play too nice with direct unaligned access.
+u32 ReadUnalignedU32BE(const u8 *p) {
+	return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | (p[3] << 0);
+}
+
 class PsmfStream;
 
 // This does NOT match the raw structure. Due to endianness etc,
@@ -269,8 +274,8 @@ public:
 		int streamId = addr[0];
 		int privateStreamId = addr[1];
 		// two unknowns here
-		psmf->EPMapOffset = *(u32_be *)&addr[4];
-		psmf->EPMapEntriesNum = *(u32_be *)&addr[8];
+		psmf->EPMapOffset = ReadUnalignedU32BE(&addr[4]);
+		psmf->EPMapEntriesNum = ReadUnalignedU32BE(&addr[8]);
 		psmf->videoWidth = addr[12] * 16;
 		psmf->videoHeight = addr[13] * 16;
 
@@ -281,8 +286,8 @@ public:
 			PsmfEntry entry;
 			entry.EPIndex = entryAddr[0];
 			entry.EPPicOffset = entryAddr[1];
-			entry.EPPts = *(u32_be *)&entryAddr[2];
-			entry.EPOffset = *(u32_be *)&entryAddr[6];
+			entry.EPPts = ReadUnalignedU32BE(&entryAddr[2]);
+			entry.EPOffset = ReadUnalignedU32BE(&entryAddr[6]);
 			psmf->EPMap.push_back(entry);
 		}
 
@@ -317,13 +322,13 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 	headerOffset = data;
 	magic = *(u32_le *)&ptr[0];
 	version = *(u32_le *)&ptr[4];
-	streamOffset = *(u32_be *)&ptr[8];
-	streamSize = *(u32_be *)&ptr[12];
-	streamDataTotalSize = *(u32_be *)&ptr[0x50];
+	streamOffset = ReadUnalignedU32BE(&ptr[8]);
+	streamSize = ReadUnalignedU32BE(&ptr[12]);
+	streamDataTotalSize = ReadUnalignedU32BE(&ptr[0x50]);
 	presentationStartTime = getMpegTimeStamp(ptr + PSMF_FIRST_TIMESTAMP_OFFSET);
 	presentationEndTime = getMpegTimeStamp(ptr + PSMF_LAST_TIMESTAMP_OFFSET);
-	streamDataNextBlockSize = *(u32_be *)&ptr[0x6A];
-	streamDataNextInnerBlockSize = *(u32_be *)&ptr[0x7C];
+	streamDataNextBlockSize = ReadUnalignedU32BE(&ptr[0x6A]);
+	streamDataNextInnerBlockSize = ReadUnalignedU32BE(&ptr[0x7C]);
 	numStreams = *(u16_be *)&ptr[0x80];
 	// TODO: Always?
 	headerSize = 0x800;
@@ -1119,8 +1124,8 @@ int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset, b
 			if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
 				++psmfplayer->totalVideoStreams;
 				// If we don't have EP info for /any/ video stream, revert to BASIC.
-				const u32 epOffset = *(const u32_be *)(currentStreamAddr + 4);
-				const u32 epEntries = *(const u32_be *)(currentStreamAddr + 8);
+				const u32 epOffset = ReadUnalignedU32BE(currentStreamAddr + 4);
+				const u32 epEntries = ReadUnalignedU32BE(currentStreamAddr + 8);
 				// TODO: Actually, if these don't match, it seems to be an invalid PSMF.
 				if (epOffset == 0 || epEntries == 0) {
 					psmfplayer->playerVersion = PSMF_PLAYER_VERSION_BASIC;
