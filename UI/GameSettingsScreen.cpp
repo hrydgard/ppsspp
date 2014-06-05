@@ -140,7 +140,7 @@ void GameSettingsScreen::CreateViews() {
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()));
 	resolutionChoice_->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
 	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-#ifdef _WIN32	
+#ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
