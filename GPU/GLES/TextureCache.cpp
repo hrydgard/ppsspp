@@ -883,17 +883,17 @@ bool SetDebugTexture() {
 }
 #endif
 
-void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
-	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		GLuint program = 0;
 		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
-			program = depalShaderCache_->GetDepalettizeShader(entry->framebuffer->format);
+			program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
 		}
 		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
-			FBO *depalFBO = framebufferManager_->GetTempFBO(entry->framebuffer->renderWidth, entry->framebuffer->renderHeight, FBO_8888);
+			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 			fbo_bind_as_render_target(depalFBO);
 			static const float pos[12] = {
 				-1, -1, -1,
@@ -925,7 +925,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
 			glActiveTexture(GL_TEXTURE0);
 
-			framebufferManager_->BindFramebufferColor(entry->framebuffer, true);
+			framebufferManager_->BindFramebufferColor(framebuffer, true);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			entry->status |= TexCacheEntry::STATUS_TEXPARAM_DIRTY;
@@ -939,7 +939,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 #if !defined(USING_GLES2)
 			glDisable(GL_LOGIC_OP);
 #endif
-			glViewport(0, 0, entry->framebuffer->renderWidth, entry->framebuffer->renderHeight);
+			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 
 			glVertexAttribPointer(a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 			glVertexAttribPointer(a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
@@ -961,25 +961,65 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry) {
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(entry->framebuffer);
+			framebufferManager_->BindFramebufferColor(framebuffer);
 
-			gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+			gstate_c.textureFullAlpha = framebuffer->format == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 
 		// Keep the framebuffer alive.
-		entry->framebuffer->last_frame_used = gpuStats.numFlips;
+		framebuffer->last_frame_used = gpuStats.numFlips;
 
 		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = entry->framebuffer->bufferWidth;
-		gstate_c.curTextureHeight = entry->framebuffer->bufferHeight;
+		gstate_c.curTextureWidth = framebuffer->bufferWidth;
+		gstate_c.curTextureHeight = framebuffer->bufferHeight;
 		gstate_c.flipTexture = true;
 		UpdateSamplingParams(*entry, true);
 	} else {
-		if (entry->framebuffer->fbo)
-			entry->framebuffer->fbo = 0;
+		if (framebuffer->fbo)
+			framebuffer->fbo = 0;
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+}
+
+bool TextureCache::SetOffsetTexture(u32 offset) {
+	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
+		return false;
+	}
+	u32 texaddr = gstate.getTextureAddress(0);
+	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
+		return false;
+	}
+
+	u64 cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
+	TexCache::iterator iter = cache.find(cachekey);
+	if (iter == cache.end()) {
+		return false;
+	}
+	TexCacheEntry *entry = &iter->second;
+
+	texaddr += offset;
+	cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
+
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		// This is a rough heuristic, because sometimes our framebuffers are too tall.
+		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
+		// Must be in VRAM so | 0x04000000 it is, and ignore any uncached bit.
+		const u32 addr = (framebuffer->fb_address | 0x04000000) & 0x0FFFFFFF;
+		const u64 cacheKeyStart = (u64)addr << 32;
+		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+
+		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
+			SetTextureFramebuffer(entry, framebuffer);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void TextureCache::SetTexture(bool force) {
@@ -1053,7 +1093,7 @@ void TextureCache::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
-				SetTextureFramebuffer(entry);
+				SetTextureFramebuffer(entry, entry->framebuffer);
 				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFlips;
 				return;
@@ -1266,7 +1306,7 @@ void TextureCache::SetTexture(bool force) {
 
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
-		SetTextureFramebuffer(entry);
+		SetTextureFramebuffer(entry, entry->framebuffer);
 		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return;

@@ -57,6 +57,7 @@ public:
 	~TextureCache();
 
 	void SetTexture(bool force = false);
+	bool SetOffsetTexture(u32 offset);
 
 	void Clear(bool delete_them);
 	void StartFrame();
@@ -180,7 +181,7 @@ private:
 	void UpdateCurrentClut();
 	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
-	void SetTextureFramebuffer(TexCacheEntry *entry);
+	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
