@@ -100,6 +100,11 @@ void GameSettingsScreen::CreateViews() {
 	rm->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gs->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
 
+#ifdef _WIN32
+	graphicsSettings->Add(new ItemHeader(gs->T("Compatibility on Nvidia display card (Require restart)")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bForceOpenGL31, gs->T("Force OpenGL 3.1")));
+#endif
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnFrameSkipChange);
