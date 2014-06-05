@@ -4,6 +4,8 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 include(Settings.pri)
 
+symbian:MMP_RULES += "DEBUGGABLE"
+
 lessThan(QT_MAJOR_VERSION, 5) {
 	lessThan(QT_MAJOR_VERSION, 4) | lessThan(QT_MINOR_VERSION, 7) {
 		error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
