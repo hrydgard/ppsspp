@@ -19,6 +19,9 @@
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "i18n/i18n.h"
+#ifdef _WIN32
+#include "util/text/utf8.h"
+#endif
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -145,7 +148,12 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::vector<std::string> newList;
 
 	std::string cheatDir = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+
+#ifdef _WIN32
+	is.open(ConvertUTF8ToWString(cheatDir));
+#else
 	is.open(cheatDir.c_str());
+#endif
 
 	while (is.good()) {
 		getline(is, line); // get line from file
@@ -186,10 +194,18 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	}
 	is.close();
 	std::string title2;
+#ifdef _WIN32
+	is.open(ConvertUTF8ToWString(activeCheatFile));
+#else
 	is.open(activeCheatFile.c_str());
+#endif
 	getline(is, title2);
 	is.close();
+#ifdef _WIN32
+	os.open(ConvertUTF8ToWString(activeCheatFile), std::ios::app);
+#else
 	os.open(activeCheatFile.c_str(), std::ios::app);
+#endif
 	auto it = title.begin();
 	if (title2.substr(0, 2) != "_S" && it != title.end() && (++it) != title.end()) {
 		os << title[0] << "\n" << title[1];
@@ -221,7 +237,11 @@ void CwCheatScreen::processFileOn(std::string activatedCheat) {
 		}
 	}
 
+#ifdef _WIN32
+	os.open(ConvertUTF8ToWString(activeCheatFile));
+#else
 	os.open(activeCheatFile.c_str());
+#endif
 	for (size_t j = 0; j < cheatList.size(); j++) {
 		os << cheatList[j];
 		if (j < cheatList.size() - 1) {
@@ -238,7 +258,11 @@ void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
 		}
 	}
 
+#ifdef _WIN32
+	os.open(ConvertUTF8ToWString(activeCheatFile));
+#else
 	os.open(activeCheatFile.c_str());
+#endif
 	for (size_t j = 0; j < cheatList.size(); j++) {
 		os << cheatList[j];
 		if (j < cheatList.size() - 1) {
