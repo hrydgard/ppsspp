@@ -97,6 +97,17 @@ FILE *OpenCFile(const std::string &filename, const char *mode)
 #endif
 }
 
+bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode)
+{
+#if defined(_WIN32) && defined(UNICODE)
+	stream.open(ConvertUTF8ToWString(filename), mode);
+#else
+	stream.open(filename.c_str(), mode);
+#endif
+	return stream.is_open();
+}
+
+
 // Remove any ending forward slashes from directory paths
 // Modifies argument.
 static void StripTailDirSlashes(std::string &fname)

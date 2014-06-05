@@ -19,9 +19,6 @@
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "i18n/i18n.h"
-#ifdef _WIN32
-#include "util/text/utf8.h"
-#endif
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -93,16 +90,17 @@ void CwCheatScreen::CreateViews() {
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {
+	std::fstream fs;
 	if (result != DR_BACK) // This only works for BACK here.
 		return;
-	os.open(activeCheatFile.c_str());
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
-		os << cheatList[j];
+		fs << cheatList[j];
 		if (j < (int)cheatList.size() - 1) {
-			os << "\n";
+			fs << "\n";
 		}
 	}
-	os.close();
+	fs.close();
 	g_Config.bReloadCheats = true;
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
@@ -110,9 +108,10 @@ void CwCheatScreen::onFinish(DialogResult result) {
 }
 
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
+	std::fstream fs;
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
-	os.open(activeCheatFile.c_str());
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
 		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
 			cheatList[j].replace(0, 3, "_C1");
@@ -125,12 +124,12 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 		bEnableCheat[y] = enableAll;
 	}
 	for (int i = 0; i < (int)cheatList.size(); i++) {
-		os << cheatList[i];
+		fs << cheatList[i];
 		if (i < (int)cheatList.size() - 1) {
-			os << "\n";
+			fs << "\n";
 		}
 	}
-	os.close();
+	fs.close();
 
 	return UI::EVENT_DONE;
 }
@@ -149,22 +148,19 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 
 	std::string cheatDir = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
 
-#ifdef _WIN32
-	is.open(ConvertUTF8ToWString(cheatDir));
-#else
-	is.open(cheatDir.c_str());
-#endif
+	std::fstream fs;
+	File::OpenCPPFile(fs, cheatDir, std::ios::in);
 
-	while (is.good()) {
-		getline(is, line); // get line from file
+	while (fs.good()) {
+		getline(fs, line); // get line from file
 		if (line == "_S " + gameTitle.substr(0, 4) + "-" + gameTitle.substr(4)) {
 			title.push_back(line);
-			getline(is, line);
+			getline(fs, line);
 			title.push_back(line);
-			getline(is, line);
+			getline(fs, line);
 			do {
 				if (finished == false){
-					getline(is, line);
+					getline(fs, line);
 				}
 				if (line.substr(0, 3) == "_C0" || line.substr(0, 3) == "_C1") {
 					//Test if cheat already exists in cheatList
@@ -176,10 +172,10 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 					}
 
 					newList.push_back(line);
-					getline(is, line);
+					getline(fs, line);
 					do {
 						newList.push_back(line);
-						getline(is, line);
+						getline(fs, line);
 					} while (line.substr(0, 2) == "_L");
 					finished = true;
 				} else {
@@ -192,34 +188,27 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		if (finished == true)
 			break;
 	}
-	is.close();
+	fs.close();
 	std::string title2;
-#ifdef _WIN32
-	is.open(ConvertUTF8ToWString(activeCheatFile));
-#else
-	is.open(activeCheatFile.c_str());
-#endif
-	getline(is, title2);
-	is.close();
-#ifdef _WIN32
-	os.open(ConvertUTF8ToWString(activeCheatFile), std::ios::app);
-#else
-	os.open(activeCheatFile.c_str(), std::ios::app);
-#endif
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::in);
+	getline(fs, title2);
+	fs.close();
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::app);
+
 	auto it = title.begin();
 	if (title2.substr(0, 2) != "_S" && it != title.end() && (++it) != title.end()) {
-		os << title[0] << "\n" << title[1];
+		fs << title[0] << "\n" << title[1];
 	}
 	if (newList.size() != 0) {
-		os << "\n";
+		fs << "\n";
 	}
 	for (int i = 0; i < (int)newList.size(); i++) {
-		os << newList[i];
+		fs << newList[i];
 		if (i < (int)newList.size() - 1) {
-			os << "\n";
+			fs << "\n";
 		}
 	}
-	os.close();
+	fs.close();
 	g_Config.bReloadCheats = true;
 	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
 	screenManager()->finishDialog(this, DR_OK);
@@ -231,45 +220,41 @@ UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
 }
 
 void CwCheatScreen::processFileOn(std::string activatedCheat) {
+	std::fstream fs;
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(4) == activatedCheat) {
 			cheatList[i] = "_C1 " + activatedCheat;
 		}
 	}
 
-#ifdef _WIN32
-	os.open(ConvertUTF8ToWString(activeCheatFile));
-#else
-	os.open(activeCheatFile.c_str());
-#endif
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
+
 	for (size_t j = 0; j < cheatList.size(); j++) {
-		os << cheatList[j];
+		fs << cheatList[j];
 		if (j < cheatList.size() - 1) {
-			os << "\n";
+			fs << "\n";
 		}
 	}
-	os.close();
+	fs.close();
 }
 
 void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
+	std::fstream fs;
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(4) == deactivatedCheat) {
 			cheatList[i] = "_C0 " + deactivatedCheat;
 		}
 	}
 
-#ifdef _WIN32
-	os.open(ConvertUTF8ToWString(activeCheatFile));
-#else
-	os.open(activeCheatFile.c_str());
-#endif
+	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
+
 	for (size_t j = 0; j < cheatList.size(); j++) {
-		os << cheatList[j];
+		fs << cheatList[j];
 		if (j < cheatList.size() - 1) {
-			os << "\n";
+			fs << "\n";
 		}
 	}
-	os.close();
+	fs.close();
 }
 
 void CheatCheckBox::Draw(UIContext &dc) {
@@ -287,3 +272,4 @@ void CheatCheckBox::Draw(UIContext &dc) {
 	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
+

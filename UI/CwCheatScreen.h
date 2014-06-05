@@ -15,9 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <string>
 #include <deque>
-#include <fstream>
+#include "Common/FileUtil.h"
 
 #include "base/functional.h"
 #include "ui/view.h"
@@ -35,8 +34,6 @@ class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
 	CwCheatScreen() {}
 	void CreateCodeList();
-	std::ifstream is;
-	std::ofstream os;
 	void processFileOn(std::string activatedCheat);
 	void processFileOff(std::string deactivatedCheat);
 	const char * name;
