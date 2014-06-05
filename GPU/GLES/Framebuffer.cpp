@@ -1868,7 +1868,8 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 	addr &= ~0x40000000;
 	// TODO: Could go through all FBOs, but probably not important?
 	// TODO: Could also check for inner changes, but video is most important.
-	if (addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr() || safe) {
+	bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
+	if (isDisplayBuf || safe) {
 		// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
 		if (!Memory::IsValidAddress(displayFramebufPtr_))
 			return;
@@ -1889,7 +1890,12 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					fbo_bind_as_render_target(vfb->fbo);
 					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					needUnbind = true;
-					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride, vfb->width, vfb->height);
+					GEBufferFormat fmt = vfb->format;
+					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
+						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
+						fmt = displayFormat_;
+					}
+					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
