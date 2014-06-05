@@ -1372,36 +1372,44 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 	fbo_bind_as_render_target(dst->fbo);
 	glDisable(GL_SCISSOR_TEST);
 
+	bool useBlit = false;
+	bool useNV = false;
+
 #ifndef USING_GLES2
 	if (gl_extensions.FBO_ARB) {
-		bool useNV = false;
+		useNV = false;
+		useBlit = true;
+	}
 #else
 	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-		bool useNV = !gl_extensions.GLES3;
+		useNV = !gl_extensions.GLES3;
+		useBlit = true;
+	}
 #endif
 
-		float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
-		float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
-		int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
-		if (srcBpp != bpp && bpp != 0) {
-			srcXFactor = (srcXFactor * bpp) / srcBpp;
-		}
-		int srcX1 = srcX * srcXFactor;
-		int srcX2 = (srcX + w) * srcXFactor;
-		int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
-		int srcY1 = srcY2 + h * srcYFactor;
+	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
+	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
+	const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
+	if (srcBpp != bpp && bpp != 0) {
+		srcXFactor = (srcXFactor * bpp) / srcBpp;
+	}
+	int srcX1 = srcX * srcXFactor;
+	int srcX2 = (srcX + w) * srcXFactor;
+	int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
+	int srcY1 = srcY2 + h * srcYFactor;
 
-		float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
-		float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
-		int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
-		if (dstBpp != bpp && bpp != 0) {
-			dstXFactor = (dstXFactor * bpp) / dstBpp;
-		}
-		int dstX1 = dstX * dstXFactor;
-		int dstX2 = (dstX + w) * dstXFactor;
-		int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
-		int dstY1 = dstY2 + h * dstYFactor;
+	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
+	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
+	const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
+	if (dstBpp != bpp && bpp != 0) {
+		dstXFactor = (dstXFactor * bpp) / dstBpp;
+	}
+	int dstX1 = dstX * dstXFactor;
+	int dstX2 = (dstX + w) * dstXFactor;
+	int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
+	int dstY1 = dstY2 + h * dstYFactor;
 
+	if (useBlit) {
 		if (flip) {
 			dstY1 = dst->renderHeight - dstY1;
 			dstY2 = dst->renderHeight - dstY2;
@@ -1410,12 +1418,11 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
 			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		}
+		} else {
 #if defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))  // We only support this extension on Android, it's not even available on PC.
-		else if (gl_extensions.NV_framebuffer_blit) {
 			glBlitFramebufferNV(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		}
 #endif // defined(USING_GLES2) && (defined(ANDROID) || defined(BLACKBERRY))
+		}
 
 	} else {
 		fbo_bind_color_as_texture(src->fbo, 0);
@@ -1430,7 +1437,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		// Should maybe revamp that interface.
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
-		DrawActiveTexture(0, dstX, dstY, w, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX / srcW, srcY / srcH, (srcX + w) / srcW, (srcY + h) / srcH, draw2dprogram_);
+		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 	}
