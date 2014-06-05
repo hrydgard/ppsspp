@@ -877,12 +877,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
-
-				if (destroyVfb) {
-					// Copy over the contents of the framebuffer we're replacing.
-					BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, vfb->width, vfb->height, 0);
-					fbo_bind_as_render_target(vfb->fbo);
-				}
 			} else {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 			}
@@ -893,14 +887,24 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 
 		if (destroyVfb) {
+			if (vfb->fbo) {
+				// Copy over the contents of the framebuffer we're replacing.
+				BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+			}
 			// Do this before notifying of creation at the same address.
 			DestroyFramebuf(destroyVfb);
 			destroyVfb = 0;
 			vfbs_.erase(vfbs_.begin() + i);
 
+			fbo_bind_as_render_target(vfb->fbo);
+			if (!useBufferedRendering_) {
+				ClearBuffer();
+			}
+
 			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		} else {
 			INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+			ClearBuffer();
 		}
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
@@ -908,7 +912,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
-		ClearBuffer();
 		glEnable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
