@@ -49,6 +49,8 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 
 #define M_PI_2     1.57079632679489661923
 
+// asin acos atan: https://github.com/michaldrobot/ShaderFastLibs/blob/master/ShaderFastMathLib.h
+
 // TODO:
 // Fast approximate sincos for NEON
 // http://blog.julien.cayzac.name/2009/12/fast-sinecosine-for-armv7neon.html
@@ -66,7 +68,6 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 // Unfortunately this is very serial.
 // At least there are only 8 constants needed - load them into two low quads and go to town.
 // For every step, VDUP the constant into a new register (out of two alternating), then VMLA or VFMA into it.
-
 
 // http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/arcsin/
 // minimax polynomial rational approx, pretty good, get four digits consistently.
