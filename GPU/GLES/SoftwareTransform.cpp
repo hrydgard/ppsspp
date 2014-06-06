@@ -25,6 +25,7 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
@@ -379,7 +380,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
 	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
-	// Disabled for now - depth does not come out exactly the same.
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
@@ -419,6 +419,27 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		glClearStencil(clearColor >> 24);
 		glClear(target);
 		return;
+	}
+
+	if (gstate_c.flipTexture && transformed[0].v < 0.0f && transformed[0].v > 1.0f - heightFactor) {
+		// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
+		// Breath of Fire 3 does this to access a render surface at +curTextureHeight.
+		const u32 bpp = framebufferManager_->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
+		const u32 fb_size = bpp * framebufferManager_->GetTargetStride() * gstate_c.curTextureHeight;
+		if (textureCache_->SetOffsetTexture(fb_size)) {
+			const float oldWidthFactor = widthFactor;
+			const float oldHeightFactor = heightFactor;
+			widthFactor = (float) w / (float) gstate_c.curTextureWidth;
+			heightFactor = (float) h / (float) gstate_c.curTextureHeight;
+
+			for (int index = 0; index < maxIndex; ++index) {
+				transformed[index].u *= widthFactor / oldWidthFactor;
+				// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
+				transformed[index].v = 1.0f - transformed[index].v - 1.0f;
+				transformed[index].v *= heightFactor / oldHeightFactor;
+				transformed[index].v = 1.0f - transformed[index].v;
+			}
+		}
 	}
 
 	// Step 2: expand rectangles.
