@@ -71,9 +71,6 @@ static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
 	{VIRTKEY_REWIND, NKCODE_DEL},
-	{VIRTKEY_SAVE_STATE, NKCODE_F2},
-	{VIRTKEY_LOAD_STATE, NKCODE_F4},
-	{VIRTKEY_NEXT_SLOT, NKCODE_F3},
 };
 
 static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
@@ -103,9 +100,6 @@ static const DefMappingStruct defaultAzertyKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
 	{VIRTKEY_REWIND, NKCODE_DEL},
-	{VIRTKEY_SAVE_STATE, NKCODE_F2},
-	{VIRTKEY_LOAD_STATE, NKCODE_F4},
-	{VIRTKEY_NEXT_SLOT, NKCODE_F3},
 };
 
 static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
@@ -135,9 +129,6 @@ static const DefMappingStruct defaultQwertzKeyboardKeyMap[] = {
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
 	{VIRTKEY_PAUSE, NKCODE_ESCAPE},
 	{VIRTKEY_REWIND, NKCODE_DEL},
-	{VIRTKEY_SAVE_STATE, NKCODE_F2},
-	{VIRTKEY_LOAD_STATE, NKCODE_F4},
-	{VIRTKEY_NEXT_SLOT, NKCODE_F3},
 };
 
 static const DefMappingStruct default360KeyMap[] = {
