@@ -30,7 +30,7 @@ extern PFNGLMAPBUFFERPROC glMapBuffer;
 
 #endif
 
-#if !defined(IOS)
+#if !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
 typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum

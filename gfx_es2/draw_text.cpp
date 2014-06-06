@@ -1,16 +1,16 @@
-#include "base/logging.h"
-#include "base/stringutil.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/draw_text.h"
-#include "util/hash/hash.h"
-#include "util/text/utf8.h"
-
 #ifdef USING_QT_UI
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QFontMetrics>
 #include <QtOpenGL/QGLWidget>
 #endif
+
+#include "base/logging.h"
+#include "base/stringutil.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/draw_text.h"
+#include "util/hash/hash.h"
+#include "util/text/utf8.h"
 
 #if defined(_WIN32) && !defined(USING_QT_UI)
 
