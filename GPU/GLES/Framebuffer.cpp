@@ -896,8 +896,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			destroyVfb = 0;
 			vfbs_.erase(vfbs_.begin() + i);
 
-			fbo_bind_as_render_target(vfb->fbo);
-			if (!useBufferedRendering_) {
+			if (useBufferedRendering_) {
+				fbo_bind_as_render_target(vfb->fbo);
+			} else {
 				ClearBuffer();
 			}
 
