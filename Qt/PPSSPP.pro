@@ -4,7 +4,7 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 include(Settings.pri)
 
-symbian:MMP_RULES += "DEBUGGABLE"
+!release:symbian:MMP_RULES += "DEBUGGABLE"
 
 lessThan(QT_MAJOR_VERSION, 5) {
 	lessThan(QT_MAJOR_VERSION, 4) | lessThan(QT_MINOR_VERSION, 7) {
@@ -36,13 +36,15 @@ else: LIBS += -lCore -lCommon -lNative
 
 # FFMPEG Path
 win32:	QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-linux:	QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+linux {
+	arm: QMAKE_LIBDIR += $$P/ffmpeg/linux/armv7/lib/
+	else:QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
+}
 macx:	QMAKE_LIBDIR += $$P/ffmpeg/macosx/x86_64/lib/
 ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
 qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
 symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
 android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv7/lib/
-maemo:  QMAKE_LIBDIR += $$P/ffmpeg/linux/arm/lib/
 
 contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 

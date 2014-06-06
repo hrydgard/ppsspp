@@ -20,6 +20,8 @@
 #include <cstring>
 #ifdef __SYMBIAN32__
 #include <e32std.h>
+#elif defined(MEEGO_EDITION_HARMATTAN)
+#include <stddef.h>
 #endif
 
 // Includes

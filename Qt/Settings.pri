@@ -2,7 +2,6 @@ VERSION = 0.9.8
 DEFINES += USING_QT_UI USE_FFMPEG
 unix:!qnx:!symbian:!mac: CONFIG += linux
 maemo5|contains(MEEGO_EDITION,harmattan): CONFIG += maemo
-arm:!symbian: CONFIG += armv7
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
@@ -49,6 +48,12 @@ contains(QT_ARCH, windows)|count(xarch, 1) {
 	DEFINES += ARM
 	CONFIG += arm
 }
+arm:!symbian {
+	CONFIG += armv7
+	DEFINES += ARMEABI_V7A ARMV7
+	QMAKE_CFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
+	QMAKE_CXXFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
+}
 
 gleslib = $$find(QT_CONFIG, "opengles")
 count(gleslib,0) { # OpenGL
@@ -62,12 +67,15 @@ count(gleslib,0) { # OpenGL
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 maemo5: DEFINES += MAEMO
 
-maemo: INCLUDEPATH += $$P/ffmpeg/linux/arm/include
 macx: INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
 ios: INCLUDEPATH += $$P/ffmpeg/ios/universal/include
+android {
+	DEFINES += ANDROID
+	INCLUDEPATH += $$P/ffmpeg/android/armv7/include $$P/native/ext/libzip
+}
 
 linux:!android {
-	arm: INCLUDEPATH += $$P/ffmpeg/linux/arm/include
+	arm: INCLUDEPATH += $$P/ffmpeg/linux/armv7/include
 	x86 {
 		contains(QT_ARCH, x86_64): QMAKE_TARGET.arch = x86_64
 		else: QMAKE_TARGET.arch = x86
@@ -81,14 +89,11 @@ qnx {
 }
 symbian {
 	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see Wiki)
-	DEFINES += "BOOST_COMPILER_CONFIG=\"$$EPOCROOT/epoc32/include/stdapis/boost/mpl/aux_/config/gcc.hpp\""
+	DEFINES += "BOOST_COMPILER_CONFIG=\"$$EPOCROOT/epoc32/include/stdapis/boost/mpl/aux_/config/gcc.hpp\"" SYMBIAN_OGLES_DLL_EXPORTS
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
 	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis
 	INCLUDEPATH += $$P/ffmpeg/symbian/armv6/include
 }
-android {
-	DEFINES += ANDROID ARMEABI_V7A ARMV7
-	QMAKE_CXXFLAGS += -march=armv7
-	INCLUDEPATH += $$P/native/ext/libzip
-	INCLUDEPATH += $$P/ffmpeg/android/armv7/include
+maemo {
+	DEFINES += __GL_EXPORTS
 }
