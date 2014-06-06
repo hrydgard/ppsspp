@@ -1164,6 +1164,15 @@ namespace MainWindow {
 					break;
 				}
 
+				case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].begin() == KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].end())
+					{ 
+						SaveState::NextSlot();
+					}
+					break;
+				}
+
 				case ID_FILE_SAVESTATE_SLOT_1: g_Config.iCurrentStateSlot = 0; break;
 				case ID_FILE_SAVESTATE_SLOT_2: g_Config.iCurrentStateSlot = 1; break;
 				case ID_FILE_SAVESTATE_SLOT_3: g_Config.iCurrentStateSlot = 2; break;
@@ -1171,14 +1180,37 @@ namespace MainWindow {
 				case ID_FILE_SAVESTATE_SLOT_5: g_Config.iCurrentStateSlot = 4; break;
 
 				case ID_FILE_QUICKLOADSTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
 
+				case ID_FILE_QUICKLOADSTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					}
+					break;
+				}
 				case ID_FILE_QUICKSAVESTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
+
+				case ID_FILE_QUICKSAVESTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+						break;
+					}
+				}
 
 				case ID_OPTIONS_LANGUAGE:
 					NativeMessageReceived("language screen", "");
