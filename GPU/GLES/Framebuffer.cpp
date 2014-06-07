@@ -752,9 +752,10 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		// In case it gets thin and wide, don't resize down either side.
 		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
 		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
-		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
 	}
+
+	vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
+	vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
 
 	if (g_Config.bTrueColor) {
 		vfb->colorDepth = FBO_8888;
@@ -775,6 +776,9 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 			break;
 		}
 	}
+
+	textureCache_->ForgetLastTexture();
+	fbo_unbind();
 
 	if (!useBufferedRendering_) {
 		if (vfb->fbo) {
@@ -895,7 +899,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	// None found? Create one.
 	if (!vfb) {
-		textureCache_->ForgetLastTexture();
 		vfb = new VirtualFramebuffer();
 		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
