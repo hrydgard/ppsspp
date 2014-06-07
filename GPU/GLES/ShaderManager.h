@@ -86,6 +86,7 @@ public:
 
 	// Texturing
 	int u_uvscaleoffset;
+	int u_texclamp;
 
 	// Lighting
 	int u_ambient;
@@ -131,6 +132,7 @@ enum
 	DIRTY_BLENDFIX = (1 << 17),  // (either one.)
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+	DIRTY_TEXCLAMP = (1 << 19),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually

@@ -402,10 +402,17 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 
 		if (ShouldUseShaderBlending()) {
 			// 12 bits total.
-			id1 |= 1;
-			id1 |= (gstate.getBlendEq() << 1);
-			id1 |= (gstate.getBlendFuncA() << 4);
-			id1 |= (gstate.getBlendFuncB() << 8);
+			id1 |= 1 << 0;
+			id1 |= gstate.getBlendEq() << 1;
+			id1 |= gstate.getBlendFuncA() << 4;
+			id1 |= gstate.getBlendFuncB() << 8;
+		}
+
+		if (gstate_c.needShaderTexClamp) {
+			// 3 bits total.
+			id1 |= 1 << 12;
+			id1 |= gstate.isTexCoordClampedS() << 13;
+			id1 |= gstate.isTexCoordClampedT() << 14;
 		}
 	}
 
@@ -508,6 +515,9 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
+	if (gstate_c.needShaderTexClamp) {
+		WRITE(p, "uniform vec2 u_texclamp;");
+	}
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
@@ -568,10 +578,30 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (gstate.isTextureMapEnabled()) {
+			const char *texcoord = "v_texcoord";
+			// TODO: Not sure the right way to do this for projection.
+			if (gstate_c.needShaderTexClamp && !doTextureProjection) {
+				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
+				// We may also be wrapping in such a surface, or either one in a too-small surface.
+				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
+				const char *ucoord = "mod(v_texcoord.x, u_texclamp.x)";
+				if (gstate.isTexCoordClampedS()) {
+					ucoord = "clamp(v_texcoord.x, 0.0, u_texclamp.x)";
+				}
+				// The v coordinate is more tricky, since it's flipped.
+				const char *vcoord = "1.0 - mod(1.0 - v_texcoord.y, u_texclamp.y)";
+				if (gstate.isTexCoordClampedT()) {
+					vcoord = "1.0 - clamp(1.0 - v_texcoord.y, 0.0, u_texclamp.y)";
+				}
+
+				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord, vcoord);
+				texcoord = "fixedcoord";
+			}
+
 			if (doTextureProjection) {
-				WRITE(p, "  vec4 t = %sProj(tex, v_texcoord);\n", texture);
+				WRITE(p, "  vec4 t = %sProj(tex, %s);\n", texture, texcoord);
 			} else {
-				WRITE(p, "  vec4 t = %s(tex, v_texcoord);\n", texture);
+				WRITE(p, "  vec4 t = %s(tex, %s);\n", texture, texcoord);
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 

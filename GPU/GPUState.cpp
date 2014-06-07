@@ -302,6 +302,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(flipTexture);
 	}
 
+	// needShaderTexClamp doesn't need to be saved.
+
 	if (s >= 3) {
 		p.Do(textureSimpleAlpha);
 	} else {
