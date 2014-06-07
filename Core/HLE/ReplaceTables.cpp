@@ -110,7 +110,7 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0) {
+	if (!skip && bytes != 0 && destPtr != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
 
