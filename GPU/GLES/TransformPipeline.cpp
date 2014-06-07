@@ -110,6 +110,7 @@ enum {
 #define QUAD_INDICES_MAX 32768
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
+#define VERTEXCACHE_NAME_CACHE_SIZE 64
 
 enum { VAI_KILL_AGE = 120 };
 
@@ -119,7 +120,6 @@ TransformDrawEngine::TransformDrawEngine()
 		prevPrim_(GE_PRIM_INVALID),
 		dec_(0),
 		lastVType_(-1),
-		curVbo_(0),
 		shaderManager_(0),
 		textureCache_(0),
 		framebufferManager_(0),
@@ -150,8 +150,6 @@ TransformDrawEngine::TransformDrawEngine()
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
-	memset(vbo_, 0, sizeof(vbo_));
-	memset(ebo_, 0, sizeof(ebo_));
 	indexGen.Setup(decIndex);
 	decJitCache_ = new VertexDecoderJitCache();
 
@@ -176,27 +174,26 @@ TransformDrawEngine::~TransformDrawEngine() {
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
-	if (!vbo_[0]) {
-		glGenBuffers(NUM_VBOS, &vbo_[0]);
-		glGenBuffers(NUM_VBOS, &ebo_[0]);
+	if (bufferNameCache_.empty()) {
+		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
+		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
 	} else {
 		ERROR_LOG(G3D, "Device objects already initialized!");
 	}
 }
 
 void TransformDrawEngine::DestroyDeviceObjects() {
-	glDeleteBuffers(NUM_VBOS, &vbo_[0]);
-	glDeleteBuffers(NUM_VBOS, &ebo_[0]);
-	memset(vbo_, 0, sizeof(vbo_));
-	memset(ebo_, 0, sizeof(ebo_));
+	if (!bufferNameCache_.empty()) {
+		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
+		bufferNameCache_.clear();
+	}
 	ClearTrackedVertexArrays();
 }
 
 void TransformDrawEngine::GLLost() {
 	ILOG("TransformDrawEngine::GLLost()");
 	// The objects have already been deleted.
-	memset(vbo_, 0, sizeof(vbo_));
-	memset(ebo_, 0, sizeof(ebo_));
+	bufferNameCache_.clear();
 	ClearTrackedVertexArrays();
 	InitDeviceObjects();
 }
@@ -499,6 +496,16 @@ VertexArrayInfo::~VertexArrayInfo() {
 		glDeleteBuffers(1, &ebo);
 }
 
+GLuint TransformDrawEngine::AllocateBuffer() {
+	if (bufferNameCache_.empty()) {
+		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
+		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
+	}
+	GLuint buf = bufferNameCache_.back();
+	bufferNameCache_.pop_back();
+	return buf;
+}
+
 void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -604,14 +611,14 @@ void TransformDrawEngine::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
-						glGenBuffers(1, &vai->vbo);
+						vai->vbo = AllocateBuffer();
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
-							glGenBuffers(1, &vai->ebo);
+							vai->ebo = AllocateBuffer();
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
 						} else {
