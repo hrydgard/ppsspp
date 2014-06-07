@@ -640,6 +640,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_PAUSE, "Pause"},
 #ifndef MOBILE_DEVICE
 	{VIRTKEY_REWIND, "Rewind"},
+	{VIRTKEY_ANALOG_LIGHTLY, "Analog lightly"},
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
