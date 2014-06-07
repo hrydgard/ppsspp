@@ -305,6 +305,7 @@ static ConfigSetting cpuSettings[] = {
 
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
+	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
 
 	ConfigSetting(false),

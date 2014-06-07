@@ -886,13 +886,16 @@ skip:
 		HashFunctions();
 
 		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
-		if (g_Config.bFuncHashMap) {
-			LoadHashMap(hashMapFilename);
-			StoreHashMap(hashMapFilename);
+		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
+			LoadBuiltinHashMap();
+			if (g_Config.bFuncHashMap) {
+				LoadHashMap(hashMapFilename);
+				StoreHashMap(hashMapFilename);
+			}
 			if (insertSymbols) {
 				ApplyHashMap();
 			}
-			if (g_Config.bFuncHashMap) {
+			if (g_Config.bFuncReplacements) {
 				ReplaceFunctions();
 			}
 		}
@@ -1052,8 +1055,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(std::string filename) {
-		// First insert the hardcoded entries.
+	void LoadBuiltinHashMap() {
 		HashMapFunc mf;
 		for (size_t i = 0; i < ARRAY_SIZE(hardcodedHashes); i++) {
 			mf.hash = hardcodedHashes[i].hash;
@@ -1063,7 +1065,9 @@ skip:
 			mf.hardcoded = true;
 			hashMap.insert(mf);
 		}
+	}
 
+	void LoadHashMap(std::string filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

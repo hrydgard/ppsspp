@@ -84,6 +84,7 @@ public:
 	bool bJit;
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
+	bool bFuncReplacements;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;

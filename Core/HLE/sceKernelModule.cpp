@@ -447,7 +447,7 @@ void __KernelModuleDoState(PointerWrap &p)
 		p.Do(loadedModules);
 	}
 
-	if (g_Config.bFuncHashMap) {
+	if (g_Config.bFuncReplacements) {
 		MIPSAnalyst::ReplaceFunctions();
 	}
 }
@@ -973,7 +973,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			bool gotSymbols = reader.LoadSymbols();
 			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 #else
-			if (g_Config.bFuncHashMap) {
+			if (g_Config.bFuncReplacements) {
 				bool gotSymbols = reader.LoadSymbols();
 				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 			}
@@ -1137,7 +1137,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			bool gotSymbols = reader.LoadSymbols();
 			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 #else
-			if (g_Config.bFuncHashMap) {
+			if (g_Config.bFuncReplacements) {
 				bool gotSymbols = reader.LoadSymbols();
 				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 			}
