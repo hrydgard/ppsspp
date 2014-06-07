@@ -72,7 +72,7 @@ u32 sceMp4GetNumberOfSpecificTrack()
 
 u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo(mp4, unknown2)",mp4, unknown2);
+	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
 	return 0;
 }
 
