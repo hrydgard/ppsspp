@@ -176,6 +176,7 @@ private:
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 	GLuint AllocateBuffer();
+	void FreeBuffer(GLuint buf);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);

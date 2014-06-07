@@ -506,6 +506,11 @@ GLuint TransformDrawEngine::AllocateBuffer() {
 	return buf;
 }
 
+void TransformDrawEngine::FreeBuffer(GLuint buf) {
+	// We can reuse buffers by setting new data on them.
+	bufferNameCache_.push_back(buf);
+}
+
 void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -574,11 +579,11 @@ void TransformDrawEngine::DoFlush() {
 						if (newHash != vai->hash) {
 							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 							if (vai->vbo) {
-								glDeleteBuffers(1, &vai->vbo);
+								FreeBuffer(vai->vbo);
 								vai->vbo = 0;
 							}
 							if (vai->ebo) {
-								glDeleteBuffers(1, &vai->ebo);
+								FreeBuffer(vai->ebo);
 								vai->ebo = 0;
 							}
 							DecodeVerts();
