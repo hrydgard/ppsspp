@@ -732,7 +732,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 }
 
 void FramebufferManager::RebindFramebuffer() {
-	if (currentRenderVfb_) {
+	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		fbo_bind_as_render_target(currentRenderVfb_->fbo);
 	}
 }
@@ -1133,7 +1133,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 			copyInfo.fbo = renderCopy;
 			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
 
-			fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			RebindFramebuffer();
 			fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
@@ -2036,7 +2036,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
-			if (useBufferedRendering_) {
+			if (useBufferedRendering_ && dstBuffer->fbo) {
 				fbo_bind_as_render_target(dstBuffer->fbo);
 			}
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
@@ -2045,8 +2045,8 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			dstBuffer->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				dstBuffer->reallyDirtyAfterDisplay = true;
-			if (currentRenderVfb_ && useBufferedRendering_) {
-				fbo_bind_as_render_target(currentRenderVfb_->fbo);
+			if (useBufferedRendering_) {
+				RebindFramebuffer();
 			} else {
 				fbo_unbind();
 			}
@@ -2196,7 +2196,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				if (useBufferedRendering_) {
+				if (useBufferedRendering_ && dstBuffer->fbo) {
 					fbo_bind_as_render_target(dstBuffer->fbo);
 				}
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
@@ -2206,8 +2206,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 					dstBuffer->reallyDirtyAfterDisplay = true;
-				if (currentRenderVfb_ && useBufferedRendering_) {
-					fbo_bind_as_render_target(currentRenderVfb_->fbo);
+				if (useBufferedRendering_) {
+					RebindFramebuffer();
 				} else {
 					fbo_unbind();
 				}
