@@ -107,6 +107,7 @@ namespace MIPSAnalyst
 	void CompileLeafs();
 
 	void SetHashMapFilename(std::string filename = "");
+	void LoadBuiltinHashMap();
 	void LoadHashMap(std::string filename);
 	void StoreHashMap(std::string filename = "");
 
