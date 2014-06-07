@@ -111,6 +111,7 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
+#define VERTEXCACHE_NAME_CACHE_FULL_SIZE 80
 
 enum { VAI_KILL_AGE = 120 };
 
@@ -509,6 +510,13 @@ GLuint TransformDrawEngine::AllocateBuffer() {
 void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	// We can reuse buffers by setting new data on them.
 	bufferNameCache_.push_back(buf);
+
+	// But let's not keep too many around, will eat up memory.
+	if (bufferNameCache_.size() >= VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
+		GLsizei extra = (GLsizei)bufferNameCache_.size() - VERTEXCACHE_NAME_CACHE_SIZE;
+		glDeleteBuffers(extra, &bufferNameCache_[VERTEXCACHE_NAME_CACHE_SIZE]);
+		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
+	}
 }
 
 void TransformDrawEngine::DoFlush() {
