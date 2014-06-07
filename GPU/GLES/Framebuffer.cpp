@@ -1022,7 +1022,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 #endif
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
-		BindFramebufferDepth(currentRenderVfb_,vfb);
+		if (currentRenderVfb_) {
+			BindFramebufferDepth(currentRenderVfb_, vfb);
+		}
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -1053,7 +1055,7 @@ void FramebufferManager::SetLineWidth() {
 }
 
 void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
-	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
+	if (!sourceframebuffer->fbo || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
 
