@@ -588,10 +588,16 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 
 	// Platforms without non-pow-2 extensions can't wrap non-pow-2 textures.
-	// Only framebuffer textures are non-pow-2 so this check works but excludes some cases
-	// where we could have enabled wrapping. TODO
-	if (!gl_extensions.OES_texture_npot && entry.framebuffer)
-		return;
+	// Only framebuffer textures can be non-pow-2.
+	if (!gl_extensions.OES_texture_npot && entry.framebuffer) {
+		// Check if it matches the size, in which case we can still enable wrapping.
+		int w = gstate.getTextureWidth(0);
+		int h = gstate.getTextureHeight(0);
+		if (w != entry.framebuffer->bufferWidth || h != entry.framebuffer->bufferHeight) {
+			// We'll do it in the shader.
+			return;
+		}
+	}
 
 	if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
@@ -974,6 +980,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
 		gstate_c.flipTexture = true;
+		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != gstate.getTextureWidth(0) || gstate_c.curTextureHeight != gstate.getTextureHeight(0);
 		UpdateSamplingParams(*entry, true);
 	} else {
 		if (framebuffer->fbo)
@@ -1077,6 +1084,7 @@ void TextureCache::SetTexture(bool force) {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
+	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool replaceImages = false;

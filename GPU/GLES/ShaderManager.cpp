@@ -185,6 +185,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_matspecular = glGetUniformLocation(program, "u_matspecular");
 	u_matemissive = glGetUniformLocation(program, "u_matemissive");
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
+	u_texclamp = glGetUniformLocation(program, "u_texclamp");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -225,6 +226,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
 	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
 	if (u_uvscaleoffset != -1) availableUniforms |= DIRTY_UVSCALEOFFSET;
+	if (u_texclamp != -1) availableUniforms |= DIRTY_TEXCLAMP;
 	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
@@ -475,6 +477,21 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
+	}
+
+	if (dirty & DIRTY_TEXCLAMP) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		const float texclamp[2] = {
+			widthFactor,
+			heightFactor,
+		};
+		glUniform2fv(u_texclamp, 1, texclamp);
 	}
 
 	// Transform

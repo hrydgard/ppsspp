@@ -169,6 +169,14 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		if (gstate_c.needShaderTexClamp) {
+			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
+			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
+			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
+		}
+	} else {
+		// Let's not leave this set.
+		gstate_c.needShaderTexClamp = false;
 	}
 
 	// Set blend - unless we need to do it in the shader.
