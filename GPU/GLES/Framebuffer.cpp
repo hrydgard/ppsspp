@@ -1180,6 +1180,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 		}
 	}
 
+	if (vfb && vfb->format != displayFormat_) {
+		if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
+			// The game probably switched formats on us.
+			vfb->format = displayFormat_;
+		} else {
+			vfb = 0;
+		}
+	}
+
 	if (!vfb) {
 		if (Memory::IsValidAddress(displayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
