@@ -88,7 +88,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 
 	shaderManager_->DirtyLastShader();
 
-	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->renderWidth, dstBuffer->renderHeight);
+	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 	glstate.stencilTest.enable();
