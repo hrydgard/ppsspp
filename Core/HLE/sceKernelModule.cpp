@@ -1390,6 +1390,8 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
 			WARN_LOG_REPORT(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
+		// TODO: Should we try to run both?
+		currentMIPS->pc = m->nm.module_start_func;
 	}
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
