@@ -85,7 +85,7 @@ unsigned short GetCPUPart()
 		if (line.find(marker) != std::string::npos)
 		{
 			line = line.substr(marker.length());
-			sscanf(line.c_str(), "0x%03gx", &part);
+			sscanf(line.c_str(), "0x%03hx", &part);
 			break;
 		}
 	}
@@ -107,7 +107,7 @@ bool CheckCPUFeature(const std::string& feature)
 		{
 			std::stringstream line_stream(line);
 			std::string token;
-			while (std::getline(line_stream, token, ' ')
+			while (std::getline(line_stream, token, ' '))
 			{
 				if (token == feature)
 					return true;
@@ -128,7 +128,7 @@ int GetCoreCount()
 	{
 		int low, high, found;
 		std::getline(file, line);
-		found = sscanf(line, "%d-%d", &low, &high);
+		found = sscanf(line.c_str(), "%d-%d", &low, &high);
 		if (found == 1)
 			return 1;
 		if (found == 2)
