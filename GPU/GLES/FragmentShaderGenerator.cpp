@@ -580,22 +580,33 @@ void GenerateFragmentShader(char *buffer) {
 		if (gstate.isTextureMapEnabled()) {
 			const char *texcoord = "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
-			if (gstate_c.needShaderTexClamp && !doTextureProjection) {
+			if (gstate_c.needShaderTexClamp) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
-				const char *ucoord = "mod(v_texcoord.x, u_texclamp.x)";
-				if (gstate.isTexCoordClampedS()) {
-					ucoord = "clamp(v_texcoord.x, 0.0, u_texclamp.x)";
-				}
-				// The v coordinate is more tricky, since it's flipped.
-				const char *vcoord = "1.0 - mod(1.0 - v_texcoord.y, u_texclamp.y)";
-				if (gstate.isTexCoordClampedT()) {
-					vcoord = "1.0 - clamp(1.0 - v_texcoord.y, 0.0, u_texclamp.y)";
+				std::string ucoord = "v_texcoord.x";
+				std::string vcoord = "1.0 - v_texcoord.y";
+				if (doTextureProjection) {
+					ucoord += " / v_texcoord.z";
+					vcoord = "1.0 - (v_texcoord.y / v_texcoord.z)";
 				}
 
-				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord, vcoord);
+				if (gstate.isTexCoordClampedS()) {
+					ucoord = "clamp(" + ucoord + ", 0.0, u_texclamp.x)";
+				} else {
+					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
+				}
+				// The v coordinate is more tricky, since it's flipped.
+				if (gstate.isTexCoordClampedT()) {
+					vcoord = "clamp(" + vcoord + ", 0.0, u_texclamp.y)";
+				} else {
+					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
+				}
+
+				WRITE(p, "  vec2 fixedcoord = vec2(%s, 1.0 - %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
+				// We already projected it.
+				doTextureProjection = false;
 			}
 
 			if (doTextureProjection) {
