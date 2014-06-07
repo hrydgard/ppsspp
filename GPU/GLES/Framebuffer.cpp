@@ -701,6 +701,11 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 			drawing_width = std::min(region_width, fb_stride);
 			drawing_height = avail_height;
 		}
+
+		// Some games draw buffers interleaved, with a high stride/region/scissor but default viewport.
+		if (fb_stride == 1024 && region_width == 1024 && scissor_width == 1024) {
+			drawing_width = 1024;
+		}
 	}
 
 	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", gstate.getFrameBufAddress(), viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
@@ -729,6 +734,71 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 void FramebufferManager::RebindFramebuffer() {
 	if (currentRenderVfb_) {
 		fbo_bind_as_render_target(currentRenderVfb_->fbo);
+	}
+}
+
+void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
+	float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
+	float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
+
+	if (force) {
+		vfb->bufferWidth = w;
+		vfb->bufferHeight = h;
+	} else {
+		if (vfb->bufferWidth >= w && vfb->bufferHeight >= h) {
+			return;
+		}
+
+		// In case it gets thin and wide, don't resize down either side.
+		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
+		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
+		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
+		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
+	}
+
+	if (g_Config.bTrueColor) {
+		vfb->colorDepth = FBO_8888;
+	} else {
+		switch (vfb->format) {
+		case GE_FORMAT_4444:
+			vfb->colorDepth = FBO_4444;
+			break;
+		case GE_FORMAT_5551:
+			vfb->colorDepth = FBO_5551;
+			break;
+		case GE_FORMAT_565:
+			vfb->colorDepth = FBO_565;
+			break;
+		case GE_FORMAT_8888:
+		default:
+			vfb->colorDepth = FBO_8888;
+			break;
+		}
+	}
+
+	if (!useBufferedRendering_) {
+		if (vfb->fbo) {
+			fbo_destroy(vfb->fbo);
+			vfb->fbo = 0;
+		}
+		return;
+	}
+
+	INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+
+	VirtualFramebuffer old = *vfb;
+	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+	if (old.fbo) {
+		if (vfb->fbo) {
+			BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+		}
+		fbo_destroy(old.fbo);
+	}
+
+	if (vfb->fbo) {
+		fbo_bind_as_render_target(vfb->fbo);
+	} else {
+		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
 }
 
@@ -790,13 +860,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 	}
 
-	VirtualFramebuffer *destroyVfb = 0;
 	if (vfb) {
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
 			// Even if it's not newly wrong, if this is larger we need to resize up.
 			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
-				destroyVfb = vfb;
-				vfb = NULL;
+				ResizeFramebufFBO(vfb, vfb->width, vfb->height);
 			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
 				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
@@ -809,8 +877,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->newHeight || vfb->newHeight * 2 < vfb->newHeight;
 				if (needsRecreate) {
-					destroyVfb = vfb;
-					vfb = NULL;
+					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 				}
 			}
 		} else {
@@ -853,60 +920,16 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->memoryUpdated = false;
 		vfb->depthUpdated = false;
 
-		if (g_Config.bTrueColor) {
-			vfb->colorDepth = FBO_8888;
-		} else { 
-			switch (fmt) {
-				case GE_FORMAT_4444:
-					vfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					vfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					vfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					vfb->colorDepth = FBO_8888;
-					break;
-			}
-		}
+		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 
-		if (useBufferedRendering_) {
-			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-			if (vfb->fbo) {
-				fbo_bind_as_render_target(vfb->fbo);
-			} else {
-				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
-			}
-		} else {
+		if (!useBufferedRendering_) {
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 
-		if (destroyVfb) {
-			if (vfb->fbo) {
-				// Copy over the contents of the framebuffer we're replacing.
-				BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
-			}
-			// Do this before notifying of creation at the same address.
-			DestroyFramebuf(destroyVfb);
-			destroyVfb = 0;
-			vfbs_.erase(vfbs_.begin() + i);
-
-			if (useBufferedRendering_) {
-				fbo_bind_as_render_target(vfb->fbo);
-			} else {
-				ClearBuffer();
-			}
-
-			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		} else {
-			INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-			ClearBuffer();
-		}
+		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		ClearBuffer();
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
@@ -999,7 +1022,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 #endif
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
-		BindFramebufferDepth(currentRenderVfb_,vfb);
+		if (currentRenderVfb_) {
+			BindFramebufferDepth(currentRenderVfb_, vfb);
+		}
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -1030,7 +1055,7 @@ void FramebufferManager::SetLineWidth() {
 }
 
 void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
-	if (!sourceframebuffer || !targetframebuffer->fbo || !useBufferedRendering_) {
+	if (!sourceframebuffer->fbo || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
 
@@ -1123,7 +1148,49 @@ void FramebufferManager::CopyDisplayToOutput() {
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	currentRenderVfb_ = 0;
 
+	u32 offsetX = 0;
+	u32 offsetY = 0;
+
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
+	if (!vfb) {
+		// Let's search for a framebuf within this range.
+		const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			VirtualFramebuffer *v = vfbs_[i];
+			const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
+			const u32 v_size = FramebufferByteSize(v);
+			if (addr >= v_addr && addr < v_addr + v_size) {
+				const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+				const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
+				const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
+				// We have enough space there for the display, right?
+				if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
+					continue;
+				}
+				// Check for the closest one.
+				if (offsetY == 0 || offsetY > v_offsetY) {
+					offsetX = v_offsetX;
+					offsetY = v_offsetY;
+					vfb = v;
+				}
+			}
+		}
+
+		if (vfb) {
+			// Okay, we found one above.
+			INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+		}
+	}
+
+	if (vfb && vfb->format != displayFormat_) {
+		if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
+			// The game probably switched formats on us.
+			vfb->format = displayFormat_;
+		} else {
+			vfb = 0;
+		}
+	}
+
 	if (!vfb) {
 		if (Memory::IsValidAddress(displayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -1179,10 +1246,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 		// and to discard extraFBOs_ after using them.
 
+		const float u0 = offsetX / (float)vfb->bufferWidth;
+		const float v0 = offsetY / (float)vfb->bufferHeight;
+		const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
+		const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+
 		if (!usePostShader_) {
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			fbo_bind_as_render_target(extraFBOs_[0]);
@@ -1202,12 +1274,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
 		} else {
 			// Use post-shader, but run shader at output resolution.
 			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
-			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 0.0f, 0.0f, 480.0f / (float)vfb->bufferWidth, 272.0f / (float)vfb->bufferHeight, postShaderProgram_);
+			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, postShaderProgram_);
 		}
 
 		glBindTexture(GL_TEXTURE_2D, 0);
