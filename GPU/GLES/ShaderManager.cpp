@@ -401,8 +401,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		if (my_isinf(fogcoef[1])) {
 			// not really sure what a sensible value might be.
 			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
-		}
-		if (my_isnan(fogcoef[1]))	{
+		} else if (my_isnan(fogcoef[1]))	{
 			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
 			// Just put the fog far away at a large finite distance.
 			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
@@ -410,6 +409,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			fogcoef[0] = 100000.0f;
 			fogcoef[1] = 1.0f;
 		}
+#ifndef MOBILE_DEVICE
+		else if (my_isnanorinf(fogcoef[1]) || my_isnanorinf(fogcoef[0])) {
+			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
+		}
+#endif
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
