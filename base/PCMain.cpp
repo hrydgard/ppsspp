@@ -20,8 +20,7 @@
 #include "SDL_video.h"
 #ifndef _WIN32
 #include "SDL/SDLJoystick.h"
-SDL_Joystick *ljoy = NULL;
-SDL_Joystick *rjoy = NULL;
+SDLJoystick *joystick = NULL;
 #endif
 
 #ifdef RPI
@@ -315,20 +314,6 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-
-#ifndef _WIN32
-	if (ljoy || rjoy) {
-		SDL_JoystickUpdate();
-		if (ljoy) {
-			input->pad_lstick_x = std::max(std::min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f), -1.0f);
-			input->pad_lstick_y = std::max(std::min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f), -1.0f);
-		}
-		if (rjoy) {
-			input->pad_rstick_x = std::max(std::min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f), -1.0f);
-			input->pad_rstick_y = std::max(std::min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f), -1.0f);
-		}
-	}
-#endif
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -611,13 +596,7 @@ int main(int argc, char *argv[]) {
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
 #ifndef _WIN32
-	int numjoys = SDL_NumJoysticks();
-	// Joysticks init
-	if (numjoys > 0) {
-		ljoy = SDL_JoystickOpen(0);
-		if (numjoys > 1)
-			rjoy = SDL_JoystickOpen(1);
-	}
+	joystick = new SDLJoystick();
 #endif
 	EnableFZ();
 
@@ -787,6 +766,9 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			default:
+#ifndef _WIN32
+				joystick->ProcessInput(event);
+#endif
 				break;
 			}
 		}
@@ -832,10 +814,7 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 #ifndef _WIN32
-	if (ljoy)
-		delete ljoy;
-	if (rjoy)
-		delete rjoy;
+	delete joystick;
 #endif
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
