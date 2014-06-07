@@ -732,6 +732,71 @@ void FramebufferManager::RebindFramebuffer() {
 	}
 }
 
+void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
+	float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
+	float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
+
+	if (force) {
+		vfb->bufferWidth = w;
+		vfb->bufferHeight = h;
+	} else {
+		if (vfb->bufferWidth >= w && vfb->bufferHeight >= h) {
+			return;
+		}
+
+		// In case it gets thin and wide, don't resize down either side.
+		vfb->bufferWidth = std::max(vfb->bufferWidth, w);
+		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
+		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
+		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
+	}
+
+	if (g_Config.bTrueColor) {
+		vfb->colorDepth = FBO_8888;
+	} else {
+		switch (vfb->format) {
+		case GE_FORMAT_4444:
+			vfb->colorDepth = FBO_4444;
+			break;
+		case GE_FORMAT_5551:
+			vfb->colorDepth = FBO_5551;
+			break;
+		case GE_FORMAT_565:
+			vfb->colorDepth = FBO_565;
+			break;
+		case GE_FORMAT_8888:
+		default:
+			vfb->colorDepth = FBO_8888;
+			break;
+		}
+	}
+
+	if (!useBufferedRendering_) {
+		if (vfb->fbo) {
+			fbo_destroy(vfb->fbo);
+			vfb->fbo = 0;
+		}
+		return;
+	}
+
+	INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+
+	VirtualFramebuffer old = *vfb;
+	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+	if (old.fbo) {
+		if (vfb->fbo) {
+			BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+		}
+		fbo_destroy(old.fbo);
+	}
+
+	if (vfb->fbo) {
+		fbo_bind_as_render_target(vfb->fbo);
+	} else {
+		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+	}
+}
+
 void FramebufferManager::DoSetRenderFrameBuffer() {
 	/*
 	if (useBufferedRendering_ && currentRenderVfb_) {
@@ -790,13 +855,11 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 	}
 
-	VirtualFramebuffer *destroyVfb = 0;
 	if (vfb) {
 		if ((drawing_width != vfb->bufferWidth || drawing_height != vfb->bufferHeight)) {
 			// Even if it's not newly wrong, if this is larger we need to resize up.
 			if (vfb->width > vfb->bufferWidth || vfb->height > vfb->bufferHeight) {
-				destroyVfb = vfb;
-				vfb = NULL;
+				ResizeFramebufFBO(vfb, vfb->width, vfb->height);
 			} else if (vfb->newWidth != drawing_width || vfb->newHeight != drawing_height) {
 				// If it's newly wrong, or changing every frame, just keep track.
 				vfb->newWidth = drawing_width;
@@ -809,8 +872,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->newHeight || vfb->newHeight * 2 < vfb->newHeight;
 				if (needsRecreate) {
-					destroyVfb = vfb;
-					vfb = NULL;
+					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 				}
 			}
 		} else {
@@ -853,60 +915,16 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->memoryUpdated = false;
 		vfb->depthUpdated = false;
 
-		if (g_Config.bTrueColor) {
-			vfb->colorDepth = FBO_8888;
-		} else { 
-			switch (fmt) {
-				case GE_FORMAT_4444:
-					vfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					vfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					vfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					vfb->colorDepth = FBO_8888;
-					break;
-			}
-		}
+		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 
-		if (useBufferedRendering_) {
-			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-			if (vfb->fbo) {
-				fbo_bind_as_render_target(vfb->fbo);
-			} else {
-				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
-			}
-		} else {
+		if (!useBufferedRendering_) {
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 
-		if (destroyVfb) {
-			if (vfb->fbo) {
-				// Copy over the contents of the framebuffer we're replacing.
-				BlitFramebuffer_(vfb, 0, 0, destroyVfb, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
-			}
-			// Do this before notifying of creation at the same address.
-			DestroyFramebuf(destroyVfb);
-			destroyVfb = 0;
-			vfbs_.erase(vfbs_.begin() + i);
-
-			if (useBufferedRendering_) {
-				fbo_bind_as_render_target(vfb->fbo);
-			} else {
-				ClearBuffer();
-			}
-
-			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		} else {
-			INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-			ClearBuffer();
-		}
+		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		ClearBuffer();
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 

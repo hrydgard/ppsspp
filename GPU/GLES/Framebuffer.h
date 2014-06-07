@@ -219,6 +219,7 @@ public:
 	bool NotifyStencilUpload(u32 addr, int size);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
+	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
