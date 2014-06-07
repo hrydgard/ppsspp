@@ -89,6 +89,8 @@ public:
 		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	}
 
+	u32 AllocTextureName();
+
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, GPUgstate state);
 
@@ -189,6 +191,7 @@ private:
 	TexCache cache;
 	TexCache secondCache;
 	std::vector<VirtualFramebuffer *> fbCache_;
+	std::vector<u32> nameCache_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

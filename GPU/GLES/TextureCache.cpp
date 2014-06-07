@@ -53,6 +53,8 @@
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT 15
 
+#define TEXCACHE_NAME_CACHE_SIZE 16
+
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
@@ -96,6 +98,10 @@ void TextureCache::Clear(bool delete_them) {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
+		}
+		if (!nameCache_.empty()) {
+			glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
+			nameCache_.clear();
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -1291,7 +1297,7 @@ void TextureCache::SetTexture(bool force) {
 
 	// Always generate a texture name, we might need it if the texture is replaced later.
 	if (!replaceImages) {
-		glGenTextures(1, &entry->texture);
+		entry->texture = AllocTextureName();
 	}
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
@@ -1442,6 +1448,16 @@ void TextureCache::SetTexture(bool force) {
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+}
+
+u32 TextureCache::AllocTextureName() {
+	if (nameCache_.empty()) {
+		nameCache_.resize(TEXCACHE_NAME_CACHE_SIZE);
+		glGenTextures(TEXCACHE_NAME_CACHE_SIZE, &nameCache_[0]);
+	}
+	u32 name = nameCache_.back();
+	nameCache_.pop_back();
+	return name;
 }
 
 GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
