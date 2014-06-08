@@ -18,6 +18,7 @@
 #include "android/app-android.h"
 #include "input/input_state.h"
 #include "ui/ui.h"
+#include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
 #include "Core/Core.h"
@@ -72,6 +73,9 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+#ifdef _WIN32
+	leftColumn->Add(new Choice(k->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
+#endif
 	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
@@ -140,16 +144,51 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
+#ifdef _WIN32
+	std::string cheatFile = activeCheatFile;
+
+	// Can't rely on a .txt file extension to auto-open in the right editor,
+	// so let's find notepad
+	wchar_t notepad_path[MAX_PATH];
+	GetSystemDirectory(notepad_path, sizeof(notepad_path) / sizeof(wchar_t));
+	wcscat(notepad_path, L"\\notepad.exe");
+
+	wchar_t cheat_path[MAX_PATH];
+	wcscpy(cheat_path, ConvertUTF8ToWString(cheatFile).c_str());
+	// Flip any slashes...
+	for (size_t i = 0; i < wcslen(cheat_path); i++) {
+		if (cheat_path[i] == '/')
+			cheat_path[i] = '\\';
+	}
+
+	wchar_t command_line[MAX_PATH * 2 + 1];
+	wsprintf(command_line, L"%s %s", notepad_path, cheat_path);
+
+	STARTUPINFO si;
+	memset(&si, 0, sizeof(si));
+	si.cb = sizeof(si);
+	si.wShowWindow = SW_SHOW;
+	PROCESS_INFORMATION pi;
+	memset(&pi, 0, sizeof(pi));
+	UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
+	if (!retval) {
+		ERROR_LOG(BOOT, "Failed creating notepad process");
+	}
+#endif
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::string line;
 	std::vector<std::string> title;
 	bool finished = false, skip = false;
 	std::vector<std::string> newList;
 
-	std::string cheatDir = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
+	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
 
 	std::fstream fs;
-	File::OpenCPPFile(fs, cheatDir, std::ios::in);
+	File::OpenCPPFile(fs, cheatFile, std::ios::in);
 
 	while (fs.good()) {
 		getline(fs, line); // get line from file

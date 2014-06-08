@@ -41,6 +41,7 @@ public:
 	UI::EventReturn OnBack(UI::EventParams &params);
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
+	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
 	virtual void onFinish(DialogResult result);
