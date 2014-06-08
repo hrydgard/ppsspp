@@ -673,7 +673,7 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
-	if (drawing_height > MAX_FRAMEBUF_HEIGHT) {
+	if (drawing_height >= MAX_FRAMEBUF_HEIGHT) {
 		if (region_height < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = region_height;
 		} else if (scissor_height < MAX_FRAMEBUF_HEIGHT) {
