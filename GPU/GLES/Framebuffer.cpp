@@ -740,6 +740,7 @@ void FramebufferManager::RebindFramebuffer() {
 void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
 	float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
 	float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
+	VirtualFramebuffer old = *vfb;
 
 	if (force) {
 		vfb->bufferWidth = w;
@@ -788,7 +789,6 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		return;
 	}
 
-	VirtualFramebuffer old = *vfb;
 	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
