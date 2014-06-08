@@ -373,41 +373,45 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= (gstate_c.flipTexture & 1) << 6;
 
 			if (gstate_c.needShaderTexClamp) {
+				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 				// 3 bits total.
 				id0 |= 1 << 7;
 				id0 |= gstate.isTexCoordClampedS() << 8;
 				id0 |= gstate.isTexCoordClampedT() << 9;
+				id0 |= (textureAtOffset & 1) << 10;
 			}
 		}
 
-		id0 |= (lmode & 1) << 10;
+		id0 |= (lmode & 1) << 11;
 		if (enableAlphaTest) {
-			id0 |= 1 << 11;
-			id0 |= gstate.getAlphaTestFunction() << 12;
+			// 4 bits total.
+			id0 |= 1 << 12;
+			id0 |= gstate.getAlphaTestFunction() << 13;
 		}
 		if (enableColorTest) {
-			id0 |= 1 << 15;
-			id0 |= gstate.getColorTestFunction() << 16;	 // color test func
+			// 3 bits total.
+			id0 |= 1 << 16;
+			id0 |= gstate.getColorTestFunction() << 17;
 		}
-		id0 |= (enableFog & 1) << 18;
-		id0 |= (doTextureProjection & 1) << 19;
-		id0 |= (enableColorDoubling & 1) << 20;
-		id0 |= (enableAlphaDoubling & 1) << 21;
+		id0 |= (enableFog & 1) << 19;
+		id0 |= (doTextureProjection & 1) << 20;
+		id0 |= (enableColorDoubling & 1) << 21;
+		id0 |= (enableAlphaDoubling & 1) << 22;
 		// 2 bits
-		id0 |= (stencilToAlpha) << 22;
+		id0 |= (stencilToAlpha) << 23;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id0 |= ReplaceAlphaWithStencilType() << 24;
+			id0 |= ReplaceAlphaWithStencilType() << 25;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 27;
+		id0 |= (alphaTestAgainstZero & 1) << 28;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 28 - 31 are free.
+		// 29 - 31 are free.
 
 		if (ShouldUseShaderBlending()) {
 			// 12 bits total.
@@ -499,6 +503,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -517,9 +522,11 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
-	if (gstate_c.needShaderTexClamp) {
+	if (gstate_c.needShaderTexClamp && doTexture) {
 		WRITE(p, "uniform vec4 u_texclamp;");
-		WRITE(p, "uniform vec2 u_texclampoff;");
+		if (textureAtOffset) {
+			WRITE(p, "uniform vec2 u_texclampoff;");
+		}
 	}
 
 	if (enableAlphaTest || enableColorTest) {
@@ -608,8 +615,10 @@ void GenerateFragmentShader(char *buffer) {
 				} else {
 					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
 				}
-				ucoord = "(" + ucoord + " + u_texclampoff.x)";
-				vcoord = "(" + vcoord + " + u_texclampoff.y)";
+				if (textureAtOffset) {
+					ucoord = "(" + ucoord + " + u_texclampoff.x)";
+					vcoord = "(" + vcoord + " + u_texclampoff.y)";
+				}
 
 				if (gstate_c.flipTexture) {
 					vcoord = "1.0 - " + vcoord;

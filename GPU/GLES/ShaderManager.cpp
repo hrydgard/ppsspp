@@ -504,7 +504,9 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			gstate_c.curTextureYOffset * invH,
 		};
 		glUniform4fv(u_texclamp, 1, texclamp);
-		glUniform2fv(u_texclampoff, 1, texclampoff);
+		if (u_texclampoff != -1) {
+			glUniform2fv(u_texclampoff, 1, texclampoff);
+		}
 	}
 
 	// Transform
