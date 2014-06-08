@@ -1383,7 +1383,10 @@ void TextureCache::SetTexture(bool force) {
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
 
-	if (gl_extensions.GLES3 && maxLevel > 0) {
+	// Disabled this due to issue #6075: https://github.com/hrydgard/ppsspp/issues/6075
+	// This breaks Dangan Ronpa 2 with mipmapping enabled. Why? No idea, it shouldn't.
+	// glTexStorage2D probably has few benefits for us anyway.
+	if (false && gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
 		GLenum storageFmt = GL_RGBA8;
 		switch (dstFmt) {
