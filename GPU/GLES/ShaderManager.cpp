@@ -186,6 +186,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_matemissive = glGetUniformLocation(program, "u_matemissive");
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
 	u_texclamp = glGetUniformLocation(program, "u_texclamp");
+	u_texclampoff = glGetUniformLocation(program, "u_texclampoff");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -498,7 +499,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			invW * 0.5f,
 			invH * 0.5f,
 		};
+		const float texclampoff[2] = {
+			gstate_c.curTextureXOffset * invW,
+			gstate_c.curTextureYOffset * invH,
+		};
 		glUniform4fv(u_texclamp, 1, texclamp);
+		if (u_texclampoff != -1) {
+			glUniform2fv(u_texclampoff, 1, texclampoff);
+		}
 	}
 
 	// Transform

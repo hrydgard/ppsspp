@@ -87,6 +87,7 @@ public:
 	// Texturing
 	int u_uvscaleoffset;
 	int u_texclamp;
+	int u_texclampoff;
 
 	// Lighting
 	int u_ambient;

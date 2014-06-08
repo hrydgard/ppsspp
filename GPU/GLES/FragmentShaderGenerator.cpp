@@ -371,33 +371,47 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= gstate.getTextureFunction() << 2;
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 			id0 |= (gstate_c.flipTexture & 1) << 6;
+
+			if (gstate_c.needShaderTexClamp) {
+				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+				// 3 bits total.
+				id0 |= 1 << 7;
+				id0 |= gstate.isTexCoordClampedS() << 8;
+				id0 |= gstate.isTexCoordClampedT() << 9;
+				id0 |= (textureAtOffset & 1) << 10;
+			}
 		}
 
-		id0 |= (lmode & 1) << 7;
+		id0 |= (lmode & 1) << 11;
 		if (enableAlphaTest) {
-			id0 |= 1 << 8;
-			id0 |= gstate.getAlphaTestFunction() << 9;
+			// 4 bits total.
+			id0 |= 1 << 12;
+			id0 |= gstate.getAlphaTestFunction() << 13;
 		}
 		if (enableColorTest) {
-			id0 |= 1 << 12;
-			id0 |= gstate.getColorTestFunction() << 13;	 // color test func
+			// 3 bits total.
+			id0 |= 1 << 16;
+			id0 |= gstate.getColorTestFunction() << 17;
 		}
-		id0 |= (enableFog & 1) << 15;
-		id0 |= (doTextureProjection & 1) << 16;
-		id0 |= (enableColorDoubling & 1) << 17;
-		id0 |= (enableAlphaDoubling & 1) << 18;
-		id0 |= (stencilToAlpha) << 19;
+		id0 |= (enableFog & 1) << 19;
+		id0 |= (doTextureProjection & 1) << 20;
+		id0 |= (enableColorDoubling & 1) << 21;
+		id0 |= (enableAlphaDoubling & 1) << 22;
+		// 2 bits
+		id0 |= (stencilToAlpha) << 23;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id0 |= ReplaceAlphaWithStencilType() << 21;
+			id0 |= ReplaceAlphaWithStencilType() << 25;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 24;
+		id0 |= (alphaTestAgainstZero & 1) << 28;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
+
+		// 29 - 31 are free.
 
 		if (ShouldUseShaderBlending()) {
 			// 12 bits total.
@@ -405,13 +419,6 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id1 |= gstate.getBlendEq() << 1;
 			id1 |= gstate.getBlendFuncA() << 4;
 			id1 |= gstate.getBlendFuncB() << 8;
-		}
-
-		if (gstate_c.needShaderTexClamp) {
-			// 3 bits total.
-			id1 |= 1 << 12;
-			id1 |= gstate.isTexCoordClampedS() << 13;
-			id1 |= gstate.isTexCoordClampedT() << 14;
 		}
 	}
 
@@ -496,6 +503,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -514,8 +522,11 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
-	if (gstate_c.needShaderTexClamp) {
+	if (gstate_c.needShaderTexClamp && doTexture) {
 		WRITE(p, "uniform vec4 u_texclamp;");
+		if (textureAtOffset) {
+			WRITE(p, "uniform vec2 u_texclampoff;");
+		}
 	}
 
 	if (enableAlphaTest || enableColorTest) {
@@ -603,6 +614,10 @@ void GenerateFragmentShader(char *buffer) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
+				}
+				if (textureAtOffset) {
+					ucoord = "(" + ucoord + " + u_texclampoff.x)";
+					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
 				if (gstate_c.flipTexture) {

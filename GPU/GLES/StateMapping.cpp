@@ -174,9 +174,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
 			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
 		}
-	} else {
-		// Let's not leave this set.
-		gstate_c.needShaderTexClamp = false;
 	}
 
 	// Set blend - unless we need to do it in the shader.
