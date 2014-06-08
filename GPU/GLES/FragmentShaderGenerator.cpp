@@ -371,33 +371,43 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= gstate.getTextureFunction() << 2;
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 			id0 |= (gstate_c.flipTexture & 1) << 6;
+
+			if (gstate_c.needShaderTexClamp) {
+				// 3 bits total.
+				id0 |= 1 << 7;
+				id0 |= gstate.isTexCoordClampedS() << 8;
+				id0 |= gstate.isTexCoordClampedT() << 9;
+			}
 		}
 
-		id0 |= (lmode & 1) << 7;
+		id0 |= (lmode & 1) << 10;
 		if (enableAlphaTest) {
-			id0 |= 1 << 8;
-			id0 |= gstate.getAlphaTestFunction() << 9;
+			id0 |= 1 << 11;
+			id0 |= gstate.getAlphaTestFunction() << 12;
 		}
 		if (enableColorTest) {
-			id0 |= 1 << 12;
-			id0 |= gstate.getColorTestFunction() << 13;	 // color test func
+			id0 |= 1 << 15;
+			id0 |= gstate.getColorTestFunction() << 16;	 // color test func
 		}
-		id0 |= (enableFog & 1) << 15;
-		id0 |= (doTextureProjection & 1) << 16;
-		id0 |= (enableColorDoubling & 1) << 17;
-		id0 |= (enableAlphaDoubling & 1) << 18;
-		id0 |= (stencilToAlpha) << 19;
+		id0 |= (enableFog & 1) << 18;
+		id0 |= (doTextureProjection & 1) << 19;
+		id0 |= (enableColorDoubling & 1) << 20;
+		id0 |= (enableAlphaDoubling & 1) << 21;
+		// 2 bits
+		id0 |= (stencilToAlpha) << 22;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id0 |= ReplaceAlphaWithStencilType() << 21;
+			id0 |= ReplaceAlphaWithStencilType() << 24;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 24;
+		id0 |= (alphaTestAgainstZero & 1) << 27;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
+
+		// 28 - 31 are free.
 
 		if (ShouldUseShaderBlending()) {
 			// 12 bits total.
@@ -405,13 +415,6 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id1 |= gstate.getBlendEq() << 1;
 			id1 |= gstate.getBlendFuncA() << 4;
 			id1 |= gstate.getBlendFuncB() << 8;
-		}
-
-		if (gstate_c.needShaderTexClamp) {
-			// 3 bits total.
-			id1 |= 1 << 12;
-			id1 |= gstate.isTexCoordClampedS() << 13;
-			id1 |= gstate.isTexCoordClampedT() << 14;
 		}
 	}
 
