@@ -2074,19 +2074,47 @@ u32 FramebufferManager::FramebufferByteSize(const VirtualFramebuffer *vfb) const
 	return vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
 }
 
-void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const {
+void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const {
 	u32 dstYOffset = -1;
 	u32 dstXOffset = -1;
 	u32 srcYOffset = -1;
 	u32 srcXOffset = -1;
+	int width = srcWidth;
+	int height = srcHeight;
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		const u32 vfb_address = 0x04000000 | vfb->fb_address;
 		const u32 vfb_size = FramebufferByteSize(vfb);
+		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
+		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
+		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
+
+		// These heuristics are a bit annoying.
+		// The goal is to avoid using GPU block transfers for things that ought to be memory.
+		// Maybe we should even check for textures at these places instead?
+
 		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
 			const u32 byteOffset = dstBasePtr - vfb_address;
-			const u32 yOffset = byteOffset / (dstStride * bpp);
-			if (yOffset < dstYOffset) {
+			const u32 byteStride = dstStride * bpp;
+			const u32 yOffset = byteOffset / byteStride;
+			// Some games use mismatching bitdepths.  But make sure the stride matches.
+			// If it doesn't, generally this means we detected the framebuffer with too large a height.
+			bool match = yOffset < dstYOffset;
+			if (match && vfb_byteStride != byteStride) {
+				// Grand Knights History copies with a mismatching stride but a full line at a time.
+				// Makes it hard to detect the wrong transfers in e.g. God of War.
+				if (width != dstStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
+					match = false;
+				} else {
+					dstWidth = byteStride * height / vfb_bpp;
+					dstHeight = 1;
+				}
+			} else if (match) {
+				dstWidth = width;
+				dstHeight = height;
+			}
+			if (match) {
 				dstYOffset = yOffset;
 				dstXOffset = (byteOffset / bpp) % dstStride;
 				dstBuffer = vfb;
@@ -2094,8 +2122,21 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 		}
 		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
 			const u32 byteOffset = srcBasePtr - vfb_address;
-			const u32 yOffset = byteOffset / (srcStride * bpp);
-			if (yOffset < srcYOffset) {
+			const u32 byteStride = srcStride * bpp;
+			const u32 yOffset = byteOffset / byteStride;
+			bool match = yOffset < srcYOffset;
+			if (match && vfb_byteStride != byteStride) {
+				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
+					match = false;
+				} else {
+					srcWidth = byteStride * height / vfb_bpp;
+					srcHeight = 1;
+				}
+			} else if (match) {
+				srcWidth = width;
+				srcHeight = height;
+			}
+			if (match) {
 				srcYOffset = yOffset;
 				srcXOffset = (byteOffset / bpp) % srcStride;
 				srcBuffer = vfb;
@@ -2125,7 +2166,11 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
-	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
+	int srcWidth = width;
+	int srcHeight = height;
+	int dstWidth = width;
+	int dstHeight = height;
+	FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
 
 	if (dstBuffer && srcBuffer) {
 		if (srcBuffer == dstBuffer) {
@@ -2135,8 +2180,8 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 					FBO *tempFBO = GetTempFBO(dstBuffer->width, dstBuffer->height, dstBuffer->colorDepth);
 					VirtualFramebuffer tempBuffer = *dstBuffer;
 					tempBuffer.fbo = tempFBO;
-					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, width, height, bpp);
-					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, width, height, bpp);
+					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
+					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					RebindFramebuffer();
 					return true;
 				}
@@ -2150,7 +2195,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
-				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, width, height, bpp);
+				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
@@ -2162,7 +2207,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 	} else if (srcBuffer) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
 		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
-			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, width, height);
+			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, srcWidth, srcHeight);
 		}
 		return false;  // Let the bit copy happen
 	} else {
@@ -2188,7 +2233,11 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
 		VirtualFramebuffer *dstBuffer = 0;
 		VirtualFramebuffer *srcBuffer = 0;
-		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, bpp);
+		int srcWidth = width;
+		int srcHeight = height;
+		int dstWidth = width;
+		int dstHeight = height;
+		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
 
 		if (!useBufferedRendering_ && currentRenderVfb_ != dstBuffer) {
 			return;
@@ -2204,7 +2253,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
 				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
-				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, width * dstXFactor, height);
+				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
 				dstBuffer->dirtyAfterDisplay = true;
 				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 					dstBuffer->reallyDirtyAfterDisplay = true;

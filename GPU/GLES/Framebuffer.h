@@ -233,7 +233,7 @@ private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 
-	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int bpp) const;
+	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
