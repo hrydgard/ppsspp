@@ -2085,8 +2085,11 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 		const u32 vfb_size = FramebufferByteSize(vfb);
 		if (vfb_address <= dstBasePtr && dstBasePtr < vfb_address + vfb_size) {
 			const u32 byteOffset = dstBasePtr - vfb_address;
-			const u32 yOffset = byteOffset / (dstStride * bpp);
-			if (yOffset < dstYOffset) {
+			const u32 byteStride = dstStride * bpp;
+			const u32 yOffset = byteOffset / byteStride;
+			// Some games use mismatching bitdepths.  But make sure the stride matches.
+			// If it doesn't, generally this means we detected the framebuffer with too large a height.
+			if (yOffset < dstYOffset && vfb_size / vfb->height == byteStride) {
 				dstYOffset = yOffset;
 				dstXOffset = (byteOffset / bpp) % dstStride;
 				dstBuffer = vfb;
@@ -2094,8 +2097,9 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 		}
 		if (vfb_address <= srcBasePtr && srcBasePtr < vfb_address + vfb_size) {
 			const u32 byteOffset = srcBasePtr - vfb_address;
-			const u32 yOffset = byteOffset / (srcStride * bpp);
-			if (yOffset < srcYOffset) {
+			const u32 byteStride = srcStride * bpp;
+			const u32 yOffset = byteOffset / byteStride;
+			if (yOffset < srcYOffset && vfb_size / vfb->height == byteStride) {
 				srcYOffset = yOffset;
 				srcXOffset = (byteOffset / bpp) % srcStride;
 				srcBuffer = vfb;
