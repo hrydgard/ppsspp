@@ -2207,7 +2207,9 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 	} else if (srcBuffer) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
 		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
-			ReadFramebufferToMemory(srcBuffer, true, srcX, srcY, srcWidth, srcHeight);
+			int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
+			float srcXFactor = (float)bpp / srcBpp;
+			ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
 		}
 		return false;  // Let the bit copy happen
 	} else {
