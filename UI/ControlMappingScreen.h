@@ -17,31 +17,37 @@
 
 #pragma once
 
+#include <vector>
 #include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 
 #include "UI/MiscScreens.h"
 
+class ControlMapper;
+
 class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
 	ControlMappingScreen() {}
+	void KeyMapped(int pspkey);  // Notification to let us refocus the same one after recreating views.
 protected:
 	virtual void CreateViews();
 	virtual void sendMessage(const char *message, const char *value);
-
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
 
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+
+	UI::ScrollView *rightScroll_;
+	std::vector<ControlMapper *> mappers_;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
 	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback)
-		: PopupScreen("Map Key", "Cancel", ""), callback_(callback) {
+		: PopupScreen("Map Key", "Cancel", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
 
@@ -59,4 +65,5 @@ private:
 	int pspBtn_;
 	bool replace_;
 	std::function<void(KeyDef)> callback_;
+	bool mapped_;  // Prevent double registrations
 };
