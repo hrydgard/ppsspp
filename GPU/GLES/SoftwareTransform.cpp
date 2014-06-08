@@ -172,6 +172,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
+	// We flip in the fragment shader for GE_TEXMAP_TEXTURE_MATRIX.
+	const bool flipV = gstate_c.flipTexture && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX;
 	for (int index = 0; index < maxIndex; index++) {
 		reader.Goto(index);
 
@@ -371,7 +373,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-		if (gstate_c.flipTexture) {
+		if (flipV) {
 			transformed[index].v = 1.0f - transformed[index].v;
 		}
 		transformed[index].color0_32 = c0.ToRGBA();

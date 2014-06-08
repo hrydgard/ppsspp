@@ -661,7 +661,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			if (flipV)
+			// Will flip in the fragment for GE_TEXMAP_TEXTURE_MATRIX.
+			if (flipV && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX)
 				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
 		}
 
