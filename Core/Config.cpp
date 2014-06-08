@@ -398,7 +398,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
-	ReportedConfigSetting("BlockTransferGPU", &g_Config.bBlockTransferGPU, false),
+	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
 
 	ConfigSetting(false),
 };
