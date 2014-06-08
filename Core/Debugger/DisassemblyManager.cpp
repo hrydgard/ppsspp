@@ -346,6 +346,9 @@ DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_addr
 
 void DisassemblyFunction::recheck()
 {
+	if (!PSP_IsInited()) {
+		return;
+	}
 	u32 newHash = computeHash(address,size);
 	if (hash != newHash)
 	{
