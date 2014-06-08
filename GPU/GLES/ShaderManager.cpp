@@ -491,11 +491,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 
-		const float texclamp[2] = {
+		// First wrap xy, then half texel xy (for clamp.)
+		const float texclamp[4] = {
 			widthFactor,
 			heightFactor,
+			invW * 0.5f,
+			invH * 0.5f,
 		};
-		glUniform2fv(u_texclamp, 1, texclamp);
+		glUniform4fv(u_texclamp, 1, texclamp);
 	}
 
 	// Transform

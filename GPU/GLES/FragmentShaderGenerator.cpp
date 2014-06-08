@@ -370,9 +370,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id0 |= 1 << 1;
 			id0 |= gstate.getTextureFunction() << 2;
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
+			id0 |= (gstate_c.flipTexture & 1) << 6;
 		}
-
-		// 6 is free.
 
 		id0 |= (lmode & 1) << 7;
 		if (enableAlphaTest) {
@@ -516,7 +515,7 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 	if (gstate_c.needShaderTexClamp) {
-		WRITE(p, "uniform vec2 u_texclamp;");
+		WRITE(p, "uniform vec4 u_texclamp;");
 	}
 
 	if (enableAlphaTest || enableColorTest) {
@@ -585,27 +584,39 @@ void GenerateFragmentShader(char *buffer) {
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
 				std::string ucoord = "v_texcoord.x";
-				std::string vcoord = "1.0 - v_texcoord.y";
+				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
 					ucoord += " / v_texcoord.z";
-					vcoord = "1.0 - (v_texcoord.y / v_texcoord.z)";
+					vcoord = "(v_texcoord.y / v_texcoord.z)";
+					// Vertex texcoords are NOT flipped when projecting despite gstate_c.flipTexture.
+				} else if (gstate_c.flipTexture) {
+					vcoord = "1.0 - " + vcoord;
 				}
 
 				if (gstate.isTexCoordClampedS()) {
-					ucoord = "clamp(" + ucoord + ", 0.0, u_texclamp.x)";
+					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
 					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
 				}
 				// The v coordinate is more tricky, since it's flipped.
 				if (gstate.isTexCoordClampedT()) {
-					vcoord = "clamp(" + vcoord + ", 0.0, u_texclamp.y)";
+					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
 				}
 
-				WRITE(p, "  vec2 fixedcoord = vec2(%s, 1.0 - %s);\n", ucoord.c_str(), vcoord.c_str());
+				if (gstate_c.flipTexture) {
+					vcoord = "1.0 - " + vcoord;
+				}
+
+				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
 				// We already projected it.
+				doTextureProjection = false;
+			} else if (doTextureProjection && gstate_c.flipTexture) {
+				// Since we need to flip v, we project manually.
+				WRITE(p, "  vec2 fixedcoord = vec2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
+				texcoord = "fixedcoord";
 				doTextureProjection = false;
 			}
 
