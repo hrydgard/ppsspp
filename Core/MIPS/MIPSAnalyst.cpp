@@ -381,6 +381,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe32cb5c062d1a1c4, 700, "_strtoull_r", },
 	{ 0xe3835fb2c9c04e59, 44, "vmmul_q", },
 	{ 0xe527c62d8613f297, 136, "strcpy", },
+	{ 0xe6002fc9affd678e, 480, "topx_create_saveicon", }, // Tales of Phantasia X
 	{ 0xe7b36c2c1348551d, 148, "tan", },
 	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
 	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
