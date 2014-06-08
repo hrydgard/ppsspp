@@ -516,7 +516,7 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 	if (gstate_c.needShaderTexClamp) {
-		WRITE(p, "uniform vec2 u_texclamp;");
+		WRITE(p, "uniform vec4 u_texclamp;");
 	}
 
 	if (enableAlphaTest || enableColorTest) {
@@ -592,13 +592,13 @@ void GenerateFragmentShader(char *buffer) {
 				}
 
 				if (gstate.isTexCoordClampedS()) {
-					ucoord = "clamp(" + ucoord + ", 0.0, u_texclamp.x)";
+					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
 					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
 				}
 				// The v coordinate is more tricky, since it's flipped.
 				if (gstate.isTexCoordClampedT()) {
-					vcoord = "clamp(" + vcoord + ", 0.0, u_texclamp.y)";
+					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
 				}
