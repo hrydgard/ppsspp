@@ -516,6 +516,7 @@ void GenerateFragmentShader(char *buffer) {
 	}
 	if (gstate_c.needShaderTexClamp) {
 		WRITE(p, "uniform vec4 u_texclamp;");
+		WRITE(p, "uniform vec2 u_texclampoff;");
 	}
 
 	if (enableAlphaTest || enableColorTest) {
@@ -604,6 +605,8 @@ void GenerateFragmentShader(char *buffer) {
 				} else {
 					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
 				}
+				ucoord = "(" + ucoord + " + u_texclampoff.x)";
+				vcoord = "(" + vcoord + " + u_texclampoff.y)";
 
 				if (gstate_c.flipTexture) {
 					vcoord = "1.0 - " + vcoord;

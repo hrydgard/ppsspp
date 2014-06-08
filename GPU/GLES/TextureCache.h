@@ -169,7 +169,10 @@ public:
 	};
 
 private:
+	typedef std::map<u64, TexCacheEntry> TexCache;
+
 	void Decimate();  // Run this once per frame to get rid of old textures.
+	void DeleteTexture(TexCache::iterator it);
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
@@ -187,11 +190,17 @@ private:
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
-	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
 	TexCache secondCache;
 	std::vector<VirtualFramebuffer *> fbCache_;
 	std::vector<u32> nameCache_;
+
+	// Separate to keep main texture cache size down.
+	struct AttachedFramebufferInfo {
+		u32 xOffset;
+		u32 yOffset;
+	};
+	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

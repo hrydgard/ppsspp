@@ -111,6 +111,15 @@ void TextureCache::Clear(bool delete_them) {
 	}
 }
 
+void TextureCache::DeleteTexture(TexCache::iterator it) {
+	glDeleteTextures(1, &it->second.texture);
+	auto fbInfo = fbTexInfo_.find(it->second.addr);
+	if (fbInfo != fbTexInfo_.end()) {
+		fbTexInfo_.erase(fbInfo);
+	}
+	cache.erase(it);
+}
+
 // Removes old textures.
 void TextureCache::Decimate() {
 	if (--decimationCounter_ <= 0) {
@@ -124,8 +133,7 @@ void TextureCache::Decimate() {
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			glDeleteTextures(1, &iter->second.texture);
-			cache.erase(iter++);
+			DeleteTexture(iter++);
 		} else {
 			++iter;
 		}
@@ -225,6 +233,8 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 }
 
 void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+	AttachedFramebufferInfo fbInfo = {0};
+
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
@@ -237,8 +247,10 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
 				AttachFramebufferInvalid(entry, framebuffer);
+				fbTexInfo_[entry->addr] = fbInfo;
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
+				fbTexInfo_[entry->addr] = fbInfo;
 			}
 			// TODO: Delete the original non-fbo texture too.
 		}
@@ -253,6 +265,7 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
 			   (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
 			AttachFramebufferValid(entry, framebuffer);
+			fbTexInfo_[entry->addr] = fbInfo;
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 			// We'll validate it later.
 			clutSuccess = true;
@@ -269,15 +282,22 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			// Is it at least the right stride?
 			if (framebuffer->fb_stride == entry->bufw) {
 				if (compatFormat) {
+					const u32 bitOffset = (entry->addr - address) * 8;
+					const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
+					fbInfo.yOffset = pixelOffset / entry->bufw;
+					fbInfo.xOffset = pixelOffset % entry->bufw;
+
 					if (framebuffer->format != entry->format) {
 						WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 						// TODO: Use an FBO to translate the palette?
 						AttachFramebufferValid(entry, framebuffer);
-					} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
+						fbTexInfo_[entry->addr] = fbInfo;
+					} else if (fbInfo.yOffset < framebuffer->height) {
+						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
 						// TODO: Keep track of the y offset.
 						// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
 						AttachFramebufferInvalid(entry, framebuffer);
+						fbTexInfo_[entry->addr] = fbInfo;
 					}
 				} else {
 					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
@@ -986,7 +1006,12 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
 		gstate_c.flipTexture = true;
+		gstate_c.curTextureXOffset = fbTexInfo_[entry->addr].xOffset;
+		gstate_c.curTextureYOffset = fbTexInfo_[entry->addr].yOffset;
 		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != gstate.getTextureWidth(0) || gstate_c.curTextureHeight != gstate.getTextureHeight(0);
+		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
+			gstate_c.needShaderTexClamp = true;
+		}
 		UpdateSamplingParams(*entry, true);
 	} else {
 		if (framebuffer->fbo)
