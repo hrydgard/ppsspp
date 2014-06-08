@@ -2177,7 +2177,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			if (srcX != dstX || srcY != dstY) {
 				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 				if (g_Config.bBlockTransferGPU) {
-					FBO *tempFBO = GetTempFBO(dstBuffer->width, dstBuffer->height, dstBuffer->colorDepth);
+					FBO *tempFBO = GetTempFBO(dstBuffer->renderWidth, dstBuffer->renderHeight, dstBuffer->colorDepth);
 					VirtualFramebuffer tempBuffer = *dstBuffer;
 					tempBuffer.fbo = tempFBO;
 					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
