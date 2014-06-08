@@ -384,7 +384,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 	}
 
 	if (!drawPixelsTex_) {
-		glGenTextures(1, &drawPixelsTex_);
+		drawPixelsTex_ = textureCache_->AllocTextureName();
 		drawPixelsTexW_ = width;
 		drawPixelsTexH_ = height;
 
