@@ -62,6 +62,9 @@ public:
 	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
 
 private:
+#ifdef ANDROID
+	int fd;
+#endif
 	FILE *f;
 	u64 filesize;
 };

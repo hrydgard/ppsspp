@@ -44,6 +44,38 @@ BlockDevice *constructBlockDevice(const char *filename) {
 		return new FileBlockDevice(f);
 }
 
+
+// Android NDK does not support 64-bit file I/O using C streams
+// so we fall back onto syscalls
+
+#ifdef ANDROID
+
+FileBlockDevice::FileBlockDevice(FILE *file)
+: f(file)
+{
+	fd = fileno(file);
+
+	off64_t off = lseek64(fd, 0, SEEK_END);
+	filesize = off;
+	lseek64(fd, 0, SEEK_SET);
+}
+
+FileBlockDevice::~FileBlockDevice()
+{
+	fclose(f);
+}
+
+bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
+{
+	lseek64(fd, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
+	if (read(fd, outPtr, 2048) != 2048) {
+		ERROR_LOG(FILESYS, "Could not read() 2048 bytes from block");
+	}
+	return true;
+}
+
+#else
+
 FileBlockDevice::FileBlockDevice(FILE *file)
 	: f(file)
 {
@@ -59,12 +91,14 @@ FileBlockDevice::~FileBlockDevice()
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
-	fseeko(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
+	fseek(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
 	if (fread(outPtr, 1, 2048, f) != 2048)
 		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
 
 	return true;
 }
+
+#endif
 
 // .CSO format
 
