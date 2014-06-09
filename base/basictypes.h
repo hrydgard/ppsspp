@@ -119,7 +119,3 @@ inline uint64 swap64(const uint8* _pData) {return swap64(*(const uint64*)_pData)
 typedef char TCHAR;
 #endif
 
-// Workaround for Symbian's old GCC
-#if defined(__GNUC__) && (__cplusplus < 201103 || (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) < 40700)
-#define override
-#endif  // defined(__GNUC__) && (__cplusplus < 201103 || (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) < 40700)
