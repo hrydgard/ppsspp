@@ -34,6 +34,12 @@ before_install:
 install:
 # Linux Setup
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
+      if [[ "$CXX" == g++ ]]; then
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
+        sudo apt-get update &&
+        sudo apt-get install g++-4.8 -qq &&
+        export CXX="g++-4.8" CC="gcc-4.8";
+      fi
       sudo apt-get install libsdl1.2-dev -qq;
 # Android NDK
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
@@ -42,11 +48,11 @@ install:
       download_extract http://dl.google.com/android/ndk/${NDK_VER}-linux-x86_64.tar.bz2 ${NDK_VER}-linux-x86_64.tar.bz2 &&
       export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER} &&
       if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi;
-# Blackberry NDK: 10.2.0.1155
+# Blackberry NDK: 10.3.0.440
   - elif [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      download_extract https://googledrive.com/host/0B5UBD4wjtpZ-QVdzSElobzNTOU0 libs.tar.gz &&
-      download_extract https://googledrive.com/host/0B5UBD4wjtpZ-NV80UzFYMVRkSXM tools.tar.gz &&
-      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
+      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.libraries.10.3.0.440.tar.gz libs.tar.gz &&
+      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.tools.10.3.0.2702.tar.gz tools.tar.gz &&
+      export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" CXX="arm-unknown-nto8.0.0eabi-g++-4.8.2" CC="arm-unknown-nto8.0.0eabi-gcc-4.8.2" && PATH="$QNX_HOST/usr/bin:$PATH";
 # Symbian NDK: Belle
   - elif [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
       sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq &&
