@@ -182,7 +182,7 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		return false;
 	}
 
-	INFO_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
+	DEBUG_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
 

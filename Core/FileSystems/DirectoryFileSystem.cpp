@@ -766,7 +766,6 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 
 
 VFSFileSystem::VFSFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
-	INFO_LOG(FILESYS, "Creating VFS file system");
 	hAlloc = _hAlloc;
 }
 
@@ -832,7 +831,6 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	x.name = filename;
 
 	std::string fullName = GetLocalPath(filename);
-	INFO_LOG(FILESYS,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
 	FileInfo fo;
 	if (VFSGetFileInfo(fullName.c_str(), &fo)) {
 		x.exists = fo.exists;
@@ -843,7 +841,6 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	} else {
 		x.exists = false;
 	}
-	INFO_LOG(FILESYS,"Got VFS file info: size = %i", (int)x.size);
 	return x;
 }
 
@@ -872,7 +869,7 @@ int VFSFileSystem::DevType(u32 handle) {
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
-	INFO_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
+	DEBUG_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{

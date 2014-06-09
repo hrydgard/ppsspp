@@ -662,7 +662,7 @@ void __LoadInternalFonts() {
 		}
 
 		if (info.exists) {
-			INFO_LOG(SCEFONT, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
+			DEBUG_LOG(SCEFONT, "Loading internal font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
 			std::vector<u8> buffer;
 			if (pspFileSystem.ReadEntireFile(fontFilename, buffer) < 0) {
 				ERROR_LOG(SCEFONT, "Failed opening font");
