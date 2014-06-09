@@ -21,8 +21,7 @@
 
 #include <cstddef> //size_t
 #ifdef __SYMBIAN32__
-#include <libc/sys/config.h>
-typedef __uint32_t uint32_t;
+#include <boost/cstdint.hpp>
 #elif defined(IOS)
 #include <stdint.h>
 #else
