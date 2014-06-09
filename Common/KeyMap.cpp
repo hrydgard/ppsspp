@@ -626,10 +626,10 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_LTRIGGER, "L"},
 	{CTRL_RTRIGGER, "R"},
 
-	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
-	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
-	{VIRTKEY_AXIS_X_MIN, "An.Left"},
-	{VIRTKEY_AXIS_X_MAX, "An.Right"},
+	{VIRTKEY_AXIS_Y_MAX, "Analog Up"},
+	{VIRTKEY_AXIS_Y_MIN, "Analog Down"},
+	{VIRTKEY_AXIS_X_MIN, "Analog Left"},
+	{VIRTKEY_AXIS_X_MAX, "Analog Right"},
 #ifndef MOBILE_DEVICE
 	{ VIRTKEY_ANALOG_LIGHTLY, "Analog limiter" },
 #endif

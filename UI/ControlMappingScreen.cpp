@@ -96,7 +96,7 @@ void ControlMapper::Refresh() {
 
 	float itemH = 45;
 
-	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(550, WRAP_CONTENT)));
 	root->SetSpacing(3.0f);
 
 	const int padding = 4;
@@ -112,6 +112,9 @@ void ControlMapper::Refresh() {
 		c->SetCentered(true);
 		root->Add(c)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	}
+
+	Choice *p = root->Add(new Choice(" + ", new LayoutParams(FILL_PARENT, itemH)));
+	p->OnClick.Handle(this, &ControlMapper::OnAdd);
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	rightColumn->SetSpacing(2.0f);
@@ -135,9 +138,6 @@ void ControlMapper::Refresh() {
 		Choice *d = row->Add(new Choice(" X ", new LayoutParams(FILL_PARENT, itemH)));
 		d->SetTag(tagbuf);
 		d->OnClick.Handle(this, &ControlMapper::OnDelete);
-
-		Choice *p = row->Add(new Choice(" + ", new LayoutParams(FILL_PARENT, itemH)));
-		p->OnClick.Handle(this, &ControlMapper::OnAdd);
 	}
 
 	if (mappings.size() == 0) {
