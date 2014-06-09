@@ -1,4 +1,4 @@
-VERSION = 0.9.8
+VERSION = 0.9.9
 DEFINES += USING_QT_UI USE_FFMPEG
 unix:!qnx:!symbian:!mac: CONFIG += linux
 maemo5|contains(MEEGO_EDITION,harmattan): CONFIG += maemo
