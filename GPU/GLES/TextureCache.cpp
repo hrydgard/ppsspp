@@ -252,7 +252,6 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 				AttachFramebufferValid(entry, framebuffer);
 				fbTexInfo_[entry->addr] = fbInfo;
 			}
-			// TODO: Delete the original non-fbo texture too.
 		}
 	} else {
 		// Apply to buffered mode only.
@@ -289,12 +288,10 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 
 					if (framebuffer->format != entry->format) {
 						WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-						// TODO: Use an FBO to translate the palette?
 						AttachFramebufferValid(entry, framebuffer);
 						fbTexInfo_[entry->addr] = fbInfo;
 					} else if (fbInfo.yOffset < framebuffer->height) {
 						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-						// TODO: Keep track of the y offset.
 						// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
 						AttachFramebufferInvalid(entry, framebuffer);
 						fbTexInfo_[entry->addr] = fbInfo;
@@ -537,7 +534,6 @@ static const GLuint MagFiltGL[2] = {
 };
 
 // This should not have to be done per texture! OpenGL is silly yo
-// TODO: Dirty-check this against the current texture.
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
