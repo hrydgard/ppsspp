@@ -91,7 +91,7 @@ FileBlockDevice::~FileBlockDevice()
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
-	fseek(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
+	fseeko(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
 	if (fread(outPtr, 1, 2048, f) != 2048)
 		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
 
