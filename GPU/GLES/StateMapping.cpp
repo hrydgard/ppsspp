@@ -446,7 +446,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
 		u8 abits = (gstate.pmska >> 0) & 0xFF;
 		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
-			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%08x", rbits, gbits, bbits);
+			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
 		}
 		if (abits != 0 && abits != 0xFF) {
 			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
