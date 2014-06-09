@@ -836,6 +836,10 @@ skip:
 			if ((op & 0xFFFF8000) == 0x27BD0000) {
 				decreasedSp = false;
 			}
+			if (op == MIPS_MAKE_NOP() && currentFunction.start == addr) {
+				// Skip nop padding at the beginning of functions (alignment?)
+				currentFunction.start += 4;
+			}
 
 			if (looking) {
 				if (addr >= furthestBranch) {
