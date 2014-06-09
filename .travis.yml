@@ -26,21 +26,21 @@ before_install:
 # Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
   - if [ "$CMAKE" == "TRUE" ]; then
       sudo apt-get install lib32stdc++6 -qq &&
-      aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh &&
-      chmod a+x cmake-2.8.12.1-Linux-i386.sh &&
-      sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr;
+      aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.sh &&
+      chmod a+x cmake-2.8.12.2-Linux-i386.sh &&
+      sudo ./cmake-2.8.12.2-Linux-i386.sh --skip-license --prefix=/usr;
     fi
 
 install:
 # Linux Setup
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
+      sudo apt-get install libsdl1.2-dev -qq &&
       if [[ "$CXX" == g++ ]]; then
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
         sudo apt-get update &&
         sudo apt-get install g++-4.8 -qq &&
         export CXX="g++-4.8" CC="gcc-4.8";
-      fi
-      sudo apt-get install libsdl1.2-dev -qq;
+      fi;
 # Android NDK
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
       NDK_VER=android-ndk-r9b &&
@@ -52,7 +52,7 @@ install:
   - elif [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
       download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.libraries.10.3.0.440.tar.gz libs.tar.gz &&
       download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.tools.10.3.0.2702.tar.gz tools.tar.gz &&
-      export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" CXX="arm-unknown-nto8.0.0eabi-g++-4.8.2" CC="arm-unknown-nto8.0.0eabi-gcc-4.8.2" && PATH="$QNX_HOST/usr/bin:$PATH";
+      export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
 # Symbian NDK: Belle
   - elif [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
       sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq &&

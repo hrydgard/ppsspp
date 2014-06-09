@@ -33,7 +33,7 @@
 #include <algorithm>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 #include <libpng17/png.h>
 #include "ext/jpge/jpge.h"
 #endif
@@ -540,7 +540,7 @@ void NativeShutdownGraphics() {
 
 void TakeScreenshot() {
 	g_TakeScreenshot = false;
-#ifdef _WIN32
+#if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
