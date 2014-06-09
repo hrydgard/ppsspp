@@ -673,7 +673,7 @@ void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_he
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
-	if (drawing_height > MAX_FRAMEBUF_HEIGHT) {
+	if (drawing_height >= MAX_FRAMEBUF_HEIGHT) {
 		if (region_height < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = region_height;
 		} else if (scissor_height < MAX_FRAMEBUF_HEIGHT) {
@@ -740,6 +740,7 @@ void FramebufferManager::RebindFramebuffer() {
 void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
 	float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
 	float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
+	VirtualFramebuffer old = *vfb;
 
 	if (force) {
 		vfb->bufferWidth = w;
@@ -788,7 +789,6 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		return;
 	}
 
-	VirtualFramebuffer old = *vfb;
 	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
@@ -2227,9 +2227,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	// TODO: Is this not handled by upload?  Should we check !dstBuffer to avoid a double copy?
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
-		dstStride == 512 && height == 272) {
-		// TODO: Use displayFormat_ instead of GE_FORMAT_8888?
-		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
+		dstStride == 512 && height == 272 && !useBufferedRendering_) {
+		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
