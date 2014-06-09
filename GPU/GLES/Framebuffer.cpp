@@ -132,6 +132,16 @@ void CenterRect(float *x, float *y, float *w, float *h,
 		outW = frameW;
 		outH = frameH;
 	} else {
+		// Add special case for 1080p displays, cutting off the bottom and top 1-pixel rows from the original 480x272.
+		// This will be what 99.9% of users want.
+		if (origW == 480 && origH == 272 && frameW == 1920 && frameH == 1080) {
+			*x = 0;
+			*y = -4;
+			*w = 1920;
+			*h = 1088;
+			return;
+		}
+
 		float origRatio = origW / origH;
 		float frameRatio = frameW / frameH;
 		if (origRatio > frameRatio) {
