@@ -25,7 +25,7 @@ before_install:
   - download_extract() { aria2c -x 16 $1 -o $2 && tar -xf $2; }
 # Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
   - if [ "$CMAKE" == "TRUE" ]; then
-      sudo apt-get install lib32stdc++6 -qq &&
+      sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev -qq &&
       aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.sh &&
       chmod a+x cmake-2.8.12.2-Linux-i386.sh &&
       sudo ./cmake-2.8.12.2-Linux-i386.sh --skip-license --prefix=/usr;
