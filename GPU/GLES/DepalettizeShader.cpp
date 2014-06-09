@@ -251,8 +251,9 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 			default:
 				formatOK = false;
 			}
-			formatOK = false;
 			index_multiplier = 31.f / 256.f;
+		} else {
+			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_5551:
@@ -272,6 +273,8 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 				formatOK = false;
 			}
 			index_multiplier = 1.0f / 256.0f;
+		} else {
+			formatOK = false;
 		}
 		break;
 	default:
