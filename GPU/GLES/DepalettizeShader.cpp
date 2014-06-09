@@ -31,7 +31,7 @@ static const int DEPAL_TEXTURE_OLD_AGE = 120;
 #endif
 
 static const char *depalVShader100 =
-#ifdef USING_GLES
+#ifdef USING_GLES2
 "#version 100\n"
 "precision highp float;\n"
 #endif
@@ -44,7 +44,7 @@ static const char *depalVShader100 =
 "}\n";
 
 static const char *depalVShader300 =
-#ifdef USING_GLES
+#ifdef USING_GLES2
 "#version 300 es\n"
 "precision highp float;\n"
 #else
@@ -112,7 +112,7 @@ DepalShaderCache::~DepalShaderCache() {
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
-#ifdef USING_GLES
+#ifdef USING_GLES2
 	WRITE(p, "#version 300 es\n");
 	WRITE(p, "precision mediump float;\n");
 #else
@@ -298,7 +298,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	float texel_offset = ((float)clutBase + 0.5f) / texturePixels;
 	sprintf(offset, " + %f", texel_offset);
 
-#ifdef USING_GLES
+#ifdef USING_GLES2
 	WRITE(p, "#version 100\n");
 	WRITE(p, "precision mediump float;\n");
 #else

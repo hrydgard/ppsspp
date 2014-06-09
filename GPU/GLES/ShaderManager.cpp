@@ -111,7 +111,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 
 	// Detaching shaders is annoying when debugging with gDebugger
 	// so let's not do that on Windows.
-#ifdef USING_GLES
+#ifdef USING_GLES2
 	glDetachShader(program, vs->shader);
 	glDetachShader(program, fs->shader);
 #endif

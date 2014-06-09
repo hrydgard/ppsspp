@@ -22,7 +22,7 @@
 #include "GPU/GLES/ShaderManager.h"
 
 static const char *stencil_fs =
-#ifdef USING_GLES
+#ifdef USING_GLES2
 "#version 100\n"
 "precision highp float;\n"
 #endif
@@ -38,7 +38,7 @@ static const char *stencil_fs =
 "}\n";
 
 static const char *stencil_vs =
-#ifdef USING_GLES
+#ifdef USING_GLES2
 "#version 100\n"
 "precision highp float;\n"
 #endif
