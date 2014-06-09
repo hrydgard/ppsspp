@@ -2227,9 +2227,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	// TODO: Is this not handled by upload?  Should we check !dstBuffer to avoid a double copy?
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
-		dstStride == 512 && height == 272) {
-		// TODO: Use displayFormat_ instead of GE_FORMAT_8888?
-		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
+		dstStride == 512 && height == 272 && !useBufferedRendering_) {
+		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
