@@ -8,6 +8,7 @@
 
 #include <AL/al.h>
 #include <AL/alc.h>
+#include <unistd.h>
 
 #include "base/NativeApp.h"
 
