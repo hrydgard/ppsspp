@@ -2071,8 +2071,13 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 	} else if (srcBuffer) {
 		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
-			// TODO: Validate x/y/w/h based on size and offset?
-			ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcBuffer->height);
+			// TODO: Support memcpy from offset within framebuffer?  Seems dangerous.
+			// Maybe at least if x offset is 0, in case a game manually copies or memsets by stride.
+			const u32 srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
+			int h = size / (srcBuffer->fb_stride * srcBpp);
+			if (h > 0) {
+				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, h);
+			}
 		}
 		return false;
 	} else {
