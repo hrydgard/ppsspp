@@ -1997,7 +1997,11 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 
 void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
-		Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		// We use a little hack for Download/Upload using a VRAM mirror.
+		// Since they're identical we don't need to copy.
+		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		}
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 }
@@ -2062,6 +2066,12 @@ bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
 	// Cheat a bit to force a download of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	return gpu->PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+}
+
+bool GLES_GPU::PerformMemoryUpload(u32 dest, int size) {
+	// Cheat a bit to force a download of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	return gpu->PerformMemoryCopy(dest, dest ^ 0x00400000, size);
 }
 
 bool GLES_GPU::PerformStencilUpload(u32 dest, int size) {

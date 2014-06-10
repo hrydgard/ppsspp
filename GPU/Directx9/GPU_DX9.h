@@ -49,6 +49,7 @@ public:
 	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size);
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
 	virtual bool PerformMemoryDownload(u32 dest, int size);
+	virtual bool PerformMemoryUpload(u32 dest, int size);
 	virtual bool PerformStencilUpload(u32 dest, int size);
 	virtual void ClearCacheNextFrame();
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.

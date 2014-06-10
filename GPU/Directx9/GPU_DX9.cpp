@@ -1330,6 +1330,11 @@ bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
 	return false;
 }
 
+bool DIRECTX9_GPU::PerformMemoryUpload(u32 dest, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
 bool DIRECTX9_GPU::PerformStencilUpload(u32 dest, int size) {
 	return false;
 }

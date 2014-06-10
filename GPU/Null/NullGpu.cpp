@@ -675,6 +675,12 @@ bool NullGPU::PerformMemoryDownload(u32 dest, int size) {
 	return false;
 }
 
+bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
 bool NullGPU::PerformStencilUpload(u32 dest, int size) {
 	return false;
 }
