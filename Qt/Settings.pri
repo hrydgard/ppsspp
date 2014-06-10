@@ -19,8 +19,7 @@ DEFINES += PPSSPP_GIT_VERSION=\"$$GIT_VERSION\"
 
 win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast
-	DEFINES += _MBCS GLEW_STATIC _CRT_SECURE_NO_WARNINGS
-	DEFINES += "_VARIADIC_MAX=10"
+	DEFINES += _MBCS GLEW_STATIC _CRT_SECURE_NO_WARNINGS "_VARIADIC_MAX=10"
 	contains(DEFINES,UNICODE): DEFINES+=_UNICODE
 	PRECOMPILED_HEADER = $$P/Windows/stdafx.h
 	PRECOMPILED_SOURCE = $$P/Windows/stdafx.cpp
@@ -30,14 +29,8 @@ win32-msvc* {
 	QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
 	QMAKE_CXXFLAGS += -ffast-math -fno-strict-aliasing
 	greaterThan(QT_MAJOR_VERSION,4): CONFIG+=c++11
-	else {
-		maemo: QMAKE_CXXFLAGS += -std=gnu++0x
-		else: QMAKE_CXXFLAGS += -std=c++0x
-	}
-	QMAKE_CFLAGS_RELEASE -= -O2
-	QMAKE_CFLAGS_RELEASE += -O3
-	QMAKE_CXXFLAGS_RELEASE -= -O2
-	QMAKE_CXXFLAGS_RELEASE += -O3
+	else: QMAKE_CXXFLAGS += -std=c++11
+	QMAKE_CXXFLAGS += -O3
 }
 # Arch specific
 xarch = $$find(QT_ARCH, "86")
@@ -87,9 +80,8 @@ qnx {
 	INCLUDEPATH += $$P/ffmpeg/blackberry/armv7/include
 }
 symbian {
-	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see Wiki)
 	DEFINES += "BOOST_COMPILER_CONFIG=\"$$EPOCROOT/epoc32/include/stdapis/boost/mpl/aux_/config/gcc.hpp\"" SYMBIAN_OGLES_DLL_EXPORTS
-	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
+	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment -Wno-unused-local-typedefs
 	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis
 	INCLUDEPATH += $$P/ffmpeg/symbian/armv6/include
 }

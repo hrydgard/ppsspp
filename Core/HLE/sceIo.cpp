@@ -135,19 +135,13 @@ enum {
 	TYPE_FILE = 0x20
 };
 
-#ifdef __SYMBIAN32__
-#undef st_ctime
-#undef st_atime
-#undef st_mtime
-#endif
-
 struct SceIoStat {
 	SceMode_le st_mode;
 	u32_le st_attr;
 	SceOff_le st_size;
-	ScePspDateTime st_ctime;
-	ScePspDateTime st_atime;
-	ScePspDateTime st_mtime;
+	ScePspDateTime st_c_time;
+	ScePspDateTime st_a_time;
+	ScePspDateTime st_m_time;
 	u32_le st_private[6];
 };
 
@@ -156,15 +150,6 @@ struct SceIoDirEnt {
 	char d_name[256];
 	u32_le d_private;
 };
-#ifndef __SYMBIAN32__
-struct dirent {
-	u32 unk0;
-	u32 type;
-	u32 size;
-	u32 unk[19];
-	char name[0x108];
-};
-#endif
 
 class FileNode : public KernelObject {
 public:
@@ -623,9 +608,9 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
-	__IoCopyDate(stat->st_atime, info.atime);
-	__IoCopyDate(stat->st_ctime, info.ctime);
-	__IoCopyDate(stat->st_mtime, info.mtime);
+	__IoCopyDate(stat->st_a_time, info.atime);
+	__IoCopyDate(stat->st_c_time, info.ctime);
+	__IoCopyDate(stat->st_m_time, info.mtime);
 	stat->st_private[0] = info.startSector;
 }
 

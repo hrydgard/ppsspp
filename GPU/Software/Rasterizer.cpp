@@ -1493,7 +1493,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 		ScreenCoords pprime = ScreenCoords(x, y, z);
 
-#ifndef __SYMBIAN32__
 		// TODO: Fogging
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
@@ -1502,7 +1501,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		} else {
 			DrawSinglePixel<false>(p, z, prim_color);
 		}
-#endif
 
 		x = x + xinc;
 		y = y + yinc;
