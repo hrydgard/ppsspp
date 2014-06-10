@@ -12,9 +12,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#if !defined(__SYMBIAN32__) && !defined(__MAC_10_6)
-#include <malloc.h>
-#endif
 // Higher level wrappers/examples (optional).
 #include <stdio.h>
 

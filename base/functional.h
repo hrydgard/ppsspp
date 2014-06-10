@@ -26,9 +26,9 @@ namespace std {
 	using boost::function;
 	using boost::shared_ptr;
 #else
-    using tr1::bind;
-    using tr1::function;
-    using tr1::shared_ptr;
+	using tr1::bind;
+	using tr1::function;
+	using tr1::shared_ptr;
 #endif
 
     template <typename T>
