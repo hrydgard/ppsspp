@@ -41,7 +41,7 @@ win32-msvc* {
 }
 # Arch specific
 xarch = $$find(QT_ARCH, "86")
-contains(QT_ARCH, windows)|count(xarch, 1) {
+macx|contains(QT_ARCH, windows)|count(xarch, 1) {
 	!win32-msvc*: QMAKE_CXXFLAGS += -msse2
 	CONFIG += x86
 } else { # Assume ARM
