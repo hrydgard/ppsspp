@@ -13,7 +13,7 @@
 #undef min
 #undef max
 #else
-#if defined(__FreeBSD__) || defined(__SYMBIAN32__)
+#if defined(__FreeBSD__)
 #include <netinet/in.h>
 #else
 #include <arpa/inet.h>
