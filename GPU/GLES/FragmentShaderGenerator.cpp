@@ -466,6 +466,9 @@ void GenerateFragmentShader(char *buffer) {
 		texture = "texture";
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		fragColor0 = "fragColor0";
 		WRITE(p, "#version 130\n");
@@ -511,7 +514,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if (ShouldUseShaderBlending() && !gstate.isModeClear()) {
+	if (!gstate.isModeClear() && ShouldUseShaderBlending()) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
 			WRITE(p, "uniform sampler2D fbotex;\n");
 		}
@@ -523,9 +526,9 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 	if (gstate_c.needShaderTexClamp && doTexture) {
-		WRITE(p, "uniform vec4 u_texclamp;");
+		WRITE(p, "uniform vec4 u_texclamp;\n");
 		if (textureAtOffset) {
-			WRITE(p, "uniform vec2 u_texclampoff;");
+			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 	}
 

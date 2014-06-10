@@ -186,6 +186,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		WRITE(p, "#version 130\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
