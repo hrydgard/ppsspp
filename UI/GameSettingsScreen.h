@@ -46,8 +46,21 @@ private:
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
+	UI::PopupMultiChoice *renderingModeChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
+	UI::CheckBox *blockTransfer_;
+	UI::PopupMultiChoice *texScalingChoice_;
+	UI::CheckBox *mipmapping_;
+	UI::CheckBox *hwTransform_;
+	UI::CheckBox *swSkin_;
+	UI::CheckBox *vtxCache_;
+	UI::CheckBox *texBackoff_;
+	UI::CheckBox *texSecondary_;
+	UI::PopupMultiChoice *beziersChoice_;
+	UI::CheckBox *stencilTest_;
+	UI::CheckBox *depthWrite_;
+	UI::CheckBox *prescale_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -74,6 +87,8 @@ private:
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
+	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
