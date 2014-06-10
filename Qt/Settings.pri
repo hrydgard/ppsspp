@@ -43,7 +43,6 @@ win32-msvc* {
 xarch = $$find(QT_ARCH, "86")
 macx|contains(QT_ARCH, windows)|count(xarch, 1) {
 	!win32-msvc*: QMAKE_CXXFLAGS += -msse2
-	CONFIG += x86
 } else { # Assume ARM
 	DEFINES += ARM
 	CONFIG += arm
@@ -76,7 +75,7 @@ android {
 
 linux:!android {
 	arm: INCLUDEPATH += $$P/ffmpeg/linux/armv7/include
-	x86 {
+	else {
 		contains(QT_ARCH, x86_64): QMAKE_TARGET.arch = x86_64
 		else: QMAKE_TARGET.arch = x86
 		INCLUDEPATH += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/include

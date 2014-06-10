@@ -13,7 +13,7 @@ arm {
 		$$P/ext/disarm.cpp
 	HEADERS += $$P/Core/MIPS/ARM/*.h
 }
-x86 {
+else {
 	SOURCES += $$P/Core/MIPS/x86/*.cpp
 	HEADERS += $$P/Core/MIPS/x86/*.h
 }
@@ -73,7 +73,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 armv7: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 
 arm: SOURCES += $$P/GPU/GLES/VertexDecoderArm.cpp
-x86: SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
+else: SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
 
 HEADERS += $$P/Core/*.h \
 	$$P/Core/Debugger/*.h \

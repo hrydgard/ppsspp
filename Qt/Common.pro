@@ -13,7 +13,7 @@ arm {
 		$$P/Common/ArmThunk.cpp
 	HEADERS += $$P/Common/ArmEmitter.h
 }
-x86 {
+else {
 	SOURCES += $$P/Common/ABI.cpp \
 		$$P/Common/CPUDetect.cpp \
 		$$P/Common/Thunk.cpp \

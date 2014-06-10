@@ -104,7 +104,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
-x86 {
+!arm {
 	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
 }
 armv7 {
