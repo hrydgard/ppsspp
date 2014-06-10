@@ -46,21 +46,8 @@ private:
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
-	UI::PopupMultiChoice *renderingModeChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
-	UI::CheckBox *blockTransfer_;
-	UI::PopupMultiChoice *texScalingChoice_;
-	UI::CheckBox *mipmapping_;
-	UI::CheckBox *hwTransform_;
-	UI::CheckBox *swSkin_;
-	UI::CheckBox *vtxCache_;
-	UI::CheckBox *texBackoff_;
-	UI::CheckBox *texSecondary_;
-	UI::PopupMultiChoice *beziersChoice_;
-	UI::CheckBox *stencilTest_;
-	UI::CheckBox *depthWrite_;
-	UI::CheckBox *prescale_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -97,6 +84,25 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
+
+	// Cached booleans
+	bool hwTransformEnable;
+	bool vtxCacheEnable;
+	bool renderModeEnable;
+	bool blockTransferEnable;
+	bool swSkinningEnable;
+	bool texBackoffEnable;
+	bool mipmapEnable;
+	bool texScalingEnable;
+	bool texSecondaryEnable;
+	bool beziersEnable;
+	bool stencilTestEnable;
+	bool depthWriteEnable;
+	bool prescaleEnable;
+	bool texScalingTypeEnable;
+	bool desposterizeEnable;
+	bool anisotropicEnable;
+	bool texFilteringEnable;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
