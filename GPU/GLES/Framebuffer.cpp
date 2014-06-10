@@ -2092,9 +2092,12 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 	int width = srcWidth;
 	int height = srcHeight;
 
+	dstBasePtr &= 0x3FFFFFFF;
+	srcBasePtr &= 0x3FFFFFFF;
+
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		const u32 vfb_address = 0x04000000 | vfb->fb_address;
+		const u32 vfb_address = (0x04000000 | vfb->fb_address) & 0x3FFFFFFF;
 		const u32 vfb_size = FramebufferByteSize(vfb);
 		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
