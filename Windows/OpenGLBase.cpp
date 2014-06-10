@@ -9,6 +9,7 @@
 #include "GL/wglew.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
+#include "Core/Config.h"
 
 #include "Windows/OpenGLBase.h"
 
@@ -176,8 +177,9 @@ bool GL_Init(HWND window, std::string *error_message) {
 		*error_message = "Failed to initialize GLEW.";
 		return false;
 	}
-
-	CheckGLExtensions();
+	
+	if (!g_Config.bForceOpenGL31)
+		CheckGLExtensions();
 
 	int contextFlags = enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
@@ -204,10 +206,19 @@ bool GL_Init(HWND window, std::string *error_message) {
 		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 		0
 	};
+	const int attribs31[] = {
+		WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 1,
+		WGL_CONTEXT_FLAGS_ARB, enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0,
+		0
+	};
 
 	HGLRC	m_hrc;
 	if(wglewIsSupported("WGL_ARB_create_context") == 1) {
-		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
+		if (g_Config.bForceOpenGL31)
+			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs31);
+		else
+			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
 		if (!m_hrc)
 			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs43);
 		if (!m_hrc)
@@ -246,6 +257,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str(),0,0);
 	*/
 
+	if (g_Config.bForceOpenGL31)
+		CheckGLExtensions();	
 	glstate.Initialize();
 	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(0);

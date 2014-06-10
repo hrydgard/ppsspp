@@ -388,6 +388,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0),
 	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false),
+	ConfigSetting("ForceOpenGL3.1", &g_Config.bForceOpenGL31, false),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false),
 	ReportedConfigSetting("DisableStencilTest", &g_Config.bDisableStencilTest, false),
 	ReportedConfigSetting("AlwaysDepthWrite", &g_Config.bAlwaysDepthWrite, false),
