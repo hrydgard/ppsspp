@@ -777,9 +777,7 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-#ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-#endif
 #ifndef GOLD
 	Choice *gold = rightColumnItems->Add(new Choice(m->T("Support PPSSPP")));
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);

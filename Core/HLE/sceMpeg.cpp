@@ -785,10 +785,10 @@ bool InitPmp(MpegContext * ctx){
 
 	// initialize ctx->mediaengine->m_pFrame and ctx->mediaengine->m_pFrameRGB
 	if (!mediaengine->m_pFrame){
-		mediaengine->m_pFrame = avcodec_alloc_frame();
+		mediaengine->m_pFrame = av_frame_alloc();
 	}
 	if (!mediaengine->m_pFrameRGB){
-		mediaengine->m_pFrameRGB = avcodec_alloc_frame();
+		mediaengine->m_pFrameRGB = av_frame_alloc();
 	}
 
 	// get RGBA picture buffer

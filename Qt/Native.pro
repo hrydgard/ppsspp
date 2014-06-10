@@ -54,9 +54,11 @@ win32|contains(QT_CONFIG, no-zlib) {
 	HEADERS += $$P/ext/zlib/*.h
 }
 
-# Libzip
-SOURCES += $$P/native/ext/libzip/*.c
-HEADERS += $$P/native/ext/libzip/*.h
+!symbian {
+	# Libzip
+	SOURCES += $$P/native/ext/libzip/*.c
+	HEADERS += $$P/native/ext/libzip/*.h
+}
 
 # Libpng
 SOURCES += $$P/native/ext/libpng17/*.c
