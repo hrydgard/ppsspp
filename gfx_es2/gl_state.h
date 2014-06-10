@@ -17,6 +17,7 @@
 #endif
 
 #if defined(ANDROID) || defined(BLACKBERRY)
+#include <EGL/egl.h>
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
 typedef uint64_t EGLuint64NV;
@@ -28,9 +29,6 @@ extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 typedef GLvoid* (GL_APIENTRYP PFNGLMAPBUFFERPROC) (GLenum target, GLenum access);
 extern PFNGLMAPBUFFERPROC glMapBuffer;
 
-#endif
-
-#if !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
 typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
@@ -43,9 +41,7 @@ typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 	GLint dstX0, GLint dstY0, GLint dstX1, GLuint dstY1,
 	GLint mask, GLenum filter);
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
-#endif
 
-#if defined(ANDROID) || defined(BLACKBERRY)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;

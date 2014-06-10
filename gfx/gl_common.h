@@ -6,9 +6,6 @@
 #elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#if !defined(MAEMO) && !defined(MEEGO_EDITION_HARMATTAN)
-#include <EGL/egl.h> // X11 pollutes namespace
-#endif
 // At least Nokia platforms need the three below
 #include <KHR/khrplatform.h>
 typedef char GLchar;
