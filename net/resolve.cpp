@@ -13,7 +13,11 @@
 #undef min
 #undef max
 #else
+#if defined(__FreeBSD__) || defined(__SYMBIAN32__)
 #include <netinet/in.h>
+#else
+#include <arpa/inet.h>
+#endif
 #include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
