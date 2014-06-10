@@ -103,6 +103,8 @@ private:
 	bool desposterizeEnable;
 	bool anisotropicEnable;
 	bool texFilteringEnable;
+	bool postProcEnable;
+	bool resolutionEnable;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
