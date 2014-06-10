@@ -230,7 +230,9 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
 	// Maybe hide this on non-PVR?
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
+	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")))->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
+	alphaHackEnable = !g_Config.bSoftwareRendering;
+	alphaHack->SetEnabledPtr(&alphaHackEnable);
 
 
 	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
@@ -425,7 +427,6 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	swSkinningEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
 	hwTransformEnable = !g_Config.bSoftwareRendering;
 	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
-
 	texBackoffEnable = !g_Config.bSoftwareRendering;
 	mipmapEnable = !g_Config.bSoftwareRendering;
 	texScalingEnable = !g_Config.bSoftwareRendering;
@@ -435,6 +436,7 @@ UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
 	texFilteringEnable = !g_Config.bSoftwareRendering;
 	blockTransferEnable = !g_Config.bSoftwareRendering;
 	renderModeEnable = !g_Config.bSoftwareRendering;
+	alphaHackEnable = !g_Config.bSoftwareRendering;
 	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	return UI::EVENT_DONE;

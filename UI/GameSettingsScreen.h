@@ -105,6 +105,7 @@ private:
 	bool texFilteringEnable;
 	bool postProcEnable;
 	bool resolutionEnable;
+	bool alphaHackEnable;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
