@@ -35,6 +35,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
+	if(g_Config.bFullScreen)
+	{
+		fullscrAct();
+	}
 }
 
 void MainWindow::ShowMemory(u32 addr)
