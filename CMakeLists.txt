@@ -960,7 +960,7 @@ endif()
 
 # Core needs to be linked with dl on these platforms
 if(LINUX)
-  set(CoreExtraLibs ${CoreExtraLibs} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
@@ -1221,7 +1221,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
-	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
+	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
