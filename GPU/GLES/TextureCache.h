@@ -201,6 +201,8 @@ private:
 		u32 yOffset;
 	};
 	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

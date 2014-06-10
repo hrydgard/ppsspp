@@ -210,24 +210,24 @@ void TextureCache::ClearNextFrame() {
 }
 
 
-template <typename T>
-inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
+void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		fbTexInfo_[entry->addr] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
-template <typename T>
-inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) {
+void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		fbTexInfo_[entry->addr] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
@@ -246,11 +246,9 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
-				AttachFramebufferInvalid(entry, framebuffer);
-				fbTexInfo_[entry->addr] = fbInfo;
+				AttachFramebufferInvalid(entry, framebuffer, fbInfo);
 			} else {
-				AttachFramebufferValid(entry, framebuffer);
-				fbTexInfo_[entry->addr] = fbInfo;
+				AttachFramebufferValid(entry, framebuffer, fbInfo);
 			}
 		}
 	} else {
@@ -263,7 +261,7 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		bool clutSuccess = false;
 		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
 			   (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
-			AttachFramebufferValid(entry, framebuffer);
+			AttachFramebufferValid(entry, framebuffer, fbInfo);
 			fbTexInfo_[entry->addr] = fbInfo;
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 			// We'll validate it later.
@@ -288,13 +286,11 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 
 					if (framebuffer->format != entry->format) {
 						WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-						AttachFramebufferValid(entry, framebuffer);
-						fbTexInfo_[entry->addr] = fbInfo;
+						AttachFramebufferValid(entry, framebuffer, fbInfo);
 					} else if (fbInfo.yOffset < framebuffer->height) {
 						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
 						// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-						AttachFramebufferInvalid(entry, framebuffer);
-						fbTexInfo_[entry->addr] = fbInfo;
+						AttachFramebufferInvalid(entry, framebuffer, fbInfo);
 					}
 				} else {
 					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
