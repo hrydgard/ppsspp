@@ -2069,7 +2069,7 @@ bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
 }
 
 bool GLES_GPU::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
+	// Cheat a bit to force an upload of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	return gpu->PerformMemoryCopy(dest, dest ^ 0x00400000, size);
 }

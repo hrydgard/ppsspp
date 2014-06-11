@@ -2075,6 +2075,10 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			// Maybe at least if x offset is 0, in case a game manually copies or memsets by stride.
 			const u32 srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			int h = size / (srcBuffer->fb_stride * srcBpp);
+			if (h > srcBuffer->height) {
+				WARN_LOG_REPORT_ONCE(btdcpybig, G3D, "Memcpy fbo download too large at %08x size=%08x height=%d", src, size, srcBuffer->height);
+				h = srcBuffer->height;
+			}
 			if (h > 0) {
 				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, h);
 			}

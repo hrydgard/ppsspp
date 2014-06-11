@@ -476,8 +476,8 @@ static int Hook_godseaterburst_blit_texture() {
 	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
 	const u32 fb_address = Memory::Read_U32(fb_info);
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformMemoryDownload(fb_address, 0x00048000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00048000, currentMIPS->pc);
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
 	}
 	return 0;
 }
