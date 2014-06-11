@@ -108,7 +108,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
     math/fast/fast_matrix_neon.S.neon \
     ext/libpng17/arm/arm_init.c \

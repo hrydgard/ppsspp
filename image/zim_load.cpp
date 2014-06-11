@@ -2,10 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef USING_QT_UI
-#include <QFile>
-#endif
-
 #include "base/logging.h"
 #include "zlib.h"
 #include "image/zim_load.h"

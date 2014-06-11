@@ -3,7 +3,8 @@
 #include "fast_matrix.h"
 
 void InitFastMath(int enableNEON) {
-#if !defined(_M_IX86) && !defined(_M_X64) && defined(ARMEABI_V7A)
+// Every architecture has its own define. This needs to be added to.
+#if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7S__)
 	if (enableNEON) {
 		fast_matrix_mul_4x4 = &fast_matrix_mul_4x4_neon;
 	}
