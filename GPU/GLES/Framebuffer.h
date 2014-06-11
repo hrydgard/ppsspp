@@ -161,7 +161,7 @@ public:
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 
-	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
+	void BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);

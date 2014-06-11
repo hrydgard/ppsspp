@@ -961,18 +961,18 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
-			if (MaskedEqual(fb_address, vfbs_[i]->z_address)) {
+			if (vfbs_[i]->z_stride != 0 && MaskedEqual(fb_address, vfbs_[i]->z_address)) {
 				// If it's clearing it, most likely it just needs more video memory.
 				// Technically it could write something interesting and the other might not clear, but that's not likely.
 				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (MaskedEqual(z_address, vfbs_[i]->fb_address)) {
+			} else if (z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->fb_address)) {
 				// If it's clearing it, then it's probably just the reverse of the above case.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
+			} else if (vfbs_[i]->z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
@@ -1036,7 +1036,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (currentRenderVfb_) {
-			BindFramebufferDepth(currentRenderVfb_, vfb);
+			BlitFramebufferDepth(currentRenderVfb_, vfb);
 		}
 		currentRenderVfb_ = vfb;
 	} else {
@@ -1067,7 +1067,7 @@ void FramebufferManager::SetLineWidth() {
 #endif
 }
 
-void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
+void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
 	if (!sourceframebuffer->fbo || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
@@ -1079,9 +1079,11 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	}
 
 	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
+		sourceframebuffer->z_stride != 0 &&
+		targetframebuffer->z_stride != 0 &&
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
 		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
-		
+
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 			bool useNV = false;
