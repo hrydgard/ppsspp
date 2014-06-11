@@ -59,7 +59,7 @@ win32 {
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
 
-macx:linux {
+macx|linux {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
