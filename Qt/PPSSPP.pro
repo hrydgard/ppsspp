@@ -58,8 +58,8 @@ win32 {
 	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files($$P/dx9sdk/Lib/x64/*.lib)
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
 }
-linux:!android {
-	LIBS += -ldl -lrt -lz
+
+macx:linux {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
@@ -67,8 +67,13 @@ linux:!android {
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl
+		macx {
+			LIBS += -liconv -F/Library/Frameworks -framework SDL
+			INCLUDEPATH += /Library/Frameworks/SDL.framework/Versions/A/Headers
+		}
 	}
 }
+linux:!android: LIBS += -ldl -lrt -lz
 macx: LIBS += -liconv
 qnx: LIBS += -lscreen
 symbian: LIBS += -lremconcoreapi -lremconinterfacebase
