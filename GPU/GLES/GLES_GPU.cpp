@@ -409,6 +409,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
+	framebufferManager_.SetTransformDrawEngine(&transformDraw_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
@@ -603,10 +604,12 @@ void GLES_GPU::CopyDisplayToOutput() {
 }
 
 void GLES_GPU::CopyDisplayToOutputInternal() {
+	// Flush anything left over.
+	framebufferManager_.SetRenderFrameBuffer();
+	transformDraw_.Flush();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-	transformDraw_.Flush();
 
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();

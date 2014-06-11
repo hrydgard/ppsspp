@@ -39,6 +39,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/ShaderManager.h"
 
 #include "UI/OnScreenDisplay.h"
@@ -1963,6 +1964,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
+				FlushBeforeCopy();
 				fbo_unbind();
 				currentRenderVfb_ = 0;
 
@@ -2047,6 +2049,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
+			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
 			if (useBufferedRendering_ && dstBuffer->fbo) {
 				fbo_bind_as_render_target(dstBuffer->fbo);
@@ -2080,6 +2083,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 				h = srcBuffer->height;
 			}
 			if (h > 0) {
+				FlushBeforeCopy();
 				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, h);
 			}
 		}
@@ -2176,6 +2180,13 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 	}
 }
 
+void FramebufferManager::FlushBeforeCopy() {
+	// Flush anything not yet drawn before blitting, downloading, or uploading.
+	// This might be a stalled list, or unflushed before a block transfer, etc.
+	SetRenderFrameBuffer();
+	transformDraw_->Flush();
+}
+
 bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
 	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
@@ -2199,6 +2210,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			if (srcX != dstX || srcY != dstY) {
 				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 				if (g_Config.bBlockTransferGPU) {
+					FlushBeforeCopy();
 					FBO *tempFBO = GetTempFBO(dstBuffer->renderWidth, dstBuffer->renderHeight, dstBuffer->colorDepth);
 					VirtualFramebuffer tempBuffer = *dstBuffer;
 					tempBuffer.fbo = tempFBO;
@@ -2217,6 +2229,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
+				FlushBeforeCopy();
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
 				return true;  // No need to actually do the memory copy behind, probably.
@@ -2231,6 +2244,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
 			int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			float srcXFactor = (float)bpp / srcBpp;
+			FlushBeforeCopy();
 			ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
 		}
 		return false;  // Let the bit copy happen
@@ -2250,6 +2264,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272 && !useBufferedRendering_) {
+		FlushBeforeCopy();
 		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
@@ -2269,6 +2284,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
+				FlushBeforeCopy();
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				if (useBufferedRendering_ && dstBuffer->fbo) {
 					fbo_bind_as_render_target(dstBuffer->fbo);

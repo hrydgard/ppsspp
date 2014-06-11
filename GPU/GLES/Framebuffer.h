@@ -33,6 +33,8 @@
 
 struct GLSLProgram;
 class TextureCache;
+class TransformDrawEngine;
+class ShaderManager;
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -110,8 +112,6 @@ struct AsyncPBO {
 
 #endif
 
-class ShaderManager;
-
 class FramebufferManager {
 public:
 	FramebufferManager();
@@ -122,6 +122,9 @@ public:
 	}
 	void SetShaderManager(ShaderManager *sm) {
 		shaderManager_ = sm;
+	}
+	void SetTransformDrawEngine(TransformDrawEngine *td) {
+		transformDraw_ = td;
 	}
 
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -232,6 +235,7 @@ public:
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
+	void FlushBeforeCopy();
 
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
@@ -280,6 +284,7 @@ private:
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
+	TransformDrawEngine *transformDraw_;
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
 
