@@ -39,6 +39,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/ShaderManager.h"
 
 #include "UI/OnScreenDisplay.h"
@@ -960,18 +961,18 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
-			if (MaskedEqual(fb_address, vfbs_[i]->z_address)) {
+			if (vfbs_[i]->z_stride != 0 && MaskedEqual(fb_address, vfbs_[i]->z_address)) {
 				// If it's clearing it, most likely it just needs more video memory.
 				// Technically it could write something interesting and the other might not clear, but that's not likely.
 				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (MaskedEqual(z_address, vfbs_[i]->fb_address)) {
+			} else if (z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->fb_address)) {
 				// If it's clearing it, then it's probably just the reverse of the above case.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
+			} else if (vfbs_[i]->z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
@@ -1035,7 +1036,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (currentRenderVfb_) {
-			BindFramebufferDepth(currentRenderVfb_, vfb);
+			BlitFramebufferDepth(currentRenderVfb_, vfb);
 		}
 		currentRenderVfb_ = vfb;
 	} else {
@@ -1066,7 +1067,7 @@ void FramebufferManager::SetLineWidth() {
 #endif
 }
 
-void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
+void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
 	if (!sourceframebuffer->fbo || !targetframebuffer->fbo || !useBufferedRendering_) {
 		return;
 	}
@@ -1078,9 +1079,11 @@ void FramebufferManager::BindFramebufferDepth(VirtualFramebuffer *sourceframebuf
 	}
 
 	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
+		sourceframebuffer->z_stride != 0 &&
+		targetframebuffer->z_stride != 0 &&
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
 		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
-		
+
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
 			bool useNV = false;
@@ -1438,8 +1441,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		}
 #endif
 
-		// Null out currentRenderVfb_ so it gets set again properly.
-		currentRenderVfb_ = NULL;
+		RebindFramebuffer();
 	}
 }
 
@@ -1963,8 +1965,8 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
+				FlushBeforeCopy();
 				fbo_unbind();
-				currentRenderVfb_ = 0;
 
 				vfb->dirtyAfterDisplay = true;
 				vfb->reallyDirtyAfterDisplay = true;
@@ -1989,8 +1991,10 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 			}
 		}
 
-		if (needUnbind)
+		if (needUnbind) {
 			fbo_unbind();
+		}
+		RebindFramebuffer();
 	}
 }
 
@@ -2047,6 +2051,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
+			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
 			if (useBufferedRendering_ && dstBuffer->fbo) {
 				fbo_bind_as_render_target(dstBuffer->fbo);
@@ -2080,6 +2085,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 				h = srcBuffer->height;
 			}
 			if (h > 0) {
+				FlushBeforeCopy();
 				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, h);
 			}
 		}
@@ -2176,6 +2182,13 @@ void FramebufferManager::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer
 	}
 }
 
+void FramebufferManager::FlushBeforeCopy() {
+	// Flush anything not yet drawn before blitting, downloading, or uploading.
+	// This might be a stalled list, or unflushed before a block transfer, etc.
+	SetRenderFrameBuffer();
+	transformDraw_->Flush();
+}
+
 bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
 	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
@@ -2199,6 +2212,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			if (srcX != dstX || srcY != dstY) {
 				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 				if (g_Config.bBlockTransferGPU) {
+					FlushBeforeCopy();
 					FBO *tempFBO = GetTempFBO(dstBuffer->renderWidth, dstBuffer->renderHeight, dstBuffer->colorDepth);
 					VirtualFramebuffer tempBuffer = *dstBuffer;
 					tempBuffer.fbo = tempFBO;
@@ -2217,6 +2231,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			WARN_LOG_ONCE(dstnotsrc, G3D, "Inter-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
+				FlushBeforeCopy();
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
 				return true;  // No need to actually do the memory copy behind, probably.
@@ -2231,6 +2246,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
 			int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			float srcXFactor = (float)bpp / srcBpp;
+			FlushBeforeCopy();
 			ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
 		}
 		return false;  // Let the bit copy happen
@@ -2250,6 +2266,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272 && !useBufferedRendering_) {
+		FlushBeforeCopy();
 		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
@@ -2269,6 +2286,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 		if (dstBuffer && !srcBuffer) {
 			WARN_LOG_ONCE(btu, G3D, "Block transfer upload %08x -> %08x", srcBasePtr, dstBasePtr);
 			if (g_Config.bBlockTransferGPU) {
+				FlushBeforeCopy();
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				if (useBufferedRendering_ && dstBuffer->fbo) {
 					fbo_bind_as_render_target(dstBuffer->fbo);
