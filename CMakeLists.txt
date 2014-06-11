@@ -201,7 +201,7 @@ if(NOT MSVC)
 	if(BLACKBERRY)
 		add_definitions(-D_QNX_SOURCE)
 		if(ARM)
-			add_definitions(-DARMV7 -O3 -mfpu=neon -mcpu=cortex-a9)
+			add_definitions(-O3 -march=armv7-a -mfpu=neon -mcpu=cortex-a9)
 		endif()
 	endif()
 
@@ -215,7 +215,6 @@ if(NOT MSVC)
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
 		set(CMAKE_OSX_ARCHITECTURES "armv7")
-		add_definitions(-DARMV7)
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.

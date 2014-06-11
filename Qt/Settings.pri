@@ -42,7 +42,6 @@ macx|contains(QT_ARCH, windows)|count(xarch, 1) {
 }
 arm:!symbian {
 	CONFIG += armv7
-	DEFINES += ARMEABI_V7A ARMV7
 	QMAKE_CFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
 	QMAKE_CXXFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
 }
