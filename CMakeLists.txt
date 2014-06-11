@@ -1,6 +1,7 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
+enable_language(ASM)
 
 add_definitions(-DPPSSPP)
 
@@ -9,10 +10,6 @@ if(ANDROID)
 		set(ARM ON)
 		set(USE_FFMPEG ON)
 	endif()
-endif()
-
-if(BLACKBERRY)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
 endif()
 
 if (IOS OR BLACKBERRY)
@@ -27,6 +24,7 @@ endif()
 
 if (MAEMO)
 	set(ARM ON)
+	set(ARMEABI_V7A ON)
 	#Maemo's gcc-4.7.2 is strict
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 endif()
@@ -49,7 +47,7 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
+	add_definitions(-D__STDC_CONSTANT_MACROS)
 	if (NOT MOBILE_DEVICE)
 		set(USE_FFMPEG ON)
 	endif()
@@ -62,11 +60,9 @@ endif()
 
 if (NOT ARM AND NOT MIPS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_X64")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_X64")
+		add_definitions(-D_M_X64)
 	else()
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_IX86")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_IX86")
+		add_definitions(-D_M_IX86)
 	endif()
 endif()
 
@@ -176,33 +172,21 @@ if(MOBILE_DEVICE)
 	add_definitions(-DMOBILE_DEVICE)
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
-
 if(NOT MSVC)
+	set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG} "-g -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_MINSIZEREL ${CMAKE_CXX_FLAGS_MINSIZEREL} "-Os -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} "-O3 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} "-O2 -g -D_NDEBUG")
+	set(CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} "-g -D_DEBUG")
+	set(CMAKE_C_FLAGS_MINSIZEREL ${CMAKE_C_FLAGS_MINSIZEREL} "-Os -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE} "-O3 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO} "-O2 -g -D_NDEBUG")
+
 	# Disable some warnings
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
-	endif()
-	if(NOT APPLE)
-		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
-			add_definitions(-Wno-psabi)
-		endif()
-		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
-		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
-	endif()
-	if(IOS)
-		add_definitions(-DGL_ETC1_RGB8_OES=0)
-	endif()
-
-	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE)
-		if(ARM)
-			add_definitions(-O3 -march=armv7-a -mfpu=neon -mcpu=cortex-a9)
-		endif()
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -211,6 +195,7 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
+		add_definitions(-DGL_ETC1_RGB8_OES=0)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
@@ -220,15 +205,19 @@ if(NOT MSVC)
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
 		# vit9696: OSX 10.6 builds are possible: http://forums.ppsspp.org/showthread.php?tid=1826&pid=18875#pid18875
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
-	endif()
-	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 	else()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+			add_definitions(-Wno-psabi)
+		endif()
+		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
+		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -529,6 +518,16 @@ add_library(cityhash STATIC
 	native/ext/cityhash/citycrc.h
 )
 include_directories(ext/cityhash)
+
+if (NOT MSVC)
+	# These can be fast even for debug.
+	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT ZLIB_FOUND)
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
+endif()
+
 
 add_library(libzip STATIC
 	native/ext/libzip/zip.h
@@ -872,9 +871,7 @@ add_library(native STATIC
 	native/ext/jpge/jpge.h)
 include_directories(native)
 
-if(APPLE OR BLACKBERRY)
-	SET(RT_LIB)
-else()
+if (LINUX)
 	SET(RT_LIB rt)
 endif()
 
@@ -955,11 +952,6 @@ elseif(X86)
 		GPU/GLES/VertexDecoderX86.cpp
 		GPU/GLES/VertexDecoder.h
 		ext/disarm.cpp)
-endif()
-
-# Core needs to be linked with dl on these platforms
-if(LINUX)
-  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
@@ -1220,7 +1212,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
-	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES})
+	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
@@ -1445,26 +1437,6 @@ endif()
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
 file(INSTALL flash0 lang DESTINATION assets)
-
-# Fix CMake some Xcode settings.
-if(APPLE)
-	# Fix CMake breaking optimization settings.
-	set(CMAKE_CXX_FLAGS_DEBUG "-g -D_DEBUG")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
-	set(CMAKE_C_FLAGS_DEBUG "-g -D_DEBUG")
-	set(CMAKE_C_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "-O3 -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
-
-	# These can be fast even for debug.
-	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	if(NOT ZLIB_FOUND)
-		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
-	endif()
-endif()
 
 if(APPLE AND NOT IOS)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -F /Library/Frameworks")

@@ -9,8 +9,13 @@ if (SIMULATOR)
 else()
 	set (CMAKE_SYSTEM_PROCESSOR armv7)
 	set (CMAKE_LIBRARY_PATH $ENV{QNX_TARGET}/armle-v7 $ENV{QNX_TARGET}/armle-v7/usr)
+	# There are no Blackberry 10 devices with lower specs
+	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 endif()
 set (UNIX True)
+set (CMAKE_DL_LIBS)
 
 set (CMAKE_FIND_ROOT_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_LIBRARY_PATH} CACHE string  "Blackberry find search path root")
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
@@ -31,3 +36,4 @@ set (CMAKE_CROSSCOMPILING TRUE)
 set (CMAKE_C_COMPILER_WORKS TRUE)
 set (CMAKE_CXX_COMPILER_WORKS TRUE)
 
+add_definitions(-D_QNX_SOURCE -D__STDC_CONSTANT_MACROS)
