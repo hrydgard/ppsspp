@@ -605,7 +605,7 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 void GLES_GPU::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
-	framebufferManager_.SetRenderFrameBuffer();
+	framebufferManager_.RebindFramebuffer();
 	transformDraw_.Flush();
 
 	glstate.depthWrite.set(GL_TRUE);

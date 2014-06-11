@@ -1441,8 +1441,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		}
 #endif
 
-		// Null out currentRenderVfb_ so it gets set again properly.
-		currentRenderVfb_ = NULL;
+		RebindFramebuffer();
 	}
 }
 
@@ -1968,7 +1967,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				FlushBeforeCopy();
 				fbo_unbind();
-				currentRenderVfb_ = 0;
 
 				vfb->dirtyAfterDisplay = true;
 				vfb->reallyDirtyAfterDisplay = true;
@@ -1993,8 +1991,10 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 			}
 		}
 
-		if (needUnbind)
+		if (needUnbind) {
 			fbo_unbind();
+		}
+		RebindFramebuffer();
 	}
 }
 
