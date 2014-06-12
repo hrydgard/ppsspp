@@ -420,6 +420,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// Stencil takes alpha.
 		glClearStencil(clearColor >> 24);
 		glClear(target);
+		framebufferManager_->SetColorUpdated();
 		return;
 	}
 

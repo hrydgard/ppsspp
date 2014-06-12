@@ -760,6 +760,7 @@ rotateVBO:
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
+	framebufferManager_->SetColorUpdated();
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
