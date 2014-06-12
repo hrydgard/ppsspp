@@ -245,8 +245,8 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-				// If it already has one, let's hope that one is correct.
-				AttachFramebufferInvalid(entry, framebuffer, fbInfo);
+				// Let's avoid rendering when we know the format is wrong.  May be a video/etc. updating memory.
+				DetachFramebuffer(entry, address, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer, fbInfo);
 			}
@@ -313,10 +313,15 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 
 	// Must be in VRAM so | 0x04000000 it is.
 	const u32 addr = (address | 0x04000000) & 0x0FFFFFFF;
+	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+	u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET * bpp) << 32);
+	if (addr >= 0x04000000 && addr < 0x04110000) {
+		// This range usually is dominated by framebuffers.  Assume the entire height is up for grabs.
+		cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
+	}
 
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
