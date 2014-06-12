@@ -22,6 +22,7 @@
 #include "native/thread/threadutil.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -725,6 +726,7 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
+			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
@@ -854,6 +856,8 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		}
+
+		CBreakPoints::ExecMemCheck(data_addr, false, size, currentMIPS->pc);
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {
