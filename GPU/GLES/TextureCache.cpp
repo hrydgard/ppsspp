@@ -53,6 +53,9 @@
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT 15
 
+// Assume a framebuffer format is garbage after this many flips.
+#define TEXCACHE_RENDERTEX_OLD_AGE 6
+
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
 #ifndef GL_UNPACK_ROW_LENGTH
@@ -244,9 +247,14 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-				// If it already has one, let's hope that one is correct.
-				AttachFramebufferInvalid(entry, framebuffer, fbInfo);
+				if (framebuffer->last_frame_render + TEXCACHE_RENDERTEX_OLD_AGE < gpuStats.numFlips) {
+					WARN_LOG_REPORT_ONCE(diffFormat3, G3D, "Render to texture with different formats %d != %d, no recent render", entry->format, framebuffer->format);
+					DetachFramebuffer(entry, address, framebuffer);
+				} else {
+					WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+					// If it already has one, let's hope that one is correct.
+					AttachFramebufferInvalid(entry, framebuffer, fbInfo);
+				}
 			} else {
 				AttachFramebufferValid(entry, framebuffer, fbInfo);
 			}
