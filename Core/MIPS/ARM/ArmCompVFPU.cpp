@@ -1832,26 +1832,25 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	static float sincostemp[2];
-
-	void SinCos(float angle) {
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
 #endif
-		angle *= (float)M_PI_2;
-		sincostemp[0] = sinf(angle);
-		sincostemp[1] = cosf(angle);
-	}
-
 	// sincosf is unavailable in the Android NDK:
 	// https://code.google.com/p/android/issues/detail?id=38423
-	void SinCosNegSin(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
+	double SinCos(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
 		angle *= (float)M_PI_2;
-		sincostemp[0] = -sinf(angle);
-		sincostemp[1] = cosf(angle);
+		sincos.sin = sinf(angle);
+		sincos.cos = cosf(angle);
+		return sincos.out;
+	}
+
+	double SinCosNegSin(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
+		angle *= (float)M_PI_2;
+		sincos.sin = -sinf(angle);
+		sincos.cos = cosf(angle);
+		return sincos.out;
 	}
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
@@ -1884,13 +1883,18 @@ namespace MIPSComp
 		bool negSin = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
-		// Silly Android calling conventions, not passing arguments in float regs! (no hardfloat!)
 		// We should write a custom pure-asm function instead.
+#if defined(__ARM_PCS_VFP) // Hardfp
+		VMOV(S0, fpr.V(sreg));
+#else                      // Softfp
 		VMOV(R0, fpr.V(sreg));
+#endif
 		// FlushBeforeCall saves R1.
 		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
-		gpr.SetRegImm(R0, (u32)(&sincostemp[0]));
-		VLDMIA(R0, false, S0, 2);
+#if !defined(__ARM_PCS_VFP)
+		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
+		VMOV(D0, R0, R1);
+#endif
 
 		char what[4] = {'0', '0', '0', '0'};
 		if (((imm >> 2) & 3) == (imm & 3)) {
