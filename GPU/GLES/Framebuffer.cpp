@@ -997,7 +997,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
-		vfb->memoryUpdated = false;
 
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
@@ -1029,7 +1028,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_render != gpuStats.numFlips)	{
+		if (vfb->last_frame_render != gpuStats.numFlips) {
 			ClearBuffer();
 		}
 #endif
@@ -1983,6 +1982,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 						fmt = displayFormat_;
 					}
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
+					vfb->memoryUpdated = false;
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
@@ -2069,6 +2069,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			}
 			glstate.viewport.restore();
 			textureCache_->ForgetLastTexture();
+			dstBuffer->memoryUpdated = false;
 			// This is a memcpy, let's still copy just in case.
 			return false;
 		}
@@ -2219,6 +2220,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					RebindFramebuffer();
+					dstBuffer->memoryUpdated = false;
 					return true;
 				}
 			} else {
@@ -2234,6 +2236,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 				FlushBeforeCopy();
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
+				dstBuffer->memoryUpdated = false;
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
@@ -2243,10 +2246,10 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		return false;
 	} else if (srcBuffer) {
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
-		if (g_Config.bBlockTransferGPU && (srcBuffer == currentRenderVfb_ || !srcBuffer->memoryUpdated)) {
+		FlushBeforeCopy();
+		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			float srcXFactor = (float)bpp / srcBpp;
-			FlushBeforeCopy();
 			ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
 		}
 		return false;  // Let the bit copy happen
@@ -2305,6 +2308,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				}
 				glstate.viewport.restore();
 				textureCache_->ForgetLastTexture();
+				dstBuffer->memoryUpdated = false;
 			}
 		}
 	}

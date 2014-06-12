@@ -206,6 +206,11 @@ public:
 			currentRenderVfb_->depthUpdated = true;
 		}
 	}
+	void SetColorUpdated() {
+		if (currentRenderVfb_) {
+			currentRenderVfb_->memoryUpdated = false;
+		}
+	}
 
 	bool MayIntersectFramebuffer(u32 start) {
 		// Clear the cache/kernel bits.
