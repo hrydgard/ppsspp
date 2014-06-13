@@ -773,8 +773,9 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
 
-	if (texelsScaledThisFrame_)
-		INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+	if (texelsScaledThisFrame_) {
+		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+	}
 	texelsScaledThisFrame_ = 0;
 	if (clearCacheNextFrame_) {
 		Clear(true);
@@ -1239,7 +1240,7 @@ void TextureCache::SetTexture(bool force) {
 		}
 
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
+			// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
 			match = false;
 		}
@@ -1421,7 +1422,7 @@ void TextureCache::SetTexture(bool force) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
-			INFO_LOG(G3D, "Skipped scaling for now..");
+			// INFO_LOG(G3D, "Skipped scaling for now..");
 		} else {
 			texelsScaledThisFrame_ += w * h;
 		}
