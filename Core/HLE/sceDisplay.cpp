@@ -838,6 +838,7 @@ u32 sceDisplayWaitVblank() {
 	} else {
 		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblank() - not waiting since in vBlank");
 		hleEatCycles(1110);
+		hleReSchedule("vblank wait skipped");
 		return 1;
 	}
 }
@@ -866,6 +867,7 @@ u32 sceDisplayWaitVblankCB() {
 	} else {
 		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB() - not waiting since in vBlank");
 		hleEatCycles(1110);
+		hleReSchedule("vblank wait skipped");
 		return 1;
 	}
 }

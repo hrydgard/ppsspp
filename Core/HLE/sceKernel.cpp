@@ -381,6 +381,7 @@ int sceKernelDcacheWritebackAll()
 	// to zap the whole texture cache.
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
 	hleEatCycles(3524);
+	hleReSchedule("dcache writeback all");
 	return 0;
 }
 
@@ -419,6 +420,7 @@ int sceKernelDcacheWritebackInvalidateAll()
 #endif
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
 	hleEatCycles(1165);
+	hleReSchedule("dcache invalidate all");
 	return 0;
 }
 
