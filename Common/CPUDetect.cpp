@@ -45,7 +45,7 @@
 #include <machine/cpufunc.h>
 #elif !defined(MIPS)
 
-void __cpuidex(int regs[4], int cpuid_leaf, int ecxval) {
+void __cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #ifdef ANDROID
 	// Use the /dev/cpu/%i/cpuid interface
 	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
