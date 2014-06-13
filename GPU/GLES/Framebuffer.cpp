@@ -37,6 +37,7 @@
 
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
@@ -1139,6 +1140,9 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
+	if (GPUStepping::IsStepping()) {
+		skipCopy = true;
+	}
 	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->colorDepth);
