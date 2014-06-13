@@ -135,6 +135,10 @@ bool EnterStepping(std::function<void()> callback) {
 	return true;
 }
 
+bool IsStepping() {
+	return isStepping;
+}
+
 static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPUDebugBuffer &resultBuffer) {
 	if (!isStepping) {
 		return false;

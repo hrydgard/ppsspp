@@ -26,6 +26,7 @@ namespace GPUStepping {
 	// Begins stepping and calls callback while inside a lock preparing stepping.
 	// This would be a good place to deliver a message to code that stepping is ready.
 	bool EnterStepping(std::function<void()> callback);
+	bool IsStepping();
 
 	bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentDepthbuffer(const GPUDebugBuffer *&buffer);

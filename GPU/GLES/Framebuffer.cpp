@@ -37,6 +37,7 @@
 
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
@@ -1139,6 +1140,9 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
+	if (GPUStepping::IsStepping()) {
+		skipCopy = true;
+	}
 	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->colorDepth);
@@ -1999,7 +2003,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 }
 
 bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset) {
-	if (updateVRAM_) {
+	if (updateVRAM_ || size == 0) {
 		return false;
 	}
 
@@ -2015,15 +2019,41 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
+	dst &= 0x3FFFFFFF;
+	src &= 0x3FFFFFFF;
+
 	VirtualFramebuffer *dstBuffer = 0;
 	VirtualFramebuffer *srcBuffer = 0;
+	u32 dstY = (u32)-1;
+	u32 dstH = 0;
+	u32 srcY = (u32)-1;
+	u32 srcH = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, dst)) {
-			dstBuffer = vfb;
+		const u32 vfb_address = (0x04000000 | vfb->fb_address) & 0x3FFFFFFF;
+		const u32 vfb_size = FramebufferByteSize(vfb);
+		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
+		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
+		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
+
+		if (dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
+			const u32 offset = dst - vfb_address;
+			const u32 yOffset = offset / vfb_byteStride;
+			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < dstY) {
+				dstBuffer = vfb;
+				dstY = yOffset;
+				dstH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+			}
 		}
-		if (MaskedEqual(vfb->fb_address, src)) {
-			srcBuffer = vfb;
+
+		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
+			const u32 offset = src - vfb_address;
+			const u32 yOffset = offset / vfb_byteStride;
+			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < srcY) {
+				srcBuffer = vfb;
+				srcY = yOffset;
+				srcH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+			}
 		}
 	}
 
@@ -2046,8 +2076,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
 			// }
 		}
-		Memory::Memcpy(dst, Memory::GetPointer(src), size);
-		return true;
+		return false;
 	} else if (dstBuffer) {
 		WARN_LOG_REPORT_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
@@ -2057,8 +2086,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 				fbo_bind_as_render_target(dstBuffer->fbo);
 			}
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
-			// TODO: Validate x/y/w/h based on size and offset?
-			DrawPixels(dstBuffer, 0, 0, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
+			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
 			dstBuffer->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				dstBuffer->reallyDirtyAfterDisplay = true;
@@ -2077,17 +2105,9 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 	} else if (srcBuffer) {
 		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
 		if (g_Config.bBlockTransferGPU) {
-			// TODO: Support memcpy from offset within framebuffer?  Seems dangerous.
-			// Maybe at least if x offset is 0, in case a game manually copies or memsets by stride.
-			const u32 srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
-			int h = size / (srcBuffer->fb_stride * srcBpp);
-			if (h > srcBuffer->height) {
-				WARN_LOG_REPORT_ONCE(btdcpybig, G3D, "Memcpy fbo download too large at %08x size=%08x height=%d", src, size, srcBuffer->height);
-				h = srcBuffer->height;
-			}
-			if (h > 0) {
+			if (srcH > 0) {
 				FlushBeforeCopy();
-				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, h);
+				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcH);
 			}
 		}
 		return false;

@@ -61,6 +61,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/GPU/GLES/VertexDecoder.cpp \
 	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
+	$$P/GPU/Debugger/*.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
@@ -88,6 +89,7 @@ HEADERS += $$P/Core/*.h \
 	$$P/Core/Util/*.h \
 	$$P/GPU/GLES/*.h \
 	$$P/GPU/Software/*.h \
+	$$P/GPU/Debugger/*.h \
 	$$P/GPU/Common/*.h \
 	$$P/GPU/*.h \
 	$$P/ext/libkirk/*.h \
