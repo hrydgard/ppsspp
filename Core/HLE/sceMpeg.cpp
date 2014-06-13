@@ -1352,6 +1352,8 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	}
 
 	hleEatCycles(2020);
+	hleReSchedule("mpeg ringbuffer avail");
+
 	static int lastFree = 0;
 	if (lastFree != ringbuffer->packetsFree) {
 		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
