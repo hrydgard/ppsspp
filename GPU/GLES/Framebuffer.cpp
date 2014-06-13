@@ -2036,21 +2036,21 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
 
-		if (dst >= vfb_address && dst + size <= vfb_address + vfb_size) {
+		if (dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
 			const u32 offset = dst - vfb_address;
 			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
 				dstBuffer = vfb;
 				dstY = offset / vfb_byteStride;
-				dstH = size == vfb_byteWidth ? 1 : size / vfb_byteStride;
+				dstH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
 			}
 		}
 
-		if (src >= vfb_address && src + size <= vfb_address + vfb_size) {
+		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
 			const u32 offset = src - vfb_address;
 			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
 				srcBuffer = vfb;
 				srcY = offset / vfb_byteStride;
-				srcH = size == vfb_byteWidth ? 1 : size / vfb_byteStride;
+				srcH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
 			}
 		}
 	}
