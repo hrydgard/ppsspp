@@ -369,9 +369,6 @@ handleELF:
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 					}
 					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
-				} else {
-					// Fall back to the filename for title if ISO is broken
-					info_->title = gamePath_;
 				}
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
@@ -389,7 +386,6 @@ handleELF:
 			}
 
 			case FILETYPE_ARCHIVE_ZIP:
-				info_->title = getFilename(filename);
 				info_->paramSFOLoaded = true;
 				info_->wantBG = false;
 				{
@@ -405,7 +401,6 @@ handleELF:
 				break;
 
 			case FILETYPE_ARCHIVE_RAR:
-				info_->title = getFilename(filename);
 				info_->paramSFOLoaded = true;
 				info_->wantBG = false;
 				{
@@ -422,7 +417,6 @@ handleELF:
 
 			case FILETYPE_NORMAL_DIRECTORY:
 			default:
-				info_->title = getFilename(gamePath_);
 				info_->paramSFOLoaded = true;
 				info_->wantBG = false;
 				break;
