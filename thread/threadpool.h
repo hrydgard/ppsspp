@@ -60,7 +60,7 @@ public:
 	void ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper);
 
 private:
-	const int numThreads;
+	int numThreads_;
 	std::vector<std::shared_ptr<LoopWorkerThread>> workers;
 	::recursive_mutex mutex; // used to sequentialize loop execution
 

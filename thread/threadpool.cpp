@@ -1,3 +1,4 @@
+#include "base/logging.h"
 #include "threadpool.h"
 
 ///////////////////////////// WorkerThread
@@ -73,12 +74,21 @@ void LoopWorkerThread::WorkFunc() {
 
 ///////////////////////////// ThreadPool
 
-ThreadPool::ThreadPool(int numThreads) : numThreads(numThreads), workersStarted(false) {
+ThreadPool::ThreadPool(int numThreads) : workersStarted(false) {
+	if (numThreads <= 0) {
+		numThreads_ = 1;
+		ILOG("ThreadPool: Bad number of threads %i", numThreads);
+	} else if (numThreads > 8) {
+		ILOG("ThreadPool: Capping number of threads to 8 (was %i)", numThreads);
+		numThreads_ = 8;
+	} else {
+		numThreads_ = numThreads;
+	}
 }
 
 void ThreadPool::StartWorkers() {
-	if(!workersStarted) {
-		for(int i=0; i<numThreads; ++i) {
+	if (!workersStarted) {
+		for(int i = 0; i < numThreads_; ++i) {
 			workers.push_back(std::make_shared<LoopWorkerThread>());
 		}
 		workersStarted = true;
@@ -87,21 +97,21 @@ void ThreadPool::StartWorkers() {
 
 void ThreadPool::ParallelLoop(const std::function<void(int,int)> &loop, int lower, int upper) {
 	int range = upper - lower;
-	if (range >= numThreads * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
+	if (range >= numThreads_ * 2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
 		lock_guard guard(mutex);
 		StartWorkers();
 
 		// could do slightly better load balancing for the generic case, 
 		// but doesn't matter since all our loops are power of 2
-		int chunk = range / numThreads;
+		int chunk = range / numThreads_;
 		int s = lower;
-		for (int i = 0; i < numThreads - 1; ++i) {
+		for (int i = 0; i < numThreads_ - 1; ++i) {
 			workers[i]->Process(loop, s, s+chunk);
 			s+=chunk;
 		}
 		// This is the final chunk.
 		loop(s, upper);
-		for (int i = 0; i < numThreads - 1; ++i) {
+		for (int i = 0; i < numThreads_ - 1; ++i) {
 			workers[i]->WaitForCompletion();
 		}
 	} else {
