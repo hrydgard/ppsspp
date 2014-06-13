@@ -115,7 +115,9 @@ public:
 			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 			STATUS_DEPALETTIZE = 0x40,
 			STATUS_DEPALETTIZE_DIRTY = 0x80,
-			STATUS_TEXPARAM_DIRTY = 0x100
+			STATUS_TEXPARAM_DIRTY = 0x100,
+
+			STATUS_TO_SCALE = 0x200,
 		};
 
 		// Status, but int so we can zero initialize.
@@ -227,6 +229,8 @@ private:
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	int texelsScaledThisFrame_;
+
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
 	ShaderManager *shaderManager_;
