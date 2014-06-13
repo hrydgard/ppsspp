@@ -1131,7 +1131,7 @@ void TextureCache::SetTexture(bool force) {
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
 #ifndef MOBILE_DEVICE
-		match &= host->GPUAllowTextureCache(texaddr);
+		match = match && host->GPUAllowTextureCache(texaddr);
 #endif
 
 		// Check for FBO - slow!
@@ -1181,7 +1181,7 @@ void TextureCache::SetTexture(bool force) {
 			}
 
 			// If it's not huge or has been invalidated many times, recheck the whole texture.
-			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
+			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && (dim >> 8) < 9 && (dim & 0xF) < 9)) {
 				entry->invalidHint = 0;
 				rehash = true;
 			}
@@ -1230,7 +1230,7 @@ void TextureCache::SetTexture(bool force) {
 								match = true;
 							}
 						} else {
-							secondKey = entry->fullhash | (u64)entry->cluthash << 32;
+							secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
 							secondCache[secondKey] = *entry;
 							doDelete = false;
 						}
