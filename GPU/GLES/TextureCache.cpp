@@ -1241,7 +1241,6 @@ void TextureCache::SetTexture(bool force) {
 
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
-			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
 			match = false;
 		}
 
@@ -1424,6 +1423,7 @@ void TextureCache::SetTexture(bool force) {
 			scaleFactor = 1;
 			// INFO_LOG(G3D, "Skipped scaling for now..");
 		} else {
+			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
