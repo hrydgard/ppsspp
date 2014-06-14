@@ -24,6 +24,10 @@
 #include "base/logging.h"
 #include "base/basictypes.h"
 
+#include "Common.h"
+#include "CPUDetect.h"
+#include "StringUtils.h"
+
 #ifdef _WIN32
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
 #define _interlockedbittestandreset workaround_ms_header_bug_platform_sdk6_reset
@@ -70,17 +74,13 @@ void __cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 		:"a" (cpuid_leaf), "c" (ecxval));
 #endif
 }
-void __cpuid(int regs[4], int cpuid_leaf)
+void __cpuid(u32 regs[4], u32 cpuid_leaf)
 {
 	__cpuidex(regs, cpuid_leaf, 0);
 }
 
 #endif
 #endif
-
-#include "Common.h"
-#include "CPUDetect.h"
-#include "StringUtils.h"
 
 CPUInfo cpu_info;
 
