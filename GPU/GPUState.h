@@ -475,6 +475,9 @@ struct GPUStateCache
 	u32 curRTWidth;
 	u32 curRTHeight;
 
+	u32 curRTRenderWidth;
+	u32 curRTRenderHeight;
+
 	u32 getRelativeAddress(u32 data) const;
 	void DoState(PointerWrap &p);
 };

@@ -1053,6 +1053,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		gstate_c.curRTWidth = vfb->width;
 		gstate_c.curRTHeight = vfb->height;
 	}
+	gstate_c.curRTRenderWidth = vfb->renderWidth;
+	gstate_c.curRTRenderHeight = vfb->renderHeight;
 }
 
 void FramebufferManager::SetLineWidth() {

@@ -195,8 +195,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 			glActiveTexture(GL_TEXTURE1);
 			framebufferManager_->BindFramebufferColor(NULL);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glActiveTexture(GL_TEXTURE0);
 			fboTexBound_ = true;
+
+			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 		}
 		// None of the below logic is interesting, we're gonna do it entirely in the shader.
 		wantBlend = false;
@@ -204,6 +209,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glActiveTexture(GL_TEXTURE0);
+		fboTexBound_ = false;
 	}
 
 	glstate.blend.set(wantBlend);
