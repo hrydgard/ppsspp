@@ -186,7 +186,7 @@ private:
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
-	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 

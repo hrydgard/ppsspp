@@ -160,7 +160,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 		return;
 	}
 
-	addr &= 0x0FFFFFFF;
+	addr &= 0x3FFFFFFF;
 	const u32 addr_end = addr + size;
 
 	// They could invalidate inside the texture, let's just give a bit of leeway.
@@ -234,16 +234,24 @@ void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebu
 	}
 }
 
-void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
-	const u32 MIN_TEX_SUBAREA_HEIGHT = 8;
+bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
+	static const u32 MIN_SUBAREA_HEIGHT = 8;
+	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = {0};
+
+	const u64 mirrorMask = 0x00600000;
+	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
+	const u32 addr = (address | 0x04000000) & 0x3FFFFFFF & ~mirrorMask;
+	const u32 texaddr = ((entry->addr + texaddrOffset) & ~mirrorMask);
+	const bool noOffset = texaddr == addr;
+	const bool exactMatch = noOffset && entry->format < 4;
 
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		// Apply to non-buffered and buffered mode only.
 		if (!(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return;
+			return false;
 
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
@@ -256,30 +264,22 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 				DetachFramebuffer(entry, address, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer, fbInfo);
+				return true;
 			}
 		}
 	} else {
 		// Apply to buffered mode only.
 		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
-			return;
+			return false;
 
-		const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
-		const u64 mirrorMask = 0x00600000;
-		const bool noOffset = (entry->addr & ~mirrorMask) == addr;
 		const bool clutFormat =
 			(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
 			(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
 
-		const u32 bitOffset = ((entry->addr & ~mirrorMask) - addr) * 8;
+		const u32 bitOffset = (texaddr - addr) * 8;
 		const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
 		fbInfo.yOffset = pixelOffset / entry->bufw;
 		fbInfo.xOffset = pixelOffset % entry->bufw;
-
-		if (fbInfo.yOffset + MIN_TEX_SUBAREA_HEIGHT >= framebuffer->height) {
-			// Can't be inside the framebuffer then, ram.  Detach to be safe.
-			DetachFramebuffer(entry, address, framebuffer);
-			return;
-		}
 
 		if (framebuffer->fb_stride != entry->bufw) {
 			if (noOffset) {
@@ -287,13 +287,25 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			} else {
 				// Assume any render-to-tex with different bufw + offset is a render from ram.
 				DetachFramebuffer(entry, address, framebuffer);
-				return;
+				return false;
 			}
+		}
+
+		if (fbInfo.yOffset + MIN_SUBAREA_HEIGHT >= framebuffer->height) {
+			// Can't be inside the framebuffer then, ram.  Detach to be safe.
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
+		}
+		// Trying to play it safe.  Below 0x04110000 is almost always framebuffers.
+		// TODO: Maybe we can reduce this check and find a better way above 0x04110000?
+		if (fbInfo.yOffset > MAX_SUBAREA_Y_OFFSET_SAFE && addr > 0x04110000) {
+			WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible render to texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+			DetachFramebuffer(entry, address, framebuffer);
+			return false;
 		}
 
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
-		bool clutSuccess = false;
 		if (clutFormat) {
 			if (!noOffset) {
 				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Render to texture using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
@@ -301,28 +313,30 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			AttachFramebufferValid(entry, framebuffer, fbInfo);
 			fbTexInfo_[entry->addr] = fbInfo;
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
-			// We'll validate it later.
-			clutSuccess = true;
+			// We'll validate it compiles later.
+			return true;
 		} else if (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) {
 			ERROR_LOG_REPORT_ONCE(fourEightBit, G3D, "4 and 8-bit CLUT format not supported for framebuffers");
 		}
 
-		if (!clutSuccess) {
-			// This is either normal or we failed to generate a shader to depalettize
-			if (framebuffer->format == entry->format || clutFormat) {
-				if (framebuffer->format != entry->format) {
-					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-					AttachFramebufferValid(entry, framebuffer, fbInfo);
-				} else if (fbInfo.yOffset < framebuffer->height) {
-					WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-					// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-					AttachFramebufferInvalid(entry, framebuffer, fbInfo);
-				}
-			} else {
-				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
+		// This is either normal or we failed to generate a shader to depalettize
+		if (framebuffer->format == entry->format || clutFormat) {
+			if (framebuffer->format != entry->format) {
+				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+				AttachFramebufferValid(entry, framebuffer, fbInfo);
+				return true;
+			} else if (fbInfo.yOffset < framebuffer->height) {
+				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
+				AttachFramebufferInvalid(entry, framebuffer, fbInfo);
+				return true;
 			}
+		} else {
+			WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
 		}
 	}
+
+	return false;
 }
 
 inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
@@ -333,27 +347,18 @@ inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, V
 }
 
 void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
-	// This is a rough heuristic, because sometimes our framebuffers are too tall.
-	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
-
-	// Must be in VRAM so | 0x04000000 it is.
-	const u32 addr = (address | 0x04000000) & 0x0FFFFFFF;
+	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
+	// These checks are mainly to reduce scanning all textures.
+	const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
 	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET * bpp) << 32);
-	if (addr >= 0x04000000 && addr < 0x04110000) {
-		// This range usually is dominated by framebuffers.  Assume the entire height is up for grabs.
-		cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
-	} else if (framebuffer->height > MAX_SUBAREA_Y_OFFSET) {
-		const u64 cacheKeyRealEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
-		for (auto it = cache.lower_bound(cacheKeyEnd), end = cache.upper_bound(cacheKeyRealEnd); it != end; ++it) {
-			if (it->second.bufw == framebuffer->fb_stride) {
-				WARN_LOG_REPORT_ONCE(subareaIgnored, G3D, "Ignoring possible texture at offset %08x from %08x", it->second.addr, framebuffer->fb_address);
-			}
-		}
-	}
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
+
+	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
+	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
+	const u64 mirrorCacheKeyEnd = (u64)0x04800000 << 32;
 
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
@@ -363,13 +368,20 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 			fbCache_.push_back(framebuffer);
 		}
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, addr, framebuffer, it->first == cacheKey);
+			AttachFramebuffer(&it->second, addr, framebuffer);
+		}
+		// Let's assume anything in mirrors is fair game to check.
+		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
+			AttachFramebuffer(&it->second, addr, framebuffer);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
 		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			DetachFramebuffer(&it->second, addr, framebuffer);
+		}
+		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
 			DetachFramebuffer(&it->second, addr, framebuffer);
 		}
 		break;
@@ -1064,35 +1076,22 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 		return false;
 	}
 
-	u64 cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
+	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter == cache.end()) {
 		return false;
 	}
 	TexCacheEntry *entry = &iter->second;
 
-	texaddr += offset;
-	cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
-
+	bool success = false;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		// This is a rough heuristic, because sometimes our framebuffers are too tall.
-		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
-
-		// Must be in VRAM so | 0x04000000 it is, and ignore any uncached bit.
-		const u32 addr = (framebuffer->fb_address | 0x04000000) & 0x0FFFFFFF;
-		const u64 cacheKeyStart = (u64)addr << 32;
-		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
-		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
-
-		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
-			SetTextureFramebuffer(entry, framebuffer);
-			return true;
+		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
+			success = true;
 		}
 	}
 
-	return false;
+	return success;
 }
 
 void TextureCache::SetTexture(bool force) {
@@ -1128,7 +1127,7 @@ void TextureCache::SetTexture(bool force) {
 	bool hasClut = gstate.isTextureFormatIndexed();
 
 	// Ignore uncached/kernel when caching.
-	u64 cachekey = (u64)(texaddr & 0x0FFFFFFF) << 32;
+	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1310,7 +1309,7 @@ void TextureCache::SetTexture(bool force) {
 
 			// Also, mark any textures with the same address but different clut.  They need rechecking.
 			if (cluthash != 0) {
-				const u64 cachekeyMin = (u64)(texaddr & 0x0FFFFFFF) << 32;
+				const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
 				const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 				for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
 					if (it->second.cluthash != cluthash) {
@@ -1368,19 +1367,7 @@ void TextureCache::SetTexture(bool force) {
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		// This is a rough heuristic, because sometimes our framebuffers are too tall.
-		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
-
-		// Must be in VRAM so | 0x04000000 it is, and ignore any uncached bit.
-		const u32 addr = (framebuffer->fb_address | 0x04000000) & 0x0FFFFFFF;
-		const u64 cacheKeyStart = (u64)addr << 32;
-		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
-		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
-
-		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
-			AttachFramebuffer(entry, addr, framebuffer, cachekey == cacheKeyStart);
-		}
+		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
 	}
 
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
