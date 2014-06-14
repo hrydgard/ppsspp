@@ -51,7 +51,7 @@
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT 15
+#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
