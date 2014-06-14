@@ -706,7 +706,7 @@ void GenerateFragmentShader(char *buffer) {
 
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
+			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				if (alphaTestAgainstZero) {
 					// When testing against 0 (extremely common), we can avoid some math.
@@ -724,18 +724,24 @@ void GenerateFragmentShader(char *buffer) {
 				} else {
 					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				}
+			} else {
+				// NEVER has been logged as used by games, although it makes little sense - statically failing.
+				// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
+				WRITE(p, "  discard;\n");
 			}
 		}
 
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
-			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
+			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
 					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
 					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+			} else {
+				WRITE(p, "  discard;\n");
 			}
 		}
 
