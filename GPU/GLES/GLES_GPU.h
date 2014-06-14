@@ -128,8 +128,6 @@ public:
 	void Execute_AlphaTest(u32 op, u32 diff);
 	void Execute_StencilTest(u32 op, u32 diff);
 	void Execute_ColorRef(u32 op, u32 diff);
-	void Execute_BlendFixA(u32 op, u32 diff);
-	void Execute_BlendFixB(u32 op, u32 diff);
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);
 	void Execute_ViewMtxNum(u32 op, u32 diff);

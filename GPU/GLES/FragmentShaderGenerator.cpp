@@ -283,10 +283,6 @@ bool ShouldUseShaderBlending() {
 	if (!gstate.isAlphaBlendEnabled()) {
 		return false;
 	}
-	// We can't blit on GLES2, so we don't support it.  We also want texelFetch (OpenGL 3.0+ / GLES3+.)
-	if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
-		return false;
-	}
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		return false;
 	}
@@ -516,6 +512,9 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (!gstate.isModeClear() && ShouldUseShaderBlending()) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+			if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
+				WRITE(p, "uniform vec2 u_fbotexSize;\n");
+			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
 		}
 		if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA) {
@@ -760,6 +759,8 @@ void GenerateFragmentShader(char *buffer) {
 			// TODO: EXT_shader_framebuffer_fetch on iOS 6, possibly others.
 			if (gl_extensions.NV_shader_framebuffer_fetch) {
 				WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+			} else if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
+				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
 			} else {
 				WRITE(p, "  lowp vec4 destColor = texelFetch(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n");
 			}

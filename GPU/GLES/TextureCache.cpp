@@ -962,8 +962,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			glActiveTexture(GL_TEXTURE0);
 
 			framebufferManager_->BindFramebufferColor(framebuffer, true);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			entry->status |= TexCacheEntry::STATUS_TEXPARAM_DIRTY;
 
 			glDisable(GL_BLEND);

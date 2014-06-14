@@ -151,6 +151,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_fbotex = glGetUniformLocation(program, "fbotex");
 	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
 	u_blendFixB = glGetUniformLocation(program, "u_blendFixB");
+	u_fbotexSize = glGetUniformLocation(program, "u_fbotexSize");
 
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
@@ -225,7 +226,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
-	if (u_blendFixA != -1 || u_blendFixB != -1) availableUniforms |= DIRTY_BLENDFIX;
+	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 	for (int i = 0; i < numBones; i++) {
@@ -551,9 +552,17 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 #endif
 
-	if (dirty & DIRTY_BLENDFIX) {
+	if (dirty & DIRTY_SHADERBLEND) {
 		SetColorUniform3(u_blendFixA, gstate.getFixA());
 		SetColorUniform3(u_blendFixB, gstate.getFixB());
+
+		const float fbotexSize[2] = {
+			1.0f / (float)gstate_c.curRTRenderWidth,
+			1.0f / (float)gstate_c.curRTRenderHeight,
+		};
+		if (u_fbotexSize != -1) {
+			glUniform2fv(u_fbotexSize, 1, fbotexSize);
+		}
 	}
 
 	// Lighting

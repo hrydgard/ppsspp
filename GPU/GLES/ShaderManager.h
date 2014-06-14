@@ -77,6 +77,7 @@ public:
 	int u_fbotex;
 	int u_blendFixA;
 	int u_blendFixB;
+	int u_fbotexSize;
 
 	// Fragment processing inputs
 	int u_alphacolorref;
@@ -130,7 +131,7 @@ enum
 	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
 
-	DIRTY_BLENDFIX = (1 << 17),  // (either one.)
+	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 	DIRTY_TEXCLAMP = (1 << 19),
