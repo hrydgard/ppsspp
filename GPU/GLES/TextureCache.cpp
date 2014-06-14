@@ -1424,7 +1424,7 @@ void TextureCache::SetTexture(bool force) {
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
 
-	if (scaleFactor != 1) {
+	if (scaleFactor != 1 && (entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
