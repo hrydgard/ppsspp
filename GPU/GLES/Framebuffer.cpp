@@ -869,8 +869,14 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
 			v->format = fmt;
-			v->width = drawing_width;
-			v->height = drawing_height;
+			// In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
+			if (gstate.isModeThrough() && (int)v->width < fb_stride) {
+				v->width = std::max((int)v->width, drawing_width);
+				v->height = std::max((int)v->height, drawing_height);
+			} else {
+				v->width = drawing_width;
+				v->height = drawing_height;
+			}
 			break;
 		}
 	}
