@@ -321,7 +321,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	if (addr >= 0x04000000 && addr < 0x04110000) {
 		// This range usually is dominated by framebuffers.  Assume the entire height is up for grabs.
 		cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
-	} else {
+	} else if (framebuffer->height > MAX_SUBAREA_Y_OFFSET) {
 		const u64 cacheKeyRealEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
 		for (auto it = cache.lower_bound(cacheKeyEnd), end = cache.upper_bound(cacheKeyRealEnd); it != end; ++it) {
 			if (it->second.bufw == framebuffer->fb_stride) {
