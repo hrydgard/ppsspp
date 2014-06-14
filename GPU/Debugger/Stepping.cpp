@@ -118,6 +118,8 @@ bool EnterStepping(std::function<void()> callback) {
 		return false;
 	}
 
+	gpuDebug->NotifySteppingEnter();
+
 	// Just to be sure.
 	if (pauseAction == PAUSE_CONTINUE) {
 		pauseAction = PAUSE_BREAK;
@@ -131,6 +133,7 @@ bool EnterStepping(std::function<void()> callback) {
 		pauseWait.wait(pauseLock);
 	} while (pauseAction != PAUSE_CONTINUE);
 
+	gpuDebug->NotifySteppingExit();
 	isStepping = false;
 	return true;
 }
