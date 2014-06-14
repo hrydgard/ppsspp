@@ -1,4 +1,3 @@
-QT += opengl
 QT -= gui
 TARGET = Common
 TEMPLATE = lib

@@ -31,8 +31,8 @@ greaterThan(QT_MAJOR_VERSION,4) {
 
 # PPSSPP Libs
 QMAKE_LIBDIR += $$CONFIG_DIR
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
-else: LIBS += -lCore -lCommon -lNative
+symbian: LIBS += -lCore.lib -lGPU.lib -lCommon.lib -lNative.lib
+else: LIBS += -lCore -lGPU -lCommon -lNative
 
 # FFMPEG Path
 win32:	QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
@@ -60,7 +60,7 @@ win32 {
 }
 
 macx|linux {
-	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libNative.a
+	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libGPU.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
 		DEFINES += QT_HAS_SDL
