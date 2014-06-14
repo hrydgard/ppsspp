@@ -230,6 +230,7 @@ private:
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
+	int timesInvalidatedAllThisFrame_;
 
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;

@@ -64,6 +64,7 @@
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
@@ -196,6 +197,11 @@ void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
 	if (!g_Config.bTextureBackoffCache) {
 		return;
 	}
+
+	if (timesInvalidatedAllThisFrame_ > 5) {
+		return;
+	}
+	timesInvalidatedAllThisFrame_++;
 
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		if (iter->second.GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -814,6 +820,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
+	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
 		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
