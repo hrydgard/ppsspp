@@ -55,13 +55,15 @@
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
+#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
+
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
 extern int g_iNumVideos;
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
@@ -777,6 +779,11 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
+
+	if (texelsScaledThisFrame_) {
+		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+	}
+	texelsScaledThisFrame_ = 0;
 	if (clearCacheNextFrame_) {
 		Clear(true);
 		clearCacheNextFrame_ = false;
@@ -1239,6 +1246,11 @@ void TextureCache::SetTexture(bool force) {
 			}
 		}
 
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+			// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
+			match = false;
+		}
+
 		if (match) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
@@ -1388,7 +1400,6 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-
 	int scaleFactor;
 	// Auto-texture scale upto 5x rendering resolution
 	if (g_Config.iTexScalingLevel == 0) {
@@ -1412,6 +1423,17 @@ void TextureCache::SetTexture(bool force) {
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
+
+	if (scaleFactor != 1) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
+			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+			scaleFactor = 1;
+			// INFO_LOG(G3D, "Skipped scaling for now..");
+		} else {
+			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
+			texelsScaledThisFrame_ += w * h;
+		}
+	}
 
 	// Disabled this due to issue #6075: https://github.com/hrydgard/ppsspp/issues/6075
 	// This breaks Dangan Ronpa 2 with mipmapping enabled. Why? No idea, it shouldn't.
