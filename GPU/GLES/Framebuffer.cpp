@@ -2073,11 +2073,12 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
-			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy (not supported) %08x -> %08x", src, dst);
+			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
 			// Just do the blit!
-			// if (g_Config.bBlockTransferGPU) {
-			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
-			// }
+			if (g_Config.bBlockTransferGPU) {
+				BlitFramebuffer_(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
+				SetColorUpdated(dstBuffer);
+			}
 		}
 		return false;
 	} else if (dstBuffer) {
