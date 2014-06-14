@@ -102,6 +102,11 @@ void WindowsHeadlessHost::SendOrCollectDebugOutput(const std::string &data)
 
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 {
+	// Only if we're actually comparing.
+	if (comparisonScreenshot.empty()) {
+		return;
+	}
+
 	// We ignore the current framebuffer parameters and just grab the full screen.
 	const static int FRAME_WIDTH = 512;
 	const static int FRAME_HEIGHT = 272;

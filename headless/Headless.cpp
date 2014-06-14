@@ -321,7 +321,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = 0;
+	g_Config.iRenderingMode = 1;
 	g_Config.bHardwareTransform = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
@@ -346,6 +346,7 @@ int main(int argc, const char* argv[])
 	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
+	g_Config.bBlockTransferGPU = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
