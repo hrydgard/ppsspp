@@ -1209,6 +1209,7 @@ void TextureCache::SetTexture(bool force) {
 					if (g_Config.bTextureBackoffCache) {
 						entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
 					}
+					entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 				}
 			}
 
