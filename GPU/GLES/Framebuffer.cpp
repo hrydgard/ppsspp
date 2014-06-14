@@ -2112,11 +2112,9 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		return false;
 	} else if (srcBuffer) {
 		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
-		if (g_Config.bBlockTransferGPU) {
-			if (srcH > 0) {
-				FlushBeforeCopy();
-				ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcH);
-			}
+		FlushBeforeCopy();
+		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated && srcH > 0) {
+			ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcH);
 		}
 		return false;
 	} else {
