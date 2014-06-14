@@ -51,7 +51,7 @@
 #define TEXCACHE_DECIMATION_INTERVAL 13
 
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
-#define TEXCACHE_FRAME_CHANGE_FREQUENT 15
+#define TEXCACHE_FRAME_CHANGE_FREQUENT 6
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
@@ -1231,6 +1231,7 @@ void TextureCache::SetTexture(bool force) {
 					if (g_Config.bTextureBackoffCache) {
 						entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
 					}
+					entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 				}
 			}
 
@@ -1434,7 +1435,7 @@ void TextureCache::SetTexture(bool force) {
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
 
-	if (scaleFactor != 1) {
+	if (scaleFactor != 1 && (entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
