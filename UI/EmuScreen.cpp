@@ -165,6 +165,11 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
+static void AfterStateLoad(bool success, void *ignored) {
+	Core_EnableStepping(false);
+	host->UpdateDisassembly();
+}
+
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (!strcmp(message, "pause")) {
@@ -193,9 +198,14 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 #endif
 	} else if (!strcmp(message, "boot")) {
-		PSP_Shutdown();
-		bootPending_ = true;
-		bootGame(value);
+		const char *ext = strrchr(value, '.');
+		if (!strcmp(ext, ".ppst")) {
+			SaveState::Load(value, &AfterStateLoad);
+		} else {
+			PSP_Shutdown();
+			bootPending_ = true;
+			bootGame(value);
+		}
 	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
