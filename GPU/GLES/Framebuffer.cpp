@@ -934,10 +934,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->bufferHeight = drawing_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
-		vfb->dirtyAfterDisplay = true;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
-			vfb->reallyDirtyAfterDisplay = true;
-		vfb->memoryUpdated = false;
+		SetColorUpdated(vfb);
 		vfb->depthUpdated = false;
 
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
@@ -1979,8 +1976,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 				FlushBeforeCopy();
 				fbo_unbind();
 
-				vfb->dirtyAfterDisplay = true;
-				vfb->reallyDirtyAfterDisplay = true;
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
 				// However, it doesn't seem to work for Star Ocean, at least
 				if (useBufferedRendering_ && vfb->fbo) {
@@ -1994,7 +1989,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 						fmt = displayFormat_;
 					}
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
-					vfb->memoryUpdated = false;
+					SetColorUpdated(vfb);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 					DestroyFramebuf(vfb);
@@ -2078,11 +2073,12 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
 		} else {
-			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy (not supported) %08x -> %08x", src, dst);
+			WARN_LOG_REPORT_ONCE(dstnotsrccpy, G3D, "Inter-buffer memcpy %08x -> %08x", src, dst);
 			// Just do the blit!
-			// if (g_Config.bBlockTransferGPU) {
-			//   BlitFramebuffer_(dstBuffer, 0, 0, srcBuffer, 0, 0, srcBuffer->width, srcBuffer->height, 0);
-			// }
+			if (g_Config.bBlockTransferGPU) {
+				BlitFramebuffer_(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
+				SetColorUpdated(dstBuffer);
+			}
 		}
 		return false;
 	} else if (dstBuffer) {
@@ -2095,9 +2091,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			}
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
-			dstBuffer->dirtyAfterDisplay = true;
-			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
-				dstBuffer->reallyDirtyAfterDisplay = true;
+			SetColorUpdated(dstBuffer);
 			if (useBufferedRendering_) {
 				RebindFramebuffer();
 			} else {
@@ -2105,7 +2099,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			}
 			glstate.viewport.restore();
 			textureCache_->ForgetLastTexture();
-			dstBuffer->memoryUpdated = false;
 			// This is a memcpy, let's still copy just in case.
 			return false;
 		}
@@ -2246,7 +2239,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 					BlitFramebuffer_(&tempBuffer, srcX, srcY, dstBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					BlitFramebuffer_(dstBuffer, dstX, dstY, &tempBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					RebindFramebuffer();
-					dstBuffer->memoryUpdated = false;
+					SetColorUpdated(dstBuffer);
 					return true;
 				}
 			} else {
@@ -2262,7 +2255,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 				FlushBeforeCopy();
 				BlitFramebuffer_(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
-				dstBuffer->memoryUpdated = false;
+				SetColorUpdated(dstBuffer);
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
@@ -2324,9 +2317,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				float dstXFactor = (float)bpp / dstBpp;
 				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
-				dstBuffer->dirtyAfterDisplay = true;
-				if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
-					dstBuffer->reallyDirtyAfterDisplay = true;
+				SetColorUpdated(dstBuffer);
 				if (useBufferedRendering_) {
 					RebindFramebuffer();
 				} else {
@@ -2334,7 +2325,6 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				}
 				glstate.viewport.restore();
 				textureCache_->ForgetLastTexture();
-				dstBuffer->memoryUpdated = false;
 			}
 		}
 	}
