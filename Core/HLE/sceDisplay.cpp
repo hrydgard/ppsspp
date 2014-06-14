@@ -103,7 +103,7 @@ static int brightnessLevel;
 static int mode;
 static int width;
 static int height;
-static int wasPaused;
+static bool wasPaused;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
