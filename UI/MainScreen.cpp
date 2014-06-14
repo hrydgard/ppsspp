@@ -49,6 +49,7 @@
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 
 #ifdef _WIN32
@@ -984,6 +985,7 @@ GamePauseScreen::~GamePauseScreen() {
 		g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
 		g_Config.Save();
 	}
+	__DisplaySetWasPaused();
 }
 
 void GamePauseScreen::CreateViews() {

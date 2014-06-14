@@ -33,6 +33,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
@@ -549,6 +550,10 @@ namespace SaveState
 
 			if (op.callback)
 				op.callback(callbackResult, op.cbUserData);
+		}
+		if (operations.size()) {
+			// Avoid triggering frame skipping due to slowdown
+			__DisplaySetWasPaused();
 		}
 	}
 

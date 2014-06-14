@@ -103,6 +103,8 @@ static int brightnessLevel;
 static int mode;
 static int width;
 static int height;
+static int wasPaused;
+
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
@@ -182,6 +184,7 @@ void __DisplayInit() {
 	framebuf.pspFramebufLinesize = 480; // ??
 	lastFlipCycles = 0;
 	lastFlipsTooFrequent = 0;
+	wasPaused = 0;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
@@ -484,6 +487,10 @@ static float CalculateSmoothTimestep(float lastTimestep) {
 	return summed / (float)ARRAY_SIZE(timestepSmooth);
 }
 
+void __DisplaySetWasPaused() {
+	wasPaused = true;
+}
+
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 	float timestep = CalculateSmoothTimestep(lastTimestep);
@@ -496,9 +503,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
-
 	
-
 	if (!throttle && g_Config.bFrameSkipUnthrottle) {
 		doFrameSkip = true;
 		skipFrame = true;
@@ -515,14 +520,16 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 	time_update();
 	
 	curFrameTime = time_now_d();
-	if (nextFrameTime == 0.0)
+	if (nextFrameTime == 0.0 || wasPaused) {
 		nextFrameTime = time_now_d() + timestep;
+		if (wasPaused)
+			wasPaused = false;
+	}
 	
-	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
-
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
 		// autoframeskip
+		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
