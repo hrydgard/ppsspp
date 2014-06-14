@@ -235,6 +235,8 @@ void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebu
 }
 
 void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+	const u32 MIN_TEX_SUBAREA_HEIGHT = 8;
+
 	AttachedFramebufferInfo fbInfo = {0};
 
 	// If they match exactly, it's non-CLUT and from the top left.
@@ -245,6 +247,9 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
+			if (framebuffer->fb_stride != entry->bufw) {
+				WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+			}
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// Let's avoid rendering when we know the format is wrong.  May be a video/etc. updating memory.
@@ -258,11 +263,41 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
 			return;
 
+		const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
+		const u64 mirrorMask = 0x00600000;
+		const bool noOffset = (entry->addr & ~mirrorMask) == addr;
+		const bool clutFormat =
+			(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
+			(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+		const u32 bitOffset = ((entry->addr & ~mirrorMask) - addr) * 8;
+		const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
+		fbInfo.yOffset = pixelOffset / entry->bufw;
+		fbInfo.xOffset = pixelOffset % entry->bufw;
+
+		if (fbInfo.yOffset + MIN_TEX_SUBAREA_HEIGHT >= framebuffer->height) {
+			// Can't be inside the framebuffer then, ram.  Detach to be safe.
+			DetachFramebuffer(entry, address, framebuffer);
+			return;
+		}
+
+		if (framebuffer->fb_stride != entry->bufw) {
+			if (noOffset) {
+				WARN_LOG_REPORT_ONCE(diffStrides2, G3D, "Render to texture using CLUT with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+			} else {
+				// Assume any render-to-tex with different bufw + offset is a render from ram.
+				DetachFramebuffer(entry, address, framebuffer);
+				return;
+			}
+		}
+
 		// Check for CLUT. The framebuffer is always RGB, but it can be interpreted as a CLUT texture.
 		// 3rd Birthday (and a bunch of other games) render to a 16 bit clut texture.
 		bool clutSuccess = false;
-		if (((framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
-			   (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16))) {
+		if (clutFormat) {
+			if (!noOffset) {
+				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Render to texture using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+			}
 			AttachFramebufferValid(entry, framebuffer, fbInfo);
 			fbTexInfo_[entry->addr] = fbInfo;
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
@@ -274,29 +309,17 @@ void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 
 		if (!clutSuccess) {
 			// This is either normal or we failed to generate a shader to depalettize
-			const bool compatFormat = framebuffer->format == entry->format ||
-				(framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32) ||
-				(framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
-
-			// Is it at least the right stride?
-			if (framebuffer->fb_stride == entry->bufw) {
-				if (compatFormat) {
-					const u32 bitOffset = (entry->addr - address) * 8;
-					const u32 pixelOffset = bitOffset / std::max(1U, (u32)textureBitsPerPixel[entry->format]);
-					fbInfo.yOffset = pixelOffset / entry->bufw;
-					fbInfo.xOffset = pixelOffset % entry->bufw;
-
-					if (framebuffer->format != entry->format) {
-						WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-						AttachFramebufferValid(entry, framebuffer, fbInfo);
-					} else if (fbInfo.yOffset < framebuffer->height) {
-						WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
-						// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
-						AttachFramebufferInvalid(entry, framebuffer, fbInfo);
-					}
-				} else {
-					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
+			if (framebuffer->format == entry->format || clutFormat) {
+				if (framebuffer->format != entry->format) {
+					WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+					AttachFramebufferValid(entry, framebuffer, fbInfo);
+				} else if (fbInfo.yOffset < framebuffer->height) {
+					WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
+					// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
+					AttachFramebufferInvalid(entry, framebuffer, fbInfo);
 				}
+			} else {
+				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with incompatible formats %d != %d at %08x", entry->format, framebuffer->format, address);
 			}
 		}
 	}
