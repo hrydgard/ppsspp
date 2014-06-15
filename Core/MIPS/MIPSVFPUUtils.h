@@ -48,8 +48,12 @@ inline float vfpu_cos(float angle) {
 inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
+#if defined(__linux__) && !defined(ANDROID)  // TODO: Remove this check when we upgrade NDK on the buildbot
+	sincosf(angle, &sine, &cosine);
+#else
 	sine = sinf(angle);
 	cosine = cosf(angle);
+#endif
 }
 
 #define VFPU_FLOAT16_EXP_MAX    0x1f
