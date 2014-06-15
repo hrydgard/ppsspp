@@ -65,4 +65,4 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 			}
 		});
 	}
-} 
+}

@@ -14,12 +14,12 @@ public class InputDeviceState {
 	
 	// DEVICE_ID_PAD_0 from the cpp code. TODO: allocate these sequentially if we get more controllers.
 	private static int deviceId = 10;
-	
+
 	private InputDevice mDevice;
 	private int[] mAxes;
-		
+
 	InputDevice getDevice() { return mDevice; }
-	
+
 	@TargetApi(19)
 	void logAdvanced(InputDevice device) {
 	     Log.i(TAG, "Vendor ID:" + device.getVendorId() + " productId: " + device.getProductId());
@@ -68,17 +68,13 @@ public class InputDeviceState {
 	
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
-		if (event.getRepeatCount() == 0) {
-			NativeApp.keyDown(deviceId, keyCode);
-			return true;
-		}
-		return false;
+		boolean repeat = event.getRepeatCount() > 0;
+		return NativeApp.keyDown(deviceId, keyCode, repeat);
 	}
 	
 	public boolean onKeyUp(KeyEvent event) {
-	     int keyCode = event.getKeyCode();
-    	 NativeApp.keyUp(deviceId, keyCode);
-         return true;
+		int keyCode = event.getKeyCode();
+	    return NativeApp.keyUp(deviceId, keyCode);
 	}
 	
 	public boolean onJoystickMotion(MotionEvent event) {

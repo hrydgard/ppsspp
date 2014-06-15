@@ -22,7 +22,7 @@ public class NativeApp {
 	// There's not really any reason to ever call shutdown as we can recover from a killed activity.
 	public static native void shutdown();
 
-	public static native boolean keyDown(int deviceId, int key);
+	public static native boolean keyDown(int deviceId, int key, boolean isRepeat);
 	public static native boolean keyUp(int deviceId, int key);
 
 	public static native void beginJoystickEvent();

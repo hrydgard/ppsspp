@@ -10,11 +10,12 @@ public:
 	UIScreen();
 	~UIScreen();
 
-	virtual void update(InputState &input);
-	virtual void render();
-	virtual void touch(const TouchInput &touch);
-	virtual void key(const KeyInput &touch);
-	virtual void axis(const AxisInput &touch);
+	virtual void update(InputState &input) override;
+	virtual void render() override;
+
+	virtual bool touch(const TouchInput &touch) override;
+	virtual bool key(const KeyInput &touch) override;
+	virtual bool axis(const AxisInput &touch) override;
 
 	// Some useful default event handlers
 	UI::EventReturn OnOK(UI::EventParams &e);
@@ -39,7 +40,7 @@ private:
 class UIDialogScreen : public UIScreen {
 public:
 	UIDialogScreen() : UIScreen(), finished_(false) {}
-	virtual void key(const KeyInput &key);
+	virtual bool key(const KeyInput &key) override;
 
 private:
 	bool finished_;
@@ -51,9 +52,9 @@ public:
 	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
-	virtual void CreateViews();
-	virtual bool isTransparent() const { return true; }
-	virtual void touch(const TouchInput &touch);
+	virtual void CreateViews() override;
+	virtual bool isTransparent() const override { return true; }
+	virtual bool touch(const TouchInput &touch) override;
 
 protected:
 	virtual bool FillVertical() const { return false; }

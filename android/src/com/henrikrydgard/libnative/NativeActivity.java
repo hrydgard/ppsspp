@@ -532,9 +532,6 @@ public class NativeActivity extends Activity {
 			boolean passThrough = false;
 			switch (event.getKeyCode()) {
 			case KeyEvent.KEYCODE_BACK:
-			case KeyEvent.KEYCODE_VOLUME_DOWN:
-			case KeyEvent.KEYCODE_VOLUME_UP:
-			case KeyEvent.KEYCODE_VOLUME_MUTE:
 			case KeyEvent.KEYCODE_MENU:
 				passThrough = true;
 				break;
@@ -608,25 +605,22 @@ public class NativeActivity extends Activity {
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		// Eat these keys, to avoid accidental exits / other screwups.
 		// Maybe there's even more we need to eat on tablets?
+		boolean repeat = event.getRepeatCount() > 0;
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyDown(0, 1004); // special custom keycode
+				NativeApp.keyDown(0, 1004, repeat); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
 				return super.onKeyDown(keyCode, event);
 			} else {
-				NativeApp.keyDown(0, keyCode);
+				NativeApp.keyDown(0, keyCode, repeat);
 			}
 			return true;
 		case KeyEvent.KEYCODE_MENU:
 		case KeyEvent.KEYCODE_SEARCH:
-			NativeApp.keyDown(0, keyCode);
+			NativeApp.keyDown(0, keyCode, repeat);
 			return true;
-		case KeyEvent.KEYCODE_VOLUME_DOWN:
-		case KeyEvent.KEYCODE_VOLUME_UP:
-			// NativeApp should ignore these.
-			return super.onKeyDown(keyCode, event);
 			
 		case KeyEvent.KEYCODE_DPAD_UP:
 		case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -641,8 +635,7 @@ public class NativeActivity extends Activity {
 			// send the rest of the keys through.
 			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			NativeApp.keyDown(0, keyCode);
-			return true;
+			return NativeApp.keyDown(0, keyCode, repeat);
 		}
 	}
 
@@ -665,9 +658,7 @@ public class NativeActivity extends Activity {
 			// Search probably should also be ignored. We send it to the app.
 			NativeApp.keyUp(0, keyCode);
 			return true;
-		case KeyEvent.KEYCODE_VOLUME_DOWN:
-		case KeyEvent.KEYCODE_VOLUME_UP:
-			return super.onKeyUp(keyCode, event);
+
 		case KeyEvent.KEYCODE_DPAD_UP:
 		case KeyEvent.KEYCODE_DPAD_DOWN:
 		case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -681,8 +672,7 @@ public class NativeActivity extends Activity {
 			// send the rest of the keys through.
 			// TODO: get rid of the three special cases above by adjusting the native side of the code.
 			// Log.d(TAG, "Key down: " + keyCode + ", KeyEvent: " + event);
-			NativeApp.keyUp(0, keyCode);
-			return true;
+			return NativeApp.keyUp(0, keyCode);
 		}
 	}
 

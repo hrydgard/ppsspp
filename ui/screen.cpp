@@ -64,19 +64,28 @@ void ScreenManager::switchToNext() {
 	UI::SetFocusedView(0);
 }
 
-void ScreenManager::touch(const TouchInput &touch) {
-	if (!stack_.empty())
-		stack_.back().screen->touch(touch);
+bool ScreenManager::touch(const TouchInput &touch) {
+	if (!stack_.empty()) {
+		return stack_.back().screen->touch(touch);
+	} else {
+		return false;
+	}
 }
 
-void ScreenManager::key(const KeyInput &key) {
-	if (!stack_.empty())
-		stack_.back().screen->key(key);
+bool ScreenManager::key(const KeyInput &key) {
+	if (!stack_.empty()) {
+		return stack_.back().screen->key(key);
+	} else {
+		return false;
+	}
 }
 
-void ScreenManager::axis(const AxisInput &axis) {
-	if (!stack_.empty())
-		stack_.back().screen->axis(axis);
+bool ScreenManager::axis(const AxisInput &axis) {
+	if (!stack_.empty()) {
+		return stack_.back().screen->axis(axis);
+	} else {
+		return false;
+	}
 }
 
 void ScreenManager::resized() {

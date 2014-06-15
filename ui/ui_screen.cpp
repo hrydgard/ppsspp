@@ -48,19 +48,22 @@ void UIScreen::render() {
 	}
 }
 
-void UIScreen::touch(const TouchInput &touch) {
+bool UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
 		UI::TouchEvent(touch, root_);
+		return true;
 	}
+	return false;
 }
 
-void UIScreen::key(const KeyInput &key) {
+bool UIScreen::key(const KeyInput &key) {
 	if (root_) {
-		UI::KeyEvent(key, root_);
+		return UI::KeyEvent(key, root_);
 	}
+	return false;
 }
 
-void UIDialogScreen::key(const KeyInput &key) {
+bool UIDialogScreen::key(const KeyInput &key) {
 	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
 		if (finished_) {
 			ELOG("Screen already finished");
@@ -68,12 +71,13 @@ void UIDialogScreen::key(const KeyInput &key) {
 			finished_ = true;
 			screenManager()->finishDialog(this, DR_BACK);
 		}
+		return true;
 	} else {
-		UIScreen::key(key);
+		return UIScreen::key(key);
 	}
 }
 
-void UIScreen::axis(const AxisInput &axis) {
+bool UIScreen::axis(const AxisInput &axis) {
 	// Simple translation of hat to keys for Shield and other modern pads.
 	// TODO: Use some variant of keymap?
 	int flags = 0;
@@ -104,7 +108,9 @@ void UIScreen::axis(const AxisInput &axis) {
 	hatDown_ = flags;
 	if (root_) {
 		UI::AxisEvent(axis, root_);
+		return true;
 	}
+	return (pressed & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)) != 0;
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
@@ -131,16 +137,15 @@ PopupScreen::PopupScreen(std::string title, std::string button1, std::string but
 		button2_ = d->T(button2.c_str());
 }
 
-void PopupScreen::touch(const TouchInput &touch) {
+bool PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TOUCH_DOWN) == 0 || touch.id != 0) {
-		UIDialogScreen::touch(touch);
-		return;
+		return UIDialogScreen::touch(touch);
 	}
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y))
 		screenManager()->finishDialog(this, DR_BACK);
 
-	UIDialogScreen::touch(touch);
+	return UIDialogScreen::touch(touch);
 }
 
 void PopupScreen::CreateViews() {

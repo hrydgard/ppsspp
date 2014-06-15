@@ -71,6 +71,8 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
+
+		boolean retval = false;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -101,11 +103,11 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 					int tool = getToolType(ev, i);
 					code |= tool << 10;  // We use the Android tool type codes
 				}
-				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
+				retval = retval || NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
-		return true;
-	} 
+		return retval;
+	}
 
 	// Sensor management
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
@@ -165,9 +167,10 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			}
 		}
 
+		boolean repeat = false;  // Moga has no repeats?
 		switch (event.getAction()) {
 		case KeyEvent.ACTION_DOWN:
-			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode());
+			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode(), repeat);
 			break;
 		case KeyEvent.ACTION_UP:
 			NativeApp.keyUp(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode());

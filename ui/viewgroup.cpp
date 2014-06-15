@@ -1122,8 +1122,10 @@ static std::set<HeldKey> heldKeys;
 static const int repeatDelay = 15;  // 250ms
 static const int repeatInterval = 5;  // 66ms
 
-void KeyEvent(const KeyInput &key, ViewGroup *root) {
-	if (key.flags & KEY_DOWN) {
+bool KeyEvent(const KeyInput &key, ViewGroup *root) {
+	bool retval = false;
+	// Ignore repeats for focus moves.
+	if ((key.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
 		// We ignore the device ID here. Anything with a DPAD is OK.
 		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
 			// Let's only repeat DPAD initially.
@@ -1135,12 +1137,13 @@ void KeyEvent(const KeyInput &key, ViewGroup *root) {
 			// Check if the key is already held. If it is, ignore it. This is to avoid
 			// multiple key repeat mechanisms colliding.
 			if (heldKeys.find(hk) != heldKeys.end()) {
-				return;
+				return false;
 			}
 
 			heldKeys.insert(hk);
 			lock_guard lock(focusLock);
 			focusMoves.push_back(key.keyCode);
+			retval = true;
 		}
 	}
 	if (key.flags & KEY_UP) {
@@ -1151,9 +1154,23 @@ void KeyEvent(const KeyInput &key, ViewGroup *root) {
 			hk.deviceId = key.deviceId;
 			hk.startFrame = 0; // irrelevant
 			heldKeys.erase(hk);
+			retval = true;
 		}
 	}
+
 	root->Key(key);
+	retval = true;
+
+	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
+	switch (key.keyCode) {
+	case NKCODE_VOLUME_DOWN:
+	case NKCODE_VOLUME_UP:
+	case NKCODE_VOLUME_MUTE:
+		retval = false;
+		break;
+	}
+
+	return retval;
 }
 
 static void ProcessHeldKeys(ViewGroup *root) {
@@ -1174,14 +1191,16 @@ static void ProcessHeldKeys(ViewGroup *root) {
 	}
 }
 
-void TouchEvent(const TouchInput &touch, ViewGroup *root) {
+bool TouchEvent(const TouchInput &touch, ViewGroup *root) {
 	EnableFocusMovement(false);
 
 	root->Touch(touch);
+	return true;
 }
 
-void AxisEvent(const AxisInput &axis, ViewGroup *root) {
+bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	root->Axis(axis);
+	return true;
 }
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {

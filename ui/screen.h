@@ -49,9 +49,9 @@ public:
 	virtual void deviceLost() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
-	virtual void touch(const TouchInput &touch) {}
-	virtual void key(const KeyInput &key) {}
-	virtual void axis(const AxisInput &touch) {}
+	virtual bool touch(const TouchInput &touch) { return false;  }
+	virtual bool key(const KeyInput &key) { return false; }
+	virtual bool axis(const AxisInput &touch) { return false; }
 	virtual void sendMessage(const char *msg, const char *value) {}
 
 	virtual void RecreateViews() {}
@@ -109,9 +109,9 @@ public:
 	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 
 	// Instant touch, separate from the update() mechanism.
-	void touch(const TouchInput &touch);
-	void key(const KeyInput &key);
-	void axis(const AxisInput &touch);
+	bool touch(const TouchInput &touch);
+	bool key(const KeyInput &key);
+	bool axis(const AxisInput &touch);
 
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);

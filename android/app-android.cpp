@@ -412,11 +412,15 @@ extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	return retval;
 }
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
 	KeyInput keyInput;
 	keyInput.deviceId = deviceId;
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_DOWN;
+	if (isRepeat) {
+		ILOG("Is repeat! %i", key);
+		keyInput.flags |= KEY_IS_REPEAT;
+	}
 	return NativeKey(keyInput);
 }
 

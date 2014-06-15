@@ -159,6 +159,7 @@ enum {
 	KEY_DOWN = 1 << 0,
 	KEY_UP = 1 << 1,
 	KEY_HASWHEELDELTA = 1 << 2,
+	KEY_IS_REPEAT = 1 << 3,
 };
 
 struct KeyInput {
