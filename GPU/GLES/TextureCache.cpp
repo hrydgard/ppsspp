@@ -584,46 +584,24 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// This should not have to be done per texture! OpenGL is silly yo
-void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	int minFilt = gstate.texfilter & 0x7;
-	int magFilt = (gstate.texfilter>>8) & 1;
-	bool sClamp = gstate.isTexCoordClampedS();
-	bool tClamp = gstate.isTexCoordClampedT();
-
-	if (entry.status & TexCacheEntry::STATUS_TEXPARAM_DIRTY) {
-		entry.status &= ~TexCacheEntry::STATUS_TEXPARAM_DIRTY;
-		force = true;
-	}
+void TextureCache::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel) {
+	minFilt = gstate.texfilter & 0x7;
+	magFilt = (gstate.texfilter>>8) & 1;
+	sClamp = gstate.isTexCoordClampedS();
+	tClamp = gstate.isTexCoordClampedT();
 
 	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 
-	if (entry.maxLevel == 0) {
+	if (maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
+		lodBias = 0.0f;
 	} else {
 		// Texture lod bias should be signed.
-		float lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
-		if (force || entry.lodBias != lodBias) {
-#ifndef USING_GLES2
-			GETexLevelMode mode = gstate.getTexLevelMode();
-			switch (mode) {
-			case GE_TEXLEVEL_MODE_AUTO:
-				// TODO
-				break;
-			case GE_TEXLEVEL_MODE_CONST:
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
-				break;
-			case GE_TEXLEVEL_MODE_SLOPE:
-				// TODO
-				break;
-			}
-#endif
-			entry.lodBias = lodBias;
-		}
+		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
-	if (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos > 0 && (entry.dim & 0xF) >= 9) {
+	if (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos > 0 && (gstate.getTextureDimension(0) & 0xF) >= 9) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
@@ -650,6 +628,36 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	if (!g_Config.bMipMap || noMip) {
 		minFilt &= 1;
 	}
+}
+
+// This should not have to be done per texture! OpenGL is silly yo
+void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+	int minFilt;
+	int magFilt;
+	bool sClamp;
+	bool tClamp;
+	float lodBias;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
+
+	if (entry.maxLevel != 0) {
+		if (force || entry.lodBias != lodBias) {
+#ifndef USING_GLES2
+			GETexLevelMode mode = gstate.getTexLevelMode();
+			switch (mode) {
+			case GE_TEXLEVEL_MODE_AUTO:
+				// TODO
+				break;
+			case GE_TEXLEVEL_MODE_CONST:
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+				break;
+			case GE_TEXLEVEL_MODE_SLOPE:
+				// TODO
+				break;
+			}
+#endif
+			entry.lodBias = lodBias;
+		}
+	}
 
 	if (force || entry.minFilt != minFilt) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
@@ -660,16 +668,8 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		entry.magFilt = magFilt;
 	}
 
-	// Platforms without non-pow-2 extensions can't wrap non-pow-2 textures.
-	// Only framebuffer textures can be non-pow-2.
-	if (!gl_extensions.OES_texture_npot && entry.framebuffer) {
-		// Check if it matches the size, in which case we can still enable wrapping.
-		int w = gstate.getTextureWidth(0);
-		int h = gstate.getTextureHeight(0);
-		if (w != entry.framebuffer->bufferWidth || h != entry.framebuffer->bufferHeight) {
-			// We'll do it in the shader.
-			return;
-		}
+	if (entry.framebuffer) {
+		WARN_LOG_REPORT_ONCE(wrongFramebufAttach, G3D, "Framebuffer still attached in UpdateSamplingParams()?");
 	}
 
 	if (force || entry.sClamp != sClamp) {
@@ -680,6 +680,29 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.tClamp = tClamp;
 	}
+}
+
+void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+	int minFilt;
+	int magFilt;
+	bool sClamp;
+	bool tClamp;
+	float lodBias;
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
+
+	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
+	// This happens whether we have OES_texture_npot or not.
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
+	if (w != bufferWidth || h != bufferHeight) {
+		return;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
@@ -1013,7 +1036,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			framebufferManager_->BindFramebufferColor(framebuffer, true);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			entry->status |= TexCacheEntry::STATUS_TEXPARAM_DIRTY;
 
 			glDisable(GL_BLEND);
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1065,7 +1087,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
-		UpdateSamplingParams(*entry, true);
+		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	} else {
 		if (framebuffer->fbo)
 			framebuffer->fbo = 0;
