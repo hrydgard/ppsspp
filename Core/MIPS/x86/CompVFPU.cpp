@@ -2125,15 +2125,12 @@ typedef u32float SinCosArg;
 #endif
 
 void SinCos(SinCosArg angle) {
-	angle *= (float)1.57079632679489661923;  // pi / 2
-	sincostemp[0] = sinf(angle);
-	sincostemp[1] = cosf(angle);
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
 }
 
 void SinCosNegSin(SinCosArg angle) {
-	angle *= (float)1.57079632679489661923;  // pi / 2
-	sincostemp[0] = -sinf(angle);
-	sincostemp[1] = cosf(angle);
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+	sincostemp[0] = -sincostemp[0];
 }
 
 // Very heavily used by FF:CC

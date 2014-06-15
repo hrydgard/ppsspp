@@ -59,7 +59,9 @@
 #define M_LN10     2.30258509299404568402f
 #undef M_PI
 #define M_PI       3.14159265358979323846f
+#ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923f
+#endif
 #define M_PI_4     0.785398163397448309616f
 #define M_1_PI     0.318309886183790671538f
 #define M_2_PI     0.636619772367581343076f
@@ -517,14 +519,15 @@ namespace MIPSInt
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
 			case 17: d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-			case 18: d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
+				
+			case 18: { d[i] = vfpu_sin(s[i]); } break; //vsin
+			case 19: { d[i] = vfpu_cos(s[i]); } break; //vcos
 			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
 			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
 			case 22: d[i] = fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
-			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
+			case 26: { d[i] = -vfpu_sin(s[i]); } break; // vnsin
 			case 28: d[i] = 1.0f / powf(2.0, s[i]); break; // vrexp2
 			default:
 				_dbg_assert_msg_(CPU,0,"Trying to interpret VV2Op instruction that can't be interpreted");
@@ -1285,21 +1288,18 @@ namespace MIPSInt
 	}
 
 	// Generates one line of a rotation matrix around one of the three axes
-	void Int_Vrot(MIPSOpcode op)
-	{
+	void Int_Vrot(MIPSOpcode op) {
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
-		float angle = V(vs) * M_PI_2;
 		bool negSin = (imm & 0x10) ? true : false;
-		float sine = sinf(angle);
-		float cosine = cosf(angle);
+		float sine, cosine;
+		vfpu_sincos(V(vs), sine, cosine);
 		if (negSin)
 			sine = -sine;
 		float d[4] = {0};
-		if (((imm >> 2) & 3) == (imm & 3))
-		{
+		if (((imm >> 2) & 3) == (imm & 3)) {
 			for (int i = 0; i < 4; i++)
 				d[i] = sine;
 		}
@@ -1845,7 +1845,7 @@ bad:
 			ERROR_LOG_REPORT(CPU, "vsbn not implemented for size %d", GetNumVectorElements(sz));
 		}
 		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			// Simply replace the expontent bits.
+			// Simply replace the exponent bits.
 			u32 prev = s.u[i] & 0x7F800000;
 			if (prev != 0 && prev != 0x7F800000) {
 				d.u[i] = (s.u[i] & ~0x7F800000) | (exp << 23);
