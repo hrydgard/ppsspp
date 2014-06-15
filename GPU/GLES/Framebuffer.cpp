@@ -350,14 +350,10 @@ FramebufferManager::FramebufferManager() :
 	currentPBO_(0)
 #endif
 {
+}
+
+void FramebufferManager::Init() {
 	CompileDraw2DProgram();
-
-	// And an initial clear. We don't clear per frame as the games are supposed to handle that
-	// by themselves.
-	ClearBuffer();
-
-	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
@@ -365,7 +361,12 @@ FramebufferManager::FramebufferManager() :
 	// We force this framebuffer to 1x and force download it automatically.
 	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
 
+	// And an initial clear. We don't clear per frame as the games are supposed to handle that
+	// by themselves.
+	ClearBuffer();
+
 	SetLineWidth();
+	BeginFrame();
 }
 
 FramebufferManager::~FramebufferManager() {

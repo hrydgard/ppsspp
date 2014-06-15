@@ -141,6 +141,7 @@ public:
 	void DestroyAllFBOs();
 	void DecimateFBOs();
 
+	void Init();
 	void BeginFrame();
 	void EndFrame();
 	void Resized();

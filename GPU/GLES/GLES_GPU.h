@@ -160,6 +160,7 @@ private:
 	void PerformMemorySetInternal(u32 dest, u8 v, int size);
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+	inline void UpdateVsyncInterval(bool force);
 
 	static CommandInfo cmdInfo_[256];
 
