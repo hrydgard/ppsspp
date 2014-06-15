@@ -57,9 +57,9 @@ void NativeUpdate(InputState &input);
 // Useful for triggering audio events, saving a few ms.
 // If you don't care about touch latency, just do a no-op implementation of this.
 // time is not yet implemented. finger can be from 0 to 7, inclusive.
-void NativeTouch(const TouchInput &touch);
-void NativeKey(const KeyInput &key);
-void NativeAxis(const AxisInput &axis);
+bool NativeTouch(const TouchInput &touch);
+bool NativeKey(const KeyInput &key);
+bool NativeAxis(const AxisInput &axis);
 
 // Called when it's time to render. If the device can keep up, this
 // will also be called sixty times per second. Main thread.

@@ -382,7 +382,7 @@ extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 	return 0;
 }
 
-extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
+extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 	float scaledX = x * dp_xscale;
 	float scaledY = y * dp_yscale;
@@ -398,33 +398,34 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 		input_state.pointer_down[pointerId] = false;
 	}
 
-	NativeTouch(touch);
+	bool retval = NativeTouch(touch);
 	{
 		lock_guard guard(input_state.lock);
 		if (pointerId >= MAX_POINTERS) {
 			ELOG("Too many pointers: %i", pointerId);
-			return;	// We ignore 8+ pointers entirely.
+			return false;	// We ignore 8+ pointers entirely.
 		}
 		input_state.pointer_x[pointerId] = scaledX;
 		input_state.pointer_y[pointerId] = scaledY;
 		input_state.mouse_valid = true;
 	}
+	return retval;
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
 	keyInput.deviceId = deviceId;
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_DOWN;
-	NativeKey(keyInput);
+	return NativeKey(keyInput);
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
 	keyInput.deviceId = deviceId;
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_UP;
-	NativeKey(keyInput);
+	return NativeKey(keyInput);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
@@ -432,10 +433,10 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
 	// mutex lock?
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
-		return;
+		return false;
 	switch (axisId) {
 	case JOYSTICK_AXIS_X:
 		left_joystick_x_async = value;
@@ -461,7 +462,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 	axis.axisId = axisId;
 	axis.deviceId = deviceId;
 	axis.value = value;
-	NativeAxis(axis);
+	return NativeAxis(axis);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_endJoystickEvent(
@@ -470,14 +471,15 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_endJoystickEvent(
 }
 
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
-	// TODO
+	// TODO: Support mousewheel for android
+	return true;
 }
 
-extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
-		return;
+		return false;
 	// Theoretically this needs locking but I doubt it matters. Worst case, the X
 	// from one "sensor frame" will be used together with Y from the next.
 	// Should look into quantization though, for compressed movement storage.
@@ -492,15 +494,16 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
-	NativeAxis(axis);
+	bool retval = NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
 	axis.value = y;
-	NativeAxis(axis);
+	retval = retval || NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
 	axis.value = z;
-	NativeAxis(axis);
+	retval = retval || NativeAxis(axis);
+	return retval;
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {

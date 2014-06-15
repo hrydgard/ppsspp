@@ -22,22 +22,22 @@ public class NativeApp {
 	// There's not really any reason to ever call shutdown as we can recover from a killed activity.
 	public static native void shutdown();
 
-	public static native void keyDown(int deviceId, int key);
-	public static native void keyUp(int deviceId, int key);
+	public static native boolean keyDown(int deviceId, int key);
+	public static native boolean keyUp(int deviceId, int key);
 
 	public static native void beginJoystickEvent();
 	public static native void joystickAxis(int deviceId, int axis, float value);
 	public static native void endJoystickEvent();
 	
-	public static native void mouseWheelEvent(float x, float y);
+	public static native boolean mouseWheelEvent(float x, float y);
 
 	// will only be called between init() and shutdown()
 	public static native int audioRender(short[] buffer);
 
 	// Sensor/input data. These are asynchronous, beware!
-	public static native void touch(float x, float y, int data, int pointerId);
+	public static native boolean touch(float x, float y, int data, int pointerId);
 
-	public static native void accelerometer(float x, float y, float z);
+	public static native boolean accelerometer(float x, float y, float z);
 
 	public static native void sendMessage(String msg, String arg);
 	
