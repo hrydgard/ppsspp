@@ -163,6 +163,49 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 	return false;
 }
 
+bool TransformDrawEngine::ApplyShaderBlending() {
+	bool skipBlit = false;
+	if (gl_extensions.NV_shader_framebuffer_fetch) {
+		return true;
+	}
+
+	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+	static int lastFrameBlit = -1;
+	static int blitsThisFrame = 0;
+	if (lastFrameBlit != gpuStats.numFlips) {
+		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		}
+		blitsThisFrame = 0;
+		lastFrameBlit = gpuStats.numFlips;
+	}
+	++blitsThisFrame;
+	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
+		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		ResetShaderBlending();
+		return false;
+	}
+
+	glActiveTexture(GL_TEXTURE1);
+	framebufferManager_->BindFramebufferColor(NULL);
+	// If we are rendering at a higher resolution, linear is probably best for the dest color.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glActiveTexture(GL_TEXTURE0);
+	fboTexBound_ = true;
+
+	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+	return true;
+}
+
+void TransformDrawEngine::ResetShaderBlending() {
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glActiveTexture(GL_TEXTURE0);
+	fboTexBound_ = false;
+}
+
 void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
@@ -179,37 +222,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Set blend - unless we need to do it in the shader.
 	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
 	if (wantBlend && ShouldUseShaderBlending()) {
-		if (!gl_extensions.NV_shader_framebuffer_fetch) {
-			static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
-
-			static int lastFrameBlit = -1;
-			static int blitsThisFrame = 0;
-			if (lastFrameBlit != gpuStats.numFlips) {
-				if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
-					WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-				}
-				blitsThisFrame = 0;
-				lastFrameBlit = gpuStats.numFlips;
-			}
-			++blitsThisFrame;
-
-			glActiveTexture(GL_TEXTURE1);
-			framebufferManager_->BindFramebufferColor(NULL);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glActiveTexture(GL_TEXTURE0);
-			fboTexBound_ = true;
-
-			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		if (ApplyShaderBlending()) {
+			// None of the below logic is interesting, we're gonna do it entirely in the shader.
+			wantBlend = false;
 		}
-		// None of the below logic is interesting, we're gonna do it entirely in the shader.
-		wantBlend = false;
 	} else if (fboTexBound_) {
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glActiveTexture(GL_TEXTURE0);
-		fboTexBound_ = false;
+		ResetShaderBlending();
 	}
 
 	glstate.blend.set(wantBlend);
