@@ -233,8 +233,8 @@ public:
 		return false;
 	}
 
-	// Similar to GetCurrentFramebuffer().
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer) {
+	// Similar to GetCurrentFramebuffer(), with texture level specification.
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 		return false;
 	}
 

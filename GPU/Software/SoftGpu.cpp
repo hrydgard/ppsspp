@@ -941,9 +941,9 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	return Rasterizer::GetCurrentStencilbuffer(buffer);
 }
 
-bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
+bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
-	return Rasterizer::GetCurrentTexture(buffer);
+	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)

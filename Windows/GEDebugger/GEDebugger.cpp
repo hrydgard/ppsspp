@@ -60,7 +60,7 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL), textureLevel_(0) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
@@ -192,7 +192,7 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	const GPUDebugBuffer *bufferTex = NULL;
-	bufferResult = GPU_GetCurrentTexture(bufferTex);
+	bufferResult = GPU_GetCurrentTexture(bufferTex, textureLevel_);
 
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferTex->GetFormat());
@@ -204,10 +204,10 @@ void CGEDebugger::UpdatePreviews() {
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			}
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 
-			UpdateLastTexture(state.getTextureAddress(0));
+			UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
 			UpdateLastTexture((u32)-1);
 		}
@@ -366,7 +366,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					break;
 				}
 				const auto state = gpuDebug->GetGState();
-				u32 texAddr = state.getTextureAddress(0);
+				u32 texAddr = state.getTextureAddress(textureLevel_);
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
 					if (IsTextureBreakpoint(texAddr)) {

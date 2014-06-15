@@ -83,6 +83,7 @@ private:
 	SimpleGLWindow *texWindow;
 	TabControl *tabs;
 	TabControl *fbTabs;
+	int textureLevel_;
 
 	int minWidth,minHeight;
 };
