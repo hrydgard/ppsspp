@@ -271,7 +271,7 @@ void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult res
 }
 
 void ControlMappingScreen::KeyMapped(int pspkey) {  // Notification to let us refocus the same one after recreating views.
-	for (int i = 0; i < mappers_.size(); i++) {
+	for (size_t i = 0; i < mappers_.size(); i++) {
 		if (mappers_[i]->GetPspKey() == pspkey)
 			SetFocusedView(mappers_[i]);
 	}

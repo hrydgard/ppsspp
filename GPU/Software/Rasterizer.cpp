@@ -1524,25 +1524,25 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	return true;
 }
 
-bool GetCurrentTexture(GPUDebugBuffer &buffer)
+bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
 	}
 
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
-	u32 texaddr = gstate.getTextureAddress(0);
-	int texbufwidthbits = GetTextureBufw(0, texaddr, texfmt) * 8;
+	u32 texaddr = gstate.getTextureAddress(level);
+	int texbufwidthbits = GetTextureBufw(level, texaddr, texfmt) * 8;
 	u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(0, &x, &y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbits);
 		}
 		row += w;
 	}

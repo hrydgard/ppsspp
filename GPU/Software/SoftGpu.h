@@ -84,7 +84,7 @@ public:
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer);
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 protected:
