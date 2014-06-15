@@ -29,10 +29,10 @@ class TouchControlLayoutScreen : public UIDialogScreenWithBackground {
 public:
 	TouchControlLayoutScreen();
 
-	virtual void CreateViews();
-	virtual void touch(const TouchInput &touch);
-	virtual void dialogFinished(const Screen *dialog, DialogResult result);
-	virtual void onFinish(DialogResult reason);
+	virtual void CreateViews() override;
+	virtual bool touch(const TouchInput &touch) override;
+	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+	virtual void onFinish(DialogResult reason) override;
 
 protected:
 	virtual UI::EventReturn OnReset(UI::EventParams &e);

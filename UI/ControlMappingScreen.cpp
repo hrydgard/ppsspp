@@ -287,12 +287,12 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
 }
 
-void KeyMappingNewKeyDialog::key(const KeyInput &key) {
+bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (mapped_)
-		return;
+		return false;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
-			return;
+			return true;
 		}
 
 		mapped_ = true;
@@ -301,24 +301,25 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		if (callback_)
 			callback_(kdf);
 	}
+	return true;
 }
 
-void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
-		return;
+		return false;
 	switch (axis.axisId) {
 	// Ignore the accelerometer for mapping for now.
 	case JOYSTICK_AXIS_ACCELEROMETER_X:
 	case JOYSTICK_AXIS_ACCELEROMETER_Y:
 	case JOYSTICK_AXIS_ACCELEROMETER_Z:
-		return;
+		return false;
 
 	// Also ignore some weird axis events we get on Ouya.
 	case JOYSTICK_AXIS_OUYA_UNKNOWN1:
 	case JOYSTICK_AXIS_OUYA_UNKNOWN2:
 	case JOYSTICK_AXIS_OUYA_UNKNOWN3:
 	case JOYSTICK_AXIS_OUYA_UNKNOWN4:
-		return;
+		return false;
 
 	default:
 		;
@@ -339,4 +340,5 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		if (callback_)
 			callback_(kdf);
 	}
+	return true;
 }

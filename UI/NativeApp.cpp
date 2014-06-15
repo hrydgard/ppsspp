@@ -721,9 +721,10 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 	g_buttonTracker.Process(key);
+	bool retval = false;
 	if (screenManager)
-		screenManager->key(key);
-	return true;
+		retval = screenManager->key(key);
+	return retval;
 }
 
 bool NativeAxis(const AxisInput &key) {

@@ -252,9 +252,13 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void EmuScreen::touch(const TouchInput &touch) {
-	if (root_)
+bool EmuScreen::touch(const TouchInput &touch) {
+	if (root_) {
 		root_->Touch(touch);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
@@ -386,16 +390,23 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 	__CtrlSetAnalogY(axis, stick);
 }
 
-void EmuScreen::key(const KeyInput &key) {
+bool EmuScreen::key(const KeyInput &key) {
 	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 		pauseTrigger_ = true;
 	}
 
 	std::vector<int> pspKeys;
 	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+
+	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
+		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
+		return true;
+	}
+
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(pspKeys[i], key.flags);
 	}
+	return pspKeys.size() > 0;
 }
 
 void EmuScreen::pspKey(int pspKeyCode, int flags) {
@@ -418,16 +429,20 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 	}
 }
 
-void EmuScreen::axis(const AxisInput &axis) {
+bool EmuScreen::axis(const AxisInput &axis) {
 	if (axis.value > 0) {
 		processAxis(axis, 1);
+		return true;
 	} else if (axis.value < 0) {
 		processAxis(axis, -1);
+		return true;
 	} else if (axis.value == 0) {
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
 		processAxis(axis, 1);
 		processAxis(axis, -1);
+		return true;
 	}
+	return false;
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {

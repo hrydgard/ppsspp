@@ -31,8 +31,8 @@ public:
 	ControlMappingScreen() {}
 	void KeyMapped(int pspkey);  // Notification to let us refocus the same one after recreating views.
 protected:
-	virtual void CreateViews();
-	virtual void sendMessage(const char *message, const char *value);
+	virtual void CreateViews() override;
+	virtual void sendMessage(const char *message, const char *value) override;
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
@@ -51,15 +51,15 @@ public:
 		pspBtn_ = btn;
 	}
 
-	void key(const KeyInput &key);
-	void axis(const AxisInput &axis);
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
 
 protected:
-	void CreatePopupContents(UI::ViewGroup *parent);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
-	virtual bool FillVertical() const { return false; }
-	virtual bool ShowButtons() const { return true; }
-	virtual void OnCompleted(DialogResult result) {}
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void OnCompleted(DialogResult result) override {}
 
 private:
 	int pspBtn_;
