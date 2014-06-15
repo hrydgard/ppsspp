@@ -174,6 +174,8 @@ private:
 	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
+	bool ApplyShaderBlending();
+	void ResetShaderBlending();
 	bool IsReallyAClear(int numVerts) const;
 	GLuint AllocateBuffer();
 	void FreeBuffer(GLuint buf);
