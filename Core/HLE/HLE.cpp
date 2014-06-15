@@ -481,7 +481,7 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op)
 		ERROR_LOG(HLE, "Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
 		return NULL;
 	}
-	if (modulenum >= moduleDB.size()) {
+	if (modulenum >= (int)moduleDB.size()) {
 		ERROR_LOG(HLE, "Syscall had bad module number %i - probably executing garbage", modulenum);
 		return NULL;
 	}
