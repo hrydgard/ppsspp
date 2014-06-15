@@ -19,6 +19,8 @@
 
 #include <cmath>
 
+#include "Core/MIPS/MIPS.h"
+
 #define _VD (op & 0x7F)
 #define _VS ((op>>8) & 0x7F)
 #define _VT ((op>>16) & 0x7F)
@@ -32,19 +34,19 @@ inline int Xpose(int v) {
 #endif
 
 inline float vfpu_sin(float angle) {
-	angle -= floorf(angle * 4.0f) * 0.25f;
+	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
 	return sinf(angle);
 }
 
 inline float vfpu_cos(float angle) {
-	angle -= floorf(angle * 4.0f) * 0.25f;
+	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
 	return cosf(angle);
 }
 
 inline void vfpu_sincos(float angle, float &sine, float &cosine) {
-	angle -= floorf(angle * 4.0f) * 0.25f;
+	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
 	sine = sinf(angle);
 	cosine = cosf(angle);
