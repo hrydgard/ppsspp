@@ -507,6 +507,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
+	renderX += gstate_c.cutRTOffsetX * renderWidthFactor;
+
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
 	int scissorY1 = gstate.getScissorY1();

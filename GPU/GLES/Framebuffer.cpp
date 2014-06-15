@@ -862,22 +862,36 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	size_t i;
+	gstate_c.cutRTOffsetX = 0;
 	for (i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address)) {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
-			v->format = fmt;
+			vfb->format = fmt;
 			// In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
-			if (gstate.isModeThrough() && (int)v->width < fb_stride) {
-				v->width = std::max((int)v->width, drawing_width);
-				v->height = std::max((int)v->height, drawing_height);
+			if (gstate.isModeThrough() && (int)vfb->width < fb_stride) {
+				vfb->width = std::max((int)vfb->width, drawing_width);
+				vfb->height = std::max((int)vfb->height, drawing_height);
 			} else {
-				v->width = drawing_width;
-				v->height = drawing_height;
+				vfb->width = drawing_width;
+				vfb->height = drawing_height;
 			}
 			break;
+		} else if (v->fb_address < fb_address && v->fb_address + v->fb_stride * 4 > fb_address) {
+			// Possibly a render-to-offset.
+			const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+			const int x_offset = (fb_address - v->fb_address) / bpp;
+			if (v->format == fmt && v->fb_stride == fb_stride && x_offset < fb_stride && v->height >= drawing_height) {
+				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
+				vfb = v;
+				gstate_c.cutRTOffsetX = x_offset;
+				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
+				// To prevent the newSize code from being confused.
+				drawing_width += x_offset;
+				break;
+			}
 		}
 	}
 
