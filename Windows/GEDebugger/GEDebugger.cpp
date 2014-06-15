@@ -120,6 +120,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	int w = g_Config.iGEWindowW == -1 ? minWidth : g_Config.iGEWindowW;
 	int h = g_Config.iGEWindowH == -1 ? minHeight : g_Config.iGEWindowH;
 	MoveWindow(m_hDlg,x,y,w,h,FALSE);
+
+	UpdateTextureLevel(textureLevel_);
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -153,7 +155,7 @@ void CGEDebugger::UpdatePreviews() {
 	wchar_t desc[256];
 	const GPUDebugBuffer *primaryBuffer = NULL;
 	bool bufferResult = false;
-	GPUgstate state;
+	GPUgstate state = {0};
 
 	if (gpuDebug != NULL) {
 		state = gpuDebug->GetGState();
@@ -186,12 +188,13 @@ void CGEDebugger::UpdatePreviews() {
 		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
 		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
-	} else {
+	} else if (frameWindow != NULL) {
 		frameWindow->Clear();
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
 	const GPUDebugBuffer *bufferTex = NULL;
+	UpdateTextureLevel(textureLevel_);
 	bufferResult = GPU_GetCurrentTexture(bufferTex, textureLevel_);
 
 	if (bufferResult) {
@@ -211,7 +214,7 @@ void CGEDebugger::UpdatePreviews() {
 		} else {
 			UpdateLastTexture((u32)-1);
 		}
-	} else {
+	} else if (texWindow != NULL) {
 		texWindow->Clear();
 		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
@@ -240,6 +243,24 @@ void CGEDebugger::UpdatePreviews() {
 	vertices->Update();
 	matrices->Update();
 	lists->Update();
+}
+
+void CGEDebugger::UpdateTextureLevel(int level) {
+	GPUgstate state = {0};
+	if (gpuDebug != NULL) {
+		state = gpuDebug->GetGState();
+	}
+
+	int maxValid = 0;
+	for (int i = 1; i < 8; ++i) {
+		if (state.getTextureAddress(i) != 0) {
+			maxValid = i;
+		}
+	}
+
+	textureLevel_ = std::min(std::max(0, level), maxValid);
+	EnableWindow(GetDlgItem(m_hDlg, IDC_GEDBG_TEXLEVELDOWN), textureLevel_ > 0);
+	EnableWindow(GetDlgItem(m_hDlg, IDC_GEDBG_TEXLEVELUP), textureLevel_ < maxValid);
 }
 
 void CGEDebugger::UpdateSize(WORD width, WORD height) {
@@ -375,6 +396,20 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 						AddTextureBreakpoint(texAddr);
 					}
 				}
+			}
+			break;
+
+		case IDC_GEDBG_TEXLEVELDOWN:
+			UpdateTextureLevel(textureLevel_ - 1);
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
+			}
+			break;
+
+		case IDC_GEDBG_TEXLEVELUP:
+			UpdateTextureLevel(textureLevel_ + 1);
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
 			}
 			break;
 

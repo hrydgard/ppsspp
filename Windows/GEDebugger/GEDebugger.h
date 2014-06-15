@@ -70,6 +70,7 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void SetBreakNext(BreakNextType type);
+	void UpdateTextureLevel(int level);
 
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;
