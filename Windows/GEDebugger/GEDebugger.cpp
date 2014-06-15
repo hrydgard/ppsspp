@@ -252,7 +252,7 @@ void CGEDebugger::UpdateTextureLevel(int level) {
 	}
 
 	int maxValid = 0;
-	for (int i = 1; i < 8; ++i) {
+	for (int i = 1; i < state.getTextureMaxLevel() + 1; ++i) {
 		if (state.getTextureAddress(i) != 0) {
 			maxValid = i;
 		}

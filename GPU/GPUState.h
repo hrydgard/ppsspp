@@ -313,6 +313,7 @@ struct GPUgstate
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
+	int getTextureMaxLevel() const { return (texmode >> 16) & 0x7; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }

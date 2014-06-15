@@ -1148,7 +1148,7 @@ void TextureCache::SetTexture(bool force) {
 	}
 
 	int bufw = GetTextureBufw(0, texaddr, format);
-	int maxLevel = ((gstate.texmode >> 16) & 0x7);
+	int maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
 	u32 fullhash = 0;

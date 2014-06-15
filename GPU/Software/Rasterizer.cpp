@@ -1171,7 +1171,7 @@ void DrawTriangleSlice(
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -1346,7 +1346,7 @@ void DrawPoint(const VertexData &v0)
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		int texbufwidthbits[8] = {0};
 
-		int maxTexLevel = (gstate.texmode >> 16) & 7;
+		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
 
 		int magFilt = (gstate.texfilter>>8) & 1;
@@ -1430,7 +1430,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
