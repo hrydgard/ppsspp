@@ -391,22 +391,13 @@ GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 
 GLES_GPU::GLES_GPU()
 : resized_(false) {
-#ifdef _WIN32
-	lastVsync_ = g_Config.bVSync ? 1 : 0;
-	// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
-	// so it just keeps tearing. Not what I hoped for...
-	//if (false && gl_extensions.EXT_swap_control_tear) {
-		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-	//	glstate.SetVSyncInterval(g_Config.bVSync ? -1 :0);
-	//} else {
-		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
-	//}
-#endif
+	UpdateVsyncInterval(true);
 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
 	framebufferManager_.SetTransformDrawEngine(&transformDraw_);
@@ -457,6 +448,8 @@ GLES_GPU::GLES_GPU()
 	}
 
 	BuildReportingInfo();
+	// Update again after init to be sure of any silly driver problems.
+	UpdateVsyncInterval(true);
 }
 
 GLES_GPU::~GLES_GPU() {
@@ -501,6 +494,8 @@ void GLES_GPU::DeviceLost() {
 	textureCache_.Clear(false);
 	depalShaderCache_.Clear();
 	framebufferManager_.DeviceLost();
+
+	UpdateVsyncInterval(true);
 }
 
 void GLES_GPU::InitClear() {
@@ -526,17 +521,24 @@ void GLES_GPU::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
-void GLES_GPU::BeginFrameInternal() {
+inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 #ifdef _WIN32
-	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
+	if (PSP_CoreParameter().unthrottle) {
 		desiredVSyncInterval = 0;
-	if (desiredVSyncInterval != lastVsync_) {
+	}
+	if (PSP_CoreParameter().fpsLimit == 1) {
+		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
+		if (g_Config.iFpsLimit == 0 || (g_Config.iFpsLimit != 15 && g_Config.iFpsLimit != 30 && g_Config.iFpsLimit != 60)) {
+			desiredVSyncInterval = 0;
+		}
+	}
+
+	if (desiredVSyncInterval != lastVsync_ || force) {
 		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
 		// so it just keeps tearing. Not what I hoped for...
-		//if (false && gl_extensions.EXT_swap_control_tear) {
-			// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
+		//if (gl_extensions.EXT_swap_control_tear) {
+		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
 			glstate.SetVSyncInterval(desiredVSyncInterval);
@@ -544,6 +546,11 @@ void GLES_GPU::BeginFrameInternal() {
 		lastVsync_ = desiredVSyncInterval;
 	}
 #endif
+}
+
+void GLES_GPU::BeginFrameInternal() {
+	UpdateVsyncInterval(resized_);
+	resized_ = false;
 
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
@@ -2085,6 +2092,7 @@ void GLES_GPU::ClearCacheNextFrame() {
 }
 
 void GLES_GPU::Resized() {
+	resized_ = true;
 	framebufferManager_.Resized();
 }
 
