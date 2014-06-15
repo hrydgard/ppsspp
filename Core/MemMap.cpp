@@ -183,7 +183,7 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 #else
-		if (view.flags & MV_MIRROR_PREVIOUS) {  // TODO: should check if the two & 0x3FFFFFFF are identical.
+		if ((view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~0x3FFFFFFF) != 0) {
 			// No need to create multiple identical views.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
