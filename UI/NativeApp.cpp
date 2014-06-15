@@ -697,12 +697,16 @@ bool NativeIsAtTopLevel() {
 	}
 }
 
-void NativeTouch(const TouchInput &touch) {
-	if (screenManager)
+bool NativeTouch(const TouchInput &touch) {
+	if (screenManager) {
 		screenManager->touch(touch);
+		return true;
+	} else {
+		return false;
+	}
 }
 
-void NativeKey(const KeyInput &key) {
+bool NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
@@ -711,7 +715,7 @@ void NativeKey(const KeyInput &key) {
 		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
 				System_SendMessage("finish", "");
-				return;
+				return true;
 			}
 		}
 	}
@@ -719,27 +723,28 @@ void NativeKey(const KeyInput &key) {
 	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);
+	return true;
 }
 
-void NativeAxis(const AxisInput &key) {
+bool NativeAxis(const AxisInput &key) {
 	using namespace TiltEventProcessor;
 
-
-	//only handle tilt events if tilt is enabled.
+	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL){
-
-		//if tilt events are disabled, then run it through the usual way. 
+		// if tilt events are disabled, then run it through the usual way. 
 		if (screenManager) {
 			screenManager->axis(key);
+			return true;
+		} else {
+			return false;
 		}
-
-		return;
 	}
+
 	//create the base coordinate tilt system from the calibration data. 
 	//This is static for no particular reason, can be un-static'ed
 	static Tilt baseTilt;
-	baseTilt.x_ = g_Config.fTiltBaseX; baseTilt.y_ = g_Config.fTiltBaseY;
-
+	baseTilt.x_ = g_Config.fTiltBaseX;
+	baseTilt.y_ = g_Config.fTiltBaseY;
 
 	//figure out what the current tilt orientation is by checking the axis event
 	//This is static, since we need to remember where we last were (in terms of orientation) 
@@ -762,7 +767,7 @@ void NativeAxis(const AxisInput &key) {
 		case JOYSTICK_AXIS_ACCELEROMETER_Z:
 			//don't handle this now as only landscape is enabled.
 			//TODO: make this generic.
-			return;
+			return false;
 
 			
 		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
@@ -772,10 +777,10 @@ void NativeAxis(const AxisInput &key) {
 			//Don't know how to handle these. Someone should figure it out.
 			//Does the Ouya even have an accelerometer / gyro? I can't find any reference to these
 			//in the Ouya docs...
-			return;
+			return false;
 
 		default:
-			return;
+			return false;
 	}
 
 	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
@@ -803,7 +808,7 @@ void NativeAxis(const AxisInput &key) {
 			GenerateActionButtonEvent(trueTilt);
 			break;
 	}
-
+	return true;
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
