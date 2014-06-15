@@ -1832,24 +1832,18 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
 	// sincosf is unavailable in the Android NDK:
 	// https://code.google.com/p/android/issues/detail?id=38423
 	double SinCos(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
-		angle *= (float)M_PI_2;
-		sincos.sin = sinf(angle);
-		sincos.cos = cosf(angle);
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		return sincos.out;
 	}
 
 	double SinCosNegSin(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
-		angle *= (float)M_PI_2;
-		sincos.sin = -sinf(angle);
-		sincos.cos = cosf(angle);
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
+		sincos.sin = -sincos.sin;
 		return sincos.out;
 	}
 
