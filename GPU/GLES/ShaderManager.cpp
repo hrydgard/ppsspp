@@ -303,10 +303,10 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 
 static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha) {
 	const int col[4] = {
-		(color & 0xFF) >> 0,
-		(color & 0xFF00) >> 8,
-		(color & 0xFF0000) >> 16,
-		alpha,
+		(int)((color & 0xFF) >> 0),
+		(int)((color & 0xFF00) >> 8),
+		(int)((color & 0xFF0000) >> 16),
+		(int)alpha,
 	};
 	glUniform4iv(uniform, 1, col);
 }
