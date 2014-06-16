@@ -1048,7 +1048,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
 		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+			shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
 		break;
 
 	case GE_CMD_ALPHATEST:

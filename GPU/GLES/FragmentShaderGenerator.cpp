@@ -347,7 +347,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
-		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
+		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool alphaToColorDoubling = AlphaToColorDoubling();
 		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
@@ -433,6 +433,7 @@ void GenerateFragmentShader(char *buffer) {
 	const char *fragColor0 = "gl_FragColor";
 	const char *texture = "texture2D";
 	bool highpFog = false;
+	bool bitwiseOps = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
@@ -442,6 +443,7 @@ void GenerateFragmentShader(char *buffer) {
 		fragColor0 = "fragColor0";
 		texture = "texture";
 		glslES30 = true;
+		bitwiseOps = true;
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	}
@@ -461,12 +463,14 @@ void GenerateFragmentShader(char *buffer) {
 		fragColor0 = "fragColor0";
 		texture = "texture";
 		glslES30 = true;
+		bitwiseOps = true;
 		WRITE(p, "#version 330\n");
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		fragColor0 = "fragColor0";
+		bitwiseOps = true;
 		WRITE(p, "#version 130\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
 		WRITE(p, "#define lowp\n");
@@ -494,7 +498,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
-	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0;
+	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool alphaToColorDoubling = AlphaToColorDoubling();
 	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
@@ -533,6 +537,9 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
+		if (bitwiseOps && !alphaTestAgainstZero) {
+			WRITE(p, "uniform ivec4 u_alphacolormask;\n");
+		}
 	}
 	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
@@ -555,16 +562,22 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	if (enableAlphaTest && !alphaTestAgainstZero) {
-		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
+		if (bitwiseOps) {
+			WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
+		} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-		else
+		} else {
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+		}
 	}
 	if (enableColorTest) {
-		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
+		if (bitwiseOps) {
+			WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+		} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 			WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-		else
+		} else {
 			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+		}
 	}
 
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
@@ -716,6 +729,8 @@ void GenerateFragmentShader(char *buffer) {
 						// Anything else is a test for == 0.  Happens sometimes, actually...
 						WRITE(p, "  if (v.a > 0.002) discard;\n");
 					}
+				} else if (bitwiseOps) {
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s (int(u_alphacolorref.a) & u_alphacolormask.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
 					if (alphaTestFunc != GE_COMP_NOTEQUAL)
@@ -733,12 +748,14 @@ void GenerateFragmentShader(char *buffer) {
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
-			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR)
+				if (bitwiseOps) {
+					WRITE(p, "  if ((roundAndScaleTo255iv(v.rgb) & u_alphacolormask.rgb) %s (ivec3(u_alphacolorref.rgb) & u_alphacolormask.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
-				else
+				} else {
 					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+				}
 			} else {
 				WRITE(p, "  discard;\n");
 			}

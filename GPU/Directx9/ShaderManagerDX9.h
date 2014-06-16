@@ -84,7 +84,7 @@ public:
 	
 	// Fragment processing inputs
 	D3DXHANDLE u_alphacolorref;
-	D3DXHANDLE u_colormask;
+	D3DXHANDLE u_alphacolormask;
 	D3DXHANDLE u_fogcolor;
 	D3DXHANDLE u_fogcoef;
 
@@ -117,7 +117,7 @@ enum
 	DIRTY_TEXENV		 = (1 << 4),
 	DIRTY_ALPHACOLORREF	 = (1 << 5),
 	DIRTY_COLORREF	 = (1 << 6),
-	DIRTY_COLORMASK	 = (1 << 7),
+	DIRTY_ALPHACOLORMASK	 = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
 	DIRTY_LIGHT2 = (1 << 10),

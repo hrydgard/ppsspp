@@ -1084,15 +1084,12 @@ void GLES_GPU::Execute_FogCoef(u32 op, u32 diff) {
 }
 
 void GLES_GPU::Execute_ColorTestMask(u32 op, u32 diff) {
-	shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
 }
 
 void GLES_GPU::Execute_AlphaTest(u32 op, u32 diff) {
-#ifndef MOBILE_DEVICE
-	if (((op >> 16) & 0xFF) != 0xFF && (op & 7) > 1)
-		WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (op >> 16) & 0xFF);
-#endif
 	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
 }
 
 void GLES_GPU::Execute_StencilTest(u32 op, u32 diff) {
