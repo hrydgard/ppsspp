@@ -123,7 +123,7 @@ inline u16 BGRA8888toRGBA4444(u32 px) {
 	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBufferFormat format);
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 height, GEBufferFormat format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
@@ -404,10 +404,10 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 		// Initialize backbuffer texture for DrawPixels
 		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		drawPixelsTexFormat_ = srcPixelFormat;
@@ -498,7 +498,7 @@ void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY,
 
 void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	DisableState();
 
@@ -1562,49 +1562,83 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 
 // TODO: SSE/NEON
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 height, GEBufferFormat format) {
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 height, GEBufferFormat format) {
+	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
+	const u32 *src32 = (const u32 *)src;
+
 	if (format == GE_FORMAT_8888) {
+		u32 *dst32 = (u32 *)dst;
 		if (src == dst) {
 			return;
 		} else if (UseBGRA8888()) {
-			u32 numPixels = height * stride;
-			ConvertBGRA8888ToRGBA8888((u32 *)dst, (const u32 *)src, numPixels);
+			for (u32 y = 0; y < height; ++y) {
+				ConvertBGRA8888ToRGBA8888(dst32, src32, width);
+				src32 += stride;
+				dst32 += stride;
+			}
 		} else {
 			// Here let's assume they don't intersect
-			memcpy(dst, src, stride * height * 4);
+			for (u32 y = 0; y < height; ++y) {
+				memcpy(dst32, src32, width * 4);
+				src32 += stride;
+				dst32 += stride;
+			}
 		}
 	} else {
 		// But here it shouldn't matter if they do intersect
 		int size = height * stride;
-		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
 			case GE_FORMAT_565: // BGR 565
 				if (UseBGRA8888()) {
-					for (int i = 0; i < size; i++) {
-						dst16[i] = BGRA8888toRGB565(src32[i]);
+					for (u32 y = 0; y < height; ++y) {
+						for (u32 x = 0; x < width; ++x) {
+							dst16[x] = BGRA8888toRGB565(src32[x]);
+						}
+						src32 += stride;
+						dst16 += stride;
 					}
 				} else {
-					for (int i = 0; i < size; i++) {
-						dst16[i] = RGBA8888toRGB565(src32[i]);
+					for (u32 y = 0; y < height; ++y) {
+						for (u32 x = 0; x < width; ++x) {
+							dst16[x] = RGBA8888toRGB565(src32[x]);
+						}
+						src32 += stride;
+						dst16 += stride;
 					}
 				}
 				break;
 			case GE_FORMAT_5551: // ABGR 1555
 				if (UseBGRA8888()) {
-					ConvertBGRA8888ToRGBA5551(dst16, src32, size);
+					for (u32 y = 0; y < height; ++y) {
+						ConvertBGRA8888ToRGBA5551(dst16, src32, width);
+						src32 += stride;
+						dst16 += stride;
+					}
 				} else {
-					ConvertRGBA8888ToRGBA5551(dst16, src32, size);
+					for (u32 y = 0; y < height; ++y) {
+						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
+						src32 += stride;
+						dst16 += stride;
+					}
 				}
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
 				if (UseBGRA8888()) {
-					for (int i = 0; i < size; i++) {
-						dst16[i] = BGRA8888toRGBA4444(src32[i]);
+					for (u32 y = 0; y < height; ++y) {
+						for (u32 x = 0; x < width; ++x) {
+							dst16[x] = BGRA8888toRGBA4444(src32[x]);
+						}
+						src32 += stride;
+						dst16 += stride;
 					}
 				} else {
-					for (int i = 0; i < size; i++) {
-						dst16[i] = RGBA8888toRGBA4444(src32[i]);
+					for (u32 y = 0; y < height; ++y) {
+						for (u32 x = 0; x < width; ++x) {
+							dst16[x] = RGBA8888toRGBA4444(src32[x]);
+						}
+						src32 += stride;
+						dst16 += stride;
 					}
 				}
 				break;
@@ -1679,7 +1713,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 			if (useCPU || (UseBGRA8888() && pbo.format == GE_FORMAT_8888)) {
 				u8 *dst = Memory::GetPointer(pbo.fb_address);
-				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.height, pbo.format);
+				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.height, pbo.format);
 			} else {
 				// We don't need to convert, GPU already did (or should have)
 				Memory::Memcpy(pbo.fb_address, packed, pbo.size);
@@ -1815,6 +1849,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	GLubyte *packed = 0;
 
 	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
+	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 
 	if (!convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
@@ -1843,7 +1878,8 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		// LogReadPixelsError(glGetError());
 
 		if (convert) {
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address + byteOffset), packed + byteOffset, vfb->fb_stride, h, vfb->format);
+			int dstByteOffset = y * vfb->fb_stride * dstBpp;
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->width, h, vfb->format);
 		}
 	}
 
@@ -2025,18 +2061,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		return false;
 	}
 
-	// MotoGP workaround
-	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
-		for (size_t i = 0; i < vfbs_.size(); i++) {
-			int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
-			int fsize = FramebufferByteSize(vfbs_[i]);
-			if (MaskedEqual(vfbs_[i]->fb_address, src) && size == fsize) {
-				// A framebuffer matched!
-				knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
-			}
-		}
-	}
-
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
 
@@ -2075,6 +2099,15 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
+	if (srcBuffer && srcY == 0 && srcH == srcBuffer->height && !dstBuffer) {
+		// MotoGP workaround - it copies a framebuffer to memory and then displays it.
+		// TODO: It's rare anyway, but the game could modify the RAM and then we'd display the wrong thing.
+		// Unfortunately, that would force 1x render resolution.
+		if (Memory::IsRAMAddress(dst)) {
+			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+		}
+	}
+
 	if (!useBufferedRendering_) {
 		// If we're copying into a recently used display buf, it's probably destined for the screen.
 		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
@@ -2082,8 +2115,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
-	// TODO: Do ReadFramebufferToMemory etc where applicable.
-	// This will slow down MotoGP but make the hack above unnecessary.
 	if (dstBuffer && srcBuffer && !isMemset) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
