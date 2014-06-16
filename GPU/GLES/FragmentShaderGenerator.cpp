@@ -537,7 +537,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
-		if (bitwiseOps && !alphaTestAgainstZero) {
+		if (bitwiseOps && (enableColorTest || !alphaTestAgainstZero)) {
 			WRITE(p, "uniform ivec4 u_alphacolormask;\n");
 		}
 	}
