@@ -74,6 +74,8 @@ private:
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
+	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
@@ -82,6 +84,28 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
+
+	// Cached booleans
+	bool hwTransformEnable;
+	bool vtxCacheEnable;
+	bool renderModeEnable;
+	bool blockTransferEnable;
+	bool swSkinningEnable;
+	bool texBackoffEnable;
+	bool mipmapEnable;
+	bool texScalingEnable;
+	bool texSecondaryEnable;
+	bool beziersEnable;
+	bool stencilTestEnable;
+	bool depthWriteEnable;
+	bool prescaleEnable;
+	bool texScalingTypeEnable;
+	bool desposterizeEnable;
+	bool anisotropicEnable;
+	bool texFilteringEnable;
+	bool postProcEnable;
+	bool resolutionEnable;
+	bool alphaHackEnable;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
