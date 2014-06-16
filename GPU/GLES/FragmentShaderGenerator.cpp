@@ -730,7 +730,7 @@ void GenerateFragmentShader(char *buffer) {
 						WRITE(p, "  if (v.a > 0.002) discard;\n");
 					}
 				} else if (bitwiseOps) {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s (int(u_alphacolorref.a) & u_alphacolormask.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					// Work around bad PVR driver problem where equality check + discard just doesn't work.
 					if (alphaTestFunc != GE_COMP_NOTEQUAL)
