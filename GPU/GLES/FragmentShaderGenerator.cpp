@@ -750,7 +750,7 @@ void GenerateFragmentShader(char *buffer) {
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (bitwiseOps) {
-					WRITE(p, "  if ((roundAndScaleTo255iv(v.rgb) & u_alphacolormask.rgb) %s (ivec3(u_alphacolorref.rgb) & u_alphacolormask.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "  if ((roundAndScaleTo255iv(v.rgb) & u_alphacolormask.rgb) %s (ivec3(u_alphacolorref.rgb) & u_alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				} else {
