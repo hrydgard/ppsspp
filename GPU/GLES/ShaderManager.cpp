@@ -145,7 +145,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
-	u_colormask = glGetUniformLocation(program, "u_colormask");
+	u_alphacolormask = glGetUniformLocation(program, "u_alphacolormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
 
 	u_fbotex = glGetUniformLocation(program, "fbotex");
@@ -216,7 +216,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_proj_through != -1) availableUniforms |= DIRTY_PROJTHROUGHMATRIX;
 	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
 	if (u_alphacolorref != -1) availableUniforms |= DIRTY_ALPHACOLORREF;
-	if (u_colormask != -1) availableUniforms |= DIRTY_COLORMASK;
+	if (u_alphacolormask != -1) availableUniforms |= DIRTY_ALPHACOLORMASK;
 	if (u_fogcolor != -1) availableUniforms |= DIRTY_FOGCOLOR;
 	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
 	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
@@ -284,7 +284,7 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 		const float col[4] = {
-			(float)((color & 0xFF)) * (1.0f / 255.0f),
+			(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
 			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
 			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 			(float)alpha * (1.0f / 255.0f)
@@ -292,13 +292,23 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 		glUniform4fv(uniform, 1, col);
 	} else {
 		const float col[4] = {
-			(float)((color & 0xFF)) ,
-			(float)((color & 0xFF00) >> 8) ,
-			(float)((color & 0xFF0000) >> 16) ,
+			(float)((color & 0xFF) >> 0),
+			(float)((color & 0xFF00) >> 8),
+			(float)((color & 0xFF0000) >> 16),
 			(float)alpha 
 		};
 		glUniform4fv(uniform, 1, col);
 	}
+}
+
+static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha) {
+	const int col[4] = {
+		(color & 0xFF) >> 0,
+		(color & 0xFF00) >> 8,
+		(color & 0xFF0000) >> 16,
+		alpha,
+	};
+	glUniform4iv(uniform, 1, col);
 }
 
 static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
@@ -380,10 +390,10 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
-	if (dirty & DIRTY_COLORMASK) {
-		SetColorUniform3(u_colormask, gstate.colormask);
+	if (dirty & DIRTY_ALPHACOLORMASK) {
+		SetColorUniform3iAlpha(u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);

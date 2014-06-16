@@ -183,7 +183,7 @@ struct GPUgstate
 				maxz,
 				colortest,
 				colorref,
-				colormask,
+				colortestmask,
 				alphatest,
 				stenciltest,
 				stencilop,
@@ -284,7 +284,7 @@ struct GPUgstate
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
 	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
-	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
+	u32 getColorTestMask() const { return colortestmask & 0xFFFFFF; }
 
 	// Texturing
 	// TODO: Verify getTextureAddress() alignment?

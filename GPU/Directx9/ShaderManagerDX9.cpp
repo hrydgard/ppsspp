@@ -117,7 +117,7 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 	u_fogcolor = 		GetConstantByName("u_fogcolor");
 	u_fogcoef = 		GetConstantByName("u_fogcoef");
 	u_alphacolorref = 	GetConstantByName("u_alphacolorref");
-	u_colormask = 		GetConstantByName("u_colormask");
+	u_alphacolormask = 	GetConstantByName("u_alphacolormask");
 
 	// Transform
 	u_view = 	GetConstantByName("u_view");
@@ -345,8 +345,8 @@ void LinkedShaderDX9::updateUniforms() {
 	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
 		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
-	if (u_colormask != 0 && (dirtyUniforms & DIRTY_COLORMASK)) {
-		SetColorUniform3(u_colormask, gstate.colormask);
+	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
+		SetColorUniform3(u_alphacolormask, gstate.colortestmask);
 	}
 	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);

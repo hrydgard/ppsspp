@@ -81,7 +81,7 @@ public:
 
 	// Fragment processing inputs
 	int u_alphacolorref;
-	int u_colormask;
+	int u_alphacolormask;
 	int u_fogcolor;
 	int u_fogcoef;
 
@@ -119,7 +119,7 @@ enum
 	// 1 << 6 is free! Wait, not anymore...
 	DIRTY_STENCILREPLACEVALUE = (1 << 6),
 
-	DIRTY_COLORMASK	 = (1 << 7),
+	DIRTY_ALPHACOLORMASK = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
 	DIRTY_LIGHT2 = (1 << 10),
