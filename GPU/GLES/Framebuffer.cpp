@@ -2061,18 +2061,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		return false;
 	}
 
-	// MotoGP workaround
-	if (Memory::IsVRAMAddress(src) && Memory::IsRAMAddress(dst)) {
-		for (size_t i = 0; i < vfbs_.size(); i++) {
-			int bpp = vfbs_[i]->format == GE_FORMAT_8888 ? 4 : 2;
-			int fsize = FramebufferByteSize(vfbs_[i]);
-			if (MaskedEqual(vfbs_[i]->fb_address, src) && size == fsize) {
-				// A framebuffer matched!
-				knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
-			}
-		}
-	}
-
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
 
@@ -2111,6 +2099,15 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
+	if (srcBuffer && srcY == 0 && srcH == srcBuffer->height && !dstBuffer) {
+		// MotoGP workaround - it copies a framebuffer to memory and then displays it.
+		// TODO: It's rare anyway, but the game could modify the RAM and then we'd display the wrong thing.
+		// Unfortunately, that would force 1x render resolution.
+		if (Memory::IsRAMAddress(dst)) {
+			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
+		}
+	}
+
 	if (!useBufferedRendering_) {
 		// If we're copying into a recently used display buf, it's probably destined for the screen.
 		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
@@ -2118,8 +2115,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		}
 	}
 
-	// TODO: Do ReadFramebufferToMemory etc where applicable.
-	// This will slow down MotoGP but make the hack above unnecessary.
 	if (dstBuffer && srcBuffer && !isMemset) {
 		if (srcBuffer == dstBuffer) {
 			WARN_LOG_REPORT_ONCE(dstsrccpy, G3D, "Intra-buffer memcpy (not supported) %08x -> %08x", src, dst);
