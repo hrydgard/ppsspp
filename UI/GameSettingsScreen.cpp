@@ -234,6 +234,9 @@ void GameSettingsScreen::CreateViews() {
 	alphaHackEnable = !g_Config.bSoftwareRendering;
 	alphaHack->SetEnabledPtr(&alphaHackEnable);
 
+	CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+	stencilTestEnable = !g_Config.bSoftwareRendering;
+	stencilTest->SetEnabledPtr(&stencilTestEnable);
 
 	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
 	depthWriteEnable = !g_Config.bSoftwareRendering;
