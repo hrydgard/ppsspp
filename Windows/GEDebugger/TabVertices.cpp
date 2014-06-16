@@ -343,7 +343,7 @@ CtrlMatrixList::CtrlMatrixList(HWND hwnd)
 }
 
 void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
-	if (row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT) {
+	if (!gpuDebug || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT) {
 		wcscpy(dest, L"Invalid");
 		return;
 	}
