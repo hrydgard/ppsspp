@@ -20,7 +20,7 @@
 #include <cstring>
 #ifdef __SYMBIAN32__
 #include <e32std.h>
-#elif defined(MEEGO_EDITION_HARMATTAN)
+#elif defined(MAEMO)
 #include <stddef.h>
 #endif
 

@@ -264,7 +264,7 @@ void NativeInit(int argc, const char *argv[],
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
@@ -359,7 +359,7 @@ void NativeInit(int argc, const char *argv[],
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS) || defined(_WIN32)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");

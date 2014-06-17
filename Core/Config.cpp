@@ -441,7 +441,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false),
 #endif
 #if defined(USING_WIN_UI)

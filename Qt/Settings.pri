@@ -63,8 +63,8 @@ contains(QT_CONFIG, opengles.) {
 }
 
 # Platform specific
-contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
-maemo5: DEFINES += MAEMO
+contains(MEEGO_EDITION,harmattan): DEFINES += "_SYS_UCONTEXT_H=1"
+maemo: DEFINES += MAEMO
 
 macx: INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
 ios: INCLUDEPATH += $$P/ffmpeg/ios/universal/include

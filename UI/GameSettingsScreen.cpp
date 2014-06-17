@@ -315,9 +315,9 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-	// On systems that aren't Symbian, iOS, and Meego Harmattan, offer to let the user see this button.
+	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
 
 	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
