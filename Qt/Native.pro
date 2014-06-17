@@ -6,7 +6,7 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-!mobile_platform: {
+!contains(DEFINES,USING_GLES2) {
 	SOURCES += $$P/native/ext/glew/glew.c
 	HEADERS += $$P/native/ext/glew/GL/*.h
 }

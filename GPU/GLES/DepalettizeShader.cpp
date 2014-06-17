@@ -415,13 +415,6 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	glBindAttribLocation(program, 0, "a_position");
 	glBindAttribLocation(program, 1, "a_texcoord0");
 
-	if (useGL3_) {
-		// This call is not really necessary, I think.
-#ifndef USING_GLES2
-		glBindFragDataLocation(program, 0, "fragColor0");
-#endif
-	}
-
 	glLinkProgram(program);
 	glUseProgram(program);
 
