@@ -277,18 +277,17 @@ static bool CanDoubleSrcBlendMode() {
 
 	int funcA = gstate.getBlendFuncA();
 	int funcB = gstate.getBlendFuncB();
-	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA && funcA != GE_SRCBLEND_DOUBLEINVSRCALPHA) {
 		funcB = funcA;
 		funcA = gstate.getBlendFuncB();
 	}
-	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA && funcA != GE_SRCBLEND_DOUBLEINVSRCALPHA) {
 		return false;
 	}
 
 	// One side should be doubled.  Let's check the other side.
-	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
-	// Persona 2 uses the same function, which is the reason for its darkness. It only ever passes
-	// 1.0 as src alpha though, so in effect it's a color doubling.
+	// LittleBigPlanet and Persona 2, for example, uses 2.0 * src.a, 1.0 - src.a, which can't double.
+	// In that case, we can double the src rgb instead.
 	switch (funcB) {
 	case GE_DSTBLEND_SRCALPHA:
 	case GE_DSTBLEND_INVSRCALPHA:
