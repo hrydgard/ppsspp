@@ -457,6 +457,7 @@ GLES_GPU::~GLES_GPU() {
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
 	delete shaderManager_;
+	glstate.SetVSyncInterval(0);
 }
 
 // Let's avoid passing nulls into snprintf().
