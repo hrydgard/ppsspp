@@ -335,6 +335,19 @@ bool ShouldUseShaderBlending() {
 	return false;
 }
 
+// Doesn't need to be in the shader id, ShouldUseShaderBlending contains all parts.
+bool ShouldUseShaderFixedBlending() {
+	if (!ShouldUseShaderBlending()) {
+		return false;
+	}
+
+	if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
+		GEBlendMode blendEq = gstate.getBlendEq();
+		return blendEq != GE_BLENDMODE_MIN && blendEq != GE_BLENDMODE_MAX && blendEq != GE_BLENDMODE_ABSDIFF;
+	}
+	return false;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
@@ -349,10 +362,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool alphaToColorDoubling = AlphaToColorDoubling();
+		bool useShaderBlending = ShouldUseShaderBlending();
+		bool alphaToColorDoubling = AlphaToColorDoubling() && !useShaderBlending;
 		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-		bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
+		bool enableAlphaDoubling = !alphaToColorDoubling && !useShaderBlending && CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
@@ -409,7 +423,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 
 		// 29 - 31 are free.
 
-		if (ShouldUseShaderBlending()) {
+		if (useShaderBlending) {
 			// 12 bits total.
 			id1 |= 1 << 0;
 			id1 |= gstate.getBlendEq() << 1;
@@ -500,10 +514,11 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool alphaToColorDoubling = AlphaToColorDoubling();
+	bool useShaderBlending = ShouldUseShaderBlending();
+	bool alphaToColorDoubling = AlphaToColorDoubling() && !useShaderBlending;
 	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = !alphaToColorDoubling && CanDoubleSrcBlendMode();
+	bool enableAlphaDoubling = !alphaToColorDoubling && !useShaderBlending && CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
@@ -514,7 +529,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if (!gstate.isModeClear() && ShouldUseShaderBlending()) {
+	if (!gstate.isModeClear() && useShaderBlending) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
 			if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
@@ -776,7 +791,10 @@ void GenerateFragmentShader(char *buffer) {
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
-		if (ShouldUseShaderBlending()) {
+		if (ShouldUseShaderFixedBlending()) {
+			// Just premultiply by u_blendFixA.
+			WRITE(p, "  v.rgb = v.rgb * u_blendFixA;\n");
+		} else if (useShaderBlending) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
 			// TODO: EXT_shader_framebuffer_fetch on iOS 6, possibly others.

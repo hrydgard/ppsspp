@@ -164,6 +164,29 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 }
 
 bool TransformDrawEngine::ApplyShaderBlending() {
+	if (ShouldUseShaderFixedBlending()) {
+		// If both sides are fixed, we can do this without a blit but still in the shader.
+		Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+		GEBlendMode blendFuncEq = gstate.getBlendEq();
+
+		// Okay, so we'll use src * 1.0 + dst * fixB, and then premultiply in the shader.
+		const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
+		glstate.blendColor.set(blendColor);
+
+		ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
+		if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
+			glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ONE, GL_ZERO);
+		} else {
+			glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ZERO, GL_ONE);
+		}
+
+		// Min/max/absdiff are not possible here.
+		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+
+		shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		return false;
+	}
+
 	bool skipBlit = false;
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
 		return true;
@@ -231,7 +254,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	glstate.blend.set(wantBlend);
-	if (wantBlend) {
+	// For ShouldUseShaderFixedBlending(), we already set the params.
+	if (wantBlend && !ShouldUseShaderFixedBlending()) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
 		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
 

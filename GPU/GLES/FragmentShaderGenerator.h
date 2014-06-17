@@ -63,3 +63,4 @@ bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil();
 bool ShouldUseShaderBlending();
+bool ShouldUseShaderFixedBlending();
