@@ -6,9 +6,12 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
+INCLUDEPATH += $$P/native
+
 !contains(DEFINES,USING_GLES2) {
 	SOURCES += $$P/native/ext/glew/glew.c
 	HEADERS += $$P/native/ext/glew/GL/*.h
+	INCLUDEPATH += $$P/native/ext/glew
 }
 
 # RG_ETC1
@@ -141,5 +144,3 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/random/*.h \
 	$$P/native/util/text/utf8.h \
 	$$P/native/util/text/parsers.h
-
-INCLUDEPATH += $$P/native

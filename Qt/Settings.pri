@@ -53,10 +53,7 @@ arm:!symbian {
 	QMAKE_CXXFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math
 }
 
-gleslib = $$find(QT_CONFIG, "opengles")
-count(gleslib,0) { # OpenGL
-	INCLUDEPATH += $$P/native/ext/glew
-} else {
+contains(QT_CONFIG, opengles.) {
 	DEFINES += USING_GLES2
 	# How else do we know if the environment prefers windows?
 	!linux|android|maemo {
@@ -79,11 +76,15 @@ android {
 linux:!android {
 	arm: INCLUDEPATH += $$P/ffmpeg/linux/armv7/include
 	else {
-		contains(QT_ARCH, x86_64): QMAKE_TARGET.arch = x86_64
+		contains(QT_ARCH, x86_64) QMAKE_TARGET.arch = x86_64
 		else: QMAKE_TARGET.arch = x86
 		INCLUDEPATH += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/include
 	}
 }
+# Fix 32-bit/64-bit defines
+contains(QMAKE_TARGET.arch, x86_64): DEFINES += _M_X64
+else: DEFINES += _M_IX86
+
 qnx {
 	# Use mkspec: unsupported/qws/qnx-armv7-g++
 	DEFINES += BLACKBERRY "_QNX_SOURCE=1" "_C99=1"
