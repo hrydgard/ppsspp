@@ -109,7 +109,7 @@ float CalculateDPIScale()
 
 static int mainInternal(QApplication &a)
 {
-#ifdef USING_GLES2
+#ifdef MOBILE_DEVICE
 	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
 	emugl->showFullScreen();
