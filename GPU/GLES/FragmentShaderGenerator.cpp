@@ -311,8 +311,17 @@ bool ShouldUseShaderBlending() {
 	GEBlendDstFactor funcB = gstate.getBlendFuncB();
 	GEBlendMode eq = gstate.getBlendEq();
 
-	if (eq == GE_BLENDMODE_ABSDIFF) {
+	switch (eq) {
+	case GE_BLENDMODE_ABSDIFF:
 		return true;
+
+	case GE_BLENDMODE_MIN:
+	case GE_BLENDMODE_MAX:
+		// These don't use the factors.
+		return !gl_extensions.EXT_blend_minmax && !gl_extensions.GLES3;
+
+	default:
+		break;
 	}
 
 	// This normally involves a blit, so try to skip it.

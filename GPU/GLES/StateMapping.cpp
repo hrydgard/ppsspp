@@ -387,11 +387,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
 	}
 
-	if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
-		WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
-	}
-
-	if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
+	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	} else {
 		glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
