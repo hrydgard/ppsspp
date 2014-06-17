@@ -563,8 +563,12 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 #endif
 
 	if (dirty & DIRTY_SHADERBLEND) {
-		SetColorUniform3(u_blendFixA, gstate.getFixA());
-		SetColorUniform3(u_blendFixB, gstate.getFixB());
+		if (u_blendFixA != -1) {
+			SetColorUniform3(u_blendFixA, gstate.getFixA());
+		}
+		if (u_blendFixB != -1) {
+			SetColorUniform3(u_blendFixB, gstate.getFixB());
+		}
 
 		const float fbotexSize[2] = {
 			1.0f / (float)gstate_c.curRTRenderWidth,

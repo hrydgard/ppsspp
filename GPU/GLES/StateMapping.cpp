@@ -199,11 +199,199 @@ bool TransformDrawEngine::ApplyShaderBlending() {
 	return true;
 }
 
-void TransformDrawEngine::ResetShaderBlending() {
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glActiveTexture(GL_TEXTURE0);
-	fboTexBound_ = false;
+inline void TransformDrawEngine::ResetShaderBlending() {
+	if (fboTexBound_) {
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
+		fboTexBound_ = false;
+	}
+}
+
+void TransformDrawEngine::ApplyBlendState() {
+	// Blending is a bit complex to emulate.  This is due to several reasons:
+	//
+	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
+	//    If possible, we double the src color or src alpha in the shader to account for these.
+	//    These may clip incorrectly, but they're close.
+	//  * OpenGL only has one arbitrary fixed color.  We premultiply the other in the shader.
+	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
+	//
+	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
+
+	GEBlendMode blendFuncEq = gstate.getBlendEq();
+
+	if (ShouldUseShaderBlending()) {
+		if (ShouldUseShaderFixedBlending()) {
+			// If both sides are fixed, we can do this without a blit but still in the shader.
+			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+
+			// Okay, so we'll use src * 1.0 + dst * fixB, and then premultiply in the shader.
+			const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
+			glstate.blend.enable();
+			glstate.blendColor.set(blendColor);
+
+			ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
+			if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
+				glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ONE, GL_ZERO);
+			} else {
+				glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ZERO, GL_ONE);
+			}
+
+			// Min/max/absdiff are not possible here.
+			glstate.blendEquation.set(eqLookup[blendFuncEq]);
+
+			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+			ResetShaderBlending();
+			return;
+		} else if (ApplyShaderBlending()) {
+			// None of the below logic is interesting, we're gonna do it entirely in the shader.
+			glstate.blend.disable();
+			return;
+		}
+	}
+	ResetShaderBlending();
+
+	glstate.blend.enable();
+
+	int blendFuncA  = gstate.getBlendFuncA();
+	int blendFuncB  = gstate.getBlendFuncB();
+	if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
+	if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
+
+	float constantAlpha = 1.0f;
+	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
+	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
+		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
+			constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
+		}
+	}
+
+	// Shortcut by using GL_ONE where possible, no need to set blendcolor
+	GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
+	GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
+
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
+		glBlendFuncA = toDualSource(glBlendFuncA);
+		glBlendFuncB = toDualSource(glBlendFuncB);
+	}
+
+	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
+		Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
+		Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+		if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
+			// Can use blendcolor trivially.
+			const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+			glstate.blendColor.set(blendColor);
+			glBlendFuncA = GL_CONSTANT_COLOR;
+		} else if (glBlendFuncA != GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
+			// Can use blendcolor trivially.
+			const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+			glstate.blendColor.set(blendColor);
+			glBlendFuncB = GL_CONSTANT_COLOR;
+		} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
+			if (blendColorSimilar(fixA, Vec3f::AssignToAll(constantAlpha) - fixB)) {
+				glBlendFuncA = GL_CONSTANT_COLOR;
+				glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				glstate.blendColor.set(blendColor);
+			} else if (blendColorSimilar(fixA, fixB)) {
+				glBlendFuncA = GL_CONSTANT_COLOR;
+				glBlendFuncB = GL_CONSTANT_COLOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				glstate.blendColor.set(blendColor);
+			} else {
+				static bool didReportBlend = false;
+				if (!didReportBlend)
+					Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+				didReportBlend = true;
+
+				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+				// Let's approximate, at least.  Close is better than totally off.
+				const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
+				const bool nearZeroB = blendColorSimilar(fixB, Vec3f::AssignToAll(0.0f), 0.25f);
+				if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
+					glBlendFuncA = nearZeroA ? GL_ZERO : GL_ONE;
+					glBlendFuncB = GL_CONSTANT_COLOR;
+					const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+					glstate.blendColor.set(blendColor);
+				// We need to pick something.  Let's go with A as the fixed color.
+				} else {
+					glBlendFuncA = GL_CONSTANT_COLOR;
+					glBlendFuncB = nearZeroB ? GL_ZERO : GL_ONE;
+					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+					glstate.blendColor.set(blendColor);
+				}
+			}
+		} else {
+			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
+			// For now let's just pick whichever was fixed instead of checking error.
+			if (blendFuncA == GE_SRCBLEND_FIXA) {
+				glBlendFuncA = GL_CONSTANT_COLOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				glstate.blendColor.set(blendColor);
+			} else {
+				glBlendFuncB = GL_CONSTANT_COLOR;
+				const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+				glstate.blendColor.set(blendColor);
+			}
+		}
+	} else if (constantAlpha < 1.0f) {
+		const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
+		glstate.blendColor.set(blendColor);
+	}
+
+	// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
+	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
+#ifdef ANDROID
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		if (glBlendFuncA == GL_DST_ALPHA) glBlendFuncA = GL_ZERO;
+		if (glBlendFuncB == GL_DST_ALPHA) glBlendFuncB = GL_ZERO;
+		if (glBlendFuncA == GL_ONE_MINUS_DST_ALPHA) glBlendFuncA = GL_ONE;
+		if (glBlendFuncB == GL_ONE_MINUS_DST_ALPHA) glBlendFuncB = GL_ONE;
+	}
+#endif
+
+	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
+
+	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
+	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
+	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
+	// the factors to zero). So let's do that.
+	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
+		// Let the fragment shader take care of it.
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
+	} else if (gstate.isStencilTestEnabled()) {
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_KEEP:
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+			break;
+		case STENCIL_VALUE_ONE:
+			// This won't give one but it's our best shot...
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			break;
+		case STENCIL_VALUE_ZERO:
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+			break;
+		case STENCIL_VALUE_UNIFORM:
+			// This won't give a correct value (it multiplies) but it may be better than random values.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ZERO);
+			break;
+		case STENCIL_VALUE_UNKNOWN:
+			// For now, let's err at zero.  This is INVERT or INCR/DECR.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+			break;
+		}
+	} else {
+		// Retain the existing value when stencil testing is off.
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+	}
+
+	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
+		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+	} else {
+		glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
+	}
 }
 
 void TransformDrawEngine::ApplyDrawState(int prim) {
@@ -220,167 +408,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	// Set blend - unless we need to do it in the shader.
-	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
-	if (wantBlend && ShouldUseShaderBlending()) {
-		if (ApplyShaderBlending()) {
-			// None of the below logic is interesting, we're gonna do it entirely in the shader.
-			wantBlend = false;
-		}
-	} else if (fboTexBound_) {
+	if (!gstate.isModeClear() && gstate.isAlphaBlendEnabled()) {
+		ApplyBlendState();
+	} else {
+		glstate.blend.disable();
 		ResetShaderBlending();
-	}
-
-	glstate.blend.set(wantBlend);
-	if (wantBlend) {
-		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
-		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-
-		// Examples of seen unimplementable blend states:
-		// Mortal Kombat Unchained: FixA=0000ff FixB=000080 FuncA=10 FuncB=10
-
-		int blendFuncA  = gstate.getBlendFuncA();
-		int blendFuncB  = gstate.getBlendFuncB();
-		GEBlendMode blendFuncEq = gstate.getBlendEq();
-		if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
-		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
-
-		float constantAlpha = 1.0f;
-		ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
-		if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
-			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
-				constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
-			}
-		}
-
-		// Shortcut by using GL_ONE where possible, no need to set blendcolor
-		GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
-		GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
-
-		if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
-			glBlendFuncA = toDualSource(glBlendFuncA);
-			glBlendFuncB = toDualSource(glBlendFuncB);
-		}
-
-		if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
-			Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
-			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
-			if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-				glstate.blendColor.set(blendColor);
-				glBlendFuncA = GL_CONSTANT_COLOR;
-			} else if (glBlendFuncA != GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-				glstate.blendColor.set(blendColor);
-				glBlendFuncB = GL_CONSTANT_COLOR;
-			} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
-				if (blendColorSimilar(fixA, Vec3f::AssignToAll(constantAlpha) - fixB)) {
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-					glstate.blendColor.set(blendColor);
-				} else if (blendColorSimilar(fixA, fixB)) {
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					glBlendFuncB = GL_CONSTANT_COLOR;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-					glstate.blendColor.set(blendColor);
-				} else {
-					static bool didReportBlend = false;
-					if (!didReportBlend)
-						Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					didReportBlend = true;
-
-					DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					// Let's approximate, at least.  Close is better than totally off.
-					const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
-					const bool nearZeroB = blendColorSimilar(fixB, Vec3f::AssignToAll(0.0f), 0.25f);
-					if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
-						glBlendFuncA = nearZeroA ? GL_ZERO : GL_ONE;
-						glBlendFuncB = GL_CONSTANT_COLOR;
-						const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-						glstate.blendColor.set(blendColor);
-					// We need to pick something.  Let's go with A as the fixed color.
-					} else {
-						glBlendFuncA = GL_CONSTANT_COLOR;
-						glBlendFuncB = nearZeroB ? GL_ZERO : GL_ONE;
-						const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-						glstate.blendColor.set(blendColor);
-					}
-				}
-			} else {
-				// We optimized both, but that's probably not necessary, so let's pick one to be constant.
-				// For now let's just pick whichever was fixed instead of checking error.
-				if (blendFuncA == GE_SRCBLEND_FIXA) {
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-					glstate.blendColor.set(blendColor);
-				} else {
-					glBlendFuncB = GL_CONSTANT_COLOR;
-					const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-					glstate.blendColor.set(blendColor);
-				}
-			}
-		} else if (constantAlpha < 1.0f) {
-			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
-			glstate.blendColor.set(blendColor);
-		}
-
-		// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
-		// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
-#ifdef ANDROID
-		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-			if (glBlendFuncA == GL_DST_ALPHA) glBlendFuncA = GL_ZERO;
-			if (glBlendFuncB == GL_DST_ALPHA) glBlendFuncB = GL_ZERO;
-			if (glBlendFuncA == GL_ONE_MINUS_DST_ALPHA) glBlendFuncA = GL_ONE;
-			if (glBlendFuncB == GL_ONE_MINUS_DST_ALPHA) glBlendFuncB = GL_ONE;
-		}
-#endif
-
-		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-
-		// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
-		// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
-		// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
-		// the factors to zero). So let's do that.
-		if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
-			// Let the fragment shader take care of it.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
-		} else if (gstate.isStencilTestEnabled()) {
-			switch (ReplaceAlphaWithStencilType()) {
-			case STENCIL_VALUE_KEEP:
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
-				break;
-			case STENCIL_VALUE_ONE:
-				// This won't give one but it's our best shot...
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
-				break;
-			case STENCIL_VALUE_ZERO:
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
-				break;
-			case STENCIL_VALUE_UNIFORM:
-				// This won't give a correct value (it multiplies) but it may be better than random values.
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ZERO);
-				break;
-			case STENCIL_VALUE_UNKNOWN:
-				// For now, let's err at zero.  This is INVERT or INCR/DECR.
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
-				break;
-			}
-		} else {
-			// Retain the existing value when stencil testing is off.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
-		}
-
-		if (blendFuncEq == GE_BLENDMODE_ABSDIFF) {
-			WARN_LOG_REPORT_ONCE(blendAbsdiff, G3D, "Unsupported absdiff blend mode");
-		}
-
-		if (((blendFuncEq >= GE_BLENDMODE_MIN) && gl_extensions.EXT_blend_minmax) || gl_extensions.GLES3) {
-			glstate.blendEquation.set(eqLookup[blendFuncEq]);
-		} else {
-			glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
-		}
 	}
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
