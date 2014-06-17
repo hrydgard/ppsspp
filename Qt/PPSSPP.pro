@@ -115,14 +115,20 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 	FORMS += $$P/Qt/*.ui
 	RESOURCES += $$P/Qt/desktop_assets.qrc
 	INCLUDEPATH += $$P/Qt
+	LREL_TOOL = $$[QT_INSTALL_BINS]/lrelease
+	greaterThan(QT_MAJOR_VERSION, 4) {
+		exists($${LREL_TOOL}-qt5): LREL_TOOL=$${LREL_TOOL}-qt5
+	} else {
+		exists($${LREL_TOOL}-qt4): LREL_TOOL=$${LREL_TOOL}-qt4
+	}
 
 	# Translations
 	TRANSLATIONS = $$files($$P/Qt/languages/ppsspp_*.ts)
 
-	lang.name = lrelease ${QMAKE_FILE_IN}
+	lang.name = $$LREL_TOOL ${QMAKE_FILE_IN}
 	lang.input = TRANSLATIONS
 	lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
-	lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
+	lang.commands = $$[QT_INSTALL_BINS]/$$LREL_TOOL ${QMAKE_FILE_IN}
 	lang.CONFIG = no_link
 	QMAKE_EXTRA_COMPILERS += lang
 	PRE_TARGETDEPS += compiler_lang_make_all
@@ -132,6 +138,8 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 }
 
 # Packaging
+win32: ICON = $$P/Windows/ppsspp.rc
+
 symbian {
 	TARGET.UID3 = 0xE0095B1D
 	DEPLOYMENT.display_name = PPSSPP
@@ -145,13 +153,17 @@ symbian {
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
 
+linux {
+        icon.files = $$P/assets/icon-114.png
+        icon.path = /usr/share/icons/hicolor/114x114/apps
+        INSTALLS += icon
+}
+
 maemo {
 	target.path = /opt/PPSSPP/bin
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
-	icon.files = $$P/assets/icon-114.png
-	icon.path = /usr/share/icons/hicolor/114x114/apps
-	INSTALLS += target desktopfile icon
+	INSTALLS += target desktopfile
 	# Booster
 	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
 	QMAKE_LFLAGS += -pie -rdynamic
