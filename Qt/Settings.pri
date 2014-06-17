@@ -82,8 +82,10 @@ linux:!android {
 	}
 }
 # Fix 32-bit/64-bit defines
-contains(QMAKE_TARGET.arch, x86_64): DEFINES += _M_X64
-else: DEFINES += _M_IX86
+!arm {
+	contains(QMAKE_TARGET.arch, x86_64): DEFINES += _M_X64
+	else: DEFINES += _M_IX86
+}
 
 qnx {
 	# Use mkspec: unsupported/qws/qnx-armv7-g++

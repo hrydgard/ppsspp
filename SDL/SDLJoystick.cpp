@@ -10,7 +10,7 @@ extern "C" {
 	}
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ): running(true),thread(NULL){
+SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 	if (init_SDL)
 	{
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO

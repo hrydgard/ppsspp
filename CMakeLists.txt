@@ -659,10 +659,11 @@ endif()
 set(nativeExtra)
 set(nativeExtraLibs)
 
-if(ARM)
+if(ARMEABI_V7A)
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
-else()
+endif()
+if(NOT ARM AND NOT MIPS)
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_sse.c)
 endif()
