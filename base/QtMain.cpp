@@ -39,8 +39,6 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "Qt:Symbian";
 #elif defined(BLACKBERRY)
 		return "Qt:Blackberry";
-#elif defined(MEEGO_EDITION_HARMATTAN)
-		return "Qt:Meego";
 #elif defined(MAEMO)
 		return "Qt:Maemo";
 #elif defined(ANDROID)
@@ -161,7 +159,7 @@ int main(int argc, char *argv[])
 #elif defined(BLACKBERRY)
 	const char *savegame_dir = "/accounts/1000/shared/misc/";
 	const char *assets_dir = "app/native/assets/";
-#elif defined(MEEGO_EDITION_HARMATTAN) || defined(MAEMO)
+#elif defined(MAEMO)
 	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
 	const char *assets_dir = "/opt/PPSSPP/";
 #elif defined(ANDROID)
