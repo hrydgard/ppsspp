@@ -30,7 +30,10 @@ win32-msvc* {
 	QMAKE_CXXFLAGS += -ffast-math -fno-strict-aliasing
 	greaterThan(QT_MAJOR_VERSION,4): CONFIG+=c++11
 	else: QMAKE_CXXFLAGS += -std=c++11
-	QMAKE_CXXFLAGS += -O3
+	QMAKE_CFLAGS_RELEASE ~= s/-O.*/
+	QMAKE_CXXFLAGS_RELEASE ~= s/-O.*/
+	QMAKE_CFLAGS_RELEASE += -O3
+	QMAKE_CXXFLAGS_RELEASE += -O3
 }
 # Arch specific
 xarch = $$find(QT_ARCH, "86")
@@ -42,15 +45,21 @@ macx|contains(QT_ARCH, windows)|count(xarch, 1) {
 }
 arm:!symbian {
 	CONFIG += armv7
-	QMAKE_CFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
-	QMAKE_CXXFLAGS += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math -mfloat-abi=softfp
+	QMAKE_CFLAGS_RELEASE ~= s/-mfpu.*/
+	QMAKE_CFLAGS_DEBUG ~= s/-mfpu.*/
+	QMAKE_CFLAGS_RELEASE += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math
+	QMAKE_CFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math
+	QMAKE_CXXFLAGS_RELEASE += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math
+	QMAKE_CXXFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -ffast-math
 }
 
 gleslib = $$find(QT_CONFIG, "opengles")
 count(gleslib,0) { # OpenGL
 	INCLUDEPATH += $$P/native/ext/glew
 } else {
-	DEFINES += USING_GLES2 MOBILE_DEVICE
+	DEFINES += USING_GLES2
+	// Lets hardcode this. How else do we know if the environment prefers windows?
+	!linux|android|maemo: DEFINES += MOBILE_DEVICE
 	CONFIG += mobile_platform
 }
 

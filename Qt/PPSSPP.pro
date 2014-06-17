@@ -77,7 +77,7 @@ linux:!android: LIBS += -ldl -lrt -lz
 macx: LIBS += -liconv
 qnx: LIBS += -lscreen
 symbian: LIBS += -lremconcoreapi -lremconinterfacebase
-android: LIBS += -lEGL
+linux:arm|android: LIBS += -lEGL
 unix:contains(QT_CONFIG, system-zlib) {
 	LIBS += -lz
 }

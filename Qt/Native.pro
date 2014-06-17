@@ -92,8 +92,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/expression_parser.cpp \
 	$$P/native/math/math_util.cpp \
 	$$P/native/math/lin/*.cpp \
-	$$P/native/math/fast/fast_math.c \
-	$$P/native/math/fast/fast_matrix.c \
+	$$P/native/math/fast/*.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
 	$$P/native/thread/*.cpp \
@@ -104,12 +103,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
-!arm {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
-}
-armv7 {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
-}
+armv7: SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
 
 
 HEADERS +=  $$P/native/audio/*.h \
@@ -137,6 +131,7 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/input/*.h \
 	$$P/native/math/*.h \
 	$$P/native/math/lin/*.h \
+	$$P/native/math/fast/*.h \
 	$$P/native/net/*.h \
 	$$P/native/profiler/profiler.h \
 	$$P/native/thread/*.h \
@@ -148,4 +143,3 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/text/parsers.h
 
 INCLUDEPATH += $$P/native
-
