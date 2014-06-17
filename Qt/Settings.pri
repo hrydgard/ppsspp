@@ -58,9 +58,11 @@ count(gleslib,0) { # OpenGL
 	INCLUDEPATH += $$P/native/ext/glew
 } else {
 	DEFINES += USING_GLES2
-	// Lets hardcode this. How else do we know if the environment prefers windows?
-	!linux|android|maemo: DEFINES += MOBILE_DEVICE
-	CONFIG += mobile_platform
+	# How else do we know if the environment prefers windows?
+	!linux|android|maemo {
+		DEFINES += MOBILE_DEVICE
+		CONFIG += mobile_platform
+	}
 }
 
 # Platform specific

@@ -417,7 +417,7 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 
 	if (useGL3_) {
 		// This call is not really necessary, I think.
-#ifndef MOBILE_DEVICE
+#ifndef USING_GLES2
 		glBindFragDataLocation(program, 0, "fragColor0");
 #endif
 	}
