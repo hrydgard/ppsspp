@@ -213,6 +213,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					reader.ReadNrm(normal.AsArray());
+					if (gstate.areNormalsReversed()) {
+						normal = -normal;
+					}
 					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
 					worldnormal = worldnormal.Normalized();
 				}
@@ -242,7 +245,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					normal = nsum;
-					Norm3ByMatrix43(worldnormal.AsArray(), nsum.AsArray(), gstate.worldMatrix);
+					if (gstate.areNormalsReversed()) {
+						normal = -normal;
+					}
+					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
 					worldnormal = worldnormal.Normalized();
 				}
 			}
