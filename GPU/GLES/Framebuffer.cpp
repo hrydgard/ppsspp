@@ -175,9 +175,9 @@ void FramebufferManager::ClearBuffer() {
 	glstate.scissorTest.disable();
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glstate.stencilFunc.set(GL_ALWAYS, 0xFF, 0xFF);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClearStencil(0xFF);
+	glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearStencil(0);
 #ifdef USING_GLES2
 	glClearDepthf(0.0f);
 #else
