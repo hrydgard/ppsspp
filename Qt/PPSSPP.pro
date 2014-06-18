@@ -110,11 +110,13 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 
 # Use forms UI for desktop platforms
 !mobile_platform {
-	SOURCES += $$P/Qt/*.cpp
-	HEADERS += $$P/Qt/*.h
-	FORMS += $$P/Qt/*.ui
+	# TODO: Rewrite Debugger with same backend as Windows version
+	# Don't use .ui forms. Use Qt5 + C++11 features to minimise code
+	SOURCES += $$P/Qt/*.cpp $$P/Qt/Debugger/*.cpp
+	HEADERS += $$P/Qt/*.h $$P/Qt/Debugger/*.h
+	FORMS += $$P/Qt/Debugger/*.ui
 	RESOURCES += $$P/Qt/desktop_assets.qrc
-	INCLUDEPATH += $$P/Qt
+	INCLUDEPATH += $$P/Qt $$P/Qt/Debugger
 	LREL_TOOL = $$[QT_INSTALL_BINS]/lrelease
 	greaterThan(QT_MAJOR_VERSION, 4) {
 		exists($${LREL_TOOL}-qt5): LREL_TOOL=$${LREL_TOOL}-qt5

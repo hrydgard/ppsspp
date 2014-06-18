@@ -9,10 +9,10 @@
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "debugger_disasm.h"
-#include "debugger_memory.h"
-#include "debugger_memorytex.h"
-#include "debugger_displaylist.h"
+#include "Debugger/debugger_disasm.h"
+#include "Debugger/debugger_memory.h"
+#include "Debugger/debugger_memorytex.h"
+#include "Debugger/debugger_displaylist.h"
 #include "base/QtMain.h"
 
 extern bool g_TakeScreenshot;
