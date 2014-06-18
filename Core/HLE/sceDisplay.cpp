@@ -905,6 +905,7 @@ u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(SCEDISPLAY,"%i=sceDisplayGetVcount()", vCount);
 
 	hleEatCycles(150);
+	hleReSchedule("get vcount");
 	return vCount;
 }
 
