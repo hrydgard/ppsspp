@@ -184,7 +184,7 @@ static bool Memory_TryBase(u32 flags) {
 			position, view.size, base + view.virtual_address);
 #else
 		// Fix crash in windows 32 bit https://github.com/hrydgard/ppsspp/issues/6277
-		if (g_Config.iPSPModel == 0 && (view.virtual_address & ~0x3FFFFFFF) != 0 || g_Config.iPSPModel > 0 && view.flags & MV_MIRROR_PREVIOUS) {
+		if (g_Config.iPSPModel == 0 && view.flags & MV_MIRROR_PREVIOUS && (view.virtual_address & ~0x3FFFFFFF) != 0 || g_Config.iPSPModel > 0 && view.flags & MV_MIRROR_PREVIOUS) {
 			// No need to create multiple identical views.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
