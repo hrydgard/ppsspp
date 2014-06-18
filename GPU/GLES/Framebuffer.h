@@ -251,6 +251,7 @@ private:
 	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
 	static void DisableState();
 	static void ClearBuffer();
+	static void ClearDepthBuffer();
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {

@@ -186,6 +186,17 @@ void FramebufferManager::ClearBuffer() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
+void FramebufferManager::ClearDepthBuffer() {
+	glstate.scissorTest.disable();
+	glstate.depthWrite.set(GL_TRUE);
+#ifdef USING_GLES2
+	glClearDepthf(1.0f);
+#else
+	glClearDepth(1.0);
+#endif
+	glClear(GL_DEPTH_BUFFER_BIT);
+}
+
 void FramebufferManager::DisableState() {
 	glstate.blend.disable();
 	glstate.cullFace.disable();
@@ -960,7 +971,6 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		ClearBuffer();
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
@@ -974,6 +984,15 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
 		if (fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
+		}
+
+		if (useBufferedRendering_ && !updateVRAM_) {
+			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
+			gpu->PerformStencilUpload(fb_address_mem, byteSize);
+			// TODO: Is it worth trying to upload the depth buffer?
+			ClearDepthBuffer();
+		} else {
+			ClearBuffer();
 		}
 
 		// Let's check for depth buffer overlap.  Might be interesting.
