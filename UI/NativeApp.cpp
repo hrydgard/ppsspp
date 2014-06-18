@@ -33,7 +33,7 @@
 #include <algorithm>
 #endif
 
-#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
+#if defined(_WIN32)
 #include <libpng17/png.h>
 #include "ext/jpge/jpge.h"
 #endif
@@ -565,15 +565,19 @@ void TakeScreenshot() {
 
 	// Okay, allocate a buffer.
 	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
-	// Silly openGL reads upside down, we flip to another buffer for simplicity.
-	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
 
 	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
+#ifdef USING_QT_UI
+	QImage image(buffer, pixel_xres, pixel_yres, QImage::Format_RGB888);
+	image = image.mirrored();
+	image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
+#else
+	// Silly openGL reads upside down, we flip to another buffer for simplicity.
+	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
 	for (int y = 0; y < pixel_yres; y++) {
 		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
 	}
-
 	if (g_Config.bScreenshotsAsPNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -588,9 +592,10 @@ void TakeScreenshot() {
 		params.m_quality = 90;
 		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
+	delete [] flipbuffer;
+#endif
 
 	delete [] buffer;
-	delete [] flipbuffer;
 
 	osm.Show(filename);
 #endif
