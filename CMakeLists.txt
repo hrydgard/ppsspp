@@ -5,25 +5,24 @@ enable_language(ASM)
 
 add_definitions(-DPPSSPP)
 
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+	set(ARM ON)
+endif()
+
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
-		set(ARM ON)
 		set(USE_FFMPEG ON)
 	endif()
 endif()
 
 if(IOS OR BLACKBERRY)
-	if (SIMULATOR)
-		set(X86 ON)
-	else()
-		set(ARM ON)
+	if (NOT SIMULATOR)
 		set(ARMEABI_V7A ON)
 		set(USE_FFMPEG ON)
 	endif()
 endif()
 
 if(MAEMO)
-	set(ARM ON)
 	set(ARMEABI_V7A ON)
 	#Maemo's gcc-4.7.2 is strict
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")

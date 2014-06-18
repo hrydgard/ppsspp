@@ -31,7 +31,7 @@
 # Standard settings
 set (CMAKE_SYSTEM_NAME Darwin)
 set (CMAKE_SYSTEM_VERSION 1)
-set (CMAKE_SYSTEM_PROCESSOR arm)
+set (CMAKE_SYSTEM_PROCESSOR armv7)
 set (UNIX True)
 set (APPLE True)
 set (IOS True)
