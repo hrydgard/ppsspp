@@ -70,8 +70,7 @@ static const char tex_fs[] =
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"  gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
-	"  gl_FragColor.a = 1.0;\n"
+	"  gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
 	"}\n";
 
 static const char basic_vs[] =
