@@ -183,7 +183,8 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 #else
-		if ((view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~0x3FFFFFFF) != 0) {
+		// Fix crash in windows 32 bit https://github.com/hrydgard/ppsspp/issues/6277
+		if (g_Config.iPSPModel == 0 && view.flags & MV_MIRROR_PREVIOUS && (view.virtual_address & ~0x3FFFFFFF) != 0 || g_Config.iPSPModel > 0 && view.flags & MV_MIRROR_PREVIOUS) {
 			// No need to create multiple identical views.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
