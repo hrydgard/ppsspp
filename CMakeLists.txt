@@ -5,45 +5,29 @@ enable_language(ASM)
 
 add_definitions(-DPPSSPP)
 
+# Detect CPU from CMAKE configuration. Toolchains should set this up
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
 	set(ARM ON)
 endif()
 
-if(ANDROID)
-	if(ARMEABI OR ARMEABI_V7A)
-		set(USE_FFMPEG ON)
-	endif()
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
+	set(ARMV7 ON)
 endif()
 
-if(IOS OR BLACKBERRY)
-	if (NOT SIMULATOR)
-		set(ARMEABI_V7A ON)
-		set(USE_FFMPEG ON)
-	endif()
-endif()
-
-if(MAEMO)
-	set(ARMEABI_V7A ON)
-	#Maemo's gcc-4.7.2 is strict
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
-endif()
-
-if(LOONGSON)
-	set(MIPS ON) # MIPS + x86 for now
-endif()
+# Remove soon?
+set(USE_FFMPEG ON)
 
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
-else() # Assume x86
+endif()
+if (NOT ARM) # Assume x86
 	set(X86 ON)
 endif()
 
 include(CheckIncludeFile)
 check_include_file(/opt/vc/include/bcm_host.h RPI)
 if(RPI)
-	set(ARM ON)
-	set(USING_GLES2 ON)
 	set(MOBILE_DEVICE OFF)
 endif()
 
@@ -55,17 +39,13 @@ endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	add_definitions(-D__STDC_CONSTANT_MACROS)
-	if (NOT MOBILE_DEVICE)
-		set(USE_FFMPEG ON)
-	endif()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
-	set(USE_FFMPEG ON)
 endif()
 
-if (NOT ARM AND NOT MIPS)
+if (X86 AND NOT MIPS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 		add_definitions(-D_M_X64)
 	else()
@@ -84,6 +64,7 @@ endif()
 
 # User-editable options (go into CMakeCache.txt)
 # :: Processors
+option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
@@ -121,6 +102,16 @@ if(ANDROID OR BLACKBERRY OR IOS)
 	endif()
 endif()
 
+if(ARMV7)
+	message("Building for ARMv7")
+elseif(ARM)
+	message("Building for ARMv6")
+elseif(MIPS)
+	message("Building for MIPS in x86 mode")
+else()
+	message("Building for x86")
+endif()
+
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
@@ -130,20 +121,26 @@ else()
 endif()
 
 #find_package(Qt5Widgets)
-if(USING_GLES2 AND NOT IOS)
-	set(OPENGL_LIBRARIES GLESv2)
-elseif(NOT IOS)
-	include(FindOpenGL REQUIRED)
-endif()
 if(RPI)
 	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
 	link_directories(/opt/vc/lib)
 	set(OPENGL_LIBRARIES GLESv2 bcm_host)
+elseif(USING_GLES2 AND NOT IOS)
+	set(OPENGL_LIBRARIES GLESv2)
+elseif(NOT IOS)
+	include(FindOpenGL REQUIRED)
 endif()
+
+if(MAEMO)
+	#Maemo's gcc-4.7.2 is strict
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+endif()
+
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
 	include(FindSDL)
 endif()
 include(FindThreads)
+
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
 endif()
@@ -454,7 +451,7 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(IOS OR BLACKBERRY OR MACOSX)
+	if(APPLE OR BLACKBERRY)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
 	endif()
 
@@ -658,7 +655,7 @@ endif()
 set(nativeExtra)
 set(nativeExtraLibs)
 
-if(ARMEABI_V7A)
+if(ARMV7)
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
 endif()
@@ -1253,7 +1250,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
-if(ARMEABI_V7A)
+if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
