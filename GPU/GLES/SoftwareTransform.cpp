@@ -203,34 +203,37 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Scale UV?
 		} else {
 			// We do software T&L for now
-			float out[3], norm[3];
-			float pos[3], nrm[3];
+			float out[3];
+			float pos[3];
 			Vec3f normal(0, 0, 1);
+			Vec3f worldnormal(0, 0, 1);
 			reader.ReadPos(pos);
-			if (reader.hasNormal())
-				reader.ReadNrm(nrm);
 
 			if (!skinningEnabled) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
+					reader.ReadNrm(normal.AsArray());
+					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+					worldnormal = worldnormal.Normalized();
 				}
 			} else {
 				float weights[8];
 				reader.ReadWeights(weights);
+				if (reader.hasNormal())
+					reader.ReadNrm(normal.AsArray());
+
 				// Skinning
-				Vec3f psum(0,0,0);
-				Vec3f nsum(0,0,0);
+				Vec3f psum(0, 0, 0);
+				Vec3f nsum(0, 0, 0);
 				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
 					if (weights[i] != 0.0f) {
 						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
 						Vec3f tpos(out);
 						psum += tpos * weights[i];
 						if (reader.hasNormal()) {
-							Norm3ByMatrix43(norm, nrm, gstate.boneMatrix+i*12);
-							Vec3f tnorm(norm);
-							nsum += tnorm * weights[i];
+							Vec3f norm;
+							Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
+							nsum += norm * weights[i];
 						}
 					}
 				}
@@ -238,8 +241,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Yes, we really must multiply by the world matrix too.
 				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nsum.AsArray(), gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
+					normal = nsum;
+					Norm3ByMatrix43(worldnormal.AsArray(), nsum.AsArray(), gstate.worldMatrix);
+					worldnormal = worldnormal.Normalized();
 				}
 			}
 
@@ -254,7 +258,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (gstate.isLightingEnabled()) {
 				float litColor0[4];
 				float litColor1[4];
-				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
+				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, worldnormal);
 
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				for (int j = 0; j < 4; j++) {
@@ -317,20 +321,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						if (reader.hasNormal()) {
-							source = Vec3f(norm).Normalized();
-						} else {
+						source = normal.Normalized();
+						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-						if (reader.hasNormal()) {
-							source = Vec3f(norm);
-						} else {
+						source = normal;
+						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					}
@@ -349,8 +349,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0() * 3]).Normalized();
 					Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1() * 3]).Normalized();
 
-					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f + Dot(lightpos1, normal))/2.0f;
+					uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
+					uv[1] = (1.0f + Dot(lightpos1, worldnormal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;
