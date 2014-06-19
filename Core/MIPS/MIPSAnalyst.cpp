@@ -495,29 +495,68 @@ namespace MIPSAnalyst {
 		return (op & MIPSTABLE_IMM_MASK) == 0xB8000000;
 	}
 
-	bool OpWouldChangeMemory(u32 pc, u32 addr) {
-		auto op = Memory::Read_Instruction(pc);
+	static bool IsSWC1Instr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xE4000000;
+	}
+	static bool IsSVSInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xE8000000;
+	}
+	static bool IsSVQInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xF8000000;
+	}
+
+	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
+		const auto op = Memory::Read_Instruction(pc);
+
+		// TODO: Trap sc/ll, svl.q, svr.q?
+
 		int gprMask = 0;
-		// TODO: swl/swr are annoying, not handled yet.
 		if (IsSWInstr(op))
 			gprMask = 0xFFFFFFFF;
 		if (IsSHInstr(op))
 			gprMask = 0x0000FFFF;
 		if (IsSBInstr(op))
 			gprMask = 0x000000FF;
+		if (IsSWLInstr(op)) {
+			const u32 shift = (addr & 3) * 8;
+			gprMask = 0xFFFFFFFF >> (24 - shift);
+		}
+		if (IsSWRInstr(op)) {
+			const u32 shift = (addr & 3) * 8;
+			gprMask = 0xFFFFFFFF << shift;
+		}
+
+		u32 writeVal = 0xFFFFFFFF;
+		u32 prevVal = 0x00000000;
 
 		if (gprMask != 0)
 		{
-			MIPSGPReg reg = MIPS_GET_RT(op);
-			u32 writeVal = currentMIPS->r[reg] & gprMask;
-			u32 prevVal = Memory::Read_U32(addr) & gprMask;
-
-			// TODO: Technically, the break might be for 1 byte in the middle of a sw.
-			return writeVal != prevVal;
+			MIPSGPReg rt = MIPS_GET_RT(op);
+			writeVal = currentMIPS->r[rt] & gprMask;
+			prevVal = Memory::Read_U32(addr) & gprMask;
 		}
 
-		// TODO: Not handled yet.
-		return true;
+		if (IsSWC1Instr(op)) {
+			int ft = MIPS_GET_FT(op);
+			writeVal = currentMIPS->fi[ft];
+			prevVal = Memory::Read_U32(addr);
+		}
+
+		if (IsSVSInstr(op)) {
+			int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
+			writeVal = currentMIPS->vi[voffset[vt]];
+			prevVal = Memory::Read_U32(addr);
+		}
+
+		if (IsSVQInstr(op)) {
+			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
+			float rd[4];
+			ReadVector(rd, V_Quad, vt);
+			return memcmp(rd, Memory::GetPointer(addr), sizeof(float) * 4) != 0;
+		}
+
+		// TODO: Technically, the break might be for 1 byte in the middle of a sw.
+		return writeVal != prevVal;
 	}
 
 	AnalysisResults Analyze(u32 address) {

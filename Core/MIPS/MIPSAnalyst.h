@@ -127,7 +127,7 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);
 
-	bool OpWouldChangeMemory(u32 pc, u32 addr);
+	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
 
 	void Shutdown();
 	
