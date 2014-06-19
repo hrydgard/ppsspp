@@ -120,6 +120,15 @@ static MemoryView views[] =
 
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
+inline static bool CanIgnoreView(const MemoryView &view) {
+#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
+	// Basically, 32-bit platforms can ignore views that are masked out anyway.
+	return (view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~MEMVIEW32_MASK) != 0;
+#else
+	return false;
+#endif
+}
+
 // yeah, this could also be done in like two bitwise ops...
 #define SKIP(a_flags, b_flags) 
 //	if (!(a_flags & MV_WII_ONLY) && (b_flags & MV_WII_ONLY)) 
@@ -156,21 +165,17 @@ static bool Memory_TryBase(u32 flags) {
 		SKIP(flags, view.flags);
 		
 #ifdef __SYMBIAN32__
-		if (!(view.flags & MV_MIRROR_PREVIOUS)) {
+		if (!CanIgnoreView(view)) {
 			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
-			// Over allocate VRAM to span the mirrors. Hopefully resolves crash.
-			if (i == 2)
-				memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size * 4);
-			else
-				memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
+			memmap->Commit(view.virtual_address & MEMVIEW32_MASK, view.size);
 		}
-		*(view.out_ptr) = (u8*)base + (view.virtual_address & 0x3FFFFFFF);
+		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
 #elif defined(_XBOX)
-		if (!(view.flags & MV_MIRROR_PREVIOUS)) {
+		if (!CanIgnoreView(view)) {
 			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
-			ptr = VirtualAlloc(base + (view.virtual_address & 0x3FFFFFFF), view.size, MEM_COMMIT, PAGE_READWRITE);
+			ptr = VirtualAlloc(base + (view.virtual_address & MEMVIEW32_MASK), view.size, MEM_COMMIT, PAGE_READWRITE);
 		}
-		*(view.out_ptr) = (u8*)base + (view.virtual_address & 0x3FFFFFFF);
+		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
 #else
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -183,12 +188,12 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 #else
-		if ((view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~0x3FFFFFFF) != 0) {
+		if (CanIgnoreView(view)) {
 			// No need to create multiple identical views.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
 			*view.out_ptr = (u8*)g_arena.CreateView(
-				position, view.size, base + (view.virtual_address & 0x3FFFFFFF));
+				position, view.size, base + (view.virtual_address & MEMVIEW32_MASK));
 			if (!*view.out_ptr)
 				goto bail;
 		}
@@ -215,14 +220,9 @@ bail:
 		}
 		if (*views[j].out_ptr)
 		{
-#ifdef _M_X64
-			g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
-#else
-			if (!(views[j].flags & MV_MIRROR_PREVIOUS))
-			{
+			if (!CanIgnoreView(views[j])) {
 				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
 			}
-#endif
 			*views[j].out_ptr = NULL;
 		}
 	}
@@ -247,7 +247,7 @@ void MemoryMap_Setup(u32 flags)
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
-		if ((views[i].flags & MV_MIRROR_PREVIOUS) == 0)
+		if (!CanIgnoreView(views[i]))
 			total_mem += g_arena.roundup(views[i].size);
 	}
 	// Grab some pagefile backed memory out of the void ...
