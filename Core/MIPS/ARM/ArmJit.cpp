@@ -377,15 +377,27 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
-		// No writing exits, keep going!
-
-		// Add a trigger so that if the inlined code changes, we invalidate this block.
-		// TODO: Correctly determine the size of this block.
-		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
-		return true;
 	} else {
-		return false;
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		if (BLInRange((const void *)(entry->replaceFunc))) {
+			BL((const void *)(entry->replaceFunc));
+		} else {
+			MOVI2R(R0, (u32)entry->replaceFunc);
+			BL(R0);
+		}
+		WriteDownCountR(R0);
+		js.downcountAmount = 0;  // we just subtracted most of it
 	}
+
+	js.compilerPC += 4;
+	// No writing exits, keep going!
+
+	// Add a trigger so that if the inlined code changes, we invalidate this block.
+	// TODO: Correctly determine the size of this block.
+	blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
+	return true;
 }
 
 void Jit::Comp_ReplacementFunc(MIPSOpcode op)
