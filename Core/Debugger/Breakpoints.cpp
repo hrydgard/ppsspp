@@ -83,7 +83,7 @@ void MemCheck::JitCleanup()
 
 	// Here's the tricky part: would this have changed memory?
 	// Note that it did not actually get written.
-	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr);
+	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr, lastSize);
 	if (changed)
 	{
 		++numHits;
@@ -407,15 +407,15 @@ void CBreakPoints::Update(u32 addr)
 		if (Core_IsStepping() == false)
 		{
 			Core_EnableStepping(true);
-			Core_WaitInactive();
+			Core_WaitInactive(200);
 			resume = true;
 		}
 		
 		// In case this is a delay slot, clear the previous instruction too.
 		if (addr != 0)
-			MIPSComp::jit->ClearCacheAt(addr - 4, 8);
+			MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
 		else
-			MIPSComp::jit->ClearCache();
+			MIPSComp::jit->InvalidateCache();
 
 		if (resume)
 			Core_EnableStepping(false);
