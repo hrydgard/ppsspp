@@ -298,7 +298,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		Memory::Write_U32(encoded, address);
 		// In case this is a delay slot or combined instruction, clear cache above it too.
 		if (MIPSComp::jit)
-			MIPSComp::jit->ClearCacheAt(address - 4, 8);
+			MIPSComp::jit->InvalidateCacheAt(address - 4, 8);
 		scanFunctions();
 
 		if (address == curAddress)

@@ -364,11 +364,8 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 }
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
-	DEBUG_LOG(CPU,"sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
-	// TODO: Make the JIT hash and compare the touched blocks.
-	if(MIPSComp::jit){
-		MIPSComp::jit->ClearCacheAt(addr, size);
-	}
+	DEBUG_LOG(CPU, "sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
+	currentMIPS->InvalidateICache(addr, size);
 	return 0;
 }
 
