@@ -1083,7 +1083,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		gstate_c.flipTexture = true;
 		gstate_c.curTextureXOffset = fbTexInfo_[entry->addr].xOffset;
 		gstate_c.curTextureYOffset = fbTexInfo_[entry->addr].yOffset;
-		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != gstate.getTextureWidth(0) || gstate_c.curTextureHeight != gstate.getTextureHeight(0);
+		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
