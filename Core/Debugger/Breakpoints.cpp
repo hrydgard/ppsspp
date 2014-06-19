@@ -83,7 +83,7 @@ void MemCheck::JitCleanup()
 
 	// Here's the tricky part: would this have changed memory?
 	// Note that it did not actually get written.
-	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr);
+	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr, lastSize);
 	if (changed)
 	{
 		++numHits;
