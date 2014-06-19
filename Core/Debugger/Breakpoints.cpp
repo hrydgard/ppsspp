@@ -413,9 +413,9 @@ void CBreakPoints::Update(u32 addr)
 		
 		// In case this is a delay slot, clear the previous instruction too.
 		if (addr != 0)
-			MIPSComp::jit->ClearCacheAt(addr - 4, 8);
+			MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
 		else
-			MIPSComp::jit->ClearCache();
+			MIPSComp::jit->InvalidateCache();
 
 		if (resume)
 			Core_EnableStepping(false);

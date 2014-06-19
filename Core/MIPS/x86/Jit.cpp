@@ -218,7 +218,12 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-void Jit::ClearCacheAt(u32 em_address, int length)
+void Jit::InvalidateCache()
+{
+	blocks.Clear();
+}
+
+void Jit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);
 }
