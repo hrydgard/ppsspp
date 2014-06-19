@@ -407,7 +407,7 @@ void CBreakPoints::Update(u32 addr)
 		if (Core_IsStepping() == false)
 		{
 			Core_EnableStepping(true);
-			Core_WaitInactive();
+			Core_WaitInactive(200);
 			resume = true;
 		}
 		
