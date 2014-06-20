@@ -15,6 +15,8 @@
 @ r2 = pointer to 4x4 matrix 1, single precision floats, column major order
 @
 
+	.globl _fast_matrix_mul_4x4_neon
+_fast_matrix_mul_4x4_neon:
 	.globl fast_matrix_mul_4x4_neon
 fast_matrix_mul_4x4_neon:
     vld1.32     {d16-d19}, [r1]!            @ load first eight elements of matrix 0
