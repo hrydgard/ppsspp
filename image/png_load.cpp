@@ -3,7 +3,7 @@
 #include <string.h>
 
 #ifdef USING_QT_UI
-#include <QImage>
+#include <QtGui/QImage>
 #else
 #include "libpng17/png.h"
 #endif
@@ -20,13 +20,25 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 		ELOG("pngLoad: Error loading image %s", file);
 		return 0;
 	}
+
 	if (flip)
 		image = image.mirrored();
-	image.convertToFormat(QImage::Format_RGB32);
 	*pwidth = image.width();
 	*pheight = image.height();
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0) 
+	image.convertToFormat(QImage::Format_ARGB32);
 	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
+	uint32_t *src = (uint32_t*) image.bits();
+	uint32_t *dest = (uint32_t*) *image_data_ptr;
+        // Qt4 does not support RGBA 
+	for (size_t sz = 0; sz < image.byteCount(); sz+=4, ++src, ++dest) {
+		const uint32_t v = *src;
+		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // ARGB -> RGBA
+	}
+#else
+	image.convertToFormat(QImage::Format_RGBA8888);
 	memcpy(image.bits(), *image_data_ptr, image.byteCount());
+#endif
 #else
 	if (flip)
 		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
@@ -57,17 +69,28 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	bool flip) {
 #ifdef USING_QT_UI
 	QImage image;
-	if (!image.loadFromData(input_ptr, input_len)) {
+	if (!image.loadFromData(input_ptr, input_len, "PNG")) {
 		ELOG("pngLoad: Error loading image");
 		return 0;
 	}
+
 	if (flip)
 		image = image.mirrored();
-	image.convertToFormat(QImage::Format_RGB32);
 	*pwidth = image.width();
 	*pheight = image.height();
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
+	uint32_t *src = (uint32_t*) image.bits();
+	uint32_t *dest = (uint32_t*) *image_data_ptr;
+	// Qt4 does not support RGBA
+	for (size_t sz = 0; sz < image.byteCount(); sz+=4, ++src, ++dest) {
+		const uint32_t v = *src;
+		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // convert it!
+	}
+#else
+	image.convertToFormat(QImage::Format_RGBA8888);
 	memcpy(image.bits(), *image_data_ptr, image.byteCount());
+#endif
 #else
 	if (flip)
 		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
