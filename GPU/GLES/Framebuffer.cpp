@@ -982,7 +982,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		u32 byteSize = FramebufferByteSize(vfb);
 		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
-		if (fb_address_mem + byteSize > framebufRangeEnd_) {
+		if (Memory::IsVRAMAddress(fb_address_mem) && fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
 
