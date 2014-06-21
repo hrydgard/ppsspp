@@ -876,7 +876,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	gstate_c.cutRTOffsetX = 0;
 	for (i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address)) {
+		if (v->fb_address == fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
 			vfb->fb_stride = fb_stride;
@@ -935,7 +935,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
-	if (hackForce04154000Download_ && MaskedEqual(fb_address, 0x04154000)) {
+	if (hackForce04154000Download_ && fb_address == 0x00154000) {
 		renderWidthFactor = 1.0;
 		renderHeightFactor = 1.0;
 	}
@@ -997,18 +997,18 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
-			if (vfbs_[i]->z_stride != 0 && MaskedEqual(fb_address, vfbs_[i]->z_address)) {
+			if (vfbs_[i]->z_stride != 0 && fb_address == vfbs_[i]->z_address) {
 				// If it's clearing it, most likely it just needs more video memory.
 				// Technically it could write something interesting and the other might not clear, but that's not likely.
 				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->fb_address)) {
+			} else if (z_stride != 0 && z_address == vfbs_[i]->fb_address) {
 				// If it's clearing it, then it's probably just the reverse of the above case.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
 					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (vfbs_[i]->z_stride != 0 && MaskedEqual(z_address, vfbs_[i]->z_address) && fb_address != vfbs_[i]->fb_address && !sharingReported) {
+			} else if (vfbs_[i]->z_stride != 0 && z_address == vfbs_[i]->z_address && fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
 				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
@@ -1115,7 +1115,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuf
 		return;
 	}
 
-	if (MaskedEqual(sourceframebuffer->z_address, targetframebuffer->z_address) && 
+	if (sourceframebuffer->z_address == targetframebuffer->z_address &&
 		sourceframebuffer->z_stride != 0 &&
 		targetframebuffer->z_stride != 0 &&
 		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
@@ -1180,7 +1180,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 	if (GPUStepping::IsStepping()) {
 		skipCopy = true;
 	}
-	if (!skipCopy && currentRenderVfb_ && MaskedEqual(framebuffer->fb_address, gstate.getFrameBufRawAddress())) {
+	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->colorDepth);
 		if (renderCopy) {
@@ -1342,7 +1342,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 }
 
 inline bool FramebufferManager::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	return updateVRAM_ || (hackForce04154000Download_ && MaskedEqual(vfb->fb_address, 0x04154000));
+	return updateVRAM_ || (hackForce04154000Download_ && vfb->fb_address == 0x00154000);
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
@@ -1363,7 +1363,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		// We maintain a separate vector of framebuffer objects for blitting.
 		for (size_t i = 0; i < bvfbs_.size(); ++i) {
 			VirtualFramebuffer *v = bvfbs_[i];
-			if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+			if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
 				if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 					nvfb = v;
 					v->fb_stride = vfb->fb_stride;
