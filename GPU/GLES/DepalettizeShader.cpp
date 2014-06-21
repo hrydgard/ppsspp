@@ -196,83 +196,83 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	const u32 clutBase = gstate.getClutIndexStartPos();
 
-	int shift = gstate.getClutIndexShift();
-	int mask = gstate.getClutIndexMask();
+	const int shift = gstate.getClutIndexShift();
+	const int mask = gstate.getClutIndexMask();
 
 	float index_multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
 	bool formatOK = true;
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
-		if ((mask & 0xF) == 0xF) {
-			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;  // Also needs modulo... Same for the other three.
-			case 4: strcpy(lookupMethod, "index.r"); index_multiplier = (1.0f / 16.0f); break;
-			case 8: strcpy(lookupMethod, "index.g"); break;
-			case 12: strcpy(lookupMethod, "index.g"); index_multiplier = (1.0f / 16.0f); break;
-			case 16: strcpy(lookupMethod, "index.b"); break;
-			case 20: strcpy(lookupMethod, "index.b"); index_multiplier = (1.0f / 16.0f); break;
-			case 24: strcpy(lookupMethod, "index.a"); break;
-			case 28: strcpy(lookupMethod, "index.a"); index_multiplier = (1.0f / 16.0f); break;
-			default:
-				formatOK = false;
+		if ((mask & (mask + 1)) == 0) {
+			// If the value has all bits contigious (bitmask check above), we can mod by it + 1.
+			const char *rgba = "rrrrrrrrggggggggbbbbbbbbaaaaaaaa";
+			const u8 rgba_shift = shift & 7;
+			if (rgba_shift == 0 && mask == 0xFF) {
+				sprintf(lookupMethod, "index.%c", rgba[shift]);
+			} else {
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
+				index_multiplier = 1.0f / 256.0f;
+				// Format was OK if there weren't bits from another component.
+				formatOK = mask <= 255 - (1 << rgba_shift);
 			}
 		} else {
 			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_4444:
-		if ((mask & 0xF) == 0xF) {
-			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;
-			case 4: strcpy(lookupMethod, "index.g"); break;
-			case 8: strcpy(lookupMethod, "index.b"); break;
-			case 12: strcpy(lookupMethod, "index.a"); break;
-			default:
-				formatOK = false;
+		if ((mask & (mask + 1)) == 0 && shift < 16) {
+			const char *rgba = "rrrrggggbbbbaaaa";
+			const u8 rgba_shift = shift & 3;
+			if (rgba_shift == 0 && mask == 0xF) {
+				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				index_multiplier = 15.0f / 256.0f;
+			} else {
+				// Let's divide and mod to get the right bits.  A common case is shift=0, mask=01.
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
+				index_multiplier = 1.0f / 256.0f;
+				formatOK = mask <= 15 - (1 << rgba_shift);
 			}
-			index_multiplier = 15.0f / 256.0f;
 		} else {
 			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_565:
-		if ((mask & 0x3f) == 0x3F) {
-			switch (shift) {  // bgra?
-			case 5: strcpy(lookupMethod, "index.g"); break;
-			default:
-				formatOK = false;
+		if ((mask & (mask + 1)) == 0 && shift < 16) {
+			const u8 shifts[16] = {0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4};
+			const u32 multipliers[16] = {31, 31, 31, 31, 31, 63, 63, 63, 63, 63, 63, 31, 31, 31, 31, 31};
+			const char *rgba = "rrrrrggggggbbbbb";
+			const u8 rgba_shift = shifts[shift];
+			if (rgba_shift == 0 && mask == multipliers[shift]) {
+				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				index_multiplier = multipliers[shift] / 256.0f;
+			} else {
+				// We just need to divide the right component by the right value, and then mod against the mask.
+				// A common case is shift=1, mask=0f.
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
+				index_multiplier = 1.0f / 256.0f;
+				formatOK = mask <= multipliers[shift] - (1 << rgba_shift);
 			}
-			index_multiplier = 63.f / 256.f;
-		} else if ((mask & 0x1f) == 0x1f) {
-			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;
-			case 11: strcpy(lookupMethod, "index.b"); break;
-			default:
-				formatOK = false;
-			}
-			index_multiplier = 31.f / 256.f;
 		} else {
 			formatOK = false;
 		}
 		break;
 	case GE_FORMAT_5551:
-		if ((mask & 0x1F) == 0x1F) {
-			switch (shift) {  // bgra?
-			case 0: strcpy(lookupMethod, "index.r"); break;
-			case 5: strcpy(lookupMethod, "index.g"); break;
-			case 10: strcpy(lookupMethod, "index.b"); break;
-			default:
-				formatOK = false;
+		if ((mask & (mask + 1)) == 0 && shift < 16) {
+			const char *rgba = "rrrrrgggggbbbbba";
+			const u8 rgba_shift = shift % 5;
+			if (rgba_shift == 0 && mask == 0x1F) {
+				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				index_multiplier = 31.0f / 256.0f;
+			} else if (shift == 15 && mask == 1) {
+				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				index_multiplier = 1.0f / 256.0f;
+			} else {
+				// A isn't possible here.
+				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
+				index_multiplier = 1.0f / 256.0f;
+				formatOK = mask <= 31 - (1 << rgba_shift);
 			}
-			index_multiplier = 31.0f / 256.0f;
-		} else if ((mask & 0x1) == 0x1) {
-			switch (shift) {  // bgra?
-			case 15: strcpy(lookupMethod, "index.a");break;
-			default:
-				formatOK = false;
-			}
-			index_multiplier = 1.0f / 256.0f;
 		} else {
 			formatOK = false;
 		}
