@@ -221,7 +221,12 @@ void TextureCache::ClearNextFrame() {
 void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
-	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
+	bool hasFartherFramebuffer = false;
+	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
+		// If it's valid, but the offset is greater, then we still win.
+		hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
+	}
+	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
@@ -260,18 +265,16 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			return false;
 
 		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer || entry->invalidHint == -1) {
-			if (framebuffer->fb_stride != entry->bufw) {
-				WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
-			}
-			if (entry->format != framebuffer->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-				// Let's avoid rendering when we know the format is wrong.  May be a video/etc. updating memory.
-				DetachFramebuffer(entry, address, framebuffer);
-			} else {
-				AttachFramebufferValid(entry, framebuffer, fbInfo);
-				return true;
-			}
+		if (framebuffer->fb_stride != entry->bufw) {
+			WARN_LOG_REPORT_ONCE(diffStrides1, G3D, "Render to texture with different strides %d != %d", entry->bufw, framebuffer->fb_stride);
+		}
+		if (entry->format != framebuffer->format) {
+			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+			// Let's avoid rendering when we know the format is wrong.  May be a video/etc. updating memory.
+			DetachFramebuffer(entry, address, framebuffer);
+		} else {
+			AttachFramebufferValid(entry, framebuffer, fbInfo);
+			return true;
 		}
 	} else {
 		// Apply to buffered mode only.
@@ -317,7 +320,6 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 				WARN_LOG_REPORT_ONCE(subareaClut, G3D, "Render to texture using CLUT with offset at %08x +%dx%d", address, fbInfo.xOffset, fbInfo.yOffset);
 			}
 			AttachFramebufferValid(entry, framebuffer, fbInfo);
-			fbTexInfo_[entry->addr] = fbInfo;
 			entry->status |= TexCacheEntry::STATUS_DEPALETTIZE;
 			// We'll validate it compiles later.
 			return true;
@@ -1118,6 +1120,12 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
 			success = true;
 		}
+	}
+
+	if (success) {
+		SetTextureFramebuffer(entry, entry->framebuffer);
+		lastBoundTexture = -1;
+		entry->lastFrame = gpuStats.numFlips;
 	}
 
 	return success;
