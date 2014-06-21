@@ -42,6 +42,46 @@ enum GameRegion {
 	GAMEREGION_MAX,
 };
 
+// TODO: Need to fix c++11 still on Symbian and use std::atomic<bool> instead.
+class CompletionFlag {
+public:
+	CompletionFlag() : pending(1) {
+	}
+
+	void SetDone() {
+#if defined(_WIN32)
+		_WriteBarrier();
+		pending = 0;
+#else
+		__sync_lock_release(&pending);
+#endif
+	}
+
+	bool IsDone() {
+		const bool done = pending == 0;
+#if defined(_WIN32)
+		_ReadBarrier();
+#else
+		__sync_synchronize();
+#endif
+		return done;
+	}
+
+	CompletionFlag &operator =(const bool &v) {
+		pending = v ? 0 : 1;
+		return *this;
+	}
+
+	operator bool() {
+		return IsDone();
+	}
+
+private:
+	volatile u32 pending;
+
+	DISALLOW_COPY_AND_ASSIGN(CompletionFlag);
+};
+
 class GameInfo {
 public:
 	GameInfo()
@@ -97,6 +137,10 @@ public:
 	double timeIconWasLoaded;
 	double timePic0WasLoaded;
 	double timePic1WasLoaded;
+
+	CompletionFlag iconDataLoaded;
+	CompletionFlag pic0DataLoaded;
+	CompletionFlag pic1DataLoaded;
 
 	u64 gameSize;
 	u64 saveDataSize;

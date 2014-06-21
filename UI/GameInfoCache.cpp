@@ -293,12 +293,14 @@ public:
 						}
 						delete [] contents;
 					}
+					info_->iconDataLoaded = true;
 				}
 
 				if (info_->wantBG) {
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
 						lock_guard lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+						info_->pic1DataLoaded = true;
 					}
 				}
 			}
@@ -319,6 +321,7 @@ handleELF:
 				if (contents) {
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
+					info_->iconDataLoaded = true;
 				}
 				delete [] contents;
 			}
@@ -339,9 +342,12 @@ handleELF:
 				}
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+				info_->iconDataLoaded = true;
 				if (info_->wantBG) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+					info_->pic0DataLoaded = true;
 					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+					info_->pic1DataLoaded = true;
 				}
 				break;
 			}
@@ -367,7 +373,9 @@ handleELF:
 
 					if (info_->wantBG) {
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+						info_->pic0DataLoaded = true;
 						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+						info_->pic1DataLoaded = true;
 					}
 				}
 
@@ -382,6 +390,7 @@ handleELF:
 					}
 					delete [] contents;
 				}
+				info_->iconDataLoaded = true;
 				break;
 			}
 
@@ -395,6 +404,7 @@ handleELF:
 					if (contents) {
 						lock_guard lock(info_->lock);
 						info_->iconTextureData = std::string((const char *)contents, sz);
+						info_->iconDataLoaded = true;
 					}
 					delete [] contents;
 				}
@@ -410,6 +420,7 @@ handleELF:
 					if (contents) {
 						lock_guard lock(info_->lock);
 						info_->iconTextureData = std::string((const char *)contents, sz);
+						info_->iconDataLoaded = true;
 					}
 					delete [] contents;
 				}
@@ -455,8 +466,7 @@ void GameInfoCache::Shutdown() {
 	StopProcessingWorkQueue(gameInfoWQ_);
 }
 
-void GameInfoCache::Save()
-{
+void GameInfoCache::Save() {
 	// TODO
 }
 
@@ -532,9 +542,15 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 			// Need to start over. We'll just add a new work item.
 			goto again;
 		}
-		SetupTexture(info, info->iconTextureData, info->iconTexture, info->timeIconWasLoaded);
-		SetupTexture(info, info->pic0TextureData, info->pic0Texture, info->timePic0WasLoaded);
-		SetupTexture(info, info->pic1TextureData, info->pic1Texture, info->timePic1WasLoaded);
+		if (info->iconDataLoaded) {
+			SetupTexture(info, info->iconTextureData, info->iconTexture, info->timeIconWasLoaded);
+		}
+		if (info->pic0DataLoaded) {
+			SetupTexture(info, info->pic0TextureData, info->pic0Texture, info->timePic0WasLoaded);
+		}
+		if (info->pic1DataLoaded) {
+			SetupTexture(info, info->pic1TextureData, info->pic1Texture, info->timePic1WasLoaded);
+		}
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
 	}
@@ -557,7 +573,6 @@ again:
 }
 
 void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Texture *&tex, double &loadTime) {
-	lock_guard lock(info->lock);
 	if (textureData.size()) {
 		if (!tex) {
 			tex = new Texture();
