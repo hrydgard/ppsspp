@@ -1122,6 +1122,12 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 		}
 	}
 
+	if (success) {
+		SetTextureFramebuffer(entry, entry->framebuffer);
+		lastBoundTexture = -1;
+		entry->lastFrame = gpuStats.numFlips;
+	}
+
 	return success;
 }
 
