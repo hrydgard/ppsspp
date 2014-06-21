@@ -1281,7 +1281,10 @@ int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		bufferSize = 0x10000000;
 	}
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1485,7 +1488,10 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1511,7 +1517,10 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 	int codecType = getCodecType(halfBuffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
@@ -1537,7 +1546,10 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr) {
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize, fileSize, metadataSizeAddr);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1863,6 +1875,10 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	}
 
 	int codecType = getCodecType(halfBuffer);
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
