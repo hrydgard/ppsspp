@@ -532,46 +532,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 			// Need to start over. We'll just add a new work item.
 			goto again;
 		}
-		{
-			lock_guard lock(info->lock);
-			if (info->iconTextureData.size() && !info->iconTexture) {
-				// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
-				info->iconTexture = new Texture();
-				if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
-					info->timeIconWasLoaded = time_now_d();
-				} else {
-					delete info->iconTexture;
-					info->iconTexture = 0;
-				}
-				info->iconTextureData.clear();
-			}
-		}
-		{
-			lock_guard lock(info->lock);
-			if (info->pic0TextureData.size() && !info->pic0Texture) {
-				info->pic0Texture = new Texture();
-				if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
-					info->timePic0WasLoaded = time_now_d();
-				} else {
-					delete info->pic0Texture;
-					info->pic0Texture = 0;
-				}
-				info->pic0TextureData.clear();
-			}
-		}
-		{
-			lock_guard lock(info->lock);
-			if (info->pic1TextureData.size() && !info->pic1Texture) {
-				info->pic1Texture = new Texture();
-				if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
-					info->timePic1WasLoaded = time_now_d();
-				} else {
-					delete info->pic1Texture;
-					info->pic1Texture = 0;
-				}
-				info->pic1TextureData.clear();
-			}
-		}
+		SetupTexture(info, info->iconTextureData, info->iconTexture, info->timeIconWasLoaded);
+		SetupTexture(info, info->pic0TextureData, info->pic0Texture, info->timePic0WasLoaded);
+		SetupTexture(info, info->pic1TextureData, info->pic1Texture, info->timePic1WasLoaded);
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
 	}
@@ -591,4 +554,20 @@ again:
 
 	info_[gamePath] = info;
 	return info;
+}
+
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Texture *&tex, double &loadTime) {
+	lock_guard lock(info->lock);
+	if (textureData.size()) {
+		if (!tex) {
+			tex = new Texture();
+			if (tex->LoadPNG((const u8 *)textureData.data(), textureData.size(), false)) {
+				loadTime = time_now_d();
+			} else {
+				delete tex;
+				tex = 0;
+			}
+		}
+		textureData.clear();
+	}
 }

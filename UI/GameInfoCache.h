@@ -126,6 +126,8 @@ public:
 	void Load();
 
 private:
+	void SetupTexture(GameInfo *info, std::string &textureData, Texture *&tex, double &loadTime);
+
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;
 
