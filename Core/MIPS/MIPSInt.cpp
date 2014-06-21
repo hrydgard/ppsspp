@@ -893,7 +893,18 @@ namespace MIPSInt
 			switch (op & 0x3f)
 			{
 			case 12: FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-			case 13: FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
+			case 13: //trunc.w.s
+				if (F(fs) >= 0.0f) {
+					FsI(fd) = (int)floorf(F(fs));
+					// Overflow, but it was positive.
+					if (FsI(fd) == -2147483648) {
+						FsI(fd) = 2147483647;
+					}
+				} else {
+					// Overflow happens to be the right value anyway.
+					FsI(fd) = (int)ceilf(F(fs));
+				}
+				break;
 			case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 			case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
 			}
