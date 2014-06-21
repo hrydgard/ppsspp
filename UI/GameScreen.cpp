@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
@@ -97,7 +98,15 @@ void GameScreen::update(InputState &input) {
 		tvTitle_->SetText(info->title + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
 		texvGameIcon_->SetTexture(info->iconTexture);
-		uint32_t color = whiteAlpha(ease((time_now_d() - info->timeIconWasLoaded) * 3));
+		// Fade the icon with the background.
+		double loadTime = info->timeIconWasLoaded;
+		if (info->pic1Texture) {
+			loadTime = std::max(loadTime, info->timePic1WasLoaded);
+		}
+		if (info->pic0Texture) {
+			loadTime = std::max(loadTime, info->timePic0WasLoaded);
+		}
+		uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
 		texvGameIcon_->SetColor(color);
 	}
 

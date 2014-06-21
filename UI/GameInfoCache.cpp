@@ -341,8 +341,8 @@ handleELF:
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
 				if (info_->wantBG) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				}
-				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				break;
 			}
 		case FILETYPE_PSP_ISO:
@@ -367,8 +367,8 @@ handleELF:
 
 					if (info_->wantBG) {
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 					}
-					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				}
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though

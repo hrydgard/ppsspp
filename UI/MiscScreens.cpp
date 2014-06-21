@@ -110,15 +110,18 @@ void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
 
 	if (ginfo) {
 		bool hasPic = false;
+		double loadTime;
 		if (ginfo->pic1Texture) {
 			ginfo->pic1Texture->Bind(0);
+			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
 			ginfo->pic0Texture->Bind(0);
+			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}
 		if (hasPic) {
-			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+			uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3)) & 0xFFc0c0c0;
 			dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 			dc.Flush();
 			dc.RebindTexture();
