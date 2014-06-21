@@ -982,17 +982,16 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		u32 byteSize = FramebufferByteSize(vfb);
 		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
-		if (fb_address_mem + byteSize > framebufRangeEnd_) {
+		if (Memory::IsVRAMAddress(fb_address_mem) && fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
 
+		// Some AMD drivers crash if we don't clear the buffer first?
+		ClearBuffer();
 		if (useBufferedRendering_ && !updateVRAM_) {
 			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
 			gpu->PerformStencilUpload(fb_address_mem, byteSize);
 			// TODO: Is it worth trying to upload the depth buffer?
-			ClearDepthBuffer();
-		} else {
-			ClearBuffer();
 		}
 
 		// Let's check for depth buffer overlap.  Might be interesting.
