@@ -1530,26 +1530,54 @@ namespace MIPSInt
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-		float s[4];
-		float t[4];
-		float d[4];
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
+
+		union FloatBits {
+			float f[4];
+			u32 u[4];
+			int i[4];
+		};
+
+		FloatBits s;
+		FloatBits t;
+		FloatBits d;
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz);
+		ReadVector(t.f, sz, vt);
+		ApplySwizzleT(t.f, sz);
 
 		// If both are zero, take t's sign.
-		// TODO: Otherwise: -NAN < -INF < real < INF < NAN
+		// Otherwise: -NAN < -INF < real < INF < NAN (higher mantissa is farther from 0.)
 
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
 			for (int i = 0; i < numElements; i++) {
-				d[i] = my_isnan(t[i]) ? s[i] : (my_isnan(s[i]) ? t[i] : std::min(t[i], s[i]));
+				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
+					// If both are negative, we flip the comparison (not two's compliment.)
+					if (s.i[i] < 0 && t.i[i] < 0) {
+						// If at least one side is NAN, we take the highest mantissa bits.
+						d.i[i] = std::max(t.i[i], s.i[i]);
+					} else {
+						// Otherwise, we take the lowest value (negative or lowest mantissa.)
+						d.i[i] = std::min(t.i[i], s.i[i]);
+					}
+				} else {
+					d.f[i] = std::min(t.f[i], s.f[i]);
+				}
 			}
 			break;
 		case 3: // vmax
-			for (int i = 0; i < numElements; i++)
-				d[i] = my_isnan(t[i]) ? t[i] : (my_isnan(s[i]) ? s[i] : std::max(t[i], s[i]));
+			for (int i = 0; i < numElements; i++) {
+				// This is the same logic as vmin, just reversed.
+				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
+					if (s.i[i] < 0 && t.i[i] < 0) {
+						d.i[i] = std::min(t.i[i], s.i[i]);
+					} else {
+						d.i[i] = std::max(t.i[i], s.i[i]);
+					}
+				} else {
+					d.f[i] = std::max(t.f[i], s.f[i]);
+				}
+			}
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
@@ -1557,8 +1585,8 @@ namespace MIPSInt
 			EatPrefixes();
 			return;
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
