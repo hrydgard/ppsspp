@@ -751,10 +751,12 @@ namespace MIPSComp
 					// If both are negative, we reverse the comparison.  We want the highest mantissa then.
 					// Also, between -NAN and -5.0, we want -NAN to be less.
 					TST(SCRATCHREG1, SCRATCHREG2);
-					SetCC(CC_MI);
+					FixupBranch cmpPositive = B_CC(CC_PL);
 					CMP(SCRATCHREG2, SCRATCHREG1);
-					SetCC(CC_PL);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
 					CMP(SCRATCHREG1, SCRATCHREG2);
+					SetJumpTarget(skipPositive);
 					SetCC(CC_AL);
 					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
@@ -774,10 +776,12 @@ namespace MIPSComp
 					// If both are negative, we reverse the comparison.  We want the lowest mantissa then.
 					// Also, between -NAN and -5.0, we want -5.0 to be greater.
 					TST(SCRATCHREG2, SCRATCHREG1);
-					SetCC(CC_MI);
+					FixupBranch cmpPositive = B_CC(CC_PL);
 					CMP(SCRATCHREG1, SCRATCHREG2);
-					SetCC(CC_PL);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
 					CMP(SCRATCHREG2, SCRATCHREG1);
+					SetJumpTarget(skipPositive);
 					SetCC(CC_AL);
 					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
