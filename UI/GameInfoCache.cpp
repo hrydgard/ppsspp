@@ -523,17 +523,18 @@ void GameInfoCache::FlushBGs() {
 // pspFileSystem (well, we could with synchronization but there might not
 // even be a game running).
 GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
+	GameInfo *info = 0;
+
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
-		GameInfo *info = iter->second;
+		info = iter->second;
 		if (!info->wantBG && wantBG) {
 			// Need to start over. We'll just add a new work item.
-			delete info;  // Hm, how dangerous is this? There might be a race condition here.
 			goto again;
 		}
 		{
 			lock_guard lock(info->lock);
-			if (info->iconTextureData.size()) {
+			if (info->iconTextureData.size() && !info->iconTexture) {
 				// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
 				info->iconTexture = new Texture();
 				if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
@@ -547,7 +548,7 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		}
 		{
 			lock_guard lock(info->lock);
-			if (info->pic0TextureData.size()) {
+			if (info->pic0TextureData.size() && !info->pic0Texture) {
 				info->pic0Texture = new Texture();
 				if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
 					info->timePic0WasLoaded = time_now_d();
@@ -560,7 +561,7 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		}
 		{
 			lock_guard lock(info->lock);
-			if (info->pic1TextureData.size()) {
+			if (info->pic1TextureData.size() && !info->pic1Texture) {
 				info->pic1Texture = new Texture();
 				if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
 					info->timePic1WasLoaded = time_now_d();
@@ -577,8 +578,13 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 
 again:
 
-	GameInfo *info = new GameInfo();
-	info->wantBG = wantBG;
+	if (!info) {
+		info = new GameInfo();
+	}
+	{
+		lock_guard lock(info->lock);
+		info->wantBG = wantBG;
+	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);

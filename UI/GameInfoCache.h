@@ -47,6 +47,7 @@ public:
 	GameInfo()
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
 		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantBG(false),
+		  timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
 		  gameSize(0), saveDataSize(0), installDataSize(0) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
