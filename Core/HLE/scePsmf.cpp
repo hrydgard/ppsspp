@@ -1488,7 +1488,8 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		doVideoStep = false;
 	} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
 		s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
-		if (deltapts > 0) {
+		// Don't skip the very first frame, sometimes audio starts with an early timestamp.
+		if (deltapts > 0 && psmfplayer->mediaengine->getVideoTimeStamp() > 0) {
 			// Don't advance, just return the same frame again.
 			// TODO: This also seems somewhat based on Update() calls, but audio is involved too...
 			doVideoStep = false;
@@ -1501,7 +1502,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		}
 	} else {
 		// No audio, based on Update() calls.  playSpeed doesn't seem to matter?
-		if (psmfplayer->videoStep <= 1) {
+		if (psmfplayer->videoStep <= 1 && psmfplayer->mediaengine->getVideoTimeStamp() > 0) {
 			doVideoStep = false;
 		} else {
 			psmfplayer->videoStep = 0;
