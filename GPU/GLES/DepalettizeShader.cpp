@@ -205,7 +205,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	switch (pixelFormat) {
 	case GE_FORMAT_8888:
 		if ((mask & (mask + 1)) == 0) {
-			// If the value has all bits contigious (bitmask check above), we can mod by it + 1.
+			// If the value has all bits contiguous (bitmask check above), we can mod by it + 1.
 			const char *rgba = "rrrrrrrrggggggggbbbbbbbbaaaaaaaa";
 			const u8 rgba_shift = shift & 7;
 			if (rgba_shift == 0 && mask == 0xFF) {
