@@ -636,11 +636,13 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	switch (streamType) {
 	case MPEG_AVC_STREAM:
 		ctx->avcRegistered = true;
+		// TODO: Probably incorrect?
 		ctx->mediaengine->setVideoStream(streamNum);
 		break;
 	case MPEG_AUDIO_STREAM:
 	case MPEG_ATRAC_STREAM:
 		ctx->atracRegistered = true;
+		// TODO: Probably incorrect?
 		ctx->mediaengine->setAudioStream(streamNum);
 		break;
 	case MPEG_PCM_STREAM:
@@ -1070,6 +1072,9 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
+	// We stored the video stream id here in sceMpegGetAvcAu().
+	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
+
 	if (ispmp){
 		while (pmp_queue.size() != 0){
 			// playing all pmp_queue frames
@@ -1235,6 +1240,9 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 		WARN_LOG(ME, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
+
+	// We stored the video stream id here in sceMpegGetAvcAu().
+	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
 	u32 init = Memory::Read_U32(initAddr);
@@ -1461,9 +1469,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
-	if (streamInfo != ctx->streamMap.end())	{
-		ctx->mediaengine->setVideoStream(streamInfo->second.num);
-	} else {
+	if (streamInfo == ctx->streamMap.end())	{
 		WARN_LOG_REPORT(ME, "sceMpegGetAvcAu: invalid video stream %08x", streamId);
 		return -1;
 	}
@@ -1472,6 +1478,10 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		avcAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
+
+	// esBuffer is the memory where this au data goes.  We don't write the data to memory.
+	// Instead, let's abuse it to keep track of the stream number.
+	avcAu.esBuffer = streamInfo->second.num;
 
 	/*// Wait for audio if too much ahead
 	if (ctx->atracRegistered && (ctx->mediaengine->getVideoTimeStamp() > ctx->mediaengine->getAudioTimeStamp() + getMaxAheadTimestamp(mpegRingbuffer)))
@@ -1552,9 +1562,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		atracAu.pts = 0;
 		streamInfo->second.needsReset = false;
 	}
-	if (streamInfo != ctx->streamMap.end()) {
-		ctx->mediaengine->setAudioStream(streamInfo->second.num);
-	} else {
+	if (streamInfo == ctx->streamMap.end()) {
 		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
 	}
 
@@ -1564,6 +1572,10 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		// TODO: Does this really delay?
 		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
+
+	// esBuffer is the memory where this au data goes.  We don't write the data to memory.
+	// Instead, let's abuse it to keep track of the stream number.
+	atracAu.esBuffer = streamInfo->second.num;
 
 	int result = 0;
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
@@ -1763,14 +1775,17 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 
 	DEBUG_LOG(ME, "sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
 
-	SceMpegAu avcAu;
-	avcAu.read(auAddr);
+	SceMpegAu atracAu;
+	atracAu.read(auAddr);
+
+	// We kept track of the stream number here in sceMpegGetAtracAu().
+	ctx->mediaengine->setAudioStream(atracAu.esBuffer);
 
 	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
 	ctx->mediaengine->getAudioSamples(bufferAddr);
-	avcAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
+	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 
-	avcAu.write(auAddr);
+	atracAu.write(auAddr);
 
 
 	return hleDelayResult(0, "mpeg atrac decode", atracDecodeDelayMs);
