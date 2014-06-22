@@ -73,8 +73,11 @@ void SetFocusedView(View *view) {
 
 void EnableFocusMovement(bool enable) {
 	focusMovementEnabled = enable;
-	if (!enable)
+	if (!enable) {
+		if (focusedView)
+			focusedView->FocusChanged(FF_LOSTFOCUS); 
 		focusedView = 0;
+	}
 }
 
 bool IsFocusMovementEnabled() {
