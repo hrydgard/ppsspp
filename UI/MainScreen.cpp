@@ -138,7 +138,13 @@ public:
 		}
 	}
 
+	virtual void FocusChanged(int focusFlags) {
+		UI::Clickable::FocusChanged(focusFlags);
+		TriggerOnHighlight(focusFlags);
+	}
+
 	UI::Event OnHoldClick;
+	UI::Event OnHighlight;
 
 private:
 	void TriggerOnHoldClick() {
@@ -148,6 +154,13 @@ private:
 		e.s = gamePath_;
 		down_ = false;
 		OnHoldClick.Trigger(e);
+	}
+	void TriggerOnHighlight(int focusFlags) {
+		UI::EventParams e;
+		e.v = this;
+		e.s = gamePath_;
+		e.a = focusFlags;
+		OnHighlight.Trigger(e);
 	}
 
 	bool gridStyle_;
@@ -376,6 +389,7 @@ public:
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
+	UI::Event OnHighlight;
 
 	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
 private:
@@ -386,6 +400,7 @@ private:
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
@@ -568,6 +583,7 @@ void GameBrowser::Refresh() {
 		GameButton *b = gameList_->Add(gameButtons[i]);
 		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
+		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 	}
 
 	// Show a button to toggle pinning at the very end.
@@ -667,6 +683,12 @@ UI::EventReturn GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameBrowser::GameButtonHighlight(UI::EventParams &e) {
+	// Insta-update - here we know we are already on the right thread.
+	OnHighlight.Trigger(e);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	DirButton *button  = static_cast<DirButton *>(e.v);
 	std::string text = button->GetPath();
@@ -680,7 +702,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-MainScreen::MainScreen() : backFromStore_(false) {
+MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false) {
 	System_SendMessage("event", "mainscreen");
 }
 
@@ -736,6 +758,9 @@ void MainScreen::CreateViews() {
 	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
@@ -884,6 +909,59 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+extern void DrawBackground(UIContext &dc, float alpha);
+
+void MainScreen::DrawBackground(UIContext &dc) {
+	UIScreenWithBackground::DrawBackground(dc);
+	if (highlightedGamePath_.empty() && prevHighlightedGamePath_.empty()) {
+		return;
+	}
+
+	if (DrawBackgroundFor(dc, prevHighlightedGamePath_, 1.0f - prevHighlightProgress_)) {
+		if (prevHighlightProgress_ < 1.0f) {
+			prevHighlightProgress_ += 1.0f / 20.0f;
+		}
+	}
+	if (!highlightedGamePath_.empty()) {
+		if (DrawBackgroundFor(dc, highlightedGamePath_, highlightProgress_)) {
+			if (highlightProgress_ < 1.0f) {
+				highlightProgress_ += 1.0f / 20.0f;
+			}
+		}
+	}
+}
+
+bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress) {
+	dc.Flush();
+
+	GameInfo *ginfo = 0;
+	if (!gamePath.empty()) {
+		ginfo = g_gameInfoCache.GetInfo(gamePath, true);
+		// Loading texture data may bind a texture.
+		dc.RebindTexture();
+
+		// Let's not bother if there's no picture.
+		if (!ginfo || (!ginfo->pic1Texture && !ginfo->pic0Texture)) {
+			return false;
+		}
+	} else {
+		return false;
+	}
+
+	if (ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+	} else if (ginfo->pic0Texture) {
+		ginfo->pic0Texture->Bind(0);
+	}
+
+	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
+	dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
+	dc.Flush();
+	dc.RebindTexture();
+
+	return true;
+}
+
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
@@ -891,6 +969,27 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	std::string path = e.s;
 #endif
 	screenManager()->push(new GameScreen(path));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
+	#ifdef _WIN32
+	std::string path = ReplaceAll(e.s, "\\", "/");
+#else
+	std::string path = e.s;
+#endif
+
+	if (!highlightedGamePath_.empty() || (e.a == FF_LOSTFOCUS && highlightedGamePath_ == path)) {
+		if (prevHighlightedGamePath_.empty() || prevHighlightProgress_ >= 0.75f) {
+			prevHighlightedGamePath_ = highlightedGamePath_;
+			prevHighlightProgress_ = 1.0 - highlightProgress_;
+		}
+		highlightedGamePath_.clear();
+	}
+	if (e.a == FF_GOTFOCUS) {
+		highlightedGamePath_ = path;
+		highlightProgress_ = 0.0f;
+	}
 	return UI::EVENT_DONE;
 }
 
