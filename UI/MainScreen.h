@@ -37,13 +37,17 @@ public:
 
 protected:
 	virtual void CreateViews();
+	virtual void DrawBackground(UIContext &dc);
 	virtual void update(InputState &input);
 	virtual void sendMessage(const char *message, const char *value);
 	virtual void dialogFinished(const Screen *dialog, DialogResult result);
 
 private:
+	bool DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress);
+
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
 	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
+	UI::EventReturn OnGameHighlight(UI::EventParams &e);
 	// Event handlers
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
@@ -60,6 +64,10 @@ private:
 	UI::LinearLayout *upgradeBar_;
 	UI::TabHolder *tabHolder_;
 
+	std::string highlightedGamePath_;
+	std::string prevHighlightedGamePath_;
+	float highlightProgress_;
+	float prevHighlightProgress_;
 	bool backFromStore_;
 };
 
