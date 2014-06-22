@@ -76,7 +76,7 @@ void __AudioCodecShutdown() {
 }
 
 int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (isValidCodec(codec)) {
+	if (IsValidCodec(codec)) {
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
 			WARN_LOG_REPORT(HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
@@ -97,7 +97,7 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		return -1;
 	}
 
-	if (isValidCodec(codec)){
+	if (IsValidCodec(codec)){
 		// Use SimpleAudioDec to decode audio
 		auto ctx = PSPPointer<AudioCodecContext>::Create(ctxPtr);  // On stack, no need to allocate.
 		int outbytes = 0;
@@ -196,8 +196,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			int i = 0;
 			for (auto it = audioList.begin(), end = audioList.end(); it != end; it++) {
 				const SimpleAudio *decoder = it->second;
-				codec_[i] = decoder->audioType;
-				ctxPtr_[i] = decoder->ctxPtr;
+				codec_[i] = decoder->GetAudioType();
+				ctxPtr_[i] = decoder->GetCtxPtr();
 				i++;
 			}
 			p.DoArray(codec_, count);

@@ -34,7 +34,6 @@ extern "C" {
 
 bool SimpleAudio::GetAudioCodecID(int audioType) {
 #ifdef USE_FFMPEG
-
 	switch (audioType) {
 	case PSP_CODEC_AAC:
 		audioCodecId = AV_CODEC_ID_AAC;
@@ -154,6 +153,14 @@ SimpleAudio::~SimpleAudio() {
 #endif  // USE_FFMPEG
 }
 
+bool SimpleAudio::IsOK() const {
+#ifdef USE_FFMPEG
+	return codec_ != 0;
+#else
+	return 0;
+#endif
+}
+
 void SaveAudio(const char filename[], uint8_t *outbuf, int size){
 	FILE * pf;
 	pf = fopen(filename, "ab+");
@@ -252,7 +259,20 @@ void AudioClose(SimpleAudio **ctx) {
 #endif  // USE_FFMPEG
 }
 
-bool isValidCodec(int codec){
+
+static const char *const codecNames[4] = {
+	"AT3+", "AT3", "MP3", "AAC",
+};
+
+const char *GetCodecName(int codec) {
+	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
+		return codecNames[codec - PSP_CODEC_AT3PLUS];
+	} else {
+		return "(unk)";
+	}
+};
+
+bool IsValidCodec(int codec){
 	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
 		return true;
 	}
@@ -261,6 +281,36 @@ bool isValidCodec(int codec){
 
 
 // sceAu module starts from here
+
+AuCtx::AuCtx() {
+	decoder = NULL;
+	startPos = 0;
+	endPos = 0;
+	LoopNum = -1;
+	AuBuf = 0;
+	AuBufSize = 2048;
+	PCMBuf = 0;
+	PCMBufSize = 2048;
+	AuBufAvailable = 0;
+	SamplingRate = 44100;
+	freq = SamplingRate;
+	BitRate = 0;
+	Channels = 2;
+	Version = 0;
+	SumDecodedSamples = 0;
+	MaxOutputSample = 0;
+	askedReadSize = 0;
+	realReadSize = 0;
+	audioType = 0;
+	FrameNum = 0;
+};
+
+AuCtx::~AuCtx(){
+	if (decoder){
+		AudioClose(&decoder);
+		decoder = NULL;
+	}
+};
 
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr)
@@ -367,10 +417,10 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 // buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 {
-	// you can not read beyond file size and the buffersize
+	// you can not read beyond file size and the buffer size
 	int readsize = std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 
-	// we can recharge AuBuf from its begining
+	// we can recharge AuBuf from its beginning
 	if (Memory::IsValidAddress(buff))
 		Memory::Write_U32(AuBuf, buff);
 	if (Memory::IsValidAddress(size))
@@ -386,125 +436,42 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
 	return 0;
 }
 
-u32 AuCtx::AuGetMaxOutputSample()
-{
-	return MaxOutputSample;
-}
-
-u32 AuCtx::AuGetSumDecodedSample()
-{
-	return SumDecodedSamples;
-}
-
-u32 AuCtx::AuResetPlayPosition()
-{
-	readPos = startPos;
-	return 0;
-}
-
-int AuCtx::AuGetChannelNum(){
-	return Channels;
-}
-
-int AuCtx::AuGetBitRate(){
-	return BitRate;
-}
-
-int AuCtx::AuGetSamplingRate(){
-	return SamplingRate;
-}
-
-u32 AuCtx::AuResetPlayPositionByFrame(int position){
+u32 AuCtx::AuResetPlayPositionByFrame(int position) {
 	readPos = position;
 	return 0;
 }
 
-int AuCtx::AuGetVersion(){
-	return Version;
+u32 AuCtx::AuResetPlayPosition() {
+	readPos = startPos;
+	return 0;
 }
 
-int AuCtx::AuGetFrameNum(){
-	return FrameNum;
-}
+void AuCtx::DoState(PointerWrap &p) {
+	auto s = p.Section("AuContext", 0, 1);
+	if (!s)
+		return;
 
-static int _Readbuffer(void *opaque, uint8_t *buf, int buf_size) {
-	auto ctx = (AuCtx *)opaque;
-	int toread = std::min((int)ctx->AuBufSize, buf_size);
-	memcpy(buf, Memory::GetPointer(ctx->AuBuf), toread);
-	return toread;
-}
+	p.Do(startPos);
+	p.Do(endPos);
+	p.Do(AuBuf);
+	p.Do(AuBufSize);
+	p.Do(PCMBuf);
+	p.Do(PCMBufSize);
+	p.Do(freq);
+	p.Do(SumDecodedSamples);
+	p.Do(LoopNum);
+	p.Do(Channels);
+	p.Do(MaxOutputSample);
+	p.Do(readPos);
+	p.Do(audioType);
+	p.Do(BitRate);
+	p.Do(SamplingRate);
+	p.Do(askedReadSize);
+	p.Do(realReadSize);
+	p.Do(FrameNum);
 
-static void closeAvioCtxandFormatCtx(AVIOContext* pAVIOCtx, AVFormatContext* pFormatCtx){
-	if (pAVIOCtx && pAVIOCtx->buffer)
-		av_free(pAVIOCtx->buffer);
-	if (pAVIOCtx)
-		av_free(pAVIOCtx);
-	if (pFormatCtx)
-		avformat_close_input(&pFormatCtx);
-}
-
-// you need at least have initialized AuBuf, AuBufSize and decoder
-bool AuCtx::AuCreateCodecContextFromSource(){
-	u8* tempbuf = (u8*)av_malloc(AuBufSize);
-
-	auto pFormatCtx = avformat_alloc_context();
-	auto pAVIOCtx = avio_alloc_context(tempbuf, AuBufSize, 0, (void*)this, _Readbuffer, NULL, NULL);
-	pFormatCtx->pb = pAVIOCtx;
-
-	int ret;
-	// Load audio buffer
-	if ((ret = avformat_open_input((AVFormatContext**)&pFormatCtx, NULL, NULL, NULL)) != 0) {
-		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
-		closeAvioCtxandFormatCtx(pAVIOCtx,pFormatCtx);
-		return false;
+	if (p.mode == p.MODE_READ) {
+		decoder = new SimpleAudio(audioType);
+		AuBufAvailable = 0; // reset to read from file at position readPos
 	}
-
-	if ((ret = avformat_find_stream_info(pFormatCtx, NULL)) < 0) {
-		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
-		closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
-		return false;
-	}
-	// reset decoder context
-	if (decoder->codecCtx_){
-		avcodec_close(decoder->codecCtx_);
-		av_free(decoder->codecCtx_);
-	}
-	decoder->codecCtx_ = pFormatCtx->streams[ret]->codec;
-
-	if (decoder->codec_){
-		decoder->codec_ = 0;
-	}
-	// select the audio stream
-	ret = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder->codec_, 0);
-	if (ret < 0) {
-		if (ret == AVERROR_DECODER_NOT_FOUND) {
-			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
-		}
-		else {
-			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
-		}
-		closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
-		return false;
-	}
-
-	// close and free AVIO and AVFormat
-	// closeAvioCtxandFormatCtx(pAVIOCtx, pFormatCtx);
-
-	// open codec
-	if ((ret = avcodec_open2(decoder->codecCtx_, decoder->codec_, NULL)) < 0) {
-		avcodec_close(decoder->codecCtx_);
-		av_free(decoder->codecCtx_);
-		decoder->codecCtx_ = 0;
-		decoder->codec_ = 0;
-		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
-		return false;
-	}
-
-	// set audio informations
-	SamplingRate = decoder->codecCtx_->sample_rate;
-	Channels = decoder->codecCtx_->channels;
-	BitRate = decoder->codecCtx_->bit_rate/1000;
-	freq = SamplingRate;
-
-	return true;
 }

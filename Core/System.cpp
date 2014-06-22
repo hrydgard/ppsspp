@@ -105,7 +105,7 @@ bool IsAudioInitialised() {
 }
 
 void Audio_Init() {
-	if(mixer == NULL) {
+	if (mixer == NULL) {
 		mixer = new PSPMixer();
 		host->InitSound(mixer);
 	}

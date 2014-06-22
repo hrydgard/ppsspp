@@ -93,10 +93,13 @@ static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
 #ifdef USE_FFMPEG 
-static AVPixelFormat pmp_want_pix_fmt;
+
 extern "C" {
+#include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 }
+static AVPixelFormat pmp_want_pix_fmt;
+
 #endif
 
 struct SceMpegLLI

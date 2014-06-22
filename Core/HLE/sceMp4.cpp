@@ -225,7 +225,8 @@ u32 sceAacInit(u32 id)
 		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
-	AuCtx *aac = new AuCtx;
+
+	AuCtx *aac = new AuCtx();
 	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
 	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
 	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
@@ -258,11 +259,7 @@ u32 sceAacInit(u32 id)
 		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;
-	aac->SumDecodedSamples = 0;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
-	aac->LoopNum = -1;
-	aac->AuBufAvailable = 0;
-	aac->MaxOutputSample = 0;
 	aac->readPos = aac->startPos;
 	aac->audioType = PSP_CODEC_AAC;
 

@@ -17,8 +17,7 @@
 
 #pragma once
 
-typedef struct 
-{
+typedef struct {
 	s32_le unk0;
 	s32_le unk4;
 	s32_le err; // 8

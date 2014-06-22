@@ -31,7 +31,7 @@
 #include "Core/HW/SimpleAudioDec.h"
 
 class PointerWrap;
-struct SimpleAudio;
+class SimpleAudio;
 
 #ifdef USE_FFMPEG
 struct SwsContext;
