@@ -63,8 +63,6 @@ enum MIPSGPReg
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	// ID for mipscall "callback" is stored here - from JPCSP
-	MIPS_REG_CALL_ID=MIPS_REG_S0,
 	MIPS_REG_INVALID=-1,
 
 	// Not real regs, just for convenience/jit mapping.
