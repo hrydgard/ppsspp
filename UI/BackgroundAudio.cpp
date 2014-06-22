@@ -1,6 +1,7 @@
 #include <string>
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "base/mutex.h"
 #include "native/file/chunk_file.h"
 
 #include "Common/CommonTypes.h"
@@ -142,17 +143,21 @@ private:
 	SimpleAudio *decoder_;
 };
 
+static recursive_mutex bgMutex;
 static std::string bgGamePath;
 static int playbackOffset;
 static AT3PlusReader *at3Reader;
 static double gameLastChanged;
 
 void SetBackgroundAudioGame(const std::string &path) {
+	time_update();
+
+	lock_guard lock(bgMutex);
 	if (path == bgGamePath) {
 		// Do nothing
 		return;
 	}
-	time_update();
+
 	gameLastChanged = time_now_d();
 	if (at3Reader) {
 		at3Reader->Shutdown();
@@ -165,6 +170,8 @@ void SetBackgroundAudioGame(const std::string &path) {
 
 int MixBackgroundAudio(short *buffer, int size) {
 	time_update();
+
+	lock_guard lock(bgMutex);
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
 	if (!at3Reader && bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
