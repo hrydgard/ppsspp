@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <string>
 
 #include "image/zim_load.h"
 #include "image/png_load.h"
@@ -356,7 +357,7 @@ static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cva
 }
 
 // Break a single text string into mutiple lines.
-static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont, float x, float y, 
+static AtlasTextMetrics BreakLines(const std::string& text, const AtlasFont &atlasfont, float x, float y, 
 									int align, float scale, int wrapType, float wrapWidth, bool dryRun)
 {
 	y += atlasfont.ascend * scale;
@@ -380,7 +381,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	int numLines = 1;
 	float maxw = 0;
 	float lineHeight = atlasfont.height * scale;
-	for (UTF8 utf(text); !utf.end(); )
+	for (UTF8 utf(text.c_str()); !utf.end(); )
 	{
 		float lineWidth = 0;
 		bool skipRest = false;
@@ -594,7 +595,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 }
 
 void PPGeMeasureText(float *w, float *h, int *n, 
-					const char *text, float scale, int WrapType, int wrapWidth)
+					const std::string &text, float scale, int WrapType, int wrapWidth)
 {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
 	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, WrapType, wrapWidth, true);
@@ -603,7 +604,7 @@ void PPGeMeasureText(float *w, float *h, int *n,
 	if (n) *n = metrics.numLines;
 }
 
-void PPGePrepareText(const char *text, float x, float y, int align, float scale, int WrapType, int wrapWidth)
+void PPGePrepareText(const std::string &text, float x, float y, int align, float scale, int WrapType, int wrapWidth)
 {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
 	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, WrapType, wrapWidth, false);
@@ -647,13 +648,13 @@ void PPGeDrawCurrentText(u32 color)
 	char_lines_metrics = zeroBox;
 }
 
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
+void PPGeDrawText(const std::string &text, float x, float y, int align, float scale, u32 color)
 {
 	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS);
 	PPGeDrawCurrentText(color);
 }
 
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale, u32 color)
+void PPGeDrawTextWrapped(const std::string &text, float x, float y, float wrapWidth, int align, float scale, u32 color)
 {
 	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
 	PPGeDrawCurrentText(color);

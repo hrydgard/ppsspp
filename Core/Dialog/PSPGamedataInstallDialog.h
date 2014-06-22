@@ -47,7 +47,7 @@ public:
 	virtual void DoState(PointerWrap &p);
 
 	int Abort();
-	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
+	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, const std::string &filename);
 
 private:
 	SceUtilityGamedataInstallParam request;

@@ -192,13 +192,12 @@ bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThr
 	return false;
 }
 
-void PSPDialog::DisplayButtons(int flags, const char *caption)
+void PSPDialog::DisplayButtons(int flags, const std::string &caption)
 {
 	bool useCaption = false;
-	char safeCaption[65] = {0};
-	if (caption != NULL && *caption != '\0') {
+
+	if (!caption.empty()) {
 		useCaption = true;
-		strncpy(safeCaption, caption, 64);
 	}
 
 	I18NCategory *d = GetI18NCategory("Dialog");
@@ -208,14 +207,14 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		x2 = 183.5f;
 	}
 	if (flags & DS_BUTTON_OK) {
-		const char *text = useCaption ? safeCaption : d->T("Enter");
+		std::string text = useCaption ? caption : d->T("Enter");
 		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(text, x2 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
 		PPGeDrawText(text, x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	}
 	if (flags & DS_BUTTON_CANCEL) {
-		const char *text = useCaption ? safeCaption : d->T("Back");
+		std::string text = useCaption ? caption : d->T("Back");
 		PPGeDrawText(text, x1 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
 		PPGeDrawText(text, x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
