@@ -35,7 +35,7 @@
 #include "Core/Config.h"
 
 void GameScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
@@ -92,7 +92,7 @@ void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_)
 		tvTitle_->SetText(info->title + " (" + info->id + ")");
@@ -153,7 +153,7 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID));
@@ -164,7 +164,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
 			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
@@ -176,7 +176,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, 0);
 	if (yes) {
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
@@ -187,7 +187,7 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
 			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), d->T("Cancel"),
@@ -198,7 +198,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, 0);
 	if (yes) {
 		info->DeleteGame();
 		g_gameInfoCache.Clear();
@@ -207,7 +207,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, 0);
 	if (info) {
 		host->CreateDesktopShortcut(gamePath_, info->title);
 	}

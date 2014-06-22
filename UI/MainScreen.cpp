@@ -173,7 +173,7 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, 0);
 	Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 
@@ -936,7 +936,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 
 	GameInfo *ginfo = 0;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache.GetInfo(gamePath, true);
+		ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
 		// Loading texture data may bind a texture.
 		dc.RebindTexture();
 

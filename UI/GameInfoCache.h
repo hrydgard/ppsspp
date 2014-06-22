@@ -42,6 +42,11 @@ enum GameRegion {
 	GAMEREGION_MAX,
 };
 
+enum GameInfoWantFlags {
+	GAMEINFO_WANTBG = 0x01,
+	GAMEINFO_WANTSIZE = 0x02,
+};
+
 // TODO: Need to fix c++11 still on Symbian and use std::atomic<bool> instead.
 class CompletionFlag {
 public:
@@ -86,7 +91,7 @@ class GameInfo {
 public:
 	GameInfo()
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantBG(false),
+		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantFlags(0),
 		  timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
 		  gameSize(0), saveDataSize(0), installDataSize(0) {}
 
@@ -128,7 +133,7 @@ public:
 	std::string pic1TextureData;
 	Texture *pic1Texture;
 
-	bool wantBG;
+	int wantFlags;
 
 	double lastAccessedTime;
 
@@ -161,7 +166,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set wantBG if you really want it because
 	// it's big. bgTextures may be discarded over time as well.
-	GameInfo *GetInfo(const std::string &gamePath, bool wantBG);
+	GameInfo *GetInfo(const std::string &gamePath, int wantFlags);
 	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures.
 

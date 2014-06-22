@@ -296,7 +296,7 @@ public:
 					info_->iconDataLoaded = true;
 				}
 
-				if (info_->wantBG) {
+				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
 						lock_guard lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
@@ -343,7 +343,7 @@ handleELF:
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
 				info_->iconDataLoaded = true;
-				if (info_->wantBG) {
+				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 					info_->pic0DataLoaded = true;
 					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
@@ -371,7 +371,7 @@ handleELF:
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
 
-					if (info_->wantBG) {
+					if (info_->wantFlags & GAMEINFO_WANTBG) {
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 						info_->pic0DataLoaded = true;
 						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
@@ -396,7 +396,6 @@ handleELF:
 
 			case FILETYPE_ARCHIVE_ZIP:
 				info_->paramSFOLoaded = true;
-				info_->wantBG = false;
 				{
 					// Read standard icon
 					size_t sz;
@@ -412,7 +411,6 @@ handleELF:
 
 			case FILETYPE_ARCHIVE_RAR:
 				info_->paramSFOLoaded = true;
-				info_->wantBG = false;
 				{
 					// Read standard icon
 					size_t sz;
@@ -429,12 +427,10 @@ handleELF:
 			case FILETYPE_NORMAL_DIRECTORY:
 			default:
 				info_->paramSFOLoaded = true;
-				info_->wantBG = false;
 				break;
 		}
-		// probably only want these when we ask for the background image...
-		// should maybe flip the flag to "onlyIcon"
-		if (info_->wantBG) {
+
+		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
@@ -525,20 +521,20 @@ void GameInfoCache::FlushBGs() {
 			delete iter->second->pic1Texture;
 			iter->second->pic1Texture = 0;
 		}
-		iter->second->wantBG = false;
+		iter->second->wantFlags &= ~GAMEINFO_WANTBG;
 	}
 }
 
 // This may run off-main-thread and we thus can't use the global
 // pspFileSystem (well, we could with synchronization but there might not
 // even be a game running).
-GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
+GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, int wantFlags) {
 	GameInfo *info = 0;
 
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
 		info = iter->second;
-		if (!info->wantBG && wantBG) {
+		if ((info->wantFlags & wantFlags) != wantFlags) {
 			// Need to start over. We'll just add a new work item.
 			goto again;
 		}
@@ -562,7 +558,7 @@ again:
 	}
 	{
 		lock_guard lock(info->lock);
-		info->wantBG = wantBG;
+		info->wantFlags |= wantFlags;
 	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);

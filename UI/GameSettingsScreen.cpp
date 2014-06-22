@@ -54,7 +54,7 @@ extern bool iosCanUseJit;
 #endif
 
 void GameSettingsScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
