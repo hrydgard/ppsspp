@@ -104,16 +104,14 @@ public:
 
 	bool IsOK() { return raw_data_ != 0; }
 
-	void Read(short *buffer, int len) {
-		if (!raw_data_) {
-			memset(buffer, 0, len * 2 * sizeof(s16));
-			return;
-		}
+	bool Read(short *buffer, int len) {
+		if (!raw_data_)
+			return false;
 		while (bgQueue.size() < len * 2) {
 			int outBytes;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
 			if (!outBytes)
-				return;
+				return false;
 
 			for (int i = 0; i < outBytes / 2; i++) {
 				bgQueue.push(buffer_[i]);
@@ -129,6 +127,7 @@ public:
 		for (int i = 0; i < len * 2; i++) {
 			buffer[i] = bgQueue.pop_front();
 		}
+		return true;
 	}
 
 private:
@@ -186,9 +185,7 @@ int MixBackgroundAudio(short *buffer, int size) {
 		}
 	}
 
-	if (at3Reader) {
-		at3Reader->Read(buffer, size);
-	} else {
+	if (!at3Reader || !at3Reader->Read(buffer, size)) {
 		memset(buffer, 0, size * 2 * sizeof(s16));
 	}
 	return 0;
