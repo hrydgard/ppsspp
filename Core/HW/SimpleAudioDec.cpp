@@ -60,8 +60,8 @@ bool SimpleAudio::GetAudioCodecID(int audioType) {
 #endif // USE_FFMPEG
 }
 
-SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(0xFFFFFFFF), audioType(audioType), outSamples(0), srcPos(0), wanted_resample_freq(44100) {
+SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
+: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels), codec_(0), codecCtx_(0), swrCtx_(0), outSamples(0), srcPos(0), wanted_resample_freq(44100) {
 	Init();
 }
 
@@ -91,9 +91,9 @@ void SimpleAudio::Init() {
 		ERROR_LOG(ME, "Failed to allocate a codec context");
 		return;
 	}
-	codecCtx_->channels = 2;
-	codecCtx_->channel_layout = AV_CH_LAYOUT_STEREO;
-	codecCtx_->sample_rate = 44100;
+	codecCtx_->channels = channels_;
+	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+	codecCtx_->sample_rate = sample_rate_;
 	// Open codec
 	AVDictionary *opts = 0;
 	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
@@ -179,7 +179,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	srcPos = 0;
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 	if (len < 0) {
-		ERROR_LOG(ME, "Error decoding Audio frame");
+		ERROR_LOG(ME, "Error decoding Audio frame (%i bytes): %i (%08x)", inbytes, len, len);
 		// TODO: cleanup
 		return false;
 	}

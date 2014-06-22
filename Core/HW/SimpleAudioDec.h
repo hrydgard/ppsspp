@@ -43,7 +43,7 @@ enum {
 
 class SimpleAudio {
 public:
-	SimpleAudio(int audioType);
+	SimpleAudio(int audioType, int sample_rate = 44100, int channels = 2);
 	~SimpleAudio();
 
 	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
@@ -67,6 +67,8 @@ private:
 
 	u32 ctxPtr;
 	int audioType;
+	int sample_rate_;
+	int channels_;
 	int outSamples; // output samples per frame
 	int srcPos; // bytes consumed in source during the last decoding
 	int wanted_resample_freq; // wanted resampling rate/frequency
