@@ -45,6 +45,7 @@ enum GameRegion {
 enum GameInfoWantFlags {
 	GAMEINFO_WANTBG = 0x01,
 	GAMEINFO_WANTSIZE = 0x02,
+	GAMEINFO_WANTSND = 0x04,
 };
 
 // TODO: Need to fix c++11 still on Symbian and use std::atomic<bool> instead.
@@ -133,6 +134,8 @@ public:
 	std::string pic1TextureData;
 	Texture *pic1Texture;
 
+	std::string sndFileData;
+
 	int wantFlags;
 
 	double lastAccessedTime;
@@ -146,6 +149,7 @@ public:
 	CompletionFlag iconDataLoaded;
 	CompletionFlag pic0DataLoaded;
 	CompletionFlag pic1DataLoaded;
+	CompletionFlag sndDataLoaded;
 
 	u64 gameSize;
 	u64 saveDataSize;

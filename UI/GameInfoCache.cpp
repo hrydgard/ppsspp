@@ -308,6 +308,13 @@ public:
 						info_->pic1DataLoaded = true;
 					}
 				}
+				if (info_->wantFlags & GAMEINFO_WANTSND) {
+					if (pbp.GetSubFileSize(PBP_SND0_AT3) > 0) {
+						lock_guard lock(info_->lock);
+						pbp.GetSubFileAsString(PBP_SND0_AT3, &info_->sndFileData);
+						info_->sndDataLoaded = true;
+					}
+				}
 			}
 			break;
 
@@ -354,6 +361,10 @@ handleELF:
 					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 					info_->pic1DataLoaded = true;
 				}
+				if (info_->wantFlags & GAMEINFO_WANTSND) {
+					ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
+					info_->pic1DataLoaded = true;
+				}
 				break;
 			}
 		case FILETYPE_PSP_ISO:
@@ -380,6 +391,10 @@ handleELF:
 						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 						info_->pic0DataLoaded = true;
 						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+						info_->pic1DataLoaded = true;
+					}
+					if (info_->wantFlags & GAMEINFO_WANTSND) {
+						ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
 						info_->pic1DataLoaded = true;
 					}
 				}
