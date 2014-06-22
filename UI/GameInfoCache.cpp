@@ -297,6 +297,11 @@ public:
 				}
 
 				if (info_->wantFlags & GAMEINFO_WANTBG) {
+					if (pbp.GetSubFileSize(PBP_PIC0_PNG) > 0) {
+						lock_guard lock(info_->lock);
+						pbp.GetSubFileAsString(PBP_PIC0_PNG, &info_->pic0TextureData);
+						info_->pic0DataLoaded = true;
+					}
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
 						lock_guard lock(info_->lock);
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
