@@ -19,6 +19,7 @@
 #include <list>
 #include <map>
 
+#include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -35,6 +36,9 @@
 void __DisableInterrupts();
 void __EnableInterrupts();
 bool __InterruptsEnabled();
+
+// Seems like some > 16 are taken but not available.  Probably kernel only?
+static const u32 PSP_NUMBER_SUBINTERRUPTS = 32;
 
 // InterruptsManager
 //////////////////////////////////////////////////////////////////////////
@@ -441,60 +445,91 @@ void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
 	intrHandlers[intrNumber] = handler;
 }
 
-SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 &error)
-{
-	SubIntrHandler *subIntrHandler = intrHandlers[intrNumber]->add(subIntrNumber);
+SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg, u32 &error) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		error = SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+		return NULL;
+	}
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (intr->has(subIntrNumber)) {
+		error = SCE_KERNEL_ERROR_FOUND_HANDLER;
+		return NULL;
+	}
+	if (handler == NULL) {
+		// Silently ignored.
+		error = SCE_KERNEL_ERROR_OK;
+		return NULL;
+	}
+
+	SubIntrHandler *subIntrHandler = intr->add(subIntrNumber);
 	subIntrHandler->subIntrNumber = subIntrNumber;
 	subIntrHandler->intrNumber = intrNumber;
-	error = 0;
+	subIntrHandler->handlerAddress = handler;
+	subIntrHandler->handlerArg = handlerArg;
+	error = SCE_KERNEL_ERROR_OK;
 	return subIntrHandler;
 }
 
-int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
-{
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
-		return -1;
-	if (!intrHandlers[intrNumber]->has(subIntrNumber))
-		return -1;
+int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
+	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
+		return SCE_KERNEL_ERROR_NOTFOUND_HANDLER;
+	}
 
-	for (std::list<PendingInterrupt>::iterator it = pendingInterrupts.begin(); it != pendingInterrupts.end(); )
-	{
-		if (it->intr == intrNumber && it->subintr == subIntrNumber)
+	for (auto it = pendingInterrupts.begin(); it != pendingInterrupts.end(); ) {
+		if (it->intr == intrNumber && it->subintr == subIntrNumber) {
 			pendingInterrupts.erase(it++);
-		else
+		} else {
 			++it;
+		}
 	}
 
 	intrHandlers[intrNumber]->remove(subIntrNumber);
 	return 0;
 }
 
-u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg)
-{
-	DEBUG_LOG(SCEINTC,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
-
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
-		return -1;
+u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid interrupt", intrNumber, subIntrNumber, handler, handlerArg);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
+	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): invalid subinterrupt", intrNumber, subIntrNumber, handler, handlerArg);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
 
 	u32 error;
-	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, error);
-	if (subIntrHandler)
-	{
+	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, handler, handlerArg, error);
+	if (subIntrHandler) {
+		DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 		subIntrHandler->enabled = false;
-		subIntrHandler->handlerAddress = handler;
-		subIntrHandler->handlerArg = handlerArg;
+	} else if (error == SCE_KERNEL_ERROR_OK) {
+		WARN_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+	} else if (error = SCE_KERNEL_ERROR_FOUND_HANDLER) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
+	} else {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
 	}
 	return error;
 }
 
-int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
-{
-	DEBUG_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i)", intrNumber, subIntrNumber);
+u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
+	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
 
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
-		return -1;
-
-	return __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
+	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
+	if (error != SCE_KERNEL_ERROR_OK) {
+		ERROR_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber);
+	}
+	return error;
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
@@ -545,6 +580,7 @@ struct PspIntrHandlerOptionParam {
 
 void QueryIntrHandlerInfo()
 {
+	ERROR_LOG_REPORT(SCEINTC, "QueryIntrHandlerInfo()");
 	RETURN(0);
 }
 
@@ -692,7 +728,7 @@ void Register_SysclibForKernel()
 const HLEFunction InterruptManager[] =
 {
 	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
-	{0xD61E6961, WrapI_II<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
+	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
 	{0xFB8E22EC, WrapU_UU<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
 	{0x8A389411, WrapU_UU<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
 	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},
