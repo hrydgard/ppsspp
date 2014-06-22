@@ -240,7 +240,7 @@ void GenerateDepalShader100(char *buffer, GEBufferFormat pixelFormat) {
 	case GE_FORMAT_565:
 		if ((mask & (mask + 1)) == 0 && shift < 16) {
 			const u8 shifts[16] = {0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4};
-			const u32 multipliers[16] = {31, 31, 31, 31, 31, 63, 63, 63, 63, 63, 63, 31, 31, 31, 31, 31};
+			const int multipliers[16] = {31, 31, 31, 31, 31, 63, 63, 63, 63, 63, 63, 31, 31, 31, 31, 31};
 			const char *rgba = "rrrrrggggggbbbbb";
 			const u8 rgba_shift = shifts[shift];
 			if (rgba_shift == 0 && mask == multipliers[shift]) {
