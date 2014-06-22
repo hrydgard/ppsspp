@@ -45,7 +45,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Core.h"
 #include "Core/Config.h"
 
-GlobalUIState lastUIState = UISTATE_MENU;
+GlobalUIState GetUIState();
 #endif
 
 static SDL_Surface* g_Screen        = NULL;
@@ -783,8 +783,8 @@ int main(int argc, char *argv[]) {
 			break;
 		NativeRender();
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)
-		if (lastUIState != globalUIState) {
-			lastUIState = globalUIState;
+		if (lastUIState != GetUIState()) {
+			lastUIState = GetUIState();
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
 				SDL_ShowCursor(SDL_DISABLE);
 			if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen)
