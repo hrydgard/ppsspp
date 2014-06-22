@@ -35,6 +35,7 @@
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
@@ -704,7 +705,13 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 
 MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false) {
 	System_SendMessage("event", "mainscreen");
+	SetBackgroundAudioGame("");
 }
+
+MainScreen::~MainScreen() {
+	SetBackgroundAudioGame("");
+}
+
 
 void MainScreen::CreateViews() {
 	// Information in the top left.
@@ -878,6 +885,7 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
+		SetBackgroundAudioGame(value);
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -990,6 +998,7 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 		highlightedGamePath_ = path;
 		highlightProgress_ = 0.0f;
 	}
+	SetBackgroundAudioGame(highlightedGamePath_);
 	return UI::EVENT_DONE;
 }
 

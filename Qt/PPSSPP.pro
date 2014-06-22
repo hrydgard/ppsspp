@@ -91,6 +91,7 @@ symbian {
 # UI
 SOURCES += $$P/UI/*Screen.cpp \
 	$$P/UI/*Screens.cpp \
+	$$P/UI/BackgroundAudio.cpp \
 	$$P/UI/Store.cpp \
 	$$P/UI/GamepadEmu.cpp \
 	$$P/UI/GameInfoCache.cpp \

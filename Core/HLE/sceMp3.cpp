@@ -333,7 +333,7 @@ int sceMp3Init(u32 mp3) {
 
 	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
 	if (ctx->freq == 48000) {
-		ctx->decoder->setResampleFrequency(ctx->freq);
+		ctx->decoder->SetResampleFrequency(ctx->freq);
 	}
 
 	// For mp3 file, if ID3 tag is detected, we must move startPos to 0x400 (stream start position), remove 0x400 bytes of the sourcebuff, and reduce the available buffer size by 0x400
@@ -557,7 +557,7 @@ u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u
 	int outpcmbytes = 0;
 	ctx->decoder->Decode((void*)inbuff, 4096, outbuff, &outpcmbytes);
 	
-	Memory::Write_U32(ctx->decoder->getSourcePos(), sourceBytesConsumedAddr);
+	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);
 	Memory::Write_U32(outpcmbytes, sampleBytesAddr);
 	return 0;
 }

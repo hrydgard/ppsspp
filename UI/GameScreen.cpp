@@ -31,8 +31,18 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/BackgroundAudio.h"
+
 #include "Core/Host.h"
 #include "Core/Config.h"
+
+GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	SetBackgroundAudioGame(gamePath);
+}
+
+GameScreen::~GameScreen() {
+	SetBackgroundAudioGame("");
+}
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);

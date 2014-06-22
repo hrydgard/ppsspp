@@ -33,11 +33,6 @@ struct SwrContext;
 
 // Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
 
-// Ideally, Maxim's Atrac3+ decoder would be available as a standalone library
-// that we could link, as that would be totally sufficient for the use case here.
-// However, it will be maintained as a part of FFMPEG so that's the way we'll go
-// for simplicity and sanity.
-
 // audioType
 enum {
 	PSP_CODEC_AT3PLUS = 0x00001000,
@@ -49,19 +44,22 @@ enum {
 class SimpleAudio {
 public:
 	SimpleAudio(int audioType);
-	SimpleAudio(u32 ctxPtr, int audioType);
 	~SimpleAudio();
 
 	bool Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
 	bool IsOK() const;
-	int getOutSamples();
-	int getSourcePos();
+
+	int GetOutSamples();
+	int GetSourcePos();
 	bool ResetCodecCtx(int channels, int samplerate);
-	void setResampleFrequency(int freq);
 	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
 	// These two are only here because of save states.
 	int GetAudioType() const { return audioType; }
+	void SetResampleFrequency(int freq) { wanted_resample_freq = freq; }
+
+	// Just metadata.
+	void SetCtxPtr(u32 ptr) { ctxPtr = ptr;  }
 	u32 GetCtxPtr() const { return ctxPtr; }
 
 private:
@@ -73,13 +71,11 @@ private:
 	int srcPos; // bytes consumed in source during the last decoding
 	int wanted_resample_freq; // wanted resampling rate/frequency
 
-#ifdef USE_FFMPEG
 	AVFrame *frame_;
 	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
 	int audioCodecId; // AV_CODEC_ID_XXX
-#endif  // USE_FFMPEG
 };
 
 void AudioClose(SimpleAudio **ctx);

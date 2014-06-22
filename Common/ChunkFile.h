@@ -18,6 +18,7 @@
 #pragma once
 
 // Extremely simple serialization framework.
+// Currently mis-named, a native ChunkFile is something different (a RIFF file)
 
 // (mis)-features:
 // + Super fast

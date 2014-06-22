@@ -86,6 +86,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
+#include "UI/BackgroundAudio.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -207,8 +208,8 @@ int NativeMix(short *audio, int num_samples) {
 	if (g_mixer && GetUIState() == UISTATE_INGAME) {
 		num_samples = g_mixer->Mix(audio, num_samples);
 	}	else {
-		// MixBackgroundAudio(audio, num_samples);
-		memset(audio, 0, num_samples * 2 * sizeof(short));
+		MixBackgroundAudio(audio, num_samples);
+		// memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
 
 #ifdef _WIN32

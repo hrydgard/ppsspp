@@ -61,13 +61,7 @@ bool SimpleAudio::GetAudioCodecID(int audioType) {
 }
 
 SimpleAudio::SimpleAudio(int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), audioType(audioType), outSamples(0), wanted_resample_freq(44100) {
-	Init();
-}
-
-
-SimpleAudio::SimpleAudio(u32 ctxPtr, int audioType)
-: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(ctxPtr), audioType(audioType), outSamples(0), wanted_resample_freq(44100) {
+: codec_(0), codecCtx_(0), swrCtx_(0), ctxPtr(0xFFFFFFFF), audioType(audioType), outSamples(0), srcPos(0), wanted_resample_freq(44100) {
 	Init();
 }
 
@@ -240,16 +234,12 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 #endif  // USE_FFMPEG
 }
 
-int SimpleAudio::getOutSamples(){
+int SimpleAudio::GetOutSamples(){
 	return outSamples;
 }
 
-int SimpleAudio::getSourcePos(){
+int SimpleAudio::GetSourcePos(){
 	return srcPos;
-}
-
-void SimpleAudio::setResampleFrequency(int freq){
-	wanted_resample_freq = freq;
 }
 
 void AudioClose(SimpleAudio **ctx) {
@@ -349,9 +339,9 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		// count total output pcm size 
 		outpcmbufsize += pcmframesize;
 		// count total output samples
-		SumDecodedSamples += decoder->getOutSamples();
+		SumDecodedSamples += decoder->GetOutSamples();
 		// get consumed source length
-		int srcPos = decoder->getSourcePos();
+		int srcPos = decoder->GetSourcePos();
 		// remove the consumed source
 		sourcebuff.erase(0, srcPos);
 		// reduce the available Aubuff size
