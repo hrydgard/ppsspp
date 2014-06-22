@@ -76,4 +76,6 @@ private:
 
 	// In-memory save state used for freezeFrame, which is useful for debugging.
 	std::vector<u8> freezeState_;
+
+	std::string tag_;
 };

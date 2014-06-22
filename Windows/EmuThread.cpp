@@ -58,7 +58,7 @@ void EmuThread_Stop()
 			return;
 	}
 
-	globalUIState = UISTATE_EXIT;
+	UpdateUIState(UISTATE_EXIT);
 	Core_Stop();
 	Core_WaitInactive(800);
 	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
@@ -132,7 +132,7 @@ unsigned int WINAPI TheThread(void *)
 
 	Core_EnableStepping(FALSE);
 
-	while (globalUIState != UISTATE_EXIT)
+	while (GetUIState() != UISTATE_EXIT)
 	{
 		// We're here again, so the game quit.  Restart Core_Run() which controls the UI.
 		// This way they can load a new game.

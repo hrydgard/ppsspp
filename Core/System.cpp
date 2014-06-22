@@ -72,7 +72,7 @@ enum CPUThreadState {
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
-GlobalUIState globalUIState;
+static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
 static std::thread *cpuThread = NULL;
@@ -94,6 +94,10 @@ void UpdateUIState(GlobalUIState newState) {
 		globalUIState = newState;
 		host->UpdateDisassembly();
 	}
+}
+
+GlobalUIState GetUIState() {
+	return globalUIState;
 }
 
 bool IsAudioInitialised() {

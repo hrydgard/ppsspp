@@ -1063,7 +1063,7 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	exit(0);
 #endif
 
-	globalUIState = UISTATE_EXIT;
+	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;
 }
 

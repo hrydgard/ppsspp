@@ -267,7 +267,7 @@ namespace MainWindow {
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
 		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -652,7 +652,7 @@ namespace MainWindow {
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 
 		DrawMenuBar(hwndMain);
 		UpdateMenus();
@@ -837,7 +837,7 @@ namespace MainWindow {
 		}
 
 		browsePauseAfter = false;
-		if (globalUIState == UISTATE_INGAME) {
+		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
 				Core_EnableStepping(true);
@@ -858,7 +858,7 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 		} else {
-			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
@@ -1020,7 +1020,7 @@ namespace MainWindow {
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
 				}
-				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
+				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools
 						if (disasmWindow[0])
 							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
@@ -1100,7 +1100,7 @@ namespace MainWindow {
 					break;
 
 				case ID_TOGGLE_PAUSE:
-					if (globalUIState == UISTATE_PAUSEMENU) {
+					if (GetUIState() == UISTATE_PAUSEMENU) {
 						// Causes hang
 						//NativeMessageReceived("run", "");
 
@@ -1814,18 +1814,18 @@ namespace MainWindow {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
 
-		if (lastGlobalUIState == globalUIState && lastCoreState == coreState)
+		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
 			return;
 
 		lastCoreState = coreState;
-		lastGlobalUIState = globalUIState;
+		lastGlobalUIState = GetUIState();
 
 		HMENU menu = GetMenu(GetHWND());
 
-		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
 
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 

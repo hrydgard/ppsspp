@@ -136,13 +136,13 @@ static inline void UpdateRunLoop() {
 		EndInputState(&input_state);
 	}
 
-	if (globalUIState != UISTATE_EXIT) {
+	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender();
 	}
 }
 
 void Core_RunLoop() {
-	while ((globalUIState != UISTATE_INGAME || !PSP_IsInited()) && globalUIState != UISTATE_EXIT) {
+	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
 
 #if defined(USING_WIN_UI)
@@ -161,7 +161,7 @@ void Core_RunLoop() {
 #endif
 	}
 
-	while (!coreState && globalUIState == UISTATE_INGAME) {
+	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
 #if defined(USING_WIN_UI)
@@ -203,9 +203,9 @@ void Core_Run()
 #endif
 	{
 reswitch:
-		if (globalUIState != UISTATE_INGAME) {
+		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
-			if (globalUIState == UISTATE_EXIT) {
+			if (GetUIState() == UISTATE_EXIT) {
 				return;
 			}
 			Core_RunLoop();

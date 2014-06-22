@@ -816,7 +816,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	HWND hDlg = m_hDlg;
 
 	// Update Dialog Windows
-	if (_bDebug && globalUIState == UISTATE_INGAME && PSP_IsInited())
+	if (_bDebug && GetUIState() == UISTATE_INGAME && PSP_IsInited())
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
@@ -849,7 +849,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		updateThreadLabel(true);
 		
-		if (globalUIState == UISTATE_INGAME && PSP_IsInited())
+		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
 			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);

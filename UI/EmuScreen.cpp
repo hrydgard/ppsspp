@@ -118,7 +118,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 }
 
 void EmuScreen::bootComplete() {
-	globalUIState = UISTATE_INGAME;
+	UpdateUIState(UISTATE_INGAME);
 	host->BootDone();
 	host->UpdateDisassembly();
 
