@@ -29,7 +29,8 @@
 
 class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	GameScreen(const std::string &gamePath);
+	~GameScreen();
 
 	virtual void update(InputState &input);
 

@@ -47,6 +47,7 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="Store.cpp" />
+    <ClCompile Include="BackgroundAudio.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -94,6 +95,7 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Store.h" />
+    <ClInclude Include="BackgroundAudio.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

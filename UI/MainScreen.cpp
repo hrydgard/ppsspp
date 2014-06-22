@@ -35,6 +35,7 @@
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
@@ -235,7 +236,8 @@ void GameButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
+			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
@@ -702,9 +704,15 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false) {
+MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
+	SetBackgroundAudioGame("");
 }
+
+MainScreen::~MainScreen() {
+	SetBackgroundAudioGame("");
+}
+
 
 void MainScreen::CreateViews() {
 	// Information in the top left.
@@ -878,6 +886,7 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
+		SetBackgroundAudioGame(value);
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -963,17 +972,19 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
 #endif
+	SetBackgroundAudioGame(path);
+	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
@@ -990,11 +1001,15 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 		highlightedGamePath_ = path;
 		highlightProgress_ = 0.0f;
 	}
+
+	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_)
+		SetBackgroundAudioGame(highlightedGamePath_);
+	lockBackgroundAudio_ = false;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;

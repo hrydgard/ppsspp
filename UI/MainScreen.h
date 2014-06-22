@@ -29,6 +29,7 @@
 class MainScreen : public UIScreenWithBackground {
 public:
 	MainScreen();
+	~MainScreen();
 
 	virtual bool isTopLevel() const { return true; }
 
@@ -68,6 +69,7 @@ private:
 	std::string prevHighlightedGamePath_;
 	float highlightProgress_;
 	float prevHighlightProgress_;
+	bool lockBackgroundAudio_;
 	bool backFromStore_;
 };
 

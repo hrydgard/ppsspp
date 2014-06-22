@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BackgroundAudio.cpp" />
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
@@ -41,6 +42,7 @@
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BackgroundAudio.h" />
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="EmuScreen.h" />

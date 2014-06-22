@@ -1401,6 +1401,7 @@ endif()
 
 set(NativeAppSource
 	UI/NativeApp.cpp
+	UI/BackgroundAudio.cpp
 	UI/DevScreens.cpp
 	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp

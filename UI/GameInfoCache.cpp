@@ -576,12 +576,15 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, int wantFlags) {
 		}
 		if (info->iconDataLoaded) {
 			SetupTexture(info, info->iconTextureData, info->iconTexture, info->timeIconWasLoaded);
+			info->iconDataLoaded = false;
 		}
 		if (info->pic0DataLoaded) {
 			SetupTexture(info, info->pic0TextureData, info->pic0Texture, info->timePic0WasLoaded);
+			info->pic0DataLoaded = false;
 		}
 		if (info->pic1DataLoaded) {
 			SetupTexture(info, info->pic1TextureData, info->pic1Texture, info->timePic1WasLoaded);
+			info->pic1DataLoaded = false;
 		}
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
