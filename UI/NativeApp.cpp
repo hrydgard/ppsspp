@@ -533,11 +533,15 @@ void NativeInitGraphics() {
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 
+#ifdef _WIN32
 	DSound::DSound_StartSound(MainWindow::GetHWND(), &Win32Mix);
+#endif
 }
 
 void NativeShutdownGraphics() {
+#ifdef _WIN32
 	DSound::DSound_StopSound();
+#endif
 
 	screenManager->deviceLost();
 

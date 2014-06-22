@@ -85,7 +85,7 @@ void SimpleAudio::Init() {
 		return;
 	}
 	// Find decoder
-	codec_ = avcodec_find_decoder(audioCodecId);
+	codec_ = avcodec_find_decoder((AVCodecID)audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
 		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
@@ -118,7 +118,7 @@ bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
 		avcodec_close(codecCtx_);
 
 	// Find decoder
-	codec_ = avcodec_find_decoder(audioCodecId);
+	codec_ = avcodec_find_decoder((AVCodecID)audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
 		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));

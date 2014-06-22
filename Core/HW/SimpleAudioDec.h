@@ -27,7 +27,6 @@ struct AVFrame;
 struct AVCodec;
 struct AVCodecContext;
 struct SwrContext;
-enum AVCodecID;
 
 // Wraps FFMPEG for audio decoding in a nice interface.
 // Decodes packet by packet - does NOT demux.
@@ -79,7 +78,7 @@ private:
 	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
-	AVCodecID audioCodecId; // AV_CODEC_ID_XXX
+	int audioCodecId; // AV_CODEC_ID_XXX
 #endif  // USE_FFMPEG
 };
 
