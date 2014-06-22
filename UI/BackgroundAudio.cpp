@@ -58,7 +58,12 @@ public:
 
 				if (codec == PSP_CODEC_AT3) {
 					// The first two bytes are actually not useful part of the extradata.
-					file_.readData(at3_extradata, 16);
+					// We already read 16 bytes, so make sure there's enough left.
+					if (file_.getCurrentChunkSize() >= 32) {
+						file_.readData(at3_extradata, 16);
+					} else {
+						memset(at3_extradata, 0, sizeof(at3_extradata));
+					}
 				}
 				file_.ascend();
 				// ILOG("got fmt data: %i", samplesPerSec);
