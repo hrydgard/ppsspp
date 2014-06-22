@@ -104,8 +104,10 @@ public:
 	bool IsOK() { return raw_data_ != 0; }
 
 	void Read(short *buffer, int len) {
-		if (!raw_data_)
+		if (!raw_data_) {
+			memset(buffer, 0, len * 2 * sizeof(s16));
 			return;
+		}
 		while (bgQueue.size() < len * 2) {
 			int outBytes;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
