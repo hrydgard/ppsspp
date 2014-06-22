@@ -279,6 +279,7 @@ LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(EXEC_AND_LIB_FILES) \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
