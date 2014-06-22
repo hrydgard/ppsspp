@@ -39,7 +39,9 @@ public:
 					codec = PSP_CODEC_AT3PLUS;
 					break;
 				case 0x270:
-					// Dunno? 3rd Birthday has this.
+					// Dunno? 3rd Birthday has this. Doesn't seem to work though.
+					codec = PSP_CODEC_AT3;
+					break;
 				default:
 					return;
 				}
@@ -86,7 +88,7 @@ public:
 			return;
 		}
 		sample_rate = samplesPerSec;
-		decoder_ = new SimpleAudio(codec);
+		decoder_ = new SimpleAudio(codec, sample_rate, num_channels);
 		ILOG("read ATRAC, frames: %i, rate %i", numFrames, sample_rate);
 	}
 

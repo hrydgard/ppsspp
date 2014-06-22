@@ -704,7 +704,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false) {
+MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
 	SetBackgroundAudioGame("");
 }
@@ -978,6 +978,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	std::string path = e.s;
 #endif
 	SetBackgroundAudioGame(path);
+	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
@@ -1001,8 +1002,9 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 		highlightProgress_ = 0.0f;
 	}
 
-	if (!highlightedGamePath_.empty())
+	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_)
 		SetBackgroundAudioGame(highlightedGamePath_);
+	lockBackgroundAudio_ = false;
 	return UI::EVENT_DONE;
 }
 
