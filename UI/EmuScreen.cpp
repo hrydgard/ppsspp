@@ -113,7 +113,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		System_SendMessage("event", "failstartgame");
-		return;
 	}
 }
 

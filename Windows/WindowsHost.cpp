@@ -58,21 +58,10 @@
 
 static const int numCPUs = 1;
 
-static PMixer *curMixer;
+extern PMixer *g_mixer;
 
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
-
-int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
-{
-	if (curMixer && !Core_IsStepping())
-		return curMixer->Mix(buffer, numSamples);
-	else
-	{
-		memset(buffer,0,numSamples*sizeof(short)*2);
-		return numSamples;
-	}
-}
 
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
 {
@@ -88,8 +77,7 @@ WindowsHost::WindowsHost(HWND mainWindow) {
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
 	//find all connected DInput devices of class GamePad
 	size_t numDInputDevs = DinputDevice::getNumPads();
-	for (size_t i = 0; i < numDInputDevs; i++)
-	{
+	for (size_t i = 0; i < numDInputDevs; i++) {
 		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
 	}
 	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
@@ -100,31 +88,30 @@ WindowsHost::WindowsHost(HWND mainWindow) {
 
 bool WindowsHost::InitGL(std::string *error_message)
 {
-	return GL_Init(MainWindow::GetHWND(), error_message);
+	return GL_Init(window_, error_message);
 }
 
 void WindowsHost::ShutdownGL()
 {
 	GL_Shutdown();
-	PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+	PostMessage(window_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
 	std::wstring winTitle = ConvertUTF8ToWString(std::string("PPSSPP ") + PPSSPP_GIT_VERSION);
-	if(message != nullptr) {
+	if (message != nullptr) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
 		winTitle.append(ConvertUTF8ToWString(message));
 	}
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	PostMessage(window_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
 void WindowsHost::InitSound(PMixer *mixer)
 {
-	curMixer = mixer;
-	DSound::DSound_StartSound(MainWindow::GetHWND(), MyMix);
+	g_mixer = mixer;
 }
 
 void WindowsHost::UpdateSound()
@@ -134,10 +121,9 @@ void WindowsHost::UpdateSound()
 
 void WindowsHost::ShutdownSound()
 {
-	DSound::DSound_StopSound();
-	if (curMixer != NULL)
-		delete curMixer;
-	curMixer = 0;
+	if (g_mixer)
+		delete g_mixer;
+	g_mixer = 0;
 }
 
 void WindowsHost::UpdateUI()
@@ -152,14 +138,14 @@ void WindowsHost::UpdateScreen()
 
 void WindowsHost::UpdateMemView() 
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
 		if (memoryWindow[i])
 			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
 }
 
 void WindowsHost::UpdateDisassembly()
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
 }
@@ -167,10 +153,8 @@ void WindowsHost::UpdateDisassembly()
 void WindowsHost::SetDebugMode(bool mode)
 {
 	for (int i = 0; i < numCPUs; i++)
-	{
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
-	}
 }
 
 void WindowsHost::PollControllers(InputState &input_state)

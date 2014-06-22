@@ -36,6 +36,8 @@
 #if defined(_WIN32)
 #include <libpng17/png.h>
 #include "ext/jpge/jpge.h"
+#include "Windows/DSoundStream.h"
+#include "Windows/WndMainWindow.h"
 #endif
 
 #include "base/display.h"
@@ -66,6 +68,7 @@
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/PSPMixer.h"
 #include "Core/SaveState.h"
@@ -155,8 +158,14 @@ public:
 	}
 };
 
+#ifdef _WIN32
+int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
+	return NativeMix(buffer, numSamples);
+}
+#endif
+
 // globals
-static PMixer *g_mixer = 0;
+PMixer *g_mixer = 0;
 #ifndef _WIN32
 static AndroidLogger *logger = 0;
 #endif
@@ -195,11 +204,17 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (g_mixer) {
+	if (g_mixer && GetUIState() == UISTATE_INGAME) {
 		num_samples = g_mixer->Mix(audio, num_samples);
 	}	else {
+		// MixBackgroundAudio(audio, num_samples);
 		memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
+
+#ifdef _WIN32
+	DSound::DSound_UpdateSound();
+#endif
+
 	return num_samples;
 }
 
@@ -517,9 +532,13 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+
+	DSound::DSound_StartSound(MainWindow::GetHWND(), &Win32Mix);
 }
 
 void NativeShutdownGraphics() {
+	DSound::DSound_StopSound();
+
 	screenManager->deviceLost();
 
 	g_gameInfoCache.Clear();
