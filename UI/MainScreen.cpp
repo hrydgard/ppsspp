@@ -236,7 +236,8 @@ void GameButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
+			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
@@ -971,17 +972,18 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
 #endif
+	SetBackgroundAudioGame(path);
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
@@ -998,12 +1000,14 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 		highlightedGamePath_ = path;
 		highlightProgress_ = 0.0f;
 	}
-	SetBackgroundAudioGame(highlightedGamePath_);
+
+	if (!highlightedGamePath_.empty())
+		SetBackgroundAudioGame(highlightedGamePath_);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
