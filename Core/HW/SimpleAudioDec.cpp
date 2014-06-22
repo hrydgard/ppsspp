@@ -137,6 +137,8 @@ bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
 
 SimpleAudio::~SimpleAudio() {
 #ifdef USE_FFMPEG
+	if (swrCtx_)
+		swr_free(&swrCtx_);
 	if (frame_)
 		av_frame_free(&frame_);
 	if (codecCtx_)
@@ -191,30 +193,32 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
 		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
 
-		swrCtx_ = swr_alloc_set_opts(
-			swrCtx_,
-			wanted_channel_layout,
-			AV_SAMPLE_FMT_S16,
-			wanted_resample_freq,
-			dec_channel_layout,
-			codecCtx_->sample_fmt,
-			codecCtx_->sample_rate,
-			0,
-			NULL);
+		if (!swrCtx_) {
+			swrCtx_ = swr_alloc_set_opts(
+				swrCtx_,
+				wanted_channel_layout,
+				AV_SAMPLE_FMT_S16,
+				wanted_resample_freq,
+				dec_channel_layout,
+				codecCtx_->sample_fmt,
+				codecCtx_->sample_rate,
+				0,
+				NULL);
 
-		if (!swrCtx_ || swr_init(swrCtx_) < 0) {
-			ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
-			avcodec_close(codecCtx_);
-			codec_ = 0;
-			return false;
+			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
+				ERROR_LOG(ME, "swr_init: Failed to initialize the resampling context");
+				avcodec_close(codecCtx_);
+				codec_ = 0;
+				return false;
+			}
 		}
+
 		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
 			return false;
 		}
-		swr_free(&swrCtx_);
 		// output samples per frame, we should *2 since we have two channels
 		outSamples = swrRet * 2;
 
