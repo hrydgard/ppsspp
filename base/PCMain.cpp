@@ -45,6 +45,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Core.h"
 #include "Core/Config.h"
 
+GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 #endif
 
