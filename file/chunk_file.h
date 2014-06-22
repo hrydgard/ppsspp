@@ -22,6 +22,8 @@ inline uint32 flipID(uint32 id) {
 class ChunkFile {
 public:
 	ChunkFile(const char *filename, bool _read);
+	ChunkFile(const uint8_t *read_data, int data_size);
+
 	~ChunkFile();
 
 	bool descend(uint32 id);

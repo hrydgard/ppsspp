@@ -36,6 +36,17 @@ ChunkFile::ChunkFile(const char *filename, bool _read) {
 	}
 }
 
+ChunkFile::ChunkFile(const uint8_t *read_data, int data_size) {
+	data = new uint8_t[data_size];
+	memcpy(data, read_data, data_size);
+	fastMode = true;
+	numLevels = 0;
+	read = true;
+	pos = 0;
+	didFail = false;
+	eof = data_size;
+}
+
 ChunkFile::~ChunkFile() {
 	if (fastMode && data)
 		delete [] data;
