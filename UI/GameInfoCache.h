@@ -168,11 +168,11 @@ public:
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
-	// redrawing the UI often. Only set wantBG if you really want it because
-	// it's big. bgTextures may be discarded over time as well.
+	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
+	// because they're big. bgTextures and sound may be discarded over time as well.
 	GameInfo *GetInfo(const std::string &gamePath, int wantFlags);
 	void Decimate();  // Deletes old info.
-	void FlushBGs();  // Gets rid of all BG textures.
+	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	// TODO - save cache between sessions
 	void Save();

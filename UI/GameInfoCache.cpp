@@ -501,6 +501,7 @@ void GameInfoCache::Clear() {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
 			iter->second->pic0TextureData.clear();
+			iter->second->pic0DataLoaded = false;
 		}
 		if (iter->second->pic0Texture) {
 			delete iter->second->pic0Texture;
@@ -508,6 +509,7 @@ void GameInfoCache::Clear() {
 		}
 		if (!iter->second->pic1TextureData.empty()) {
 			iter->second->pic1TextureData.clear();
+			iter->second->pic1DataLoaded = false;
 		}
 		if (iter->second->pic1Texture) {
 			delete iter->second->pic1Texture;
@@ -515,10 +517,16 @@ void GameInfoCache::Clear() {
 		}
 		if (!iter->second->iconTextureData.empty()) {
 			iter->second->iconTextureData.clear();
+			iter->second->iconDataLoaded = false;
 		}
 		if (iter->second->iconTexture) {
 			delete iter->second->iconTexture;
 			iter->second->iconTexture = 0;
+		}
+
+		if (!iter->second->sndFileData.empty()) {
+			iter->second->sndFileData.clear();
+			iter->second->sndDataLoaded = false;
 		}
 	}
 	info_.clear();
@@ -529,19 +537,27 @@ void GameInfoCache::FlushBGs() {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
 			iter->second->pic0TextureData.clear();
+			iter->second->pic0DataLoaded = false;
 		}
 		if (iter->second->pic0Texture) {
 			delete iter->second->pic0Texture;
 			iter->second->pic0Texture = 0;
 		}
+
 		if (!iter->second->pic1TextureData.empty()) {
 			iter->second->pic1TextureData.clear();
+			iter->second->pic1DataLoaded = false;
 		}
 		if (iter->second->pic1Texture) {
 			delete iter->second->pic1Texture;
 			iter->second->pic1Texture = 0;
 		}
-		iter->second->wantFlags &= ~GAMEINFO_WANTBG;
+
+		if (!iter->second->sndFileData.empty()) {
+			iter->second->sndFileData.clear();
+			iter->second->sndDataLoaded = false;
+		}
+		iter->second->wantFlags &= ~(GAMEINFO_WANTBG | GAMEINFO_WANTSND);
 	}
 }
 
