@@ -54,6 +54,9 @@ public:
 	bool ResetCodecCtx(int channels, int samplerate);
 	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
+	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
+	void SetExtraData(u8 *data, int size, int wav_bytes_per_packet);
+
 	// These two are only here because of save states.
 	int GetAudioType() const { return audioType; }
 	void SetResampleFrequency(int freq) { wanted_resample_freq = freq; }
@@ -64,6 +67,7 @@ public:
 
 private:
 	void Init();
+	bool OpenCodec();
 
 	u32 ctxPtr;
 	int audioType;
@@ -78,6 +82,9 @@ private:
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
 	int audioCodecId; // AV_CODEC_ID_XXX
+
+	// Not savestated, only used by UI.
+	u8 *extradata_;
 };
 
 void AudioClose(SimpleAudio **ctx);

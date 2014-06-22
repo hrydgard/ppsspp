@@ -27,6 +27,7 @@ public:
 		buffer_ = new short[32 * 1024];
 
 		int codec = PSP_CODEC_AT3PLUS;
+		u8 at3_extradata[16];
 
 		int num_channels, sample_rate, numFrames, samplesPerSec, avgBytesPerSec, Nothing;
 		if (file_.descend('RIFF')) {
@@ -39,10 +40,10 @@ public:
 					codec = PSP_CODEC_AT3PLUS;
 					break;
 				case 0x270:
-					// Dunno? 3rd Birthday has this. Doesn't seem to work though.
 					codec = PSP_CODEC_AT3;
 					break;
 				default:
+					ERROR_LOG(HLE, "Unexpected SND0.AT3 format %04x", format);
 					return;
 				}
 
@@ -54,6 +55,16 @@ public:
 				temp = file_.readInt();
 				raw_bytes_per_frame_ = temp & 0xFFFF;
 				Nothing = temp >> 16;
+
+				if (codec == PSP_CODEC_AT3) {
+					// The first two bytes are actually not useful part of the extradata.
+					// We already read 16 bytes, so make sure there's enough left.
+					if (file_.getCurrentChunkSize() >= 32) {
+						file_.readData(at3_extradata, 16);
+					} else {
+						memset(at3_extradata, 0, sizeof(at3_extradata));
+					}
+				}
 				file_.ascend();
 				// ILOG("got fmt data: %i", samplesPerSec);
 			} else {
@@ -89,6 +100,9 @@ public:
 		}
 		sample_rate = samplesPerSec;
 		decoder_ = new SimpleAudio(codec, sample_rate, num_channels);
+		if (codec == PSP_CODEC_AT3) {
+			decoder_->SetExtraData(&at3_extradata[2], 14, raw_bytes_per_frame_);
+		}
 		ILOG("read ATRAC, frames: %i, rate %i", numFrames, sample_rate);
 	}
 
