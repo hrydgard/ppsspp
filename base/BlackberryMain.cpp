@@ -15,6 +15,7 @@
 #include "base/NKCodeFromBlackberry.h"
 
 // Bad: PPSSPP includes from native
+#include "Core/System.h"
 #include "Core/Config.h"
 #include "UI/MiscScreens.h"
 
@@ -303,15 +304,14 @@ void BlackberryMain::runMain() {
 		// Work in Progress
 		// Currently: Render to HDMI port (eg. 1080p) when in game. Render to device when in menu.
 		// Idea: Render to all displays. Controls go to internal, game goes to external(s).
-		if (globalUIState == UISTATE_INGAME && !emulating)
-		{
+		if (GetUIState() == UISTATE_INGAME && !emulating) {
 			emulating = true;
 			switchDisplay(screen_emu);
 			if (g_Config.iShowFPSCounter == 4) {
 				int options = SCREEN_DEBUG_STATISTICS;
 				screen_set_window_property_iv(screen_win[0], SCREEN_PROPERTY_DEBUG, &options);
 			}
-		} else if (globalUIState != UISTATE_INGAME && emulating) {
+		} else if (GetUIState() != UISTATE_INGAME && emulating) {
 			emulating = false;
 			switchDisplay(screen_ui);
 		}

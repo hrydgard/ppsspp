@@ -42,6 +42,7 @@ SDLJoystick *joystick = NULL;
 
 #ifdef PPSSPP
 // Bad: PPSSPP includes from native
+#include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 

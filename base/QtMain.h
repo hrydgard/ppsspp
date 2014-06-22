@@ -28,6 +28,7 @@ QTM_USE_NAMESPACE
 #include "base/NKCodeFromQt.h"
 
 // Bad: PPSSPP includes from native
+#include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 
@@ -132,7 +133,7 @@ protected:
 			}
 			break;
 		case QEvent::MouseButtonDblClick:
-			if (!g_Config.bShowTouchControls || globalUIState != UISTATE_INGAME)
+			if (!g_Config.bShowTouchControls || GetUIState() != UISTATE_INGAME)
 				emit doubleClick();
 			break;
 		case QEvent::MouseButtonPress:
