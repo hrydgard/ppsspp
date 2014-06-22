@@ -192,20 +192,16 @@ void IntrHandler::clear()
 	subIntrHandlers.clear();
 }
 
-void IntrHandler::queueUp(int subintr)
-{
-	if(subintr == PSP_INTR_SUB_NONE)
-	{
+void IntrHandler::queueUp(int subintr) {
+	if (subintr == PSP_INTR_SUB_NONE) {
 		pendingInterrupts.push_back(PendingInterrupt(intrNumber, subintr));
-	}
-	else
-	{
+	} else {
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
-		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
-		{
-			if ((subintr == PSP_INTR_SUB_ALL || iter->first == subintr) && iter->second.enabled)
+		for (auto iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter) {
+			if ((subintr == PSP_INTR_SUB_ALL || iter->first == subintr) && iter->second.enabled && iter->second.handlerAddress != 0) {
 				pendingInterrupts.push_back(PendingInterrupt(intrNumber, iter->first));
+			}
 		}
 	}
 }
@@ -452,13 +448,17 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 	}
 	IntrHandler *intr = intrHandlers[intrNumber];
 	if (intr->has(subIntrNumber)) {
-		error = SCE_KERNEL_ERROR_FOUND_HANDLER;
-		return NULL;
-	}
-	if (handler == NULL) {
-		// Silently ignored.
-		error = SCE_KERNEL_ERROR_OK;
-		return NULL;
+		if (intr->get(subIntrNumber)->handlerAddress != 0) {
+			error = SCE_KERNEL_ERROR_FOUND_HANDLER;
+			return NULL;
+		} else {
+			SubIntrHandler *subIntrHandler = intr->get(subIntrNumber);
+			subIntrHandler->handlerAddress = handler;
+			subIntrHandler->handlerArg = handlerArg;
+
+			error = SCE_KERNEL_ERROR_OK;
+			return subIntrHandler;
+		}
 	}
 
 	SubIntrHandler *subIntrHandler = intr->add(subIntrNumber);
@@ -466,6 +466,8 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 	subIntrHandler->intrNumber = intrNumber;
 	subIntrHandler->handlerAddress = handler;
 	subIntrHandler->handlerArg = handlerArg;
+	subIntrHandler->enabled = false;
+
 	error = SCE_KERNEL_ERROR_OK;
 	return subIntrHandler;
 }
@@ -474,7 +476,8 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
 	}
-	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (!intr->has(subIntrNumber) || intr->get(subIntrNumber)->handlerAddress == 0) {
 		return SCE_KERNEL_ERROR_NOTFOUND_HANDLER;
 	}
 
@@ -486,6 +489,7 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 		}
 	}
 
+	// This also implicitly disables it, which is correct.
 	intrHandlers[intrNumber]->remove(subIntrNumber);
 	return 0;
 }
@@ -503,10 +507,11 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	u32 error;
 	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, handler, handlerArg, error);
 	if (subIntrHandler) {
-		DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
-		subIntrHandler->enabled = false;
-	} else if (error == SCE_KERNEL_ERROR_OK) {
-		WARN_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+		if (handler == 0) {
+			WARN_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): ignored NULL handler", intrNumber, subIntrNumber, handler, handlerArg);
+		} else {
+			DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
+		}
 	} else if (error = SCE_KERNEL_ERROR_FOUND_HANDLER) {
 		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
 	} else {
@@ -532,27 +537,43 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 	return error;
 }
 
-u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
-{
-	DEBUG_LOG(SCEINTC, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
-		return -1;
+u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
+	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelEnableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
 
-	if (!intrHandlers[intrNumber]->has(subIntrNumber))
-		return -1;
+	DEBUG_LOG(SCEINTC, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	u32 error;
+	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
+		// Enableing a handler before registering it works fine.
+		__RegisterSubIntrHandler(intrNumber, subIntrNumber, 0, 0, error);
+	}
 
 	intrHandlers[intrNumber]->enable(subIntrNumber);
 	return 0;
 }
 
-u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
-{
-	DEBUG_LOG(SCEINTC, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
-		return -1;
+u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
+	if (subIntrNumber >= PSP_NUMBER_SUBINTERRUPTS) {
+		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid subinterrupt", intrNumber, subIntrNumber);
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	}
 
-	if (!intrHandlers[intrNumber]->has(subIntrNumber))
-		return -1;
+	DEBUG_LOG(SCEINTC, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+
+	if (!intrHandlers[intrNumber]->has(subIntrNumber)) {
+		// Disabling when not registered is not an error.
+		return 0;
+	}
 
 	intrHandlers[intrNumber]->disable(subIntrNumber);
 	return 0;
