@@ -331,6 +331,11 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 		DecodeVertsStep();
 		decodeCounter_++;
 	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+		Flush();
+	}
 }
 
 void TransformDrawEngine::DecodeVerts() {
