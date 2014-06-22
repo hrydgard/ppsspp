@@ -226,7 +226,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos
 		return 0;
 	}
 
-	INFO_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loopPos);
+	DEBUG_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loopPos);
 
 	SasVoice &v = sas->voices[voiceNum];
 	u32 prevPcmAddr = v.pcmAddr;
@@ -550,7 +550,7 @@ u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown) {
 }
 
 u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
-	INFO_LOG_REPORT(SCESAS, "__sceSasSetVoiceATRAC3(%08x, %i, %08x)", core, voiceNum, atrac3Context);
+	DEBUG_LOG_REPORT(SCESAS, "__sceSasSetVoiceATRAC3(%08x, %i, %08x)", core, voiceNum, atrac3Context);
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_ATRAC3;
 	v.loop = false;
@@ -561,7 +561,7 @@ u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 }
 
 u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int atrac3DataLength) {
-	INFO_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
+	DEBUG_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
 		v.atrac3.addStreamData(Memory::GetPointer(atrac3DataAddr), atrac3DataLength);
@@ -569,7 +569,7 @@ u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int at
 }
 
 u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
-	INFO_LOG_REPORT(SCESAS, "__sceSasUnsetATRAC3(%08x, %i)", core, voiceNum);
+	DEBUG_LOG_REPORT(SCESAS, "__sceSasUnsetATRAC3(%08x, %i)", core, voiceNum);
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
 	return 0;
 }
