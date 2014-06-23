@@ -1394,25 +1394,6 @@ void __KernelIdle()
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
 	CoreTiming::Advance();
 
-	// We must've exited a callback?
-	if (__KernelInCallback())
-	{
-		u32 error;
-		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
-		if (t)
-		{
-			__KernelChangeReadyState(t, currentCallbackThreadID, false);
-			t->nt.status = (t->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
-			__KernelSwitchContext(t, "idle");
-		}
-		else
-		{
-			WARN_LOG_REPORT(SCEKERNEL, "UNTESTED - Callback thread deleted during interrupt?");
-			g_inCbCount = 0;
-			currentCallbackThreadID = 0;
-		}
-	}
-
 	// In Advance, we might trigger an interrupt such as vblank.
 	// If we end up in an interrupt, we don't want to reschedule.
 	// However, we have to reschedule... damn.
@@ -1712,10 +1693,6 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 		return;
 	}
 
-	// TODO: Need to defer if in callback?
-	if (g_inCbCount > 0)
-		WARN_LOG_REPORT(SCEKERNEL, "UNTESTED - waiting within a callback, probably bad mojo.");
-
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
@@ -1891,14 +1868,14 @@ Thread *__KernelNextThread() {
 void __KernelReSchedule(const char *reason)
 {
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
 	}
 
 	// This may get us running a callback, don't reschedule out of it.
-	if (__KernelCheckCallbacks())
+	if (!__KernelInCallback() && __KernelCheckCallbacks())
 	{
 		reason = "Began interrupt or callback.";
 		return;
@@ -1906,7 +1883,7 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::Advance();
-	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
