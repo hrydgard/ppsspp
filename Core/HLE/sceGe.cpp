@@ -227,7 +227,9 @@ public:
 				if (newState != PSP_GE_DL_STATE_RUNNING)
 					DEBUG_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
 
-				dl->state = PSP_GE_DL_STATE_RUNNING;
+				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
+					dl->state = PSP_GE_DL_STATE_QUEUED;
+				}
 			}
 			break;
 		default:
