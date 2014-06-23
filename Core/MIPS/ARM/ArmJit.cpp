@@ -179,7 +179,7 @@ void Jit::CompileDelaySlot(int flags)
 		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -275,7 +275,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		fpr.SetCompilerPC(js.compilerPC);
-		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -315,7 +315,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}

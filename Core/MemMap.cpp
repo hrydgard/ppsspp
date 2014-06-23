@@ -416,7 +416,7 @@ static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode ins
 		} else {
 			return inst;
 		}
-	} else if (MIPS_IS_REPLACEMENT(inst.encoding)) {
+	} else if (resolveReplacements && MIPS_IS_REPLACEMENT(inst.encoding)) {
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
 			if (MIPS_IS_EMUHACK(op)) {
