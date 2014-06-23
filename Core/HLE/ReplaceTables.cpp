@@ -235,7 +235,7 @@ static int Replace_strlen() {
 	const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
 	u32 len = (u32)strlen(src);
 	RETURN(len);
-	return 4 + len;  // approximation
+	return 7 + len * 4;  // approximation
 }
 
 static int Replace_strcpy() {
