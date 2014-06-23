@@ -101,14 +101,13 @@ void SimpleAudio::Init() {
 bool SimpleAudio::OpenCodec() {
 #ifdef USE_FFMPEG
 	AVDictionary *opts = 0;
-	bool result = true;
-	if (avcodec_open2(codecCtx_, codec_, &opts) < 0) {
-		ERROR_LOG(ME, "Failed to open codec");
-		result = false;
+	int retval = avcodec_open2(codecCtx_, codec_, &opts);
+	if (retval < 0) {
+		ERROR_LOG(ME, "Failed to open codec: retval = %i");
 	}
 	av_dict_free(&opts);
 #endif  // USE_FFMPEG
-	return result;
+	return retval >= 0;
 }
 
 bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
@@ -235,7 +234,7 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		if (swrRet < 0) {
-			ERROR_LOG(ME, "swr_convert: Error while converting %d", swrRet);
+			ERROR_LOG(ME, "swr_convert: Error while converting: %d", swrRet);
 			return false;
 		}
 		// output samples per frame, we should *2 since we have two channels
