@@ -2104,6 +2104,11 @@ void GLES_GPU::ClearShaderCache() {
 	shaderManager_->ClearCache(true);
 }
 
+void GLES_GPU::CleanupBeforeUI() {
+	// Clear any enabled vertex arrays.
+	shaderManager_->DirtyLastShader();
+}
+
 std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList() {
 	return framebufferManager_.GetFramebufferList();
 }

@@ -662,7 +662,7 @@ void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
-	lastShader_ = 0;
+	DirtyLastShader();
 	globalDirty_ = 0xFFFFFFFF;
 	shaderSwitchDirty_ = 0;
 }

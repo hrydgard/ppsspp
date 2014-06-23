@@ -454,6 +454,8 @@ void PSP_RunLoopUntil(u64 globalticks) {
 	} else {
 		mipsr4k.RunLoopUntil(globalticks);
 	}
+
+	gpu->CleanupBeforeUI();
 }
 
 void PSP_RunLoopFor(int cycles) {

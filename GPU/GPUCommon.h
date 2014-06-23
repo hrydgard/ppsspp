@@ -118,6 +118,7 @@ public:
 		return std::vector<FramebufferInfo>();
 	}
 	virtual void ClearShaderCache() {}
+	virtual void CleanupBeforeUI() {}
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
