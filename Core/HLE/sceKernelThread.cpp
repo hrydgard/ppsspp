@@ -2594,33 +2594,39 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 	}
 }
 
-s64 __KernelDelayThreadUs(u64 usec)
-{
-	// Seems to very based on clockrate / other things, but 0 delays less than 200us for sure.
-	if (usec == 0)
-		return 100;
-	else if (usec < 200)
-		return 200;
-	return usec;
+s64 __KernelDelayThreadUs(u64 usec) {
+	if (usec < 200) {
+		return 210;
+	}
+	// It never wakes up right away.  It usually takes at least 15 extra us, but let's be nicer.
+	return usec + 10;
 }
 
-int sceKernelDelayThreadCB(u32 usec)
-{
-	DEBUG_LOG(SCEKERNEL,"sceKernelDelayThreadCB(%i usec)",usec);
-
-	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+int sceKernelDelayThreadCB(u32 usec) {
+	hleEatCycles(2000);
+	if (usec > 0) {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec)", usec);
+		SceUID curThread = __KernelGetCurThread();
+		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	} else {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec): no delay", usec);
+		hleReSchedule("thread delayed");
+	}
 	return 0;
 }
 
-int sceKernelDelayThread(u32 usec)
-{
-	DEBUG_LOG(SCEKERNEL,"sceKernelDelayThread(%i usec)",usec);
-
-	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+int sceKernelDelayThread(u32 usec) {
+	hleEatCycles(2000);
+	if (usec > 0) {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec)", usec);
+		SceUID curThread = __KernelGetCurThread();
+		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	} else {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec): no delay", usec);
+		hleReSchedule("thread delayed");
+	}
 	return 0;
 }
 
