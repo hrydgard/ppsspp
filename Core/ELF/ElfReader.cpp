@@ -93,7 +93,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			continue;
 		}
 
-		u32 op = Memory::Read_Instruction(addr).encoding;
+		u32 op = Memory::Read_Instruction(addr, true).encoding;
 
 		const bool log = false;
 		//log=true;
@@ -306,7 +306,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				ERROR_LOG_REPORT(LOADER, "Rel2: invalid lo16 type! %x", flag);
 			}
 
-			op = Memory::Read_Instruction(rel_offset).encoding;
+			op = Memory::Read_Instruction(rel_offset, true).encoding;
 			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){

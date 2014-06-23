@@ -506,7 +506,7 @@ namespace MIPSAnalyst {
 	}
 
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
-		const auto op = Memory::Read_Instruction(pc);
+		const auto op = Memory::Read_Instruction(pc, true);
 
 		// TODO: Trap sc/ll, svl.q, svr.q?
 
@@ -574,7 +574,7 @@ namespace MIPSAnalyst {
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			MIPSGPReg rs = MIPS_GET_RS(op);
@@ -639,7 +639,7 @@ namespace MIPSAnalyst {
 	// Don't think we use this yet.
 	bool IsRegisterUsed(MIPSGPReg reg, u32 addr) {
 		while (true) {
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
@@ -736,7 +736,7 @@ skip:
 		u32 furthestJumpbackAddr = INVALIDTARGET;
 
 		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
-			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
 				target = GetJumpTarget(ahead);
@@ -757,7 +757,7 @@ skip:
 
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
 			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
-				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind, true);
 				u32 target = GetBranchTargetNoRA(behind, behindOp);
 				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
 					target = GetJumpTarget(behind);
@@ -812,7 +812,7 @@ skip:
 				continue;
 			}
 
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
@@ -835,7 +835,7 @@ skip:
 					// If it's a nearby forward jump, and not a stackless leaf, assume not a tail call.
 					if (sureTarget <= addr + MAX_JUMP_FORWARD && decreasedSp) {
 						// But let's check the delay slot.
-						MIPSOpcode op = Memory::Read_Instruction(addr + 4);
+						MIPSOpcode op = Memory::Read_Instruction(addr + 4, true);
 						// addiu sp, sp, +X
 						if ((op & 0xFFFF8000) != 0x27BD0000) {
 							furthestBranch = sureTarget;

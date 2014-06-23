@@ -473,7 +473,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 	static std::vector<HI16RelocInfo> lastHI16Relocs;
 	static bool lastHI16Processed = true;
 
-	u32 relocData = Memory::Read_Instruction(relocAddress).encoding;
+	u32 relocData = Memory::Read_Instruction(relocAddress, true).encoding;
 
 	switch (type)
 	{
@@ -518,7 +518,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
 		HI16RelocInfo reloc;
 		reloc.addr = relocAddress;
-		reloc.data = Memory::Read_Instruction(relocAddress).encoding;
+		reloc.data = Memory::Read_Instruction(relocAddress, true).encoding;
 		lastHI16Relocs.push_back(reloc);
 		lastHI16Processed = false;
 		break;
