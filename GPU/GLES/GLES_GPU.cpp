@@ -616,13 +616,13 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 	framebufferManager_.RebindFramebuffer();
 	transformDraw_.Flush();
 
+	shaderManager_->DirtyLastShader();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
-
-	shaderManager_->DirtyLastShader();
 
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
@@ -2102,6 +2102,11 @@ void GLES_GPU::Resized() {
 
 void GLES_GPU::ClearShaderCache() {
 	shaderManager_->ClearCache(true);
+}
+
+void GLES_GPU::CleanupBeforeUI() {
+	// Clear any enabled vertex arrays.
+	shaderManager_->DirtyLastShader();
 }
 
 std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList() {
