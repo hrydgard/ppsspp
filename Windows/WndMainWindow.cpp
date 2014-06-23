@@ -1022,11 +1022,6 @@ namespace MainWindow {
 				return 0;
 			}
 
-		case WM_PAINT:
-			// Don't paint, we do that through OpenGL.
-			return 0;
-			// return DefWindowProc(hWnd, message, wParam, lParam);
-
 		case WM_ACTIVATE:
 			{
 				bool pause = true;
