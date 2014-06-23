@@ -45,7 +45,7 @@ inline void WaitExecTimeout(SceUID threadID) {
 	}
 }
 
-// Move a thead from the waiting thread list to the paused thread list.
+// Move a thread from the waiting thread list to the paused thread list.
 // This version is for vectors which contain structs, which must have SceUID threadID and u64 pausedTimeout.
 // Should not be called directly.
 template <typename WaitInfoType, typename PauseType>

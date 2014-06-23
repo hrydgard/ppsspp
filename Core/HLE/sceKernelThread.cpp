@@ -150,7 +150,9 @@ public:
 		p.Do(savedRA);
 		p.Do(savedV0);
 		p.Do(savedV1);
-		p.Do(savedIdRegister);
+		// No longer used.
+		u32 legacySavedIdRegister = 0;
+		p.Do(legacySavedIdRegister);
 	}
 
 	NativeCallback nc;
@@ -159,7 +161,6 @@ public:
 	u32 savedRA;
 	u32 savedV0;
 	u32 savedV1;
-	u32 savedIdRegister;
 };
 
 #if COMMON_LITTLE_ENDIAN
@@ -944,7 +945,9 @@ void MipsCall::DoState(PointerWrap &p)
 	p.Do(cbId);
 	p.DoArray(args, ARRAY_SIZE(args));
 	p.Do(numArgs);
-	p.Do(savedIdRegister);
+	// No longer used.
+	u32 legacySavedIdRegister = 0;
+	p.Do(legacySavedIdRegister);
 	p.Do(savedRa);
 	p.Do(savedPc);
 	p.Do(savedV0);
@@ -1056,7 +1059,7 @@ void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: resume from callback, wakeupCount decremented to %i", thread->nt.wakeupCount);
 		__KernelResumeThreadFromWait(threadID, 0);
 	} else {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB: Resuming sleep after callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: Resuming sleep after callback");
 	}
 }
 
@@ -2591,33 +2594,39 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 	}
 }
 
-s64 __KernelDelayThreadUs(u64 usec)
-{
-	// Seems to very based on clockrate / other things, but 0 delays less than 200us for sure.
-	if (usec == 0)
-		return 100;
-	else if (usec < 200)
-		return 200;
-	return usec;
+s64 __KernelDelayThreadUs(u64 usec) {
+	if (usec < 200) {
+		return 210;
+	}
+	// It never wakes up right away.  It usually takes at least 15 extra us, but let's be nicer.
+	return usec + 10;
 }
 
-int sceKernelDelayThreadCB(u32 usec)
-{
-	DEBUG_LOG(SCEKERNEL,"sceKernelDelayThreadCB(%i usec)",usec);
-
-	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+int sceKernelDelayThreadCB(u32 usec) {
+	hleEatCycles(2000);
+	if (usec > 0) {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec)", usec);
+		SceUID curThread = __KernelGetCurThread();
+		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	} else {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec): no delay", usec);
+		hleReSchedule("thread delayed");
+	}
 	return 0;
 }
 
-int sceKernelDelayThread(u32 usec)
-{
-	DEBUG_LOG(SCEKERNEL,"sceKernelDelayThread(%i usec)",usec);
-
-	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+int sceKernelDelayThread(u32 usec) {
+	hleEatCycles(2000);
+	if (usec > 0) {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec)", usec);
+		SceUID curThread = __KernelGetCurThread();
+		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	} else {
+		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec): no delay", usec);
+		hleReSchedule("thread delayed");
+	}
 	return 0;
 }
 
@@ -3225,6 +3234,9 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	}
 #endif
 
+	// Switching threads eats some cycles.  This is a low approximation.
+	currentMIPS->downcount -= 3000;
+
 	if (target)
 	{
 		// No longer waiting.
@@ -3356,16 +3368,12 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	call->savedRa = currentMIPS->r[MIPS_REG_RA];
 	call->savedV0 = currentMIPS->r[MIPS_REG_V0];
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
-	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
 	call->savedId = cur->currentMipscallId;
 	call->reschedAfter = reschedAfter;
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
 	currentMIPS->r[MIPS_REG_RA] = __KernelMipsCallReturnAddress();
-	// We put this two places in case the game overwrites it.
-	// We may want it later to "inject" return values.
-	currentMIPS->r[MIPS_REG_CALL_ID] = callId;
 	cur->currentMipscallId = callId;
 	for (int i = 0; i < call->numArgs; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
@@ -3388,9 +3396,6 @@ void __KernelReturnFromMipsCall()
 	}
 
 	u32 callId = cur->currentMipscallId;
-	if (currentMIPS->r[MIPS_REG_CALL_ID] != callId)
-		WARN_LOG_REPORT(SCEKERNEL, "__KernelReturnFromMipsCall(): s0 is %08x != %08x", currentMIPS->r[MIPS_REG_CALL_ID], callId);
-
 	MipsCall *call = mipsCalls.pop(callId);
 
 	// Value returned by the callback function
@@ -3408,7 +3413,6 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_RA] = call->savedRa;
 	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
-	currentMIPS->r[MIPS_REG_CALL_ID] = call->savedIdRegister;
 	cur->currentMipscallId = call->savedId;
 
 	if (call->cbId != 0)

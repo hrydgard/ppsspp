@@ -897,8 +897,8 @@ namespace MIPSInt
 				if (F(fs) >= 0.0f) {
 					FsI(fd) = (int)floorf(F(fs));
 					// Overflow, but it was positive.
-					if (FsI(fd) == -2147483648) {
-						FsI(fd) = 2147483647;
+					if (FsI(fd) == -2147483648LL) {
+						FsI(fd) = 2147483647LL;
 					}
 				} else {
 					// Overflow happens to be the right value anyway.
