@@ -712,7 +712,8 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 bool __IoRead(int &result, int id, u32 data_addr, int size) {
 	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
-		return 0; //stdin
+		result = 0; //stdin
+		return true;
 	}
 
 	u32 error;
