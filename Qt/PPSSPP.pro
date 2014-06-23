@@ -4,10 +4,8 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 include(Settings.pri)
 
-lessThan(QT_MAJOR_VERSION, 5) {
-	lessThan(QT_MAJOR_VERSION, 4) | lessThan(QT_MINOR_VERSION, 7) {
-		error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
-	}
+lessThan(QT_MAJOR_VERSION, 5):lessThan(QT_MINOR_VERSION, 7) {
+	error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
 }
 
 # Extra Qt modules
@@ -66,7 +64,7 @@ macx|linux {
 		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl
 		macx {
-			LIBS += -liconv -F/Library/Frameworks -framework SDL
+			LIBS += -F/Library/Frameworks -framework SDL
 			INCLUDEPATH += /Library/Frameworks/SDL.framework/Versions/A/Headers
 		}
 	}
@@ -107,8 +105,8 @@ arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 HEADERS += $$P/UI/*.h
 INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 
-# Use forms UI for desktop platforms
-!mobile_platform {
+mobile_platform: RESOURCES += $$P/Qt/assets.qrc
+else {
 	# TODO: Rewrite Debugger with same backend as Windows version
 	# Don't use .ui forms. Use Qt5 + C++11 features to minimise code
 	SOURCES += $$P/Qt/*.cpp $$P/Qt/Debugger/*.cpp
@@ -138,9 +136,6 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 	lang.CONFIG = no_link
 	QMAKE_EXTRA_COMPILERS += lang
 	PRE_TARGETDEPS += compiler_lang_make_all
-} else {
-	# Desktop handles the Init separately
-	RESOURCES += $$P/Qt/assets.qrc
 }
 
 # Packaging
