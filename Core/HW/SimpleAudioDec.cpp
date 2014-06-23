@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <thread>
+
 #include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -103,7 +105,7 @@ bool SimpleAudio::OpenCodec() {
 	AVDictionary *opts = 0;
 	int retval = avcodec_open2(codecCtx_, codec_, &opts);
 	if (retval < 0) {
-		ERROR_LOG(ME, "Failed to open codec: retval = %i");
+		ERROR_LOG(ME, "Failed to open codec: retval = %i", retval);
 	}
 	av_dict_free(&opts);
 #endif  // USE_FFMPEG
