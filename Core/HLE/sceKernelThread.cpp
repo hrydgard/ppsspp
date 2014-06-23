@@ -3234,6 +3234,9 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	}
 #endif
 
+	// Switching threads eats some cycles.  This is a low approximation.
+	currentMIPS->downcount -= 3000;
+
 	if (target)
 	{
 		// No longer waiting.
