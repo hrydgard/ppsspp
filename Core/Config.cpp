@@ -442,7 +442,13 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
+#if defined(_WIN32)
+	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
+	// sense to default this to on.
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true),
+#else
 	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false),
+#endif
 #endif
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false),
