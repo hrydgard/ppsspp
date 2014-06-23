@@ -151,7 +151,7 @@ namespace MainWindow {
 		//Register classes
 		WNDCLASSEX wcex;
 		wcex.cbSize = sizeof(WNDCLASSEX); 
-		wcex.style			= CS_HREDRAW | CS_VREDRAW;
+		wcex.style = CS_PARENTDC;
 		wcex.lpfnWndProc	= (WNDPROC)WndProc;
 		wcex.cbClsExtra		= 0;
 		wcex.cbWndExtra		= 0;
@@ -161,12 +161,13 @@ namespace MainWindow {
 		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
-		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
+		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
 		RegisterClassEx(&wcex);
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen) return;
+		if (g_Config.bFullScreen)
+			return;
 
 		WINDOWPLACEMENT placement;
 		GetWindowPlacement(hwndMain, &placement);
@@ -194,7 +195,6 @@ namespace MainWindow {
 		rcOuter.left = g_Config.iWindowX;
 		rcOuter.top = g_Config.iWindowY;
 	}
-
 
 	static void ShowScreenResolution() {
 		I18NCategory *g = GetI18NCategory("Graphics");
@@ -905,22 +905,25 @@ namespace MainWindow {
 		int wmId, wmEvent;
 		std::string fn;
 		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+		static bool firstErase = true;
 
 		switch (message) {
-		case WM_SETFOCUS:
-			break;
-
 		case WM_SIZE:
 			SavePosition();
 			ResizeDisplay();
 			break;
 
 		case WM_ERASEBKGND:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+			if (firstErase) {
+				firstErase = false;
+				// Paint black on first erase while OpenGL stuff is loading
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+			// Then never erase, let the OpenGL drawing take care of everything.
+			return 1;
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
-
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
@@ -1008,11 +1011,10 @@ namespace MainWindow {
 			}
 
 		case WM_PAINT:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+			// Don't paint, we do that through OpenGL.
+			return 0;
+			// return DefWindowProc(hWnd, message, wParam, lParam);
 
-		case WM_CREATE:
-			break;
-			
 		case WM_ACTIVATE:
 			{
 				bool pause = true;
@@ -1135,6 +1137,7 @@ namespace MainWindow {
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
 					break;
+
 				case ID_EMULATION_SWITCH_UMD:
 					UmdSwitchAction();
 					break;
