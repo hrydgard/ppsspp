@@ -20,9 +20,7 @@
 #undef max
 
 #include <cstddef> //size_t
-#ifdef __SYMBIAN32__
-#include <boost/cstdint.hpp>
-#elif defined(IOS)
+#if defined(IOS)
 #include <stdint.h>
 #else
 #include <cstdint> //uint32_t

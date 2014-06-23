@@ -48,8 +48,7 @@ contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresampl
 
 win32 {
 	#Use a fixed base-address under windows
-	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000"
-	QMAKE_LFLAGS += /DYNAMICBASE:NO
+	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000" /DYNAMICBASE:NO
 	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
 	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files($$P/dx9sdk/Lib/x64/*.lib)
 	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
@@ -69,7 +68,7 @@ macx|linux {
 		}
 	}
 }
-linux:!android: LIBS += -ldl -lrt -lz
+linux:!android: LIBS += -ldl -lrt
 macx: LIBS += -liconv
 qnx: LIBS += -lscreen
 symbian: LIBS += -lremconcoreapi -lremconinterfacebase
