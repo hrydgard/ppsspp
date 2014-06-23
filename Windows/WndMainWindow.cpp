@@ -913,6 +913,18 @@ namespace MainWindow {
 			ResizeDisplay();
 			break;
 
+		case WM_GETMINMAXINFO:
+			{
+				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
+				RECT rc = { 0 };
+				rc.right = 480;
+				rc.bottom = 272;
+				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+				minmax->ptMinTrackSize.x = rc.right - rc.left;
+				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+			}
+			return 0;
+
 		case WM_ERASEBKGND:
 			if (firstErase) {
 				firstErase = false;
