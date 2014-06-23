@@ -224,14 +224,20 @@ void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuff
 	bool hasFartherFramebuffer = false;
 	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
 		// If it's valid, but the offset is greater, then we still win.
-		hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
+		if (fbTexInfo_[entry->addr].yOffset == fbInfo.yOffset)
+			hasFartherFramebuffer = fbTexInfo_[entry->addr].xOffset > fbInfo.xOffset;
+		else
+			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
 	}
 	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
 		fbTexInfo_[entry->addr] = fbInfo;
+		framebuffer->last_frame_attached = gpuStats.numFlips;
 		host->GPUNotifyTextureAttachment(entry->addr);
+	} else if (entry->framebuffer == framebuffer) {
+		framebuffer->last_frame_attached = gpuStats.numFlips;
 	}
 }
 
@@ -270,8 +276,11 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 		}
 		if (entry->format != framebuffer->format) {
 			WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-			// Let's avoid rendering when we know the format is wrong.  May be a video/etc. updating memory.
-			DetachFramebuffer(entry, address, framebuffer);
+			// Let's avoid using it when we know the format is wrong.  May be a video/etc. updating memory.
+			// However, some games use a different format to clear the buffer.
+			if (framebuffer->last_frame_attached + 1 < gpuStats.numFlips) {
+				DetachFramebuffer(entry, address, framebuffer);
+			}
 		} else {
 			AttachFramebufferValid(entry, framebuffer, fbInfo);
 			return true;

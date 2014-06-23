@@ -975,6 +975,8 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 		vfb->last_frame_render = gpuStats.numFlips;
+		vfb->last_frame_used = 0;
+		vfb->last_frame_attached = 0;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		glEnable(GL_DITHER);  // why?
