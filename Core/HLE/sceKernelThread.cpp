@@ -1059,7 +1059,7 @@ void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: resume from callback, wakeupCount decremented to %i", thread->nt.wakeupCount);
 		__KernelResumeThreadFromWait(threadID, 0);
 	} else {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB: Resuming sleep after callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: Resuming sleep after callback");
 	}
 }
 
