@@ -146,6 +146,5 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 		fbo_unbind();
 	}
 	glstate.viewport.restore();
-	dstBuffer->memoryUpdated = false;
 	return true;
 }
