@@ -210,7 +210,7 @@ struct BezierPatch {
 	}
 };
 
-struct SplinePatch {
+struct SplinePatchLocal {
 	SimpleVertex **points;
 	int count_u;
 	int count_v;
@@ -347,7 +347,7 @@ void spline_knot(int n, int type, float *knot) {
 		knot[n + 4] = n - 2;
 	}
 }
-void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatch &spatch, u32 origVertType) {
+void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
 	// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
@@ -400,9 +400,9 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatch &spatch, u3
 
 }
 
-void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatch &spatch, u32 origVertType, int patch_cap) {
-	// Full correct tessellation of spline patches.
-	// Does not yet generate normals and is atrociously slow (see spline_s...)
+void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType, int patch_cap) {
+	// Full (mostly) correct tessellation of spline patches.
+	// Not very fast.
 
 	// First, generate knot vectors.
 	int n = spatch.count_u - 1;
@@ -434,9 +434,12 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatch &spatch, 
 	bool computeNormals = gstate.isLightingEnabled();
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
 		float v = ((float)tile_v * (float)(m - 2) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
+		if (v < 0.0f)
+			v = 0.0f;
 		for (int tile_u = 0; tile_u < patch_div_s + 1; tile_u++) {
 			float u = ((float)tile_u * (float)(n - 2) / (float)(patch_div_s + 0.00001f));
-
+			if (u < 0.0f)
+				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
 			vert->pos.SetZero();
 			if (origVertType & GE_VTYPE_NRM_MASK) {
@@ -470,14 +473,19 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatch &spatch, 
 			spline_n_4(iu, u, knot_u, u_weights);
 			spline_n_4(iv, v, knot_v, v_weights);
 
-			for (int ii = 0; ii < 4; ++ii) {
-				for (int jj = 0; jj < 4; ++jj) {
+			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
+			int patch_w = std::min(spatch.count_u, 4);
+			int patch_h = std::min(spatch.count_v, 4);
+
+			for (int ii = 0; ii < patch_w; ++ii) {
+				for (int jj = 0; jj < patch_h; ++jj) {
 					float u_spline = u_weights[ii];
 					float v_spline = v_weights[jj];
 					float f = u_spline * v_spline;
 
 					if (f > 0.0f) {
-						SimpleVertex *a = spatch.points[spatch.count_u * (iv + jj) + (iu + ii)];
+						int idx = spatch.count_u * (iv + jj) + (iu + ii);
+						SimpleVertex *a = spatch.points[idx];
 						vert->pos += a->pos * f;
 						if (origVertType & GE_VTYPE_TC_MASK) {
 							vert->uv[0] += a->uv[0] * f;
@@ -543,8 +551,7 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatch &spatch, 
 	delete[] vertices;
 }
 
-void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 origVertType) {
-
+void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_SplinePatchLowQuality(dest, count, spatch, origVertType);
@@ -556,9 +563,8 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatch &spatch, u32 
 		_SplinePatchFullQuality(dest, count, spatch, origVertType, 64);
 		break;
 	}
-
-
 }
+
 void _BezierPatchLowQuality(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector subsitutes.
@@ -763,7 +769,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	int count = 0;
 	u8 *dest = decoded2;
 
-	SplinePatch patch;
+	SplinePatchLocal patch;
 	patch.type_u = type_u;
 	patch.type_v = type_v;
 	patch.count_u = count_u;
