@@ -218,7 +218,13 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 		// No depth/stencil for post processing
 		FBO *fbo = fbo_create(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight, 1, false, FBO_8888);
 		extraFBOs_.push_back(fbo);
+
+		// The new FBO is still bound after creation.
+		ClearBuffer();
 	}
+
+	currentRenderVfb_ = 0;
+	fbo_unbind();
 }
 
 void FramebufferManager::CompileDraw2DProgram() {
@@ -816,14 +822,16 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
+			ClearBuffer();
 			BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 		}
 		fbo_destroy(old.fbo);
+		if (vfb->fbo) {
+			fbo_bind_as_render_target(vfb->fbo);
+		}
 	}
 
-	if (vfb->fbo) {
-		fbo_bind_as_render_target(vfb->fbo);
-	} else {
+	if (!vfb->fbo) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
 }
@@ -1161,6 +1169,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	FBO *fbo = fbo_create(w, h, 1, false, depth);
 	if (!fbo)
 		return fbo;
+	ClearBuffer();
 	const TempFBO info = {fbo, gpuStats.numFlips};
 	tempFBOs_[key] = info;
 	return fbo;
@@ -1419,7 +1428,6 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
-			fbo_bind_as_render_target(nvfb->fbo);
 			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
