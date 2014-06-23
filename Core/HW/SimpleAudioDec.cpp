@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include <thread>
 
 #include "Core/Config.h"
 #include "Core/HLE/FunctionWrappers.h"
