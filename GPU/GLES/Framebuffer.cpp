@@ -878,17 +878,22 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(drawing_width, drawing_height);
 
+	gstate_c.cutRTOffsetX = 0;
+	bool vfbFormatChanged = false;
+
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	size_t i;
-	gstate_c.cutRTOffsetX = 0;
 	for (i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (v->fb_address == fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			vfb->format = fmt;
+			if (vfb->fb_stride != fb_stride || vfb->format != fmt) {
+				vfb->fb_stride = fb_stride;
+				vfb->format = fmt;
+				vfbFormatChanged = true;
+			}
 			// In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
 			if (gstate.isModeThrough() && (int)vfb->width < fb_stride) {
 				vfb->width = std::max((int)vfb->width, drawing_width);
@@ -1085,6 +1090,10 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 		currentRenderVfb_ = vfb;
 	} else {
+		if (vfbFormatChanged) {
+			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+		}
+
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
