@@ -162,8 +162,8 @@ int __DisplayGetVCount() { return vCount; }
 static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
 	if (lagSyncScheduled) {
-		CoreTiming::ScheduleEvent(msToCycles(1), lagSyncEvent, 0);
-		lastLagSync = real_time_now() - (over / 1000000.0f);
+		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
+		lastLagSync = real_time_now();
 	}
 }
 
@@ -701,7 +701,8 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 
 	const double goal = lastLagSync + (scale / 1000.0f);
 	time_update();
-	while (time_now_d() < goal) {
+	// Don't lag too long ever, if they leave it paused.
+	while (time_now_d() < goal && goal + 0.01 > time_now_d()) {
 		const double left = goal - time_now_d();
 #ifndef _WIN32
 		usleep((long)(left * 1000000));
