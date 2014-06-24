@@ -30,6 +30,8 @@
 #include "sceKernelMutex.h"
 #include "sceUtility.h"
 
+#include "Core/HLE/sceNetAdhoc.h"
+
 static bool netInited;
 static bool netInetInited;
 static bool netApctlInited;
@@ -119,20 +121,26 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netMallocStat);
 }
 
+u32 sceNetTerm() {
+	//May also need to Terminate netAdhocctl and netAdhoc since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit+sceNetAdhocInit
+	if (netAdhocctlInited) sceNetAdhocctlTerm();
+	if (netAdhocInited) sceNetAdhocTerm();
+
+	WARN_LOG(SCENET, "UNTESTED sceNetTerm()");
+	netInited = false;
+	return 0;
+}
+
 // TODO: should that struct actually be initialized here?
 u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
-	ERROR_LOG(SCENET,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", poolSize, calloutPri, calloutStack, netinitPri, netinitStack);
+	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
+	if (netInited) sceNetTerm();
+
+	ERROR_LOG(SCENET, "UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
 	netMallocStat.maximum = poolSize;
 	netMallocStat.free = poolSize;
 	netMallocStat.pool = 0;
-
-	return 0;
-}
-
-u32 sceNetTerm() {
-	ERROR_LOG(SCENET,"UNIMPL sceNetTerm()");
-	netInited = false;
 
 	return 0;
 }
