@@ -1690,7 +1690,7 @@ static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap) / (sizeof(u16)*
 bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3HeaderMapSize; i ++) {
 		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
+			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3HeaderTemplate) - 8;
 			*(u16*)(at3Header + 0x16) = atrac->atracChannels;
 			*(u16*)(at3Header + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
@@ -1699,7 +1699,7 @@ bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
 			at3Header[0x29] = (u8)at3HeaderMap[i][2];
 			at3Header[0x2c] = (u8)at3HeaderMap[i][3];
 			at3Header[0x2e] = (u8)at3HeaderMap[i][3];
-			*(u32*)(at3Header + sizeof(at3Header) - 4) = dataSize;
+			*(u32*)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
@@ -1709,14 +1709,14 @@ bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
 bool initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3plusHeaderMapSize; i += 2) {
 		if (at3plusHeaderMap[i][0] == atrac->atracBytesPerFrame && at3plusHeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeader) - 8;
+			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
 			*(u16*)(at3plusHeader + 0x16) = atrac->atracChannels;
 			*(u16*)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
 			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
 			*(u16*)(at3plusHeader + 0x3e) = at3plusHeaderMap[i + 1][0];
-			*(u32*)(at3plusHeader + sizeof(at3plusHeader) - 4) = dataSize;
+			*(u32*)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
