@@ -212,6 +212,8 @@ namespace MainWindow {
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
 			zoom = (rc.right - rc.left + 479) / 480;
+		if (zoom <= 1)
+			zoom = 1;
 
 		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
