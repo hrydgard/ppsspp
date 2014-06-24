@@ -73,7 +73,7 @@ protected:
 	}
 
 private :
-	void DisplayMessage(std::string text, bool hasYesNo = false, bool hasOK = false);
+	void DisplayMessage(const std::string &text, bool hasYesNo = false, bool hasOK = false);
 
 	enum Flags
 	{

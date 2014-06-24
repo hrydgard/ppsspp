@@ -77,10 +77,10 @@ enum {
 
 // Get the metrics of the bounding box of the text without changing the buffer or state.
 void PPGeMeasureText(float *w, float *h, int *n, 
-					const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+					const std::string &text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Overwrite the current text lines buffer so it can be drawn later.
-void PPGePrepareText(const char *text, float x, float y, int align, float scale, 
+void PPGePrepareText(const std::string &text, float x, float y, int align, float scale, 
 					int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Get the metrics of the bounding box of the currently stated text.
@@ -94,8 +94,8 @@ void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawText(const std::string &text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawTextWrapped(const std::string &text, float x, float y, float wrapWidth, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);

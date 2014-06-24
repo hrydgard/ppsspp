@@ -15,9 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <string>
+
 #include "i18n/i18n.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/StringUtils.h"
 
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
@@ -385,123 +388,122 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		I18NCategory *d = GetI18NCategory("Dialog");
 		PPGeDrawText(d->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
-		char title[512];
-		char time[512];
-		char saveTitle[512];
-		char saveDetail[512];
+		std::string title;
+		std::string time;
+		std::string saveTitle;
+		std::string saveDetail;
 
-		char am_pm[] = "AM";
-		char hour_time[10] ;
+		std::string am_pm = "AM";
+		std::string hour_time;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
+
 		switch (g_Config.iTimeFormat) {
 		case 1:
 			if (hour > 12) {
-				strcpy(am_pm, "PM");
+				am_pm = "PM";
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			hour_time = StringFromFormat("%02d:%02d %s", hour, min, am_pm.c_str());
 			break;
 		case 2:
-			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			hour_time = StringFromFormat("%02d:%02d", hour, min); 
 			break;
 		default:
 			if (hour > 12) {
-				strcpy(am_pm, "PM");
+				am_pm = "PM";
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			hour_time = StringFromFormat("%02d:%02d %s", hour, min, am_pm.c_str());
 		}
 
-		snprintf(title, 512, "%s", param.GetFileInfo(currentSelectedSave).title);
+		title = param.GetFileInfo(currentSelectedSave).title;
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
 		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
+
 		switch (g_Config.iDateFormat) {
 		case 1:
-			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
+			time = StringFromFormat("%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 			break;
 		case 2:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
+			time = StringFromFormat("%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
 			break;
 		case 3:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+			time = StringFromFormat("%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
 			break;
 		default:
-			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
+			time = StringFromFormat("%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 		}
-		snprintf(saveTitle, 512, "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
-		snprintf(saveDetail, 512, "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+
+		saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
+		saveDetail = param.GetFileInfo(currentSelectedSave).saveDetail;
 		
 		PPGeDrawRect(180, 136, 480, 137, CalcFadedColor(0xFFFFFFFF));
-		std::string titleTxt = title;
-		std::string timeTxt = time;
-		std::string saveTitleTxt = saveTitle;
-		std::string saveDetailTxt = saveDetail;
 
-		PPGeDrawText(titleTxt.c_str(), 181, 138, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
-		PPGeDrawText(titleTxt.c_str(), 180, 136, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
-		PPGeDrawText(timeTxt.c_str(), 181, 139, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(timeTxt.c_str(), 180, 137, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(saveTitleTxt.c_str(), 176, 162, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(saveDetailTxt.c_str(), 176, 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveDetailTxt.c_str(), 175, 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(title, 181, 138, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
+		PPGeDrawText(title, 180, 136, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
+		PPGeDrawText(time, 181, 139, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawText(time, 180, 137, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(saveTitle, 176, 162, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0x80000000));
+		PPGeDrawText(saveTitle, 175, 159, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(saveDetail, 176, 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawText(saveDetail, 175, 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
 void PSPSaveDialog::DisplaySaveDataInfo2()
 {
-	if (param.GetFileInfo(currentSelectedSave).size == 0) {		
-	} else {
-		char txt[1024];
-		char date[256];
-		char am_pm[] = "AM";
-		char hour_time[10] ;
+	if (param.GetFileInfo(currentSelectedSave).size != 0) {
+		std::string saveinfo;
+		std::string date;
+		std::string am_pm = "AM";
+		std::string hour_time;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
+
 		switch (g_Config.iTimeFormat) {
 		case 1:
 			if (hour > 12) {
-				strcpy(am_pm, "PM");
+				am_pm = "PM";
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			hour_time = StringFromFormat("%02d:%02d %s", hour, min, am_pm.c_str());
 			break;
 		case 2:
-			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			hour_time = StringFromFormat("%02d:%02d", hour, min); 
 			break;
 		default:
 			if (hour > 12) {
-				strcpy(am_pm, "PM");
+				am_pm = "PM";
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			hour_time = StringFromFormat("%02d:%02d %s", hour, min, am_pm.c_str());
 		}
 
-		const char *saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
+		std::string saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
 		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
 		case 1:
-			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+			date = StringFromFormat("%d/%02d/%02d", year, month, day);
 			break;
 		case 2:
-			snprintf(date, 256, "%02d/%02d/%d", month, day, year);
+			date = StringFromFormat("%02d/%02d/%d", month, day, year);
 			break;
 		case 3:
-			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
+			date = StringFromFormat("%02d/%02d/%d", day, month, year);
 			break;
 		default:
-			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+			date = StringFromFormat("%d/%02d/%02d", year, month, day);
 		}
-		snprintf(txt, 1024, "%s\n%s  %s\n%lld KB", saveTitle, date, hour_time, sizeK);
-		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		saveinfo = StringFromFormat("%s\n%s  %s\n%lld KB", saveTitle.c_str(), date, hour_time, sizeK);
+
+		PPGeDrawText(saveinfo, 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawText(saveinfo, 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
