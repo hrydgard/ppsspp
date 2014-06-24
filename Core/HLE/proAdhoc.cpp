@@ -47,7 +47,87 @@ int isPTPPortInUse(uint16_t port) {
 	return 0;
 }
 
+SceNetAdhocMatchingMemberInternal* findMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac) {
+	if (context == NULL || mac == NULL) return NULL;
+		
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
+	while (peer != NULL) {
+		if (IsMatch(peer->mac, *mac))
+			return peer;
+		peer = peer->next;
+	}
+
+	return NULL;
+}
+
+void addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac) {
+	if (context == NULL || mac == NULL) return;
+	
+	SceNetAdhocMatchingMemberInternal * peer = findMember(context, mac);
+	// Member is not added yet
+	if (peer == NULL) { 
+		peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+		if (peer != NULL) {
+			memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+			peer->mac = *mac;
+			peer->next = context->peerlist;
+			context->peerlist = peer;
+		}
+	}
+}
+
+void deleteMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac) {
+	if (context == NULL || mac == NULL) return;
+
+	// Previous Peer Reference
+	SceNetAdhocMatchingMemberInternal * prev = NULL;
+
+	// Peer Pointer
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
+
+	// Iterate Peers
+	for (; peer != NULL; peer = peer->next) {
+		// Found Peer
+		if (IsMatch(context->mac, *mac)) {
+			// Multithreading Lock
+			//context->peerlock.lock();
+
+			// Unlink Left (Beginning)
+			if (prev == NULL) context->peerlist = peer->next;
+
+			// Unlink Left (Other)
+			else prev->next = peer->next;
+
+			// Multithreading Unlock
+			//context->peerlock.unlock();
+
+			// Free Memory
+			free(peer);
+
+			// Stop Search
+			break;
+		}
+
+		// Set Previous Reference
+		prev = peer;
+	}
+
+}
+
+void deleteAllMembers(SceNetAdhocMatchingContext * context) {
+	if (context == NULL) return;
+	
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
+	while (peer != NULL) {
+		context->peerlist = peer->next;
+		free(peer);
+		peer = context->peerlist;
+	}
+}
+
 void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
+  if (packet == NULL) return;
+
   // Allocate Structure
   SceNetAdhocctlPeerInfo * peer = (SceNetAdhocctlPeerInfo *)malloc(sizeof(SceNetAdhocctlPeerInfo));
   // Allocated Structure
@@ -112,6 +192,32 @@ int countAvailableNetworks(void) {
 
   // Return Network Count
   return count;
+}
+
+SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
+	if (MAC == NULL) return NULL;
+
+	// Group Reference
+	SceNetAdhocctlScanInfo * group = networks;
+
+	// Count Groups
+	for (; group != NULL; group = group->next) {
+		if (IsMatch(group->bssid.mac_addr, *MAC)) break;
+	}
+
+	// Return Network Count
+	return group;
+}
+
+void freeGroupsRecursive(SceNetAdhocctlScanInfo * node) {
+	// End of List
+	if (node == NULL) return;
+
+	// Increase Recursion Depth
+	freeGroupsRecursive(node->next);
+
+	// Free Memory
+	free(node);
 }
 
 void deleteAllPDP(void) {
@@ -244,6 +350,9 @@ int friendFinder(){
   
   uint64_t now;
 
+  // Log Startup
+  INFO_LOG(SCENET, "FriendFinder: Begin of Friend Finder Thread");
+
   // Finder Loop
   while(friendFinderRunning) {
     // Acquire Network Lock
@@ -258,8 +367,12 @@ int friendFinder(){
       // Prepare Packet
       uint8_t opcode = OPCODE_PING;
 
-      // Send Ping to Server
-      send(metasocket, (const char *)&opcode, 1,0);
+      // Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
+      int iResult = send(metasocket, (const char *)&opcode, 1,0);
+	  /*if (iResult == SOCKET_ERROR) {
+		  ERROR_LOG(SCENET, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", errno);
+		  //friendFinderRunning = false;
+	  }*/
     }
 
     // Send Chat Messages
@@ -289,6 +402,7 @@ int friendFinder(){
     if(rxpos > 0) {
       // BSSID Packet
       if(rx[0] == OPCODE_CONNECT_BSSID) {
+		INFO_LOG(SCENET, "FriendFinder: OPCODE_CONNECT_BSSID");
         // Enough Data available
         if(rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
           // Cast Packet
@@ -310,6 +424,7 @@ int friendFinder(){
 
       // Chat Packet
       else if(rx[0] == OPCODE_CHAT) {
+		INFO_LOG(SCENET, "FriendFinder: OPCODE_CHAT");
         // Enough Data available
         if(rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
           // Cast Packet
@@ -331,6 +446,7 @@ int friendFinder(){
 
       // Connect Packet
       else if(rx[0] == OPCODE_CONNECT) {
+		DEBUG_LOG(SCENET, "FriendFinder: OPCODE_CONNECT");
         // Enough Data available
         if(rxpos >= (int)sizeof(SceNetAdhocctlConnectPacketS2C)) {
           // Log Incoming Peer
@@ -359,6 +475,7 @@ int friendFinder(){
 
       // Disconnect Packet
       else if(rx[0] == OPCODE_DISCONNECT) {
+		DEBUG_LOG(SCENET, "FriendFinder: OPCODE_DISCONNECT");
         // Enough Data available
         if(rxpos >= (int)sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
           // Log Incoming Peer Delete Request
@@ -367,8 +484,8 @@ int friendFinder(){
           // Cast Packet
           SceNetAdhocctlDisconnectPacketS2C * packet = (SceNetAdhocctlDisconnectPacketS2C *)rx;
 
-          // Delete User by IP
-          deleteFriendByIP(packet->ip);
+          // Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
+          deleteFriendByIP(packet->ip); 
 
           // Update HUD User Count
 #ifdef LOCALHOST_AS_PEER
@@ -387,6 +504,7 @@ int friendFinder(){
 
       // Scan Packet
       else if(rx[0] == OPCODE_SCAN) {
+		DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN");
         // Enough Data available
         if(rxpos >= (int)sizeof(SceNetAdhocctlScanPacketS2C)) {
           // Log Incoming Network Information
@@ -394,38 +512,59 @@ int friendFinder(){
           // Cast Packet
           SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
 
-          // Allocate Structure Data
-          SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
+		  // Multithreading Lock
+		  peerlock.lock();
 
-          // Allocated Structure Data
-          if(group != NULL)
-          {
-            // Clear Memory
-            memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+		  // It seems AdHoc Server always sent the full group list, so we should reset group list during Scan initialization
 
-            // Link to existing Groups
-            group->next = networks;
+		  // Should only add non-existing group (or replace an existing group) to prevent Ford Street Racing from showing a strange game session list
+		  /*SceNetAdhocctlScanInfo * group = findGroup(&packet->mac);
 
-            // Copy Group Name
-            group->group_name = packet->group;
+		  if (group != NULL) {
+			  // Copy Group Name
+			  group->group_name = packet->group;
 
-            // Set Group Host
-            group->bssid.mac_addr = packet->mac;
+			  // Set Group Host
+			  group->bssid.mac_addr = packet->mac;
+		  }
+		  else*/ {
+			  // Allocate Structure Data
+			  SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
 
-            // Link into Group List
-            networks = group;
-          }
+			  // Allocated Structure Data
+			  if (group != NULL)
+			  {
+				  // Clear Memory, should this be done only when allocating new group?
+				  memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
 
-          // Move RX Buffer
-          memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
+				  // Link to existing Groups
+				  group->next = networks;
 
-          // Fix RX Buffer Length
-          rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
-        }
+				  // Copy Group Name
+				  group->group_name = packet->group;
+
+				  // Set Group Host
+				  group->bssid.mac_addr = packet->mac;
+
+				  // Link into Group List
+				  networks = group;
+			  }
+		  }
+
+		  // Multithreading Unlock
+		  peerlock.unlock();
+
+		  // Move RX Buffer
+		  memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
+
+		  // Fix RX Buffer Length
+		  rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
+		} 
       }
 
       // Scan Complete Packet
       else if(rx[0] == OPCODE_SCAN_COMPLETE) {
+		DEBUG_LOG(SCENET, "FriendFinder: OPCODE_SCAN_COMPLETE");
         // Log Scan Completion
         INFO_LOG(SCENET,"FriendFinder: Incoming Scan complete response...");
 
@@ -450,6 +589,11 @@ int friendFinder(){
     // Original value was 10 ms, I think 100 is just fine
     sleep_ms(100);
   }
+
+  // Groups/Networks should be deallocated isn't?
+
+  // Prevent the games from having trouble to reInitiate Adhoc (the next NetInit -> PdpCreate after NetTerm)
+  threadStatus = ADHOCCTL_STATE_DISCONNECTED;
 
   // Log Shutdown
   INFO_LOG(SCENET, "FriendFinder: End of Friend Finder Thread");
@@ -513,6 +657,22 @@ void getLocalMac(SceNetEtherAddr * addr){
 	memcpy(addr, mac, ETHER_ADDR_LEN);
 }
 
+uint16_t getLocalPort(SOCKET s) {
+	struct sockaddr_in localAddr;
+	localAddr.sin_port = 0;
+	socklen_t addrLen = sizeof(localAddr);
+	getsockname(s, (struct sockaddr*)&localAddr, &addrLen);
+	return localAddr.sin_port;
+}
+
+IN_ADDR getRemoteIP(SOCKET s) {
+	struct sockaddr_in localAddr;
+	localAddr.sin_addr.s_addr = INADDR_ANY;
+	socklen_t addrLen = sizeof(localAddr);
+	getsockname(s, (struct sockaddr*)&localAddr, &addrLen);
+	return localAddr.sin_addr;
+}
+
 int getPTPSocketCount(void) {
   // Socket Counter
   int counter = 0;
@@ -531,9 +691,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   int iResult = 0;
 #ifdef _MSC_VER
   WSADATA data;
-  iResult = WSAStartup(MAKEWORD(2,2),&data);
+  iResult = WSAStartup(MAKEWORD(2,2),&data); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used
   if(iResult != NOERROR){
-    ERROR_LOG(SCENET, "Wsa failed");
+    ERROR_LOG(SCENET, "WSA failed");
     return iResult;
   }
 #endif
@@ -555,7 +715,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
 	if (iResult != 0) {
-		ERROR_LOG(SCENET, "Dns error\n");
+		ERROR_LOG(SCENET, "DNS error (%s)\n", g_Config.proAdhocServer.c_str());
 		return iResult;
 	}
 	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
@@ -568,7 +728,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	server_addr.sin_addr = serverIp;
 	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
 	if (iResult == SOCKET_ERROR) {
-		ERROR_LOG(SCENET,"Socket error");
+		ERROR_LOG(SCENET, "Socket error (%i) when connecting to %s/%u.%u.%u.%u:%u", errno, g_Config.proAdhocServer.c_str(), serverIp.S_un.S_un_b.s_b1, serverIp.S_un.S_un_b.s_b2, serverIp.S_un.S_un_b.s_b3, serverIp.S_un.S_un_b.s_b4, ntohs(server_addr.sin_port));
 		return iResult;
 	}
   memset(&parameter,0,sizeof(parameter));
