@@ -3216,9 +3216,9 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	else
 		__SetCurrentThread(NULL, 0, NULL);
 
+	const bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
+	const bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
 #if DEBUG_LEVEL <= MAX_LOGLEVEL || DEBUG_LOG == NOTICE_LOG
-	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
-	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
 	if (!(fromIdle && toIdle))
 	{
 		u64 nowCycles = CoreTiming::GetTicks();
@@ -3235,7 +3235,13 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 #endif
 
 	// Switching threads eats some cycles.  This is a low approximation.
-	currentMIPS->downcount -= 3000;
+	if (fromIdle && toIdle) {
+		// Don't eat any cycles going between idle.
+	} else if (fromIdle || toIdle) {
+		currentMIPS->downcount -= 1500;
+	} else {
+		currentMIPS->downcount -= 3000;
+	}
 
 	if (target)
 	{
