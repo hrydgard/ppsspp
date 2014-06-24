@@ -78,7 +78,10 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
 
 	if (error == 0 && verify == 1)
+	{
 		__KernelResumeThreadFromWait(threadID, result);
+		__KernelReSchedule("woke from hle delay");
+	}
 	else
 		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
 }
