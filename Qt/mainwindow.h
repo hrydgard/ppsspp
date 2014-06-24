@@ -9,6 +9,7 @@
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Debugger/debugger_disasm.h"
 #include "Debugger/debugger_memory.h"
 #include "Debugger/debugger_memorytex.h"
@@ -206,9 +207,9 @@ public slots:
 		if (_eventCheck)
 			setChecked(*_eventCheck);
 		if (_stateEnable >= 0)
-			setEnabled(globalUIState == _stateEnable);
+			setEnabled(GetUIState() == _stateEnable);
 		if (_stateDisable >= 0)
-			setEnabled(globalUIState != _stateDisable);
+			setEnabled(GetUIState() != _stateDisable);
 		if (_enableStepping && Core_IsStepping())
 			setEnabled(true);
 	}
