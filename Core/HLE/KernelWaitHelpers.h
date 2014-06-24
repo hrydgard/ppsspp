@@ -42,6 +42,7 @@ inline void WaitExecTimeout(SceUID threadID) {
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+		__KernelReSchedule("wait timed out");
 	}
 }
 

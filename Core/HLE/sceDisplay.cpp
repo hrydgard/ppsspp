@@ -583,15 +583,20 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	// Wake up threads waiting for VBlank
 	u32 error;
+	bool wokeThreads = false;
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		if (--vblankWaitingThreads[i].vcountUnblock == 0) {
 			// Only wake it if it wasn't already released by someone else.
 			SceUID waitID = __KernelGetWaitID(vblankWaitingThreads[i].threadID, WAITTYPE_VBLANK, error);
 			if (waitID == 1) {
 				__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+				wokeThreads = true;
 			}
 			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i--);
 		}
+	}
+	if (wokeThreads) {
+		__KernelReSchedule("entered vblank");
 	}
 
 	// Trigger VBlank interrupt handlers.

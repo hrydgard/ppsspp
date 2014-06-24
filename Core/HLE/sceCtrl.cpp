@@ -271,6 +271,7 @@ retry:
 		ctrlDataPtr = __KernelGetWaitValue(threadID, error);
 		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
 		__KernelResumeThreadFromWait(threadID, retVal);
+		__KernelReSchedule("ctrl buffers updated");
 	}
 }
 

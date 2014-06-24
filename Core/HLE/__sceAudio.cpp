@@ -293,6 +293,7 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
+			__KernelReSchedule("audio drain");
 
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 		}
