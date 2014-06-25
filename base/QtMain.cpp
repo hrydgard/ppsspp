@@ -13,7 +13,7 @@
 #include <QLocale>
 #include <QThread>
 
-#ifdef ANDROID
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QStandardPaths>
 #endif
 
@@ -144,19 +144,15 @@ static int mainInternal(QApplication &a)
 	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
-		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2 || fmt.samples != 2048) {
+		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
+		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
 			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, 44100);
-			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, AUDIO_S16);
-			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, 2);
-			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, 2048);
-		}
-
-		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2) {
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
 			ELOG("Provided output format does not match requirement, turning audio off");
 			SDL_CloseAudio();
-		} else {
-			ELOG("Provided output audio format is usable, thus using it");
 		}
 	}
 
@@ -193,24 +189,24 @@ int main(int argc, char *argv[])
 	g_dpi_scale = CalculateDPIScale();
 	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
-#ifdef __SYMBIAN32__
-	const char *savegame_dir = "E:/PPSSPP/";
-	const char *assets_dir = "E:/PPSSPP/";
+	std::string savegame_dir = ".";
+	std::string assets_dir = ".";
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+	savegame_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation).toStdString();
+        assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
+#elif defined(__SYMBIAN32__)
+	savegame_dir = "E:/PPSSPP";
+	assets_dir = "E:/PPSSPP";
 #elif defined(BLACKBERRY)
-	const char *savegame_dir = "/accounts/1000/shared/misc/";
-	const char *assets_dir = "app/native/assets/";
+	savegame_dir = "/accounts/1000/shared/misc";
+	assets_dir = "app/native/assets";
 #elif defined(MAEMO)
-	const char *savegame_dir = "/home/user/MyDocs/PPSSPP/";
-	const char *assets_dir = "/opt/PPSSPP/";
-#elif defined(ANDROID)
-	const char *savegame_dir = QStandardPaths::standardLocations(QStandardPaths::HomeLocation).at(0).toStdString().c_str();
-	const char *assets_dir = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation).at(0).toStdString().c_str();
-	setenv("QT_USE_ANDROID_NATIVE_DIALOGS", "1", 1); // Which Qt version does this need?
-#else
-	const char *savegame_dir = "./";
-	const char *assets_dir = "./";
+	savegame_dir = "/home/user/MyDocs/PPSSPP";
+	assets_dir = "/opt/PPSSPP";
 #endif
-	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
+	savegame_dir += "/";
+	assets_dir += "/";
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE");
 
 	int ret = mainInternal(a);
 

@@ -579,19 +579,15 @@ int main(int argc, char *argv[]) {
 	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
-		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2 || fmt.samples != 2048) {
+		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
+		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
 			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, 44100);
-			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, AUDIO_S16);
-			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, 2);
-			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, 2048);
-		}
-
-		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2) {
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
 			ELOG("Provided output format does not match requirement, turning audio off");
 			SDL_CloseAudio();
-		} else {
-			ELOG("Provided output audio format is usable, thus using it");
 		}
 	}
 
