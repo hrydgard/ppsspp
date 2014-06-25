@@ -25,9 +25,9 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 		image = image.mirrored();
 	*pwidth = image.width();
 	*pheight = image.height();
+	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0) 
 	image.convertToFormat(QImage::Format_ARGB32);
-	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
         // Qt4 does not support RGBA 
@@ -78,8 +78,8 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 		image = image.mirrored();
 	*pwidth = image.width();
 	*pheight = image.height();
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
 	// Qt4 does not support RGBA
