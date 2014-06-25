@@ -25,12 +25,19 @@
 #endif
 #ifdef QT_HAS_SDL
 #include "SDL/SDLJoystick.h"
+#include "SDL_audio.h"
 #endif
 #include "QtMain.h"
 
 #include <string.h>
 
 InputState* input_state;
+
+#ifdef QT_HAS_SDL
+extern void mixaudio(void *userdata, Uint8 *stream, int len) {
+	NativeMix((short *)stream, len / 4);
+}
+#endif
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
@@ -121,18 +128,51 @@ static int mainInternal(QApplication &a)
 	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
 #endif
 
+#ifdef QT_HAS_SDL
+	SDLJoystick joy(true);
+	joy.startEventLoop();
+	SDL_Init(SDL_INIT_AUDIO);
+	SDL_AudioSpec fmt, ret_fmt;
+	memset(&fmt, 0, sizeof(fmt));
+	fmt.freq = 44100;
+	fmt.format = AUDIO_S16;
+	fmt.channels = 2;
+	fmt.samples = 2048;
+	fmt.callback = &mixaudio;
+	fmt.userdata = (void *)0;
+
+	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
+		ELOG("Failed to open audio: %s", SDL_GetError());
+	} else {
+		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2 || fmt.samples != 2048) {
+			ELOG("Sound buffer format does not match requested format.");
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, 44100);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, AUDIO_S16);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, 2);
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, 2048);
+		}
+
+		if (ret_fmt.freq != 44100 || ret_fmt.format != AUDIO_S16 || ret_fmt.channels != 2) {
+			ELOG("Provided output format does not match requirement, turning audio off");
+			SDL_CloseAudio();
+		} else {
+			ELOG("Provided output audio format is usable, thus using it");
+		}
+	}
+
+	// Audio must be unpaused _after_ NativeInit()
+	SDL_PauseAudio(0);
+#else
 	QScopedPointer<QThread> thread(new QThread);
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->moveToThread(thread.data());
 	QObject::connect(thread.data(), SIGNAL(started()), audio.data(), SLOT(run()));
 	thread->start();
-
-#ifdef QT_HAS_SDL
-	SDLJoystick joy(true);
-	joy.startEventLoop();
 #endif
 	int ret = a.exec();
+#ifndef QT_HAS_SDL
 	thread->quit();
+#endif
 	return ret;
 }
 
@@ -174,6 +214,12 @@ int main(int argc, char *argv[])
 
 	int ret = mainInternal(a);
 
+#ifndef MOBILE_DEVICE
+	exit(0);
+#endif
+	NativeShutdownGraphics();
+	SDL_PauseAudio(1);
+	SDL_CloseAudio();
 	NativeShutdown();
 	net::Shutdown();
 	return ret;
