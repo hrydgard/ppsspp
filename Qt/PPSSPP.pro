@@ -4,8 +4,9 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 include(Settings.pri)
 
-lessThan(QT_MAJOR_VERSION, 5):lessThan(QT_MINOR_VERSION, 7) {
-	error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
+lessThan(QT_MAJOR_VERSION, 5) {
+	macx: error(PPSSPP requires Qt5 for OS X but $$[QT_VERSION] was detected.)
+	else:lessThan(QT_MINOR_VERSION, 7): error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
 }
 
 # Extra Qt modules

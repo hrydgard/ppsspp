@@ -284,12 +284,15 @@ void NativeInit(int argc, const char *argv[],
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
-	char* config = getenv("XDG_CONFIG_HOME");
-	if (!config) {
-		config = getenv("HOME");
-		strcat(config, "/.config");
-	}
-	g_Config.memCardDirectory = std::string(config) + "/ppsspp/";
+	std::string config;
+	if (getenv("XDG_CONFIG_HOME") != NULL)
+		config = getenv("XDG_CONFIG_HOME");
+	else if (getenv("HOME") != NULL)
+		config = getenv("HOME") + std::string("/.config");
+	else // Just in case
+		config = "./config";
+
+	g_Config.memCardDirectory = config + "/ppsspp/";
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
@@ -378,7 +381,10 @@ void NativeInit(int argc, const char *argv[],
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_directory;
 #else
-		g_Config.currentDirectory = getenv("HOME");
+		if (getenv("HOME") != NULL)
+			g_Config.currentDirectory = getenv("HOME");
+		else
+			g_Config.currentDirectory = "./";
 #endif
 	}
 
