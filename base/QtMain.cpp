@@ -218,8 +218,10 @@ int main(int argc, char *argv[])
 	exit(0);
 #endif
 	NativeShutdownGraphics();
+#ifdef QT_HAS_SDL
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
+#endif
 	NativeShutdown();
 	net::Shutdown();
 	return ret;
