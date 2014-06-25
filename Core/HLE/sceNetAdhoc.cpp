@@ -497,17 +497,17 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 
 										// Return sent size
-										return sent;
+										//return sent;
 										// Success
-										//return 0;
+										return 0;
 									}
 									// Partially Sent Data (when non-blocking socket's send buffer is smaller than len)
-									else if (flag && (sent >= 0)) {
+									/*else if (flag && (sent >= 0)) {
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Partial Sent %u bytes to %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 									
 										// Return sent size
 										return sent;
-									}
+									}*/
 
 									// Blocking Situation
 									if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
@@ -535,7 +535,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								//	sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
 								//}
 #endif
-								int maxsent = 0;
+								//int maxsent = 0;
 
 								// Acquire Peer Lock
 								peerlock.lock();
@@ -554,7 +554,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									// Send Data
 									changeBlockingMode(socket->id, flag);
 									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
-									if (sent > maxsent) maxsent = sent;
+									//if (sent > maxsent) maxsent = sent;
 									if (sent == SOCKET_ERROR) {
 										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[i%](Broadcast)", errno, socket->id);
 									}
@@ -571,10 +571,10 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								// Free Network Lock
 								//_freeNetworkLock();
 
-								// Broadcast never fails!
-								//return 0;
+								// Success, Broadcast never fails!
+								return 0;
 								// Return sent size
-								return maxsent;
+								//return maxsent;
 							}
 						}
 
@@ -695,11 +695,11 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						//_freeNetworkLock();
 
 						// Return Success
-						//return 0;
+						return 0;
 					}
 
-					//Return Received len
-					return received;
+					//Receiving data from unknown peer, ignored ?
+					return ERROR_NET_ADHOC_NO_DATA_AVAILABLE;
 				}
 
 				// Free Network Lock
@@ -2348,8 +2348,8 @@ int sceNetAdhocMatchingStop(int matchingId) {
 			friendFinderThread.join();
 		}*/
 
-		// Remove your own MAC, or All memebers, don't remove at all?
-		//delAllMembers();
+		// Remove your own MAC, or All memebers, or don't remove at all or we should do this on MatchingDelete ?
+		//deleteAllMembers(item);
 	}
 
 	return 0;
