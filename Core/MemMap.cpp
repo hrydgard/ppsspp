@@ -166,7 +166,6 @@ static bool Memory_TryBase(u32 flags) {
 		
 #ifdef __SYMBIAN32__
 		if (!CanIgnoreView(view)) {
-			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
 			memmap->Commit(view.virtual_address & MEMVIEW32_MASK, view.size);
 		}
 		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
