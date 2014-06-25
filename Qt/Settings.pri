@@ -16,7 +16,8 @@ INCLUDEPATH += $$P/ext/zlib $$P/Common
 exists($$P/.git): GIT_VERSION = $$system(git describe --always)
 isEmpty(GIT_VERSION): GIT_VERSION = $$VERSION
 symbian: DEFINES += "PPSSPP_GIT_VERSION=\"$$GIT_VERSION\""
-else: DEFINES += PPSSPP_GIT_VERSION=$$shell_quote(\"$$GIT_VERSION\")
+else:greaterThan(QT_MAJOR_VERSION,4): DEFINES += PPSSPP_GIT_VERSION=$$shell_quote(\"$$GIT_VERSION\")
+else: DEFINES += PPSSPP_GIT_VERSION=$$quote($$GIT_VERSION)
 
 win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast

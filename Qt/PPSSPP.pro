@@ -116,9 +116,9 @@ else {
 	
 	# Creating translations should be done by Qt, really
 	LREL_TOOL = lrelease
-	# Grab all possible directories (win32/unix) and search from last to first
-	win32: PATHS = $$reverse($$split($$(PATH), ;))
-	else: PATHS = $$reverse($$split($$(PATH), :))
+	# Grab all possible directories (win32/unix)
+	win32: PATHS = $$split($$(PATH), ;)
+	else: PATHS = $$split($$(PATH), :)
 	greaterThan(QT_MAJOR_VERSION, 4) {
 		for(bin, PATHS): exists($${bin}/$${LREL_TOOL}-qt5): LREL_TOOL=$${bin}/$${LREL_TOOL}-qt5
 	} else {
