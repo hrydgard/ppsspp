@@ -26,7 +26,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	*pwidth = image.width();
 	*pheight = image.height();
 	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0) 
+#if QT_VERSION < QT_VERSION_CHECK(5, 2, 0) 
 	image.convertToFormat(QImage::Format_ARGB32);
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
