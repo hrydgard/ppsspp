@@ -105,8 +105,12 @@ static int width;
 static int height;
 static bool wasPaused;
 
+// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
+static const double timePerVblank = 1.001f / 60.0f;
+
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
+static double lastFrameTime;
 static double nextFrameTime;
 static int numVBlanksSinceFlip;
 
@@ -184,7 +188,7 @@ void __DisplayInit() {
 	framebuf.pspFramebufLinesize = 480; // ??
 	lastFlipCycles = 0;
 	lastFlipsTooFrequent = 0;
-	wasPaused = 0;
+	wasPaused = false;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
@@ -199,6 +203,7 @@ void __DisplayInit() {
 	hCountBase = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
+	lastFrameTime = 0.0;
 
 	flips = 0;
 	fps = 0.0;
@@ -466,38 +471,21 @@ enum {
 	FPS_LIMIT_CUSTOM = 1,
 };
 
-// Start out assuming we'll go at 59.94 NTSC.
-static float timestepSmooth[8] = {
-	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
-	1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f, 1.001f / 60.0f,
-};
-static int timestepNext = 0;
-
-static float CalculateSmoothTimestep(float lastTimestep) {
-	// Straight up ignore timesteps that would cause sub-10 fps speeds.
-	if (lastTimestep < 1.001f / 10.0f) {
-		timestepSmooth[timestepNext] = lastTimestep;
-	}
-	timestepNext = (timestepNext + 1) % ARRAY_SIZE(timestepSmooth);
-
-	float summed = 0.0f;
-	for (size_t i = 0; i < ARRAY_SIZE(timestepSmooth); ++i) {
-		summed += timestepSmooth[i];
-	}
-	return summed / (float)ARRAY_SIZE(timestepSmooth);
-}
-
 void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
+static bool FrameTimingThrottled() {
+	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0) {
+		return false;
+	}
+	return !PSP_CoreParameter().unthrottle;
+}
+
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
-	float timestep = CalculateSmoothTimestep(lastTimestep);
+void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
-	throttle = !PSP_CoreParameter().unthrottle;
-	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0)
-		throttle = false;
+	throttle = FrameTimingThrottled();
 	skipFrame = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
@@ -513,18 +501,28 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 		return;	
 	}
 
-
 	if (!throttle && !doFrameSkip)
 		return;
 	
 	time_update();
-	
-	curFrameTime = time_now_d();
-	if (nextFrameTime == 0.0 || wasPaused) {
-		nextFrameTime = time_now_d() + timestep;
+
+	float scaledTimestep = timestep;
+	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit != 0) {
+		scaledTimestep *= 60.0f / g_Config.iFpsLimit;
+	}
+
+	if (lastFrameTime == 0.0 || wasPaused) {
+		nextFrameTime = time_now_d() + scaledTimestep;
 		if (wasPaused)
 			wasPaused = false;
+	} else {
+		// Advance lastFrameTime by a constant amount each frame,
+		// but don't let it get too far behind as things can get very jumpy.
+		const double maxFallBehindFrames = 5.5;
+
+		nextFrameTime = std::max(lastFrameTime + scaledTimestep, time_now_d() - maxFallBehindFrames * scaledTimestep);
 	}
+	curFrameTime = time_now_d();
 	
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
@@ -543,8 +541,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 
 	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody unthrottled)
-		if ((nextFrameTime - curFrameTime > 2*timestep) && fpsLimiter == FPS_LIMIT_NORMAL) {
-			nextFrameTime = curFrameTime + timestep;
+		if (nextFrameTime - curFrameTime > 2*scaledTimestep) {
+			nextFrameTime = curFrameTime;
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
@@ -554,17 +552,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float lastTimestep) {
 		}
 		curFrameTime = time_now_d();
 	}
-	// Advance lastFrameTime by a constant amount each frame,
-	// but don't let it get too far behind as things can get very jumpy.
-	const double maxFallBehindFrames = 5.5;
 
-	// 3 states of fps limiter
-	if (fpsLimiter == FPS_LIMIT_NORMAL) {
-		nextFrameTime = std::max(nextFrameTime + timestep, time_now_d() - maxFallBehindFrames * timestep);
-	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
-		double customLimiter = (g_Config.iFpsLimit / 60.0f) / timestep;
-		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
-	}
+	lastFrameTime = nextFrameTime;
 }
 
 
@@ -637,8 +626,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpuStats.numFlips++;
 
 		bool throttle, skipFrame;
-		// 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.001f / 60.0f));
+		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
 
 		int maxFrameskip = 8;
 		if (throttle) {
@@ -689,18 +677,14 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	// Our normal timing is very "stop and go".  This is efficient, but causes real world lag.
 	// This event (optionally) runs every 1ms to sync with the real world.
 
-	if (PSP_CoreParameter().unthrottle) {
+	if (!FrameTimingThrottled()) {
 		lagSyncScheduled = false;
 		return;
 	}
 
 	float scale = 1.0f;
 	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
-		if (g_Config.iFpsLimit == 0) {
-			lagSyncScheduled = false;
-			return;
-		}
-
+		// 0 is handled in FrameTimingThrottled().
 		scale = 60.0f / g_Config.iFpsLimit;
 	}
 
