@@ -556,6 +556,38 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	lastFrameTime = nextFrameTime;
 }
 
+void DoFrameIdleTiming() {
+	if (!FrameTimingThrottled() || wasPaused) {
+		return;
+	}
+
+	time_update();
+
+	double dist = time_now_d() - lastFrameTime;
+	// Ignore if the distance is just crazy.  May mean wrap or pause.
+	if (dist < 0.0 || dist >= 15 * timePerVblank) {
+		return;
+	}
+
+	float scaledVblank = timePerVblank;
+	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
+		// 0 is handled in FrameTimingThrottled().
+		scaledVblank *= 60.0f / g_Config.iFpsLimit;
+	}
+
+	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
+	// This prevents fast forward during loading screens.
+	const double thresh = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank;
+	if (numVBlanksSinceFlip >= 2 && time_now_d() < thresh) {
+		// Give a little extra wiggle room in case the next vblank does more work.
+		const double goal = lastFrameTime + numVBlanksSinceFlip * scaledVblank - 0.001;
+		while (time_now_d() < goal) {
+			sleep_ms(1);
+			time_update();
+		}
+	}
+}
+
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
@@ -650,6 +682,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// place to do housekeeping.
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
+	} else {
+		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
+		DoFrameIdleTiming();
 	}
 }
 
