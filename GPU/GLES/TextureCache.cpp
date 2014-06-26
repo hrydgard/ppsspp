@@ -252,7 +252,6 @@ void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebu
 }
 
 bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
-	static const u32 MIN_SUBAREA_HEIGHT = 8;
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = {0};
@@ -263,6 +262,9 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 	const u32 texaddr = ((entry->addr + texaddrOffset) & ~mirrorMask);
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry->format < 4;
+	const u32 h = 1 << ((entry->dim >> 8) & 0xf);
+	// 512 on a 272 framebuffer is sane, so let's be lenient.
+	const u32 minSubareaHeight = h / 4;
 
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
@@ -309,7 +311,7 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 			}
 		}
 
-		if (fbInfo.yOffset + MIN_SUBAREA_HEIGHT >= framebuffer->height) {
+		if (fbInfo.yOffset + minSubareaHeight >= framebuffer->height) {
 			// Can't be inside the framebuffer then, ram.  Detach to be safe.
 			DetachFramebuffer(entry, address, framebuffer);
 			return false;
