@@ -8,6 +8,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/HLE/sceCtrl.h"
 #ifdef _WIN32
 #include "util/text/utf8.h"
 #endif
@@ -534,7 +535,121 @@ void CWCheatEngine::Run() {
 				}
 				break;
 			case 0xD: // Test commands & Jocker codes ( Someone will have to help me with these)
-				break;
+				if (arg >> 28 == 0x0 || arg >> 28 == 0x2) { // 8Bit & 16Bit ignore next line cheat code
+					bool is8Bit = (arg >> 28) == 0x2;
+					addr = GetAddress(comm & 0x0FFFFFFF);
+					if (Memory::IsValidAddress(addr)) {
+						int memoryValue = is8Bit ? Memory::Read_U8(addr) : Memory::Read_U16(addr);
+						int testValue = arg & (is8Bit ? 0xFF : 0xFFFF);
+						bool executeNextLines = false;
+						switch ((arg >> 20) & 0xF) {
+						case 0x0: // Equal
+							executeNextLines = memoryValue == testValue;
+							break;
+						case 0x1: // Not Equal
+							executeNextLines = memoryValue != testValue;
+							break;
+						case 0x2: // Less Than
+							executeNextLines = memoryValue < testValue;
+							break;
+						case 0x3: // Greater Than
+							executeNextLines = memoryValue > testValue;
+							break;
+						default:
+							break;
+						}
+						if (!executeNextLines)
+							SkipCodes(1);
+					}
+					break;
+				}
+				else if (arg >> 28 == 0x1 || arg >> 28 == 0x3) { // Buttons dependent ignore cheat code
+					// Button	Code
+					// SELECT	0x00000001
+					// START	0x00000008
+					// DPAD UP	0x00000010
+					// DPAD RIGHT	0x00000020
+					// DPAD DOWN	0x00000040
+					// DPAD LEFT	0x00000080
+					// L TRIGGER	0x00000100
+					// R TRIGGER	0x00000200
+					// TRIANGLE	0x00001000
+					// CIRCLE	0x00002000
+					// CROSS	0x00004000
+					// SQUARE	0x00008000
+					// HOME		0x00010000
+					// HOLD		0x00020000
+					// WLAN		0x00040000
+					// REMOTE HOLD	0x00080000
+					// VOLUME UP	0x00100000
+					// VOLUME DOWN	0x00200000
+					// SCREEN	0x00400000
+					// NOTE		0x00800000
+					u32 buttonStatus = __CtrlPeekButtons();
+					int skip = (comm & 0xFF) + 1;
+					if (arg >> 28 == 0x1)
+						if (buttonStatus == arg & 0x0FFFFFFF)	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+							break;
+						else
+							SkipCodes(skip);
+					else
+						if (buttonStatus != arg & 0x0FFFFFFF)	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
+							break;
+						else
+							SkipCodes(skip);
+					break;
+				}
+				else if (arg >> 28 == 0x4 || arg >> 28 == 0x5 || arg >> 28 == 0x6 || arg >> 28 == 0x7) {
+					int addr1 = GetAddress(comm & 0x0FFFFFFF);
+					int addr2 = GetAddress(arg & 0xFFFFFFFF);
+					code = GetNextCode();
+					if (true)
+						if (Memory::IsValidAddress(addr1) && Memory::IsValidAddress(addr2)) {
+							int comm2 = code[0];
+							int arg2 = code[1];
+							int skip = (comm2 & 0xFFFFFFFF);
+							int memoryValue1 = 0;
+							int memoryValue2 = 0;
+							switch (arg2 >> 4) {
+							case 0x0: // 8Bit
+								memoryValue1 = Memory::Read_U8(addr1);
+								memoryValue2 = Memory::Read_U8(addr2);
+								break;
+							case 0x1: // 16Bit
+								memoryValue1 = Memory::Read_U16(addr1);
+								memoryValue2 = Memory::Read_U16(addr2);
+								break;
+							case 0x2: // 32Bit
+								memoryValue1 = Memory::Read_U32(addr1);
+								memoryValue2 = Memory::Read_U32(addr2);
+								break;
+							default:
+								break;
+							}
+							switch (arg >> 28) {
+							case 0x4: // Equal
+								if (memoryValue1 != memoryValue2)
+									SkipCodes(skip);
+								break;
+							case 0x5: // Not Equal
+								if (memoryValue1 == memoryValue2)
+									SkipCodes(skip);
+								break;
+							case 0x6: // Less Than
+								if (memoryValue1 >= memoryValue2)
+									SkipCodes(skip);
+								break;
+							case 0x7: // Greater Than
+								if (memoryValue1 <= memoryValue2)
+									SkipCodes(skip);
+								break;
+							default:
+								break;
+							}
+						}
+				}
+				else
+					break;
 			case 0xE: // Test commands, multiple skip
 				{
 					bool is8Bit = (comm >> 24) == 0xE1;
