@@ -76,6 +76,6 @@ for /f "tokens=2 delims=-" %%a in ("%GIT_VERSION%") do set num_build=%%a
 set WIN_VERSION_FILE=%~p0.\windows-version.h
 echo // version.rc update follows PPSSPP_GIT_VERSION_NO_UPDATE > "%WIN_VERSION_FILE%"
 echo #define PPSSPP_WINDOWS_VERSION_COMMA   %num_version:.=,%,%num_build% >> "%WIN_VERSION_FILE%"
-echo #define PPSSPP_WINDOWS_VERSION_STRING "%num_version%.%num_build%" >> "%WIN_VERSION_FILE%"
+echo #define PPSSPP_WINDOWS_VERSION_STRING "%GIT_VERSION:~1%" >> "%WIN_VERSION_FILE%"
 
 :done
