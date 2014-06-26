@@ -3,7 +3,7 @@
  *
  */
 // Qt 4.7+ / 5.0+ implementation of the framework.
-// Currently supports: Symbian, Blackberry, Maemo/Meego, Linux, Windows, Mac OSX
+// Currently supports: Android, Symbian, Blackberry, Maemo/Meego, Linux, Windows, Mac OSX
 
 #include <QApplication>
 #include <QUrl>
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 	std::string assets_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 	savegame_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation).toStdString();
-        assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
+	assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
 #elif defined(__SYMBIAN32__)
 	savegame_dir = "E:/PPSSPP";
 	assets_dir = "E:/PPSSPP";
