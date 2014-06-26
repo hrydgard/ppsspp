@@ -437,7 +437,7 @@ int sceNetAdhocctlGetParameter(u32 paramAddr) {
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_INVALID_DATALEN, ADHOC_SOCKET_ALERTED, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_WOULD_BLOCK, NET_NO_SPACE, NET_INTERNAL
  */
 int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, int timeout, int flag) {
-	DEBUG_LOG(SCENET, "sceNetAdhocPdpSend(%i, %08x, %i, %p, %i, %i, %i)", id, mac, port, data, len, timeout, flag);
+	DEBUG_LOG(SCENET, "sceNetAdhocPdpSend(%i, %p, %i, %p, %i, %i, %i)", id, mac, port, data, len, timeout, flag);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -483,8 +483,9 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									// Send Data
 									changeBlockingMode(socket->id, flag);
 									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
+									int error = errno;
 									if (sent == SOCKET_ERROR) {
-										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend", errno);
+										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend [size=%i]", error, len);
 									}
 									changeBlockingMode(socket->id, 0);
 
@@ -496,18 +497,9 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									if (sent == len) {
 										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 
-										// Return sent size
-										//return sent;
 										// Success
 										return 0;
 									}
-									// Partially Sent Data (when non-blocking socket's send buffer is smaller than len)
-									/*else if (flag && (sent >= 0)) {
-										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Partial Sent %u bytes to %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
-									
-										// Return sent size
-										return sent;
-									}*/
 
 									// Blocking Situation
 									if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
@@ -535,7 +527,6 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								//	sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
 								//}
 #endif
-								//int maxsent = 0;
 
 								// Acquire Peer Lock
 								peerlock.lock();
@@ -549,14 +540,12 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									target.sin_addr.s_addr = peer->ip_addr;
 									target.sin_port = htons(dport);
 
-									uint8_t * thing = (uint8_t *)&peer->ip_addr;
-									// printf("Attempting PDP Send to %u.%u.%u.%u on Port %u\n", thing[0], thing[1], thing[2], thing[3], dport);
 									// Send Data
 									changeBlockingMode(socket->id, flag);
 									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
-									//if (sent > maxsent) maxsent = sent;
+									int error = errno;
 									if (sent == SOCKET_ERROR) {
-										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[i%](Broadcast)", errno, socket->id);
+										ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpSend[%i](BC) [size=%i]", error, socket->id, len);
 									}
 									changeBlockingMode(socket->id, 0);
 									if (sent >= 0) {
@@ -573,8 +562,6 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 								// Success, Broadcast never fails!
 								return 0;
-								// Return sent size
-								//return maxsent;
 							}
 						}
 
@@ -603,6 +590,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 
 }
 
+
 /**
  * Adhoc Emulator PDP Receive Call
  * @param id Socket File Descriptor
@@ -621,7 +609,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 	}
 
 	SceNetEtherAddr *saddr = (SceNetEtherAddr *)addr;
-	uint32_t * sport = (uint32_t *)port;  // uint16_t * sport = (uint16_t *)port; //Looking at Quake3 sourcecode (net_adhoc.c) this should be 32bit isn't?
+	uint16_t * sport = (uint16_t *)port; //Looking at Quake3 sourcecode (net_adhoc.c) this is an "int" (32bit) but changing here to 32bit will cause FF-Type0 to see duplicated Host (thinking it was from a different host)
 	int * len = (int *)dataLength;
 	if (netAdhocInited) {
 		// Valid Socket ID
@@ -630,7 +618,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 			SceNetAdhocPdpStat * socket = pdp[id - 1];
 
 			// Valid Arguments
-			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len >= 0) { // since it's possible to recv 0 size, should we allow 0 size also?
+			if (saddr != NULL && port != NULL && buf != NULL && len != NULL && *len > 0) { 
 #ifndef PDP_DIRTY_MAGIC
 				// Schedule Timeout Removal
 				if (flag == 1) timeout = 0;
@@ -663,19 +651,21 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				// Set Address Length (so we get the sender ip)
 				socklen_t sinlen = sizeof(sin);
 				//sin.sin_len = (uint8_t)sinlen;
+
 				// Acquire Network Lock
 				//_acquireNetworkLock();
 
 				// Receive Data
 				changeBlockingMode(socket->id,flag);
 				int received = recvfrom(socket->id, (char *)buf, *len,0,(sockaddr *)&sin, &sinlen);
-				/*if (received == SOCKET_ERROR) {
-					ERROR_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv", errno);
-				}*/
+				int error = errno;
+				if (received == SOCKET_ERROR) {
+					DEBUG_LOG(SCENET, "Socket Error (%i) on sceNetAdhocPdpRecv [size=%i]", error, *len);
+				}
 				changeBlockingMode(socket->id, 0); 
 
 				// Received Data
-				if (received >= 0) { // (received > 0)
+				if (received >= 0) {
 					uint8_t * sip = (uint8_t *)&sin.sin_addr.s_addr;
 					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
 
@@ -686,7 +676,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					if (resolveIP(sin.sin_addr.s_addr, &mac) == 0) {
 						// Provide Sender Information
 						*saddr = mac;
-						*sport = ntohs(sin.sin_port); //htons(sin.sin_port);
+						*sport = ntohs(sin.sin_port);
 
 						// Save Length
 						*len = received;
@@ -697,8 +687,12 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						// Return Success
 						return 0;
 					}
+					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Unknown Peer %u.%u.%u.%u:%u", socket->id, ntohs(getLocalPort(socket->id)), sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
 
-					//Receiving data from unknown peer, ignored ?
+					// Free Network Lock
+					//_freeNetworkLock();
+
+					//Receiving data from unknown peer, ignore it ?
 					return ERROR_NET_ADHOC_NO_DATA_AVAILABLE;
 				}
 
@@ -711,8 +705,8 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 #endif
 
 				// Nothing received
-				if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK; //ERROR_NET_ADHOC_NO_DATA_AVAILABLE;
-				return ERROR_NET_ADHOC_TIMEOUT; //
+				if (flag) return ERROR_NET_ADHOC_WOULD_BLOCK;
+				return ERROR_NET_ADHOC_TIMEOUT;
 			}
 
 			// Invalid Argument
@@ -1507,7 +1501,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 	if (Memory::IsValidAddress(peerPortPtr)) {
 		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
 	}
-	DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%s,%d,%u,%d)",id, addr->data,*port,timeout, flag);
+	DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%p,[%p]=%u,%d,%u)", id, peerMacAddrPtr, peerPortPtr, *port, timeout, flag);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -1594,11 +1588,11 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 										
 										// Copy Local Address Data to Structure
 										getLocalMac(&internal->laddr);
-										internal->lport = ntohs(local.sin_port); // htons(local.sin_port);
+										internal->lport = ntohs(local.sin_port);
 										
 										// Copy Peer Address Data to Structure
 										internal->paddr = mac;
-										internal->pport = ntohs(peeraddr.sin_port); // htons(peeraddr.sin_port);
+										internal->pport = ntohs(peeraddr.sin_port);
 										
 										// Set Connected State
 										internal->state = PTP_STATE_ESTABLISHED;
@@ -1821,7 +1815,7 @@ int sceNetAdhocPtpClose(int id, int unknown) {
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_PORT_NOT_AVAIL, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
 int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int unk) {
-	DEBUG_LOG(SCENET, "sceNetAdhocPtpListen(%s,%d,%d,%d,%d,%d,%d)",srcmac,sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk);
+	DEBUG_LOG(SCENET, "sceNetAdhocPtpListen(%p,%d,%d,%d,%d,%d,%d)",srcmac,sport,bufsize,rexmt_int,rexmt_cnt,backlog,unk);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
