@@ -213,7 +213,6 @@ if(NOT MSVC)
 	endif()
 
 	if (BLACKBERRY AND ARM)
-		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 	endif()
@@ -376,7 +375,15 @@ add_library(stb_vorbis STATIC
 include_directories(native/ext/stb_vorbis)
 
 if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
-	if(BLACKBERRY)
+	if(ANDROID)
+		if(ARMV7)
+			set(PLATFORM_ARCH "android/armv7")
+		elseif(ARM)
+			set(PLATFORM_ARCH "android/arm")
+		elseif(X86)
+			set(PLATFORM_ARCH "android/x86")
+		endif()
+	elseif(BLACKBERRY)
 		set(PLATFORM_ARCH "blackberry/armv7")
 	elseif(IOS)
 		set(PLATFORM_ARCH "ios/universal")
@@ -657,6 +664,7 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ARMV7)
+	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
 endif()
@@ -676,7 +684,7 @@ if(ANDROID)
 	add_library(native_audio SHARED
 		native/android/native-audio-so.cpp
 		native/android/native-audio-so.h)
-	target_link_libraries(native_audio OpenSLES)
+	target_link_libraries(native_audio OpenSLES log)
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
@@ -737,6 +745,36 @@ elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
 else()
 	message(FATAL_ERROR "Could not find SDL. Failing.")
+endif()
+
+set(NativeAppSource
+	UI/NativeApp.cpp
+	UI/BackgroundAudio.cpp
+	UI/DevScreens.cpp
+	UI/EmuScreen.cpp
+	android/jni/TestRunner.cpp
+	UI/GameInfoCache.cpp
+	UI/MainScreen.cpp
+	UI/MiscScreens.cpp
+	UI/GameScreen.cpp
+	UI/GameSettingsScreen.cpp
+	UI/TiltAnalogSettingsScreen.cpp
+	UI/TiltEventProcessor.cpp
+	UI/TouchControlLayoutScreen.cpp
+	UI/TouchControlVisibilityScreen.cpp
+	UI/GamepadEmu.cpp
+	UI/UIShader.cpp
+	UI/OnScreenDisplay.cpp
+	UI/ControlMappingScreen.cpp
+	UI/Store.cpp
+	UI/CwCheatScreen.cpp
+	UI/InstallZipScreen.cpp
+	UI/ui_atlas.cpp)
+if(ANDROID)
+	if (ARM)
+		set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
+	endif()
+	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
 add_library(native STATIC
@@ -901,14 +939,14 @@ add_library(native STATIC
 	native/ext/jpge/jpge.h)
 include_directories(native)
 
-if (LINUX)
+if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
 target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
-	target_link_libraries(native log)
+	target_link_libraries(native log EGL)
 elseif(WIN32)
 	target_link_libraries(native ws2_32 winmm)
 endif()
@@ -1400,32 +1438,6 @@ if(WIN32)
 	setup_target_project(PPSSPPWindows Windows)
 endif()
 
-set(NativeAppSource
-	UI/NativeApp.cpp
-	UI/BackgroundAudio.cpp
-	UI/DevScreens.cpp
-	UI/EmuScreen.cpp
-	android/jni/TestRunner.cpp
-	UI/GameInfoCache.cpp
-	UI/MainScreen.cpp
-	UI/MiscScreens.cpp
-	UI/GameScreen.cpp
-	UI/GameSettingsScreen.cpp
-	UI/TiltAnalogSettingsScreen.cpp
-	UI/TiltEventProcessor.cpp
-	UI/TouchControlLayoutScreen.cpp
-	UI/TouchControlVisibilityScreen.cpp
-	UI/GamepadEmu.cpp
-	UI/UIShader.cpp
-	UI/OnScreenDisplay.cpp
-	UI/ControlMappingScreen.cpp
-	UI/Store.cpp
-	UI/CwCheatScreen.cpp
-	UI/InstallZipScreen.cpp
-	UI/ui_atlas.cpp)
-if(ANDROID AND ARM)
-	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
-endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/shaders

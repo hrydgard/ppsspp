@@ -172,5 +172,5 @@ maemo {
 	CONFIG += qt-boostable
 }
 
-ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android
+ANDROID_PACKAGE_SOURCE_DIR = $$P/android
 
