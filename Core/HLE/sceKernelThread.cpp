@@ -3241,9 +3241,9 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	if (fromIdle && toIdle) {
 		// Don't eat any cycles going between idle.
 	} else if (fromIdle || toIdle) {
-		currentMIPS->downcount -= 1500;
+		currentMIPS->downcount -= 1200;
 	} else {
-		currentMIPS->downcount -= 3000;
+		currentMIPS->downcount -= 2700;
 	}
 
 	if (target)
