@@ -684,10 +684,10 @@ void __KernelSetFplTimeout(u32 timeoutPtr)
 	// TODO: test for fpls.
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 
@@ -1596,10 +1596,10 @@ void __KernelSetVplTimeout(u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 

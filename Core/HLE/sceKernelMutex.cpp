@@ -499,7 +499,7 @@ void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -896,7 +896,7 @@ void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 

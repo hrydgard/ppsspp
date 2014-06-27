@@ -263,7 +263,7 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 
 	// This seems to match the actual timing.
 	if (micro <= 2)
-		micro = 10;
+		micro = 20;
 	else if (micro <= 209)
 		micro = 250;
 
