@@ -403,7 +403,7 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 
 	// This seems like the actual timing of timeouts on hardware.
 	if (micro <= 1)
-		micro = 5;
+		micro = 25;
 	else if (micro <= 209)
 		micro = 240;
 
