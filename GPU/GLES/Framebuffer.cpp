@@ -1005,7 +1005,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		ClearBuffer();
 		if (useBufferedRendering_ && !updateVRAM_) {
 			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
-			gpu->PerformStencilUpload(fb_address_mem, byteSize);
+			NotifyStencilUpload(fb_address_mem, byteSize, true);
 			// TODO: Is it worth trying to upload the depth buffer?
 		}
 
