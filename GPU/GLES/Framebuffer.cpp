@@ -1879,7 +1879,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	}
 
 	// Pixel size always 4 here because we always request RGBA8888
-	size_t bufSize = vfb->fb_stride * vfb->height * 4;
+	size_t bufSize = vfb->fb_stride * std::max(vfb->height, (u16)h) * 4;
 	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
@@ -2354,7 +2354,7 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			const float srcXFactor = (float)bpp / srcBpp;
 			if (srcHeight <= 0 || srcY + srcHeight >= srcBuffer->bufferHeight) {
-				WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
+				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 			} else {
 				ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
 			}
