@@ -112,10 +112,37 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 		break;
 	}
 
-	if (dstBuffer->fbo) {
+	bool useBlit = false;
+	bool useNV = false;
+
+#ifndef USING_GLES2
+	if (gl_extensions.FBO_ARB) {
+		useNV = false;
+		useBlit = true;
+	}
+#else
+	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+		useNV = !gl_extensions.GLES3;
+		useBlit = true;
+	}
+#endif
+
+	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
+	// Then after we're done, we'll just blit it across and stretch it there.
+	if (dstBuffer->bufferWidth == dstBuffer->renderWidth || !dstBuffer->fbo) {
+		useBlit = false;
+	}
+	u16 w = useBlit ? dstBuffer->bufferWidth : dstBuffer->renderWidth;
+	u16 h = useBlit ? dstBuffer->bufferHeight : dstBuffer->renderHeight;
+
+	FBO *blitFBO = NULL;
+	if (useBlit) {
+		blitFBO = GetTempFBO(w, h, FBO_8888);
+		fbo_bind_as_render_target(blitFBO);
+	} else if (dstBuffer->fbo) {
 		fbo_bind_as_render_target(dstBuffer->fbo);
 	}
-	glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
+	glViewport(0, 0, w, h);
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);
@@ -140,11 +167,20 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	}
 	glStencilMask(0xFF);
 
-	if (currentRenderVfb_) {
-		RebindFramebuffer();
-	} else {
-		fbo_unbind();
+	if (useBlit) {
+		fbo_bind_as_render_target(dstBuffer->fbo);
+		fbo_bind_for_read(blitFBO);
+		if (!useNV) {
+			glBlitFramebuffer(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+		} else {
+#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
+			glBlitFramebufferNV(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+#endif // defined(USING_GLES2) && defined(ANDROID)
+		}
 	}
+
+	fbo_unbind();
+	RebindFramebuffer();
 	glstate.viewport.restore();
 	return true;
 }
