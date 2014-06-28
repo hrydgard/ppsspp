@@ -36,6 +36,7 @@ public:
 	GLES_GPU();
 	~GLES_GPU();
 	virtual void InitClear();
+	virtual void Reinitialize();
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	void ExecuteOpInternal(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
@@ -161,6 +162,7 @@ private:
 	void PerformMemorySetInternal(u32 dest, u8 v, int size);
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
 
 	static CommandInfo cmdInfo_[256];
