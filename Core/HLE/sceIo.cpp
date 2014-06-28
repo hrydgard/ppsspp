@@ -324,7 +324,6 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	u32 address = __KernelGetWaitValue(threadID, error);
 	if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
 		HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, f->GetUID(), 0);
-		__KernelReSchedule("async io completed");
 		// Someone woke up, so it's no longer got one.
 		f->hasAsyncResult = false;
 
@@ -361,9 +360,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 		ERROR_LOG(SCEIO, "Unable to complete IO operation on %s", f->GetName());
 	}
 
-	if (HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result)) {
-		__KernelReSchedule("io completed");
-	}
+	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 }
 
 void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
