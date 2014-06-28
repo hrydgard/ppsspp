@@ -1377,7 +1377,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		MINSD(XMM0, M(&maxIntAsDouble));
 		MAXSD(XMM0, M(&minIntAsDouble));
 		switch ((op >> 21) & 0x1f) {
-		case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+		case 16: /* TODO */ break; //n
 		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
 		case 18: /* TODO */ break; //u
 		case 19: /* TODO */ break; //d

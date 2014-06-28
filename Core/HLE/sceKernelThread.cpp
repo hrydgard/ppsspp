@@ -1390,32 +1390,8 @@ void __KernelIdle()
 	// That means the hle flag would stick around until the next call.
 
 	CoreTiming::Idle();
-	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
-	// that was triggered at the end of the Idle period must get a chance to be scheduled.
-	CoreTiming::Advance();
-
-	// We must've exited a callback?
-	if (__KernelInCallback())
-	{
-		u32 error;
-		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
-		if (t)
-		{
-			__KernelChangeReadyState(t, currentCallbackThreadID, false);
-			t->nt.status = (t->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
-			__KernelSwitchContext(t, "idle");
-		}
-		else
-		{
-			WARN_LOG_REPORT(SCEKERNEL, "UNTESTED - Callback thread deleted during interrupt?");
-			g_inCbCount = 0;
-			currentCallbackThreadID = 0;
-		}
-	}
-
-	// In Advance, we might trigger an interrupt such as vblank.
-	// If we end up in an interrupt, we don't want to reschedule.
-	// However, we have to reschedule... damn.
+	// We Advance within __KernelReSchedule(), so anything that has now happened after idle
+	// will be triggered properly upon reschedule.
 	__KernelReSchedule("idle");
 }
 
@@ -1712,10 +1688,6 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 		return;
 	}
 
-	// TODO: Need to defer if in callback?
-	if (g_inCbCount > 0)
-		WARN_LOG_REPORT(SCEKERNEL, "UNTESTED - waiting within a callback, probably bad mojo.");
-
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
@@ -1890,24 +1862,15 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
-	{
-		reason = "In Interrupt Or Callback";
-		return;
-	}
-
-	// This may get us running a callback, don't reschedule out of it.
-	if (__KernelCheckCallbacks())
-	{
-		reason = "Began interrupt or callback.";
-		return;
-	}
+	// First, let's check if there are any pending callback to trigger.
+	// TODO: Could probably take this out of __KernelReSchedule() which is a bit hot.
+	__KernelCheckCallbacks();
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::Advance();
-	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
 	{
+		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";
 		return;
 	}
@@ -3571,6 +3534,12 @@ bool __KernelCheckCallbacks() {
 	}
 	if (readyCallbacksCount < 0) {
 		ERROR_LOG_REPORT(SCEKERNEL, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) {
+		// TODO: Technically, other callbacks can run when a thread within a callback is waiting.
+		// However, callbacks that were pending before the current callback started won't be run.
+		// This is pretty uncommon, and not yet handled correctly.
+		return false;
 	}
 
 	bool processed = false;
