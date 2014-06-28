@@ -1220,12 +1220,16 @@ namespace MIPSComp
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 					VMOV(gpr.R(rt), fpr.V(imm));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-					// In case we have a saved prefix.
-					FlushPrefixV();
 					if (imm - 128 == VFPU_CTRL_CC) {
-						gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
-						MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						if (gpr.IsImm(MIPS_REG_VFPUCC)) {
+							gpr.SetImm(rt, gpr.GetImm(MIPS_REG_VFPUCC));
+						} else {
+							gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
+							MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						}
 					} else {
+						// In case we have a saved prefix.
+						FlushPrefixV();
 						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 						LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 					}
@@ -1243,8 +1247,12 @@ namespace MIPSComp
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
-					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-					MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					if (gpr.IsImm(rt)) {
+						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+					} else {
+						gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
+						MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					}
 				} else {
 					gpr.MapReg(rt);
 					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
@@ -1282,8 +1290,13 @@ namespace MIPSComp
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 			fpr.MapRegV(vs);
-			ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
-			VSTR(fpr.V(vs), SCRATCHREG1, 0);
+			if (imm - 128 == VFPU_CTRL_CC) {
+				gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY | MAP_NOINIT);
+				VMOV(gpr.R(MIPS_REG_VFPUCC), fpr.V(vs));
+			} else {
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				VSTR(fpr.V(vs), SCRATCHREG1, 0);
+			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
