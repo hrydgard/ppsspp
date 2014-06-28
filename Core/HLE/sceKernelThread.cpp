@@ -1390,13 +1390,8 @@ void __KernelIdle()
 	// That means the hle flag would stick around until the next call.
 
 	CoreTiming::Idle();
-	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
-	// that was triggered at the end of the Idle period must get a chance to be scheduled.
-	CoreTiming::Advance();
-
-	// In Advance, we might trigger an interrupt such as vblank.
-	// If we end up in an interrupt, we don't want to reschedule.
-	// However, we have to reschedule... damn.
+	// We Advance within __KernelReSchedule(), so anything that has now happened after idle
+	// will be triggered properly upon reschedule.
 	__KernelReSchedule("idle");
 }
 
