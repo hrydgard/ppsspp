@@ -79,8 +79,6 @@ void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcT
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();
-// Check and potentially run all thread's callbacks after the syscall finishes.
-void hleCheckAllCallbacks();
 // Reschedule after the syscall finishes.
 void hleReSchedule(const char *reason);
 // Reschedule and go into a callback processing state after the syscall finishes.
