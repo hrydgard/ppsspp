@@ -1867,24 +1867,15 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
-	{
-		reason = "In Interrupt Or Callback";
-		return;
-	}
-
-	// This may get us running a callback, don't reschedule out of it.
-	if (!__KernelInCallback() && __KernelCheckCallbacks())
-	{
-		reason = "Began interrupt or callback.";
-		return;
-	}
+	// First, let's check if there are any pending callback to trigger.
+	// TODO: Could probably take this out of __KernelReSchedule() which is a bit hot.
+	__KernelCheckCallbacks();
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::Advance();
 	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
 	{
+		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";
 		return;
 	}
@@ -3548,6 +3539,12 @@ bool __KernelCheckCallbacks() {
 	}
 	if (readyCallbacksCount < 0) {
 		ERROR_LOG_REPORT(SCEKERNEL, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) {
+		// TODO: Technically, other callbacks can run when a thread within a callback is waiting.
+		// However, callbacks that were pending before the current callback started won't be run.
+		// This is pretty uncommon, and not yet handled correctly.
+		return false;
 	}
 
 	bool processed = false;
