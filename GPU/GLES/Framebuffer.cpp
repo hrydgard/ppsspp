@@ -1879,7 +1879,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	}
 
 	// Pixel size always 4 here because we always request RGBA8888
-	size_t bufSize = vfb->fb_stride * vfb->height * 4;
+	size_t bufSize = vfb->fb_stride * std::max(vfb->height, (u16)h) * 4;
 	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
@@ -2188,8 +2188,10 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 	} else if (srcBuffer) {
 		WARN_LOG_REPORT_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
 		FlushBeforeCopy();
-		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated && srcH > 0) {
-			ReadFramebufferToMemory(srcBuffer, true, 0, 0, srcBuffer->width, srcH);
+		if (srcH == 0 || srcY + srcH >= srcBuffer->bufferHeight) {
+			WARN_LOG_REPORT_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
+		} else if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
+			ReadFramebufferToMemory(srcBuffer, true, 0, srcY, srcBuffer->width, srcH);
 		}
 		return false;
 	} else {
@@ -2349,9 +2351,13 @@ bool FramebufferManager::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride
 		WARN_LOG_ONCE(btd, G3D, "Block transfer download %08x -> %08x", srcBasePtr, dstBasePtr);
 		FlushBeforeCopy();
 		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
-			int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
-			float srcXFactor = (float)bpp / srcBpp;
-			ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
+			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
+			const float srcXFactor = (float)bpp / srcBpp;
+			if (srcHeight <= 0 || srcY + srcHeight >= srcBuffer->bufferHeight) {
+				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
+			} else {
+				ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
+			}
 		}
 		return false;  // Let the bit copy happen
 	} else {
