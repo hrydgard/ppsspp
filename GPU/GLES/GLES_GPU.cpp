@@ -503,6 +503,18 @@ void GLES_GPU::InitClear() {
 	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }
 
+void GLES_GPU::Reinitialize() {
+	GPUCommon::Reinitialize();
+	ScheduleEvent(GPU_EVENT_REINITIALIZE);
+}
+
+void GLES_GPU::ReinitializeInternal() {
+	textureCache_.Clear(true);
+	depalShaderCache_.Clear();
+	framebufferManager_.DestroyAllFBOs();
+	framebufferManager_.Resized();
+}
+
 void GLES_GPU::InitClearInternal() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
@@ -687,6 +699,10 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 
 	case GPU_EVENT_FB_STENCIL_UPLOAD:
 		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
+		break;
+
+	case GPU_EVENT_REINITIALIZE:
+		ReinitializeInternal();
 		break;
 
 	default:
