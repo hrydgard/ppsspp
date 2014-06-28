@@ -534,7 +534,7 @@ void CWCheatEngine::Run() {
 					}
 				}
 				break;
-			case 0xD: // Test commands & Jocker codes ( Someone will have to help me with these)
+			case 0xD: // Test commands & Jocker codes
 				if (arg >> 28 == 0x0 || arg >> 28 == 0x2) { // 8Bit & 16Bit ignore next line cheat code
 					bool is8Bit = (arg >> 28) == 0x2;
 					addr = GetAddress(comm & 0x0FFFFFFF);
@@ -588,12 +588,12 @@ void CWCheatEngine::Run() {
 					u32 buttonStatus = __CtrlPeekButtons();
 					int skip = (comm & 0xFF) + 1;
 					if (arg >> 28 == 0x1)
-						if (buttonStatus == arg & 0x0FFFFFFF)	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+						if (buttonStatus == (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
 							break;
 						else
 							SkipCodes(skip);
 					else
-						if (buttonStatus != arg & 0x0FFFFFFF)	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
+						if (buttonStatus != (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
 							break;
 						else
 							SkipCodes(skip);
@@ -610,7 +610,7 @@ void CWCheatEngine::Run() {
 							int skip = (comm2 & 0xFFFFFFFF);
 							int memoryValue1 = 0;
 							int memoryValue2 = 0;
-							switch (arg2 >> 4) {
+							switch (arg2 & 0xF) {
 							case 0x0: // 8Bit
 								memoryValue1 = Memory::Read_U8(addr1);
 								memoryValue2 = Memory::Read_U8(addr2);
