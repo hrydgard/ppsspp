@@ -2758,7 +2758,6 @@ int sceKernelSleepThread()
 int sceKernelSleepThreadCB()
 {
 	VERBOSE_LOG(SCEKERNEL, "sceKernelSleepThreadCB()");
-	hleCheckCurrentCallbacks();
 	return __KernelSleepThread(true);
 }
 
@@ -2810,7 +2809,6 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		hleCheckCurrentCallbacks();
 		if (t->nt.status != THREADSTATUS_DORMANT)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
@@ -2819,6 +2817,8 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");
 		}
+		else
+			hleCheckCurrentCallbacks();
 
 		return t->nt.exitStatus;
 	}

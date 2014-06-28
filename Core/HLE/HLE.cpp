@@ -378,7 +378,7 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
 		SetDeadbeefRegs();
 
-	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
+	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0 && (hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) == 0)
 		__KernelForceCallbacks();
 
 	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
