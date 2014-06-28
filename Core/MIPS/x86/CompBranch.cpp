@@ -446,7 +446,8 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	TEST(32, M(&(mips_->fpcond)), Imm32(1));
+	gpr.KillImmediate(MIPS_REG_FPCOND, true, false);
+	TEST(32, gpr.R(MIPS_REG_FPCOND), Imm32(1));
 
 	CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
 }
