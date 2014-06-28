@@ -48,8 +48,6 @@ enum
 	HLE_AFTER_RESCHED           = 0x01,
 	// Call current thread's callbacks after the syscall.
 	HLE_AFTER_CURRENT_CALLBACKS = 0x02,
-	// Check all threads' callbacks after the syscall.
-	HLE_AFTER_ALL_CALLBACKS     = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 	// Run interrupts (and probably reschedule) after the syscall.
@@ -256,11 +254,6 @@ const char *GetFuncName(int moduleIndex, int func)
 	return "[unknown]";
 }
 
-void hleCheckAllCallbacks()
-{
-	hleAfterSyscall |= HLE_AFTER_ALL_CALLBACKS;
-}
-
 void hleCheckCurrentCallbacks()
 {
 	hleAfterSyscall |= HLE_AFTER_CURRENT_CALLBACKS;
@@ -384,13 +377,10 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
 		__RunOnePendingInterrupt();
 
-	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
 	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
 		__KernelReSchedule(true, hleAfterSyscallReschedReason);
 	else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
 		__KernelReSchedule(hleAfterSyscallReschedReason);
-	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
-		__KernelCheckCallbacks();
 
 	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
 	{
