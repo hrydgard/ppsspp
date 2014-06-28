@@ -1090,10 +1090,10 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 			VMOV_neon(I_32, scratchReg, D4, 0);
 		}
 	} else {
-		VCVT(S8, S8, TO_INT);
-		VCVT(S9, S9, TO_INT);
-		VCVT(S10, S10, TO_INT);
-		VCVT(S11, S11, TO_INT);
+		VCVT(S8, S8, TO_INT | ROUND_TO_ZERO);
+		VCVT(S9, S9, TO_INT | ROUND_TO_ZERO);
+		VCVT(S10, S10, TO_INT | ROUND_TO_ZERO);
+		VCVT(S11, S11, TO_INT | ROUND_TO_ZERO);
 		VMOV(scratchReg, S8);
 		VMOV(scratchReg2, S9);
 		VMOV(scratchReg3, S10);
