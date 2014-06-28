@@ -1180,7 +1180,7 @@ namespace MIPSComp
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
 			switch ((op >> 21) & 0x1f) {
-			case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+			case 16: /* TODO */ break; //n
 			case 17:
 				if (mult != 1.0f) {
 					VMUL(S0, fpr.V(sregs[i]), S1);

@@ -636,7 +636,7 @@ namespace MIPSInt
 			} else {
 				switch ((op >> 21) & 0x1f)
 				{
-				case 16: d[i] = (int)round_vfpu_n(sv); break; //(floor(sv + 0.5f)); break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+				case 16: d[i] = (int)round_vfpu_n(sv); break; //(floor(sv + 0.5f)); break; //n
 				case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
 				case 18: d[i] = (int)ceil(sv); break; //u
 				case 19: d[i] = (int)floor(sv); break; //d
