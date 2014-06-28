@@ -258,6 +258,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	int fs = _FS;
 	int fd = _FD;
 
+	// TODO: Most of these mishandle infinity/NAN.
+	// Maybe we can try to track per reg if they *could* be INF/NAN to optimize out?
+
 	switch (op & 0x3f) {
 	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
@@ -284,22 +287,44 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
+	{
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
-		VADD(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
+		// For a positive value, we may have gotten a smaller value, in which case we need to increment.
+		VCMP(S1, fpr.R(fs));
+		VMOV(fpr.R(fd), S0);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		FixupBranch skip = B_CC(CC_GE);
+		MOVI2F(S0, 1.0f, SCRATCHREG1);
+		VADD(S1, S1, S0);
+		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetJumpTarget(skip);
 		break;
+	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
+	{
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
-		VSUB(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
+		// For a negative value, we may have gotten a larger value, in which case we need to decrement.
+		VCMP(S1, fpr.R(fs));
+		VMOV(fpr.R(fd), S0);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		FixupBranch skip = B_CC(CC_LS);
+		MOVI2F(S0, 1.0f, SCRATCHREG1);
+		VSUB(S1, S1, S0);
+		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetJumpTarget(skip);
 		break;
+	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
+	{
+		// TODO: This is a monster.  Try setting the ARM rounding mode instead?
 		fpr.MapDirtyIn(fd, fs);
 		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
 		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
@@ -308,17 +333,50 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		//	 1: Round to zero
 		//	 2: Round up (ceil)
 		//	 3: Round down (floor)
-		CMP(SCRATCHREG1, Operand2(2));
-		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, SCRATCHREG2);
-		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
-		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
-		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
-		SetCC(CC_AL);
 		CMP(SCRATCHREG1, Operand2(1));
-		SetCC(CC_EQ); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO); /* 1 */
-		SetCC(CC_LT); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED); /* 0 */
-		SetCC(CC_AL);
+		// Let's hope 0/1 are the most common.  Seems likely.
+		FixupBranch skipCeilFloor = B_CC(CC_LE);
+
+		// Okay, here we are in ceil or floor mode only.
+		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
+		// Compare now, we'll VMRS_APSR a bit later for the ceil/floor case.
+		VCMP(S1, fpr.R(fs));
+		VMOV(fpr.R(fd), S0);
+
+		CMP(SCRATCHREG1, Operand2(2));
+		FixupBranch useFloor = B_CC(CC_GT);
+
+		// This is the ceil case specifically.  We add one if we ended up lower.
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		FixupBranch finishCeil1 = B_CC(CC_GE);
+		MOVI2F(S0, 1.0f, SCRATCHREG1);
+		VADD(S1, S1, S0);
+		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		FixupBranch finishCeil2 = B();
+
+		// For floor, we subtract one if we ended up higher.
+		SetJumpTarget(useFloor);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		FixupBranch finishFloor1 = B_CC(CC_LS);
+		MOVI2F(S0, 1.0f, SCRATCHREG1);
+		VSUB(S1, S1, S0);
+		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		FixupBranch finishFloor2 = B();
+
+		SetJumpTarget(skipCeilFloor);
+		// LT 1 means 0, nearest.  EQ means 1, round to zero.
+		SetCC(CC_LT);
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		SetCC(CC_EQ);
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+
+		SetJumpTarget(finishCeil1);
+		SetJumpTarget(finishCeil2);
+		SetJumpTarget(finishFloor1);
+		SetJumpTarget(finishFloor2);
 		break;
+	}
 	default:
 		DISABLE;
 	}
@@ -341,15 +399,25 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 2: //cfc1
 		if (fs == 31) {
-			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
-			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			if (gpr.IsImm(MIPS_REG_FPCOND)) {
+				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
+					ORI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCHREG2);
+				} else {
+					ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);
+				}
+			} else {
+				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 #ifdef HAVE_ARMV7
-			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 #else
-			AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
-			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
+				AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
 #endif
+			}
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
 		} else {
@@ -365,9 +433,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 6: //ctc1
-		if (fs == 31)
-		{
-			gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+		if (fs == 31) {
+			bool wasImm = gpr.IsImm(rt);
+			if (wasImm) {
+				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				gpr.MapReg(rt);
+			} else {
+				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+			}
 			// Hardware rounding method.
 			// Left here in case it is faster than conditional method.
 			/*
@@ -388,12 +461,16 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			// Update MIPS state
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			if (!wasImm) {
 #ifdef HAVE_ARMV7
-			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 #else
-			MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
-			AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
+				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
+				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
+			}
+		} else {
+			Comp_Generic(op);
 		}
 		return;
 	}

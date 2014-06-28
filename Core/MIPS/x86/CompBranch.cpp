@@ -446,7 +446,8 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	TEST(32, M(&(mips_->fpcond)), Imm32(1));
+	gpr.KillImmediate(MIPS_REG_FPCOND, true, false);
+	TEST(32, gpr.R(MIPS_REG_FPCOND), Imm32(1));
 
 	CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
 }
@@ -493,7 +494,8 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	// THE CONDITION
 	int imm3 = (op >> 18) & 7;
 
-	TEST(32, M(&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
+	gpr.KillImmediate(MIPS_REG_VFPUCC, true, false);
+	TEST(32, gpr.R(MIPS_REG_VFPUCC), Imm32(1 << imm3));
 
 	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
 	CompBranchExits(cc, targetAddr, notTakenTarget, delaySlotIsNice, likely, false);

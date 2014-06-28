@@ -828,48 +828,56 @@ namespace MIPSComp
 		{
 		case 16: // R(rd) = HI; //mfhi
 			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), M(&mips_->hi));
+			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_HI));
 			break; 
 
 		case 17: // HI = R(rs); //mthi
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
 			gpr.MapReg(rs, true, false);
-			MOV(32, M(&mips_->hi), gpr.R(rs));
+			MOV(32, gpr.R(MIPS_REG_HI), gpr.R(rs));
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
 			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), M(&mips_->lo));
+			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_LO));
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.MapReg(rs, true, false);
-			MOV(32, M(&mips_->lo), gpr.R(rs));
+			MOV(32, gpr.R(MIPS_REG_LO), gpr.R(rs));
 			break; 
 
 		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			IMUL(32, gpr.R(rt));
-			MOV(32, M(&mips_->hi), R(EDX));
-			MOV(32, M(&mips_->lo), R(EAX));
+			MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
+			MOV(32, gpr.R(MIPS_REG_LO), R(EAX));
 			gpr.UnlockAllX();
 			break;
 
 
 		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			MUL(32, gpr.R(rt));
-			MOV(32, M(&mips_->hi), R(EDX));
-			MOV(32, M(&mips_->lo), R(EAX));
+			MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
+			MOV(32, gpr.R(MIPS_REG_LO), R(EAX));
 			gpr.UnlockAllX();
 			break;
 
 		case 26: //div
 			{
 				gpr.FlushLockX(EDX);
+				gpr.KillImmediate(MIPS_REG_HI, false, true);
+				gpr.KillImmediate(MIPS_REG_LO, false, true);
 				// For CMP.
 				gpr.KillImmediate(rs, true, false);
 				gpr.KillImmediate(rt, true, false);
@@ -882,7 +890,7 @@ namespace MIPSComp
 				CMP(32, gpr.R(rt), Imm32((u32) -1));
 				FixupBranch notOverflow2 = J_CC(CC_NE);
 				// TODO: Should HI be set to anything?
-				MOV(32, M(&mips_->lo), Imm32(0x80000000));
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0x80000000));
 				FixupBranch skip2 = J();
 
 				SetJumpTarget(notOverflow);
@@ -891,14 +899,14 @@ namespace MIPSComp
 				MOV(32, R(EAX), gpr.R(rs));
 				CDQ();
 				IDIV(32, gpr.R(rt));
-				MOV(32, M(&mips_->hi), R(EDX));
-				MOV(32, M(&mips_->lo), R(EAX));
+				MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
+				MOV(32, gpr.R(MIPS_REG_LO), R(EAX));
 				FixupBranch skip = J();
 
 				SetJumpTarget(divZero);
 				// TODO: Is this the right way to handle a divide by zero?
-				MOV(32, M(&mips_->hi), Imm32(0));
-				MOV(32, M(&mips_->lo), Imm32(0));
+				MOV(32, gpr.R(MIPS_REG_HI), Imm32(0));
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0));
 
 				SetJumpTarget(skip);
 				SetJumpTarget(skip2);
@@ -909,6 +917,8 @@ namespace MIPSComp
 		case 27: //divu
 			{
 				gpr.FlushLockX(EDX);
+				gpr.KillImmediate(MIPS_REG_HI, false, true);
+				gpr.KillImmediate(MIPS_REG_LO, false, true);
 				gpr.KillImmediate(rt, true, false);
 				CMP(32, gpr.R(rt), Imm32(0));
 				FixupBranch divZero = J_CC(CC_E);
@@ -916,14 +926,14 @@ namespace MIPSComp
 				MOV(32, R(EAX), gpr.R(rs));
 				MOV(32, R(EDX), Imm32(0));
 				DIV(32, gpr.R(rt));
-				MOV(32, M(&mips_->hi), R(EDX));
-				MOV(32, M(&mips_->lo), R(EAX));
+				MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
+				MOV(32, gpr.R(MIPS_REG_LO), R(EAX));
 				FixupBranch skip = J();
 
 				SetJumpTarget(divZero);
 				// TODO: Is this the right way to handle a divide by zero?
-				MOV(32, M(&mips_->hi), Imm32(0));
-				MOV(32, M(&mips_->lo), Imm32(0));
+				MOV(32, gpr.R(MIPS_REG_HI), Imm32(0));
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0));
 
 				SetJumpTarget(skip);
 				gpr.UnlockAllX();
@@ -932,41 +942,49 @@ namespace MIPSComp
 
 		case 28: // madd
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			IMUL(32, gpr.R(rt));
-			ADD(32, M(&mips_->lo), R(EAX));
-			ADC(32, M(&mips_->hi), R(EDX));
+			ADD(32, gpr.R(MIPS_REG_LO), R(EAX));
+			ADC(32, gpr.R(MIPS_REG_HI), R(EDX));
 			gpr.UnlockAllX();
 			break;
 
 		case 29: // maddu
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			MUL(32, gpr.R(rt));
-			ADD(32, M(&mips_->lo), R(EAX));
-			ADC(32, M(&mips_->hi), R(EDX));
+			ADD(32, gpr.R(MIPS_REG_LO), R(EAX));
+			ADC(32, gpr.R(MIPS_REG_HI), R(EDX));
 			gpr.UnlockAllX();
 			break;
 
 		case 46: // msub
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			IMUL(32, gpr.R(rt));
-			SUB(32, M(&mips_->lo), R(EAX));
-			SBB(32, M(&mips_->hi), R(EDX));
+			SUB(32, gpr.R(MIPS_REG_LO), R(EAX));
+			SBB(32, gpr.R(MIPS_REG_HI), R(EDX));
 			gpr.UnlockAllX();
 			break;
 
 		case 47: // msubu
 			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(MIPS_REG_HI, false, true);
+			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
 			MOV(32, R(EAX), gpr.R(rs));
 			MUL(32, gpr.R(rt));
-			SUB(32, M(&mips_->lo), R(EAX));
-			SBB(32, M(&mips_->hi), R(EDX));
+			SUB(32, gpr.R(MIPS_REG_LO), R(EAX));
+			SBB(32, gpr.R(MIPS_REG_HI), R(EDX));
 			gpr.UnlockAllX();
 			break;
 

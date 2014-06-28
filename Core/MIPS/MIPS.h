@@ -186,6 +186,8 @@ public:
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
 
+	bool HasDefaultPrefix() const;
+
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.

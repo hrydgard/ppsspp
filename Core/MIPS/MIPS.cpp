@@ -218,6 +218,10 @@ void MIPSState::Init() {
 	rng.Init(0x1337);
 }
 
+bool MIPSState::HasDefaultPrefix() const {
+	return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
+}
+
 void MIPSState::UpdateCore(CPUCore desired) {
 	if (PSP_CoreParameter().cpuCore == desired) {
 		return;

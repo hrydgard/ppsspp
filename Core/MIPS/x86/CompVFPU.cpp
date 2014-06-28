@@ -720,21 +720,21 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	}
 
 	if (imm3 < 6) {
-		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
-		TEST(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(1 << imm3));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+		TEST(32, gpr.R(MIPS_REG_VFPUCC), Imm32(1 << imm3));
 		FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
 		for (int i = 0; i < n; i++) {
 			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
 		}
 		SetJumpTarget(skip);
 	} else {
-		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
-		MOV(32, R(EAX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
-
+		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
 		for (int i = 0; i < n; i++) {
-			TEST(32, R(EAX), Imm32(1 << i));
+			TEST(32, gpr.R(MIPS_REG_VFPUCC), Imm32(1 << i));
 			FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
 			SetJumpTarget(skip);
@@ -925,10 +925,12 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 	static const int true_bits[4] = {0x31, 0x33, 0x37, 0x3f};
 
 	if (cond == VC_TR) {
-		OR(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(true_bits[n-1]));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+		OR(32, gpr.R(MIPS_REG_VFPUCC), Imm32(true_bits[n-1]));
 		return;
 	} else if (cond == VC_FL) {
-		AND(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(~true_bits[n-1]));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+		AND(32, gpr.R(MIPS_REG_VFPUCC), Imm32(~true_bits[n-1]));
 		return;
 	}
 
@@ -1065,14 +1067,13 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		SHL(32, R(ECX), Imm8(4));
 		OR(32, R(EAX), R(ECX));
 	}
-
-	MOV(32, R(ECX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
-	AND(32, R(ECX), Imm32(~affected_bits));
-	OR(32, R(ECX), R(EAX));
-	MOV(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), R(ECX));
+	
+	gpr.UnlockAllX();
+	gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+	AND(32, gpr.R(MIPS_REG_VFPUCC), Imm32(~affected_bits));
+	OR(32, gpr.R(MIPS_REG_VFPUCC), R(EAX));
 
 	fpr.ReleaseSpillLocks();
-	gpr.UnlockAllX();
 }
 
 // There are no immediates for floating point, so we need to load these
@@ -1678,10 +1679,22 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 				gpr.MapReg(rt, false, true);
 				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
-				// In case we have a saved prefix.
-				FlushPrefixV();
-				gpr.MapReg(rt, false, true);
-				MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+				if (imm - 128 == VFPU_CTRL_CC) {
+					if (gpr.IsImm(MIPS_REG_VFPUCC)) {
+						gpr.SetImm(rt, gpr.GetImm(MIPS_REG_VFPUCC));
+					} else {
+						gpr.Lock(rt, MIPS_REG_VFPUCC);
+						gpr.MapReg(rt, false, true);
+						gpr.MapReg(MIPS_REG_VFPUCC, true, false);
+						MOV(32, gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						gpr.UnlockAll();
+					}
+				} else {
+					// In case we have a saved prefix.
+					FlushPrefixV();
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+				}
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
 				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
@@ -1695,8 +1708,20 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 			gpr.MapReg(rt, true, false);
 			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
-			gpr.MapReg(rt, true, false);
-			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+			if (imm - 128 == VFPU_CTRL_CC) {
+				if (gpr.IsImm(rt)) {
+					gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+				} else {
+					gpr.Lock(rt, MIPS_REG_VFPUCC);
+					gpr.MapReg(rt, true, false);
+					gpr.MapReg(MIPS_REG_VFPUCC, false, true);
+					MOV(32, gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					gpr.UnlockAll();
+				}
+			} else {
+				gpr.MapReg(rt, true, false);
+				MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+			}
 
 			// TODO: Optimization if rt is Imm?
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
@@ -1723,7 +1748,12 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 	int imm = op & 0xFF;
 	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 		fpr.MapRegV(vs, 0);
-		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.VX(vs));
+		if (imm - 128 == VFPU_CTRL_CC) {
+			gpr.MapReg(MIPS_REG_VFPUCC, false, true);
+			MOVD_xmm(gpr.R(MIPS_REG_VFPUCC), fpr.VX(vs));
+		} else {
+			MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.VX(vs));
+		}
 		fpr.ReleaseSpillLocks();
 
 		if (imm - 128 == VFPU_CTRL_SPREFIX) {

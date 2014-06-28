@@ -154,9 +154,10 @@ static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7
 
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
+	gpr.MapReg(MIPS_REG_FPCOND, false, true);
 	MOVSS(XMM0, fpr.R(lhs));
 	CMPSS(XMM0, fpr.R(rhs), compare);
-	MOVSS(M(&currentMIPS->fpcond), XMM0);
+	MOVD_xmm(gpr.R(MIPS_REG_FPCOND), XMM0);
 
 	// This means that NaN also means true, e.g. !<> or !>, etc.
 	if (allowNaN)
@@ -165,7 +166,7 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 		CMPUNORDSS(XMM0, fpr.R(rhs));
 
 		MOVD_xmm(R(EAX), XMM0);
-		OR(32, M(&currentMIPS->fpcond), R(EAX));
+		OR(32, gpr.R(MIPS_REG_FPCOND), R(EAX));
 	}
 }
 
@@ -180,7 +181,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op)
 	{
 	case 0: //f
 	case 8: //sf
-		MOV(32, M(&currentMIPS->fpcond), Imm32(0));
+		gpr.SetImm(MIPS_REG_FPCOND, 0);
 		break;
 
 	case 1: //un
@@ -319,7 +320,33 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		break;
 
 	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
-		Comp_Generic(op);
+		if (fs == 31) {
+			bool wasImm = gpr.IsImm(MIPS_REG_FPCOND);
+			if (!wasImm) {
+				gpr.Lock(rt, MIPS_REG_FPCOND);
+				gpr.MapReg(MIPS_REG_FPCOND, true, false);
+			}
+			gpr.MapReg(rt, false, true);
+			MOV(32, gpr.R(rt), M(&mips_->fcr31));
+			if (wasImm) {
+				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
+					OR(32, gpr.R(rt), Imm32(1 << 23));
+				} else {
+					AND(32, gpr.R(rt), Imm32(~(1 << 23)));
+				}
+			} else {
+				AND(32, gpr.R(rt), Imm32(~(1 << 23)));
+				MOV(32, R(EAX), gpr.R(MIPS_REG_FPCOND));
+				AND(32, R(EAX), Imm32(1));
+				SHL(32, R(EAX), Imm8(23));
+				OR(32, gpr.R(rt), R(EAX));
+			}
+			gpr.UnlockAll();
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			Comp_Generic(op);
+		}
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
@@ -329,7 +356,24 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
-		Comp_Generic(op);
+		if (fs == 31) {
+			if (gpr.IsImm(rt)) {
+				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				MOV(32, M(&mips_->fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));
+			} else {
+				gpr.Lock(rt, MIPS_REG_FPCOND);
+				gpr.MapReg(rt, true, false);
+				gpr.MapReg(MIPS_REG_FPCOND, false, true);
+				MOV(32, gpr.R(MIPS_REG_FPCOND), gpr.R(rt));
+				SHR(32, gpr.R(MIPS_REG_FPCOND), Imm8(23));
+				AND(32, gpr.R(MIPS_REG_FPCOND), Imm32(1));
+				MOV(32, M(&mips_->fcr31), gpr.R(rt));
+				AND(32, M(&mips_->fcr31), Imm32(0x0181FFFF));
+				gpr.UnlockAll();
+			}
+		} else {
+			Comp_Generic(op);
+		}
 		return;
 	}
 }
