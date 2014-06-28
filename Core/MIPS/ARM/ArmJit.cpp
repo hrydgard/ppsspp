@@ -88,7 +88,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
-	js.startDefaultPrefix = true;
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
 void Jit::DoState(PointerWrap &p)

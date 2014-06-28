@@ -135,10 +135,9 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 	asm_.Init(mips, this);
-	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
-	js.startDefaultPrefix = true;
-
 	safeMemFuncs.Init(&thunks);
+
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
 Jit::~Jit() {
