@@ -82,7 +82,7 @@ unsigned int WINAPI TheThread(void *)
 {
 	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
 
-	setCurrentThreadName("EmuThread");
+	setCurrentThreadName("Emu");  // And graphics...
 
 	// Native overwrites host. Can't allow that.
 

@@ -295,7 +295,7 @@ int sceKernelSignalSema(SceUID id, int signal)
 	{
 		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount)
 		{
-			DEBUG_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
+			VERBOSE_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
 			return SCE_KERNEL_ERROR_SEMA_OVF;
 		}
 

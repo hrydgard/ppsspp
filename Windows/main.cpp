@@ -23,6 +23,7 @@
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "base/NativeApp.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
 #include "Core/Config.h"
@@ -235,6 +236,8 @@ void MakePPSSPPDPIAware()
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	setCurrentThreadName("Main");
+
 	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
 	// so that we don't flicker in fullscreen on some PCs.
 	MakePPSSPPDPIAware();

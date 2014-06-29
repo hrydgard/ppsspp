@@ -250,7 +250,7 @@ void CPU_Shutdown() {
 }
 
 void CPU_RunLoop() {
-	setCurrentThreadName("CPUThread");
+	setCurrentThreadName("CPU");
 	FPU_SetFastMode();
 
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {

@@ -33,6 +33,7 @@
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
@@ -221,6 +222,7 @@ namespace MainWindow {
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
+		AssertCurrentThreadName("Main");
 		int width = 0, height = 0;
 		RECT rc;
 		GetClientRect(hwndMain, &rc);

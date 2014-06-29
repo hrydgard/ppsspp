@@ -113,7 +113,7 @@ namespace DSound
 
 	unsigned int WINAPI soundThread(void *)
 	{
-		setCurrentThreadName("DSoundThread");
+		setCurrentThreadName("DSound");
 		currentPos = 0;
 		lastPos = 0;
 		//writeDataToBuffer(0,realtimeBuffer,bufferSize);
