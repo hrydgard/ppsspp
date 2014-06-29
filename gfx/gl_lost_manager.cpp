@@ -67,7 +67,10 @@ void gl_lost_manager_init() {
 void gl_lost_manager_shutdown() {
 	if (!holders) {
 		FLOG("Lost manager already shutdown");
+	} else if (holders->size() > 0) {
+		ELOG("Lost manager shutdown with %i objects still registered", (int)holders->size());
 	}
+
 	delete holders;
 	holders = 0;
 }
