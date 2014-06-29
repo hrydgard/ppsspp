@@ -732,13 +732,21 @@ void MainScreen::CreateViews() {
 
 	leftColumn->SetClip(true);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	if (g_Config.iMaxRecent > 0) {
+		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		GameBrowser *tabRecentGames = new GameBrowser(
+			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		scrollRecentGames->Add(tabRecentGames);
+		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	}
+	
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -752,27 +760,24 @@ void MainScreen::CreateViews() {
 		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 	}
 
-	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+
 	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+
 	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
-	} else {
+	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1);
 	}
 
@@ -1245,25 +1250,28 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	if (g_Config.iMaxRecent > 0) {
+		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		GameBrowser *tabRecentGames = new GameBrowser(
+			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		scrollRecentGames->Add(tabRecentGames);
+		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 
-	tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
-	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	rightColumnItems->Add(new Choice(d->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
@@ -1271,7 +1279,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
-	}else{
+	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1);
 	}
 
