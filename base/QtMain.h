@@ -91,6 +91,12 @@ protected:
 		updateGL();
 		emit newFrame();
 	}
+	void changeEvent(QEvent *e)
+	{
+		QGLWidget::changeEvent(e);
+		if(e->type() == QEvent::WindowStateChange)
+			Core_NotifyWindowHidden(isMinimized());
+	}
 	bool event(QEvent *e)
 	{
 		TouchInput input;

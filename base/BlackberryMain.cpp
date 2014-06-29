@@ -17,6 +17,7 @@
 // Bad: PPSSPP includes from native
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "UI/MiscScreens.h"
 
 static bool g_quitRequested = false;
@@ -270,6 +271,9 @@ void BlackberryMain::runMain() {
 					break;
 				case NAVIGATOR_ORIENTATION:
 					sensor_remap_coordinates(navigator_event_get_orientation_angle(event));
+					break;
+				case NAVIGATOR_WINDOW_STATE:
+					Core_NotifyWindowHidden(navigator_event_get_window_state(event) != NAVIGATOR_WINDOW_FULLSCREEN);
 					break;
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
