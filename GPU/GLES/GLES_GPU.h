@@ -165,6 +165,7 @@ private:
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
+	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
 

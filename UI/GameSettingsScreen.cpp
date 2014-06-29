@@ -243,7 +243,7 @@ void GameSettingsScreen::CreateViews() {
 	depthWrite->SetEnabledPtr(&depthWriteEnable);
 
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
-	prescaleEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	prescaleEnable = !g_Config.bSoftwareRendering;
 	prescale->SetEnabledPtr(&prescaleEnable);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
@@ -422,7 +422,7 @@ void GameSettingsScreen::CreateViews() {
 }
 
 UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	prescaleEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	prescaleEnable = !g_Config.bSoftwareRendering;
 	depthWriteEnable = !g_Config.bSoftwareRendering;
 	stencilTestEnable = !g_Config.bSoftwareRendering;
 	beziersEnable = !g_Config.bSoftwareRendering;

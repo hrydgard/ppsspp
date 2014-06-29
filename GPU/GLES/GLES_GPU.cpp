@@ -436,17 +436,7 @@ GLES_GPU::GLES_GPU()
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 
-	if (g_Config.bPrescaleUV) {
-		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-	}
-
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexTypeSkinning;
-	}
+	UpdateCmdInfo();
 
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
@@ -562,15 +552,31 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 #endif
 }
 
+void GLES_GPU::UpdateCmdInfo() {
+	if (g_Config.bPrescaleUV) {
+		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+	} else {
+		cmdInfo_[GE_CMD_TEXSCALEU].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEV].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETU].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETV].flags |= FLAG_FLUSHBEFOREONCHANGE;
+	}
+
+	if (g_Config.bSoftwareSkinning) {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexTypeSkinning;
+	} else {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexType;
+	}
+}
+
 void GLES_GPU::BeginFrameInternal() {
 	if (resized_) {
-		if (g_Config.bSoftwareSkinning) {
-			cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-			cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexTypeSkinning;
-		} else {
-			cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-			cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexType;
-		}
+		UpdateCmdInfo();
 		transformDraw_.Resized();
 	}
 	UpdateVsyncInterval(resized_);

@@ -780,6 +780,10 @@ void TransformDrawEngine::Resized() {
 		delete iter->second;
 	}
 	decoderMap_.clear();
+
+	if (g_Config.bPrescaleUV && !uvScale) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
 }
 
 struct Plane {
