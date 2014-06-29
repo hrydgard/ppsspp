@@ -335,9 +335,9 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 
 void WindowsHost::GoFullscreen(bool viewFullscreen) {
 	if (viewFullscreen)
-		MainWindow::_ViewFullScreen(MainWindow::GetHWND());
+		MainWindow::SwitchToFullscreen(MainWindow::GetHWND());
 	else
-		MainWindow::_ViewNormal(MainWindow::GetHWND());
+		MainWindow::SwitchToWindowed(MainWindow::GetHWND());
 }
 
 void WindowsHost::ToggleDebugConsoleVisibility() {

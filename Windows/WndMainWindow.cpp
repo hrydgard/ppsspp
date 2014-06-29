@@ -132,6 +132,8 @@ namespace MainWindow {
 	static std::vector<std::string> availableShaders;
 	static W32Util::AsyncBrowseDialog *browseDialog;
 	static bool browsePauseAfter;
+	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
+
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -286,7 +288,11 @@ namespace MainWindow {
 		}
 	}
 
-	void _ViewNormal(HWND hWnd) {
+	void SwitchToWindowed(HWND hWnd) {
+		// Make sure no rendering is happening during the switch.
+		Core_NotifyWindowHidden(true);
+		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
+
 		// Put caption and border styles back.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
@@ -308,16 +314,23 @@ namespace MainWindow {
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
+
+		g_inModeSwitch = false;
+		Core_NotifyWindowHidden(false);
 	}
 
-	void _ViewFullScreen(HWND hWnd) {
-		// Keep in mind normal window rectangle.
+	void SwitchToFullscreen(HWND hWnd) {
+		// Make sure no rendering is happening during the switch.
+		Core_NotifyWindowHidden(true);
+		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
+
+		// Remember the normal window rectangle.
 		::GetWindowRect(hWnd, &g_normalRC);
 
 		// Remove caption and border styles.
@@ -341,12 +354,15 @@ namespace MainWindow {
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
 
 		ShowOwnedPopups(hwndMain, FALSE);
+
+		g_inModeSwitch = false;
+		Core_NotifyWindowHidden(false);
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -800,7 +816,7 @@ namespace MainWindow {
 		SetFocus(hwndMain);
 
 		if (g_Config.bFullScreen)
-			_ViewFullScreen(hwndMain);
+			SwitchToFullscreen(hwndMain);
 
 		return TRUE;
 	}
@@ -914,18 +930,20 @@ namespace MainWindow {
 
 		switch (message) {
 		case WM_SIZE:
-			switch (wParam) {
-			case SIZE_MAXIMIZED:
-			case SIZE_RESTORED:
-				Core_NotifyWindowHidden(false);
-				SavePosition();
-				ResizeDisplay();
-				break;
-			case SIZE_MINIMIZED:
-				Core_NotifyWindowHidden(true);
-				break;
-			default:
-				break;
+			if (!g_inModeSwitch) {
+				switch (wParam) {
+				case SIZE_MAXIMIZED:
+				case SIZE_RESTORED:
+					Core_NotifyWindowHidden(false);
+					SavePosition();
+					ResizeDisplay();
+					break;
+				case SIZE_MINIMIZED:
+					Core_NotifyWindowHidden(true);
+					break;
+				default:
+					break;
+				}
 			}
 			break;
 
@@ -1433,9 +1451,9 @@ namespace MainWindow {
 					g_Config.bFullScreen = !g_Config.bFullScreen;
 
 					if (g_Config.bFullScreen)
-						_ViewFullScreen(hWnd);
+						SwitchToFullscreen(hWnd);
 					else
-						_ViewNormal(hWnd);
+						SwitchToWindowed(hWnd);
 
 					break;
 

@@ -62,8 +62,8 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 	void SaveStateActionFinished(bool result, void *userdata);
-	void _ViewFullScreen(HWND hWnd);
-	void _ViewNormal(HWND hWnd);
+	void SwitchToFullscreen(HWND hWnd);
+	void SwitchToWindowed(HWND hWnd);
 	void ToggleDebugConsoleVisibility();
 	void TranslateMenus();
 	void setTexScalingMultiplier(int level);
