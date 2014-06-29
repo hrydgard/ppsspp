@@ -28,6 +28,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
@@ -575,16 +576,23 @@ void Advance()
 
 	if (!first)
 	{
-		// WARN_LOG(TIMER, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
-		currentMIPS->downcount += 10000;
-		slicelength = 10000;
+		// This should never happen in PPSSPP.
+		// WARN_LOG_REPORT(TIME, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
+		if (slicelength < 10000) {
+			slicelength += 10000;
+			currentMIPS->downcount += slicelength;
+		}
 	}
 	else
 	{
-		slicelength = (int)(first->time - globalTimer);
-		if (slicelength > MAX_SLICE_LENGTH)
-			slicelength = MAX_SLICE_LENGTH;
-		currentMIPS->downcount = slicelength;
+		// Note that events can eat cycles as well.
+		int target = (int)(first->time - globalTimer);
+		if (target > MAX_SLICE_LENGTH)
+			target = MAX_SLICE_LENGTH;
+
+		const int diff = target - slicelength;
+		slicelength += diff;
+		currentMIPS->downcount += diff;
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
