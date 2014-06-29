@@ -1862,7 +1862,7 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-	// First, let's check if there are any pending callback to trigger.
+	// First, let's check if there are any pending callbacks to trigger.
 	// TODO: Could probably take this out of __KernelReSchedule() which is a bit hot.
 	__KernelCheckCallbacks();
 

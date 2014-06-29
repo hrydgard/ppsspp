@@ -445,6 +445,7 @@ GLES_GPU::GLES_GPU()
 
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexTypeSkinning;
 	}
 
 	BuildReportingInfo();
@@ -562,6 +563,16 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 }
 
 void GLES_GPU::BeginFrameInternal() {
+	if (resized_) {
+		if (g_Config.bSoftwareSkinning) {
+			cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+			cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexTypeSkinning;
+		} else {
+			cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+			cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexType;
+		}
+		transformDraw_.Resized();
+	}
 	UpdateVsyncInterval(resized_);
 	resized_ = false;
 
@@ -817,19 +828,20 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 }
 
 void GLES_GPU::Execute_VertexType(u32 op, u32 diff) {
-	if (!g_Config.bSoftwareSkinning) {
+	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+	}
+}
+
+void GLES_GPU::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	// Don't flush when weight count changes, unless morph is enabled.
+	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		// Restore and flush
+		gstate.vertType ^= diff;
+		Flush();
+		gstate.vertType ^= diff;
 		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-	} else {
-		// Don't flush when weight count changes, unless morph is enabled.
-		if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			// Restore and flush
-			gstate.vertType ^= diff;
-			Flush();
-			gstate.vertType ^= diff;
-			if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
 	}
 }
 
