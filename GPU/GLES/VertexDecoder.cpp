@@ -905,6 +905,10 @@ VertexDecoderJitCache::VertexDecoderJitCache() {
 #endif
 }
 
+void VertexDecoderJitCache::Clear() {
+	ClearCodeSpace();
+}
+
 #if defined(PPC)
 
 #error This should not be built for PowerPC, at least not yet.

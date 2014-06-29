@@ -156,7 +156,7 @@ void GameSettingsScreen::CreateViews() {
 	hwTransform->SetEnabledPtr(&hwTransformEnable);
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gs->T("Software Skinning")));
-	swSkinningEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	swSkinningEnable = !g_Config.bSoftwareRendering;
 	swSkin->SetEnabledPtr(&swSkinningEnable);
 
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
@@ -243,7 +243,7 @@ void GameSettingsScreen::CreateViews() {
 	depthWrite->SetEnabledPtr(&depthWriteEnable);
 
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
-	prescaleEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	prescaleEnable = !g_Config.bSoftwareRendering;
 	prescale->SetEnabledPtr(&prescaleEnable);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
@@ -422,12 +422,12 @@ void GameSettingsScreen::CreateViews() {
 }
 
 UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	prescaleEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	prescaleEnable = !g_Config.bSoftwareRendering;
 	depthWriteEnable = !g_Config.bSoftwareRendering;
 	stencilTestEnable = !g_Config.bSoftwareRendering;
 	beziersEnable = !g_Config.bSoftwareRendering;
 	texSecondaryEnable = !g_Config.bSoftwareRendering;
-	swSkinningEnable = !PSP_IsInited() && !g_Config.bSoftwareRendering;
+	swSkinningEnable = !g_Config.bSoftwareRendering;
 	hwTransformEnable = !g_Config.bSoftwareRendering;
 	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
 	texBackoffEnable = !g_Config.bSoftwareRendering;

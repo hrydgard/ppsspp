@@ -197,6 +197,7 @@ public:
 
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec);
+	void Clear();
 
 	void Jit_WeightsU8();
 	void Jit_WeightsU16();

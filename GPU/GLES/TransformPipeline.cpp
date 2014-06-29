@@ -772,6 +772,20 @@ rotateVBO:
 #endif
 }
 
+void TransformDrawEngine::Resized() {
+	decJitCache_->Clear();
+	lastVType_ = -1;
+	dec_ = NULL;
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+		delete iter->second;
+	}
+	decoderMap_.clear();
+
+	if (g_Config.bPrescaleUV && !uvScale) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
+}
+
 struct Plane {
 	float x, y, z, w;
 	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
