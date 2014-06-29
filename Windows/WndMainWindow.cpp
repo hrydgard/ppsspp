@@ -827,6 +827,9 @@ namespace MainWindow
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+
+		if (g_Config.bFullScreen)
+			SwitchToFullscreen(hwndMain);
 		
 		ShowWindow(hwndMain, nCmdShow);
 
@@ -837,9 +840,6 @@ namespace MainWindow
 		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
-
-		if (g_Config.bFullScreen)
-			SwitchToFullscreen(hwndMain);
 
 		return TRUE;
 	}
