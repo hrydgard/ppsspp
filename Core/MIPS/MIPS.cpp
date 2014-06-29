@@ -328,5 +328,5 @@ u32 MIPSState::ReadFCR(int reg) {
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
-		MIPSComp::jit->InvalidateCacheAt(address, length);
+		MIPSComp::jit->ClearCacheAt(address, length);
 }

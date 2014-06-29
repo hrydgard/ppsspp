@@ -286,8 +286,7 @@ namespace MIPSComp
 		void WriteSyscallExit();
 
 		void ClearCache();
-		void InvalidateCache();
-		void InvalidateCacheAt(u32 em_address, int length = 4);
+		void ClearCacheAt(u32 em_address, int length = 4);
 
 		void RunLoopUntil(u64 globalticks);
 		void GenerateFixedCode();

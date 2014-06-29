@@ -133,7 +133,7 @@ namespace MIPSInt
 		case 8:
 			// Invalidate the instruction cache at this address
 			if (MIPSComp::jit) {
-				MIPSComp::jit->InvalidateCacheAt(addr, 0x40);
+				MIPSComp::jit->ClearCacheAt(addr, 0x40);
 			}
 			break;
 

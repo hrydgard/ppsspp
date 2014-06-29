@@ -50,6 +50,10 @@ static const char *stencil_vs =
 "  gl_Position = a_position;\n"
 "}\n";
 
+static bool MaskedEqual(u32 addr1, u32 addr2) {
+	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
+}
+
 bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -106,9 +110,6 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size) {
 		break;
 	case GE_FORMAT_8888:
 		values = 256;
-		break;
-	case GE_FORMAT_INVALID:
-		// Impossible.
 		break;
 	}
 

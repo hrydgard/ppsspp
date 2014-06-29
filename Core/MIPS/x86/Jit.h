@@ -168,8 +168,7 @@ public:
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	void ClearCacheAt(u32 em_address, int length = 4);
 
 private:
 	void GetStateAndFlushAll(RegCacheState &state);

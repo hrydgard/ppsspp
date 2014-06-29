@@ -178,8 +178,7 @@ public:
 	JitBlockCache *GetBlockCache() { return &blocks; }
 
 	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	void ClearCacheAt(u32 em_address, int length = 4);
 
 	void EatPrefix() { js.EatPrefix(); }
 

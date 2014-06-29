@@ -538,7 +538,7 @@ void CallSyscall(MIPSOpcode op)
 			CallSyscallWithoutFlags(info);
 	}
 	else
-		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
+		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(???)");
 
 	if (g_Config.bShowDebugStats)
 	{
