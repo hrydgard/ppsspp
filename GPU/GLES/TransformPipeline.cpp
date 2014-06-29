@@ -263,7 +263,6 @@ inline void TransformDrawEngine::SetupVertexDecoderInternal(u32 vertType) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
-	// TODO: Simply cache the setup decoders instead.
 	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
