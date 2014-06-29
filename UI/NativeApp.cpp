@@ -442,13 +442,16 @@ void NativeInit(int argc, const char *argv[],
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
+
+	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
+	// When it's reset we don't want to forget all our managed things.
+	gl_lost_manager_init();
 }
 
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
 	CheckGLExtensions();
-	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
 
@@ -564,8 +567,6 @@ void NativeShutdownGraphics() {
 	ui_draw2d_front.Shutdown();
 
 	UIShader_Shutdown();
-
-	gl_lost_manager_shutdown();
 }
 
 void TakeScreenshot() {
@@ -866,6 +867,8 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
+	gl_lost_manager_shutdown();
+
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
