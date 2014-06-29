@@ -239,6 +239,18 @@ const char *DefaultLangRegion() {
 	return defaultLangRegion.c_str();
 }
 
+const char *CreateRandMAC() {
+	std::stringstream randStream;
+        srand(time(0));
+        for(int i = 0; i < 6; i++) {
+                randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+        	if (i<5) {
+        		randStream << ':'; //we need a : between every octet
+        	}
+        }
+        return randStream.str().c_str(); //no need for creating a new string, just return this
+}
+
 static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
@@ -539,7 +551,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP"),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost"),
-	ConfigSetting("MacAddress", &g_Config.localMacAddress, g_Config.CreateRandMAC().c_str()),
+	ConfigSetting("MacAddress", &g_Config.localMacAddress, &CreateRandMAC),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD),
@@ -1014,15 +1026,4 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 	}
 }
 
-std::string Config::CreateRandMAC() {
-	std::stringstream randStream;
-        srand(time(0));
-        for(int i = 0; i < 6; i++) {
-                randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
-        	if (i<5) {
-        		randStream << ':'; //we need a : between every octet
-        	}
-        }
-        return randStream.str(); //no need for creating a new string, just return this
-}
 
