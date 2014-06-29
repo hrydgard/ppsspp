@@ -160,6 +160,7 @@ enum {
 	KEY_UP = 1 << 1,
 	KEY_HASWHEELDELTA = 1 << 2,
 	KEY_IS_REPEAT = 1 << 3,
+	KEY_CHAR = 1 << 4,  // Unicode character input. Cannot detect keyups of these so KEY_DOWN and KEY_UP are zero when this is set.
 };
 
 struct KeyInput {
