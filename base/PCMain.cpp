@@ -776,10 +776,9 @@ int main(int argc, char *argv[]) {
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
-		NativeUpdate(input_state);
+		UpdateRunLoop();
 		if (g_QuitRequested)
 			break;
-		NativeRender();
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)
 		if (lastUIState != GetUIState()) {
 			lastUIState = GetUIState();
@@ -789,8 +788,6 @@ int main(int argc, char *argv[]) {
 				SDL_ShowCursor(SDL_ENABLE);
 		}
 #endif
-
-		EndInputState(&input_state);
 
 		if (framecount % 60 == 0) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.

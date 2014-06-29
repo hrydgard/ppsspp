@@ -304,7 +304,6 @@ void BlackberryMain::runMain() {
 			}
 		}
 		UpdateInputState(&input_state);
-		NativeUpdate(input_state);
 		// Work in Progress
 		// Currently: Render to HDMI port (eg. 1080p) when in game. Render to device when in menu.
 		// Idea: Render to all displays. Controls go to internal, game goes to external(s).
@@ -319,9 +318,8 @@ void BlackberryMain::runMain() {
 			emulating = false;
 			switchDisplay(screen_ui);
 		}
-		NativeRender();
-		EndInputState(&input_state);
 		time_update();
+		UpdateRunLoop();
 		// This handles VSync
 		if (emulating)
 			eglSwapBuffers(egl_disp[screen_emu], egl_surf[screen_emu]);

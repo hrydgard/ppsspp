@@ -11,7 +11,7 @@
 #include <QAudioFormat>
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
 #include <QAccelerometer>
-#if QT_VERSION < 0x50000
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 QTM_USE_NAMESPACE
 #endif
 #endif
@@ -44,7 +44,7 @@ public:
 		QGLWidget(parent)
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
-#if QT_VERSION < 0x50000
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 		setAttribute(Qt::WA_LockLandscapeOrientation);
 #endif
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
@@ -192,10 +192,8 @@ protected:
 	{
 		updateAccelerometer();
 		UpdateInputState(&input_state);
-		NativeUpdate(input_state);
-		NativeRender();
-		EndInputState(&input_state);
 		time_update();
+		UpdateRunLoop();
 	}
 
 	void updateAccelerometer()
