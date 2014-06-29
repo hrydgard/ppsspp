@@ -134,7 +134,9 @@ void UpdateScreenScale(int width, int height) {
 	NativeResized();
 }
 
-static inline void UpdateRunLoop() {
+void UpdateRunLoop() {
+	if (windowHidden)
+		return;
 	NativeUpdate(input_state);
 
 	{
@@ -149,12 +151,10 @@ static inline void UpdateRunLoop() {
 
 void Core_RunLoop() {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-#if defined(USING_WIN_UI)
 		time_update();
+#if defined(USING_WIN_UI)
 		double startTime = time_now_d();
-		if (!windowHidden) {
-			UpdateRunLoop();
-		}
+		UpdateRunLoop();
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
@@ -166,7 +166,6 @@ void Core_RunLoop() {
 			GL_SwapBuffers();
 		}
 #else
-		time_update();
 		UpdateRunLoop();
 #endif
 	}

@@ -21,6 +21,7 @@
 #include "Core/CoreParameter.h"
 
 // called from emu thread
+void UpdateRunLoop();
 void Core_Run();
 void Core_Stop();
 void Core_ErrorPause();
