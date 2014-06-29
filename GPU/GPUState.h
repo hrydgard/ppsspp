@@ -419,6 +419,7 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
+	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);

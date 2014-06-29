@@ -223,6 +223,12 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 		}
+	} else if (!strcmp(message, "window minimized")) {
+		if (!strcmp(value, "true")) {
+			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
+		} else {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
+		}
 	}
 }
 
