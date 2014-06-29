@@ -244,6 +244,7 @@ namespace MainWindow {
 	}
 
 	void SetWindowSize(int zoom) {
+		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
@@ -913,8 +914,19 @@ namespace MainWindow {
 
 		switch (message) {
 		case WM_SIZE:
-			SavePosition();
-			ResizeDisplay();
+			switch (wParam) {
+			case SIZE_MAXIMIZED:
+			case SIZE_RESTORED:
+				Core_NotifyWindowHidden(false);
+				SavePosition();
+				ResizeDisplay();
+				break;
+			case SIZE_MINIMIZED:
+				Core_NotifyWindowHidden(true);
+				break;
+			default:
+				break;
+			}
 			break;
 
 		case WM_GETMINMAXINFO:

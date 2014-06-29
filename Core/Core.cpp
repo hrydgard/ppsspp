@@ -47,12 +47,18 @@ static event m_hInactiveEvent;
 static recursive_mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
+static bool windowHidden = false;
 
 #ifdef _WIN32
 InputState input_state;
 #else
 extern InputState input_state;
 #endif
+
+void Core_NotifyWindowHidden(bool hidden) {
+	windowHidden = hidden;
+	// TODO: Wait until we can react?
+}
 
 void Core_ListenShutdown(Core_ShutdownFunc func) {
 	shutdownFuncs.insert(func);
@@ -143,20 +149,24 @@ static inline void UpdateRunLoop() {
 
 void Core_RunLoop() {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		time_update();
-
 #if defined(USING_WIN_UI)
+		time_update();
 		double startTime = time_now_d();
-		UpdateRunLoop();
+		if (!windowHidden) {
+			UpdateRunLoop();
+		}
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
+		int sleepTime = (int)(1000000.0 / 60.0) - (int)(diffTime * 1000000.0);
 		if (sleepTime > 0)
 			Sleep(sleepTime / 1000);
-		GL_SwapBuffers();
+		if (!windowHidden) {
+			GL_SwapBuffers();
+		}
 #else
+		time_update();
 		UpdateRunLoop();
 #endif
 	}
