@@ -338,13 +338,17 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 }
 
 void TransformDrawEngine::DecodeVerts() {
-	UVScale origUV;
-	if (uvScale)
-		origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		if (uvScale)
+	if (uvScale) {
+		const UVScale origUV = gstate_c.uv;
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
 			gstate_c.uv = uvScale[decodeCounter_];
-		DecodeVertsStep();
+			DecodeVertsStep();
+		}
+		gstate_c.uv = origUV;
+	} else {
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			DecodeVertsStep();
+		}
 	}
 	// Sanity check
 	if (indexGen.Prim() < 0) {
@@ -352,8 +356,6 @@ void TransformDrawEngine::DecodeVerts() {
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
-	if (uvScale)
-		gstate_c.uv = origUV;
 }
 
 void TransformDrawEngine::DecodeVertsStep() {
@@ -782,6 +784,9 @@ void TransformDrawEngine::Resized() {
 
 	if (g_Config.bPrescaleUV && !uvScale) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	} else if (!g_Config.bPrescaleUV && uvScale) {
+		delete uvScale;
+		uvScale = 0;
 	}
 }
 
