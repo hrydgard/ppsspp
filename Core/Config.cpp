@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdlib>
+#include <ctime>
+
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
@@ -536,7 +539,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP"),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost"),
-	ConfigSetting("MacAddress", &g_Config.localMacAddress, "01:02:03:04:05:06"),
+	ConfigSetting("MacAddress", &g_Config.localMacAddress, g_Config.CreateRandMAC().c_str()),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD),
@@ -1010,3 +1013,16 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
+
+std::string Config::CreateRandMAC() {
+	std::stringstream randStream;
+        srand(time(0));
+        for(int i = 0; i < 6; i++) {
+                randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+        	if (i<5) {
+        		randStream << ':'; //we need a : between every octet
+        	}
+        }
+        return randStream.str(); //no need for creating a new string, just return this
+}
+

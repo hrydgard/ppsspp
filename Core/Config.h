@@ -336,7 +336,9 @@ public:
 	void ResetControlLayout();
 
 	void GetReportingInfo(UrlEncoder &data);
-
+	
+	std::string CreateRandMAC(); // Uses <cstdlib>'s rand() PRNG to create a pseudorandom MAC address
+	
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
