@@ -707,6 +707,7 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
 	SetBackgroundAudioGame("");
+	lastVertical_ = UseVerticalLayout();
 }
 
 MainScreen::~MainScreen() {
@@ -721,7 +722,7 @@ void MainScreen::CreateViews() {
 	using namespace UI;
 
 	// Vertical mode is not finished.
-	bool vertical = dp_yres > dp_xres;
+	bool vertical = UseVerticalLayout();
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
@@ -906,6 +907,15 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update(InputState &input) {
 	UIScreen::update(input);
 	UpdateUIState(UISTATE_MENU);
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
+}
+
+bool MainScreen::UseVerticalLayout() const {
+	return dp_yres > dp_xres * 1.1f;
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {

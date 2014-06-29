@@ -71,6 +71,9 @@ private:
 	float prevHighlightProgress_;
 	bool lockBackgroundAudio_;
 	bool backFromStore_;
+	bool lastVertical_;
+
+	bool UseVerticalLayout() const;
 };
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
