@@ -309,6 +309,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("WindowWidth", &g_Config.iWindowWidth, 0),   // 0 will be automatically reset later (need to do the AdjustWindowRect dance).
 	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
 	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false),
+	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, true),
 #endif
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false),
 	ConfigSetting(false),
