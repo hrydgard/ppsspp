@@ -241,14 +241,15 @@ const char *DefaultLangRegion() {
 
 const char *CreateRandMAC() {
 	std::stringstream randStream;
-        srand(time(0));
-        for(int i = 0; i < 6; i++) {
-                randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
-        	if (i<5) {
-        		randStream << ':'; //we need a : between every octet
-        	}
-        }
-        return randStream.str().c_str(); //no need for creating a new string, just return this
+	srand(time(0));
+	for(int i = 0; i < 6; i++) {
+		randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+		if (i<5) {
+			randStream << ':'; //we need a : between every octet
+		}
+	}
+  // It's ok to strdup, this runs once and will be freed by exiting the process anyway
+	return strdup(randStream.str().c_str()); //no need for creating a new string, just return this
 }
 
 static int DefaultNumWorkers() {
