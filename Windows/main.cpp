@@ -181,7 +181,7 @@ void EnableCrashingOnCrashes()
   typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
   const DWORD EXCEPTION_SWALLOWING = 0x1;
 
-  HMODULE kernel32 = LoadLibraryA("kernel32.dll"); 
+  HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
   tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, 
     "GetProcessUserModeExceptionPolicy"); 
   tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, 

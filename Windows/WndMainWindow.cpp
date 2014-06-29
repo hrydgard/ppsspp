@@ -1595,6 +1595,10 @@ namespace MainWindow
 
 		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
 
+		// Not sure why we are actually getting WM_CHAR even though we use RawInput, but alright..
+		case WM_CHAR:
+			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
+
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
 			case VERYSLEEPY_WPARAM_SUPPORTED:
@@ -1930,7 +1934,7 @@ namespace MainWindow
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
 				char temp[256];
 				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowTextA(versionBox, temp);
+				SetWindowText(versionBox, ConvertUTF8ToWString(temp).c_str());
 			}
 			return TRUE;
 

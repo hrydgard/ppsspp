@@ -91,25 +91,41 @@ namespace WindowsRawInput {
 	}
 
 	static int GetTrueVKey(const RAWKEYBOARD &kb) {
+		int vKey = kb.VKey;
 		switch (kb.VKey) {
 		case VK_SHIFT:
-			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
+			vKey = MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
+			break;
 
 		case VK_CONTROL:
 			if (kb.Flags & RI_KEY_E0)
-				return VK_RCONTROL;
+				vKey = VK_RCONTROL;
 			else
-				return VK_LCONTROL;
+				vKey = VK_LCONTROL;
+			break;
 
 		case VK_MENU:
 			if (kb.Flags & RI_KEY_E0)
-				return VK_RMENU;  // Right Alt / AltGr
+				vKey = VK_RMENU;  // Right Alt / AltGr
 			else
-				return VK_LMENU;  // Left Alt
+				vKey = VK_LMENU;  // Left Alt
+
+		//case VK_RETURN:
+			// if (kb.Flags & RI_KEY_E0)
+			//	vKey = VK_RETURN;  // Numeric return - no code for this. Can special case.
+		//	break;
+
+		// Source: http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
+		case VK_NUMLOCK:
+			// correct PAUSE/BREAK and NUM LOCK silliness, and set the extended bit
+			vKey = MapVirtualKey(kb.VKey, MAPVK_VK_TO_VSC) | 0x100;
+			break;
 
 		default:
-			return kb.VKey;
+			break;
 		}
+
+		return windowsTransTable[vKey];
 	}
 
 	void ProcessKeyboard(RAWINPUT *raw, bool foreground) {
@@ -123,7 +139,7 @@ namespace WindowsRawInput {
 
 		if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
 			key.flags = KEY_DOWN;
-			key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+			key.keyCode = GetTrueVKey(raw->data.keyboard);
 
 			if (key.keyCode) {
 				NativeKey(key);
@@ -131,7 +147,7 @@ namespace WindowsRawInput {
 			}
 		} else if (raw->data.keyboard.Message == WM_KEYUP) {
 			key.flags = KEY_UP;
-			key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+			key.keyCode = GetTrueVKey(raw->data.keyboard);
 
 			if (key.keyCode) {
 				NativeKey(key);
@@ -141,6 +157,15 @@ namespace WindowsRawInput {
 					keyboardKeysDown.erase(keyDown);
 			}
 		}
+	}
+
+	LRESULT ProcessChar(HWND hWnd, WPARAM wParam, LPARAM lParam) {
+		KeyInput key;
+		key.keyCode = wParam;  // Note that this is NOT a NKCODE but a Unicode character!
+		key.flags = KEY_CHAR;
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		NativeKey(key);
+		return 0;
 	}
 
 	void ProcessMouse(RAWINPUT *raw, bool foreground) {

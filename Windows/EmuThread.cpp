@@ -3,6 +3,7 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "base/mutex.h"
+#include "util/text/utf8.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "../Globals.h"
@@ -99,7 +100,7 @@ unsigned int WINAPI TheThread(void *)
 	u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
 	ReleaseDC(NULL, dc);
 	if (colour_depth != 32){
-		MessageBoxA(0, "Please switch your display to 32-bit colour mode", "OpenGL Error", MB_OK);
+		MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
 		ExitProcess(1);
 	}
 
@@ -107,7 +108,7 @@ unsigned int WINAPI TheThread(void *)
 	if (!host->InitGL(&error_string)) {
 		Reporting::ReportMessage("OpenGL init error: %s", error_string.c_str());
 		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
-		MessageBoxA(0, full_error.c_str(), "OpenGL Error", MB_OK | MB_ICONERROR);
+		MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), L"OpenGL Error", MB_OK | MB_ICONERROR);
 		ERROR_LOG(BOOT, full_error.c_str());
 
 		// No safe way out without OpenGL.
