@@ -680,19 +680,22 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	recent->Get("MaxRecent", &iMaxRecent, 30);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
-	if (iMaxRecent == 0)
+	// -1 is okay, though. We'll just ignore recent stuff if it is.
+	 if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
-	recentIsos.clear();
-	for (int i = 0; i < iMaxRecent; i++) {
-		char keyName[64];
-		std::string fileName;
+	 if (iMaxRecent > 0) {
+		 recentIsos.clear();
+		 for (int i = 0; i < iMaxRecent; i++) {
+			 char keyName[64];
+			 std::string fileName;
 
-		sprintf(keyName, "FileName%d", i);
-		if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-			recentIsos.push_back(fileName);
-		}
-	}
+			 sprintf(keyName, "FileName%d", i);
+			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
+				 recentIsos.push_back(fileName);
+			 }
+		 }
+	 }
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
@@ -885,6 +888,10 @@ void Config::DismissUpgrade() {
 }
 
 void Config::AddRecent(const std::string &file) {
+	// Don't bother with this if the user disabled recents (it's -1).
+	if (iMaxRecent <= 0)
+		return;
+
 	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {
