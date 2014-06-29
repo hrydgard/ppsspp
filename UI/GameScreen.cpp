@@ -225,6 +225,9 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 }
 
 bool GameScreen::isRecentGame(const std::string &gamePath) {
+	if (g_Config.iMaxRecent <= 0)
+		return false;
+
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))
@@ -237,6 +240,8 @@ bool GameScreen::isRecentGame(const std::string &gamePath) {
 }
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
+	if (g_Config.iMaxRecent <= 0)
+		return UI::EVENT_DONE;
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/")) {

@@ -379,7 +379,8 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
-	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	if (g_Config.iMaxRecent > 0)
+		systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, s->T("Auto Load Newest Savestate")));
 
