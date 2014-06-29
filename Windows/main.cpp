@@ -377,6 +377,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance, iCmdShow);
 
 	HWND hwndMain = MainWindow::GetHWND();
+	HWND hwndDisplay = MainWindow::GetDisplayHWND();
 	
 	//initialize custom controls
 	CtrlDisAsmView::init();
@@ -386,7 +387,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	host = new WindowsHost(hwndMain);
+	host = new WindowsHost(hwndMain, hwndDisplay);
 	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();

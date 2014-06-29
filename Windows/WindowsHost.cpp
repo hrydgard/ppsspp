@@ -68,8 +68,10 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HWND mainWindow) {
-	window_ = mainWindow;
+WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
+{
+	mainWindow_ = mainWindow;
+	displayWindow_ = displayWindow;
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
@@ -88,13 +90,13 @@ WindowsHost::WindowsHost(HWND mainWindow) {
 
 bool WindowsHost::InitGL(std::string *error_message)
 {
-	return GL_Init(window_, error_message);
+	return GL_Init(displayWindow_, error_message);
 }
 
 void WindowsHost::ShutdownGL()
 {
 	GL_Shutdown();
-	PostMessage(window_, WM_CLOSE, 0, 0);
+	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message)
@@ -106,7 +108,7 @@ void WindowsHost::SetWindowTitle(const char *message)
 	}
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(window_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
 void WindowsHost::InitSound(PMixer *mixer)
@@ -128,12 +130,12 @@ void WindowsHost::ShutdownSound()
 
 void WindowsHost::UpdateUI()
 {
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 void WindowsHost::UpdateScreen()
 {
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
 }
 
 void WindowsHost::UpdateMemView() 
@@ -191,7 +193,7 @@ void WindowsHost::PollControllers(InputState &input_state)
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
-	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+	SendMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
 	Core_EnableStepping(!g_Config.bAutoRun);
@@ -335,9 +337,9 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 
 void WindowsHost::GoFullscreen(bool viewFullscreen) {
 	if (viewFullscreen)
-		MainWindow::SwitchToFullscreen(MainWindow::GetHWND());
+		MainWindow::SwitchToFullscreen(mainWindow_);
 	else
-		MainWindow::SwitchToWindowed(MainWindow::GetHWND());
+		MainWindow::SwitchToWindowed(mainWindow_);
 }
 
 void WindowsHost::ToggleDebugConsoleVisibility() {
