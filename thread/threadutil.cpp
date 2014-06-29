@@ -1,16 +1,24 @@
 #ifdef _WIN32
 #include <windows.h>
+#define TLS_SUPPORTED
+#elif defined(ANDROID)
+#define TLS_SUPPORTED
 #endif
+
+#include "base/basictypes.h"
+#include "base/logging.h"
 #include "thread/threadutil.h"
 
-void setCurrentThreadName(const char* szThreadName)
-{
-#ifdef _WIN32
-	static const DWORD MS_VC_EXCEPTION = 0x406D1388;
+#ifdef TLS_SUPPORTED
+static __THREAD const char *curThreadName;
+#endif
 
+void setCurrentThreadName(const char* threadName) {
+#ifdef _WIN32
+	// Set the debugger-visible threadname through an unholy magic hack
+	static const DWORD MS_VC_EXCEPTION = 0x406D1388;
 #pragma pack(push,8)
-	struct THREADNAME_INFO
-	{
+	struct THREADNAME_INFO {
 		DWORD dwType; // must be 0x1000
 		LPCSTR szName; // pointer to name (in user addr space)
 		DWORD dwThreadID; // thread ID (-1=caller thread)
@@ -19,7 +27,7 @@ void setCurrentThreadName(const char* szThreadName)
 #pragma pack(pop)
 
 	info.dwType = 0x1000;
-	info.szName = szThreadName;
+	info.szName = threadName;
 	info.dwThreadID = -1; //dwThreadID;
 	info.dwFlags = 0;
 
@@ -31,5 +39,17 @@ void setCurrentThreadName(const char* szThreadName)
 	{}
 #else
 	// Do nothing
+#endif
+	// Set the locally known threadname using a thread local variable.
+#ifdef TLS_SUPPORTED
+	curThreadName = threadName;
+#endif
+}
+
+void AssertCurrentThreadName(const char *threadName) {
+#ifdef TLS_SUPPORTED
+	if (strcmp(curThreadName, threadName) != 0) {
+		ELOG("Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
+	}
 #endif
 }
