@@ -274,6 +274,27 @@ bool SymbolMap::LoadNocashSym(const char *filename) {
 	return true;
 }
 
+void SymbolMap::SaveNocashSym(const char *filename) const {
+	lock_guard guard(lock_);
+
+	// Don't bother writing a blank file.
+	if (!File::Exists(filename) && functions.empty() && data.empty()) {
+		return;
+	}
+
+	FILE* f = fopen(filename, "w");
+	if (f == NULL)
+		return;
+
+	// only write functions, the rest isn't really interesting
+	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
+		const FunctionEntry& e = it->second;
+		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module),GetLabelNameRel(e.start, e.module), e.size);
+	}
+	
+	fclose(f);
+}
+
 SymbolType SymbolMap::GetSymbolType(u32 address) const {
 	lock_guard guard(lock_);
 	if (activeFunctions.find(address) != activeFunctions.end())

@@ -451,6 +451,8 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOADSYMFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
@@ -630,6 +632,8 @@ namespace MainWindow
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE);
+		TranslateMenuItem(ID_DEBUG_LOADSYMFILE);
+		TranslateMenuItem(ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME);
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT,  L"\tF12");
@@ -1426,6 +1430,23 @@ namespace MainWindow
 				case ID_DEBUG_SAVEMAPFILE:
 					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
+					break;
+					
+				case ID_DEBUG_LOADSYMFILE:
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn)) {
+						symbolMap.LoadNocashSym(fn.c_str());
+
+						if (disasmWindow[0])
+							disasmWindow[0]->NotifyMapLoaded();
+
+						if (memoryWindow[0])
+							memoryWindow[0]->NotifyMapLoaded();
+					}
+					break;
+
+				case ID_DEBUG_SAVESYMFILE:
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn))
+						symbolMap.SaveNocashSym(fn.c_str());
 					break;
 
 				case ID_DEBUG_RESETSYMBOLTABLE:

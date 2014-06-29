@@ -311,6 +311,8 @@
 #define IDC_MODULELIST                   40147
 #define IDC_GEDBG_TEXLEVELDOWN           40148
 #define IDC_GEDBG_TEXLEVELUP             40149
+#define ID_DEBUG_LOADSYMFILE             40150
+#define ID_DEBUG_SAVESYMFILE             40151
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -323,7 +325,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40150
+#define _APS_NEXT_COMMAND_VALUE         40152
 #define _APS_NEXT_CONTROL_VALUE         1197
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

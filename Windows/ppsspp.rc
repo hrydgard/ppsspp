@@ -417,6 +417,8 @@ BEGIN
     BEGIN
         MENUITEM "Load Map File...",                        ID_DEBUG_LOADMAPFILE
         MENUITEM "Save Map File...",                        ID_DEBUG_SAVEMAPFILE
+        MENUITEM "Load .sym File...",                       ID_DEBUG_LOADSYMFILE
+        MENUITEM "Save .sym File...",                       ID_DEBUG_SAVESYMFILE
         MENUITEM "Reset Symbol Table",                      ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM SEPARATOR
         MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
