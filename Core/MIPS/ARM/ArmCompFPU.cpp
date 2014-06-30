@@ -370,6 +370,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		SetCC(CC_EQ);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetCC(CC_AL);
 
 		SetJumpTarget(finishCeil1);
 		SetJumpTarget(finishCeil2);
