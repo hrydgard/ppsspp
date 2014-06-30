@@ -284,7 +284,12 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
+		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
@@ -300,6 +305,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VADD(S1, S1, S0);
 		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		SetJumpTarget(skip);
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		break;
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
@@ -316,6 +324,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VSUB(S1, S1, S0);
 		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		SetJumpTarget(skip);
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		break;
 	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
@@ -353,6 +364,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		MOVI2F(S0, 1.0f, SCRATCHREG1);
 		VADD(S1, S1, S0);
 		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		FixupBranch finishCeil2 = B();
 
 		// For floor, we subtract one if we ended up higher.
@@ -362,14 +376,22 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		MOVI2F(S0, 1.0f, SCRATCHREG1);
 		VSUB(S1, S1, S0);
 		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		FixupBranch finishFloor2 = B();
 
 		SetJumpTarget(skipCeilFloor);
+		VCMP(fpr.R(fs), fpr.R(fs));
 		// LT 1 means 0, nearest.  EQ means 1, round to zero.
 		SetCC(CC_LT);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		SetCC(CC_EQ);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		SetCC(CC_AL);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
 
 		SetJumpTarget(finishCeil1);
