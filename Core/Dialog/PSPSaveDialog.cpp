@@ -584,6 +584,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);
 		Memory::Memcpy(&originalRequest, requestAddr, size);
+		lock_guard guard(paramLock);
 		param.SetPspParam(&request);
 	}
 
@@ -990,6 +991,7 @@ int PSPSaveDialog::Update(int animSpeed)
 }
 
 void PSPSaveDialog::ExecuteIOAction() {
+	lock_guard guard(paramLock);
 	switch (display) {
 	case DS_LOAD_LOADING:
 		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave)) {
