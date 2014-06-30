@@ -89,6 +89,9 @@ private:
 	void DisplayMessage(std::string text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName() const;
 
+	void ExecuteIOAction();
+	void ExecuteNotVisibleIOAction();
+
 	enum DisplayState
 	{
 		DS_NONE,
