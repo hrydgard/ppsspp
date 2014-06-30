@@ -1214,7 +1214,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXLEVEL:
 		if (data == 1)
-			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
+			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data);
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
 		break;

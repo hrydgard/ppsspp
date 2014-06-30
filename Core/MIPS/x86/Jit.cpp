@@ -260,7 +260,7 @@ void Jit::EatInstruction(MIPSOpcode op)
 		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckJitBreakpoint(js.compilerPC + 4, 0);

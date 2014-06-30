@@ -234,9 +234,9 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }

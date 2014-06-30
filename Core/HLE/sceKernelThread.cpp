@@ -1067,9 +1067,9 @@ void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitThreadEndCB: Suspending wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelWaitThreadEndCB: Suspending wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: beginning callback with bad wait id?");
 }
@@ -2507,32 +2507,30 @@ int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)
 	return 0;
 }
 
-int sceKernelChangeThreadPriority(SceUID threadID, int priority)
-{
-	if (threadID == 0)
+int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
+	if (threadID == 0) {
 		threadID = currentThread;
+	}
+
 	// 0 means the current (running) thread's priority, not target's.
-	if (priority == 0)
-	{
+	if (priority == 0) {
 		Thread *cur = __GetCurrentThread();
-		if (!cur)
-			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeThreadPriority(%i, %i): no current thread?", threadID, priority)
-		else
+		if (!cur) {
+			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeThreadPriority(%i, %i): no current thread?", threadID, priority);
+		} else {
 			priority = cur->nt.currentPriority;
+		}
 	}
 
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
-	if (thread)
-	{
-		if (thread->isStopped())
-		{
+	if (thread) {
+		if (thread->isStopped()) {
 			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeThreadPriority(%i, %i): thread is dormant", threadID, priority);
 			return SCE_KERNEL_ERROR_DORMANT;
 		}
 
-		if (priority < 0x08 || priority > 0x77)
-		{
+		if (priority < 0x08 || priority > 0x77) {
 			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeThreadPriority(%i, %i): bogus priority", threadID, priority);
 			return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 		}
@@ -2544,17 +2542,17 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 
 		thread->nt.currentPriority = priority;
 		threadReadyQueue.prepare(thread->nt.currentPriority);
-		if (thread->isRunning())
+		if (thread->isRunning()) {
 			thread->nt.status = (thread->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
-		if (thread->isReady())
+		}
+		if (thread->isReady()) {
 			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
+		}
 
 		hleEatCycles(450);
 		hleReSchedule("change thread priority");
 		return 0;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(SCEKERNEL, "%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, threadID, priority);
 		return error;
 	}

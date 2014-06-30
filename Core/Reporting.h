@@ -19,22 +19,22 @@
 #include "Common/Log.h"
 #include <string>
 
-#define DEBUG_LOG_REPORT(t,...)   { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); }
-#define ERROR_LOG_REPORT(t,...)   { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); }
-#define WARN_LOG_REPORT(t,...)    { WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
-#define NOTICE_LOG_REPORT(t,...)  { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); }
-#define INFO_LOG_REPORT(t,...)    { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
+#define DEBUG_LOG_REPORT(t,...)   do { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
+#define ERROR_LOG_REPORT(t,...)   do { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
+#define WARN_LOG_REPORT(t,...)    do { WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } while (false)
+#define NOTICE_LOG_REPORT(t,...)  do { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); } while (false)
+#define INFO_LOG_REPORT(t,...)    do { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } while (false)
 
-#define DEBUG_LOG_REPORT_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { DEBUG_LOG_REPORT(t, __VA_ARGS__); } }
-#define ERROR_LOG_REPORT_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG_REPORT(t, __VA_ARGS__); } }
-#define WARN_LOG_REPORT_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG_REPORT(t, __VA_ARGS__); } }
-#define NOTICE_LOG_REPORT_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG_REPORT(t, __VA_ARGS__); } }
-#define INFO_LOG_REPORT_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG_REPORT(t, __VA_ARGS__); } }
+#define DEBUG_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { DEBUG_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define ERROR_LOG_REPORT_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define WARN_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define NOTICE_LOG_REPORT_ONCE(n,t,...)  do { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG_REPORT(t, __VA_ARGS__); } } while (false)
+#define INFO_LOG_REPORT_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG_REPORT(t, __VA_ARGS__); } } while (false)
 
-#define ERROR_LOG_ONCE(n,t,...)   { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG(t, __VA_ARGS__); } }
-#define WARN_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG(t, __VA_ARGS__); } }
-#define NOTICE_LOG_ONCE(n,t,...)  { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } }
-#define INFO_LOG_ONCE(n,t,...)    { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } }
+#define ERROR_LOG_ONCE(n,t,...)   do { if (Reporting::ShouldLogOnce(#n)) { ERROR_LOG(t, __VA_ARGS__); } } while (false)
+#define WARN_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { WARN_LOG(t, __VA_ARGS__); } } while (false)
+#define NOTICE_LOG_ONCE(n,t,...)  do { if (Reporting::ShouldLogOnce(#n)) { NOTICE_LOG(t, __VA_ARGS__); } } while (false)
+#define INFO_LOG_ONCE(n,t,...)    do { if (Reporting::ShouldLogOnce(#n)) { INFO_LOG(t, __VA_ARGS__); } } while (false)
 
 class PointerWrap;
 

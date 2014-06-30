@@ -516,8 +516,7 @@ void Jit::Comp_VBranch(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_Jump(MIPSOpcode op)
-{
+void Jit::Comp_Jump(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -527,18 +526,17 @@ void Jit::Comp_Jump(MIPSOpcode op)
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?
-	if (!Memory::IsValidAddress(targetAddr))
-	{
-		if (js.nextExit == 0)
-			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr)
-		else
+	if (!Memory::IsValidAddress(targetAddr)) {
+		if (js.nextExit == 0) {
+			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
+		} else {
 			js.compiling = false;
+		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		return;
 	}
 
-	switch (op >> 26) 
-	{
+	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)

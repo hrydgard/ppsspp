@@ -906,8 +906,9 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	} else
-		ERROR_LOG_REPORT(G3D, "Vertices without position found") 
+	} else {
+		ERROR_LOG_REPORT(G3D, "Vertices without position found");
+	}
 		
 	decFmt.stride = decOff;
 
