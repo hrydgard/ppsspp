@@ -603,30 +603,26 @@ bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInf
 	return true;
 }
 
-void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId)
-{
+void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	u32 waitValue = __KernelGetWaitValue(threadID, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
 	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
 
-	if (ko == NULL)
-	{
+	if (ko == NULL) {
 		ERROR_LOG_REPORT(SCEKERNEL, "__KernelMsgPipeEndCallback: Invalid object");
 		return;
 	}
 
-	switch (waitValue)
-	{
+	switch (waitValue) {
 	case MSGPIPE_WAIT_VALUE_SEND:
 		{
 			MsgPipeWaitingThread dummy;
 			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeSend, dummy, ko->sendWaitingThreads, ko->pausedSendWaits);
-			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-				DEBUG_LOG(SCEKERNEL, "sceKernelSendMsgPipeCB: Resuming wait from callback")
-			else if (result == HLEKernel::WAIT_CB_TIMED_OUT)
-			{
+			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT) {
+				DEBUG_LOG(SCEKERNEL, "sceKernelSendMsgPipeCB: Resuming wait from callback");
+			} else if (result == HLEKernel::WAIT_CB_TIMED_OUT) {
 				// It was re-added to the the waiting threads list, but it timed out.  Let's remove it.
 				ko->RemoveSendWaitingThread(threadID);
 			}
@@ -637,10 +633,9 @@ void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId)
 		{
 			MsgPipeWaitingThread dummy;
 			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeReceive, dummy, ko->receiveWaitingThreads, ko->pausedReceiveWaits);
-			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-				DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMsgPipeCB: Resuming wait from callback")
-			else if (result == HLEKernel::WAIT_CB_TIMED_OUT)
-			{
+			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT) {
+				DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMsgPipeCB: Resuming wait from callback");
+			} else if (result == HLEKernel::WAIT_CB_TIMED_OUT) {
 				// It was re-added to the the waiting threads list, but it timed out.  Let's remove it.
 				ko->RemoveReceiveWaitingThread(threadID);
 			}
