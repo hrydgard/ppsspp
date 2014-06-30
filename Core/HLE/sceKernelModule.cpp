@@ -1984,7 +1984,7 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 
 	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
 	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE)
-		ERROR_LOG(SCEMODULE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
+		ERROR_LOG(SCEMODULE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr);
 	else
 		DEBUG_LOG(SCEMODULE, "%x=sceKernelGetModuleIdByAddress(%08x)", state.result, moduleAddr);
 	return state.result;
