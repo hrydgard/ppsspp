@@ -823,7 +823,7 @@ static bool IsHLEVersionedModule(const char *name) {
 	return false;
 }
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic, u32 &error) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -875,6 +875,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
+			error = 0;
 			return module;
 		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
@@ -901,6 +902,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
+		error = -1;
 		return 0;
 	}
 	// Open ELF reader
@@ -913,6 +915,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
+		error = result;
 		return 0;
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
@@ -1336,6 +1339,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
+	error = 0;
 	return module;
 }
 
@@ -1357,7 +1361,8 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	size_t elfSize;
 	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
 	u32 magic;
-	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string, &magic);
+	u32 error;
+	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
 	if (!module) {
 		delete [] elfData;
 		return false;
@@ -1396,7 +1401,8 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 			INFO_LOG(LOADER, "Elf unaligned, aligning!");
 		}
 
-		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
+		u32 error;
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic, error);
 
 		if (temp) {
 			delete [] temp;
@@ -1404,8 +1410,9 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 	}
 	else
 	{
+		u32 error;
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string, &magic);
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
 	}
 
 	return module;
@@ -1645,14 +1652,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic);
+	u32 error;
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
 
 	if (!module) {
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return -1;
+			return error;
 		}
 
 		if (info.name == "BOOT.BIN")
@@ -1662,12 +1670,17 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		}
-		else
+		else if ((int)error >= 0)
 		{
 			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
 			// Let's just act as if it worked.
 			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
 			return 1;
+		}
+		else
+		{
+			NOTICE_LOG(LOADER, "Module %s failed to load: %08x", name, error);
+			return error;
 		}
 	}
 
@@ -2093,7 +2106,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u8 *temp = new u8[size];
 	pspFileSystem.ReadFile(handle, temp, size);
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic);
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
 	delete [] temp;
 
 	if (!module) {
@@ -2101,14 +2114,21 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 		// This checks for the SFO magic number.
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return -1;
+			return error;
 		}
 
-		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
-		// Let's just act as if it worked.
-
-		NOTICE_LOG(LOADER, "Module %d is blacklisted or undecryptable - we lie about success", id);
-		return 1;
+		if ((int)error >= 0)
+		{
+			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
+			// Let's just act as if it worked.
+			NOTICE_LOG(LOADER, "Module %d is blacklisted or undecryptable - we lie about success", id);
+			return 1;
+		}
+		else
+		{
+			NOTICE_LOG(LOADER, "Module %d failed to load: %08x", id, error);
+			return error;
+		}
 	}
 
 	if (lmoption) {
@@ -2141,21 +2161,29 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	std::string error_string;
 	Module *module = 0;
 	u32 magic;
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, &error_string, &magic);
+	u32 error;
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, &error_string, &magic, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
 		// This checks for the SFO magic number.
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return -1;
+			return error;
 		}
 
-		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
-		// Let's just act as if it worked.
-
-		NOTICE_LOG(LOADER, "Module is blacklisted or undecryptable - we lie about success");
-		return 1;
+		if ((int)error >= 0)
+		{
+			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
+			// Let's just act as if it worked.
+			NOTICE_LOG(LOADER, "Module is blacklisted or undecryptable - we lie about success");
+			return 1;
+		}
+		else
+		{
+			NOTICE_LOG(LOADER, "Module failed to load: %08x", error);
+			return error;
+		}
 	}
 
 	if (lmoption) {
