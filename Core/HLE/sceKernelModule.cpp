@@ -531,10 +531,10 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 
 			// The ABI requires that these come in pairs, at least.
 			if (lastHI16Relocs.empty()) {
-				ERROR_LOG_REPORT(LOADER, "LO16 without any HI16 variable import at %08x for %08x", relocAddress, exportAddress)
+				ERROR_LOG_REPORT(LOADER, "LO16 without any HI16 variable import at %08x for %08x", relocAddress, exportAddress);
 			// Try to process at least the low relocation...
 			} else if (lastHI16ExportAddress != exportAddress) {
-				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress)
+				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress);
 			} else {
 				// Process each of the HI16.  Usually there's only one.
 				for (auto it = lastHI16Relocs.begin(), end = lastHI16Relocs.end(); it != end; ++it)
@@ -1365,7 +1365,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 			size_t size = offsets[6] - offsets[5];
 			temp = new u8[size];
 			memcpy(temp, fileptr + offsets[5], size);
-			INFO_LOG(LOADER, "Elf unaligned, aligning!")
+			INFO_LOG(LOADER, "Elf unaligned, aligning!");
 		}
 
 		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
@@ -1621,14 +1621,14 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 		if (info.name == "BOOT.BIN")
 		{
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name)
+			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			return __KernelLoadExec(name, 0, &error_string);
 		}
 		else
 		{
 			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
 			// Let's just act as if it worked.
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name)
+			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
 			return 1;
 		}
 	}

@@ -366,7 +366,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitBeginCallback<FileNode, WAITTYPE_ASYNCIO, SceUID>(threadID, prevCallbackId, -1);
 	if (result == HLEKernel::WAIT_CB_SUCCESS) {
-		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback")
+		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback");
 	} else if (result == HLEKernel::WAIT_CB_BAD_WAIT_ID) {
 		WARN_LOG_REPORT(SCEIO, "sceIoWaitAsync: beginning callback with bad wait id?");
 	}

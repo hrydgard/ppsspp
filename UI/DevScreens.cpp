@@ -506,7 +506,7 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 				if (MIPSGetInfo(opcode) & IS_VFPU) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp)
+					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
 					anyVFPU = true;
 					break;
 				}

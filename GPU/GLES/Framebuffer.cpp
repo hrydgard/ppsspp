@@ -2003,7 +2003,7 @@ void FramebufferManager::DecimateFBOs() {
 		}
 
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
 		}
@@ -2024,7 +2024,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = bvfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
@@ -2078,7 +2078,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
 					SetColorUpdated(vfb);
 				} else {
-					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 					DestroyFramebuf(vfb);
 					vfbs_.erase(vfbs_.begin() + i--);
 				}

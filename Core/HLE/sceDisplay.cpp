@@ -335,7 +335,7 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	vblankPausedWaits[pauseKey] = vCount + waitData.vcountUnblock;
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback")
+	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Suspending vblank wait for callback");
 }
 
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -356,7 +356,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 	// Still have to wait a bit longer.
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - vCount));
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback")
+	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
 }
 
 // TODO: Also average actualFps
