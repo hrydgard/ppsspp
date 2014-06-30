@@ -821,6 +821,14 @@ public:
 		MOVI2R(reg, (u32)(intptr_t)(void *)val);
 	}
 
+	void MOVIU2F(ARMReg dest, u32 val, ARMReg tempReg, bool negate = false) {
+		union {
+			u32 u;
+			float f;
+		} v = {val};
+		MOVI2F(dest, v.f, tempReg, negate);
+	}
+
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	bool TryADDI2R(ARMReg rd, ARMReg rs, u32 val);
 	void SUBI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
