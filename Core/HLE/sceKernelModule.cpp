@@ -26,6 +26,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLETables.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
@@ -1439,9 +1440,11 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	// Wipe kernel here, loadexec should reset the entire system
 	if (__KernelIsRunning())
 	{
+		Replacement_Shutdown();
 		__KernelShutdown();
 		//HLE needs to be reset here
 		HLEShutdown();
+		Replacement_Init();
 		HLEInit();
 		GPU_Reinitialize();
 	}
