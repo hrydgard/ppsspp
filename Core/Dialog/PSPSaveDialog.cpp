@@ -691,6 +691,30 @@ int PSPSaveDialog::Update(int animSpeed)
 
 			EndDraw();
 		break;
+		case DS_SAVE_FAILED:
+			JoinIOThread();
+			StartDraw();
+
+			DisplaySaveIcon();
+			DisplaySaveDataInfo2();
+
+			DisplayMessage(d->T("SavingFailed", "Unable to save data."));
+
+			DisplayButtons(DS_BUTTON_CANCEL);
+			DisplayBanner(DB_SAVE);
+
+			if (IsButtonPressed(cancelButtonFlag)) {
+				// Go back to the list so they can try again.
+				if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_SAVE) {
+					display = DS_SAVE_LIST_CHOICE;
+				} else {
+					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+					StartFade(false);
+				}
+			}
+
+			EndDraw();
+		break;
 		case DS_SAVE_DONE:
 			JoinIOThread();
 			StartDraw();
@@ -766,6 +790,30 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplayMessage(d->T("Loading","Loading\nPlease Wait..."));
 
 			DisplayBanner(DB_LOAD);
+
+			EndDraw();
+		break;
+		case DS_LOAD_FAILED:
+			JoinIOThread();
+			StartDraw();
+
+			DisplaySaveIcon();
+			DisplaySaveDataInfo2();
+
+			DisplayMessage(d->T("LoadingFailed", "Unable to load data."));
+
+			DisplayButtons(DS_BUTTON_CANCEL);
+			DisplayBanner(DB_LOAD);
+
+			if (IsButtonPressed(cancelButtonFlag)) {
+				// Go back to the list so they can try again.
+				if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_LOAD) {
+					display = DS_LOAD_LIST_CHOICE;
+				} else {
+					param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+					StartFade(false);
+				}
+			}
 
 			EndDraw();
 		break;
@@ -867,6 +915,21 @@ int PSPSaveDialog::Update(int animSpeed)
 
 			EndDraw();
 		break;
+		case DS_DELETE_FAILED:
+			JoinIOThread();
+			StartDraw();
+
+			DisplayMessage(d->T("DeleteFailed", "Unable to delete data."));
+
+			DisplayButtons(DS_BUTTON_CANCEL);
+			DisplayBanner(DB_DELETE);
+
+			if (IsButtonPressed(cancelButtonFlag)) {
+				display = DS_DELETE_LIST_CHOICE;
+			}
+
+			EndDraw();
+		break;
 		case DS_DELETE_DONE:
 			JoinIOThread();
 			StartDraw();
@@ -932,9 +995,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave)) {
 			display = DS_LOAD_DONE;
 		} else {
-			// TODO: This should probably show an error message?
-			param.GetPspParam()->common.result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
-			StartFade(false);
+			display = DS_LOAD_FAILED;
 		}
 		break;
 	case DS_SAVE_SAVING:
@@ -942,12 +1003,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 			param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
 			display = DS_SAVE_DONE;
 		} else {
-			// TODO: This should probably show an error message?
-			if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_SAVE) {
-				display = DS_SAVE_LIST_CHOICE;
-			} else {
-				StartFade(false);
-			}
+			display = DS_SAVE_FAILED;
 		}
 		break;
 	case DS_DELETE_DELETING:
@@ -955,7 +1011,7 @@ void PSPSaveDialog::ExecuteIOAction() {
 			param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
 			display = DS_DELETE_DONE;
 		} else {
-			display = DS_DELETE_LIST_CHOICE; // This will probably need error message ?
+			display = DS_DELETE_FAILED;
 		}
 		break;
 	case DS_NONE:
