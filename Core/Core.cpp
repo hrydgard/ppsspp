@@ -135,7 +135,7 @@ void UpdateScreenScale(int width, int height) {
 }
 
 void UpdateRunLoop() {
-	if (windowHidden) {
+	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}

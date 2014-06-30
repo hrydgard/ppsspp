@@ -72,8 +72,9 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-	bool bPauseWhenMinimized;
 #endif
+
+	bool bPauseWhenMinimized;
 
 #if !defined(MOBILE_DEVICE)
 	bool bPauseExitsEmulator;

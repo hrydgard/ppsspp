@@ -1130,7 +1130,7 @@ namespace MainWindow
 					ResizeDisplay();
 					break;
 				case SIZE_MINIMIZED:
-					Core_NotifyWindowHidden(g_Config.bPauseWhenMinimized);
+					Core_NotifyWindowHidden(true);
 					if (!g_Config.bPauseWhenMinimized) {
 						NativeMessageReceived("window minimized", "true");
 					}
