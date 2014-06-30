@@ -294,39 +294,35 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
-		// For a positive value, we may have gotten a smaller value, in which case we need to increment.
-		VCMP(S1, fpr.R(fs));
-		VMOV(fpr.R(fd), S0);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		FixupBranch skip = B_CC(CC_GE);
-		MOVI2F(S0, 1.0f, SCRATCHREG1);
-		VADD(S1, S1, S0);
-		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		SetJumpTarget(skip);
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 	{
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
-		// For a negative value, we may have gotten a larger value, in which case we need to decrement.
-		VCMP(S1, fpr.R(fs));
-		VMOV(fpr.R(fd), S0);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		FixupBranch skip = B_CC(CC_LS);
-		MOVI2F(S0, 1.0f, SCRATCHREG1);
-		VSUB(S1, S1, S0);
-		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		SetJumpTarget(skip);
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
 	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
@@ -334,72 +330,32 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
-	{
-		// TODO: This is a monster.  Try setting the ARM rounding mode instead?
 		fpr.MapDirtyIn(fd, fs);
 		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
 		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
-		// MIPS Rounding Mode:
-		//	 0: Round nearest
-		//	 1: Round to zero
-		//	 2: Round up (ceil)
-		//	 3: Round down (floor)
+		// MIPS Rounding Mode:       ARM Rounding Mode
+		//   0: Round nearest        0
+		//   1: Round to zero        3
+		//   2: Round up (ceil)      1
+		//   3: Round down (floor)   2
 		CMP(SCRATCHREG1, Operand2(1));
-		// Let's hope 0/1 are the most common.  Seems likely.
-		FixupBranch skipCeilFloor = B_CC(CC_LE);
-
-		// Okay, here we are in ceil or floor mode only.
-		VCVT(S0, fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		VCVT(S1, S0, TO_FLOAT | IS_SIGNED);
-		// Compare now, we'll VMRS_APSR a bit later for the ceil/floor case.
-		VCMP(S1, fpr.R(fs));
-		VMOV(fpr.R(fd), S0);
-
-		CMP(SCRATCHREG1, Operand2(2));
-		FixupBranch useFloor = B_CC(CC_GT);
-
-		// This is the ceil case specifically.  We add one if we ended up lower.
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		FixupBranch finishCeil1 = B_CC(CC_GE);
-		MOVI2F(S0, 1.0f, SCRATCHREG1);
-		VADD(S1, S1, S0);
-		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
+		SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
 		SetCC(CC_AL);
-		FixupBranch finishCeil2 = B();
 
-		// For floor, we subtract one if we ended up higher.
-		SetJumpTarget(useFloor);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		FixupBranch finishFloor1 = B_CC(CC_LS);
-		MOVI2F(S0, 1.0f, SCRATCHREG1);
-		VSUB(S1, S1, S0);
-		VCVT(fpr.R(fd), S1, TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
-		FixupBranch finishFloor2 = B();
-
-		SetJumpTarget(skipCeilFloor);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode beforehand.
+		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
+		VMSR(SCRATCHREG1);
 		VCMP(fpr.R(fs), fpr.R(fs));
-		// LT 1 means 0, nearest.  EQ means 1, round to zero.
-		SetCC(CC_LT);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		SetCC(CC_EQ);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		SetCC(CC_AL);
 		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
-
-		SetJumpTarget(finishCeil1);
-		SetJumpTarget(finishCeil2);
-		SetJumpTarget(finishFloor1);
-		SetJumpTarget(finishFloor2);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
-	}
 	default:
 		DISABLE;
 	}
