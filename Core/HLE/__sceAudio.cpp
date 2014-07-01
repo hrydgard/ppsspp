@@ -83,16 +83,18 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 }
 
 void hleAudioUpdate(u64 userdata, int cyclesLate) {
-	__AudioUpdate();
-
+	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs) - cyclesLate, eventAudioUpdate, 0);
+
+	__AudioUpdate();
 }
 
 void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
+	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
+
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
 	// can just ignore it.
 	host->UpdateSound();
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
 }
 
 void __AudioInit() {

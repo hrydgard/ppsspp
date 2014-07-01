@@ -264,6 +264,8 @@ void __GeCheckCycles(u64 userdata, int cyclesLate)
 			CoreTiming::Advance();
 		}
 	}
+
+	// This may get out of step if we synced, but that's okay.
 	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
 }
 
