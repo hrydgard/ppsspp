@@ -7,8 +7,10 @@
 #include "gfx_es2/glsl_program.h"
 #include <QGLWidget>
 
+#ifndef QT_HAS_SDL
 #include <QAudioOutput>
 #include <QAudioFormat>
+#endif
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
 #include <QAccelerometer>
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
@@ -233,6 +235,8 @@ private:
 
 static MainUI* emugl = NULL;
 
+#ifndef QT_HAS_SDL
+
 // Audio
 #define AUDIO_FREQ 44100
 #define AUDIO_CHANNELS 2
@@ -288,6 +292,8 @@ private:
 	char* mixbuf;
 	int timer;
 };
+
+#endif //QT_HAS_SDL
 
 #endif
 
