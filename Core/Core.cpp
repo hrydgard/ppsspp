@@ -135,8 +135,10 @@ void UpdateScreenScale(int width, int height) {
 }
 
 void UpdateRunLoop() {
-	if (windowHidden)
+	if (windowHidden) {
+		sleep_ms(16);
 		return;
+	}
 	NativeUpdate(input_state);
 
 	{
@@ -174,7 +176,7 @@ void Core_RunLoop() {
 		time_update();
 		UpdateRunLoop();
 #if defined(USING_WIN_UI)
-		if (!Core_IsStepping()) {
+		if (!windowHidden && !Core_IsStepping()) {
 			GL_SwapBuffers();
 		}
 #endif
