@@ -25,9 +25,8 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 		image = image.mirrored();
 	*pwidth = image.width();
 	*pheight = image.height();
-	*image_data_ptr = (unsigned char *)malloc(image.width() * image.height() * 4);
-#if QT_VERSION < QT_VERSION_CHECK(5, 2, 0) 
 	image = image.convertToFormat(QImage::Format_ARGB32);
+	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
         // Qt4 does not support RGBA 
@@ -35,10 +34,6 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 		const uint32_t v = *src;
 		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // ARGB -> RGBA
 	}
-#else
-	image = image.convertToFormat(QImage::Format_RGBA8888);
-	memcpy(image.bits(), *image_data_ptr, image.byteCount());
-#endif
 #else
 	if (flip)
 		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
@@ -77,9 +72,8 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 		image = image.mirrored();
 	*pwidth = image.width();
 	*pheight = image.height();
-	*image_data_ptr = (unsigned char *)malloc(image.width() * image.height() * 4);
-#if QT_VERSION < QT_VERSION_CHECK(5, 2, 0)
 	image = image.convertToFormat(QImage::Format_ARGB32);
+	*image_data_ptr = (unsigned char *)malloc(image.byteCount());
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
 	// Qt4 does not support RGBA
@@ -87,10 +81,6 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 		const uint32_t v = *src;
 		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // convert it!
 	}
-#else
-	image = image.convertToFormat(QImage::Format_RGBA8888);
-	memcpy(image.bits(), *image_data_ptr, image.byteCount());
-#endif
 #else
 	if (flip)
 		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
