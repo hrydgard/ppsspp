@@ -22,6 +22,7 @@
 #include "../native/base/basictypes.h"
 #endif
 
+#include <algorithm>
 #include "GPU/Directx9/TextureScalerDX9.h"
 
 #include "Core/Config.h"
