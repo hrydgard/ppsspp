@@ -513,13 +513,13 @@ void ProcessFifoWaitEvents()
 {
 	while (first)
 	{
-		if (first->time <= globalTimer)
+		if (first->time <= (s64)GetTicks())
 		{
 //			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ", 
-//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
+//				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event* evt = first;
 			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
+			event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
 			FreeEvent(evt);
 		}
 		else
