@@ -72,7 +72,10 @@ contains(QT_CONFIG, opengles.) {
 contains(MEEGO_EDITION,harmattan): DEFINES += "_SYS_UCONTEXT_H=1"
 maemo: DEFINES += MAEMO
 
-macx: INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
+macx {
+	QMAKE_MAC_SDK=macosx10.9
+	INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
+}
 ios: INCLUDEPATH += $$P/ffmpeg/ios/universal/include
 android {
 	DEFINES += ANDROID

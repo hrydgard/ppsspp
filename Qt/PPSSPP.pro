@@ -10,13 +10,6 @@ lessThan(QT_MAJOR_VERSION, 5) {
 }
 
 # Extra Qt modules
-linux:lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
-	# Ubuntu et al workaround. They forgot QtMultimedia
-	CONFIG += mobility
-	MOBILITY += multimedia
-}
-else: QT += multimedia
-
 greaterThan(QT_MAJOR_VERSION,4) {
 	QT += widgets
 	mobile_platform: QT += sensors
@@ -69,6 +62,7 @@ macx|linux {
 		}
 	}
 }
+
 linux:!android: LIBS += -ldl -lrt
 macx: LIBS += -liconv
 qnx: LIBS += -lscreen
@@ -76,6 +70,16 @@ symbian: LIBS += -lremconcoreapi -lremconinterfacebase
 linux:arm|android: LIBS += -lEGL
 unix:contains(QT_CONFIG, system-zlib) {
 	LIBS += -lz
+}
+
+# Qt Multimedia (if SDL is not found)
+!contains(DEFINES, QT_HAS_SDL) {
+	linux:lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
+		# Fallback to mobility audio
+		CONFIG += mobility
+		MOBILITY += multimedia
+	}
+	else: QT += multimedia
 }
 
 # Main
