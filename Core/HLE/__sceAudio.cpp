@@ -285,6 +285,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 
 inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
+	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
 		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
 		waitInfo.numSamples -= step;
@@ -295,13 +296,17 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
-			__KernelReSchedule("audio drain");
+			wokeThreads = true;
 
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 		}
 		// This means the thread stopped waiting, so stop trying to wake it.
 		else if (waitID == 0)
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+	}
+
+	if (wokeThreads) {
+		__KernelReSchedule("audio drain");
 	}
 }
 
