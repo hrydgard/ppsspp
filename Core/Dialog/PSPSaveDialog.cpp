@@ -300,6 +300,7 @@ void PSPSaveDialog::DisplayBanner(int which)
 
 void PSPSaveDialog::DisplaySaveList(bool canMove)
 {
+	lock_guard guard(paramLock);
 	static int upFramesHeld = 0;
 	static int downFramesHeld = 0;
 
@@ -359,6 +360,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 
 void PSPSaveDialog::DisplaySaveIcon()
 {
+	lock_guard guard(paramLock);
 	int textureColor = CalcFadedColor(0xFFFFFFFF);
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
@@ -387,6 +389,7 @@ void PSPSaveDialog::DisplaySaveIcon()
 
 void PSPSaveDialog::DisplaySaveDataInfo1()
 {
+	lock_guard guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
 		I18NCategory *d = GetI18NCategory("Dialog");
 		PPGeDrawText(d->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
@@ -459,6 +462,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 
 void PSPSaveDialog::DisplaySaveDataInfo2()
 {
+	lock_guard guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {		
 	} else {
 		char txt[1024];
@@ -717,7 +721,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			EndDraw();
 		break;
 		case DS_SAVE_DONE:
-			JoinIOThread();
+			if (ioThread) {
+				JoinIOThread();
+				param.SetPspParam(param.GetPspParam());
+			}
 			StartDraw();
 
 			DisplaySaveIcon();
@@ -932,7 +939,10 @@ int PSPSaveDialog::Update(int animSpeed)
 			EndDraw();
 		break;
 		case DS_DELETE_DONE:
-			JoinIOThread();
+			if (ioThread) {
+				JoinIOThread();
+				param.SetPspParam(param.GetPspParam());
+			}
 			StartDraw();
 			
 			DisplayMessage(d->T("Delete completed"));
@@ -1002,7 +1012,6 @@ void PSPSaveDialog::ExecuteIOAction() {
 		break;
 	case DS_SAVE_SAVING:
 		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName())) {
-			param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
 			display = DS_SAVE_DONE;
 		} else {
 			display = DS_SAVE_FAILED;
@@ -1010,7 +1019,6 @@ void PSPSaveDialog::ExecuteIOAction() {
 		break;
 	case DS_DELETE_DELETING:
 		if (param.Delete(param.GetPspParam(),currentSelectedSave)) {
-			param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
 			display = DS_DELETE_DONE;
 		} else {
 			display = DS_DELETE_FAILED;
