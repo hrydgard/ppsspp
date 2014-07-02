@@ -1846,7 +1846,7 @@ u32 sceKernelUnloadModule(u32 moduleId)
 }
 
 u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
-	// used in Tom Clancy's Splinter Cell Essentials
+	// used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
 	if (loadedModules.size() > 1) {
 		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game may have crashed",argSize, argp, statusAddr, optionAddr);
 
@@ -1854,7 +1854,7 @@ u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 opt
 		u32 priority = 0x20;
 		u32 stacksize = 0x40000;
 		u32 attr = 0;
-		int exitCode;
+		int exitCode = 0;
 		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
 		u32 error;
