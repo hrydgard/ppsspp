@@ -1845,22 +1845,26 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	return moduleId;
 }
 
-u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
-	// used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
+u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
 	if (loadedModules.size() > 1) {
-		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game may have crashed",argSize, argp, statusAddr, optionAddr);
-
+		if (WithStatus)
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+		else
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game may have crashed", argSize, argp, statusAddr, optionAddr);
 		SceUID moduleID = __KernelGetCurThreadModuleId();
 		u32 priority = 0x20;
 		u32 stacksize = 0x40000;
 		u32 attr = 0;
-		int exitCode = 0;
 		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
 		u32 error;
 		Module *module = kernelObjects.Get<Module>(moduleID, error);
 		if (!module) {
-			ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): invalid module id",argSize, argp, statusAddr, optionAddr);
+			if (WithStatus)
+				ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): invalid module id", exitCode, argSize, argp, statusAddr, optionAddr);
+			else
+				ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): invalid module id", argSize, argp, statusAddr, optionAddr);
+			
 			return error;
 		}
 
@@ -1884,7 +1888,7 @@ u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 opt
 				attr = options->attribute;
 			// TODO: Maybe based on size?
 			else if (attr != 0)
-				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);
+				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);			
 		}
 
 		if (Memory::IsValidAddress(stopFunc)) {
@@ -1898,92 +1902,41 @@ u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 opt
 			module->waitingThreads.push_back(mwt);
 		}
 		else if (stopFunc == 0) {
-			INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): no stop func", argSize, argp, statusAddr, optionAddr);
-			sceKernelExitDeleteThread(exitCode);			
+			if (WithStatus)
+				INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
+			else
+				INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): no stop func", argSize, argp, statusAddr, optionAddr);
+			sceKernelExitDeleteThread(exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
 		}
 		else {
-			ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): bad stop func address", argSize, argp, statusAddr, optionAddr);
+			if (WithStatus)
+				ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
+			else
+				ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): bad stop func address", argSize, argp, statusAddr, optionAddr);
 			sceKernelExitDeleteThread(exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
 		}
 	}
 	else {
-		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game has likely crashed", argSize, argp, statusAddr, optionAddr);
+		if (WithStatus)
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+		else
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game has likely crashed", argSize, argp, statusAddr, optionAddr);
 	}
-	
+
 	return 0;
 }
 
+u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+	// Used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
+	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(0, argSize, argp, statusAddr, optionAddr, false);
+}
+
 u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
-	if (loadedModules.size() > 1) {
-		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
-
-		SceUID moduleID = __KernelGetCurThreadModuleId();
-		u32 priority = 0x20;
-		u32 stacksize = 0x40000;
-		u32 attr = 0;
-
-		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
-
-		u32 error;
-		Module *module = kernelObjects.Get<Module>(moduleID, error);
-		if (!module) {
-			ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): invalid module id", exitCode, argSize, argp, statusAddr, optionAddr);
-			return error;
-		}
-
-		u32 stopFunc = module->nm.module_stop_func;
-		if (module->nm.module_stop_thread_priority != 0)
-			priority = module->nm.module_stop_thread_priority;
-		if (module->nm.module_stop_thread_stacksize != 0)
-			stacksize = module->nm.module_stop_thread_stacksize;
-		if (module->nm.module_stop_thread_attr != 0)
-			attr = module->nm.module_stop_thread_attr;
-
-		// TODO: Need to test how this really works.  Let's assume it's an override.
-		if (Memory::IsValidAddress(optionAddr)) {
-			auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
-			// TODO: Check how size handling actually works.
-			if (options->size != 0 && options->priority != 0)
-				priority = options->priority;
-			if (options->size != 0 && options->stacksize != 0)
-				stacksize = options->stacksize;
-			if (options->size != 0 && options->attribute != 0)
-				attr = options->attribute;
-			// TODO: Maybe based on size?
-			else if (attr != 0)
-				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);
-		}
-
-		if (Memory::IsValidAddress(stopFunc)) {
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0);
-			sceKernelStartThread(threadID, argSize, argp);
-			__KernelSetThreadRA(threadID, NID_MODULERETURN);
-			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
-
-			const ModuleWaitingThread mwt = {__KernelGetCurThread(), statusAddr};
-			module->nm.status = MODULE_STATUS_UNLOADING;
-			module->waitingThreads.push_back(mwt);
-		} else if (stopFunc == 0) {
-			INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
-			sceKernelExitDeleteThread(exitCode);
-			module->Cleanup();
-			kernelObjects.Destroy<Module>(moduleID);
-		} else {
-			ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
-			sceKernelExitDeleteThread(exitCode);
-			module->Cleanup();
-			kernelObjects.Destroy<Module>(moduleID);
-		}
-	} else {
-		ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
-	}
-
-	// Probably similar to sceKernelStopModule, but games generally call this when they die.
-	return 0;
+	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
 }
 
 void __KernelReturnFromModuleFunc()
