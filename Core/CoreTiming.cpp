@@ -89,6 +89,13 @@ static std::recursive_mutex externalEventSection;
 void (*advanceCallback)(int cyclesExecuted) = NULL;
 std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
+void FireMhzChange() {
+	for (auto it = mhzChangeCallbacks.begin(), end = mhzChangeCallbacks.end(); it != end; ++it) {
+		MHzChangeCallback cb = *it;
+		cb();
+	}
+}
+
 void SetClockFrequencyMHz(int cpuMhz)
 {
 	// When the mhz changes, we keep track of what "time" it was before hand.
@@ -99,10 +106,7 @@ void SetClockFrequencyMHz(int cpuMhz)
 	CPU_HZ = cpuMhz * 1000000;
 	// TODO: Rescale times of scheduled events?
 
-	for (auto it = mhzChangeCallbacks.begin(), end = mhzChangeCallbacks.end(); it != end; ++it) {
-		MHzChangeCallback cb = *it;
-		cb();
-	}
+	FireMhzChange();
 }
 
 int GetClockFrequencyMHz()
@@ -701,6 +705,8 @@ void DoState(PointerWrap &p)
 		lastGlobalTimeTicks = 0;
 		lastGlobalTimeUs = 0;
 	}
+
+	FireMhzChange();
 }
 
 }	// namespace
