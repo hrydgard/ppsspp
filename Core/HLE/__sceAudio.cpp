@@ -52,8 +52,8 @@ const int hwSampleRate = 44100;
 int hwBlockSize = 64;
 int hostAttemptBlockSize = 512;
 
-static int audioIntervalUs;
-static int audioHostIntervalUs;
+static int audioIntervalCycles;
+static int audioHostIntervalCycles;
 
 static s32 *mixBuffer;
 
@@ -84,18 +84,24 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 
 void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
-	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs) - cyclesLate, eventAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
 
 	__AudioUpdate();
 }
 
 void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
 
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
 	// can just ignore it.
 	host->UpdateSound();
 }
+
+void __AudioCPUMHzChange() {
+	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
+	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
+}
+
 
 void __AudioInit() {
 	mixFrequency = 44100;
@@ -122,14 +128,13 @@ void __AudioInit() {
 
 	}
 
-	audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
-	audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
+	__AudioCPUMHzChange();
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
 
-	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs), eventAudioUpdate, 0);
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioHostIntervalCycles, eventHostAudioUpdate, 0);
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 
@@ -139,8 +144,8 @@ void __AudioInit() {
 	__blockForAudioQueueLock();
 	outAudioQueue.clear();
 	__releaseAcquiredLock();
+	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
-
 void __AudioDoState(PointerWrap &p) {
 	auto s = p.Section("sceAudio", 1);
 	if (!s)

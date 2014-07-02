@@ -87,6 +87,7 @@ static std::recursive_mutex externalEventSection;
 
 // Warning: not included in save state.
 void (*advanceCallback)(int cyclesExecuted) = NULL;
+std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
 void SetClockFrequencyMHz(int cpuMhz)
 {
@@ -97,6 +98,11 @@ void SetClockFrequencyMHz(int cpuMhz)
 
 	CPU_HZ = cpuMhz * 1000000;
 	// TODO: Rescale times of scheduled events?
+
+	for (auto it = mhzChangeCallbacks.begin(), end = mhzChangeCallbacks.end(); it != end; ++it) {
+		MHzChangeCallback cb = *it;
+		cb();
+	}
 }
 
 int GetClockFrequencyMHz()
@@ -198,6 +204,7 @@ void Init()
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
 	hasTsEvents = 0;
+	mhzChangeCallbacks.clear();
 }
 
 void Shutdown()
@@ -405,6 +412,10 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 {
 	advanceCallback = callback;
+}
+
+void RegisterMHzChangeCallback(MHzChangeCallback callback) {
+	mhzChangeCallbacks.push_back(callback);
 }
 
 bool IsScheduled(int event_type) 
