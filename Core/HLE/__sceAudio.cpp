@@ -146,6 +146,7 @@ void __AudioInit() {
 	__releaseAcquiredLock();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
+
 void __AudioDoState(PointerWrap &p) {
 	auto s = p.Section("sceAudio", 1);
 	if (!s)
@@ -179,6 +180,8 @@ void __AudioDoState(PointerWrap &p) {
 	}
 	for (int i = 0; i < chanCount; ++i)
 		chans[i].DoState(p);
+
+	__AudioCPUMHzChange();
 }
 
 void __AudioShutdown() {
