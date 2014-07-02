@@ -1897,11 +1897,10 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
 
-			const ModuleWaitingThread mwt = { __KernelGetCurThread(), statusAddr };
+			const ModuleWaitingThread mwt = {__KernelGetCurThread(), statusAddr};
 			module->nm.status = MODULE_STATUS_UNLOADING;
 			module->waitingThreads.push_back(mwt);
-		}
-		else if (stopFunc == 0) {
+		} else if (stopFunc == 0) {
 			if (WithStatus)
 				INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
@@ -1909,8 +1908,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			sceKernelExitDeleteThread(exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
-		}
-		else {
+		} else {
 			if (WithStatus)
 				ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
@@ -1919,8 +1917,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
 		}
-	}
-	else {
+	} else {
 		if (WithStatus)
 			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
 		else
