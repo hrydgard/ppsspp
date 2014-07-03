@@ -1888,7 +1888,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 				attr = options->attribute;
 			// TODO: Maybe based on size?
 			else if (attr != 0)
-				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);			
+				WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);
 		}
 
 		if (Memory::IsValidAddress(stopFunc)) {
