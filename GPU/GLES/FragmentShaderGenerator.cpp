@@ -490,7 +490,6 @@ void GenerateFragmentShader(char *buffer) {
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	}
-	WRITE(p, "precision lowp float;\n");
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
@@ -498,8 +497,10 @@ void GenerateFragmentShader(char *buffer) {
 	
 	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
-		WRITE(p, "  #extension GL_NV_shader_framebuffer_fetch : require\n");
+		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
 	}
+
+	WRITE(p, "precision lowp float;\n");
 	
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
