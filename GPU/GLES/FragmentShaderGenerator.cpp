@@ -800,9 +800,9 @@ void GenerateFragmentShader(char *buffer) {
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (bitwiseOps) {
 					// Apparently GLES3 does not support vector bitwise ops.
-					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);");
+					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 					const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
-					const char *maskedColorRef = "ivec3(u_alphacolorref.r & u_alphacolormask.r, u_alphacolorref.g & u_alphacolormask.g, u_alphacolorref.b & u_alphacolormask.b)";
+					const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
 					WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
 				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
