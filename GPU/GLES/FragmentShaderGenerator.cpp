@@ -477,6 +477,7 @@ void GenerateFragmentShader(char *buffer) {
 	const char *texture = "texture2D";
 	bool highpFog = false;
 	bool bitwiseOps = false;
+	bool texelFetch = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
@@ -487,6 +488,7 @@ void GenerateFragmentShader(char *buffer) {
 		texture = "texture";
 		glslES30 = true;
 		bitwiseOps = true;
+		texelFetch = true;
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	}
@@ -508,6 +510,7 @@ void GenerateFragmentShader(char *buffer) {
 		texture = "texture";
 		glslES30 = true;
 		bitwiseOps = true;
+		texelFetch = true;
 		WRITE(p, "#version 330\n");
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
@@ -515,6 +518,7 @@ void GenerateFragmentShader(char *buffer) {
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		fragColor0 = "fragColor0";
 		bitwiseOps = true;
+		texelFetch = true;
 		WRITE(p, "#version 130\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
 		WRITE(p, "#define lowp\n");
@@ -561,7 +565,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (!gstate.isModeClear() && useShaderBlending) {
 		if (!gl_extensions.NV_shader_framebuffer_fetch) {
-			if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
+			if (!texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
@@ -834,7 +838,7 @@ void GenerateFragmentShader(char *buffer) {
 			// TODO: EXT_shader_framebuffer_fetch on iOS 6, possibly others.
 			if (gl_extensions.NV_shader_framebuffer_fetch) {
 				WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
-			} else if (!gl_extensions.VersionGEThan(3, 0, 0) && !gl_extensions.GLES3) {
+			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
 			} else {
 				WRITE(p, "  lowp vec4 destColor = texelFetch(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n");
