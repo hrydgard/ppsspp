@@ -124,7 +124,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	WRITE(p, "uniform sampler2D pal;\n");
 
 	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 color = texture2D(tex, v_texcoord0);\n");
+	WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
 
 	int mask = gstate.getClutIndexMask();
 	int shift = gstate.getClutIndexShift();
@@ -154,14 +154,14 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		if (shiftedMask & 0x1F) WRITE(p, "  int r = int(color.r * 31.99);\n"); else WRITE(p, "  int r = 0;\n");
 		if (shiftedMask & 0x7E0) WRITE(p, "  int g = int(color.g * 63.99);\n"); else WRITE(p, "  int g = 0;\n");
 		if (shiftedMask & 0xF800) WRITE(p, "  int b = int(color.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
-		WRITE(p, "  int index = (b << 11) | (g << 5) | (r);");
+		WRITE(p, "  int index = (b << 11) | (g << 5) | (r);\n");
 		break;
 	case GE_FORMAT_5551:
 		if (shiftedMask & 0x1F) WRITE(p, "  int r = int(color.r * 31.99);\n"); else WRITE(p, "  int r = 0;\n");
 		if (shiftedMask & 0x3E0) WRITE(p, "  int g = int(color.g * 31.99);\n"); else WRITE(p, "  int g = 0;\n");
 		if (shiftedMask & 0x7C00) WRITE(p, "  int b = int(color.b * 31.99);\n"); else WRITE(p, "  int b = 0;\n");
 		if (shiftedMask & 0x8000) WRITE(p, "  int a = int(color.a);\n"); else WRITE(p, "  int a = 0;\n");
-		WRITE(p, "  int index = (a << 15) | (b << 10) | (g << 5) | (r);");
+		WRITE(p, "  int index = (a << 15) | (b << 10) | (g << 5) | (r);\n");
 		break;
 	default:
 		break;
@@ -182,7 +182,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		WRITE(p, ";\n");
 	}
 
-	WRITE(p, "  fragColor0 = texture2D(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
