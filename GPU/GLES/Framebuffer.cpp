@@ -1813,7 +1813,18 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			return;
 		}
 
-		if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		GLenum fbStatus;
+#ifndef USING_GLES2
+		if (!gl_extensions.FBO_ARB) {
+			fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
+		} else {
+			fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+		}
+#else
+		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+#endif
+
+		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
 			fbo_unbind();
 			if (gl_extensions.FBO_ARB) {
