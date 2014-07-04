@@ -1775,19 +1775,19 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_8888: // 32 bit RGBA
 			default:
