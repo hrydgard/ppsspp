@@ -992,7 +992,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->last_frame_attached = 0;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
-		glEnable(GL_DITHER);  // why?
+		glDisable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
 		u32 byteSize = FramebufferByteSize(vfb);
@@ -1438,7 +1438,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			ClearBuffer();
-			glEnable(GL_DITHER);
+			glDisable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			textureCache_->ForgetLastTexture();
