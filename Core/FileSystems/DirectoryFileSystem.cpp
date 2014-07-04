@@ -917,7 +917,15 @@ std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string path) {
 }
 
 void VFSFileSystem::DoState(PointerWrap &p) {
-	if (!entries.empty()) {
+	// Note: used interchangeably with DirectoryFileSystem for flash0:, so we use the same name.
+	auto s = p.Section("DirectoryFileSystem", 0, 2);
+	if (!s)
+		return;
+
+	u32 num = (u32) entries.size();
+	p.Do(num);
+
+	if (num != 0) {
 		p.SetError(p.ERROR_WARNING);
 		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
 	}
