@@ -992,7 +992,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->last_frame_attached = 0;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
-		glEnable(GL_DITHER);  // why?
+		glDisable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
 
 		u32 byteSize = FramebufferByteSize(vfb);
@@ -1438,7 +1438,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			ClearBuffer();
-			glEnable(GL_DITHER);
+			glDisable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			textureCache_->ForgetLastTexture();
@@ -1775,19 +1775,19 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
-				align = 8;
+				align = 2;
 				break;
 			case GE_FORMAT_8888: // 32 bit RGBA
 			default:
