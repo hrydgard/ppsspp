@@ -1723,6 +1723,13 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	bool unbind = false;
 	u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
 	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+	// We might get here if hackForce04154000Download_ is hit.
+	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+	// This causes glitches in games that expect the exact values.
+	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+	if (g_Config.iRenderingMode == FB_BUFFERED_MODE && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
+		useCPU = true;
+	}
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
