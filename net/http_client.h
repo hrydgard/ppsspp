@@ -8,6 +8,7 @@
 #include "base/functional.h"
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <winsock2.h>
 #else
 #if defined(__FreeBSD__) || defined(__SYMBIAN32__)
