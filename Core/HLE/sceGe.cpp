@@ -227,7 +227,9 @@ public:
 				if (newState != PSP_GE_DL_STATE_RUNNING)
 					DEBUG_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
 
-				dl->state = PSP_GE_DL_STATE_RUNNING;
+				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
+					dl->state = PSP_GE_DL_STATE_QUEUED;
+				}
 			}
 			break;
 		default:
@@ -262,6 +264,8 @@ void __GeCheckCycles(u64 userdata, int cyclesLate)
 			CoreTiming::Advance();
 		}
 	}
+
+	// This may get out of step if we synced, but that's okay.
 	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
 }
 
@@ -390,9 +394,9 @@ bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitin
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 {
 	// We check for the old type for old savestate compatibility.
-	if (type == GPU_SYNC_DRAW || type == WAITTYPE_GEDRAWSYNC)
+	if (type == GPU_SYNC_DRAW || (WaitType)type == WAITTYPE_GEDRAWSYNC)
 		return __GeTriggerWait(WAITTYPE_GEDRAWSYNC, waitId, drawWaitingThreads);
-	else if (type == GPU_SYNC_LIST || type == WAITTYPE_GELISTSYNC)
+	else if (type == GPU_SYNC_LIST || (WaitType)type == WAITTYPE_GELISTSYNC)
 		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
 		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
@@ -490,7 +494,10 @@ u32 sceGeDrawSync(u32 mode)
 int sceGeContinue()
 {
 	DEBUG_LOG(SCEGE, "sceGeContinue");
-	return gpu->Continue();
+	int ret = gpu->Continue();
+	hleEatCycles(220);
+	hleReSchedule("ge continue");
+	return ret;
 }
 
 int sceGeBreak(u32 mode, u32 unknownPtr)

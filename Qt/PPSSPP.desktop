@@ -1,6 +1,6 @@
 [Desktop Entry]
 Encoding=UTF-8
-Version=0.9.8
+Version=1.0 # The version of the desktop entry specification to which this file complies 
 Type=Application
 Terminal=false
 Name=PPSSPP

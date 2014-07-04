@@ -135,10 +135,9 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 	asm_.Init(mips, this);
-	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
-	js.startDefaultPrefix = true;
-
 	safeMemFuncs.Init(&thunks);
+
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
 Jit::~Jit() {
@@ -218,7 +217,12 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-void Jit::ClearCacheAt(u32 em_address, int length)
+void Jit::InvalidateCache()
+{
+	blocks.Clear();
+}
+
+void Jit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);
 }
@@ -256,7 +260,7 @@ void Jit::EatInstruction(MIPSOpcode op)
 		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	CheckJitBreakpoint(js.compilerPC + 4, 0);
@@ -423,6 +427,11 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		return false;
 	}
 
+	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+
 	// Warning - this might be bad if the code at the destination changes...
 	if (entry->flags & REPFLAG_ALLOWINLINE) {
 		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
@@ -437,6 +446,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
 		js.downcountAmount = 0;  // we just subtracted most of it
@@ -470,26 +480,35 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
-		FlushAll();
-		MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-		js.downcountAmount = cycles;
-		WriteExitDestInReg(ECX);
-		js.compiling = false;
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			FlushAll();
+			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
+			js.downcountAmount = cycles;
+			WriteExitDestInReg(ECX);
+			js.compiling = false;
+		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
 
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
-		// Alternatively, we could inline it here, instead of calling out, if it's a function
-		// we can emit.
 
-		MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-		SUB(32, M(&currentMIPS->downcount), R(EAX));
-		js.downcountAmount = 0;  // we just subtracted most of it
-		WriteExitDestInReg(ECX);
-
-		js.compiling = false;
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
+			SUB(32, M(&currentMIPS->downcount), R(EAX));
+			js.downcountAmount = 0;  // we just subtracted most of it
+			WriteExitDestInReg(ECX);
+			js.compiling = false;
+		}
 	} else {
 		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}

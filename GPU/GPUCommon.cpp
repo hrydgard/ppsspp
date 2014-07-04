@@ -10,6 +10,7 @@
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -36,6 +37,7 @@ void GPUCommon::Reinitialize() {
 	isbreak = false;
 	drawCompleteTicks = 0;
 	busyTicks = 0;
+	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
 	UpdateTickEstimate(0);
 }
@@ -214,7 +216,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		//stack = NULL;
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
 			if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
-				if (dls[i].pc == listpc) {
+				// Logically, if the CPU has not interrupted yet, it hasn't seen the latest pc either.
+				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
+				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
 					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
 					return 0x80000021;
 				}
@@ -444,6 +448,23 @@ u32 GPUCommon::Break(int mode) {
 	return currentList->id;
 }
 
+void GPUCommon::NotifySteppingEnter() {
+	if (g_Config.bShowDebugStats) {
+		time_update();
+		timeSteppingStarted_ = time_now_d();
+	}
+}
+void GPUCommon::NotifySteppingExit() {
+	if (g_Config.bShowDebugStats) {
+		if (timeSteppingStarted_ <= 0.0) {
+			ERROR_LOG(G3D, "Mismatched stepping enter/exit.");
+		}
+		time_update();
+		timeSpentStepping_ += time_now_d() - timeSteppingStarted_;
+		timeSteppingStarted_ = 0.0;
+	}
+}
+
 bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
@@ -516,7 +537,10 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 	if (g_Config.bShowDebugStats) {
 		time_update();
-		gpuStats.msProcessingDisplayLists += time_now_d() - start;
+		double total = time_now_d() - start - timeSpentStepping_;
+		hleSetSteppingTime(timeSpentStepping_);
+		timeSpentStepping_ = 0.0;
+		gpuStats.msProcessingDisplayLists += total;
 	}
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }

@@ -194,7 +194,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LE);
+				SetCC(CC_LS);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -209,7 +209,7 @@ namespace MIPSComp
 				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LT);
+				SetCC(CC_LO);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -742,27 +742,60 @@ namespace MIPSComp
 			case 27: //VFPU3
 				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
+				{
 					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 					VMRS_APSR();
+					FixupBranch skipNAN = B_CC(CC_VC);
+					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
+					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
+					// If both are negative, we reverse the comparison.  We want the highest mantissa then.
+					// Also, between -NAN and -5.0, we want -NAN to be less.
+					TST(SCRATCHREG1, SCRATCHREG2);
+					FixupBranch cmpPositive = B_CC(CC_PL);
+					CMP(SCRATCHREG2, SCRATCHREG1);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCHREG1, SCRATCHREG2);
+					SetJumpTarget(skipPositive);
+					SetCC(CC_AL);
+					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
+				}
 				case 3:  // vmax
+				{
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					FixupBranch skipNAN = B_CC(CC_VC);
+					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
+					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
+					// If both are negative, we reverse the comparison.  We want the lowest mantissa then.
+					// Also, between -NAN and -5.0, we want -5.0 to be greater.
+					TST(SCRATCHREG2, SCRATCHREG1);
+					FixupBranch cmpPositive = B_CC(CC_PL);
+					CMP(SCRATCHREG1, SCRATCHREG2);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCHREG2, SCRATCHREG1);
+					SetJumpTarget(skipPositive);
+					SetCC(CC_AL);
+					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
+				}
 				case 6:  // vsge
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					// Unordered is always 0.
 					SetCC(CC_GE);
 					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
 					SetCC(CC_LT);
@@ -773,9 +806,10 @@ namespace MIPSComp
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
-					SetCC(CC_LT);
+					// Unordered is always 0.
+					SetCC(CC_LO);
 					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
-					SetCC(CC_GE);
+					SetCC(CC_HS);
 					MOVI2F(fpr.V(tempregs[i]), 0.0f, SCRATCHREG1);
 					SetCC(CC_AL);
 					break;
@@ -887,33 +921,50 @@ namespace MIPSComp
 			case 2: // d[i] = -s[i]; break; //vneg
 				VNEG(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
-
-			/*  These are probably just as broken as the prefix.
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
-				MOVI2F(S0, 0.5f, SCRATCHREG1);
-				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
-				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
-				VSUB(fpr.V(tempregs[i]), S1, fpr.V(tempregs[i])); // v[i] = S1 - S2 + 0.5f
-				VADD(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
+				if (i == 0) {
+					MOVI2F(S0, 0.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
+				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_LS);
+				VMOV(fpr.V(tempregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(sregs[i]), S1);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				SetCC(CC_GT);
+				VMOV(fpr.V(tempregs[i]), S1);
+				SetCC(CC_AL);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
-				MOVI2F(S0, 1.0f, SCRATCHREG1);
-				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
-				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
-				VSUB(fpr.V(tempregs[i]), S1, fpr.V(tempregs[i])); // v[i] = S1 - S2
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
+				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_LO);
+				VMOV(fpr.V(tempregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(sregs[i]), S1);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				SetCC(CC_GT);
+				VMOV(fpr.V(tempregs[i]), S1);
+				SetCC(CC_AL);
 				break;
-				*/
-
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				MOVI2F(S0, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				MOVI2F(S0, 1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VSQRT(S1, fpr.V(sregs[i]));
 				VDIV(fpr.V(tempregs[i]), S0, S1);
 				break;
@@ -951,7 +1002,9 @@ namespace MIPSComp
 				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				MOVI2F(S0, -1.0f, SCRATCHREG1);
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			default:
@@ -1127,7 +1180,7 @@ namespace MIPSComp
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
 			switch ((op >> 21) & 0x1f) {
-			case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+			case 16: /* TODO */ break; //n
 			case 17:
 				if (mult != 1.0f) {
 					VMUL(S0, fpr.V(sregs[i]), S1);
@@ -1167,12 +1220,16 @@ namespace MIPSComp
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 					VMOV(gpr.R(rt), fpr.V(imm));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-					// In case we have a saved prefix.
-					FlushPrefixV();
 					if (imm - 128 == VFPU_CTRL_CC) {
-						gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
-						MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						if (gpr.IsImm(MIPS_REG_VFPUCC)) {
+							gpr.SetImm(rt, gpr.GetImm(MIPS_REG_VFPUCC));
+						} else {
+							gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
+							MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						}
 					} else {
+						// In case we have a saved prefix.
+						FlushPrefixV();
 						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 						LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 					}
@@ -1190,8 +1247,12 @@ namespace MIPSComp
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
-					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-					MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					if (gpr.IsImm(rt)) {
+						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+					} else {
+						gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
+						MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					}
 				} else {
 					gpr.MapReg(rt);
 					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
@@ -1229,8 +1290,13 @@ namespace MIPSComp
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 			fpr.MapRegV(vs);
-			ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
-			VSTR(fpr.V(vs), SCRATCHREG1, 0);
+			if (imm - 128 == VFPU_CTRL_CC) {
+				gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY | MAP_NOINIT);
+				VMOV(gpr.R(MIPS_REG_VFPUCC), fpr.V(vs));
+			} else {
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				VSTR(fpr.V(vs), SCRATCHREG1, 0);
+			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
@@ -1809,26 +1875,19 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	static float sincostemp[2];
-
-	void SinCos(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-		angle *= (float)M_PI_2;
-		sincostemp[0] = sinf(angle);
-		sincostemp[1] = cosf(angle);
-	}
-
 	// sincosf is unavailable in the Android NDK:
 	// https://code.google.com/p/android/issues/detail?id=38423
-	void SinCosNegSin(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-		angle *= (float)M_PI_2;
-		sincostemp[0] = -sinf(angle);
-		sincostemp[1] = cosf(angle);
+	double SinCos(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
+		return sincos.out;
+	}
+
+	double SinCosNegSin(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
+		sincos.sin = -sincos.sin;
+		return sincos.out;
 	}
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
@@ -1861,13 +1920,18 @@ namespace MIPSComp
 		bool negSin = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
-		// Silly Android calling conventions, not passing arguments in float regs! (no hardfloat!)
 		// We should write a custom pure-asm function instead.
+#if defined(__ARM_PCS_VFP) // Hardfp
+		VMOV(S0, fpr.V(sreg));
+#else                      // Softfp
 		VMOV(R0, fpr.V(sreg));
+#endif
 		// FlushBeforeCall saves R1.
 		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
-		gpr.SetRegImm(R0, (u32)(&sincostemp[0]));
-		VLDMIA(R0, false, S0, 2);
+#if !defined(__ARM_PCS_VFP)
+		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
+		VMOV(D0, R0, R1);
+#endif
 
 		char what[4] = {'0', '0', '0', '0'};
 		if (((imm >> 2) & 3) == (imm & 3)) {

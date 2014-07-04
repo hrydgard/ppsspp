@@ -522,11 +522,7 @@ BlendResult preProcessCorners(const Kernel_4x4& ker, const xbrz::ScalerCfg& cfg)
 		 ker.g == ker.k))
 		return result;
 
-#ifdef MEEGO_EDITION_HARMATTAN
-#define dist(col1, col2) colorDist(col1, col2, cfg.luminanceWeight_)
-#else
 	auto dist = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_); };
-#endif
 
 	const int weight = 4;
 	double jg = dist(ker.i, ker.f) + dist(ker.f, ker.c) + dist(ker.n, ker.k) + dist(ker.k, ker.h) + weight * dist(ker.j, ker.g);
@@ -646,12 +642,8 @@ void scalePixel(const Kernel_3x3& ker,
 
 	if (getBottomR(blend) >= BLEND_NORMAL)
 	{
-#ifdef MEEGO_EDITION_HARMATTAN
-#define eq(col1, col2) (colorDist(col1, col2, cfg.luminanceWeight_) < cfg.equalColorTolerance_)
-#else
 		auto eq   = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_) < cfg.equalColorTolerance_; };
 		auto dist = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_); };
-#endif
 
 		bool doLineBlend = true;
 		if (getBottomR(blend) < BLEND_DOMINANT)

@@ -119,6 +119,7 @@ public:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 	void GLLost();
+	void Resized();
 
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
@@ -174,7 +175,12 @@ private:
 	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
+	void ApplyBlendState();
+	bool ApplyShaderBlending();
+	inline void ResetShaderBlending();
 	bool IsReallyAClear(int numVerts) const;
+	GLuint AllocateBuffer();
+	void FreeBuffer(GLuint buf);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
@@ -223,10 +229,7 @@ private:
 
 	// Vertex buffer objects
 	// Element buffer objects
-	enum { NUM_VBOS = 128 };
-	GLuint vbo_[NUM_VBOS];
-	GLuint ebo_[NUM_VBOS];
-	int curVbo_;
+	std::vector<GLuint> bufferNameCache_;
 
 	// Other
 	ShaderManager *shaderManager_;
@@ -243,4 +246,6 @@ private:
 	u32 dcid_;
 
 	UVScale *uvScale;
+
+	bool fboTexBound_;
 };

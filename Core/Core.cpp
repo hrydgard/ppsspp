@@ -47,12 +47,18 @@ static event m_hInactiveEvent;
 static recursive_mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
+static bool windowHidden = false;
 
 #ifdef _WIN32
 InputState input_state;
 #else
 extern InputState input_state;
 #endif
+
+void Core_NotifyWindowHidden(bool hidden) {
+	windowHidden = hidden;
+	// TODO: Wait until we can react?
+}
 
 void Core_ListenShutdown(Core_ShutdownFunc func) {
 	shutdownFuncs.insert(func);
@@ -128,7 +134,11 @@ void UpdateScreenScale(int width, int height) {
 	NativeResized();
 }
 
-static inline void UpdateRunLoop() {
+void UpdateRunLoop() {
+	if (windowHidden) {
+		sleep_ms(16);
+		return;
+	}
 	NativeUpdate(input_state);
 
 	{
@@ -136,15 +146,14 @@ static inline void UpdateRunLoop() {
 		EndInputState(&input_state);
 	}
 
-	if (globalUIState != UISTATE_EXIT) {
+	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender();
 	}
 }
 
 void Core_RunLoop() {
-	while ((globalUIState != UISTATE_INGAME || !PSP_IsInited()) && globalUIState != UISTATE_EXIT) {
+	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
-
 #if defined(USING_WIN_UI)
 		double startTime = time_now_d();
 		UpdateRunLoop();
@@ -152,20 +161,22 @@ void Core_RunLoop() {
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
+		int sleepTime = (int)(1000000.0 / 60.0) - (int)(diffTime * 1000000.0);
 		if (sleepTime > 0)
 			Sleep(sleepTime / 1000);
-		GL_SwapBuffers();
+		if (!windowHidden) {
+			GL_SwapBuffers();
+		}
 #else
 		UpdateRunLoop();
 #endif
 	}
 
-	while (!coreState && globalUIState == UISTATE_INGAME) {
+	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
 #if defined(USING_WIN_UI)
-		if (!Core_IsStepping()) {
+		if (!windowHidden && !Core_IsStepping()) {
 			GL_SwapBuffers();
 		}
 #endif
@@ -203,9 +214,9 @@ void Core_Run()
 #endif
 	{
 reswitch:
-		if (globalUIState != UISTATE_INGAME) {
+		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
-			if (globalUIState == UISTATE_EXIT) {
+			if (GetUIState() == UISTATE_EXIT) {
 				return;
 			}
 			Core_RunLoop();

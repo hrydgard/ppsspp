@@ -200,8 +200,8 @@ namespace Reporting
 		return "Blackberry";
 #elif defined(LOONGSON)
 		return "Loongson";
-#elif defined(MEEGO_EDITION_HARMATTAN)
-		return "Nokia N9/N950";
+#elif defined(MAEMO)
+		return "Nokia Maemo";
 #elif defined(__linux__)
 		return "Linux";
 #else

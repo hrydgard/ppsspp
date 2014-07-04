@@ -28,6 +28,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
@@ -86,6 +87,14 @@ static std::recursive_mutex externalEventSection;
 
 // Warning: not included in save state.
 void (*advanceCallback)(int cyclesExecuted) = NULL;
+std::vector<MHzChangeCallback> mhzChangeCallbacks;
+
+void FireMhzChange() {
+	for (auto it = mhzChangeCallbacks.begin(), end = mhzChangeCallbacks.end(); it != end; ++it) {
+		MHzChangeCallback cb = *it;
+		cb();
+	}
+}
 
 void SetClockFrequencyMHz(int cpuMhz)
 {
@@ -96,6 +105,8 @@ void SetClockFrequencyMHz(int cpuMhz)
 
 	CPU_HZ = cpuMhz * 1000000;
 	// TODO: Rescale times of scheduled events?
+
+	FireMhzChange();
 }
 
 int GetClockFrequencyMHz()
@@ -197,6 +208,7 @@ void Init()
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
 	hasTsEvents = 0;
+	mhzChangeCallbacks.clear();
 }
 
 void Shutdown()
@@ -406,6 +418,10 @@ void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 	advanceCallback = callback;
 }
 
+void RegisterMHzChangeCallback(MHzChangeCallback callback) {
+	mhzChangeCallbacks.push_back(callback);
+}
+
 bool IsScheduled(int event_type) 
 {
 	if (!first)
@@ -512,13 +528,13 @@ void ProcessFifoWaitEvents()
 {
 	while (first)
 	{
-		if (first->time <= globalTimer)
+		if (first->time <= (s64)GetTicks())
 		{
 //			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ", 
-//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
+//				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event* evt = first;
 			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
+			event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
 			FreeEvent(evt);
 		}
 		else
@@ -575,16 +591,23 @@ void Advance()
 
 	if (!first)
 	{
-		// WARN_LOG(TIMER, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
-		currentMIPS->downcount += 10000;
-		slicelength = 10000;
+		// This should never happen in PPSSPP.
+		// WARN_LOG_REPORT(TIME, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
+		if (slicelength < 10000) {
+			slicelength += 10000;
+			currentMIPS->downcount += slicelength;
+		}
 	}
 	else
 	{
-		slicelength = (int)(first->time - globalTimer);
-		if (slicelength > MAX_SLICE_LENGTH)
-			slicelength = MAX_SLICE_LENGTH;
-		currentMIPS->downcount = slicelength;
+		// Note that events can eat cycles as well.
+		int target = (int)(first->time - globalTimer);
+		if (target > MAX_SLICE_LENGTH)
+			target = MAX_SLICE_LENGTH;
+
+		const int diff = target - slicelength;
+		slicelength += diff;
+		currentMIPS->downcount += diff;
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
@@ -682,6 +705,8 @@ void DoState(PointerWrap &p)
 		lastGlobalTimeTicks = 0;
 		lastGlobalTimeUs = 0;
 	}
+
+	FireMhzChange();
 }
 
 }	// namespace

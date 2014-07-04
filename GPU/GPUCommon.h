@@ -85,6 +85,41 @@ public:
 		return false;
 	}
 
+	// From GPUDebugInterface.
+	virtual bool GetCurrentDisplayList(DisplayList &list);
+	virtual std::vector<DisplayList> ActiveDisplayLists();
+	virtual void ResetListPC(int listID, u32 pc);
+	virtual void ResetListStall(int listID, u32 stall);
+	virtual void ResetListState(int listID, DisplayListState state);
+
+	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op);
+	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc);
+
+	virtual void NotifySteppingEnter();
+	virtual void NotifySteppingExit();
+
+	virtual u32 GetRelativeAddress(u32 data);
+	virtual u32 GetVertexAddress();
+	virtual u32 GetIndexAddress();
+	virtual GPUgstate GetGState();
+	virtual void SetCmdValue(u32 op);
+
+	virtual DisplayList* getList(int listid) {
+		return &dls[listid];
+	}
+
+	const std::list<int>& GetDisplayLists() {
+		return dlQueue;
+	}
+	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
+		return false;
+	}
+	std::vector<FramebufferInfo> GetFramebufferList() {
+		return std::vector<FramebufferInfo>();
+	}
+	virtual void ClearShaderCache() {}
+	virtual void CleanupBeforeUI() {}
+
 protected:
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
@@ -162,39 +197,7 @@ private:
 #endif
 	}
 
-public:
-	// From GPUDebugInterface.
-	virtual bool GetCurrentDisplayList(DisplayList &list);
-	virtual std::vector<DisplayList> ActiveDisplayLists();
-	virtual void ResetListPC(int listID, u32 pc);
-	virtual void ResetListStall(int listID, u32 stall);
-	virtual void ResetListState(int listID, DisplayListState state);
-
-	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op);
-	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc);
-
-	virtual u32 GetRelativeAddress(u32 data);
-	virtual u32 GetVertexAddress();
-	virtual u32 GetIndexAddress();
-	virtual GPUgstate GetGState();
-	virtual void SetCmdValue(u32 op);
-
-	virtual DisplayList* getList(int listid)
-	{
-		return &dls[listid];
-	}
-
-	const std::list<int>& GetDisplayLists()
-	{
-		return dlQueue;
-	}
-	virtual bool DecodeTexture(u8* dest, GPUgstate state)
-	{
-		return false;
-	}
-	std::vector<FramebufferInfo> GetFramebufferList()
-	{
-		return std::vector<FramebufferInfo>();
-	}
-	virtual void ClearShaderCache() {}
+	// Debug stats.
+	double timeSteppingStarted_;
+	double timeSpentStepping_;
 };

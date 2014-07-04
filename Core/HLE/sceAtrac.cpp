@@ -107,7 +107,9 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(0), firstSampleoffset(0), loopinfoNum(0), loopNum(0), failedDecode(false), resetBuffer(false) , codecType(0) {
+		currentSample(0), endSample(0), firstSampleoffset(0),
+		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
+		failedDecode(false), resetBuffer(false), codecType(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -116,8 +118,8 @@ struct Atrac {
 		pCodecCtx = 0;
 		pSwrCtx = 0;
 		pFrame = 0;
+		audio_stream_index = 0;
 #endif // USE_FFMPEG
-		decoder_context = 0;
 		atracContext = 0;
 	}
 
@@ -243,8 +245,6 @@ struct Atrac {
 
 	InputBuffer first;
 	InputBuffer second;
-
-	void* decoder_context;
 
 	PSPPointer<SceAtracId> atracContext;
 
@@ -1281,7 +1281,10 @@ int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		bufferSize = 0x10000000;
 	}
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1311,7 +1314,10 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 	int codecType = getCodecType(halfBuffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);		
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
@@ -1482,7 +1488,10 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1508,7 +1517,10 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 	int codecType = getCodecType(halfBuffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
@@ -1534,7 +1546,10 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr) {
 	int codecType = getCodecType(buffer);
-
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize, fileSize, metadataSizeAddr);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1622,7 +1637,8 @@ int _sceAtracGetContextAddress(int atracID) {
 	return atrac->atracContext.ptr;
 }
 
-static u8 at3Header[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
+// TODO: Use proper structs with named member instead, or something. This is embarrassing.
+static const u8 at3HeaderTemplate[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
 static const u16 at3HeaderMap[][4] = {
     { 0x00C0, 0x1, 0x8,  0x00 },
     { 0x0098, 0x1, 0x8,  0x00 },
@@ -1630,13 +1646,51 @@ static const u16 at3HeaderMap[][4] = {
     { 0x0130, 0x2, 0x10, 0x00 },
     { 0x00C0, 0x2, 0x10, 0x01 }
 };
+static const int at3HeaderMapSize = sizeof(at3HeaderMap) / (sizeof(u16) * 4);
 
-static const int at3HeaderMapSize = sizeof(at3HeaderMap)/(sizeof(u16) * 4);
+static const u8 at3plusHeaderTemplate[] = { 0x52, 0x49, 0x46, 0x46, 0x00, 0xb5, 0xff, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x34, 0x00, 0x00, 0x00, 0xfe, 0xff, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00, 0xa0, 0x1f, 0x00, 0x00, 0xe8, 0x02, 0x00, 0x00, 0x22, 0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0xbf, 0xaa, 0x23, 0xe9, 0x58, 0xcb, 0x71, 0x44, 0xa1, 0x19, 0xff, 0xfa, 0x01, 0xe4, 0xce, 0x62, 0x01, 0x00, 0x28, 0x5c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x61, 0x63, 0x74, 0x08, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x08, 0x00, 0x00, 0x64, 0x61, 0x74, 0x61, 0xa8, 0xb4, 0xff, 0x00 };
+static const u16 at3plusHeaderMap[][3] = {
+	{ 0x00C0, 0x1, 0x0 },
+	{ 0x1724, 0x0, 0x0 },
+	{ 0x0180, 0x1, 0x0 },
+	{ 0x2224, 0x0, 0x0 },
+	{ 0x0178, 0x1, 0x0 },
+	{ 0x2E24, 0x0, 0x0 },
 
-bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
+	{ 0x0230, 0x1, 0x0 },
+	{ 0x4524, 0x0, 0x0 },
+	{ 0x02E8, 0x1, 0x0 },
+	{ 0x5C24, 0x0, 0x0 },
+
+	{ 0x0118, 0x2, 0x0 },
+	{ 0x2228, 0x0, 0x0 },
+	{ 0x0178, 0x2, 0x0 },
+	{ 0x2E28, 0x0, 0x0 },
+
+	{ 0x0230, 0x2, 0x0 },
+	{ 0x4528, 0x0, 0x0 },
+	{ 0x02E8, 0x2, 0x0 },
+	{ 0x5C28, 0x0, 0x0 },
+
+	{ 0x03A8, 0x2, 0x0 },
+	{ 0x7428, 0x0, 0x0 },
+	{ 0x0460, 0x2, 0x0 },
+	{ 0x8B28, 0x0, 0x0 },
+
+	{ 0x05D0, 0x2, 0x0 },
+	{ 0xB928, 0x0, 0x0 },
+	{ 0x0748, 0x2, 0x0 },
+	{ 0xE828, 0x0, 0x0 },
+
+	{ 0x0800, 0x2, 0x0 },
+	{ 0xFF28, 0x0, 0x0 }
+};
+static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap) / (sizeof(u16)* 3);
+
+bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3HeaderMapSize; i ++) {
 		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
+			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3HeaderTemplate) - 8;
 			*(u16*)(at3Header + 0x16) = atrac->atracChannels;
 			*(u16*)(at3Header + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
@@ -1645,64 +1699,24 @@ bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
 			at3Header[0x29] = (u8)at3HeaderMap[i][2];
 			at3Header[0x2c] = (u8)at3HeaderMap[i][3];
 			at3Header[0x2e] = (u8)at3HeaderMap[i][3];
-			*(u32*)(at3Header + sizeof(at3Header) - 4) = dataSize;
+			*(u32*)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
 	return false;
 }
 
-static u8 at3plusHeader[] = {0x52,0x49,0x46,0x46,0x00,0xb5,0xff,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x34,0x00,0x00,0x00,0xfe,0xff,0x02,0x00,0x44,0xac,0x00,0x00,0xa0,0x1f,0x00,0x00,0xe8,0x02,0x00,0x00,0x22,0x00,0x00,0x08,0x03,0x00,0x00,0x00,0xbf,0xaa,0x23,0xe9,0x58,0xcb,0x71,0x44,0xa1,0x19,0xff,0xfa,0x01,0xe4,0xce,0x62,0x01,0x00,0x28,0x5c,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x66,0x61,0x63,0x74,0x08,0x00,0x00,0x00,0xff,0xff,0xff,0x00,0x00,0x08,0x00,0x00,0x64,0x61,0x74,0x61,0xa8,0xb4,0xff,0x00};
-static const u16 at3plusHeaderMap[][3] = {
-    { 0x00C0, 0x1, 0x0 },
-    { 0x1724, 0x0, 0x0 },
-    { 0x0180, 0x1, 0x0 },
-    { 0x2224, 0x0, 0x0 },
-    { 0x0178, 0x1, 0x0 },
-    { 0x2E24, 0x0, 0x0 },
-
-    { 0x0230, 0x1, 0x0 },
-    { 0x4524, 0x0, 0x0 },
-    { 0x02E8, 0x1, 0x0 },
-    { 0x5C24, 0x0, 0x0 },
-
-    { 0x0118, 0x2, 0x0 },
-    { 0x2228, 0x0, 0x0 },
-    { 0x0178, 0x2, 0x0 },
-    { 0x2E28, 0x0, 0x0 },
-
-    { 0x0230, 0x2, 0x0 },
-    { 0x4528, 0x0, 0x0 },
-    { 0x02E8, 0x2, 0x0 },
-    { 0x5C28, 0x0, 0x0 },
-
-    { 0x03A8, 0x2, 0x0 },
-    { 0x7428, 0x0, 0x0 },
-    { 0x0460, 0x2, 0x0 },
-    { 0x8B28, 0x0, 0x0 },
-
-    { 0x05D0, 0x2, 0x0 },
-    { 0xB928, 0x0, 0x0 },
-    { 0x0748, 0x2, 0x0 },
-    { 0xE828, 0x0, 0x0 },
-
-    { 0x0800, 0x2, 0x0 },
-    { 0xFF28, 0x0, 0x0 }
-};
-
-static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap)/(sizeof(u16) * 3);
-
-bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8) {
+bool initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
 	for (int i = 0; i < at3plusHeaderMapSize; i += 2) {
 		if (at3plusHeaderMap[i][0] == atrac->atracBytesPerFrame && at3plusHeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeader) - 8;
+			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
 			*(u16*)(at3plusHeader + 0x16) = atrac->atracChannels;
 			*(u16*)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
 			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
 			*(u16*)(at3plusHeader + 0x3e) = at3plusHeaderMap[i + 1][0];
-			*(u32*)(at3plusHeader + sizeof(at3plusHeader) - 4) = dataSize;
+			*(u32*)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
@@ -1733,8 +1747,14 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			} else {
 				WARN_LOG(ME, "This is an atrac3 stereo audio (low level)");
 			}
-			int headersize = sizeof(at3Header);
-			initAT3Decoder(atrac);
+			const int headersize = sizeof(at3HeaderTemplate);
+			u8 at3Header[headersize];
+			memcpy(at3Header, at3HeaderTemplate, headersize);
+			if (!initAT3Decoder(atrac, at3Header)) {
+				ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->atracBytesPerFrame, atrac->atracChannels);
+				// TODO: What to do, if anything?
+			}
+
 			atrac->firstSampleoffset = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
@@ -1751,8 +1771,14 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			} else {
 				WARN_LOG(ME, "This is an atrac3+ stereo audio (low level)");
 			}
-			int headersize = sizeof(at3plusHeader);
-			initAT3plusDecoder(atrac);
+			const int headersize = sizeof(at3plusHeaderTemplate);
+			u8 at3plusHeader[headersize];
+			memcpy(at3plusHeader, at3plusHeaderTemplate, headersize);
+			if (!initAT3plusDecoder(atrac, at3plusHeader)) {
+				ERROR_LOG_REPORT(ME, "AT3plus header map lacks entry for bpf: %i  channels: %i", atrac->atracBytesPerFrame, atrac->atracChannels);
+				// TODO: What to do, if anything?
+			}
+
 			atrac->firstSampleoffset = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
@@ -1781,6 +1807,9 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+			if (atrac->decodePos >= atrac->first.size) {
+				atrac->decodePos = atrac->first.size;
+			}
 			atrac->first.size += sourcebytes;
 		}
 
@@ -1857,6 +1886,10 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	}
 
 	int codecType = getCodecType(halfBuffer);
+	if (codecType == 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;

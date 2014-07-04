@@ -851,12 +851,41 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 	// Nothing to invalidate.
 }
 
-void SoftGPU::UpdateMemory(u32 dest, u32 src, int size)
+bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
 {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	// Let's just be safe.
 	framebufferDirty_ = true;
+	return false;
+}
+
+bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
+{
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	// Let's just be safe.
+	framebufferDirty_ = true;
+	return false;
+}
+
+bool SoftGPU::PerformMemoryDownload(u32 dest, int size)
+{
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool SoftGPU::PerformMemoryUpload(u32 dest, int size)
+{
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool SoftGPU::PerformStencilUpload(u32 dest, int size)
+{
+	return false;
 }
 
 bool SoftGPU::FramebufferDirty() {
@@ -912,9 +941,9 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	return Rasterizer::GetCurrentStencilbuffer(buffer);
 }
 
-bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer)
+bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
-	return Rasterizer::GetCurrentTexture(buffer);
+	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)

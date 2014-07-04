@@ -6,9 +6,12 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-!mobile_platform: {
+INCLUDEPATH += $$P/native
+
+!contains(DEFINES,USING_GLES2) {
 	SOURCES += $$P/native/ext/glew/glew.c
 	HEADERS += $$P/native/ext/glew/GL/*.h
+	INCLUDEPATH += $$P/native/ext/glew
 }
 
 # RG_ETC1
@@ -58,12 +61,6 @@ win32|contains(QT_CONFIG, no-zlib) {
 SOURCES += $$P/native/ext/libzip/*.c
 HEADERS += $$P/native/ext/libzip/*.h
 
-# Libpng
-SOURCES += $$P/native/ext/libpng16/*.c
-HEADERS += $$P/native/ext/libpng16/*.h
-INCLUDEPATH += $$P/native/ext
-
-
 # Native
 
 SOURCES +=  $$P/native/audio/*.cpp \
@@ -91,8 +88,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/expression_parser.cpp \
 	$$P/native/math/math_util.cpp \
 	$$P/native/math/lin/*.cpp \
-	$$P/native/math/fast/fast_math.c \
-	$$P/native/math/fast/fast_matrix.c \
+	$$P/native/math/fast/*.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
 	$$P/native/thread/*.cpp \
@@ -103,12 +99,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
-x86 {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
-}
-arm:!symbian {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
-}
+armv7: SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
 
 
 HEADERS +=  $$P/native/audio/*.h \
@@ -136,6 +127,7 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/input/*.h \
 	$$P/native/math/*.h \
 	$$P/native/math/lin/*.h \
+	$$P/native/math/fast/*.h \
 	$$P/native/net/*.h \
 	$$P/native/profiler/profiler.h \
 	$$P/native/thread/*.h \
@@ -145,6 +137,3 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/random/*.h \
 	$$P/native/util/text/utf8.h \
 	$$P/native/util/text/parsers.h
-
-INCLUDEPATH += $$P/native
-

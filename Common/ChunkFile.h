@@ -18,6 +18,7 @@
 #pragma once
 
 // Extremely simple serialization framework.
+// Currently mis-named, a native ChunkFile is something different (a RIFF file)
 
 // (mis)-features:
 // + Super fast
@@ -30,12 +31,10 @@
 #include <deque>
 #include <list>
 #include <set>
-#ifndef __SYMBIAN32__
 #if defined(IOS) || defined(MACGNUSTD)
 #include <tr1/type_traits>
 #else
 #include <type_traits>
-#endif
 #endif
 
 #include "Common.h"
@@ -45,18 +44,6 @@
 #if defined(IOS) || defined(MACGNUSTD)
 namespace std {
 	using tr1::is_pointer;
-}
-#endif
-#ifdef __SYMBIAN32__
-namespace std {
-	template <bool bool_value>
-	struct bool_constant {
-		typedef bool_constant<bool_value> type;
-		static const bool value = bool_value;
-	};
-	template <bool bool_value> const bool bool_constant<bool_value>::value;
-	template <typename T> struct is_pointer : public bool_constant<false> {};
-	template <typename T> struct is_pointer<T*> : public bool_constant<true> {};
 }
 #endif
 

@@ -24,6 +24,10 @@
 #include "base/logging.h"
 #include "base/basictypes.h"
 
+#include "Common.h"
+#include "CPUDetect.h"
+#include "StringUtils.h"
+
 #ifdef _WIN32
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
 #define _interlockedbittestandreset workaround_ms_header_bug_platform_sdk6_reset
@@ -34,6 +38,13 @@
 #undef _interlockedbittestandreset
 #undef _interlockedbittestandset64
 #undef _interlockedbittestandreset64
+
+void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
+	__cpuidex((int *)regs, cpuid_leaf, ecxval);
+}
+void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
+	__cpuid((int *)regs, cpuid_leaf);
+}
 #else
 
 #ifdef _M_SSE
@@ -43,9 +54,16 @@
 #if defined __FreeBSD__
 #include <sys/types.h>
 #include <machine/cpufunc.h>
+
+void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
+	__cpuidex((int *)regs, cpuid_leaf, ecxval);
+}
+void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
+	__cpuid((int *)regs, cpuid_leaf);
+}
 #elif !defined(MIPS)
 
-void __cpuidex(int regs[4], int cpuid_leaf, int ecxval) {
+void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #ifdef ANDROID
 	// Use the /dev/cpu/%i/cpuid interface
 	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
@@ -70,17 +88,13 @@ void __cpuidex(int regs[4], int cpuid_leaf, int ecxval) {
 		:"a" (cpuid_leaf), "c" (ecxval));
 #endif
 }
-void __cpuid(int regs[4], int cpuid_leaf)
+void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 {
-	__cpuidex(regs, cpuid_leaf, 0);
+	do_cpuidex(regs, cpuid_leaf, 0);
 }
 
 #endif
 #endif
-
-#include "Common.h"
-#include "CPUDetect.h"
-#include "StringUtils.h"
 
 CPUInfo cpu_info;
 
@@ -116,16 +130,16 @@ void CPUInfo::Detect() {
 
 	// Assume CPU supports the CPUID instruction. Those that don't can barely
 	// boot modern OS:es anyway.
-	int cpu_id[4];
+	u32 cpu_id[4];
 	memset(cpu_string, 0, sizeof(cpu_string));
 
 	// Detect CPU's CPUID capabilities, and grab cpu string
-	__cpuid(cpu_id, 0x00000000);
+	do_cpuid(cpu_id, 0x00000000);
 	u32 max_std_fn = cpu_id[0];  // EAX
 	*((int *)cpu_string) = cpu_id[1];
 	*((int *)(cpu_string + 4)) = cpu_id[3];
 	*((int *)(cpu_string + 8)) = cpu_id[2];
-	__cpuid(cpu_id, 0x80000000);
+	do_cpuid(cpu_id, 0x80000000);
 	u32 max_ex_fn = cpu_id[0];
 	if (!strcmp(cpu_string, "GenuineIntel"))
 		vendor = VENDOR_INTEL;
@@ -142,7 +156,7 @@ void CPUInfo::Detect() {
 	HTT = ht;
 	logical_cpu_count = 1;
 	if (max_std_fn >= 1) {
-		__cpuid(cpu_id, 0x00000001);
+		do_cpuid(cpu_id, 0x00000001);
 		logical_cpu_count = (cpu_id[1] >> 16) & 0xFF;
 		ht = (cpu_id[3] >> 28) & 1;
 
@@ -161,16 +175,16 @@ void CPUInfo::Detect() {
 	}
 	if (max_ex_fn >= 0x80000004) {
 		// Extract brand string
-		__cpuid(cpu_id, 0x80000002);
+		do_cpuid(cpu_id, 0x80000002);
 		memcpy(brand_string, cpu_id, sizeof(cpu_id));
-		__cpuid(cpu_id, 0x80000003);
+		do_cpuid(cpu_id, 0x80000003);
 		memcpy(brand_string + 16, cpu_id, sizeof(cpu_id));
-		__cpuid(cpu_id, 0x80000004);
+		do_cpuid(cpu_id, 0x80000004);
 		memcpy(brand_string + 32, cpu_id, sizeof(cpu_id));
 	}
 	if (max_ex_fn >= 0x80000001) {
 		// Check for more features.
-		__cpuid(cpu_id, 0x80000001);
+		do_cpuid(cpu_id, 0x80000001);
 		if (cpu_id[2] & 1) bLAHFSAHF64 = true;
 		// CmpLegacy (bit 2) is deprecated.
 		if ((cpu_id[3] >> 29) & 1) bLongMode = true;
@@ -180,7 +194,7 @@ void CPUInfo::Detect() {
 
 	if (max_ex_fn >= 0x80000008) {
 		// Get number of cores. This is a bit complicated. Following AMD manual here.
-		__cpuid(cpu_id, 0x80000008);
+		do_cpuid(cpu_id, 0x80000008);
 		int apic_id_core_id_size = (cpu_id[2] >> 12) & 0xF;
 		if (apic_id_core_id_size == 0) {
 			if (ht) {
@@ -188,10 +202,10 @@ void CPUInfo::Detect() {
 				// Inspired by https://github.com/D-Programming-Language/druntime/blob/23b0d1f41e27638bda2813af55823b502195a58d/src/core/cpuid.d#L562.
 				bool hasLeafB = false;
 				if (vendor == VENDOR_INTEL && max_std_fn >= 0x0B) {
-					__cpuidex(cpu_id, 0x0B, 0);
+					do_cpuidex(cpu_id, 0x0B, 0);
 					if (cpu_id[1] != 0) {
 						logical_cpu_count = cpu_id[1] & 0xFFFF;
-						__cpuidex(cpu_id, 0x0B, 1);
+						do_cpuidex(cpu_id, 0x0B, 1);
 						int totalThreads = cpu_id[1] & 0xFFFF;
 						num_cores = totalThreads / logical_cpu_count;
 						hasLeafB = true;
@@ -199,7 +213,7 @@ void CPUInfo::Detect() {
 				}
 				// Old new mechanism for modern Intel CPUs.
 				if (!hasLeafB && vendor == VENDOR_INTEL) {
-					__cpuid(cpu_id, 0x00000004);
+					do_cpuid(cpu_id, 0x00000004);
 					int cores_x_package = ((cpu_id[0] >> 26) & 0x3F) + 1;
 					HTT = (cores_x_package < logical_cpu_count);
 					cores_x_package = ((logical_cpu_count % cores_x_package) == 0) ? cores_x_package : 1;

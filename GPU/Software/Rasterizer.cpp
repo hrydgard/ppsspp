@@ -1171,7 +1171,7 @@ void DrawTriangleSlice(
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -1346,7 +1346,7 @@ void DrawPoint(const VertexData &v0)
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		int texbufwidthbits[8] = {0};
 
-		int maxTexLevel = (gstate.texmode >> 16) & 7;
+		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
 
 		int magFilt = (gstate.texfilter>>8) & 1;
@@ -1430,7 +1430,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -1524,25 +1524,25 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	return true;
 }
 
-bool GetCurrentTexture(GPUDebugBuffer &buffer)
+bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
 	}
 
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
-	u32 texaddr = gstate.getTextureAddress(0);
-	int texbufwidthbits = GetTextureBufw(0, texaddr, texfmt) * 8;
+	u32 texaddr = gstate.getTextureAddress(level);
+	int texbufwidthbits = GetTextureBufw(level, texaddr, texfmt) * 8;
 	u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(0, &x, &y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbits);
 		}
 		row += w;
 	}

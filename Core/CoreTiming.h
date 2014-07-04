@@ -76,6 +76,7 @@ namespace CoreTiming
 	void Init();
 	void Shutdown();
 
+	typedef void (*MHzChangeCallback)();
 	typedef void (*TimedCallback)(u64 userdata, int cyclesLate);
 
 	u64 GetTicks();
@@ -116,6 +117,7 @@ namespace CoreTiming
 
 	// Warning: not included in save states.
 	void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted));
+	void RegisterMHzChangeCallback(MHzChangeCallback callback);
 
 	std::string GetScheduledEventsSummary();
 

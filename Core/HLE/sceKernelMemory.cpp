@@ -517,9 +517,9 @@ void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Suspending fpl wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
 }
@@ -684,10 +684,10 @@ void __KernelSetFplTimeout(u32 timeoutPtr)
 	// TODO: test for fpls.
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 
@@ -1136,7 +1136,7 @@ int sceKernelPrintf(const char *formatString)
 		result.resize(result.size() - 1);
 
 	if (supported)
-		INFO_LOG(SCEKERNEL, "sceKernelPrintf: %s", result.c_str())
+		INFO_LOG(SCEKERNEL, "sceKernelPrintf: %s", result.c_str());
 	else
 		ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 	return 0;
@@ -1381,9 +1381,9 @@ void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Suspending vpl wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
 }
@@ -1596,10 +1596,10 @@ void __KernelSetVplTimeout(u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 

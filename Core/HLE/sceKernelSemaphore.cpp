@@ -141,7 +141,7 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Semaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitSemaCB: Suspending sema wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelWaitSemaCB: Suspending sema wait for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
 }
@@ -295,7 +295,7 @@ int sceKernelSignalSema(SceUID id, int signal)
 	{
 		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount)
 		{
-			DEBUG_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
+			VERBOSE_LOG(SCEKERNEL, "sceKernelSignalSema(%i, %i): overflow (at %i)", id, signal, s->ns.currentCount);
 			return SCE_KERNEL_ERROR_SEMA_OVF;
 		}
 
@@ -359,7 +359,7 @@ void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -409,9 +409,9 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
 	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr)
+		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else if (result == 0)
-		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr)
+		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else
 		DEBUG_LOG(SCEKERNEL, "%08x=sceKernelWaitSema(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
 	return result;
@@ -421,9 +421,9 @@ int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
 	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
-		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr)
+		DEBUG_LOG(SCEKERNEL, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else if (result == 0)
-		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr)
+		DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
 	else
 		DEBUG_LOG(SCEKERNEL, "%08x=sceKernelWaitSemaCB(%i, %i, %i)", result, id, wantedCount, timeoutPtr);
 	return result;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/MemoryUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -22,9 +23,9 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/Common/SplineCommon.h"
 
-#include "TransformUnit.h"
-#include "Clipper.h"
-#include "Lighting.h"
+#include "GPU/Software/TransformUnit.h"
+#include "GPU/Software/Clipper.h"
+#include "GPU/Software/Lighting.h"
 
 static u8 buf[65536 * 48];  // yolo
 static bool outside_range_flag = false;
@@ -199,7 +200,11 @@ static VertexData ReadVertex(VertexReader& vreader)
 struct SplinePatch {
 	VertexData points[16];
 	int type;
+	int pad[3];
 };
+
+SplinePatch *TransformUnit::patchBuffer_ = 0;
+int TransformUnit::patchBufferSize_ = 0;
 
 void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
 {
@@ -222,8 +227,14 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 	int num_patches_u = count_u - 3;
 	int num_patches_v = count_v - 3;
 
-	// TODO: Do something less idiotic to manage this buffer
-	SplinePatch* patches = new SplinePatch[num_patches_u * num_patches_v];
+	if (patchBufferSize_ < num_patches_u * num_patches_v) {
+		if (patchBuffer_) {
+			FreeAlignedMemory(patchBuffer_);
+		}
+		patchBuffer_ = (SplinePatch *)AllocateAlignedMemory(num_patches_u * num_patches_v, 16);
+		patchBufferSize_ = num_patches_u * num_patches_v;
+	}
+	SplinePatch *patches = patchBuffer_;
 
 	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
 		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
@@ -271,7 +282,7 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 			}
 		}
 	}
-	delete[] patches;
+
 	host->GPUNotifyDraw();
 }
 

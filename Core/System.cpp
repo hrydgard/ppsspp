@@ -72,7 +72,7 @@ enum CPUThreadState {
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
-GlobalUIState globalUIState;
+static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
 static std::thread *cpuThread = NULL;
@@ -96,12 +96,16 @@ void UpdateUIState(GlobalUIState newState) {
 	}
 }
 
+GlobalUIState GetUIState() {
+	return globalUIState;
+}
+
 bool IsAudioInitialised() {
 	return mixer != NULL;
 }
 
 void Audio_Init() {
-	if(mixer == NULL) {
+	if (mixer == NULL) {
 		mixer = new PSPMixer();
 		host->InitSound(mixer);
 	}
@@ -246,7 +250,7 @@ void CPU_Shutdown() {
 }
 
 void CPU_RunLoop() {
-	setCurrentThreadName("CPUThread");
+	setCurrentThreadName("CPU");
 	FPU_SetFastMode();
 
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
@@ -418,7 +422,6 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
-	resetAudioList();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;
@@ -451,6 +454,8 @@ void PSP_RunLoopUntil(u64 globalticks) {
 	} else {
 		mipsr4k.RunLoopUntil(globalticks);
 	}
+
+	gpu->CleanupBeforeUI();
 }
 
 void PSP_RunLoopFor(int cycles) {

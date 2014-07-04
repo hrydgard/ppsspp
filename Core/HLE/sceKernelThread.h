@@ -27,18 +27,22 @@
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
 int sceKernelDelaySysClockThread(u32 sysclockAddr);
 int sceKernelDelaySysClockThreadCB(u32 sysclockAddr);
+void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason);
+u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason);
 int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread(int exitStatus);
 void sceKernelExitThread(int exitStatus);
 void _sceKernelExitThread(int exitStatus);
 SceUID sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
+int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs = false);
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
@@ -247,7 +251,6 @@ struct MipsCall {
 	u32 args[6];
 	int numArgs;
 	Action *doAfter;
-	u32 savedIdRegister;
 	u32 savedRa;
 	u32 savedPc;
 	u32 savedV0;

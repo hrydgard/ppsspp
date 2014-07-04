@@ -51,8 +51,8 @@ inline float clamp1(float x) {
 
 void MainWindow::newFrame()
 {
-	if (lastUIState != globalUIState) {
-		lastUIState = globalUIState;
+	if (lastUIState != GetUIState()) {
+		lastUIState = GetUIState();
 		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 		if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen && QApplication::overrideCursor())
@@ -335,7 +335,7 @@ void MainWindow::fullscrAct()
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
 		InitPadLayout(dp_xres, dp_yres);
-		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
+		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
 	else {
@@ -351,7 +351,7 @@ void MainWindow::fullscrAct()
 		if (gpu)
 			gpu->Resized();
 		InitPadLayout(dp_xres, dp_yres);
-		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
+		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
 	}

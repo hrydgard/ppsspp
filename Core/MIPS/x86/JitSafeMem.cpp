@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"

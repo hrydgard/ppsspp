@@ -344,7 +344,7 @@ void AddressPromptScreen::UpdatePreviewDigits() {
 	}
 }
 
-void AddressPromptScreen::key(const KeyInput &key) {
+bool AddressPromptScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
 			AddDigit(key.keyCode - NKCODE_0);
@@ -356,13 +356,13 @@ void AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_ENTER) {
 			OnCompleted(DR_OK);
 			screenManager()->finishDialog(this, DR_OK);
-			return;
 		} else {
-			UIDialogScreen::key(key);
+			return UIDialogScreen::key(key);
 		}
 	} else {
-		UIDialogScreen::key(key);
+		return UIDialogScreen::key(key);
 	}
+	return true;
 }
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
@@ -506,7 +506,7 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 				if (MIPSGetInfo(opcode) & IS_VFPU) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp)
+					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
 					anyVFPU = true;
 					break;
 				}

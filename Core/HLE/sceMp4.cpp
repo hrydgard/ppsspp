@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Reporting.h"
@@ -56,9 +58,9 @@ u32 sceMp4Finish()
 	return 0;
 }
 
-u32 sceMp4Create()
+u32 sceMp4Create(u32 mp4, u32 unknown2, u32 readBufferAddr, u32 readBufferSize)
 {
-	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create(mp4 %i,unknown2 %08x,readBufferAddr %08x,readBufferSize %i)", mp4, unknown2, readBufferAddr, readBufferSize);
 	return 0;
 }
 
@@ -68,9 +70,15 @@ u32 sceMp4GetNumberOfSpecificTrack()
 	return 1;
 }
 
-u32 sceMp4GetMovieInfo()
+u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
+	return 0;
+}
+
+u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
+{
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufAvailableSize(mp4 %i, unknown2 %08x)", mp4, unknown2);
 	return 0;
 }
 
@@ -86,11 +94,26 @@ u32 sceMp4Delete()
 	return 0;
 }
 
-u32 sceMp4AacDecodeInitResource()
+u32 sceMp4AacDecodeInitResource(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
 	return 0;
 }
+
+u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr)
+{
+	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
+	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
+	return 0;
+}
+
+u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
+{
+	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
+	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
+	return 0;
+}
+
 
 u32 sceMp4GetAvcTrackInfoData()
 {
@@ -98,15 +121,35 @@ u32 sceMp4GetAvcTrackInfoData()
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufConstruct()
+u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct()");
+	// unknown4 == value returned by sceMp4_BCA9389C
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufQueryMemSize()
+u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufQueryMemSize()");
+	u32 value = std::max(unknown2 * unknown3, unknown4 << 1) + (unknown2 << 6) + unknown5 + 256;
+	ERROR_LOG(ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
+	return value;
+}
+
+u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency)
+{
+	// Decode audio:
+	// - init: 1 at first call, 0 afterwards
+	// - frequency: 44100
+	ERROR_LOG(ME, "sceMp4AacDecode(mp4 %i,auAddr %08x,bufferAddr %08x,init %i,frequency %i ", mp4, auAddr, bufferAddr, init, frequency);
+	return 0;
+	//This is hack
+	//return -1;
+}
+
+u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
+{
+	// unknown4: pointer to a 40-bytes structure
+	ERROR_LOG(ME, "sceMp4GetAacAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %i ", mp4, unknown2, auAddr, unknown4);
 	return 0;
 }
 
@@ -128,9 +171,9 @@ u32 sceMp4TrackSampleBufFlush()
 	return 0;
 }
 
-u32 sceMp4AacDecodeInit()
+u32 sceMp4AacDecodeInit(int unknown)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
 	return 0;
 }
 
@@ -146,9 +189,9 @@ u32 sceMp4GetNumberOfMetaData()
 	return 0;
 }
 
-u32 sceMp4RegistTrack()
+u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
 {
-	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack()");
+	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
 	return 0;
 }
 
@@ -182,7 +225,8 @@ u32 sceAacInit(u32 id)
 		ERROR_LOG(ME, "sceAacInit() AAC Invalid id address %08x", id);
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
-	AuCtx *aac = new AuCtx;
+
+	AuCtx *aac = new AuCtx();
 	aac->startPos = Memory::Read_U64(id);				// Audio stream start position.
 	aac->endPos = Memory::Read_U32(id + 8);				// Audio stream end position.
 	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
@@ -196,12 +240,12 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %i endPos %i", aac->startPos, aac->endPos);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
-		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i reserved %i", aac->AuBufSize, aac->PCMBufSize);
+		ERROR_LOG(ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
 		delete aac; 
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
@@ -211,15 +255,11 @@ u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
-	DEBUG_LOG(ME, "startPos %x endPos %x AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d", 
+	DEBUG_LOG(ME, "startPos %llx endPos %llx AuBuf %08x AuBufSize %08x PCMbuf %08x PCMbufSize %08x freq %d",
 		aac->startPos, aac->endPos, aac->AuBuf, aac->AuBufSize, aac->PCMBuf, aac->PCMBufSize, aac->freq);
 
 	aac->Channels = 2;
-	aac->SumDecodedSamples = 0;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
-	aac->LoopNum = -1;
-	aac->AuBufAvailable = 0;
-	aac->MaxOutputSample = 0;
 	aac->readPos = aac->startPos;
 	aac->audioType = PSP_CODEC_AAC;
 
@@ -367,33 +407,33 @@ const HLEFunction sceMp4[] =
 {
 	{0x68651CBC, WrapU_V<sceMp4Init>, "sceMp4Init"},
 	{0x9042B257, WrapU_V<sceMp4Finish>, "sceMp4Finish"},
-	{0xB1221EE7, WrapU_V<sceMp4Create>, "sceMp4Create"},
+	{0xB1221EE7, WrapU_UUUU<sceMp4Create>, "sceMp4Create"},
 	{0x538C2057, WrapU_V<sceMp4Delete>, "sceMp4Delete"},
 	{0x113E9E7B, WrapU_V<sceMp4GetNumberOfMetaData>, "sceMp4GetNumberOfMetaData"},
-	{0x7443AF1D, WrapU_V<sceMp4GetMovieInfo>, "sceMp4GetMovieInfo"},
+	{0x7443AF1D, WrapU_UU<sceMp4GetMovieInfo>, "sceMp4GetMovieInfo"},
 	{0x5EB65F26, WrapU_V<sceMp4GetNumberOfSpecificTrack>, "sceMp4GetNumberOfSpecificTrack"},
-	{0x7ADFD01C, WrapU_V<sceMp4RegistTrack>, "sceMp4RegistTrack"},
-	{0xBCA9389C, WrapU_V<sceMp4TrackSampleBufQueryMemSize>, "sceMp4TrackSampleBufQueryMemSize"},
-	{0x9C8F4FC1, WrapU_V<sceMp4TrackSampleBufConstruct>, "sceMp4TrackSampleBufConstruct"},
+	{0x7ADFD01C, WrapU_UUUUU<sceMp4RegistTrack>, "sceMp4RegistTrack"},
+	{0xBCA9389C, WrapU_UUUUU<sceMp4TrackSampleBufQueryMemSize>, "sceMp4TrackSampleBufQueryMemSize"},
+	{0x9C8F4FC1, WrapU_UUUUUUU<sceMp4TrackSampleBufConstruct>, "sceMp4TrackSampleBufConstruct"},
 	{0x0F0187D2, WrapU_V<sceMp4GetAvcTrackInfoData>, "sceMp4GetAvcTrackInfoData"},
 	{0x9CE6F5CF, WrapU_V<sceMp4GetAacTrackInfoData>, "sceMp4GetAacTrackInfoData"},
-	{0x4ED4AB1E, WrapU_V<sceMp4AacDecodeInitResource>, "sceMp4AacDecodeInitResource"},
-	{0x10EE0D2C, WrapU_V<sceMp4AacDecodeInit>, "sceMp4AacDecodeInit"},
+	{0x4ED4AB1E, WrapU_I<sceMp4AacDecodeInitResource>, "sceMp4AacDecodeInitResource"},
+	{0x10EE0D2C, WrapU_I<sceMp4AacDecodeInit>, "sceMp4AacDecodeInit"},
 	{0x496E8A65, WrapU_V<sceMp4TrackSampleBufFlush>, "sceMp4TrackSampleBufFlush"},
 	{0xB4B400D1, WrapU_V<sceMp4GetSampleNumWithTimeStamp>, "sceMp4GetSampleNumWithTimeStamp"},
 	{0xF7C51EC1, WrapU_V<sceMp4GetSampleInfo>, "sceMp4GetSampleInfo"},
 	{0x74A1CA3E, WrapU_V<sceMp4SearchSyncSampleNum>, "sceMp4SearchSyncSampleNum"},
 	{0xD8250B75, 0, "sceMp4PutSampleNum"},
-	{0x8754ECB8, 0, "sceMp4TrackSampleBufAvailableSize"},
+	{0x8754ECB8, WrapU_UU<sceMp4TrackSampleBufAvailableSize>, "sceMp4TrackSampleBufAvailableSize"},
 	{0x31BCD7E0, 0, "sceMp4TrackSampleBufPut"},
-	{0x5601A6F0, 0, "sceMp4GetAacAu"},
-	{0x7663CB5C, 0, "sceMp4AacDecode"},
-	{0x503A3CBA, 0, "sceMp4GetAvcAu"},
+	{0x5601A6F0, WrapU_UUUU<sceMp4GetAacAu>, "sceMp4GetAacAu"},
+	{0x7663CB5C, WrapU_UUUUU<sceMp4AacDecode>, "sceMp4AacDecode"},
+	{0x503A3CBA, WrapU_UUUU<sceMp4GetAvcAu>, "sceMp4GetAvcAu"},
 	{0x01C76489, 0, "sceMp4TrackSampleBufDestruct"},
 	{0x6710FE77, 0, "sceMp4UnregistTrack"},
 	{0x5D72B333, 0, "sceMp4AacDecodeExit"},
 	{0x7D332394, 0, "sceMp4AacDecodeTermResource"},
-	{0x131BDE57, 0, "sceMp4InitAu"},
+	{0x131BDE57, WrapU_UUU<sceMp4InitAu>, "sceMp4InitAu"},
 	{0x17EAA97D, 0, "sceMp4GetAvcAuWithoutSampleBuf"},
 	{0x28CCB940, 0, "sceMp4GetTrackEditList"},
 	{0x3069C2B5, 0, "sceMp4GetAvcParamSet"},

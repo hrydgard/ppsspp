@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -60,9 +61,12 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	}
 	memset(regs, 0, sizeof(regs));
 	OpArg base = GetDefaultLocation(MIPS_REG_ZERO);
-	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+	for (int i = 0; i < 32; i++) {
 		regs[i].location = base;
 		base.IncreaseOffset(sizeof(u32));
+	}
+	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+		regs[i].location = GetDefaultLocation(MIPSGPReg(i));
 	}
 
 	// todo: sort to find the most popular regs
@@ -214,7 +218,21 @@ const int *GPRRegCache::GetAllocationOrder(int &count) {
 
 
 OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
-	return M(&mips->r[reg]);
+	if (reg < 32)
+		return M(&mips->r[reg]);
+	switch (reg) {
+	case MIPS_REG_HI:
+		return M(&mips->hi);
+	case MIPS_REG_LO:
+		return M(&mips->lo);
+	case MIPS_REG_FPCOND:
+		return M(&mips->fpcond);
+	case MIPS_REG_VFPUCC:
+		return M(&mips->vfpuCtrl[VFPU_CTRL_CC]);
+	default:
+		ERROR_LOG_REPORT(JIT, "bad mips register %i", reg);
+		return M(&mips->r[0]);
+	}
 }
 
 

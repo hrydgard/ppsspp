@@ -162,7 +162,7 @@ ReliableHashFunc DoReliableHash = &XXH32;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
-#ifdef ARMV7
+#ifdef HAVE_ARMV7
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;

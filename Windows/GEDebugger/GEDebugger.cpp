@@ -60,7 +60,7 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL), textureLevel_(0) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
@@ -120,6 +120,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	int w = g_Config.iGEWindowW == -1 ? minWidth : g_Config.iGEWindowW;
 	int h = g_Config.iGEWindowH == -1 ? minHeight : g_Config.iGEWindowH;
 	MoveWindow(m_hDlg,x,y,w,h,FALSE);
+
+	UpdateTextureLevel(textureLevel_);
 }
 
 CGEDebugger::~CGEDebugger() {
@@ -153,7 +155,7 @@ void CGEDebugger::UpdatePreviews() {
 	wchar_t desc[256];
 	const GPUDebugBuffer *primaryBuffer = NULL;
 	bool bufferResult = false;
-	GPUgstate state;
+	GPUgstate state = {0};
 
 	if (gpuDebug != NULL) {
 		state = gpuDebug->GetGState();
@@ -186,13 +188,14 @@ void CGEDebugger::UpdatePreviews() {
 		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
 		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
-	} else {
+	} else if (frameWindow != NULL) {
 		frameWindow->Clear();
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
 	const GPUDebugBuffer *bufferTex = NULL;
-	bufferResult = GPU_GetCurrentTexture(bufferTex);
+	UpdateTextureLevel(textureLevel_);
+	bufferResult = GPU_GetCurrentTexture(bufferTex, textureLevel_);
 
 	if (bufferResult) {
 		auto fmt = SimpleGLWindow::Format(bufferTex->GetFormat());
@@ -204,14 +207,14 @@ void CGEDebugger::UpdatePreviews() {
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			}
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture: 0x%08x (%dx%d)", state.getTextureAddress(0), state.getTextureWidth(0), state.getTextureHeight(0));
+			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 
-			UpdateLastTexture(state.getTextureAddress(0));
+			UpdateLastTexture(state.getTextureAddress(textureLevel_));
 		} else {
 			UpdateLastTexture((u32)-1);
 		}
-	} else {
+	} else if (texWindow != NULL) {
 		texWindow->Clear();
 		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
@@ -240,6 +243,24 @@ void CGEDebugger::UpdatePreviews() {
 	vertices->Update();
 	matrices->Update();
 	lists->Update();
+}
+
+void CGEDebugger::UpdateTextureLevel(int level) {
+	GPUgstate state = {0};
+	if (gpuDebug != NULL) {
+		state = gpuDebug->GetGState();
+	}
+
+	int maxValid = 0;
+	for (int i = 1; i < state.getTextureMaxLevel() + 1; ++i) {
+		if (state.getTextureAddress(i) != 0) {
+			maxValid = i;
+		}
+	}
+
+	textureLevel_ = std::min(std::max(0, level), maxValid);
+	EnableWindow(GetDlgItem(m_hDlg, IDC_GEDBG_TEXLEVELDOWN), textureLevel_ > 0);
+	EnableWindow(GetDlgItem(m_hDlg, IDC_GEDBG_TEXLEVELUP), textureLevel_ < maxValid);
 }
 
 void CGEDebugger::UpdateSize(WORD width, WORD height) {
@@ -271,8 +292,8 @@ void CGEDebugger::SetBreakNext(BreakNextType type) {
 	attached = true;
 	SetupPreviews();
 
-	ResumeFromStepping();
 	breakNext = type;
+	ResumeFromStepping();
 }
 
 BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
@@ -366,7 +387,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 					break;
 				}
 				const auto state = gpuDebug->GetGState();
-				u32 texAddr = state.getTextureAddress(0);
+				u32 texAddr = state.getTextureAddress(textureLevel_);
 				// TODO: Better interface that allows add/remove or something.
 				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Texture Address", texAddr, texAddr)) {
 					if (IsTextureBreakpoint(texAddr)) {
@@ -375,6 +396,20 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 						AddTextureBreakpoint(texAddr);
 					}
 				}
+			}
+			break;
+
+		case IDC_GEDBG_TEXLEVELDOWN:
+			UpdateTextureLevel(textureLevel_ - 1);
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
+			}
+			break;
+
+		case IDC_GEDBG_TEXLEVELUP:
+			UpdateTextureLevel(textureLevel_ + 1);
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
 			}
 			break;
 
@@ -455,7 +490,9 @@ static void DeliverMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
-	EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
+	if (attached) {
+		EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
+	}
 }
 
 void WindowsHost::GPUNotifyCommand(u32 pc) {

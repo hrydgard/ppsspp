@@ -144,7 +144,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
+  $(SRC)/GPU/GLES/DepalettizeShader.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
+  $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
   $(SRC)/GPU/GLES/SoftwareTransform.cpp.arm \
@@ -197,6 +199,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
   $(SRC)/Core/Font/PGF.cpp \
+  $(SRC)/Core/HLE/HLEHelperThread.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
@@ -276,6 +279,7 @@ LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(EXEC_AND_LIB_FILES) \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \

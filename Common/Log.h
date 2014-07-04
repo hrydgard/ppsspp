@@ -30,7 +30,7 @@
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
-#if !defined(_WIN32) && !defined(PANDORA)
+#if !defined(_WIN32)
 #if defined(MAEMO)
        //ucontext.h will be then skipped
        #define _SYS_UCONTEXT_H 1
@@ -110,12 +110,12 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
-#define WARN_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
-#define NOTICE_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) }
-#define INFO_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
-#define DEBUG_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
-#define VERBOSE_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) }
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) } while (false)
+#define WARN_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) } while (false)
+#define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
 
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \
@@ -124,12 +124,16 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 					   __LINE__, __FILE__, __TIME__); \
 		if (!PanicYesNo("*** Assertion (see log)***\n")) {Crash();} \
 	}
+#ifdef __SYMBIAN32__
+#define _dbg_assert_msg_(_t_, _a_, ...) if (!(_a_)) ERROR_LOG(_t_, __VA_ARGS__);
+#else
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
 		if (!PanicYesNo(__VA_ARGS__)) {Crash();} \
 	}
+#endif
 #define _dbg_update_() ; //Host_UpdateLogDisplay();
 
 #else // not debug

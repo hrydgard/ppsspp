@@ -271,6 +271,7 @@ retry:
 		ctrlDataPtr = __KernelGetWaitValue(threadID, error);
 		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
 		__KernelResumeThreadFromWait(threadID, retVal);
+		__KernelReSchedule("ctrl buffers updated");
 	}
 }
 
@@ -288,8 +289,9 @@ void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 	// This only runs in timer mode (ctrlCycle > 0.)
 	_dbg_assert_msg_(SCECTRL, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
 
-	__CtrlDoSample();
 	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
+
+	__CtrlDoSample();
 }
 
 void __CtrlInit()

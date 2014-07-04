@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "native/thread/thread.h"
+#include "native/base/mutex.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"
 
@@ -73,6 +75,8 @@ public:
 	virtual void DoState(PointerWrap &p);
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
+	void ExecuteIOAction();
+
 protected:
 	virtual bool UseAutoStatus() {
 		return false;
@@ -88,6 +92,10 @@ private:
 	void DisplaySaveDataInfo2();
 	void DisplayMessage(std::string text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName() const;
+
+	void JoinIOThread();
+	void StartIOThread();
+	void ExecuteNotVisibleIOAction();
 
 	enum DisplayState
 	{
@@ -109,7 +117,11 @@ private:
 		DS_DELETE_CONFIRM,
 		DS_DELETE_DELETING,
 		DS_DELETE_DONE,
-		DS_DELETE_NODATA
+		DS_DELETE_NODATA,
+
+		DS_SAVE_FAILED,
+		DS_LOAD_FAILED,
+		DS_DELETE_FAILED,
 	};
 
 	enum DialogBanner
@@ -130,5 +142,16 @@ private:
 	int currentSelectedSave;
 
 	int yesnoChoice;
+
+	enum SaveIOStatus
+	{
+		SAVEIO_NONE,
+		SAVEIO_PENDING,
+		SAVEIO_DONE,
+	};
+
+	std::thread *ioThread;
+	recursive_mutex paramLock;
+	volatile SaveIOStatus ioThreadStatus;
 };
 

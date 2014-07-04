@@ -40,4 +40,7 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 int __DisplayGetVCount();
 int __DisplayGetFlipCount();
 
+// Call this when resuming to avoid a small speedup burst
+void __DisplaySetWasPaused();
+
 void Register_sceDisplay_driver();

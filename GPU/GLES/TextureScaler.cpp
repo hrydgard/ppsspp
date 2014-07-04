@@ -20,6 +20,7 @@
 #include "../native/base/basictypes.h"
 #endif
 
+#include <algorithm>
 #include "GPU/GLES/TextureScaler.h"
 
 #include "Core/Config.h"

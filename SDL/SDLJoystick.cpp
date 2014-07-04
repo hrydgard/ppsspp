@@ -10,7 +10,7 @@ extern "C" {
 	}
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ): running(true),joy(NULL),thread(NULL){
+SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 	if (init_SDL)
 	{
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO
@@ -23,8 +23,8 @@ SDLJoystick::SDLJoystick(bool init_SDL ): running(true),joy(NULL),thread(NULL){
 
 	int numjoys = SDL_NumJoysticks();
 	SDL_JoystickEventState(SDL_ENABLE);
-	if (numjoys > 0) {
-		joy = SDL_JoystickOpen(0);
+	for (int i = 0; i < numjoys; i++) {
+		joys.push_back(SDL_JoystickOpen(i));
 	}
 }
 
@@ -37,7 +37,10 @@ SDLJoystick::~SDLJoystick(){
 		SDL_PushEvent(&evt);
 		SDL_WaitThread(thread,0);
 	}
-	SDL_JoystickClose(joy);
+	for (SDL_Joystick *joy : joys)
+	{
+		SDL_JoystickClose(joy);
+	}
 }
 
 void SDLJoystick::startEventLoop(){
@@ -56,7 +59,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				axis.value = 1.2 * event.jaxis.value / 32767.0f;
 				if (axis.value > 1.0f) axis.value = 1.0f;
 				if (axis.value < -1.0f) axis.value = -1.0f;
-				axis.deviceId = DEVICE_ID_PAD_0;
+				axis.deviceId = DEVICE_ID_PAD_0 + event.jaxis.which;
 				axis.flags = 0;
 				NativeAxis(axis);
 			}
@@ -70,7 +73,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				KeyInput key;
 				key.flags = KEY_DOWN;
 				key.keyCode = i->second;
-				key.deviceId = DEVICE_ID_PAD_0;
+				key.deviceId = DEVICE_ID_PAD_0 + event.jbutton.which;
 				NativeKey(key);
 			}
 			break;
@@ -83,7 +86,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				KeyInput key;
 				key.flags = KEY_UP;
 				key.keyCode = i->second;
-				key.deviceId = DEVICE_ID_PAD_0;
+				key.deviceId = DEVICE_ID_PAD_0 + event.jbutton.which;
 				NativeKey(key);
 			}
 			break;
@@ -93,7 +96,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		{
 #ifdef _WIN32
 			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0;
+			key.deviceId = DEVICE_ID_PAD_0 + event.jhat.which;
 
 			key.flags = (event.jhat.value & SDL_HAT_UP)?KEY_DOWN:KEY_UP;
 			key.keyCode = NKCODE_DPAD_UP;
@@ -112,8 +115,8 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 			AxisInput axisY;
 			axisX.axisId = JOYSTICK_AXIS_HAT_X;
 			axisY.axisId = JOYSTICK_AXIS_HAT_Y;
-			axisX.deviceId = DEVICE_ID_PAD_0;
-			axisY.deviceId = DEVICE_ID_PAD_0;
+			axisX.deviceId = DEVICE_ID_PAD_0 + event.jhat.which;
+			axisY.deviceId = DEVICE_ID_PAD_0 + event.jhat.which;
 			axisX.value = 0.0f;
 			axisY.value = 0.0f;
 			if (event.jhat.value & SDL_HAT_LEFT) axisX.value = -1.0f;

@@ -19,6 +19,7 @@
 // It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
+#include "Common/KeyMap.h"
 
 #include <map>
 #include <string>
@@ -32,6 +33,7 @@
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
@@ -84,8 +86,6 @@
 
 static const int numCPUs = 1;
 
-// These are for Unknown's modified "Very Sleepy" profiler with JIT support.
-
 int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
@@ -94,7 +94,8 @@ const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
 // Respond TRUE to a message wit this param value after filling in the addr name.
 const WPARAM VERYSLEEPY_WPARAM_GETADDRINFO = 1;
 
-struct VerySleepy_AddrInfo {
+struct VerySleepy_AddrInfo
+{
 	// Always zero for now.
 	int flags;
 	// This is the pointer (always passed as 64 bits.)
@@ -114,8 +115,11 @@ extern InputState input_state;
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
-namespace MainWindow {
+namespace MainWindow
+{
 	HWND hwndMain;
+	HWND hwndDisplay;
+	HWND hwndGameList;
 	TouchInputHandler touchHandler;
 	static HMENU menu;
 
@@ -130,6 +134,8 @@ namespace MainWindow {
 	static std::vector<std::string> availableShaders;
 	static W32Util::AsyncBrowseDialog *browseDialog;
 	static bool browsePauseAfter;
+	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
+
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -137,10 +143,15 @@ namespace MainWindow {
 
 	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND() {
 		return hwndMain;
+	}
+
+	HWND GetDisplayHWND() {
+		return hwndDisplay;
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -150,7 +161,7 @@ namespace MainWindow {
 		//Register classes
 		WNDCLASSEX wcex;
 		wcex.cbSize = sizeof(WNDCLASSEX); 
-		wcex.style			= CS_HREDRAW | CS_VREDRAW;
+		wcex.style = CS_PARENTDC;
 		wcex.lpfnWndProc	= (WNDPROC)WndProc;
 		wcex.cbClsExtra		= 0;
 		wcex.cbWndExtra		= 0;
@@ -160,12 +171,22 @@ namespace MainWindow {
 		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
-		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
+		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
+		RegisterClassEx(&wcex);
+
+		wcex.style = CS_HREDRAW | CS_VREDRAW;
+		wcex.lpfnWndProc = (WNDPROC)DisplayProc;
+		wcex.hIcon = 0;
+		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wcex.lpszMenuName = 0;
+		wcex.lpszClassName = szDisplayClass;
+		wcex.hIconSm = 0;
 		RegisterClassEx(&wcex);
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen) return;
+		if (g_Config.bFullScreen)
+			return;
 
 		WINDOWPLACEMENT placement;
 		GetWindowPlacement(hwndMain, &placement);
@@ -194,7 +215,6 @@ namespace MainWindow {
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-
 	static void ShowScreenResolution() {
 		I18NCategory *g = GetI18NCategory("Graphics");
 		char message[256];
@@ -211,6 +231,8 @@ namespace MainWindow {
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
 			zoom = (rc.right - rc.left + 479) / 480;
+		if (zoom <= 1)
+			zoom = 1;
 
 		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
@@ -218,12 +240,15 @@ namespace MainWindow {
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
+		AssertCurrentThreadName("Main");
 		int width = 0, height = 0;
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
 		if (!noWindowMovement) {
 			width = rc.right - rc.left;
 			height = rc.bottom - rc.top;
+			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
+			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
 			// Need to clean all of this up...
 			PSP_CoreParameter().pixelWidth = width;
@@ -239,6 +264,7 @@ namespace MainWindow {
 	}
 
 	void SetWindowSize(int zoom) {
+		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
@@ -266,7 +292,7 @@ namespace MainWindow {
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
 		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -280,7 +306,11 @@ namespace MainWindow {
 		}
 	}
 
-	void _ViewNormal(HWND hWnd) {
+	void SwitchToWindowed(HWND hWnd) {
+		// Make sure no rendering is happening during the switch.
+		Core_NotifyWindowHidden(true);
+		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
+
 		// Put caption and border styles back.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
@@ -302,16 +332,23 @@ namespace MainWindow {
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
+
+		g_inModeSwitch = false;
+		Core_NotifyWindowHidden(false);
 	}
 
-	void _ViewFullScreen(HWND hWnd) {
-		// Keep in mind normal window rectangle.
+	void SwitchToFullscreen(HWND hWnd) {
+		// Make sure no rendering is happening during the switch.
+		Core_NotifyWindowHidden(true);
+		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
+
+		// Remember the normal window rectangle.
 		::GetWindowRect(hWnd, &g_normalRC);
 
 		// Remove caption and border styles.
@@ -335,12 +372,15 @@ namespace MainWindow {
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
 
 		ShowOwnedPopups(hwndMain, FALSE);
+
+		g_inModeSwitch = false;
+		Core_NotifyWindowHidden(false);
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -411,6 +451,8 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOADSYMFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
@@ -590,6 +632,8 @@ namespace MainWindow {
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE);
+		TranslateMenuItem(ID_DEBUG_LOADSYMFILE);
+		TranslateMenuItem(ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME);
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT,  L"\tF12");
@@ -651,7 +695,7 @@ namespace MainWindow {
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 
 		DrawMenuBar(hwndMain);
 		UpdateMenus();
@@ -760,6 +804,11 @@ namespace MainWindow {
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
 
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
+			0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, hwndMain, 0, hInstance, 0);
+		if (!hwndDisplay)
+			return FALSE;
+
 		menu = GetMenu(hwndMain);
 
 #ifdef FINAL
@@ -782,19 +831,19 @@ namespace MainWindow {
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+
+		if (g_Config.bFullScreen)
+			SwitchToFullscreen(hwndMain);
 		
 		ShowWindow(hwndMain, nCmdShow);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		touchHandler.registerTouchWindow(hwndMain);
+		touchHandler.registerTouchWindow(hwndDisplay);
 
 		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
-
-		if (g_Config.bFullScreen)
-			_ViewFullScreen(hwndMain);
 
 		return TRUE;
 	}
@@ -836,7 +885,7 @@ namespace MainWindow {
 		}
 
 		browsePauseAfter = false;
-		if (globalUIState == UISTATE_INGAME) {
+		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
 				Core_EnableStepping(true);
@@ -857,7 +906,7 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 		} else {
-			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
@@ -898,28 +947,33 @@ namespace MainWindow {
 		}
 	}
 
-	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 		// Only apply a factor > 1 in windowed mode.
 		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
-		int wmId, wmEvent;
-		std::string fn;
-		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
+		static bool firstErase = true;
+
 
 		switch (message) {
+		case WM_ACTIVATE:
+			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+				g_activeWindow = WINDOW_MAINWINDOW;
+			}
+			break;
+
 		case WM_SETFOCUS:
 			break;
 
-		case WM_SIZE:
-			SavePosition();
-			ResizeDisplay();
-			break;
-
 		case WM_ERASEBKGND:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+			if (firstErase) {
+				firstErase = false;
+				// Paint black on first erase while OpenGL stuff is loading
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+			// Then never erase, let the OpenGL drawing take care of everything.
+			return 1;
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
-
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
@@ -1006,12 +1060,33 @@ namespace MainWindow {
 				return 0;
 			}
 
-		case WM_PAINT:
+		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+		return 0;
+	}
+	
+	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
+		int wmId, wmEvent;
+		std::string fn;
+		static bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 
+		switch (message) {
 		case WM_CREATE:
 			break;
 			
+		case WM_GETMINMAXINFO:
+			{
+				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
+				RECT rc = { 0 };
+				rc.right = 480;
+				rc.bottom = 272;
+				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+				minmax->ptMinTrackSize.x = rc.right - rc.left;
+				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+			}
+			return 0;
+
 		case WM_ACTIVATE:
 			{
 				bool pause = true;
@@ -1019,7 +1094,7 @@ namespace MainWindow {
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
 				}
-				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
+				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools
 						if (disasmWindow[0])
 							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
@@ -1034,11 +1109,32 @@ namespace MainWindow {
 			}
 			break;
 
+    case WM_ERASEBKGND:
+      // This window is always covered by DisplayWindow. No reason to erase.
+			return 1;
+
 		case WM_MOVE:
 			SavePosition();
 			break;
 
-		case WM_TIMER:
+		case WM_SIZE:
+			if (!g_inModeSwitch) {
+				switch (wParam) {
+				case SIZE_MAXIMIZED:
+				case SIZE_RESTORED:
+					Core_NotifyWindowHidden(false);
+					SavePosition();
+					ResizeDisplay();
+					break;
+				case SIZE_MINIMIZED:
+					Core_NotifyWindowHidden(true);
+					break;
+				default:
+					break;
+				}
+			}
+
+    case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
 			switch (wParam) {
 			case TIMER_CURSORUPDATE:
@@ -1099,7 +1195,7 @@ namespace MainWindow {
 					break;
 
 				case ID_TOGGLE_PAUSE:
-					if (globalUIState == UISTATE_PAUSEMENU) {
+					if (GetUIState() == UISTATE_PAUSEMENU) {
 						// Causes hang
 						//NativeMessageReceived("run", "");
 
@@ -1134,6 +1230,7 @@ namespace MainWindow {
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
 					break;
+
 				case ID_EMULATION_SWITCH_UMD:
 					UmdSwitchAction();
 					break;
@@ -1163,6 +1260,15 @@ namespace MainWindow {
 					break;
 				}
 
+				case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].begin() == KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].end())
+					{ 
+						SaveState::NextSlot();
+					}
+					break;
+				}
+
 				case ID_FILE_SAVESTATE_SLOT_1: g_Config.iCurrentStateSlot = 0; break;
 				case ID_FILE_SAVESTATE_SLOT_2: g_Config.iCurrentStateSlot = 1; break;
 				case ID_FILE_SAVESTATE_SLOT_3: g_Config.iCurrentStateSlot = 2; break;
@@ -1170,14 +1276,37 @@ namespace MainWindow {
 				case ID_FILE_SAVESTATE_SLOT_5: g_Config.iCurrentStateSlot = 4; break;
 
 				case ID_FILE_QUICKLOADSTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
 
+				case ID_FILE_QUICKLOADSTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					}
+					break;
+				}
 				case ID_FILE_QUICKSAVESTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
+
+				case ID_FILE_QUICKSAVESTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+						break;
+					}
+				}
 
 				case ID_OPTIONS_LANGUAGE:
 					NativeMessageReceived("language screen", "");
@@ -1302,6 +1431,23 @@ namespace MainWindow {
 					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
+					
+				case ID_DEBUG_LOADSYMFILE:
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn)) {
+						symbolMap.LoadNocashSym(fn.c_str());
+
+						if (disasmWindow[0])
+							disasmWindow[0]->NotifyMapLoaded();
+
+						if (memoryWindow[0])
+							memoryWindow[0]->NotifyMapLoaded();
+					}
+					break;
+
+				case ID_DEBUG_SAVESYMFILE:
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn))
+						symbolMap.SaveNocashSym(fn.c_str());
+					break;
 
 				case ID_DEBUG_RESETSYMBOLTABLE:
 					symbolMap.Clear();
@@ -1374,9 +1520,9 @@ namespace MainWindow {
 					g_Config.bFullScreen = !g_Config.bFullScreen;
 
 					if (g_Config.bFullScreen)
-						_ViewFullScreen(hWnd);
+						SwitchToFullscreen(hWnd);
 					else
-						_ViewNormal(hWnd);
+						SwitchToWindowed(hWnd);
 
 					break;
 
@@ -1469,6 +1615,10 @@ namespace MainWindow {
 			return WindowsRawInput::Process(hWnd, wParam, lParam);
 
 		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
+
+		// Not sure why we are actually getting WM_CHAR even though we use RawInput, but alright..
+		case WM_CHAR:
+			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
@@ -1781,18 +1931,18 @@ namespace MainWindow {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
 
-		if (lastGlobalUIState == globalUIState && lastCoreState == coreState)
+		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
 			return;
 
 		lastCoreState = coreState;
-		lastGlobalUIState = globalUIState;
+		lastGlobalUIState = GetUIState();
 
 		HMENU menu = GetMenu(GetHWND());
 
-		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
 
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
@@ -1805,7 +1955,7 @@ namespace MainWindow {
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
 				char temp[256];
 				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowTextA(versionBox, temp);
+				SetWindowText(versionBox, ConvertUTF8ToWString(temp).c_str());
 			}
 			return TRUE;
 
@@ -1821,13 +1971,13 @@ namespace MainWindow {
 	}
 
 	void Update() {
-		InvalidateRect(hwndMain,0,0);
-		UpdateWindow(hwndMain);
+		InvalidateRect(hwndDisplay,0,0);
+		UpdateWindow(hwndDisplay);
 		SendMessage(hwndMain,WM_SIZE,0,0);
 	}
 
 	void Redraw() {
-		InvalidateRect(hwndMain, 0, 0);
+		InvalidateRect(hwndDisplay,0,0);
 	}
 
 	void SaveStateActionFinished(bool result, void *userdata) {

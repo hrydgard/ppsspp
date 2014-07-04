@@ -23,6 +23,7 @@
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "base/NativeApp.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
 #include "Core/Config.h"
@@ -180,7 +181,7 @@ void EnableCrashingOnCrashes()
   typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
   const DWORD EXCEPTION_SWALLOWING = 0x1;
 
-  HMODULE kernel32 = LoadLibraryA("kernel32.dll"); 
+  HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
   tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, 
     "GetProcessUserModeExceptionPolicy"); 
   tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, 
@@ -235,6 +236,8 @@ void MakePPSSPPDPIAware()
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	setCurrentThreadName("Main");
+
 	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
 	// so that we don't flicker in fullscreen on some PCs.
 	MakePPSSPPDPIAware();
@@ -374,6 +377,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::Show(_hInstance, iCmdShow);
 
 	HWND hwndMain = MainWindow::GetHWND();
+	HWND hwndDisplay = MainWindow::GetDisplayHWND();
 	
 	//initialize custom controls
 	CtrlDisAsmView::init();
@@ -383,7 +387,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	host = new WindowsHost(hwndMain);
+	host = new WindowsHost(hwndMain, hwndDisplay);
 	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();

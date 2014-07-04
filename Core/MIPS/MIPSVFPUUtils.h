@@ -17,15 +17,43 @@
 
 #pragma once
 
+#include <cmath>
 
+#include "Core/MIPS/MIPS.h"
 
 #define _VD (op & 0x7F)
 #define _VS ((op>>8) & 0x7F)
 #define _VT ((op>>16) & 0x7F)
 
-inline int Xpose(int v)
-{
+inline int Xpose(int v) {
 	return v^0x20;
+}
+
+#ifndef M_PI_2
+#define M_PI_2     1.57079632679489661923
+#endif
+
+inline float vfpu_sin(float angle) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	angle *= (float)M_PI_2;
+	return sinf(angle);
+}
+
+inline float vfpu_cos(float angle) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	angle *= (float)M_PI_2;
+	return cosf(angle);
+}
+
+inline void vfpu_sincos(float angle, float &sine, float &cosine) {
+	angle -= floorf(angle * 0.25f) * 4.f;
+	angle *= (float)M_PI_2;
+#if defined(__linux__) && !defined(ANDROID)  // TODO: Remove this check when we upgrade NDK on the buildbot
+	sincosf(angle, &sine, &cosine);
+#else
+	sine = sinf(angle);
+	cosine = cosf(angle);
+#endif
 }
 
 #define VFPU_FLOAT16_EXP_MAX    0x1f

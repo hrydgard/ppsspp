@@ -48,8 +48,6 @@ enum
 	HLE_AFTER_RESCHED           = 0x01,
 	// Call current thread's callbacks after the syscall.
 	HLE_AFTER_CURRENT_CALLBACKS = 0x02,
-	// Check all threads' callbacks after the syscall.
-	HLE_AFTER_ALL_CALLBACKS     = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 	// Run interrupts (and probably reschedule) after the syscall.
@@ -78,7 +76,10 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
 
 	if (error == 0 && verify == 1)
+	{
 		__KernelResumeThreadFromWait(threadID, result);
+		__KernelReSchedule("woke from hle delay");
+	}
 	else
 		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
 }
@@ -253,11 +254,6 @@ const char *GetFuncName(int moduleIndex, int func)
 	return "[unknown]";
 }
 
-void hleCheckAllCallbacks()
-{
-	hleAfterSyscall |= HLE_AFTER_ALL_CALLBACKS;
-}
-
 void hleCheckCurrentCallbacks()
 {
 	hleAfterSyscall |= HLE_AFTER_CURRENT_CALLBACKS;
@@ -375,19 +371,16 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
 		SetDeadbeefRegs();
 
-	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
+	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0 && (hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) == 0)
 		__KernelForceCallbacks();
 
 	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
 		__RunOnePendingInterrupt();
 
-	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
 	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
 		__KernelReSchedule(true, hleAfterSyscallReschedReason);
 	else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
 		__KernelReSchedule(hleAfterSyscallReschedReason);
-	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
-		__KernelCheckCallbacks();
 
 	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
 	{
@@ -477,9 +470,16 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op)
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
-	if (funcnum == 0xfff)
-	{
-		ERROR_LOG(HLE,"Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
+	if (funcnum == 0xfff) {
+		ERROR_LOG(HLE, "Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
+		return NULL;
+	}
+	if (modulenum >= (int)moduleDB.size()) {
+		ERROR_LOG(HLE, "Syscall had bad module number %i - probably executing garbage", modulenum);
+		return NULL;
+	}
+	if (funcnum >= moduleDB[modulenum].numFunctions) {
+		ERROR_LOG(HLE, "Syscall had bad function number %i in module %i - probably executing garbage", funcnum, modulenum);
 		return NULL;
 	}
 	return &moduleDB[modulenum].funcTable[funcnum];
@@ -501,6 +501,12 @@ void *GetQuickSyscallFunc(MIPSOpcode op)
 	if (info->flags != 0)
 		return (void *)&CallSyscallWithFlags;
 	return (void *)&CallSyscallWithoutFlags;
+}
+
+static double hleSteppingTime = 0.0;
+void hleSetSteppingTime(double t)
+{
+	hleSteppingTime += t;
 }
 
 void CallSyscall(MIPSOpcode op)
@@ -525,7 +531,7 @@ void CallSyscall(MIPSOpcode op)
 			CallSyscallWithoutFlags(info);
 	}
 	else
-		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name);
+		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 
 	if (g_Config.bShowDebugStats)
 	{
@@ -533,6 +539,8 @@ void CallSyscall(MIPSOpcode op)
 		u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 		int funcnum = callno & 0xFFF;
 		int modulenum = (callno & 0xFF000) >> 12;
-		updateSyscallStats(modulenum, funcnum, time_now_d() - start);
+		double total = time_now_d() - start - hleSteppingTime;
+		hleSteppingTime = 0.0;
+		updateSyscallStats(modulenum, funcnum, total);
 	}
 }

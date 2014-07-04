@@ -157,7 +157,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "float4 u_alphacolorref;\n");
-		WRITE(p, "float4 u_colormask;\n");
+		WRITE(p, "float4 u_alphacolormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
 		WRITE(p, "float3 u_texenv;\n");

@@ -40,6 +40,10 @@ typedef int (* ReplaceFunc)();
 
 enum {
 	REPFLAG_ALLOWINLINE = 1,
+	// Note that this will re-execute in a funciton that loops at start.
+	REPFLAG_HOOKENTER = 2,
+	// Only hooks jr ra, so only use on funcs that have that.
+	REPFLAG_HOOKEXIT = 4,
 };
 
 // Kind of similar to HLE functions but with different data.
@@ -48,6 +52,7 @@ struct ReplacementTableEntry {
 	ReplaceFunc replaceFunc;
 	MIPSComp::MIPSReplaceFunc jitReplaceFunc;
 	int flags;
+	s32 hookOffset;
 };
 
 void Replacement_Init();
@@ -57,7 +62,11 @@ int GetNumReplacementFuncs();
 int GetReplacementFuncIndex(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(int index);
 
-void WriteReplaceInstruction(u32 address, u64 hash, int size);
+void WriteReplaceInstructions(u32 address, u64 hash, int size);
 void RestoreReplacedInstruction(u32 address);
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
 bool GetReplacedOpAt(u32 address, u32 *op);
+
+// For savestates.  If you call SaveAndClearReplacements(), you must call RestoreSavedReplacements().
+std::map<u32, u32> SaveAndClearReplacements();
+void RestoreSavedReplacements(const std::map<u32, u32> &saved);

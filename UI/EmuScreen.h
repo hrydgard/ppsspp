@@ -32,15 +32,15 @@ public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
 
-	virtual void update(InputState &input);
-	virtual void render();
-	virtual void deviceLost();
-	virtual void dialogFinished(const Screen *dialog, DialogResult result);
-	virtual void sendMessage(const char *msg, const char *value);
+	virtual void update(InputState &input) override;
+	virtual void render() override;
+	virtual void deviceLost() override;
+	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
+	virtual void sendMessage(const char *msg, const char *value) override;
 
-	virtual void touch(const TouchInput &touch);
-	virtual void key(const KeyInput &key);
-	virtual void axis(const AxisInput &axis);
+	virtual bool touch(const TouchInput &touch) override;
+	virtual bool key(const KeyInput &key) override;
+	virtual bool axis(const AxisInput &axis) override;
 
 protected:
 	virtual void CreateViews();
@@ -58,8 +58,9 @@ private:
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
 	void autoLoad();
+	void checkPowerDown();
 
-	bool booted_;
+	bool bootPending_;
 	std::string gamePath_;
 
 	// Something invalid was loaded, don't try to emulate
@@ -75,4 +76,6 @@ private:
 
 	// In-memory save state used for freezeFrame, which is useful for debugging.
 	std::vector<u8> freezeState_;
+
+	std::string tag_;
 };

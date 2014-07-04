@@ -2,6 +2,7 @@
 
 #include "base/NativeApp.h"
 #include "Core/Config.h"
+#include "Common/KeyMap.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "XinputDevice.h"
@@ -107,23 +108,71 @@ XinputDevice::~XinputDevice() {
 }
 
 struct Stick {
+	Stick (float x_, float y_, float scale) : x(x_ * scale), y(y_ * scale) {}
 	float x;
 	float y;
 };
-static Stick NormalizedDeadzoneFilter(short x, short y);
+
+inline float Clampf(float val, float min, float max) {
+	if (val < min) return min;
+	if (val > max) return max;
+	return val;
+}
+
+static Stick NormalizedDeadzoneFilter(short x, short y, short thresh) {
+	static const float DEADZONE = (float)thresh / 32767.0f;
+	Stick s(x, y, 1.0 / 32767.0f);
+
+	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
+	if (magnitude > DEADZONE) {
+		if (magnitude > 1.0f) {
+			s.x *= 1.41421f;
+			s.y *= 1.41421f;
+		}
+
+		s.x = Clampf(s.x, -1.0f, 1.0f);
+		s.y = Clampf(s.y, -1.0f, 1.0f);
+	} else {
+		s.x = 0.0f;
+		s.y = 0.0f;
+	}
+	return s;
+}
+
+bool NormalizedDeadzoneDiffers(short x1, short y1, short x2, short y2, const short thresh) {
+	static const float DEADZONE = (float)thresh / 32767.0f;
+	Stick s1(x1, y1, 1.0 / 32767.0f);
+	Stick s2(x2, y2, 1.0 / 32767.0f);
+
+	float magnitude1 = sqrtf(s1.x * s1.x + s1.y * s1.y);
+	float magnitude2 = sqrtf(s2.x * s2.x + s2.y * s2.y);
+	if (magnitude1 > DEADZONE || magnitude2 > DEADZONE) {
+		return x1 != x2 || y1 != y2;
+	}
+	return false;
+}
+
+bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
+	if (x1 > thresh || x2 > thresh) {
+		return x1 != x2;
+	}
+	return false;
+}
 
 int XinputDevice::UpdateState(InputState &input_state) {
 	if (!s_pXInputDLL)
 		return 0;
 
-	if (this->check_delay-- > 0) return -1;
+	if (this->check_delay-- > 0)
+		return -1;
+
 	XINPUT_STATE state;
 	ZeroMemory( &state, sizeof(XINPUT_STATE) );
 
 	DWORD dwResult;
-	if (this->gamepad_idx >= 0)
+	if (this->gamepad_idx >= 0) {
 		dwResult = PPSSPP_XInputGetState( this->gamepad_idx, &state );
-	else {
+	} else {
 		// use the first gamepad that responds
 		for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 			dwResult = PPSSPP_XInputGetState( i, &state );
@@ -135,35 +184,48 @@ int XinputDevice::UpdateState(InputState &input_state) {
 	}
 	
 	if ( dwResult == ERROR_SUCCESS ) {
+		static bool notified = false;
+		if (!notified) {
+			notified = true;
+			KeyMap::NotifyPadConnected("Xbox 360 Pad");
+		}
 		ApplyButtons(state, input_state);
 
-		if (prevState.Gamepad.sThumbLX != state.Gamepad.sThumbLX || prevState.Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
-			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY);
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbLX, prevState.Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)) {
+			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
 			axis.axisId = JOYSTICK_AXIS_X;
 			axis.value = left.x;
-			NativeAxis(axis);
+			if (prevState.Gamepad.sThumbLX != state.Gamepad.sThumbLX) {
+				NativeAxis(axis);
+			}
 			axis.axisId = JOYSTICK_AXIS_Y;
 			axis.value = left.y;
-			NativeAxis(axis);
+			if (prevState.Gamepad.sThumbLY != state.Gamepad.sThumbLY) {
+				NativeAxis(axis);
+			}
 		}
 
-		if (prevState.Gamepad.sThumbRX != state.Gamepad.sThumbRX || prevState.Gamepad.sThumbRY != state.Gamepad.sThumbRY) {
-			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY);
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbRX, prevState.Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)) {
+			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
 			axis.axisId = JOYSTICK_AXIS_Z;
 			axis.value = right.x;
-			NativeAxis(axis);
+			if (prevState.Gamepad.sThumbRX != state.Gamepad.sThumbRX) {
+				NativeAxis(axis);
+			}
 			axis.axisId = JOYSTICK_AXIS_RZ;
 			axis.value = right.y;
-			NativeAxis(axis);
+			if (prevState.Gamepad.sThumbRY != state.Gamepad.sThumbRY) {
+				NativeAxis(axis);
+			}
 		}
 
-		if (prevState.Gamepad.bLeftTrigger != state.Gamepad.bLeftTrigger) {
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
 			axis.axisId = JOYSTICK_AXIS_LTRIGGER;
@@ -171,7 +233,7 @@ int XinputDevice::UpdateState(InputState &input_state) {
 			NativeAxis(axis);
 		}
 
-		if (prevState.Gamepad.bRightTrigger != state.Gamepad.bRightTrigger) {
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
 			axis.axisId = JOYSTICK_AXIS_RTRIGGER;
@@ -191,36 +253,6 @@ int XinputDevice::UpdateState(InputState &input_state) {
 		this->check_delay = 100;
 		return -1;
 	}
-}
-
-inline float Clampf(float val, float min, float max) {
-	if (val < min) return min;
-	if (val > max) return max;
-	return val;
-}
-
-static Stick NormalizedDeadzoneFilter(short x, short y) {
-	static const float DEADZONE = (float)XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE / 32767.0f;
-	Stick s;
-
-	s.x = (float)x / 32767.0f;
-	s.y = (float)y / 32767.0f;
-
-	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
-	
-	if (magnitude > DEADZONE) {
-		if (magnitude > 1.0f) {
-			s.x *= 1.41421f;
-			s.y *= 1.41421f;
-		}
-
-		s.x = Clampf(s.x, -1.0f, 1.0f);
-		s.y = Clampf(s.y, -1.0f, 1.0f);
-	} else {
-		s.x = 0.0f;
-		s.y = 0.0f;
-	}
-	return s;
 }
 
 void XinputDevice::ApplyButtons(XINPUT_STATE &state, InputState &input_state) {

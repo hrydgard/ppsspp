@@ -37,10 +37,12 @@
 #include "math/math_util.h"
 #include "util/text/parsers.h"
 #include "Core/Config.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
-#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:" __LINE__ ": Test Fail\n%f\nvs\n%f\n", __FUNCTION__, a, b); return false; }
+#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:%i: Test Fail\n%f\nvs\n%f\n", __FUNCTION__, __LINE__, a, b); return false; }
+#define EXPECT_APPROX_EQ_FLOAT(a, b) if (fabsf((a)-(b))>0.00001f) { printf("%s:%i: Test Fail\n%f\nvs\n%f\n", __FUNCTION__, __LINE__, a, b); /*return false;*/ }
 #define EXPECT_EQ_STR(a, b) if (a != b) { printf("%s: Test Fail\n%s\nvs\n%s\n", __FUNCTION__, a.c_str(), b.c_str()); return false; }
 
 #define RET(a) if (!(a)) { return false; }
@@ -48,6 +50,8 @@
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 
 #define M_PI_2     1.57079632679489661923
+
+// asin acos atan: https://github.com/michaldrobot/ShaderFastLibs/blob/master/ShaderFastMathLib.h
 
 // TODO:
 // Fast approximate sincos for NEON
@@ -66,7 +70,6 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 // Unfortunately this is very serial.
 // At least there are only 8 constants needed - load them into two low quads and go to town.
 // For every step, VDUP the constant into a new register (out of two alternating), then VMLA or VFMA into it.
-
 
 // http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/arcsin/
 // minimax polynomial rational approx, pretty good, get four digits consistently.
@@ -384,6 +387,35 @@ bool TestParsers() {
 	return true;
 }
 
+bool TestVFPUSinCos() {
+	float sine, cosine;
+	vfpu_sincos(0.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(1.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(2.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 0.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, -1.0f);
+	vfpu_sincos(3.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, -1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(4.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(5.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+
+	for (float angle = -10.0f; angle < 10.0f; angle++) {
+		vfpu_sincos(angle, sine, cosine);
+		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
+		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
+	}
+	return true;
+}
+
 int main(int argc, const char *argv[]) {
 	cpu_info.bNEON = true;
 	cpu_info.bVFP = true;
@@ -392,7 +424,8 @@ int main(int argc, const char *argv[]) {
 	g_Config.bEnableLogging = true;
 	//TestAsin();
 	//TestSinCos();
-	TestArmEmitter();
+	//TestArmEmitter();
+	TestVFPUSinCos();
 	//TestMathUtil();
 	//TestParsers();
 	return 0;

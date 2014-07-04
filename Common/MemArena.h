@@ -22,10 +22,6 @@
 #include "CommonWindows.h"
 #endif
 
-#ifdef __SYMBIAN32__
-#include <e32std.h>
-#endif
-
 #include "Common.h"
 
 // This class lets you create a block of anonymous RAM, and then arbitrarily map views into it.
@@ -35,17 +31,13 @@
 class MemArena
 {
 public:
+	size_t roundup(size_t x);
 	void GrabLowMemSpace(size_t size);
 	void ReleaseSpace();
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
-
-#ifdef __SYMBIAN32__
-	RChunk* memmap;
-#else
 	// This only finds 1 GB in 32-bit
 	static u8 *Find4GBBase();
-#endif
 private:
 
 #ifdef _WIN32
@@ -54,28 +46,5 @@ private:
 	int fd;
 #endif
 };
-
-enum {
-	MV_MIRROR_PREVIOUS = 1,
-	// MV_FAKE_VMEM = 2,
-	// MV_WII_ONLY = 4,
-	MV_IS_PRIMARY_RAM = 0x100,
-	MV_IS_EXTRA1_RAM = 0x200,
-	MV_IS_EXTRA2_RAM = 0x400,
-};
-
-struct MemoryView
-{
-	u8 **out_ptr_low;
-	u8 **out_ptr;
-	u32 virtual_address;
-	u32 size;
-	u32 flags;
-};
-
-// Uses a memory arena to set up an emulator-friendly memory map according to
-// a passed-in list of MemoryView structures.
-u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena *arena);
-void MemoryMap_Shutdown(const MemoryView *views, int num_views, u32 flags, MemArena *arena);
 
 #endif // _MEMARENA_H_

@@ -33,9 +33,11 @@
 #include <algorithm>
 #endif
 
-#ifdef _WIN32
-#include <libpng16/png.h>
+#if defined(_WIN32)
+#include <libpng17/png.h>
 #include "ext/jpge/jpge.h"
+#include "Windows/DSoundStream.h"
+#include "Windows/WndMainWindow.h"
 #endif
 
 #include "base/display.h"
@@ -66,6 +68,7 @@
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/PSPMixer.h"
 #include "Core/SaveState.h"
@@ -83,6 +86,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
+#include "UI/BackgroundAudio.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -155,8 +159,14 @@ public:
 	}
 };
 
+#ifdef _WIN32
+int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
+	return NativeMix(buffer, numSamples);
+}
+#endif
+
 // globals
-static PMixer *g_mixer = 0;
+PMixer *g_mixer = 0;
 #ifndef _WIN32
 static AndroidLogger *logger = 0;
 #endif
@@ -195,11 +205,17 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (g_mixer) {
+	if (g_mixer && GetUIState() == UISTATE_INGAME) {
 		num_samples = g_mixer->Mix(audio, num_samples);
 	}	else {
-		memset(audio, 0, num_samples * 2 * sizeof(short));
+		MixBackgroundAudio(audio, num_samples);
+		// memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
+
+#ifdef _WIN32
+	DSound::DSound_UpdateSound();
+#endif
+
 	return num_samples;
 }
 
@@ -264,16 +280,19 @@ void NativeInit(int argc, const char *argv[],
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
-	char* config = getenv("XDG_CONFIG_HOME");
-	if (!config) {
-		config = getenv("HOME");
-		strcat(config, "/.config");
-	}
-	g_Config.memCardDirectory = std::string(config) + "/ppsspp/";
+	std::string config;
+	if (getenv("XDG_CONFIG_HOME") != NULL)
+		config = getenv("XDG_CONFIG_HOME");
+	else if (getenv("HOME") != NULL)
+		config = getenv("HOME") + std::string("/.config");
+	else // Just in case
+		config = "./config";
+
+	g_Config.memCardDirectory = config + "/ppsspp/";
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
@@ -359,10 +378,13 @@ void NativeInit(int argc, const char *argv[],
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS) || defined(_WIN32)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_directory;
 #else
-		g_Config.currentDirectory = getenv("HOME");
+		if (getenv("HOME") != NULL)
+			g_Config.currentDirectory = getenv("HOME");
+		else
+			g_Config.currentDirectory = "./";
 #endif
 	}
 
@@ -420,13 +442,16 @@ void NativeInit(int argc, const char *argv[],
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
+
+	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
+	// When it's reset we don't want to forget all our managed things.
+	gl_lost_manager_init();
 }
 
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
 	CheckGLExtensions();
-	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
 
@@ -517,9 +542,17 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+
+#ifdef _WIN32
+	DSound::DSound_StartSound(MainWindow::GetHWND(), &Win32Mix);
+#endif
 }
 
 void NativeShutdownGraphics() {
+#ifdef _WIN32
+	DSound::DSound_StopSound();
+#endif
+
 	screenManager->deviceLost();
 
 	g_gameInfoCache.Clear();
@@ -534,13 +567,11 @@ void NativeShutdownGraphics() {
 	ui_draw2d_front.Shutdown();
 
 	UIShader_Shutdown();
-
-	gl_lost_manager_shutdown();
 }
 
 void TakeScreenshot() {
 	g_TakeScreenshot = false;
-#ifdef _WIN32
+#if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
@@ -565,15 +596,19 @@ void TakeScreenshot() {
 
 	// Okay, allocate a buffer.
 	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
-	// Silly openGL reads upside down, we flip to another buffer for simplicity.
-	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
 
 	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
+#ifdef USING_QT_UI
+	QImage image(buffer, pixel_xres, pixel_yres, QImage::Format_RGB888);
+	image = image.mirrored();
+	image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
+#else
+	// Silly openGL reads upside down, we flip to another buffer for simplicity.
+	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
 	for (int y = 0; y < pixel_yres; y++) {
 		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
 	}
-
 	if (g_Config.bScreenshotsAsPNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -588,9 +623,10 @@ void TakeScreenshot() {
 		params.m_quality = 90;
 		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
+	delete [] flipbuffer;
+#endif
 
 	delete [] buffer;
-	delete [] flipbuffer;
 
 	osm.Show(filename);
 #endif
@@ -657,10 +693,17 @@ void NativeRender() {
 	}
 }
 
+void HandleGlobalMessage(const std::string &msg, const std::string &value) {
+	if (msg == "inputDeviceConnected") {
+		KeyMap::NotifyPadConnected(value);
+	}
+}
+
 void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
 		for (size_t i = 0; i < pendingMessages.size(); i++) {
+			HandleGlobalMessage(pendingMessages[i].msg, pendingMessages[i].value);
 			screenManager->sendMessage(pendingMessages[i].msg.c_str(), pendingMessages[i].value.c_str());
 		}
 		pendingMessages.clear();
@@ -690,12 +733,16 @@ bool NativeIsAtTopLevel() {
 	}
 }
 
-void NativeTouch(const TouchInput &touch) {
-	if (screenManager)
+bool NativeTouch(const TouchInput &touch) {
+	if (screenManager) {
 		screenManager->touch(touch);
+		return true;
+	} else {
+		return false;
+	}
 }
 
-void NativeKey(const KeyInput &key) {
+bool NativeKey(const KeyInput &key) {
 	// ILOG("Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)
 	if (g_Config.bPauseExitsEmulator) {
@@ -704,35 +751,37 @@ void NativeKey(const KeyInput &key) {
 		if (KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys)) {
 			if (std::find(pspKeys.begin(), pspKeys.end(), VIRTKEY_PAUSE) != pspKeys.end()) {
 				System_SendMessage("finish", "");
-				return;
+				return true;
 			}
 		}
 	}
 #endif
 	g_buttonTracker.Process(key);
+	bool retval = false;
 	if (screenManager)
-		screenManager->key(key);
+		retval = screenManager->key(key);
+	return retval;
 }
 
-void NativeAxis(const AxisInput &key) {
+bool NativeAxis(const AxisInput &key) {
 	using namespace TiltEventProcessor;
 
-
-	//only handle tilt events if tilt is enabled.
+	// only handle tilt events if tilt is enabled.
 	if (g_Config.iTiltInputType == TILT_NULL){
-
-		//if tilt events are disabled, then run it through the usual way. 
+		// if tilt events are disabled, then run it through the usual way. 
 		if (screenManager) {
 			screenManager->axis(key);
+			return true;
+		} else {
+			return false;
 		}
-
-		return;
 	}
+
 	//create the base coordinate tilt system from the calibration data. 
 	//This is static for no particular reason, can be un-static'ed
 	static Tilt baseTilt;
-	baseTilt.x_ = g_Config.fTiltBaseX; baseTilt.y_ = g_Config.fTiltBaseY;
-
+	baseTilt.x_ = g_Config.fTiltBaseX;
+	baseTilt.y_ = g_Config.fTiltBaseY;
 
 	//figure out what the current tilt orientation is by checking the axis event
 	//This is static, since we need to remember where we last were (in terms of orientation) 
@@ -755,7 +804,7 @@ void NativeAxis(const AxisInput &key) {
 		case JOYSTICK_AXIS_ACCELEROMETER_Z:
 			//don't handle this now as only landscape is enabled.
 			//TODO: make this generic.
-			return;
+			return false;
 
 			
 		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
@@ -765,10 +814,10 @@ void NativeAxis(const AxisInput &key) {
 			//Don't know how to handle these. Someone should figure it out.
 			//Does the Ouya even have an accelerometer / gyro? I can't find any reference to these
 			//in the Ouya docs...
-			return;
+			return false;
 
 		default:
-			return;
+			return false;
 	}
 
 	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
@@ -796,7 +845,7 @@ void NativeAxis(const AxisInput &key) {
 			GenerateActionButtonEvent(trueTilt);
 			break;
 	}
-
+	return true;
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
@@ -818,6 +867,8 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
+	gl_lost_manager_shutdown();
+
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;

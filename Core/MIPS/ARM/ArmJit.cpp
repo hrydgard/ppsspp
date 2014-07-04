@@ -88,7 +88,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
-	js.startDefaultPrefix = true;
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
 void Jit::DoState(PointerWrap &p)
@@ -146,7 +146,12 @@ void Jit::ClearCache()
 	GenerateFixedCode();
 }
 
-void Jit::ClearCacheAt(u32 em_address, int length)
+void Jit::InvalidateCache()
+{
+	blocks.Clear();
+}
+
+void Jit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);
 }
@@ -157,7 +162,7 @@ void Jit::EatInstruction(MIPSOpcode op) {
 		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
 	}
 
 	js.numInstructions++;
@@ -174,7 +179,7 @@ void Jit::CompileDelaySlot(int flags)
 		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -270,7 +275,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		fpr.SetCompilerPC(js.compilerPC);
-		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -310,7 +315,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
@@ -357,6 +362,11 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		return false;
 	}
 
+	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+
 	// Warning - this might be bad if the code at the destination changes...
 	if (entry->flags & REPFLAG_ALLOWINLINE) {
 		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
@@ -367,15 +377,27 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
-		// No writing exits, keep going!
-
-		// Add a trigger so that if the inlined code changes, we invalidate this block.
-		// TODO: Correctly determine the size of this block.
-		blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
-		return true;
 	} else {
-		return false;
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		if (BLInRange((const void *)(entry->replaceFunc))) {
+			BL((const void *)(entry->replaceFunc));
+		} else {
+			MOVI2R(R0, (u32)entry->replaceFunc);
+			BL(R0);
+		}
+		WriteDownCountR(R0);
+		js.downcountAmount = 0;  // we just subtracted most of it
 	}
+
+	js.compilerPC += 4;
+	// No writing exits, keep going!
+
+	// Add a trigger so that if the inlined code changes, we invalidate this block.
+	// TODO: Correctly determine the size of this block.
+	blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
+	return true;
 }
 
 void Jit::Comp_ReplacementFunc(MIPSOpcode op)
@@ -397,13 +419,23 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
-		FlushAll();
-		// Flushed, so R1 is safe.
-		LDR(R1, CTXREG, MIPS_REG_RA * 4);
-		js.downcountAmount = cycles;
-		WriteExitDestInR(R1);
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			FlushAll();
+			// Flushed, so R1 is safe.
+			LDR(R1, CTXREG, MIPS_REG_RA * 4);
+			js.downcountAmount = cycles;
+			WriteExitDestInR(R1);
+			js.compiling = false;
+		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
+		MovToPC(SCRATCHREG1);
+
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
 		if (BLInRange((const void *)(entry->replaceFunc))) {
@@ -412,21 +444,20 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			MOVI2R(R0, (u32)entry->replaceFunc);
 			BL(R0);
 		}
-		// Alternatively, we could inline it here, instead of calling out, if it's a function
-		// we can emit.
 
-		LDR(R1, CTXREG, MIPS_REG_RA * 4);
-		WriteDownCountR(R0);
-		js.downcountAmount = 0;  // we just subtracted most of it
-		WriteExitDestInR(R1);
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			LDR(R1, CTXREG, MIPS_REG_RA * 4);
+			WriteDownCountR(R0);
+			js.downcountAmount = 0;  // we just subtracted most of it
+			WriteExitDestInR(R1);
+			js.compiling = false;
+		}
 	} else {
 		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
-
-	js.compiling = false;
-
-	// We could even do this in the jal that is branching to the function
-	// but having the op is necessary for the interpreter anyway.
 }
 
 void Jit::Comp_Generic(MIPSOpcode op)

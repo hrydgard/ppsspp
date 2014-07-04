@@ -22,6 +22,7 @@
 #include "native/thread/threadutil.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -135,19 +136,13 @@ enum {
 	TYPE_FILE = 0x20
 };
 
-#ifdef __SYMBIAN32__
-#undef st_ctime
-#undef st_atime
-#undef st_mtime
-#endif
-
 struct SceIoStat {
 	SceMode_le st_mode;
 	u32_le st_attr;
 	SceOff_le st_size;
-	ScePspDateTime st_ctime;
-	ScePspDateTime st_atime;
-	ScePspDateTime st_mtime;
+	ScePspDateTime st_c_time;
+	ScePspDateTime st_a_time;
+	ScePspDateTime st_m_time;
 	u32_le st_private[6];
 };
 
@@ -156,15 +151,6 @@ struct SceIoDirEnt {
 	char d_name[256];
 	u32_le d_private;
 };
-#ifndef __SYMBIAN32__
-struct dirent {
-	u32 unk0;
-	u32 type;
-	u32 size;
-	u32 unk[19];
-	char name[0x108];
-};
-#endif
 
 class FileNode : public KernelObject {
 public:
@@ -380,7 +366,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitBeginCallback<FileNode, WAITTYPE_ASYNCIO, SceUID>(threadID, prevCallbackId, -1);
 	if (result == HLEKernel::WAIT_CB_SUCCESS) {
-		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback")
+		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback");
 	} else if (result == HLEKernel::WAIT_CB_BAD_WAIT_ID) {
 		WARN_LOG_REPORT(SCEIO, "sceIoWaitAsync: beginning callback with bad wait id?");
 	}
@@ -439,7 +425,7 @@ static VFSFileSystem *flash0System = NULL;
 #endif
 
 void __IoManagerThread() {
-	setCurrentThreadName("IOThread");
+	setCurrentThreadName("IO");
 	while (ioManagerThreadEnabled && coreState != CORE_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
@@ -567,22 +553,16 @@ u32 sceIoUnassign(const char *alias)
 }
 
 u32 sceKernelStdin() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdin()", PSP_STDIN);
 	return PSP_STDIN;
 }
 
 u32 sceKernelStdout() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdout()", PSP_STDOUT);
 	return PSP_STDOUT;
 }
 
 u32 sceKernelStderr() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStderr()", PSP_STDERR);
 	return PSP_STDERR;
 }
@@ -629,9 +609,9 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
-	__IoCopyDate(stat->st_atime, info.atime);
-	__IoCopyDate(stat->st_ctime, info.ctime);
-	__IoCopyDate(stat->st_mtime, info.mtime);
+	__IoCopyDate(stat->st_a_time, info.atime);
+	__IoCopyDate(stat->st_c_time, info.ctime);
+	__IoCopyDate(stat->st_m_time, info.mtime);
 	stat->st_private[0] = info.startSector;
 }
 
@@ -732,7 +712,8 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 bool __IoRead(int &result, int id, u32 data_addr, int size) {
 	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
-		return 0; //stdin
+		result = 0; //stdin
+		return true;
 	}
 
 	u32 error;
@@ -746,6 +727,7 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
+			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
@@ -875,6 +857,8 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		}
+
+		CBreakPoints::ExecMemCheck(data_addr, false, size, currentMIPS->pc);
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {

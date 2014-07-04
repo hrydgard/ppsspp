@@ -105,20 +105,23 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, true);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {
 		bool hasPic = false;
+		double loadTime;
 		if (ginfo->pic1Texture) {
 			ginfo->pic1Texture->Bind(0);
+			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
 			ginfo->pic0Texture->Bind(0);
+			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}
 		if (hasPic) {
-			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+			uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3)) & 0xFFc0c0c0;
 			dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 			dc.Flush();
 			dc.RebindTexture();
@@ -134,6 +137,9 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 	if (!strcmp(message, "clear jit")) {
 		if (MIPSComp::jit && PSP_IsInited()) {
 			MIPSComp::jit->ClearCache();
+		}
+		if (PSP_IsInited()) {
+			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 		}
 	}
 }
@@ -373,10 +379,12 @@ void LogoScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-void LogoScreen::key(const KeyInput &key) {
+bool LogoScreen::key(const KeyInput &key) {
 	if (key.deviceId != DEVICE_ID_MOUSE) {
 		Next();
+		return true;
 	}
+	return false;
 }
 
 void LogoScreen::render() {

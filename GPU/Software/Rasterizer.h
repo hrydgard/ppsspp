@@ -29,6 +29,6 @@ void DrawPoint(const VertexData &v0);
 void DrawLine(const VertexData &v0, const VertexData &v1);
 
 bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-bool GetCurrentTexture(GPUDebugBuffer &buffer);
+bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 
 }

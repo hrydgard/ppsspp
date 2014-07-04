@@ -52,8 +52,8 @@ const int hwSampleRate = 44100;
 int hwBlockSize = 64;
 int hostAttemptBlockSize = 512;
 
-static int audioIntervalUs;
-static int audioHostIntervalUs;
+static int audioIntervalCycles;
+static int audioHostIntervalCycles;
 
 static s32 *mixBuffer;
 
@@ -83,17 +83,25 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 }
 
 void hleAudioUpdate(u64 userdata, int cyclesLate) {
-	__AudioUpdate();
+	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
+	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
 
-	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs) - cyclesLate, eventAudioUpdate, 0);
+	__AudioUpdate();
 }
 
 void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
+	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
+
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
 	// can just ignore it.
 	host->UpdateSound();
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
 }
+
+void __AudioCPUMHzChange() {
+	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
+	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
+}
+
 
 void __AudioInit() {
 	mixFrequency = 44100;
@@ -120,14 +128,13 @@ void __AudioInit() {
 
 	}
 
-	audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
-	audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
+	__AudioCPUMHzChange();
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
 
-	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs), eventAudioUpdate, 0);
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioHostIntervalCycles, eventHostAudioUpdate, 0);
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 
@@ -137,6 +144,7 @@ void __AudioInit() {
 	__blockForAudioQueueLock();
 	outAudioQueue.clear();
 	__releaseAcquiredLock();
+	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -172,6 +180,8 @@ void __AudioDoState(PointerWrap &p) {
 	}
 	for (int i = 0; i < chanCount; ++i)
 		chans[i].DoState(p);
+
+	__AudioCPUMHzChange();
 }
 
 void __AudioShutdown() {
@@ -283,6 +293,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 
 inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 	u32 error;
+	bool wokeThreads = false;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
 		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
 		waitInfo.numSamples -= step;
@@ -293,12 +304,17 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
+			wokeThreads = true;
 
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 		}
 		// This means the thread stopped waiting, so stop trying to wake it.
 		else if (waitID == 0)
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+	}
+
+	if (wokeThreads) {
+		__KernelReSchedule("audio drain");
 	}
 }
 

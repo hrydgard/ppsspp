@@ -196,14 +196,14 @@ u32 sceUtilityLoadAvModule(u32 module)
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
-
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityLoadAvModule(%i)", module);
+	
+	INFO_LOG(SCEUTILITY, "0=sceUtilityLoadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
-	DEBUG_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
+	INFO_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -218,7 +218,7 @@ u32 sceUtilityLoadModule(u32 module)
 
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
 	{
-		DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
+		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);

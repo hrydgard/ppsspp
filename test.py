@@ -413,6 +413,8 @@ def main():
       tests = tests_good
     else:
       tests = tests_next + tests_good
+  elif '-m' in args and '-g' in args:
+    tests = [i for i in tests_good if i.startswith(tests[0])]
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 

@@ -19,6 +19,7 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
+#include "Core/CoreParameter.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
@@ -62,8 +63,6 @@ enum MIPSGPReg
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	// ID for mipscall "callback" is stored here - from JPCSP
-	MIPS_REG_CALL_ID=MIPS_REG_S0,
 	MIPS_REG_INVALID=-1,
 
 	// Not real regs, just for convenience/jit mapping.
@@ -131,6 +130,7 @@ public:
 	void Init();
 	void Shutdown();
 	void Reset();
+	void UpdateCore(CPUCore desired);
 
 	void DoState(PointerWrap &p);
 
@@ -185,6 +185,8 @@ public:
 	bool VfpuWriteMask(int i) const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
+
+	bool HasDefaultPrefix() const;
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);

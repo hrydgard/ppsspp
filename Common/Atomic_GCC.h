@@ -86,7 +86,7 @@ inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
 #ifdef BLACKBERRY
 	atomic_set(&dest, value);
 #elif defined(__SYMBIAN32__)
-    __e32_atomic_store_rel32(&dest, value);
+	__e32_atomic_store_rel32(&dest, value);
 #else
 	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function has acquire semantics.
 #endif

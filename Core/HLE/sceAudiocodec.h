@@ -17,8 +17,7 @@
 
 #pragma once
 
-typedef struct 
-{
+typedef struct {
 	s32_le unk0;
 	s32_le unk4;
 	s32_le err; // 8
@@ -59,5 +58,4 @@ typedef struct
 void __AudioCodecInit();
 void __AudioCodecShutdown();
 void Register_sceAudiocodec();
-void resetAudioList();
 void __sceAudiocodecDoState(PointerWrap &p);

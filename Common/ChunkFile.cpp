@@ -162,8 +162,6 @@ PointerWrapSection::~PointerWrapSection() {
 }
 
 CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *&_buffer, size_t &sz, std::string *_failureReason) {
-	INFO_LOG(COMMON, "ChunkReader: Loading %s" , _rFilename.c_str());
-
 	if (!File::Exists(_rFilename)) {
 		*_failureReason = "LoadStateDoesntExist";
 		ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");

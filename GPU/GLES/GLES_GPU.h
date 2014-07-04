@@ -26,6 +26,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/DepalettizeShader.h"
 
 class ShaderManager;
 class LinkedShader;
@@ -35,6 +36,7 @@ public:
 	GLES_GPU();
 	~GLES_GPU();
 	virtual void InitClear();
+	virtual void Reinitialize();
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	void ExecuteOpInternal(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
@@ -44,7 +46,11 @@ public:
 	virtual void BeginFrame();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual void UpdateMemory(u32 dest, u32 src, int size);
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size);
+	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
+	virtual bool PerformMemoryDownload(u32 dest, int size);
+	virtual bool PerformMemoryUpload(u32 dest, int size);
+	virtual bool PerformStencilUpload(u32 dest, int size);
 	virtual void ClearCacheNextFrame();
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 
@@ -54,6 +60,7 @@ public:
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized();
 	virtual void ClearShaderCache();
+	virtual void CleanupBeforeUI();
 	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
 		return textureCache_.DecodeTexture(dest, state);
 	}
@@ -69,7 +76,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentTexture(GPUDebugBuffer &buffer);
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
@@ -87,6 +94,7 @@ public:
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 	void Execute_Region(u32 op, u32 diff);
 	void Execute_Scissor(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
@@ -151,12 +159,19 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
+	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+	void ReinitializeInternal();
+	inline void UpdateVsyncInterval(bool force);
+	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
+	DepalShaderCache depalShaderCache_;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
 

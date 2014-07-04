@@ -37,6 +37,9 @@ static condition_variable inputEndCond;
 extern InputState input_state;
 
 inline static void ExecuteInputPoll() {
+	// Hm, we may hold the input_state lock for quite a while (time it takes to poll all devices)...
+	// If that becomes an issue, maybe should poll to a copy of inputstate and only hold the lock while
+	// copying that one to the real one?
 	lock_guard guard(input_state.lock);
 	input_state.pad_buttons = 0;
 	input_state.pad_lstick_x = 0;
@@ -50,7 +53,7 @@ inline static void ExecuteInputPoll() {
 }
 
 static void RunInputThread() {
-	setCurrentThreadName("InputThread");
+	setCurrentThreadName("Input");
 
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.
@@ -58,7 +61,7 @@ static void RunInputThread() {
 	while (inputThreadEnabled) {
 		ExecuteInputPoll();
 
-		// Update 250 times per second.
+		// Try to update 250 times per second.
 		Sleep(4);
 	}
 

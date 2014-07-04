@@ -183,7 +183,7 @@ struct GPUgstate
 				maxz,
 				colortest,
 				colorref,
-				colormask,
+				colortestmask,
 				alphatest,
 				stenciltest,
 				stencilop,
@@ -215,13 +215,13 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
-	// Framebuffer
-	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF) | ((fbwidth & 0xFF0000) << 8); }
+	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
+	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7FC; }
-	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF) | ((zbwidth & 0xFF0000) << 8); }
+	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF); }
 	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7FC; }
 
@@ -284,7 +284,7 @@ struct GPUgstate
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
 	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
-	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
+	u32 getColorTestMask() const { return colortestmask & 0xFFFFFF; }
 
 	// Texturing
 	// TODO: Verify getTextureAddress() alignment?
@@ -313,6 +313,7 @@ struct GPUgstate
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
+	int getTextureMaxLevel() const { return (texmode >> 16) & 0x7; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -458,18 +459,25 @@ struct GPUStateCache
 
 	UVScale uv;
 	bool flipTexture;
+	bool needShaderTexClamp;
 
 	float morphWeights[8];
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
 	u32 actualTextureHeight;
+	// Only applied when needShaderTexClamp = true.
+	u32 curTextureXOffset;
+	u32 curTextureYOffset;
 
 	float vpWidth;
 	float vpHeight;
 
 	u32 curRTWidth;
 	u32 curRTHeight;
+	u32 curRTRenderWidth;
+	u32 curRTRenderHeight;
+	u32 cutRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
 	void DoState(PointerWrap &p);

@@ -26,5 +26,5 @@
 
 int PSPMixer::Mix(short *stereoout, int numSamples)
 {
-    return __AudioMix(stereoout, numSamples);
+  return __AudioMix(stereoout, numSamples);
 }

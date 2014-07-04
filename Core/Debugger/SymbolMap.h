@@ -71,6 +71,7 @@ public:
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename) const;
 	bool LoadNocashSym(const char *ilename);
+	void SaveNocashSym(const char *filename) const;
 
 	SymbolType GetSymbolType(u32 address) const;
 	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;

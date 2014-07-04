@@ -29,8 +29,7 @@ using namespace Gen;
 #define NUM_X_REGS 8
 #endif
 
-// TODO: Add more cachable regs, like HI, LO
-#define NUM_MIPS_GPRS 32
+#define NUM_MIPS_GPRS 36
 
 struct MIPSCachedReg {
 	OpArg location;

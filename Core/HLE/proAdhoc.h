@@ -40,12 +40,16 @@ typedef int socklen_t;
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
+inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINVAL || errcode == WSAEALREADY); }
 #else
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
 #define PACK __attribute__((packed))
+inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #endif
+
+#define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)
 
 // psp strutcs and definitions
 #define ADHOCCTL_MODE_ADHOC 0
@@ -110,6 +114,15 @@ typedef struct SceNetAdhocctlScanInfo {
   s32_le mode;
 } PACK SceNetAdhocctlScanInfo;
 
+// Virtual Network Information with u32 pointers
+typedef struct SceNetAdhocctlScanInfoEmu {
+	u32_le next;
+	s32_le channel;
+	SceNetAdhocctlGroupName group_name;
+	SceNetAdhocctlBSSId bssid;
+	s32_le mode;
+} PACK SceNetAdhocctlScanInfoEmu;
+
 // Player Nickname
 #define ADHOCCTL_NICKNAME_LEN 128
 typedef struct SceNetAdhocctlNickname {
@@ -142,7 +155,21 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   u32_le ip_addr;
   u32 padding; // Changed the pointer to u32
   u64_le last_recv;
-} SceNetAdhocctlPeerInfoEmu;
+} PACK SceNetAdhocctlPeerInfoEmu;
+
+// Member Information
+typedef struct SceNetAdhocMatchingMemberInfo {
+	SceNetAdhocMatchingMemberInfo * next;
+	SceNetEtherAddr mac_addr;
+	uint8_t padding[2];
+} PACK SceNetAdhocctlMemberInfo;
+
+// Member Information with u32 pointers
+typedef struct SceNetAdhocMatchingMemberInfoEmu {
+	u32_le next; // Changed the pointer to u32
+	SceNetEtherAddr mac_addr;
+	uint8_t padding[2];
+} PACK SceNetAdhocctlMemberInfoEmu;
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
@@ -279,7 +306,7 @@ typedef struct SceNetAdhocMatchingContext {
   SceNetEtherAddr mac;
 
   // Peer List for Connectees
-  SceNetAdhocMatchingMemberInternal * peerlist;
+  SceNetAdhocMatchingMemberInternal * peerlist; // SceNetAdhocMatchingMemberInfo[Emu]
 
   // Local PDP Port
   u16_le port;
@@ -311,8 +338,14 @@ typedef struct SceNetAdhocMatchingContext {
   // Event Handler
   SceNetAdhocMatchingHandler handler;
 
+  // Socket Connectivity
+  //bool connected;
+
   // Hello Data Length
   u32_le hellolen;
+
+  // Hello Data Address
+  u32_le helloAddr;
 
   // Hello Data
   void * hello;
@@ -455,6 +488,15 @@ int isPDPPortInUse(uint16_t port);
  */
 int isPTPPortInUse(uint16_t port);
 
+/*
+ * Matching Members
+ */
+SceNetAdhocMatchingMemberInternal* findMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void deleteMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void deleteAllMembers(SceNetAdhocMatchingContext * context);
+
+
 /**
  * Add Friend to Local List
  * @param packet Friend Information
@@ -473,6 +515,16 @@ void changeBlockingMode(int fd, int nonblocking);
  * @return Number of Virtual Networks
  */
 int countAvailableNetworks();
+
+/*
+ * Find an existing group in networks
+ */
+SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC);
+
+/*
+* Deletes all groups in networks
+*/
+void freeGroupsRecursive(SceNetAdhocctlScanInfo * node);
 
 /**
  * Closes & Deletes all PDP Sockets
@@ -528,6 +580,7 @@ int getActivePeerCount(void);
  * @param SocketAddres OUT: local ip
  */
 int getLocalIp(sockaddr_in * SocketAddress);
+uint32_t getLocalIp(int sock);
 
 /**
  * Joins two 32 bits number into a 64 bit one
@@ -551,6 +604,11 @@ void split64(u64 num, int buff[]);
  * @param addr OUT: Local Mac
  */
 void getLocalMac(SceNetEtherAddr * addr);
+
+/*
+ * Returns the local port used by the socket
+ */
+uint16_t getLocalPort(int sock);
 
 /**
  * PTP Socket Counter

@@ -60,11 +60,12 @@ void InstallZipScreen::CreateViews() {
 	rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
 }
 
-void InstallZipScreen::key(const KeyInput &key) {
+bool InstallZipScreen::key(const KeyInput &key) {
 	// Ignore all key presses during installation to avoid user escape
 	if (!g_GameManager.IsInstallInProgress()) {
-		UIScreen::key(key);
+		return UIScreen::key(key);
 	}
+	return false;
 }
 
 UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {

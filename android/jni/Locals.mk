@@ -25,7 +25,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
 endif
 ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavformat.a

@@ -74,10 +74,11 @@ struct HardHashTableEntry {
 	}
 };
 
-// Some hardcoded hashes.
+// Some hardcoded hashes.  Some have a comment specifying at least one game they are found in.
 static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x006b570008068310, 184, "strtok_r", },
 	{ 0x019ba2099fb88f3c, 48, "vector_normalize_t", },
+	{ 0x0266f96d740c7e03, 912, "memcpy", }, // Final Fantasy 4
 	{ 0x02bd2859045d2383, 240, "bcmp", },
 	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
@@ -86,6 +87,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
 	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
 	{ 0x06e2826e02056114, 56, "wcslen", },
+	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force
 	{ 0x075fa9b234b41e9b, 32, "fmodf", },
 	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
 	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },
@@ -97,7 +99,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	//{ 0x0eb5f2e95f59276a, 40, "dl_write_lightmode", },
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
-	{ 0x0ffa5db8396d4274, 64, "memcpy", },
+	{ 0x0ffa5db8396d4274, 64, "memcpy", }, // CRUSH
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "vmidt_t", },
 	{ 0x12feef7b017d3431, 700, "memmove", },
@@ -114,10 +116,10 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x189212bda9c94df1, 736, "atanf", },
 	{ 0x199821ce500ef9d2, 24, "vocp_t", },
 	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
-	{ 0x1a7564fa3e25c992, 844, "memcpy", },
+	{ 0x1a7564fa3e25c992, 844, "memcpy", }, // Valkyria Chronicles 3
 	{ 0x1aad94c0723edfc0, 124, "vmmul_t_transp", },
 	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
-	{ 0x1ac05627df1f87f4, 112, "memcpy16", },
+	{ 0x1ac05627df1f87f4, 112, "memcpy16", }, // Valkyria Chronicles 3
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
@@ -145,9 +147,10 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
 	{ 0x30c9c4f420573eb6, 540, "expf", },
-	{ 0x317afeb882ff324a, 212, "memcpy", },
+	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
 	{ 0x31f523ef18898e0e, 420, "logf", },
+	{ 0x32215b1d2196377f, 844, "godseaterburst_blit_texture", }, // Gods Eater Burst
 	{ 0x32806967fe81568b, 40, "vector_sub_t_2", },
 	{ 0x32ceb9a7f72b9385, 440, "_strtoul_r", },
 	{ 0x32e6bc7c151491ed, 68, "memchr", },
@@ -160,7 +163,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
 	{ 0x3ab08b5659de1746, 40, "vsin_s", },
-	{ 0x3c421a9265f37ebc, 700, "memmove", },
+	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4
 	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
 	{ 0x3ce1806699a91d9d, 148, "dl_write_light", },
 	{ 0x3d5e914011c181d4, 444, "scalbnf", },
@@ -219,6 +222,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6301fa5149bd973a, 120, "wcscat", },
 	{ 0x658b07240a690dbd, 36, "strlen", },
 	{ 0x66122f0ab50b2ef9, 296, "dl_write_dither_matrix_5", },
+	{ 0x66f7f1beccbc104a, 256, "memcpy_swizzled", }, // God Eater 2
 	{ 0x679e647e34ecf7f1, 132, "roundf", },
 	{ 0x67afe74d9ec72f52, 4380, "_strtod_r", },
 	{ 0x68b22c2aa4b8b915, 400, "sqrt", },
@@ -266,13 +270,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8a00e7207e7dbc81, 232, "_exit", },
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
 	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
-	{ 0x8c3fd997a544d0b1, 268, "memcpy", },
+	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
-	{ 0x8ff11e9bed387401, 700, "memmove", },
+	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
@@ -285,12 +289,14 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
-	{ 0x9e6ce11f9d49f954, 292, "memcpy", },
+	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet
+	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
+	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
 	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
@@ -321,7 +327,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
-	{ 0xb7d88567dc22aab1, 820, "memcpy", },
+	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
 	{ 0xb89aa73b6f94ba95, 52, "vclamp_t", },
 	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
@@ -341,6 +347,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc51519f5dab342d4, 224, "cosf", },
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
+	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
 	{ 0xcb7a2edd603ecfef, 48, "vtfm_p", },
 	{ 0xcdf64d21418b2667, 24, "vzero_q", },
@@ -367,6 +374,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xddfa5a85937aa581, 32, "vdot_q", },
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
+	{ 0xe093c2b0194d52b3, 820, "ff1_battle_effect", }, // Final Fantasy 1
 	{ 0xe1107cf3892724a0, 460, "_memalign_r", },
 	{ 0xe1724e6e29209d97, 24, "vector_length_t_2", },
 	{ 0xe1a5d939cc308195, 68, "wcscmp", },
@@ -374,6 +382,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe32cb5c062d1a1c4, 700, "_strtoull_r", },
 	{ 0xe3835fb2c9c04e59, 44, "vmmul_q", },
 	{ 0xe527c62d8613f297, 136, "strcpy", },
+	{ 0xe6002fc9affd678e, 480, "topx_create_saveicon", }, // Tales of Phantasia X
 	{ 0xe7b36c2c1348551d, 148, "tan", },
 	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
 	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
@@ -487,29 +496,68 @@ namespace MIPSAnalyst {
 		return (op & MIPSTABLE_IMM_MASK) == 0xB8000000;
 	}
 
-	bool OpWouldChangeMemory(u32 pc, u32 addr) {
-		auto op = Memory::Read_Instruction(pc);
+	static bool IsSWC1Instr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xE4000000;
+	}
+	static bool IsSVSInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xE8000000;
+	}
+	static bool IsSVQInstr(MIPSOpcode op) {
+		return (op & MIPSTABLE_IMM_MASK) == 0xF8000000;
+	}
+
+	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
+		const auto op = Memory::Read_Instruction(pc, true);
+
+		// TODO: Trap sc/ll, svl.q, svr.q?
+
 		int gprMask = 0;
-		// TODO: swl/swr are annoying, not handled yet.
 		if (IsSWInstr(op))
 			gprMask = 0xFFFFFFFF;
 		if (IsSHInstr(op))
 			gprMask = 0x0000FFFF;
 		if (IsSBInstr(op))
 			gprMask = 0x000000FF;
+		if (IsSWLInstr(op)) {
+			const u32 shift = (addr & 3) * 8;
+			gprMask = 0xFFFFFFFF >> (24 - shift);
+		}
+		if (IsSWRInstr(op)) {
+			const u32 shift = (addr & 3) * 8;
+			gprMask = 0xFFFFFFFF << shift;
+		}
+
+		u32 writeVal = 0xFFFFFFFF;
+		u32 prevVal = 0x00000000;
 
 		if (gprMask != 0)
 		{
-			MIPSGPReg reg = MIPS_GET_RT(op);
-			u32 writeVal = currentMIPS->r[reg] & gprMask;
-			u32 prevVal = Memory::Read_U32(addr) & gprMask;
-
-			// TODO: Technically, the break might be for 1 byte in the middle of a sw.
-			return writeVal != prevVal;
+			MIPSGPReg rt = MIPS_GET_RT(op);
+			writeVal = currentMIPS->r[rt] & gprMask;
+			prevVal = Memory::Read_U32(addr) & gprMask;
 		}
 
-		// TODO: Not handled yet.
-		return true;
+		if (IsSWC1Instr(op)) {
+			int ft = MIPS_GET_FT(op);
+			writeVal = currentMIPS->fi[ft];
+			prevVal = Memory::Read_U32(addr);
+		}
+
+		if (IsSVSInstr(op)) {
+			int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
+			writeVal = currentMIPS->vi[voffset[vt]];
+			prevVal = Memory::Read_U32(addr);
+		}
+
+		if (IsSVQInstr(op)) {
+			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
+			float rd[4];
+			ReadVector(rd, V_Quad, vt);
+			return memcmp(rd, Memory::GetPointer(addr), sizeof(float) * 4) != 0;
+		}
+
+		// TODO: Technically, the break might be for 1 byte in the middle of a sw.
+		return writeVal != prevVal;
 	}
 
 	AnalysisResults Analyze(u32 address) {
@@ -527,7 +575,7 @@ namespace MIPSAnalyst {
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			MIPSGPReg rs = MIPS_GET_RS(op);
@@ -592,7 +640,7 @@ namespace MIPSAnalyst {
 	// Don't think we use this yet.
 	bool IsRegisterUsed(MIPSGPReg reg, u32 addr) {
 		while (true) {
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
@@ -689,7 +737,7 @@ skip:
 		u32 furthestJumpbackAddr = INVALIDTARGET;
 
 		for (u32 ahead = fromAddr; ahead < fromAddr + MAX_AHEAD_SCAN; ahead += 4) {
-			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
 				target = GetJumpTarget(ahead);
@@ -710,7 +758,7 @@ skip:
 
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
 			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
-				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind, true);
 				u32 target = GetBranchTargetNoRA(behind, behindOp);
 				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
 					target = GetJumpTarget(behind);
@@ -736,6 +784,7 @@ skip:
 		bool looking = false;
 		bool end = false;
 		bool isStraightLeaf = true;
+		bool decreasedSp = false;
 
 		u32 addr;
 		u32 addrNextSym = 0;
@@ -759,16 +808,19 @@ skip:
 				furthestBranch = 0;
 				looking = false;
 				end = false;
+				isStraightLeaf = false;
+				decreasedSp = false;
 				continue;
 			}
 
-			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
 				if (target > furthestBranch) {
 					furthestBranch = target;
 				}
+			// j X
 			} else if ((op & 0xFC000000) == 0x08000000) {
 				u32 sureTarget = GetJumpTarget(addr);
 				// Check for a tail call.  Might not even have a jr ra.
@@ -780,6 +832,18 @@ skip:
 						end = true;
 					}
 				} else if (sureTarget != INVALIDTARGET && sureTarget > addr && sureTarget > furthestBranch) {
+					static const u32 MAX_JUMP_FORWARD = 128;
+					// If it's a nearby forward jump, and not a stackless leaf, assume not a tail call.
+					if (sureTarget <= addr + MAX_JUMP_FORWARD && decreasedSp) {
+						// But let's check the delay slot.
+						MIPSOpcode op = Memory::Read_Instruction(addr + 4, true);
+						// addiu sp, sp, +X
+						if ((op & 0xFFFF8000) != 0x27BD0000) {
+							furthestBranch = sureTarget;
+							continue;
+						}
+					}
+
 					// A jump later.  Probably tail, but let's check if it jumps back.
 					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
 					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
@@ -803,6 +867,18 @@ skip:
 				} else {
 					end = true;
 				}
+			}
+			// addiu sp, sp, -X
+			if ((op & 0xFFFF8000) == 0x27BD8000) {
+				decreasedSp = true;
+			}
+			// addiu sp, sp, +X
+			if ((op & 0xFFFF8000) == 0x27BD0000) {
+				decreasedSp = false;
+			}
+			if (op == MIPS_MAKE_NOP() && currentFunction.start == addr) {
+				// Skip nop padding at the beginning of functions (alignment?)
+				currentFunction.start += 4;
 			}
 
 			if (looking) {
@@ -836,6 +912,7 @@ skip:
 				looking = false;
 				end = false;
 				isStraightLeaf = true;
+				decreasedSp = false;
 				currentFunction.start = addr+4;
 			}
 		}
@@ -854,13 +931,16 @@ skip:
 		HashFunctions();
 
 		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
-		if (g_Config.bFuncHashMap) {
-			LoadHashMap(hashMapFilename);
-			StoreHashMap(hashMapFilename);
+		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
+			LoadBuiltinHashMap();
+			if (g_Config.bFuncHashMap) {
+				LoadHashMap(hashMapFilename);
+				StoreHashMap(hashMapFilename);
+			}
 			if (insertSymbols) {
 				ApplyHashMap();
 			}
-			if (g_Config.bFuncHashMap) {
+			if (g_Config.bFuncReplacements) {
 				ReplaceFunctions();
 			}
 		}
@@ -925,7 +1005,7 @@ skip:
 		lock_guard guard(functions_lock);
 
 		for (size_t i = 0; i < functions.size(); i++) {
-			WriteReplaceInstruction(functions[i].start, functions[i].hash, functions[i].size);
+			WriteReplaceInstructions(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 
@@ -950,11 +1030,11 @@ skip:
 		}
 	}
 
-	const char *LookupHash(u64 hash, int funcsize) {
-		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
-			if (it->hash == hash && (int)it->size == funcsize) {
-				return it->name;
-			}
+	const char *LookupHash(u64 hash, u32 funcsize) {
+		const HashMapFunc f = { "", hash, funcsize };
+		auto it = hashMap.find(f);
+		if (it != hashMap.end()) {
+			return it->name;
 		}
 		return 0;
 	}
@@ -1020,8 +1100,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(std::string filename) {
-		// First insert the hardcoded entries.
+	void LoadBuiltinHashMap() {
 		HashMapFunc mf;
 		for (size_t i = 0; i < ARRAY_SIZE(hardcodedHashes); i++) {
 			mf.hash = hardcodedHashes[i].hash;
@@ -1031,7 +1110,9 @@ skip:
 			mf.hardcoded = true;
 			hashMap.insert(mf);
 		}
+	}
 
+	void LoadHashMap(std::string filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

@@ -21,6 +21,7 @@
 #include "Core/CoreParameter.h"
 
 // called from emu thread
+void UpdateRunLoop();
 void Core_Run();
 void Core_Stop();
 void Core_ErrorPause();
@@ -42,3 +43,7 @@ void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 
 void UpdateScreenScale(int width, int height);
+
+// Don't run the core when minimized etc.
+void Core_NotifyWindowHidden(bool hidden);
+

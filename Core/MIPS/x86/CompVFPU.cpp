@@ -165,14 +165,33 @@ void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		if (sat == 1)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&zero));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, M(&zero));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 		else if (sat == 3)
 		{
 			fpr.MapRegV(vregs[i], MAP_DIRTY);
-			MAXSS(fpr.VX(vregs[i]), M(&minus_one));
-			MINSS(fpr.VX(vregs[i]), M(&one));
+
+			// Check for < -1.0f, but careful of NANs.
+			MOVSS(XMM1, M(&minus_one));
+			MOVSS(R(XMM0), fpr.VX(vregs[i]));
+			CMPLESS(XMM0, R(XMM1));
+			// If it was NOT less, the three ops below do nothing.
+			// Otherwise, they replace the value with -1.0f.
+			ANDPS(XMM1, R(XMM0));
+			ANDNPS(XMM0, fpr.V(vregs[i]));
+			ORPS(XMM0, R(XMM1));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(fpr.VX(vregs[i]), M(&one));
+			MINSS(fpr.VX(vregs[i]), R(XMM0));
 		}
 	}
 }
@@ -701,21 +720,21 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	}
 
 	if (imm3 < 6) {
-		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
-		TEST(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(1 << imm3));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+		TEST(32, gpr.R(MIPS_REG_VFPUCC), Imm32(1 << imm3));
 		FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
 		for (int i = 0; i < n; i++) {
 			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
 		}
 		SetJumpTarget(skip);
 	} else {
-		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
-		MOV(32, R(EAX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
-
+		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
 		for (int i = 0; i < n; i++) {
-			TEST(32, R(EAX), Imm32(1 << i));
+			TEST(32, gpr.R(MIPS_REG_VFPUCC), Imm32(1 << i));
 			FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
 			SetJumpTarget(skip);
@@ -835,12 +854,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			switch ((op >> 23) & 7)
 			{
 			case 2:  // vmin
+				// TODO: Mishandles NaN.
 				MINSS(tempxregs[i], fpr.V(tregs[i]));
 				break;
 			case 3:  // vmax
+				// TODO: Mishandles NaN.
 				MAXSS(tempxregs[i], fpr.V(tregs[i]));
 				break;
 			case 6:  // vsge
+				// TODO: Mishandles NaN.
 				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
 				ANDPS(tempxregs[i], M(&oneOneOneOne));
 				break;
@@ -903,10 +925,12 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 	static const int true_bits[4] = {0x31, 0x33, 0x37, 0x3f};
 
 	if (cond == VC_TR) {
-		OR(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(true_bits[n-1]));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+		OR(32, gpr.R(MIPS_REG_VFPUCC), Imm32(true_bits[n-1]));
 		return;
 	} else if (cond == VC_FL) {
-		AND(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(~true_bits[n-1]));
+		gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+		AND(32, gpr.R(MIPS_REG_VFPUCC), Imm32(~true_bits[n-1]));
 		return;
 	}
 
@@ -1043,14 +1067,13 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		SHL(32, R(ECX), Imm8(4));
 		OR(32, R(EAX), R(ECX));
 	}
-
-	MOV(32, R(ECX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
-	AND(32, R(ECX), Imm32(~affected_bits));
-	OR(32, R(ECX), R(EAX));
-	MOV(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), R(ECX));
+	
+	gpr.UnlockAllX();
+	gpr.MapReg(MIPS_REG_VFPUCC, true, true);
+	AND(32, gpr.R(MIPS_REG_VFPUCC), Imm32(~affected_bits));
+	OR(32, gpr.R(MIPS_REG_VFPUCC), R(EAX));
 
 	fpr.ReleaseSpillLocks();
-	gpr.UnlockAllX();
 }
 
 // There are no immediates for floating point, so we need to load these
@@ -1354,7 +1377,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		MINSD(XMM0, M(&maxIntAsDouble));
 		MAXSD(XMM0, M(&minIntAsDouble));
 		switch ((op >> 21) & 0x1f) {
-		case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+		case 16: /* TODO */ break; //n
 		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
 		case 18: /* TODO */ break; //u
 		case 19: /* TODO */ break; //d
@@ -1560,16 +1583,33 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			// TODO: Doesn't handle NaN correctly.
-			MAXSS(tempxregs[i], M(&zero));
-			MINSS(tempxregs[i], M(&one));
+
+			// Zero out XMM0 if it was <= +0.0f (but skip NAN.)
+			MOVSS(R(XMM0), tempxregs[i]);
+			CMPLESS(XMM0, M(&zero));
+			ANDNPS(XMM0, R(tempxregs[i]));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(tempxregs[i], M(&one));
+			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
-			// TODO: Doesn't handle NaN correctly.
-			MAXSS(tempxregs[i], M(&minus_one));
-			MINSS(tempxregs[i], M(&one));
+
+			// Check for < -1.0f, but careful of NANs.
+			MOVSS(XMM1, M(&minus_one));
+			MOVSS(R(XMM0), tempxregs[i]);
+			CMPLESS(XMM0, R(XMM1));
+			// If it was NOT less, the three ops below do nothing.
+			// Otherwise, they replace the value with -1.0f.
+			ANDPS(XMM1, R(XMM0));
+			ANDNPS(XMM0, R(tempxregs[i]));
+			ORPS(XMM0, R(XMM1));
+
+			// Retain a NAN in XMM0 (must be second operand.)
+			MOVSS(tempxregs[i], M(&one));
+			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 			MOVSS(XMM0, M(&one));
@@ -1639,10 +1679,22 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 				gpr.MapReg(rt, false, true);
 				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
-				// In case we have a saved prefix.
-				FlushPrefixV();
-				gpr.MapReg(rt, false, true);
-				MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+				if (imm - 128 == VFPU_CTRL_CC) {
+					if (gpr.IsImm(MIPS_REG_VFPUCC)) {
+						gpr.SetImm(rt, gpr.GetImm(MIPS_REG_VFPUCC));
+					} else {
+						gpr.Lock(rt, MIPS_REG_VFPUCC);
+						gpr.MapReg(rt, false, true);
+						gpr.MapReg(MIPS_REG_VFPUCC, true, false);
+						MOV(32, gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						gpr.UnlockAll();
+					}
+				} else {
+					// In case we have a saved prefix.
+					FlushPrefixV();
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+				}
 			} else {
 				//ERROR - maybe need to make this value too an "interlock" value?
 				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
@@ -1656,8 +1708,20 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 			gpr.MapReg(rt, true, false);
 			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
-			gpr.MapReg(rt, true, false);
-			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+			if (imm - 128 == VFPU_CTRL_CC) {
+				if (gpr.IsImm(rt)) {
+					gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+				} else {
+					gpr.Lock(rt, MIPS_REG_VFPUCC);
+					gpr.MapReg(rt, true, false);
+					gpr.MapReg(MIPS_REG_VFPUCC, false, true);
+					MOV(32, gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					gpr.UnlockAll();
+				}
+			} else {
+				gpr.MapReg(rt, true, false);
+				MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+			}
 
 			// TODO: Optimization if rt is Imm?
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
@@ -1684,7 +1748,12 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 	int imm = op & 0xFF;
 	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 		fpr.MapRegV(vs, 0);
-		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.VX(vs));
+		if (imm - 128 == VFPU_CTRL_CC) {
+			gpr.MapReg(MIPS_REG_VFPUCC, false, true);
+			MOVD_xmm(gpr.R(MIPS_REG_VFPUCC), fpr.VX(vs));
+		} else {
+			MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.VX(vs));
+		}
 		fpr.ReleaseSpillLocks();
 
 		if (imm - 128 == VFPU_CTRL_SPREFIX) {
@@ -2086,15 +2155,12 @@ typedef u32float SinCosArg;
 #endif
 
 void SinCos(SinCosArg angle) {
-	angle *= (float)1.57079632679489661923;  // pi / 2
-	sincostemp[0] = sinf(angle);
-	sincostemp[1] = cosf(angle);
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
 }
 
 void SinCosNegSin(SinCosArg angle) {
-	angle *= (float)1.57079632679489661923;  // pi / 2
-	sincostemp[0] = -sinf(angle);
-	sincostemp[1] = cosf(angle);
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+	sincostemp[0] = -sincostemp[0];
 }
 
 // Very heavily used by FF:CC

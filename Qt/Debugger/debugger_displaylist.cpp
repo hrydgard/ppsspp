@@ -12,8 +12,6 @@
 #include "mainwindow.h"
 #include "UI/HostTypes.h"
 #include "GPU/GLES/VertexDecoder.h"
-#include "ext/glew/GL/glew.h"
-
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
 	QDialog(parent),
@@ -1465,6 +1463,8 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 	u8 *data = 0;
 	int curTex;
 	glGetIntegerv(GL_TEXTURE_BINDING_2D, &curTex);
+	// TODO: GLES2 compatible
+#ifndef USING_GLES2
 	if(currentTextureDisplay == 0)
 	{
 		FRAME_WIDTH = pixel_xres;
@@ -1493,6 +1493,7 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 		}
 	}
+#endif
 	glBindTexture(GL_TEXTURE_2D, curTex);
 
 	QImage img = QImage(data, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH*4, QImage::Format_ARGB32).mirrored(false,true);

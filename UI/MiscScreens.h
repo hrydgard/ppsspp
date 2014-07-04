@@ -35,7 +35,7 @@ public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
 	virtual void DrawBackground(UIContext &dc);
-	virtual void sendMessage(const char *message, const char *value);
+	virtual void sendMessage(const char *message, const char *value) override;
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
@@ -53,7 +53,7 @@ public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
 	virtual void DrawBackground(UIContext &dc);
-	virtual void sendMessage(const char *message, const char *value);
+	virtual void sendMessage(const char *message, const char *value) override;
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
 
@@ -71,7 +71,7 @@ public:
 	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, 
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 
 private:
 	UI::EventReturn OnYes(UI::EventParams &e);
@@ -89,7 +89,7 @@ public:
 
 private:
 	virtual void OnCompleted(DialogResult result);
-	virtual bool ShowButtons() const { return true; }
+	virtual bool ShowButtons() const override { return true; }
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<FileInfo> langs_;
@@ -101,7 +101,7 @@ public:
 
 private:
 	virtual void OnCompleted(DialogResult result);
-	virtual bool ShowButtons() const { return true; }
+	virtual bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
 };
 
@@ -109,10 +109,10 @@ class LogoScreen : public UIScreen {
 public:
 	LogoScreen()
 		: frames_(0), switched_(false) {}
-	void key(const KeyInput &key);
-	void update(InputState &input);
-	void render();
-	void sendMessage(const char *message, const char *value);
+	bool key(const KeyInput &key) override;
+	virtual void update(InputState &input) override;
+	virtual void render() override;
+	virtual void sendMessage(const char *message, const char *value) override;
 	virtual void CreateViews() {}
 
 private:
@@ -124,8 +124,8 @@ private:
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen() : frames_(0) {}
-	void update(InputState &input);
-	void render();
+	virtual void update(InputState &input) override;
+	virtual void render() override;
 
 	virtual void CreateViews();
 

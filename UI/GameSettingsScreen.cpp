@@ -54,10 +54,9 @@ extern bool iosCanUseJit;
 #endif
 
 void GameSettingsScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
-	showDebugStats_ = g_Config.bShowDebugStats;
 
 	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
 
@@ -97,9 +96,14 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	PopupMultiChoice *rm = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
-	rm->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
+	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
+	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
+	renderModeEnable = !g_Config.bSoftwareRendering;
+	renderingModeChoice->SetEnabledPtr(&renderModeEnable);
 
+	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gs->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
+	blockTransferEnable = !g_Config.bSoftwareRendering;
+	blockTransfer->SetEnabledPtr(&blockTransferEnable);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -113,7 +117,8 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	postProcChoice_->SetEnabledPtr(&postProcEnable);
 
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -135,28 +140,48 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()));
 	resolutionChoice_->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionChoice_->SetEnabledPtr(&resolutionEnable);
+
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
+	CheckBox *mipmapping = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
+	mipmapEnable = !g_Config.bSoftwareRendering;
+	mipmapping->SetEnabledPtr(&mipmapEnable);
+
+	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
+	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
+	hwTransformEnable = !g_Config.bSoftwareRendering;
+	hwTransform->SetEnabledPtr(&hwTransformEnable);
+
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gs->T("Software Skinning")));
+	swSkinningEnable = !g_Config.bSoftwareRendering;
+	swSkin->SetEnabledPtr(&swSkinningEnable);
+
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	vtxCache->SetEnabledPtr((bool *)&g_Config.bHardwareTransform);
-	graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gs->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gs->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
+	vtxCacheEnable = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	vtxCache->SetEnabledPtr(&vtxCacheEnable);
+
+	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gs->T("Lazy texture caching", "Lazy texture caching (speedup)")));
+	texBackoffEnable = !g_Config.bSoftwareRendering;
+	texBackoff->SetEnabledPtr(&texBackoffEnable);
+
+	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gs->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
+	texSecondaryEnable = !g_Config.bSoftwareRendering;
+	texSecondary_->SetEnabledPtr(&texSecondaryEnable);
 
 	// Seems solid, so we hide the setting.
 	// CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gs->T("Vertex Decoder JIT")));
 
-	if (PSP_IsInited()) {
-		swSkin->SetEnabled(false);
+	// if (PSP_IsInited()) {
 		// vtxJit->SetEnabled(false);
-	}
+	// }
 
 	static const char *quality[] = { "Low", "Medium", "High"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gs->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gs, screenManager()));
+	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gs->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gs, screenManager()));
+	beziersEnable = !g_Config.bSoftwareRendering;
+	beziersChoice->SetEnabledPtr(&beziersEnable);
 	
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
@@ -178,24 +203,48 @@ void GameSettingsScreen::CreateViews() {
 		texScaleLevels = texScaleLevelsPOT;
 		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsPOT);
 	}
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gs, screenManager()));
+	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gs, screenManager()));
+	texScalingEnable = !g_Config.bSoftwareRendering;
+	texScalingChoice->SetEnabledPtr(&texScalingEnable);
+
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
+	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
+	texScalingEnable = !g_Config.bSoftwareRendering;
+	texScalingType->SetEnabledPtr(&texScalingEnable);
+
+	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
+	desposterizeEnable = !g_Config.bSoftwareRendering;
+	deposterize->SetEnabledPtr(&desposterizeEnable);
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gs, screenManager()));
+	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gs, screenManager()));
+	anisotropicEnable = !g_Config.bSoftwareRendering;
+	anisoFiltering->SetEnabledPtr(&anisotropicEnable);
+
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gs, screenManager()));
+	PopupMultiChoice *texFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gs, screenManager()));
+	texFilteringEnable = !g_Config.bSoftwareRendering;
+	texFilter->SetEnabledPtr(&texFilteringEnable);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bAlphaMaskHack, gs->T("Alpha Mask Hack (3rd Birthday)")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
+	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")));
+	alphaHack->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
+	alphaHackEnable = !g_Config.bSoftwareRendering;
+	alphaHack->SetEnabledPtr(&alphaHackEnable);
+
+	CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+	stencilTestEnable = !g_Config.bSoftwareRendering;
+	stencilTest->SetEnabledPtr(&stencilTestEnable);
+
+	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
+	depthWriteEnable = !g_Config.bSoftwareRendering;
+	depthWrite->SetEnabledPtr(&depthWriteEnable);
+
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
-	if (PSP_IsInited())
-		prescale->SetEnabled(false);
+	prescaleEnable = !g_Config.bSoftwareRendering;
+	prescale->SetEnabledPtr(&prescaleEnable);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	static const char *fpsChoices[] = {
@@ -205,7 +254,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&showDebugStats_, gs->T("Show Debug Statistics")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Developer tools are not accessible ingame, so it goes here.
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
@@ -216,6 +265,7 @@ void GameSettingsScreen::CreateViews() {
 
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
+	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
 	if (PSP_IsInited())
 		softwareGPU->SetEnabled(false);
 
@@ -265,9 +315,9 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-	// On systems that aren't Symbian, iOS, and Meego Harmattan, offer to let the user see this button.
+	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
 
 	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
@@ -302,16 +352,20 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
 	systemSettings->Add(new ItemHeader(s->T("Emulation")));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, s->T("Force real clock sync (slower, less lag)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default) (unstable)"), screenManager()));
 #ifndef MOBILE_DEVICE
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, s->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
+#if defined(USING_WIN_UI)
+	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, s->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
+#endif
 
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
@@ -325,7 +379,8 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
-	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	if (g_Config.iMaxRecent > 0)
+		systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, s->T("Auto Load Newest Savestate")));
 
@@ -336,6 +391,8 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
+	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
@@ -365,6 +422,36 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
+UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
+	prescaleEnable = !g_Config.bSoftwareRendering;
+	depthWriteEnable = !g_Config.bSoftwareRendering;
+	stencilTestEnable = !g_Config.bSoftwareRendering;
+	beziersEnable = !g_Config.bSoftwareRendering;
+	texSecondaryEnable = !g_Config.bSoftwareRendering;
+	swSkinningEnable = !g_Config.bSoftwareRendering;
+	hwTransformEnable = !g_Config.bSoftwareRendering;
+	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
+	texBackoffEnable = !g_Config.bSoftwareRendering;
+	mipmapEnable = !g_Config.bSoftwareRendering;
+	texScalingEnable = !g_Config.bSoftwareRendering;
+	texScalingTypeEnable = !g_Config.bSoftwareRendering;
+	desposterizeEnable = !g_Config.bSoftwareRendering;
+	anisotropicEnable = !g_Config.bSoftwareRendering;
+	texFilteringEnable = !g_Config.bSoftwareRendering;
+	blockTransferEnable = !g_Config.bSoftwareRendering;
+	renderModeEnable = !g_Config.bSoftwareRendering;
+	alphaHackEnable = !g_Config.bSoftwareRendering;
+	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
+	hwTransformEnable = !g_Config.bSoftwareRendering;
+	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	System_SendMessage("rotate", "");
 	return UI::EVENT_DONE;
@@ -382,8 +469,13 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
-	postProcChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionChoice_->SetEnabled(g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
+	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
 }
 
@@ -442,12 +534,6 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
 	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
-
-	if (g_Config.bShowDebugStats != showDebugStats_) {
-		// This affects the jit.
-		NativeMessageReceived("clear jit", "");
-		g_Config.bShowDebugStats = showDebugStats_;
-	}
 }
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
@@ -493,6 +579,47 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
 		g_Config.sNickName = name;
 	}
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {	
+#if defined(_WIN32) || defined(USING_QT_UI)	
+	if (!g_Config.bFullScreen) {
+		const size_t name_len = 256;
+
+		char name[name_len];
+		memset(name, 0, sizeof(name));
+
+		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
+			g_Config.proAdhocServer = name;
+		}
+	}
+	else
+		screenManager()->push(new ProAdhocServerScreen);
+#else
+	screenManager()->push(new ProAdhocServerScreen);
+#endif
+	
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
+#if defined(_WIN32) || defined(USING_QT_UI)
+	if (!g_Config.bFullScreen) {
+		const size_t name_len = 256;
+
+		char name[name_len];
+		memset(name, 0, sizeof(name));
+
+		if (System_InputBoxGetString("Enter a MAC address", g_Config.localMacAddress.c_str(), name, name_len)) {
+			g_Config.localMacAddress = name;
+		}
+	}
+	else
+		screenManager()->push(new MacAddressScreen);
+#else
+	screenManager()->push(new MacAddressScreen);
 #endif
 
 	return UI::EVENT_DONE;
@@ -571,19 +698,16 @@ void DeveloperToolsScreen::CreateViews() {
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(s->T("General")));
 
+	bool canUseJit = true;
 #ifdef IOS
 	if (!iosCanUseJit) {
+		canUseJit = false;
 		list->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
-	} else {
-		auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
-		jitCheckbox->SetEnabled(!PSP_IsInited());
-		list->Add(jitCheckbox);
 	}
-#else
-	auto jitCheckbox = new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)"));
-	jitCheckbox->SetEnabled(!PSP_IsInited());
-	list->Add(jitCheckbox);
 #endif
+	if (canUseJit) {
+		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
+	}
 
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
@@ -656,5 +780,366 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 	screenManager()->push(new LogConfigScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
+	NativeMessageReceived("clear jit", "");
+	return UI::EVENT_DONE;
+}
+
+void ProAdhocServerScreen::CreateViews() {
+	using namespace UI;	
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *d = GetI18NCategory("Dialog");
+	
+	tempProAdhocServer = g_Config.proAdhocServer;
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	
+	leftColumn->Add(new ItemHeader(s->T("proAdhocServer Address:")));
+	addrView_ = new TextView(tempProAdhocServer, ALIGN_LEFT, false);
+	leftColumn->Add(addrView_);
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE,10));
+	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &ProAdhocServerScreen::On0Click);
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
+	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
+}
+
+UI::EventReturn ProAdhocServerScreen::On0Click(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0)
+		tempProAdhocServer.append("0");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
+	tempProAdhocServer.append("1");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On2Click(UI::EventParams &e) {
+	tempProAdhocServer.append("2");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On3Click(UI::EventParams &e) {
+	tempProAdhocServer.append("3");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On4Click(UI::EventParams &e) {
+	tempProAdhocServer.append("4");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On5Click(UI::EventParams &e) {
+	tempProAdhocServer.append("5");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On6Click(UI::EventParams &e) {
+	tempProAdhocServer.append("6");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On7Click(UI::EventParams &e) {
+	tempProAdhocServer.append("7");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On8Click(UI::EventParams &e) {
+	tempProAdhocServer.append("8");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::On9Click(UI::EventParams &e) {
+	tempProAdhocServer.append("9");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0 && tempProAdhocServer.at(tempProAdhocServer.length() - 1) != '.')
+		tempProAdhocServer.append(".");
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
+	if (tempProAdhocServer.length() > 0)
+		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
+	tempProAdhocServer = "";
+	addrView_->SetText(tempProAdhocServer);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
+	g_Config.proAdhocServer = tempProAdhocServer;
+	UIScreen::OnBack(e);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
+	tempProAdhocServer = g_Config.proAdhocServer;
+	UIScreen::OnBack(e);
+	return UI::EVENT_DONE;
+}
+
+void MacAddressScreen::CreateViews() {
+	using namespace UI;
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	tempMacAddress = g_Config.localMacAddress;
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
+	leftColumn->Add(new ItemHeader(s->T("Mac address:")));
+	addrView_ = new TextView(tempMacAddress, ALIGN_LEFT, false);
+	leftColumn->Add(addrView_);
+	LinearLayout *A_F_Column = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 480, 10, 300, NONE, 150));
+	A_F_Column->Add(new Button("A"))->OnClick.Handle(this, &MacAddressScreen::OnAClick);
+	A_F_Column->Add(new Button("B"))->OnClick.Handle(this, &MacAddressScreen::OnBClick);
+	A_F_Column->Add(new Button("C"))->OnClick.Handle(this, &MacAddressScreen::OnCClick);
+	A_F_Column->Add(new Button("D"))->OnClick.Handle(this, &MacAddressScreen::OnDClick);
+	A_F_Column->Add(new Button("E"))->OnClick.Handle(this, &MacAddressScreen::OnEClick);
+	A_F_Column->Add(new Button("F"))->OnClick.Handle(this, &MacAddressScreen::OnFClick);
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE, 10));	
+	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &MacAddressScreen::On0Click);
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &MacAddressScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &MacAddressScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &MacAddressScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &MacAddressScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &MacAddressScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &MacAddressScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &MacAddressScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &MacAddressScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &MacAddressScreen::On9Click);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &MacAddressScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &MacAddressScreen::OnDeleteAllClick);	
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &MacAddressScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &MacAddressScreen::OnCancelClick);	
+	root_->Add(leftColumn);
+	root_->Add(A_F_Column);
+	root_->Add(rightColumn);
+}
+
+UI::EventReturn MacAddressScreen::On0Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("0");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}	
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnAClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("A");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnBClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("B");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnCClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("C");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("D");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnEClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("E");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnFClick(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("F");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On1Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("1");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On2Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("2");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On3Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("3");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On4Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("4");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On5Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("5");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On6Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("6");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On7Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("7");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On8Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("8");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::On9Click(UI::EventParams &e) {
+	if (tempMacAddress.length() < 17) {
+		tempMacAddress.append("9");
+		if (tempMacAddress.length() > 1 && tempMacAddress.length() < 17 && tempMacAddress.at(tempMacAddress.length() - 2) != ':')
+			tempMacAddress.append(":");
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDeleteClick(UI::EventParams &e) {
+	if (tempMacAddress.length() > 0) {
+		if (tempMacAddress.at(tempMacAddress.length() - 1) == ':')
+			tempMacAddress.erase(tempMacAddress.length() - 1, 1);
+		tempMacAddress.erase(tempMacAddress.length() - 1, 1);
+		
+	}
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnDeleteAllClick(UI::EventParams &e) {
+	tempMacAddress = "";
+	addrView_->SetText(tempMacAddress);
+	return UI::EVENT_DONE;	
+}
+
+UI::EventReturn MacAddressScreen::OnOKClick(UI::EventParams &e) {
+	if (tempMacAddress.length() == 17) {
+		g_Config.localMacAddress = tempMacAddress;
+		UIScreen::OnBack(e);
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MacAddressScreen::OnCancelClick(UI::EventParams &e) {
+	tempMacAddress = g_Config.proAdhocServer;
+	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }

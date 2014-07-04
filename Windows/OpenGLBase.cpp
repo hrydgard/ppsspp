@@ -21,20 +21,6 @@ static int xres, yres;
 // TODO: Make config?
 static bool enableGLDebug = false;
 
-void GL_Resized() {
-	if (!hWnd)
-		return;
-	RECT rc;
-	GetWindowRect(hWnd, &rc);
-	xres = rc.right - rc.left; //account for border :P
-	yres = rc.bottom - rc.top;
-
-	if (yres == 0)
-		yres = 1;
-	glstate.viewport.set(0, 0, xres, yres);
-	glstate.viewport.restore();
-}
-
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
 }
@@ -253,8 +239,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}
-
-	GL_Resized();								// Set up our perspective GL screen
 	return true;												// Success
 }
 

@@ -258,6 +258,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	int fs = _FS;
 	int fd = _FD;
 
+	// TODO: Most of these mishandle infinity/NAN.
+	// Maybe we can try to track per reg if they *could* be INF/NAN to optimize out?
+
 	switch (op & 0x3f) {
 	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
@@ -281,20 +284,47 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
+		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
+	{
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
-		VADD(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
+	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
+	{
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2F(S0, 0.4999999f, SCRATCHREG1);
-		VSUB(S0,fpr.R(fs),S0);
-		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode.
+		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
+	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
@@ -303,21 +333,28 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapDirtyIn(fd, fs);
 		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
 		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
-		// MIPS Rounding Mode:
-		//	 0: Round nearest
-		//	 1: Round to zero
-		//	 2: Round up (ceil)
-		//	 3: Round down (floor)
-		CMP(SCRATCHREG1, Operand2(2));
-		SetCC(CC_GE); MOVI2F(S0, 0.4999999f, SCRATCHREG2);
-		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
-		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
-		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
-		SetCC(CC_AL);
+		// MIPS Rounding Mode:       ARM Rounding Mode
+		//   0: Round nearest        0
+		//   1: Round to zero        3
+		//   2: Round up (ceil)      1
+		//   3: Round down (floor)   2
 		CMP(SCRATCHREG1, Operand2(1));
-		SetCC(CC_EQ); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO); /* 1 */
-		SetCC(CC_LT); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED); /* 0 */
+		SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
+		SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
 		SetCC(CC_AL);
+
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-zero mode beforehand.
+		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
+		VMSR(SCRATCHREG1);
+		VCMP(fpr.R(fs), fpr.R(fs));
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		VMSR(SCRATCHREG2);
 		break;
 	default:
 		DISABLE;
@@ -341,15 +378,25 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 2: //cfc1
 		if (fs == 31) {
-			gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
-			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			if (gpr.IsImm(MIPS_REG_FPCOND)) {
+				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
+					ORI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCHREG2);
+				} else {
+					ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);
+				}
+			} else {
+				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
+				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 #ifdef HAVE_ARMV7
-			BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 #else
-			AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
-			ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
+				AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
+				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCHREG2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
+				ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, 23));
 #endif
+			}
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
 		} else {
@@ -365,9 +412,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 6: //ctc1
-		if (fs == 31)
-		{
-			gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+		if (fs == 31) {
+			bool wasImm = gpr.IsImm(rt);
+			if (wasImm) {
+				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				gpr.MapReg(rt);
+			} else {
+				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+			}
 			// Hardware rounding method.
 			// Left here in case it is faster than conditional method.
 			/*
@@ -388,12 +440,16 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			// Update MIPS state
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			if (!wasImm) {
 #ifdef HAVE_ARMV7
-			UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 #else
-			MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
-			AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
+				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
+				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
+			}
+		} else {
+			Comp_Generic(op);
 		}
 		return;
 	}

@@ -35,6 +35,7 @@
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
@@ -49,6 +50,7 @@
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
 
 #ifdef _WIN32
@@ -137,7 +139,13 @@ public:
 		}
 	}
 
+	virtual void FocusChanged(int focusFlags) {
+		UI::Clickable::FocusChanged(focusFlags);
+		TriggerOnHighlight(focusFlags);
+	}
+
 	UI::Event OnHoldClick;
+	UI::Event OnHighlight;
 
 private:
 	void TriggerOnHoldClick() {
@@ -147,6 +155,13 @@ private:
 		e.s = gamePath_;
 		down_ = false;
 		OnHoldClick.Trigger(e);
+	}
+	void TriggerOnHighlight(int focusFlags) {
+		UI::EventParams e;
+		e.v = this;
+		e.s = gamePath_;
+		e.a = focusFlags;
+		OnHighlight.Trigger(e);
 	}
 
 	bool gridStyle_;
@@ -159,7 +174,7 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, 0);
 	Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 
@@ -221,7 +236,8 @@ void GameButton::Draw(UIContext &dc) {
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
+			float pulse = sinf(time_now() * 7.0f) * 0.25 + 0.8;
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
@@ -375,6 +391,7 @@ public:
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
+	UI::Event OnHighlight;
 
 	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
 private:
@@ -385,6 +402,7 @@ private:
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
@@ -567,6 +585,7 @@ void GameBrowser::Refresh() {
 		GameButton *b = gameList_->Add(gameButtons[i]);
 		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
+		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 	}
 
 	// Show a button to toggle pinning at the very end.
@@ -666,6 +685,12 @@ UI::EventReturn GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameBrowser::GameButtonHighlight(UI::EventParams &e) {
+	// Insta-update - here we know we are already on the right thread.
+	OnHighlight.Trigger(e);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	DirButton *button  = static_cast<DirButton *>(e.v);
 	std::string text = button->GetPath();
@@ -679,9 +704,16 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-MainScreen::MainScreen() : backFromStore_(false) {
+MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
+	SetBackgroundAudioGame("");
+	lastVertical_ = UseVerticalLayout();
 }
+
+MainScreen::~MainScreen() {
+	SetBackgroundAudioGame("");
+}
+
 
 void MainScreen::CreateViews() {
 	// Information in the top left.
@@ -690,7 +722,7 @@ void MainScreen::CreateViews() {
 	using namespace UI;
 
 	// Vertical mode is not finished.
-	bool vertical = dp_yres > dp_xres;
+	bool vertical = UseVerticalLayout();
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
@@ -701,13 +733,21 @@ void MainScreen::CreateViews() {
 
 	leftColumn->SetClip(true);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	if (g_Config.iMaxRecent > 0) {
+		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		GameBrowser *tabRecentGames = new GameBrowser(
+			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		scrollRecentGames->Add(tabRecentGames);
+		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	}
+	
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -721,24 +761,24 @@ void MainScreen::CreateViews() {
 		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 	}
 
-	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+
 	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
+	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
-	} else {
+	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1);
 	}
 
@@ -777,9 +817,7 @@ void MainScreen::CreateViews() {
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-#ifndef __SYMBIAN32__
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-#endif
 #ifndef GOLD
 	Choice *gold = rightColumnItems->Add(new Choice(m->T("Support PPSSPP")));
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
@@ -854,6 +892,7 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
+		SetBackgroundAudioGame(value);
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
@@ -868,6 +907,15 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update(InputState &input) {
 	UIScreen::update(input);
 	UpdateUIState(UISTATE_MENU);
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
+}
+
+bool MainScreen::UseVerticalLayout() const {
+	return dp_yres > dp_xres * 1.1f;
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
@@ -885,18 +933,98 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+extern void DrawBackground(UIContext &dc, float alpha);
+
+void MainScreen::DrawBackground(UIContext &dc) {
+	UIScreenWithBackground::DrawBackground(dc);
+	if (highlightedGamePath_.empty() && prevHighlightedGamePath_.empty()) {
+		return;
+	}
+
+	if (DrawBackgroundFor(dc, prevHighlightedGamePath_, 1.0f - prevHighlightProgress_)) {
+		if (prevHighlightProgress_ < 1.0f) {
+			prevHighlightProgress_ += 1.0f / 20.0f;
+		}
+	}
+	if (!highlightedGamePath_.empty()) {
+		if (DrawBackgroundFor(dc, highlightedGamePath_, highlightProgress_)) {
+			if (highlightProgress_ < 1.0f) {
+				highlightProgress_ += 1.0f / 20.0f;
+			}
+		}
+	}
+}
+
+bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress) {
+	dc.Flush();
+
+	GameInfo *ginfo = 0;
+	if (!gamePath.empty()) {
+		ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+		// Loading texture data may bind a texture.
+		dc.RebindTexture();
+
+		// Let's not bother if there's no picture.
+		if (!ginfo || (!ginfo->pic1Texture && !ginfo->pic0Texture)) {
+			return false;
+		}
+	} else {
+		return false;
+	}
+
+	if (ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+	} else if (ginfo->pic0Texture) {
+		ginfo->pic0Texture->Bind(0);
+	}
+
+	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
+	dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
+	dc.Flush();
+	dc.RebindTexture();
+
+	return true;
+}
+
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
 #endif
+	SetBackgroundAudioGame(path);
+	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
+#ifdef _WIN32
+	std::string path = ReplaceAll(e.s, "\\", "/");
+#else
+	std::string path = e.s;
+#endif
+
+	if (!highlightedGamePath_.empty() || (e.a == FF_LOSTFOCUS && highlightedGamePath_ == path)) {
+		if (prevHighlightedGamePath_.empty() || prevHighlightProgress_ >= 0.75f) {
+			prevHighlightedGamePath_ = highlightedGamePath_;
+			prevHighlightProgress_ = 1.0 - highlightProgress_;
+		}
+		highlightedGamePath_.clear();
+	}
+	if (e.a == FF_GOTFOCUS) {
+		highlightedGamePath_ = path;
+		highlightProgress_ = 0.0f;
+	}
+
+	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_)
+		SetBackgroundAudioGame(highlightedGamePath_);
+	lockBackgroundAudio_ = false;
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	#ifdef _WIN32
+#ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
 	std::string path = e.s;
@@ -965,7 +1093,7 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	exit(0);
 #endif
 
-	globalUIState = UISTATE_EXIT;
+	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;
 }
 
@@ -986,6 +1114,7 @@ GamePauseScreen::~GamePauseScreen() {
 		g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
 		g_Config.Save();
 	}
+	__DisplaySetWasPaused();
 }
 
 void GamePauseScreen::CreateViews() {
@@ -1131,25 +1260,28 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	if (g_Config.iMaxRecent > 0) {
+		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		GameBrowser *tabRecentGames = new GameBrowser(
+			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		scrollRecentGames->Add(tabRecentGames);
+		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, "", "", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 
-	tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
-	tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
+
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	rightColumnItems->Add(new Choice(d->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
@@ -1157,7 +1289,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);
-	}else{
+	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1);
 	}
 

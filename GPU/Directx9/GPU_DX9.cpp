@@ -1048,7 +1048,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
 		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+			shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
 		break;
 
 	case GE_CMD_ALPHATEST:
@@ -1214,7 +1214,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXLEVEL:
 		if (data == 1)
-			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
+			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data);
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
 		break;
@@ -1315,8 +1315,28 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 		framebufferManager_.UpdateFromMemory(addr, size);
 }
 
-void DIRECTX9_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool DIRECTX9_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool DIRECTX9_GPU::PerformMemoryUpload(u32 dest, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool DIRECTX9_GPU::PerformStencilUpload(u32 dest, int size) {
+	return false;
 }
 
 void DIRECTX9_GPU::ClearCacheNextFrame() {

@@ -79,8 +79,6 @@ void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcT
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();
-// Check and potentially run all thread's callbacks after the syscall finishes.
-void hleCheckAllCallbacks();
 // Reschedule after the syscall finishes.
 void hleReSchedule(const char *reason);
 // Reschedule and go into a callback processing state after the syscall finishes.
@@ -91,6 +89,8 @@ void hleRunInterrupts();
 void hleDebugBreak();
 // Don't set temp regs to 0xDEADBEEF.
 void hleSkipDeadbeef();
+// Set time spent in debugger (for more useful debug stats while debugging.)
+void hleSetSteppingTime(double t);
 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);

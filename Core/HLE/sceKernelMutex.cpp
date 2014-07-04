@@ -293,7 +293,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockMutexCB: beginning callback with bad wait id?");
 }
@@ -499,7 +499,7 @@ void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -896,7 +896,7 @@ void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -915,7 +915,7 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<LwMutex, WAITTYPE_LWMUTEX, SceUID>(threadID, prevCallbackId, lwMutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Suspending lock wait for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
 }

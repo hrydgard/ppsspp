@@ -33,6 +33,8 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -224,15 +226,17 @@ namespace SaveState
 		CoreTiming::DoState(p);
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
+		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE)
 		{
-			auto blocks = MIPSComp::jit->GetBlockCache();
-			auto saved = blocks->SaveAndClearEmuHackOps();
+			auto blockCache = MIPSComp::jit->GetBlockCache();
+			auto savedBlocks = blockCache->SaveAndClearEmuHackOps();
 			Memory::DoState(p);
-			blocks->RestoreSavedEmuHackOps(saved);
+			blockCache->RestoreSavedEmuHackOps(savedBlocks);
 		}
 		else
 			Memory::DoState(p);
+		RestoreSavedReplacements(savedReplacements);
 
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
@@ -546,6 +550,10 @@ namespace SaveState
 
 			if (op.callback)
 				op.callback(callbackResult, op.cbUserData);
+		}
+		if (operations.size()) {
+			// Avoid triggering frame skipping due to slowdown
+			__DisplaySetWasPaused();
 		}
 	}
 

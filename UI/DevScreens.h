@@ -75,12 +75,12 @@ public:
 		memset(buttons_, 0, sizeof(buttons_));
 	}
 
-	virtual void key(const KeyInput &key);
+	virtual bool key(const KeyInput &key) override;
 
 	UI::Event OnChoice;
 
 protected:
-	void CreatePopupContents(UI::ViewGroup *parent);
+	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
 	virtual void OnCompleted(DialogResult result);
 	UI::EventReturn OnDigitButton(UI::EventParams &e);
 	UI::EventReturn OnBackspace(UI::EventParams &e);

@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdlib>
+#include <ctime>
+
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
@@ -236,6 +239,19 @@ const char *DefaultLangRegion() {
 	return defaultLangRegion.c_str();
 }
 
+const char *CreateRandMAC() {
+	std::stringstream randStream;
+	srand(time(0));
+	for(int i = 0; i < 6; i++) {
+		randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+		if (i<5) {
+			randStream << ':'; //we need a : between every octet
+		}
+	}
+  // It's ok to strdup, this runs once and will be freed by exiting the process anyway
+	return strdup(randStream.str().c_str()); //no need for creating a new string, just return this
+}
+
 static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
@@ -265,6 +281,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
+	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false),
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false),
@@ -304,6 +321,7 @@ static ConfigSetting cpuSettings[] = {
 
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
+	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
 
 	ConfigSetting(false),
@@ -396,6 +414,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
+	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
+
 	ConfigSetting(false),
 };
 
@@ -404,6 +424,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("VolumeBGM", &g_Config.iBGMVolume, 7),
 	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
 	ConfigSetting("AudioLatency", &g_Config.IaudioLatency, 1),
+	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false),
 
 	ConfigSetting(false),
 };
@@ -436,8 +457,14 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
+#if defined(_WIN32)
+	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
+	// sense to default this to on.
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true),
+#else
 	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false),
+#endif
 #endif
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false),
@@ -525,7 +552,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP"),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost"),
-	ConfigSetting("MacAddress", &g_Config.localMacAddress, "01:02:03:04:05:06"),
+	ConfigSetting("MacAddress", &g_Config.localMacAddress, &CreateRandMAC),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD),
@@ -567,6 +594,7 @@ static ConfigSetting debuggerSettings[] = {
 
 static ConfigSetting speedHackSettings[] = {
 	ReportedConfigSetting("PrescaleUV", &g_Config.bPrescaleUV, false),
+	ReportedConfigSetting("DisableAlphaTest", &g_Config.bDisableAlphaTest, false),
 
 	ConfigSetting(false),
 };
@@ -668,19 +696,22 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	recent->Get("MaxRecent", &iMaxRecent, 30);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
-	if (iMaxRecent == 0)
+	// -1 is okay, though. We'll just ignore recent stuff if it is.
+	 if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
-	recentIsos.clear();
-	for (int i = 0; i < iMaxRecent; i++) {
-		char keyName[64];
-		std::string fileName;
+	 if (iMaxRecent > 0) {
+		 recentIsos.clear();
+		 for (int i = 0; i < iMaxRecent; i++) {
+			 char keyName[64];
+			 std::string fileName;
 
-		sprintf(keyName, "FileName%d", i);
-		if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-			recentIsos.push_back(fileName);
-		}
-	}
+			 sprintf(keyName, "FileName%d", i);
+			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
+				 recentIsos.push_back(fileName);
+			 }
+		 }
+	 }
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
@@ -873,6 +904,10 @@ void Config::DismissUpgrade() {
 }
 
 void Config::AddRecent(const std::string &file) {
+	// Don't bother with this if the user disabled recents (it's -1).
+	if (iMaxRecent <= 0)
+		return;
+
 	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {
@@ -991,3 +1026,5 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
+
+

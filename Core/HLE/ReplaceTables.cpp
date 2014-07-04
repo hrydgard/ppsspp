@@ -20,13 +20,17 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 
 #include "GPU/Math3D.h"
+#include "GPU/GPUInterface.h"
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include <emmintrin.h>
@@ -102,12 +106,32 @@ static int Replace_memcpy() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0 && destPtr != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+
+		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+			const u32 blocks = bytes & ~0x0f;
+			for (u32 offset = 0; offset < blocks; offset += 0x10) {
+				memcpy(dst + offset, src + offset, 0x10);
+			}
+			for (u32 offset = blocks; offset < bytes; ++offset) {
+				dst[offset] = src[offset];
+			}
+		} else {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -115,25 +139,75 @@ static int Replace_memcpy16() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2) * 16;
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
+}
+
+static int Replace_memcpy_swizzled() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 pitch = PARAM(2);
+	u32 h = PARAM(4);
+	if (Memory::IsVRAMAddress(srcPtr)) {
+		gpu->PerformMemoryDownload(srcPtr, pitch * h);
+	}
+	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
+	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
+
+	const u8 *ysrcp = srcp;
+	for (u32 y = 0; y < h; y += 8) {
+		const u8 *xsrcp = ysrcp;
+		for (u32 x = 0; x < pitch; x += 16) {
+			const u8 *src = xsrcp;
+			for (int n = 0; n < 8; ++n) {
+				memcpy(dstp, src, 16);
+				src += pitch;
+				dstp += 16;
+			}
+			xsrcp += 16;
+		}
+		ysrcp += 8 * pitch;
+	}
+
+	RETURN(0);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, pitch * h, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, pitch * h, currentMIPS->pc);
+#endif
+	return 10 + (pitch * h) / 4;  // approximation
 }
 
 static int Replace_memmove() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	if (bytes != 0) {
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		u8 *src = Memory::GetPointerUnchecked(srcPtr);
 		memmove(dst, src, bytes);
 	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -142,8 +216,17 @@ static int Replace_memset() {
 	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
-	memset(dst, value, bytes);
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->PerformMemorySet(destPtr, value, bytes);
+	}
+	if (!skip) {
+		memset(dst, value, bytes);
+	}
 	RETURN(destPtr);
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -152,7 +235,7 @@ static int Replace_strlen() {
 	const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
 	u32 len = (u32)strlen(src);
 	RETURN(len);
-	return 4 + len;  // approximation
+	return 7 + len * 4;  // approximation
 }
 
 static int Replace_strcpy() {
@@ -355,9 +438,88 @@ static int Replace_dl_write_matrix() {
 #endif
 	}
 
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(PARAM(2), false, count * sizeof(float), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(PARAM(0) + 2 * sizeof(u32), true, sizeof(u32), currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dlStruct[2], true, (count + 1) * sizeof(u32), currentMIPS->pc);
+#endif
+
 	dlStruct[2] += (1 + count) * 4;
 	RETURN(dlStruct[2]);
 	return 60;
+}
+
+static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
+	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset, true);
+	if (upper != MIPS_MAKE_LUI(MIPS_GET_RT(upper), upper & 0xffff)) {
+		return false;
+	}
+	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset, true);
+	if (lower != MIPS_MAKE_LW(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
+		return false;
+	}
+	addr = ((upper & 0xffff) << 16) + (s16)(lower & 0xffff);
+	return true;
+}
+
+static int Hook_godseaterburst_blit_texture() {
+	u32 texaddr;
+	// Only if there's no texture.
+	if (!GetMIPSStaticAddress(texaddr, 0x000c, 0x0030)) {
+		return 0;
+	}
+	u32 fb_infoaddr;
+	if (Memory::Read_U32(texaddr) != 0 || !GetMIPSStaticAddress(fb_infoaddr, 0x01d0, 0x01d4)) {
+		return 0;
+	}
+
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const u32 fb_address = Memory::Read_U32(fb_info);
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_hexyzforce_monoclome_thread() {
+	u32 fb_info;
+	if (!GetMIPSStaticAddress(fb_info, -4, 0)) {
+		return 0;
+	}
+
+	const u32 fb_address = Memory::Read_U32(fb_info);
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_starocean_write_stencil() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_T7];
+	if (Memory::IsVRAMAddress(fb_address) && !g_Config.bDisableStencilTest) {
+		gpu->PerformStencilUpload(fb_address, 0x00088000);
+	}
+	return 0;
+}
+
+static int Hook_topx_create_saveicon() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_ff1_battle_effect() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
 }
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -382,6 +544,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "ceilf", &Replace_ceilf, 0, 0},
 	{ "memcpy", &Replace_memcpy, 0, 0},
 	{ "memcpy16", &Replace_memcpy16, 0, 0},
+	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0},
 	{ "memmove", &Replace_memmove, 0, 0},
 	{ "memset", &Replace_memset, 0, 0},
 	{ "strlen", &Replace_strlen, 0, 0},
@@ -397,6 +560,12 @@ static const ReplacementTableEntry entries[] = {
 	// Haven't investigated write_matrix_4 and 5 but I think they are similar to 1 and 2.
 
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+
+	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
+	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
+	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
+	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34},
+	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
 	{}
 };
 
@@ -437,20 +606,37 @@ const ReplacementTableEntry *GetReplacementFunc(int i) {
 	return &entries[i];
 }
 
-void WriteReplaceInstruction(u32 address, u64 hash, int size) {
+static void WriteReplaceInstruction(u32 address, int index) {
+	const u32 prevInstr = Memory::Read_U32(address);
+	if (MIPS_IS_REPLACEMENT(prevInstr)) {
+		return;
+	}
+	if (MIPS_IS_RUNBLOCK(prevInstr)) {
+		// Likely already both replaced and jitted. Ignore.
+		return;
+	}
+	replacedInstructions[address] = prevInstr;
+	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
+}
+
+void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	int index = GetReplacementFuncIndex(hash, size);
 	if (index >= 0) {
-		u32 prevInstr = Memory::Read_U32(address);
-		if (MIPS_IS_REPLACEMENT(prevInstr)) {
-			return;
+		auto entry = GetReplacementFunc(index);
+		if (entry->flags & REPFLAG_HOOKEXIT) {
+			// When hooking func exit, we search for jr ra, and replace those.
+			for (u32 offset = 0; offset < (u32)size; offset += 4) {
+				const u32 op = Memory::Read_U32(address + offset);
+				if (op == MIPS_MAKE_JR_RA()) {
+					WriteReplaceInstruction(address + offset, index);
+				}
+			}
+		} else if (entry->flags & REPFLAG_HOOKENTER) {
+			WriteReplaceInstruction(address + entry->hookOffset, index);
+		} else {
+			WriteReplaceInstruction(address, index);
 		}
-		if (MIPS_IS_RUNBLOCK(prevInstr)) {
-			// Likely already both replaced and jitted. Ignore.
-			return;
-		}
-		replacedInstructions[address] = prevInstr;
 		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
-		Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | (int)index, address);
 	}
 }
 
@@ -480,6 +666,27 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	}
 	INFO_LOG(HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
 	replacedInstructions.erase(start, end);
+}
+
+std::map<u32, u32> SaveAndClearReplacements() {
+	std::map<u32, u32> saved;
+	for (auto it = replacedInstructions.begin(), end = replacedInstructions.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		const u32 curInstr = Memory::Read_U32(addr);
+		if (MIPS_IS_REPLACEMENT(curInstr)) {
+			saved[addr] = curInstr;
+			Memory::Write_U32(it->second, addr);
+		}
+	}
+	return saved;
+}
+
+void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
+	for (auto it = saved.begin(), end = saved.end(); it != end; ++it) {
+		const u32 addr = it->first;
+		// Just put the replacements back.
+		Memory::Write_U32(it->second, addr);
+	}
 }
 
 bool GetReplacedOpAt(u32 address, u32 *op) {

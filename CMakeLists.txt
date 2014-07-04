@@ -1,67 +1,55 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
+enable_language(ASM)
 
 add_definitions(-DPPSSPP)
 
-if(ANDROID)
-	if(ARMEABI OR ARMEABI_V7A)
-		set(ARM ON)
-		set(USE_FFMPEG ON)
-	endif()
-endif()
-
-if(BLACKBERRY)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
-endif()
-
-if (IOS OR BLACKBERRY)
-	if (SIMULATOR)
-		set(X86 ON)
-	else()
-		set(ARM ON)
-		set(ARMEABI_V7A ON)
-		set(USE_FFMPEG ON)
-	endif()
-endif()
-
-if (MAEMO)
+# Detect CPU from CMAKE configuration. Toolchains should set this up
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
 	set(ARM ON)
-	#Maemo's gcc-4.7.2 is strict
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 endif()
 
-if(LOONGSON)
-	set(MIPS ON) # MIPS + x86 for now
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
+	set(ARMV7 ON)
 endif()
+
+# Remove soon?
+set(USE_FFMPEG ON)
 
 if(ARM OR SIMULATOR)
-	set(USING_GLES2 ON)
+	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
-else() # Assume x86
+endif()
+if (NOT ARM) # Assume x86
 	set(X86 ON)
+endif()
+
+include(CheckIncludeFile)
+check_include_file(/opt/vc/include/bcm_host.h RPI)
+if(RPI)
+	set(MOBILE_DEVICE OFF)
+endif()
+
+if(USING_EGL)
+	# Default to GLES2 but could be GL.
+	set(USING_GLES2 ON)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_CONSTANT_MACROS")
-	if (NOT MOBILE_DEVICE)
-		set(USE_FFMPEG ON)
-	endif()
+	add_definitions(-D__STDC_CONSTANT_MACROS)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
-	set(USE_FFMPEG ON)
 endif()
 
-if (NOT ARM AND NOT MIPS)
+if (X86 AND NOT MIPS)
 	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_X64")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_X64")
+		add_definitions(-D_M_X64)
 	else()
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_M_IX86")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_M_IX86")
+		add_definitions(-D_M_IX86)
 	endif()
 endif()
 
@@ -75,20 +63,27 @@ endif()
 #endif()
 
 # User-editable options (go into CMakeCache.txt)
+# :: Processors
+option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
+# :: Platforms
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
-option(PANDORA "Set to ON if targeting an OpenPandora device" ${PANDORA})
-option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
+option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
+# :: Environments
+option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
+option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
+# :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targetting a mobile device" ${MOBILE_DEVICE})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
+# :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
 if(ANDROID OR BLACKBERRY OR IOS)
@@ -107,6 +102,18 @@ if(ANDROID OR BLACKBERRY OR IOS)
 	endif()
 endif()
 
+if(ARMV7)
+	message("Building for ARMv7")
+elseif(ARM)
+	message("Building for ARMv6")
+elseif(MIPS)
+	message("Building for MIPS in x86 mode")
+elseif(X86)
+	message("Building for x86")
+else()
+	message("Building for Generic")
+endif()
+
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
@@ -115,16 +122,26 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-#find_package(Qt5Widgets)
-if(USING_GLES2 AND NOT IOS)
+if(RPI)
+	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
+	link_directories(/opt/vc/lib)
+	set(OPENGL_LIBRARIES GLESv2 bcm_host)
+elseif(USING_GLES2 AND NOT IOS)
 	set(OPENGL_LIBRARIES GLESv2)
 elseif(NOT IOS)
 	include(FindOpenGL REQUIRED)
 endif()
+
+if(MAEMO)
+	#Maemo's gcc-4.7.2 is strict
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+endif()
+
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
 	include(FindSDL)
 endif()
 include(FindThreads)
+
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
 endif()
@@ -132,28 +149,34 @@ endif()
 # Needed for Globals.h
 include_directories("${CMAKE_SOURCE_DIR}")
 
-if(BLACKBERRY)
-	add_definitions(-DBLACKBERRY=${BLACKBERRY})
+if(ARM)
+	add_definitions(-DARM)
+endif()
+if(MIPS)
+	add_definitions(-DMIPS)
 endif()
 
 if(ANDROID)
 	add_definitions(-DANDROID)
 endif()
-
+if(BLACKBERRY)
+	add_definitions(-DBLACKBERRY=${BLACKBERRY})
+endif()
 if(IOS)
 	add_definitions(-DIOS)
 endif()
-
 if(MAEMO)
 	add_definitions(-DMAEMO)
 endif()
-
-if(PANDORA)
-	add_definitions(-DPANDORA)
+if(RPI)
+	add_definitions(-DRPI)
 endif()
 
-if(ARM)
-	add_definitions(-DARM)
+if(USING_EGL)
+	add_definitions(-DUSING_EGL)
+endif()
+if(USING_FBDEV)
+	add_definitions(-DUSING_FBDEV)
 endif()
 if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
@@ -162,37 +185,26 @@ if(MOBILE_DEVICE)
 	add_definitions(-DMOBILE_DEVICE)
 endif()
 
-if(MIPS)
-	add_definitions(-DMIPS)
+if (NOT CMAKE_BUILD_TYPE)
+	message(STATUS "No build type selected, default to Release")
+	set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
-
 if(NOT MSVC)
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -D_DEBUG")
+	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+
 	# Disable some warnings
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
-	endif()
-	if(NOT APPLE)
-		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
-			add_definitions(-Wno-psabi)
-		endif()
-		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
-		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
-	endif()
-	if(IOS)
-		add_definitions(-DGL_ETC1_RGB8_OES=0)
-	endif()
-
-	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE)
-		if(ARM)
-			add_definitions(-DARMV7 -O3 -mfpu=neon -mcpu=cortex-a9)
-		endif()
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -200,26 +212,35 @@ if(NOT MSVC)
 		add_definitions(-msse2)
 	endif()
 
+	if (BLACKBERRY AND ARM)
+		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	endif()
+
 	if(IOS)
+		add_definitions(-DGL_ETC1_RGB8_OES=0)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
 		set(CMAKE_OSX_ARCHITECTURES "armv7")
-		add_definitions(-DARMV7)
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
 		# vit9696: OSX 10.6 builds are possible: http://forums.ppsspp.org/showthread.php?tid=1826&pid=18875#pid18875
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
-	endif()
-	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 	else()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+			add_definitions(-Wno-psabi)
+		endif()
+		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
+		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
@@ -354,7 +375,15 @@ add_library(stb_vorbis STATIC
 include_directories(native/ext/stb_vorbis)
 
 if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
-	if(BLACKBERRY)
+	if(ANDROID)
+		if(ARMV7)
+			set(PLATFORM_ARCH "android/armv7")
+		elseif(ARM)
+			set(PLATFORM_ARCH "android/arm")
+		elseif(X86)
+			set(PLATFORM_ARCH "android/x86")
+		endif()
+	elseif(BLACKBERRY)
 		set(PLATFORM_ARCH "blackberry/armv7")
 	elseif(IOS)
 		set(PLATFORM_ARCH "ios/universal")
@@ -430,7 +459,7 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(IOS OR BLACKBERRY OR MACOSX)
+	if(APPLE OR BLACKBERRY)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
 	endif()
 
@@ -521,6 +550,16 @@ add_library(cityhash STATIC
 )
 include_directories(ext/cityhash)
 
+if (NOT MSVC)
+	# These can be fast even for debug.
+	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT ZLIB_FOUND)
+		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
+endif()
+
+
 add_library(libzip STATIC
 	native/ext/libzip/zip.h
 	native/ext/libzip/mkstemp.c
@@ -581,50 +620,55 @@ target_link_libraries(libzip ${ZLIB_LIBRARY})
 include_directories(native/ext/libzip)
 set(LIBZIP_LIBRARY libzip)
 
-# FindPNG does a few things we don't want. So do it ourselves.
-# Fixed to libpng16, otherwise it can pick up earlier even if newer exists.
-find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng16/png.h")
-find_library(PNG_LIBRARY NAMES png16 libpng16 )
+# FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
+find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
+find_library(PNG_LIBRARY NAMES png17 libpng17)
 find_package(PackageHandleStandardArgs)
 find_package_handle_standard_args(PNG REQUIRED_VARS PNG_LIBRARY PNG_PNG_INCLUDE_DIR)
 if (PNG_FOUND)
 	include_directories(${PNG_PNG_INCLUDE_DIR})
 else()
-	add_library(png16 STATIC
-		native/ext/libpng16/pngconf.h
-		native/ext/libpng16/pngdebug.h
-		native/ext/libpng16/png.c
-		native/ext/libpng16/png.h
-		native/ext/libpng16/pngerror.c
-		native/ext/libpng16/pngget.c
-		native/ext/libpng16/pnginfo.h
-		native/ext/libpng16/pnglibconf.h
-		native/ext/libpng16/pngmem.c
-		native/ext/libpng16/pngpread.c
-		native/ext/libpng16/pngpriv.h
-		native/ext/libpng16/pngread.c
-		native/ext/libpng16/pngrio.c
-		native/ext/libpng16/pngrtran.c
-		native/ext/libpng16/pngrutil.c
-		native/ext/libpng16/pngset.c
-		native/ext/libpng16/pngstruct.h
-		native/ext/libpng16/pngtest.c
-		native/ext/libpng16/pngtrans.c
-		native/ext/libpng16/pngwio.c
-		native/ext/libpng16/pngwrite.c
-		native/ext/libpng16/pngwtran.c
-		native/ext/libpng16/pngwutil.c)
-	set(PNG_LIBRARY png16)
+	if(ARM)
+		file(GLOB PNG_ARM_INCLUDES native/ext/libpng17/arm/*)
+	endif()
+	add_library(png17 STATIC
+		native/ext/libpng17/pngconf.h
+		native/ext/libpng17/pngdebug.h
+		native/ext/libpng17/png.c
+		native/ext/libpng17/png.h
+		native/ext/libpng17/pngerror.c
+		native/ext/libpng17/pngget.c
+		native/ext/libpng17/pnginfo.h
+		native/ext/libpng17/pnglibconf.h
+		native/ext/libpng17/pngmem.c
+		native/ext/libpng17/pngpread.c
+		native/ext/libpng17/pngpriv.h
+		native/ext/libpng17/pngread.c
+		native/ext/libpng17/pngrio.c
+		native/ext/libpng17/pngrtran.c
+		native/ext/libpng17/pngrutil.c
+		native/ext/libpng17/pngset.c
+		native/ext/libpng17/pngstruct.h
+		native/ext/libpng17/pngtest.c
+		native/ext/libpng17/pngtrans.c
+		native/ext/libpng17/pngwio.c
+		native/ext/libpng17/pngwrite.c
+		native/ext/libpng17/pngwtran.c
+		native/ext/libpng17/pngwutil.c
+		${PNG_ARM_INCLUDES} )
+	set(PNG_LIBRARY png17)
 	include_directories(native/ext)
 endif()
 	
 set(nativeExtra)
 set(nativeExtraLibs)
 
-if(ARM)
+if(ARMV7)
+	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
-else()
+endif()
+if(X86 AND NOT MIPS)
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_sse.c)
 endif()
@@ -640,7 +684,7 @@ if(ANDROID)
 	add_library(native_audio SHARED
 		native/android/native-audio-so.cpp
 		native/android/native-audio-so.h)
-	target_link_libraries(native_audio OpenSLES)
+	target_link_libraries(native_audio OpenSLES log)
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
@@ -655,9 +699,13 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
-    if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
-        set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
-    endif()
+	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
+		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
+	endif()
+
+	set_source_files_properties(ios/AppDelegate.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -665,12 +713,17 @@ elseif(USING_QT_UI)
 	include(${QT_USE_FILE})
 	qt4_wrap_cpp(nativeQtHeader native/base/QtMain.h)
 	set(nativeExtra ${nativeExtra} native/base/QtMain.cpp ${nativeQtHeader})
+	if(NOT MOBILE_DEVICE)
+		qt4_wrap_cpp(nativeQtHeader Qt/mainwindow.h)
+		set(nativeExtra ${nativeExtra} Qt/mainwindow.cpp)
+	endif()
 	set(nativeExtraLibs ${nativeExtraLibs} ${QT_LIBRARIES})
 	set(TargetBin PPSSPPQt)
 	if(APPLE)
 		set(nativeExtraLibs ${nativeExtraLibs} "-framework CoreFoundation")
 	endif()
 elseif(BLACKBERRY)
+	unset(CMAKE_DL_LIBS)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
@@ -686,12 +739,42 @@ elseif(SDL_FOUND)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
-	elseif(PANDORA OR MAEMO)
-		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
+	elseif(USING_EGL)
+		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
 	message(FATAL_ERROR "Could not find SDL. Failing.")
+endif()
+
+set(NativeAppSource
+	UI/NativeApp.cpp
+	UI/BackgroundAudio.cpp
+	UI/DevScreens.cpp
+	UI/EmuScreen.cpp
+	android/jni/TestRunner.cpp
+	UI/GameInfoCache.cpp
+	UI/MainScreen.cpp
+	UI/MiscScreens.cpp
+	UI/GameScreen.cpp
+	UI/GameSettingsScreen.cpp
+	UI/TiltAnalogSettingsScreen.cpp
+	UI/TiltEventProcessor.cpp
+	UI/TouchControlLayoutScreen.cpp
+	UI/TouchControlVisibilityScreen.cpp
+	UI/GamepadEmu.cpp
+	UI/UIShader.cpp
+	UI/OnScreenDisplay.cpp
+	UI/ControlMappingScreen.cpp
+	UI/Store.cpp
+	UI/CwCheatScreen.cpp
+	UI/InstallZipScreen.cpp
+	UI/ui_atlas.cpp)
+if(ANDROID)
+	if (ARM)
+		set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
+	endif()
+	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
 add_library(native STATIC
@@ -856,16 +939,14 @@ add_library(native STATIC
 	native/ext/jpge/jpge.h)
 include_directories(native)
 
-if(APPLE OR BLACKBERRY)
-	SET(RT_LIB)
-else()
+if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
 target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
-	target_link_libraries(native log)
+	target_link_libraries(native log EGL)
 elseif(WIN32)
 	target_link_libraries(native ws2_32 winmm)
 endif()
@@ -941,11 +1022,6 @@ elseif(X86)
 		ext/disarm.cpp)
 endif()
 
-# Core needs to be linked with dl on these platforms
-if(LINUX)
-  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
-endif()
-
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -1016,6 +1092,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLE.h
 	Core/HLE/ReplaceTables.cpp
 	Core/HLE/ReplaceTables.h
+	Core/HLE/HLEHelperThread.cpp
+	Core/HLE/HLEHelperThread.h
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
@@ -1202,7 +1280,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
-	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
+	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
@@ -1216,7 +1294,7 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
-if(ARMEABI_V7A)
+if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
@@ -1237,6 +1315,8 @@ add_library(GPU OBJECT
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
+	GPU/GLES/DepalettizeShader.cpp
+	GPU/GLES/DepalettizeShader.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
@@ -1248,6 +1328,7 @@ add_library(GPU OBJECT
 	GPU/GLES/Spline.cpp
 	GPU/GLES/StateMapping.cpp
 	GPU/GLES/StateMapping.h
+	GPU/GLES/StencilBuffer.cpp
 	GPU/GLES/TextureCache.cpp
 	GPU/GLES/TextureCache.h
 	GPU/GLES/TextureScaler.cpp
@@ -1357,31 +1438,6 @@ if(WIN32)
 	setup_target_project(PPSSPPWindows Windows)
 endif()
 
-set(NativeAppSource
-	UI/NativeApp.cpp
-	UI/DevScreens.cpp
-	UI/EmuScreen.cpp
-	android/jni/TestRunner.cpp
-	UI/GameInfoCache.cpp
-	UI/MainScreen.cpp
-	UI/MiscScreens.cpp
-	UI/GameScreen.cpp
-	UI/GameSettingsScreen.cpp
-	UI/TiltAnalogSettingsScreen.cpp
-	UI/TiltEventProcessor.cpp
-	UI/TouchControlLayoutScreen.cpp
-	UI/TouchControlVisibilityScreen.cpp
-	UI/GamepadEmu.cpp
-	UI/UIShader.cpp
-	UI/OnScreenDisplay.cpp
-	UI/ControlMappingScreen.cpp
-	UI/Store.cpp
-	UI/CwCheatScreen.cpp
-	UI/InstallZipScreen.cpp
-	UI/ui_atlas.cpp)
-if(ANDROID AND ARM)
-	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
-endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/shaders
@@ -1425,26 +1481,6 @@ endif()
 file(INSTALL ${NativeAssets} DESTINATION assets)
 file(INSTALL flash0 lang DESTINATION assets)
 
-# Fix CMake some Xcode settings.
-if(APPLE)
-	# Fix CMake breaking optimization settings.
-	set(CMAKE_CXX_FLAGS_DEBUG "-g -D_DEBUG")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
-	set(CMAKE_C_FLAGS_DEBUG "-g -D_DEBUG")
-	set(CMAKE_C_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "-O3 -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
-
-	# These can be fast even for debug.
-	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
-	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	if(NOT ZLIB_FOUND)
-		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
-	endif()
-endif()
-
 if(APPLE AND NOT IOS)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -F /Library/Frameworks")
 endif()
@@ -1474,6 +1510,7 @@ if(IOS)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+        XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 	)
 endif()
 

@@ -207,9 +207,9 @@ void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, eventFlagWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelWaitEventFlagCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelWaitEventFlagCB: Suspending lock wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitEventFlagCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitEventFlagCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitEventFlagCB: beginning callback with bad wait id?");
 }
@@ -403,7 +403,7 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 
 	// This seems like the actual timing of timeouts on hardware.
 	if (micro <= 1)
-		micro = 5;
+		micro = 25;
 	else if (micro <= 209)
 		micro = 240;
 

@@ -657,7 +657,30 @@ void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
-void NullGPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryDownload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformStencilUpload(u32 dest, int size) {
+	return false;
 }

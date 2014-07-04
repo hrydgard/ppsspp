@@ -857,7 +857,7 @@ void TextureCacheDX9::SetTexture() {
 	int bufw = GetTextureBufw(0, texaddr, format);
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	int maxLevel = ((gstate.texmode >> 16) & 0x7);
+	int maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
 	u32 fullhash = 0;

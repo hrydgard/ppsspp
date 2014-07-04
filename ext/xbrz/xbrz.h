@@ -20,10 +20,7 @@
 #undef max
 
 #include <cstddef> //size_t
-#ifdef __SYMBIAN32__
-#include <libc/sys/config.h>
-typedef __uint32_t uint32_t;
-#elif defined(IOS)
+#if defined(IOS)
 #include <stdint.h>
 #else
 #include <cstdint> //uint32_t

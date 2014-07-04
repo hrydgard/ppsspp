@@ -25,16 +25,22 @@ before_install:
   - download_extract() { aria2c -x 16 $1 -o $2 && tar -xf $2; }
 # Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
   - if [ "$CMAKE" == "TRUE" ]; then
-      sudo apt-get install lib32stdc++6 -qq &&
-      aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.1-Linux-i386.sh &&
-      chmod a+x cmake-2.8.12.1-Linux-i386.sh &&
-      sudo ./cmake-2.8.12.1-Linux-i386.sh --skip-license --prefix=/usr;
+      sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev -qq &&
+      aria2c -x 16 http://www.cmake.org/files/v2.8/cmake-2.8.12.2-Linux-i386.sh &&
+      chmod a+x cmake-2.8.12.2-Linux-i386.sh &&
+      sudo ./cmake-2.8.12.2-Linux-i386.sh --skip-license --prefix=/usr;
     fi
 
 install:
 # Linux Setup
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
-      sudo apt-get install libsdl1.2-dev -qq;
+      sudo apt-get install libsdl1.2-dev -qq &&
+      if [[ "$CXX" == g++ ]]; then
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
+        sudo apt-get update &&
+        sudo apt-get install g++-4.8 -qq &&
+        export CXX="g++-4.8" CC="gcc-4.8";
+      fi;
 # Android NDK
   - elif [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
       NDK_VER=android-ndk-r9b &&
@@ -42,20 +48,19 @@ install:
       download_extract http://dl.google.com/android/ndk/${NDK_VER}-linux-x86_64.tar.bz2 ${NDK_VER}-linux-x86_64.tar.bz2 &&
       export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER} &&
       if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi;
-# Blackberry NDK: 10.2.0.1155
+# Blackberry NDK: 10.3.0.440
   - elif [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      download_extract https://googledrive.com/host/0B5UBD4wjtpZ-QVdzSElobzNTOU0 libs.tar.gz &&
-      download_extract https://googledrive.com/host/0B5UBD4wjtpZ-NV80UzFYMVRkSXM tools.tar.gz &&
-      export QNX_TARGET="$(pwd)/target_10_2_0_1155/qnx6" QNX_HOST="$(pwd)/host_10_2_0_15/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
+      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.libraries.10.3.0.440.tar.gz libs.tar.gz &&
+      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.tools.10.3.0.2702.tar.gz tools.tar.gz &&
+      export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
 # Symbian NDK: Belle
   - elif [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
       sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq &&
-      download_extract https://googledrive.com/host/0B5UBD4wjtpZ-T0Iwa0F3b2JqREE ndk.tar.bz2 &&
-      sed -i "s!/SDKs!$(pwd)/SDKs!" SDKs/SymbianSR1Qt474/bin/qt.conf &&
-      sed -i "s!0xF00000!0x1000000!" tools/sbs/lib/config/gcce.xml &&
-      cp ffmpeg/symbian/armv6/lib/* SDKs/SymbianSR1Qt474/epoc32/release/armv5/urel/ &&
-      export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474 SBS_GCCE463BIN=$(pwd)/tools/gcce4/bin &&
-      PATH=$SBS_GCCE463BIN:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$(pwd)/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH;
+      download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/gcc4.8.3_x86-64.tar.bz2 compiler.tar.bz2 &&
+      download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk.tar.bz2 ndk.tar.bz2 &&
+      export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin &&
+      cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/ &&
+      PATH=$SBS_GCCE483BIN:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH;
     fi
 
 script:

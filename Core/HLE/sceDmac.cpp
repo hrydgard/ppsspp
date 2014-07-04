@@ -43,16 +43,17 @@ void __DmacDoState(PointerWrap &p) {
 }
 
 int __DmacMemcpy(u32 dst, u32 src, u32 size) {
-	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
 #endif
 
-	src &= ~0x40000000;
-	dst &= ~0x40000000;
+	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
-		gpu->UpdateMemory(dst, src, size);
+		skip = gpu->PerformMemoryCopy(dst, src, size);
+	}
+	if (!skip) {
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
 	}
 
 	// This number seems strangely reproducible.

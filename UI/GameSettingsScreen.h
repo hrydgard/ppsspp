@@ -64,6 +64,8 @@ private:
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
+	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
+	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
@@ -71,6 +73,9 @@ private:
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
+	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
+	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
@@ -79,7 +84,28 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
-	bool showDebugStats_;
+
+	// Cached booleans
+	bool hwTransformEnable;
+	bool vtxCacheEnable;
+	bool renderModeEnable;
+	bool blockTransferEnable;
+	bool swSkinningEnable;
+	bool texBackoffEnable;
+	bool mipmapEnable;
+	bool texScalingEnable;
+	bool texSecondaryEnable;
+	bool beziersEnable;
+	bool stencilTestEnable;
+	bool depthWriteEnable;
+	bool prescaleEnable;
+	bool texScalingTypeEnable;
+	bool desposterizeEnable;
+	bool anisotropicEnable;
+	bool texFilteringEnable;
+	bool postProcEnable;
+	bool resolutionEnable;
+	bool alphaHackEnable;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
@@ -98,4 +124,66 @@ private:
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
+	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+};
+
+class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+public:
+	ProAdhocServerScreen() {}	
+
+protected:
+	virtual void CreateViews();
+
+private:	
+	std::string tempProAdhocServer;
+	UI::TextView *addrView_;
+	UI::EventReturn OnBack(UI::EventParams &e);
+	UI::EventReturn On0Click(UI::EventParams &e);
+	UI::EventReturn On1Click(UI::EventParams &e);
+	UI::EventReturn On2Click(UI::EventParams &e);
+	UI::EventReturn On3Click(UI::EventParams &e);
+	UI::EventReturn On4Click(UI::EventParams &e);
+	UI::EventReturn On5Click(UI::EventParams &e);
+	UI::EventReturn On6Click(UI::EventParams &e);
+	UI::EventReturn On7Click(UI::EventParams &e);
+	UI::EventReturn On8Click(UI::EventParams &e);
+	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnPointClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnOKClick(UI::EventParams &e);
+	UI::EventReturn OnCancelClick(UI::EventParams &e);
+};
+
+class MacAddressScreen : public UIDialogScreenWithBackground {
+public:
+	MacAddressScreen() {}
+
+protected:
+	virtual void CreateViews();
+
+private:
+	std::string tempMacAddress;
+	UI::TextView *addrView_;
+	UI::EventReturn OnBack(UI::EventParams &e);
+	UI::EventReturn OnAClick(UI::EventParams &e);
+	UI::EventReturn OnBClick(UI::EventParams &e);
+	UI::EventReturn OnCClick(UI::EventParams &e);
+	UI::EventReturn OnDClick(UI::EventParams &e);
+	UI::EventReturn OnEClick(UI::EventParams &e);
+	UI::EventReturn OnFClick(UI::EventParams &e);
+	UI::EventReturn On0Click(UI::EventParams &e);
+	UI::EventReturn On1Click(UI::EventParams &e);
+	UI::EventReturn On2Click(UI::EventParams &e);
+	UI::EventReturn On3Click(UI::EventParams &e);
+	UI::EventReturn On4Click(UI::EventParams &e);
+	UI::EventReturn On5Click(UI::EventParams &e);
+	UI::EventReturn On6Click(UI::EventParams &e);
+	UI::EventReturn On7Click(UI::EventParams &e);
+	UI::EventReturn On8Click(UI::EventParams &e);
+	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnDeleteClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnOKClick(UI::EventParams &e);
+	UI::EventReturn OnCancelClick(UI::EventParams &e);
 };

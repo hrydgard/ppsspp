@@ -23,7 +23,9 @@
 #include "GPU/Math3D.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
@@ -88,8 +90,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
-	u32 matchcolor;
-	memcpy(&matchcolor, transformed[0].color0, 4);
+	u32 matchcolor = transformed[0].color0_32;
 	float matchz = transformed[0].z;
 
 	int bufW = gstate_c.curRTWidth;
@@ -97,9 +98,7 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 
 	float prevX = 0.0f;
 	for (int i = 1; i < numVerts; i++) {
-		u32 vcolor;
-		memcpy(&vcolor, transformed[i].color0, 4);
-		if (vcolor != matchcolor || transformed[i].z != matchz)
+		if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
 			return false;
 
 		if ((i & 1) == 0) {
@@ -173,6 +172,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
+	// We flip in the fragment shader for GE_TEXMAP_TEXTURE_MATRIX.
+	const bool flipV = gstate_c.flipTexture && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX;
 	for (int index = 0; index < maxIndex; index++) {
 		reader.Goto(index);
 
@@ -202,34 +203,40 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Scale UV?
 		} else {
 			// We do software T&L for now
-			float out[3], norm[3];
-			float pos[3], nrm[3];
+			float out[3];
+			float pos[3];
 			Vec3f normal(0, 0, 1);
+			Vec3f worldnormal(0, 0, 1);
 			reader.ReadPos(pos);
-			if (reader.hasNormal())
-				reader.ReadNrm(nrm);
 
 			if (!skinningEnabled) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
+					reader.ReadNrm(normal.AsArray());
+					if (gstate.areNormalsReversed()) {
+						normal = -normal;
+					}
+					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+					worldnormal = worldnormal.Normalized();
 				}
 			} else {
 				float weights[8];
 				reader.ReadWeights(weights);
+				if (reader.hasNormal())
+					reader.ReadNrm(normal.AsArray());
+
 				// Skinning
-				Vec3f psum(0,0,0);
-				Vec3f nsum(0,0,0);
+				Vec3f psum(0, 0, 0);
+				Vec3f nsum(0, 0, 0);
 				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
 					if (weights[i] != 0.0f) {
 						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
 						Vec3f tpos(out);
 						psum += tpos * weights[i];
 						if (reader.hasNormal()) {
-							Norm3ByMatrix43(norm, nrm, gstate.boneMatrix+i*12);
-							Vec3f tnorm(norm);
-							nsum += tnorm * weights[i];
+							Vec3f norm;
+							Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
+							nsum += norm * weights[i];
 						}
 					}
 				}
@@ -237,8 +244,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Yes, we really must multiply by the world matrix too.
 				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nsum.AsArray(), gstate.worldMatrix);
-					normal = Vec3f(norm).Normalized();
+					normal = nsum;
+					if (gstate.areNormalsReversed()) {
+						normal = -normal;
+					}
+					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+					worldnormal = worldnormal.Normalized();
 				}
 			}
 
@@ -253,7 +264,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (gstate.isLightingEnabled()) {
 				float litColor0[4];
 				float litColor1[4];
-				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, normal);
+				lighter.Light(litColor0, litColor1, unlitColor.AsArray(), out, worldnormal);
 
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				for (int j = 0; j < 4; j++) {
@@ -316,20 +327,16 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						break;
 
 					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-						if (reader.hasNormal()) {
-							source = Vec3f(norm).Normalized();
-						} else {
+						source = normal.Normalized();
+						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-						if (reader.hasNormal()) {
-							source = Vec3f(norm);
-						} else {
+						source = normal;
+						if (!reader.hasNormal()) {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					}
@@ -348,8 +355,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0() * 3]).Normalized();
 					Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1() * 3]).Normalized();
 
-					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
-					uv[1] = (1.0f + Dot(lightpos1, normal))/2.0f;
+					uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
+					uv[1] = (1.0f + Dot(lightpos1, worldnormal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;
@@ -372,7 +379,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-		if (gstate_c.flipTexture) {
+		if (flipV) {
 			transformed[index].v = 1.0f - transformed[index].v;
 		}
 		transformed[index].color0_32 = c0.ToRGBA();
@@ -381,13 +388,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
 	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
-	// Disabled for now - depth does not come out exactly the same.
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
-	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
-		u32 clearColor;
-		memcpy(&clearColor, transformed[0].color0, 4);
+	// Experiment: Disable on PowerVR (see issue #6290)
+	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+		u32 clearColor = transformed[0].color0_32;
 		float clearDepth = transformed[0].z;
 		const float col[4] = {
 			((clearColor & 0xFF)) / 255.0f,
@@ -398,22 +404,18 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
-		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-		if (alphaMask) {
-			glstate.stencilTest.set(true);
-			// Clear stencil
-			// TODO: extract the stencilValue properly, see below
-			int stencilValue = 0;
-			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
-		} else {
-			// Don't touch stencil
-			glstate.stencilTest.set(false);
-		}
-		glstate.scissorTest.set(false);
 		bool depthMask = gstate.isClearModeDepthMask();
+		if (depthMask) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
-		int target = 0;
-		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
+		glstate.stencilTest.disable();
+		glstate.depthTest.disable();
+
+		GLbitfield target = 0;
+		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
+		if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 		glClearColor(col[0], col[1], col[2], col[3]);
@@ -422,9 +424,32 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 #else
 		glClearDepth(clearDepth);
 #endif
-		glClearStencil(0);  // TODO - take from alpha?
+		// Stencil takes alpha.
+		glClearStencil(clearColor >> 24);
 		glClear(target);
+		framebufferManager_->SetColorUpdated();
 		return;
+	}
+
+	if (gstate_c.flipTexture && transformed[0].v < 0.0f && transformed[0].v > 1.0f - heightFactor) {
+		// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
+		// Breath of Fire 3 does this to access a render surface at +curTextureHeight.
+		const u32 bpp = framebufferManager_->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
+		const u32 fb_size = bpp * framebufferManager_->GetTargetStride() * gstate_c.curTextureHeight;
+		if (textureCache_->SetOffsetTexture(fb_size)) {
+			const float oldWidthFactor = widthFactor;
+			const float oldHeightFactor = heightFactor;
+			widthFactor = (float) w / (float) gstate_c.curTextureWidth;
+			heightFactor = (float) h / (float) gstate_c.curTextureHeight;
+
+			for (int index = 0; index < maxIndex; ++index) {
+				transformed[index].u *= widthFactor / oldWidthFactor;
+				// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
+				transformed[index].v = 1.0f - transformed[index].v - 1.0f;
+				transformed[index].v *= heightFactor / oldHeightFactor;
+				transformed[index].v = 1.0f - transformed[index].v;
+			}
+		}
 	}
 
 	// Step 2: expand rectangles.

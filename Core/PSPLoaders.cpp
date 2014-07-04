@@ -16,8 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef __SYMBIAN32__
-#include <sys/cdefs.h>
-#include <sys/syslimits.h>
+#include <sys/param.h>
 #endif
 
 #include "file/file_util.h"
@@ -167,7 +166,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
 		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
 	}
-
+	if (id == "NPJH00100" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL").exists) {
+		bootpath = "disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL";
+	}
 
 	bool hasEncrypted = false;
 	u32 fd;
