@@ -787,7 +787,12 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 	vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
 	vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
 
-	if (g_Config.bTrueColor) {
+	bool trueColor = g_Config.bTrueColor;
+	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
+		trueColor = false;
+	}
+
+	if (trueColor) {
 		vfb->colorDepth = FBO_8888;
 	} else {
 		switch (vfb->format) {
