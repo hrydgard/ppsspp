@@ -169,7 +169,11 @@ public:
 
 	void ClearCache();
 	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	inline void InvalidateCacheAt(u32 em_address, int length = 4) {
+		if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+			blocks.InvalidateICache(em_address, length);
+		}
+	}
 
 private:
 	void GetStateAndFlushAll(RegCacheState &state);

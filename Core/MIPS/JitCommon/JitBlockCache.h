@@ -128,6 +128,8 @@ public:
 
 	MIPSOpcode GetOriginalFirstOp(int block_num);
 
+	bool RangeMayHaveEmuHacks(u32 start, u32 end) const;
+
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
@@ -154,6 +156,14 @@ private:
 	int num_blocks_;
 	std::multimap<u32, int> links_to_;
 	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
+
+	enum {
+		JITBLOCK_RANGE_SCRATCH = 0,
+		JITBLOCK_RANGE_RAMBOTTOM = 1,
+		JITBLOCK_RANGE_RAMTOP = 2,
+		JITBLOCK_RANGE_COUNT = 3,
+	};
+	std::pair<u32, u32> blockMemRanges_[3];
 
 	enum {
 		MAX_NUM_BLOCKS = 65536*2
