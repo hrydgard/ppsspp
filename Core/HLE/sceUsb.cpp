@@ -51,8 +51,13 @@ void __UsbDoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(usbStarted);
-	p.Do(usbConnected);
+	if (s >= 2) {
+		p.Do(usbStarted);
+		p.Do(usbConnected);
+	} else {
+		usbStarted = false;
+		usbConnected = true;
+	}
 	p.Do(usbActivated);
 }
 
