@@ -88,7 +88,8 @@ inline void ReadFromHardware(T &var, const u32 address)
 		// More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
-		if (g_Config.bJit) {
+		// In jit, we only flush PC when bIgnoreBadMemAccess is off.
+		if (g_Config.bJit && g_Config.bIgnoreBadMemAccess) {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
 		} else {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
@@ -124,7 +125,8 @@ inline void WriteToHardware(u32 address, const T data)
 		// More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
-		if (g_Config.bJit) {
+		// In jit, we only flush PC when bIgnoreBadMemAccess is off.
+		if (g_Config.bJit && g_Config.bIgnoreBadMemAccess) {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x", address);
 		} else {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
