@@ -239,6 +239,7 @@ inline void Write_Float(float f, u32 address)
 u8* GetPointer(const u32 address);
 bool IsRAMAddress(const u32 address);
 bool IsVRAMAddress(const u32 address);
+bool IsScratchpadAddress(const u32 address);
 
 inline const char* GetCharPointer(const u32 address) {
 	return (const char *)GetPointer(address);

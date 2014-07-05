@@ -159,6 +159,10 @@ bool IsVRAMAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x04000000);
 }
 
+bool IsScratchpadAddress(const u32 address) {
+	return (address & 0xBFFF0000) == 0x00010000;
+}
+
 u8 Read_U8(const u32 _Address)
 {		
 	u8 _var = 0;

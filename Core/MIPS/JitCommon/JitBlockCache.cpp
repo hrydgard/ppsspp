@@ -23,6 +23,7 @@
 // locating performance issues.
 
 #include <cstddef>
+#include <algorithm>
 
 #include "Common.h"
 
@@ -124,6 +125,10 @@ void JitBlockCache::Clear() {
 	block_map_.clear();
 	proxyBlockIndices_.clear();
 	num_blocks_ = 0;
+
+	blockMemRanges_[JITBLOCK_RANGE_SCRATCH] = std::make_pair(0xFFFFFFFF, 0x00000000);
+	blockMemRanges_[JITBLOCK_RANGE_RAMBOTTOM] = std::make_pair(0xFFFFFFFF, 0x00000000);
+	blockMemRanges_[JITBLOCK_RANGE_RAMTOP] = std::make_pair(0xFFFFFFFF, 0x00000000);
 }
 
 void JitBlockCache::Reset() {
@@ -198,6 +203,11 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	num_blocks_++; //commit the current block
 }
 
+static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
+	range.first = std::min(range.first, newStart);
+	range.second = std::max(range.second, newEnd);
+}
+
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	JitBlock &b = blocks_[block_num];
 
@@ -209,15 +219,29 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	// Yeah, this'll work fine for PSP too I think.
 	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
 
+	u32 latestExit = 0;
 	block_map_[std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr)] = block_num;
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
-			if (b.exitAddress[i] != INVALID_EXIT)
+			if (b.exitAddress[i] != INVALID_EXIT) {
 				links_to_.insert(std::pair<u32, int>(b.exitAddress[i], block_num));
+				latestExit = std::max(latestExit, b.exitAddress[i]);
+			}
 		}
 
 		LinkBlock(block_num);
 		LinkBlockExits(block_num);
+	}
+
+	if (Memory::IsScratchpadAddress(b.originalAddress)) {
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_SCRATCH], b.originalAddress, latestExit);
+	}
+	const u32 halfUserMemory = (PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase()) / 2;
+	if (b.originalAddress < PSP_GetUserMemoryBase() + halfUserMemory) {
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMBOTTOM], b.originalAddress, latestExit);
+	}
+	if (latestExit > PSP_GetUserMemoryBase() + halfUserMemory) {
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMTOP], b.originalAddress, latestExit);
 	}
 
 #if defined USE_OPROFILE && USE_OPROFILE
@@ -240,6 +264,15 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	jmethod.method_name = b.blockName;
 	iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, (void*)&jmethod);
 #endif
+}
+
+bool JitBlockCache::RangeMayHaveEmuHacks(u32 start, u32 end) const {
+	for (int i = 0; i < JITBLOCK_RANGE_COUNT; ++i) {
+		if (end >= blockMemRanges_[i].first && start <= blockMemRanges_[i].second) {
+			return true;
+		}
+	}
+	return false;
 }
 
 static int binary_search(JitBlock blocks_[], const u8 *baseoff, int imin, int imax) {
