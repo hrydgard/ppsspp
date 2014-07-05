@@ -2062,6 +2062,17 @@ void FramebufferManager::DestroyAllFBOs() {
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();
+
+	for (size_t i = 0; i < bvfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = bvfbs_[i];
+		DestroyFramebuf(vfb);
+	}
+	bvfbs_.clear();
+
+	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
+		fbo_destroy(it->second.fbo);
+	}
+	tempFBOs_.clear();
 }
 
 void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
