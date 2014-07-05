@@ -239,6 +239,9 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg src, int suboffse
 	if (!src.IsSimpleReg(EDX)) {
 		jit_->MOV(32, R(EDX), src);
 	}
+	if (!g_Config.bIgnoreBadMemAccess) {
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
 #ifdef _M_IX86
@@ -266,6 +269,9 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 				jit_->AND(32, R(EAX), Imm32(alignMask_));
 		}
 
+		if (!g_Config.bIgnoreBadMemAccess) {
+			jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		}
 		// This is a special jit-ABI'd function.
 		jit_->CALL(safeFunc);
 		needsCheck_ = true;
@@ -297,6 +303,9 @@ void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 			jit_->AND(32, R(EAX), Imm32(alignMask_));
 	}
 
+	if (!g_Config.bIgnoreBadMemAccess) {
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
 }

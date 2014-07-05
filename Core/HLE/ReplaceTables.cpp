@@ -107,6 +107,9 @@ static int Replace_memcpy() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
+
+	// Some games use memcpy on executable code.  We need to flush emuhack ops.
+	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
@@ -140,6 +143,9 @@ static int Replace_memcpy16() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2) * 16;
 	bool skip = false;
+
+	// Some games use memcpy on executable code.  We need to flush emuhack ops.
+	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
@@ -195,6 +201,9 @@ static int Replace_memmove() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
+
+	// Some games use memcpy on executable code.  We need to flush emuhack ops.
+	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}

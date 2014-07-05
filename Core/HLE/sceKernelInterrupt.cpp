@@ -623,6 +623,9 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 
+	// Some games copy from executable code.  We need to flush emuhack ops.
+	currentMIPS->InvalidateICache(src, size);
+
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		skip = gpu->PerformMemoryCopy(dst, src, size);
