@@ -528,7 +528,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
 		if (js.nextExit == 0) {
-			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
+			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x PC %08x LR %08x", targetAddr, js.compilerPC, currentMIPS->r[MIPS_REG_RA]);
 		} else {
 			js.compiling = false;
 		}
