@@ -38,6 +38,8 @@
 #include <signal.h>
 #endif
 
+#include <cstdio>
+
 namespace LogTypes
 {
 
