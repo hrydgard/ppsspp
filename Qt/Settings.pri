@@ -42,8 +42,8 @@ win32-msvc* {
 	QMAKE_CXXFLAGS_RELEASE += -O3
 }
 # Arch specific
-xarch = $$find(QT_ARCH, "86")
-macx|contains(QT_ARCH, windows)|count(xarch, 1) {
+xarch = $$find(QT_ARCH, "86") $$find(QMAKE_TARGET.arch, "86")
+macx|!count(xarch, 0) {
 	!win32-msvc*: QMAKE_CXXFLAGS += -msse2
 } else { # Assume ARM
 	DEFINES += ARM
@@ -76,7 +76,10 @@ macx {
 	QMAKE_MAC_SDK=macosx10.9
 	INCLUDEPATH += $$P/ffmpeg/macosx/x86_64/include
 }
-ios: INCLUDEPATH += $$P/ffmpeg/ios/universal/include
+ios {
+	DEFINES += IOS
+	INCLUDEPATH += $$P/ffmpeg/ios/universal/include
+}
 android {
 	DEFINES += ANDROID
 	INCLUDEPATH += $$P/ffmpeg/android/armv7/include $$P/native/ext/libzip
