@@ -201,7 +201,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x52d5141545a75eda, 60, "dl_write_clutformat", },
 	{ 0x530cbe1ce9b45d58, 108, "dl_write_light_vector", },
 	{ 0x53c9aa23504a630f, 96, "vmmul_q_5", },
-	{ 0x54015ccbcbc75374, 24, "strlen", },
+	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
@@ -413,7 +413,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xfb4253a1d9d9df9f, 20, "isnanf", },
 	{ 0xfd34a9ad94fa6241, 76, "__extendsfdf2", },
 	{ 0xfe4f0280240008e9, 28, "vavg_q", },
-	{ 0xfe5dd338ab862291, 216, "memset", },
+	{ 0xfe5dd338ab862291, 216, "memset", }, // Metal Gear Solid: Peace Walker demo
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
 };
 
@@ -755,6 +755,9 @@ skip:
 					closestJumpbackTarget = target;
 				}
 			}
+			if (aheadOp == MIPS_MAKE_JR_RA()) {
+				break;
+			}
 		}
 
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
@@ -846,7 +849,8 @@ skip:
 					}
 
 					// A jump later.  Probably tail, but let's check if it jumps back.
-					u32 knownEnd = furthestBranch == 0 ? addr : furthestBranch;
+					// We use + 8 here in case it jumps right back to the delay slot.  We'll consider that inside the func.
+					u32 knownEnd = furthestBranch == 0 ? addr + 8 : furthestBranch;
 					u32 jumpback = ScanAheadForJumpback(sureTarget, currentFunction.start, knownEnd);
 					if (jumpback != INVALIDTARGET && jumpback > addr && jumpback > knownEnd) {
 						furthestBranch = jumpback;
