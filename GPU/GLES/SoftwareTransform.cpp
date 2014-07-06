@@ -431,23 +431,32 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		return;
 	}
 
-	if (gstate_c.flipTexture && transformed[0].v < 0.0f && transformed[0].v > 1.0f - heightFactor) {
-		// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
-		// Breath of Fire 3 does this to access a render surface at +curTextureHeight.
-		const u32 bpp = framebufferManager_->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
-		const u32 fb_size = bpp * framebufferManager_->GetTargetStride() * gstate_c.curTextureHeight;
-		if (textureCache_->SetOffsetTexture(fb_size)) {
-			const float oldWidthFactor = widthFactor;
-			const float oldHeightFactor = heightFactor;
-			widthFactor = (float) w / (float) gstate_c.curTextureWidth;
-			heightFactor = (float) h / (float) gstate_c.curTextureHeight;
+	if (gstate_c.flipTexture && maxIndex >= 2) {
+		// Even if not rectangles, this will detect if either of the first two are outside the framebuffer.
+		const bool tlOutside = transformed[0].v < 0.0f && transformed[0].v > 1.0f - heightFactor;
+		const bool brOutside = transformed[1].v < 0.0f && transformed[1].v > 1.0f - heightFactor;
+		if (tlOutside || brOutside) {
+			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
+			// Breath of Fire 3 does this to access a render surface at an offset.
+			const u32 bpp = framebufferManager_->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
+			const u32 fb_size = bpp * framebufferManager_->GetTargetStride() * gstate_c.curTextureHeight;
+			const u32 prevH = gstate_c.curTextureHeight;
+			const u32 prevYOffset = gstate_c.curTextureYOffset;
+			if (textureCache_->SetOffsetTexture(fb_size)) {
+				const float oldWidthFactor = widthFactor;
+				const float oldHeightFactor = heightFactor;
+				widthFactor = (float) w / (float) gstate_c.curTextureWidth;
+				heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 
-			for (int index = 0; index < maxIndex; ++index) {
-				transformed[index].u *= widthFactor / oldWidthFactor;
-				// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
-				transformed[index].v = 1.0f - transformed[index].v - 1.0f;
-				transformed[index].v *= heightFactor / oldHeightFactor;
-				transformed[index].v = 1.0f - transformed[index].v;
+				// We've already baked in the old gstate_c.curTextureYOffset, so correct.
+				const float yDiff = (float) (prevH + prevYOffset - gstate_c.curTextureYOffset) / (float) h;
+				for (int index = 0; index < maxIndex; ++index) {
+					transformed[index].u *= widthFactor / oldWidthFactor;
+					// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
+					transformed[index].v = (1.0f - transformed[index].v) / oldHeightFactor;
+					transformed[index].v -= yDiff;
+					transformed[index].v = 1.0f - (transformed[index].v * heightFactor);
+				}
 			}
 		}
 	}
