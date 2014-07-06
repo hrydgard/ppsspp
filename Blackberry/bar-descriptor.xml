@@ -14,7 +14,6 @@
         <aspectRatio>landscape</aspectRatio>
         <autoOrients>false</autoOrients>
         <systemChrome>none</systemChrome>
-        <transparent>false</transparent>
     </initialWindow>
 
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
@@ -29,9 +28,8 @@
     <icon>
         <image>icon-114.png</image>
     </icon>
-    <splashscreen>icon-114.png</splashscreen>
 
-	<invoke-target id="com.Qtness.PPSSPP.openrom">
+    <invoke-target id="com.Qtness.PPSSPP.openrom">
         <invoke-target-name>Open PSP ROM</invoke-target-name>
         <invoke-target-type>application</invoke-target-type>
         <icon><image>icon-114.png</image></icon>
