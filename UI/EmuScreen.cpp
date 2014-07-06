@@ -178,10 +178,13 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		PSP_Shutdown();
 		bootPending_ = false;
 		invalid_ = true;
+		host->UpdateDisassembly();
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		bootPending_ = true;
 		invalid_ = true;
+		host->UpdateDisassembly();
+
 		std::string resetError;
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
@@ -189,13 +192,6 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			System_SendMessage("event", "failstartgame");
 			return;
 		}
-#ifndef MOBILE_DEVICE
-		if (g_Config.bAutoRun) {
-			Core_EnableStepping(false);
-		} else {
-			Core_EnableStepping(true);
-		}
-#endif
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
 		if (!strcmp(ext, ".ppst")) {
