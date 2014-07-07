@@ -1599,6 +1599,9 @@ int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam* param, const std::s
 			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
 			u32 tmpDataSize = 0;
 			const u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
+			if (tmpDataSize == 0 || !tmpDataOrig) {
+				return 0;
+			}
 			switch (tmpDataOrig[0]) {
 			case 0:
 				return 0;
