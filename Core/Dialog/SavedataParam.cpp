@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
+#include "i18n/i18n.h"
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
 #include "Core/Config.h"
@@ -30,6 +30,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/PPGeDraw.h"
+#include "UI/OnScreenDisplay.h"
 
 #include "image/png_load.h"
 
@@ -287,7 +288,7 @@ std::string SavedataParam::GetKey(const SceUtilitySavedataParam *param) const
 	static const char* const lut = "0123456789ABCDEF";
 
 	std::string output;
-	if (param->key[0])
+	if (HasKey(param))
 	{
 		output.reserve(2 * sizeof(param->key));
 		for (size_t i = 0; i < sizeof(param->key); ++i)
@@ -298,6 +299,16 @@ std::string SavedataParam::GetKey(const SceUtilitySavedataParam *param) const
 		}
 	}
 	return output;
+}
+
+bool SavedataParam::HasKey(const SceUtilitySavedataParam *param) const
+{
+	for (size_t i = 0; i < ARRAY_SIZE(param->key); ++i)
+	{
+		if (param->key[i] != 0)
+			return true;
+	}
+	return false;
 }
 
 bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
@@ -358,16 +369,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		cryptedData = new u8[aligned_len + 0x10];
 		memcpy(cryptedData, data_, cryptedSize);
 
-		int decryptMode = 1;
-		if(param->key[0] != 0)
-		{
-			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
-		}
-
-		if(EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, ((param->key[0] != 0)?param->key:0)) == 0)
-		{
-		}
-		else
+		int decryptMode = DetermineCryptMode(param);
+		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
 		{
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
@@ -445,7 +448,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	{
 		int offset = sfoFile.GetDataOffset(sfoData,"SAVEDATA_PARAMS");
 		if(offset >= 0)
-			UpdateHash(sfoData, (int)sfoSize, offset, (param->key[0] ? 3 : 1));
+			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
 	}
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
@@ -566,10 +569,11 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	// copy back save name in request
 	strncpy(param->saveName, saveDirName.c_str(), 20);
 
-	bool isCrypted = IsSaveEncrypted(param, saveDirName) && secureMode;
+	int prevCryptMode = GetSaveCryptMode(param, saveDirName);
+	bool isCrypted = prevCryptMode != 0 && secureMode;
 	bool saveDone = false;
 	if (isCrypted) {
-		LoadDecryptedSave(param, data_, saveData, saveSize, saveDone);
+		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, saveDone);
 	}
 	if (!saveDone) {
 		LoadNotCryptedSave(param, data_, saveData, saveSize);
@@ -580,30 +584,49 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	return true;
 }
 
-void SavedataParam::LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, bool &saveDone) {
+int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {
+	int decryptMode = 1;
+	if (HasKey(param)) {
+		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3;
+	}
+	return decryptMode;
+}
+
+void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone) {
 	int align_len = align16(saveSize);
-		u8* data_base = new u8[align_len];
-		u8* cryptKey = new u8[0x10];
-		memset(cryptKey,0,0x10);
+	u8 *data_base = new u8[align_len];
+	u8 *cryptKey = new u8[0x10];
+	memset(cryptKey, 0, 0x10);
 
-		if(param->key[0] != 0) {
-			memcpy(cryptKey, param->key, 0x10);
-		}
-		memset(data_base + saveSize, 0, align_len - saveSize);
-		memcpy(data_base, saveData, saveSize);
+	bool hasKey = HasKey(param);
+	if (hasKey) {
+		memcpy(cryptKey, param->key, 0x10);
+	}
+	memset(data_base + saveSize, 0, align_len - saveSize);
+	memcpy(data_base, saveData, saveSize);
 
-		int decryptMode = 1;
-		if(param->key[0] != 0) {
-			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
+	int decryptMode = DetermineCryptMode(param);
+	if (decryptMode != prevCryptMode) {
+		if (prevCryptMode == 1 && param->key[0] == 0) {
+			// Backwards compat for a bug we used to have.
+			WARN_LOG(SCEUTILITY, "Savedata loading with hashmode %d instead of detected %d", prevCryptMode, decryptMode);
+			I18NCategory *d = GetI18NCategory("Dialog");
+			osm.Show(d->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+			osm.Show(d->T("Old savedata detected"), 6.0f);
+			hasKey = false;
+			decryptMode = prevCryptMode;
+		} else {
+			WARN_LOG_REPORT(SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 		}
+	}
 
-		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0) {
-			if (param->dataBuf.IsValid())
-				memcpy(data, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
-			saveDone = true;
-		}
-		delete[] data_base;
-		delete[] cryptKey;
+	if (DecryptSave(decryptMode, data_base, &saveSize, &align_len, (hasKey?cryptKey:0)) == 0) {
+		if (param->dataBuf.IsValid())
+			memcpy(data, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
+		saveDone = true;
+	}
+	delete[] data_base;
+	delete[] cryptKey;
 }
 
 void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize) {
@@ -773,24 +796,31 @@ int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset,
 	u8 filehash[16];
 	int ret = 0;
 
-	/* Compute 11D0 hash over entire file */
-	if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, (encryptmode & 2) ? 4 : 2, NULL)) < 0)
-	{	// Not sure about "2"
+	int firstHashMode = encryptmode & 2 ? 4 : 2;
+	int secondHashMode = encryptmode & 2 ? 3 : 0;
+	if (encryptmode & 4) {
+		firstHashMode = 6;
+		secondHashMode = 5;
+	}
+
+	// Compute 11D0 hash over entire file
+	if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, firstHashMode, 0)) < 0)
+	{
+		// Not sure about "2"
 		return ret - 400;
 	}
 
-	/* Copy 11D0 hash to param.sfo and set flag indicating it's there */
+	// Copy 11D0 hash to param.sfo and set flag indicating it's there
 	memcpy(sfoData+sfoDataParamsOffset + 0x20, filehash, 0x10);
 	*(sfoData+sfoDataParamsOffset) |= 0x01;
 
-	/* If new encryption mode, compute and insert the 1220 hash. */
-	if (encryptmode & 2)
+	// If new encryption mode, compute and insert the 1220 hash.
+	if (encryptmode & 6)
 	{
-
 		/* Enable the hash bit first */
-		*(sfoData+sfoDataParamsOffset) |= 0x20;
+		*(sfoData+sfoDataParamsOffset) |= (encryptmode & 6) << 4;
 
-		if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, 3, 0)) < 0)
+		if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, secondHashMode, 0)) < 0)
 		{
 			return ret - 500;
 		}
@@ -1079,7 +1109,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
 			// Secure files are slightly bigger.
-			bool isCrypted = IsSaveEncrypted(param, GetSaveDirName(param, 0));
+			bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
 			if (isCrypted) {
 				sizeOffset = -0x10;
 			}
@@ -1553,10 +1583,8 @@ void SavedataParam::DoState(PointerWrap &p)
 		p.DoArray(saveDataList, saveDataListCount);
 }
 
-bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName)
+int SavedataParam::GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName)
 {
-	bool isCrypted = false;
-
 	ParamSFOData sfoFile;
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
@@ -1570,18 +1598,27 @@ bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::s
 
 			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
 			u32 tmpDataSize = 0;
-			u8* tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
-			for(u32 i = 0; i < tmpDataSize; i++)
-			{
-				if(tmpDataOrig[i] != 0)
-				{
-					isCrypted = true;
-					break;
-				}
+			const u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
+			if (tmpDataSize == 0 || !tmpDataOrig) {
+				return 0;
+			}
+			switch (tmpDataOrig[0]) {
+			case 0:
+				return 0;
+			case 0x01:
+				return 1;
+			case 0x21:
+				return 3;
+			case 0x41:
+				return 5;
+			default:
+				// Well, it's not zero, so yes.
+				ERROR_LOG_REPORT(SCEUTILITY, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
+				return 1;
 			}
 		}
 	}
-	return isCrypted;
+	return 0;
 }
 
 bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {

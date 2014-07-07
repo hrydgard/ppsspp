@@ -312,7 +312,7 @@ public:
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
-	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
+	int GetSaveCryptMode(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool IsInSaveDataList(std::string saveName, int count);
 	bool secureCanSkip(SceUtilitySavedataParam* param, bool secureMode);
 
@@ -320,6 +320,7 @@ public:
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
 	std::string GetFileName(const SceUtilitySavedataParam *param) const;
 	std::string GetKey(const SceUtilitySavedataParam *param) const;
+	bool HasKey(const SceUtilitySavedataParam *param) const;
 
 	static std::string GetSpaceText(int size);
 
@@ -353,7 +354,7 @@ private:
 	void ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName);
 
 	bool LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string dirPath, bool secureMode);
-	void LoadDecryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, bool &saveDone);
+	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone);
 	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize);
 	void LoadSFO(SceUtilitySavedataParam *param, const std::string dirPath);
 	void LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData);
@@ -362,6 +363,7 @@ private:
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
+	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
 	std::set<std::string> getSecureFileNames(std::string dirPath);
 
