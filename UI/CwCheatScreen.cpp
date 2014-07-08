@@ -190,6 +190,10 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::fstream fs;
 	File::OpenCPPFile(fs, cheatFile, std::ios::in);
 
+	if (!fs.is_open()) {
+		WARN_LOG(COMMON, "Unable to open %s\n", cheatFile.c_str());
+	}
+
 	while (fs.good()) {
 		getline(fs, line); // get line from file
 		if (line == "_S " + gameTitle.substr(0, 4) + "-" + gameTitle.substr(4)) {
@@ -238,9 +242,12 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	if (title2.substr(0, 2) != "_S" && it != title.end() && (++it) != title.end()) {
 		fs << title[0] << "\n" << title[1];
 	}
+
+	NOTICE_LOG(COMMON, "Imported %lu entries from %s.\n", newList.size(), cheatFile.c_str());
 	if (newList.size() != 0) {
 		fs << "\n";
 	}
+
 	for (int i = 0; i < (int)newList.size(); i++) {
 		fs << newList[i];
 		if (i < (int)newList.size() - 1) {
