@@ -2,6 +2,11 @@ TARGET = PPSSPPQt
 
 # Main Qt modules
 QT += core gui opengl
+
+# PPSSPP Modules
+symbian: LIBS += -lCore.lib -lGPU.lib -lCommon.lib -lNative.lib
+else: LIBS += -lCore -lGPU -lCommon -lNative
+
 include(Settings.pri)
 
 lessThan(QT_MAJOR_VERSION, 5) {

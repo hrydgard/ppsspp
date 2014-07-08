@@ -12,22 +12,18 @@ QMAKE_CLEAN += -r $$MOC_DIR $$UI_DIR $$OBJECTS_DIR $$TARGET
 P = $$_PRO_FILE_PWD_/..
 INCLUDEPATH += $$P/ext/zlib $$P/Common
 
-equals(TARGET, PPSSPPQt) {
-	# PPSSPP Libs need to go first
-	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
-	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
-	symbian: LIBS += -lCore.lib -lGPU.lib -lCommon.lib -lNative.lib
-	else: LIBS += -lCore -lGPU -lCommon -lNative
-
-	contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
-}
-
 # Work out arch name
 include(Platform/ArchDetection.pri)
 # Work out platform name
 include(Platform/OSDetection.pri)
 # OS dependent paths
 INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
+
+equals(TARGET, PPSSPPQt) {
+	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
+	contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
+	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
+}
 
 # Work out the git version in a way that works on every QMake
 symbian {
