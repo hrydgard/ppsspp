@@ -1,5 +1,8 @@
 PLATFORM_ARCH="generic"
 
+# Override some bad defaults
+symbian: QMAKE_TARGET.arch=armv6
+
 contains(QT_ARCH, ".*86.*")|contains(QMAKE_TARGET.arch, ".*86.*") {
 	!win32-msvc*: QMAKE_ALLFLAGS += -msse2
 	else: QMAKE_ALLFLAGS += /arch:SSE2
