@@ -19,36 +19,9 @@ greaterThan(QT_MAJOR_VERSION,4) {
 	symbian: MOBILITY += systeminfo feedback
 }
 
-# PPSSPP Libs
-QMAKE_LIBDIR += $$CONFIG_DIR
-symbian: LIBS += -lCore.lib -lGPU.lib -lCommon.lib -lNative.lib
-else: LIBS += -lCore -lGPU -lCommon -lNative
-
-# FFMPEG Path
-win32:	QMAKE_LIBDIR += $$P/ffmpeg/Windows/$${QMAKE_TARGET.arch}/lib/
-linux {
-	arm: QMAKE_LIBDIR += $$P/ffmpeg/linux/armv7/lib/
-	else:QMAKE_LIBDIR += $$P/ffmpeg/linux/$${QMAKE_TARGET.arch}/lib/
-}
-macx:	QMAKE_LIBDIR += $$P/ffmpeg/macosx/x86_64/lib/
-ios:	QMAKE_LIBDIR += $$P/ffmpeg/ios/universal/lib/
-qnx:	QMAKE_LIBDIR += $$P/ffmpeg/blackberry/armv7/lib/
-symbian:QMAKE_LIBDIR += $$P/ffmpeg/symbian/armv6/lib/
-android:QMAKE_LIBDIR += $$P/ffmpeg/android/armv7/lib/
-
-contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
-
 # External (platform-dependant) libs
 
-win32 {
-	#Use a fixed base-address under windows
-	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000" /DYNAMICBASE:NO
-	LIBS += -lwinmm -lws2_32 -lShell32 -lAdvapi32
-	contains(QMAKE_TARGET.arch, x86_64): LIBS += $$files($$P/dx9sdk/Lib/x64/*.lib)
-	else: LIBS += $$files($$P/dx9sdk/Lib/x86/*.lib)
-}
-
-macx|linux {
+macx|equals(PLATFORM_NAME, "linux") {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libGPU.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
@@ -63,18 +36,13 @@ macx|linux {
 	}
 }
 
-linux:!android: LIBS += -ldl -lrt
-macx: LIBS += -liconv
-qnx: LIBS += -lscreen
-symbian: LIBS += -lremconcoreapi -lremconinterfacebase
-linux:arm|android: LIBS += -lEGL
 unix:contains(QT_CONFIG, system-zlib) {
 	LIBS += -lz
 }
 
 # Qt Multimedia (if SDL is not found)
 !contains(DEFINES, QT_HAS_SDL) {
-	linux:lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
+	lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
 		# Fallback to mobility audio
 		CONFIG += mobility
 		MOBILITY += multimedia
@@ -112,7 +80,7 @@ INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
 mobile_platform: RESOURCES += $$P/Qt/assets.qrc
 else {
 	# TODO: Rewrite Debugger with same backend as Windows version
-	# Don't use .ui forms. Use Qt5 + C++11 features to minimise code
+	# Do not use .ui forms. Use Qt5 + C++11 features to minimise code
 	SOURCES += $$P/Qt/*.cpp $$P/Qt/Debugger/*.cpp
 	HEADERS += $$P/Qt/*.h $$P/Qt/Debugger/*.h
 	FORMS += $$P/Qt/Debugger/*.ui
@@ -136,45 +104,11 @@ else {
 	lang.name = $$LREL_TOOL ${QMAKE_FILE_IN}
 	lang.input = TRANSLATIONS
 	lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
+
 	lang.commands = $$LREL_TOOL ${QMAKE_FILE_IN}
 	lang.CONFIG = no_link
 	QMAKE_EXTRA_COMPILERS += lang
 	PRE_TARGETDEPS += compiler_lang_make_all
 }
 
-# Packaging
-win32: ICON = $$P/Windows/ppsspp.rc
-
-symbian {
-	TARGET.UID3 = 0xE0095B1D
-	DEPLOYMENT.display_name = PPSSPP
-	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
-	ICON = $$P/assets/icon.svg
-
-	DEPLOYMENT += vendor_deploy
-	MMP_RULES += "DEBUGGABLE"
-
-	# 268 MB maximum
-	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
-	TARGET.EPOCSTACKSIZE = 0x10000
-}
-
-linux {
-        icon.files = $$P/assets/icon-114.png
-        icon.path = /usr/share/icons/hicolor/114x114/apps
-        INSTALLS += icon
-}
-
-maemo {
-	target.path = /opt/PPSSPP/bin
-	desktopfile.files = PPSSPP.desktop
-	desktopfile.path = /usr/share/applications
-	INSTALLS += target desktopfile
-	# Booster
-	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
-	QMAKE_LFLAGS += -pie -rdynamic
-	CONFIG += qt-boostable
-}
-
-ANDROID_PACKAGE_SOURCE_DIR = $$P/android
 
