@@ -1005,6 +1005,10 @@ bool SetDebugTexture() {
 #endif
 
 void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	if (framebuffer == nullptr) {
+		return;
+	}
+
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
