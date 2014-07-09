@@ -146,6 +146,7 @@ public:
 	bool bTimerHack;
 	bool bAlphaMaskHack;
 	bool bBlockTransferGPU;
+	bool bDisableSlowFramebufEffects;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	std::string sPostShaderName;  // Off for off.
 

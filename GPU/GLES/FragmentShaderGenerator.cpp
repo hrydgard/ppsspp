@@ -313,12 +313,12 @@ bool ShouldUseShaderBlending() {
 
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return true;
+		return !g_Config.bDisableSlowFramebufEffects;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
 		// These don't use the factors.
-		return !gl_extensions.EXT_blend_minmax && !gl_extensions.GLES3;
+		return !gl_extensions.EXT_blend_minmax && !gl_extensions.GLES3 && !g_Config.bDisableSlowFramebufEffects;
 
 	default:
 		break;
@@ -334,7 +334,7 @@ bool ShouldUseShaderBlending() {
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		return true;
+		return !g_Config.bDisableSlowFramebufEffects;
 
 	case GE_SRCBLEND_FIXA:
 		if (funcB == GE_DSTBLEND_FIXB) {
@@ -355,7 +355,7 @@ bool ShouldUseShaderBlending() {
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		return true;
+		return !g_Config.bDisableSlowFramebufEffects;
 
 	default:
 		break;

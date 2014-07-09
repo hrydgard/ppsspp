@@ -86,26 +86,9 @@ private:
 	bool enableReports_;
 
 	// Cached booleans
-	bool hwTransformEnable;
-	bool vtxCacheEnable;
-	bool renderModeEnable;
-	bool blockTransferEnable;
-	bool swSkinningEnable;
-	bool texBackoffEnable;
-	bool mipmapEnable;
-	bool texScalingEnable;
-	bool texSecondaryEnable;
-	bool beziersEnable;
-	bool stencilTestEnable;
-	bool depthWriteEnable;
-	bool prescaleEnable;
-	bool texScalingTypeEnable;
-	bool desposterizeEnable;
-	bool anisotropicEnable;
-	bool texFilteringEnable;
-	bool postProcEnable;
-	bool resolutionEnable;
-	bool alphaHackEnable;
+	bool vtxCacheEnable_;
+	bool postProcEnable_;
+	bool resolutionEnable_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {

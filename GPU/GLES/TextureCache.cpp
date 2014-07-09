@@ -1009,7 +1009,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		GLuint program = 0;
-		if (entry->status & TexCacheEntry::STATUS_DEPALETTIZE) {
+		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 			program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
 		}
 		if (program) {
