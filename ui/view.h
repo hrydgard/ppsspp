@@ -291,7 +291,7 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true), enabledMeansDisabled_(false) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -336,14 +336,15 @@ public:
 		return GetFocusedView() == this;
 	}
 
-	void SetEnabled(bool enabled) { enabled_ = enabled; }
+	void SetEnabled(bool enabled) { enabled_ = enabled; enabledMeansDisabled_ = false; }
 	bool IsEnabled() const {
 		if (enabledPtr_)
-			return *enabledPtr_;
+			return *enabledPtr_ != enabledMeansDisabled_;
 		else
-			return enabled_;
+			return enabled_ != enabledMeansDisabled_;
 	}
-	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; }
+	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; enabledMeansDisabled_ = false; }
+	void SetDisabledPtr(bool *disabled) { enabledPtr_ = disabled; enabledMeansDisabled_ = true;  }
 
 	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -375,6 +376,7 @@ protected:
 private:
 	bool *enabledPtr_;
 	bool enabled_;
+	bool enabledMeansDisabled_;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
