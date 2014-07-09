@@ -1005,9 +1005,7 @@ bool SetDebugTexture() {
 #endif
 
 void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	if (framebuffer == nullptr) {
-		return;
-	}
+	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
@@ -1137,13 +1135,14 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 		}
 	}
 
-	if (success) {
+	if (success && entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
 		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
+		return true;
 	}
 
-	return success;
+	return false;
 }
 
 void TextureCache::SetTexture(bool force) {
