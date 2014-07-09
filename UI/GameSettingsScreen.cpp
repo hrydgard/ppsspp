@@ -98,12 +98,10 @@ void GameSettingsScreen::CreateViews() {
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
-	renderModeEnable = !g_Config.bSoftwareRendering;
-	renderingModeChoice->SetEnabledPtr(&renderModeEnable);
+	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gs->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
-	blockTransferEnable = !g_Config.bSoftwareRendering;
-	blockTransfer->SetEnabledPtr(&blockTransferEnable);
+	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -117,8 +115,8 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	postProcChoice_ = graphicsSettings->Add(new Choice(gs->T("Postprocessing Shader")));
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	postProcChoice_->SetEnabledPtr(&postProcEnable);
+	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	postProcChoice_->SetEnabledPtr(&postProcEnable_);
 
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
@@ -140,36 +138,31 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gs->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gs, screenManager()));
 	resolutionChoice_->OnClick.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionChoice_->SetEnabledPtr(&resolutionEnable);
+	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
 
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
 	CheckBox *mipmapping = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
-	mipmapEnable = !g_Config.bSoftwareRendering;
-	mipmapping->SetEnabledPtr(&mipmapEnable);
+	mipmapping->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
-	hwTransformEnable = !g_Config.bSoftwareRendering;
-	hwTransform->SetEnabledPtr(&hwTransformEnable);
+	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gs->T("Software Skinning")));
-	swSkinningEnable = !g_Config.bSoftwareRendering;
-	swSkin->SetEnabledPtr(&swSkinningEnable);
+	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	vtxCacheEnable = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	vtxCache->SetEnabledPtr(&vtxCacheEnable);
+	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	vtxCache->SetEnabledPtr(&vtxCacheEnable_);
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gs->T("Lazy texture caching", "Lazy texture caching (speedup)")));
-	texBackoffEnable = !g_Config.bSoftwareRendering;
-	texBackoff->SetEnabledPtr(&texBackoffEnable);
+	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gs->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
-	texSecondaryEnable = !g_Config.bSoftwareRendering;
-	texSecondary_->SetEnabledPtr(&texSecondaryEnable);
+	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// Seems solid, so we hide the setting.
 	// CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gs->T("Vertex Decoder JIT")));
@@ -180,8 +173,7 @@ void GameSettingsScreen::CreateViews() {
 
 	static const char *quality[] = { "Low", "Medium", "High"};
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gs->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gs, screenManager()));
-	beziersEnable = !g_Config.bSoftwareRendering;
-	beziersChoice->SetEnabledPtr(&beziersEnable);
+	beziersChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gs->T("FXAA")));
@@ -204,47 +196,38 @@ void GameSettingsScreen::CreateViews() {
 		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsPOT);
 	}
 	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gs, screenManager()));
-	texScalingEnable = !g_Config.bSoftwareRendering;
-	texScalingChoice->SetEnabledPtr(&texScalingEnable);
+	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
-	texScalingEnable = !g_Config.bSoftwareRendering;
-	texScalingType->SetEnabledPtr(&texScalingEnable);
+	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
-	desposterizeEnable = !g_Config.bSoftwareRendering;
-	deposterize->SetEnabledPtr(&desposterizeEnable);
+	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gs, screenManager()));
-	anisotropicEnable = !g_Config.bSoftwareRendering;
-	anisoFiltering->SetEnabledPtr(&anisotropicEnable);
+	anisoFiltering->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
 	PopupMultiChoice *texFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gs, screenManager()));
-	texFilteringEnable = !g_Config.bSoftwareRendering;
-	texFilter->SetEnabledPtr(&texFilteringEnable);
+	texFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
 	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")));
 	alphaHack->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
-	alphaHackEnable = !g_Config.bSoftwareRendering;
-	alphaHack->SetEnabledPtr(&alphaHackEnable);
+	alphaHack->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
-	stencilTestEnable = !g_Config.bSoftwareRendering;
-	stencilTest->SetEnabledPtr(&stencilTestEnable);
+	stencilTest->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
-	depthWriteEnable = !g_Config.bSoftwareRendering;
-	depthWrite->SetEnabledPtr(&depthWriteEnable);
+	depthWrite->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
-	prescaleEnable = !g_Config.bSoftwareRendering;
-	prescale->SetEnabledPtr(&prescaleEnable);
+	prescale->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	static const char *fpsChoices[] = {
@@ -423,32 +406,14 @@ void GameSettingsScreen::CreateViews() {
 }
 
 UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	prescaleEnable = !g_Config.bSoftwareRendering;
-	depthWriteEnable = !g_Config.bSoftwareRendering;
-	stencilTestEnable = !g_Config.bSoftwareRendering;
-	beziersEnable = !g_Config.bSoftwareRendering;
-	texSecondaryEnable = !g_Config.bSoftwareRendering;
-	swSkinningEnable = !g_Config.bSoftwareRendering;
-	hwTransformEnable = !g_Config.bSoftwareRendering;
-	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
-	texBackoffEnable = !g_Config.bSoftwareRendering;
-	mipmapEnable = !g_Config.bSoftwareRendering;
-	texScalingEnable = !g_Config.bSoftwareRendering;
-	texScalingTypeEnable = !g_Config.bSoftwareRendering;
-	desposterizeEnable = !g_Config.bSoftwareRendering;
-	anisotropicEnable = !g_Config.bSoftwareRendering;
-	texFilteringEnable = !g_Config.bSoftwareRendering;
-	blockTransferEnable = !g_Config.bSoftwareRendering;
-	renderModeEnable = !g_Config.bSoftwareRendering;
-	alphaHackEnable = !g_Config.bSoftwareRendering;
-	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
-	hwTransformEnable = !g_Config.bSoftwareRendering;
-	vtxCacheEnable = hwTransformEnable && g_Config.bHardwareTransform;
+	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
@@ -469,8 +434,8 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
-	postProcEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	return UI::EVENT_DONE;
 }
 
