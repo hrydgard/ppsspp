@@ -332,8 +332,10 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
-		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-		Flush();
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			Flush();
+		}
 	}
 }
 

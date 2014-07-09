@@ -828,7 +828,9 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			ClearBuffer();
-			BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+			if (!g_Config.bDisableSlowFramebufEffects) {
+				BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+			}
 		}
 		fbo_destroy(old.fbo);
 		if (vfb->fbo) {
@@ -1008,7 +1010,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		// Some AMD drivers crash if we don't clear the buffer first?
 		ClearBuffer();
-		if (useBufferedRendering_ && !updateVRAM_) {
+		if (useBufferedRendering_ && !updateVRAM_ && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
 			NotifyStencilUpload(fb_address_mem, byteSize, true);
 			// TODO: Is it worth trying to upload the depth buffer?
@@ -1090,7 +1092,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 #endif
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
-		if (currentRenderVfb_) {
+		if (currentRenderVfb_ && !g_Config.bDisableSlowFramebufEffects) {
 			BlitFramebufferDepth(currentRenderVfb_, vfb);
 		}
 		currentRenderVfb_ = vfb;
@@ -1202,7 +1204,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
-	if (GPUStepping::IsStepping()) {
+	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 		skipCopy = true;
 	}
 	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {

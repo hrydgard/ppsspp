@@ -397,7 +397,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SmallDisplay", &g_Config.bSmallDisplay, false),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false),
 
-	ConfigSetting("TrueColor", &g_Config.bTrueColor, true),
+	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true),
 
 	ReportedConfigSetting("MipMap", &g_Config.bMipMap, true),
 
@@ -415,6 +415,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
+	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, true),
 
 	ConfigSetting(false),
 };
