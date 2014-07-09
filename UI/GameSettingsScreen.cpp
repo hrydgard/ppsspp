@@ -164,6 +164,9 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gs->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gs->T("Disable slower effects (speedup)")));
+	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 	// Seems solid, so we hide the setting.
 	// CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gs->T("Vertex Decoder JIT")));
 
