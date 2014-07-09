@@ -415,7 +415,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
-	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, true),
+	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false),
 
 	ConfigSetting(false),
 };
