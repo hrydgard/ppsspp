@@ -610,13 +610,21 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 		if (prevCryptMode == 1 && param->key[0] == 0) {
 			// Backwards compat for a bug we used to have.
 			WARN_LOG(SCEUTILITY, "Savedata loading with hashmode %d instead of detected %d", prevCryptMode, decryptMode);
-			I18NCategory *d = GetI18NCategory("Dialog");
-			osm.Show(d->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
-			osm.Show(d->T("Old savedata detected"), 6.0f);
 			hasKey = false;
 			decryptMode = prevCryptMode;
+
+			// Don't notify the user if we're not going to upgrade the save.
+			if (!g_Config.bEncryptSave) {
+				I18NCategory *d = GetI18NCategory("Dialog");
+				osm.Show(d->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+				osm.Show(d->T("Old savedata detected"), 6.0f);
+			}
 		} else {
-			WARN_LOG_REPORT(SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+			if (decryptMode == 5 && prevCryptMode == 3) {
+				WARN_LOG(SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+			} else {
+				WARN_LOG_REPORT(SCEUTILITY, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+			}
 		}
 	}
 
