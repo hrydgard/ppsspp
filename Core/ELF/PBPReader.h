@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <fstream>
 #include "Common/Common.h"
 
 enum PBPSubFile {
@@ -40,18 +41,16 @@ struct PBPHeader {
 class PBPReader {
 public:
 	PBPReader(const char *filename);
-	~PBPReader();
 
-	bool IsValid() const { return file_ != 0; }
-	bool IsELF() const { return file_ == 0 && isELF_; }
+	bool IsValid() const { return file_.rdbuf()->is_open(); }
+	bool IsELF() const { return !IsValid() && isELF_; }
 
 	// Delete the returned buffer with delete [].
 	u8 *GetSubFile(PBPSubFile file, size_t *outSize);
 	void GetSubFileAsString(PBPSubFile file, std::string *out);
 
 	size_t GetSubFileSize(PBPSubFile file) {
-		int num = (int)file;
-		if (num < 7) {
+		if (file < PBP_UNKNOWN_PSAR) {
 			return header_.offsets[file + 1] - header_.offsets[file];
 		} else {
 			return fileSize_ - header_.offsets[file];
@@ -59,7 +58,7 @@ public:
 	}
 
 private:
-	FILE *file_;
+	std::fstream file_;
 	size_t fileSize_;
 	const PBPHeader header_;
 	bool isELF_;
