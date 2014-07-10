@@ -128,6 +128,7 @@ private slots:
 
 	// Help
 	void websiteAct();
+	void forumAct();
 	void aboutAct();
 
 	// Others
@@ -239,7 +240,7 @@ public:
 		QListIterator<int> i(valueList);
 		QListIterator<int> k(keyList);
 		foreach(QString name, nameList) {
-			new MenuAction(parent, this, i.next(), name, k.next());
+			new MenuAction(parent, this, i.next(), name, keyList.size() ? k.next() : 0);
 		}
 		connect(this, SIGNAL(triggered(QAction *)), parent, callback);
 		menu->addActions(this->actions());
