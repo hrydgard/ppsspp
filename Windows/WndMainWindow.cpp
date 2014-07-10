@@ -217,11 +217,14 @@ namespace MainWindow
 
 	static void ShowScreenResolution() {
 		I18NCategory *g = GetI18NCategory("Graphics");
-		char message[256];
-		sprintf(message, "%s: %ix%i  %s: %ix%i",
-			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
-			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		osm.Show(g->T(message), 2.0f);
+
+		std::ostringstream messageStream;
+		messageStream << g->T("Internal Resolution") << ": ";
+		messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
+		messageStream << g->T("Window Size") << ": ";
+		messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
+
+		osm.Show(messageStream.str(), 2.0f);
 	}
 
 	static void UpdateRenderResolution() {
@@ -759,22 +762,16 @@ namespace MainWindow
 		}
 
 		I18NCategory *g = GetI18NCategory("Graphics");
-		const char *frameskipStr = g->T("Frame Skipping");
-		const char *offStr = g->T("Off");
 
-		char message[256];
-		memset(message, 0, sizeof(message));
+		std::ostringstream messageStream;
+		messageStream << g->T("Frame Skipping") << ":" << " ";
 
-		switch(g_Config.iFrameSkip) {
-		case FRAMESKIP_OFF:
-			sprintf(message, "%s: %s", frameskipStr, offStr);
-			break;
-		default:
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
-			break;
-		}
+		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
+			messageStream << g->T("Off");
+		else
+			messageStream << g_Config.iFrameSkip;
 
-		osm.Show(message); 
+		osm.Show(messageStream.str()); 
 	} 
 
 	void enableCheats(bool cheats) {
@@ -1953,9 +1950,9 @@ namespace MainWindow
 			{
 				W32Util::CenterWindow(hDlg);
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
-				char temp[256];
-				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowText(versionBox, ConvertUTF8ToWString(temp).c_str());
+				std::string windowText = "PPSSPP ";
+				windowText.append(PPSSPP_GIT_VERSION);
+				SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
 			}
 			return TRUE;
 
