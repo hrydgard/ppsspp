@@ -2,7 +2,7 @@ PRECOMPILED_HEADER = $$P/Windows/stdafx.h
 PRECOMPILED_SOURCE = $$P/Windows/stdafx.cpp
 INCLUDEPATH += $$P
 
-equals(TARGET, PPSSPPQt) {
+!contains(CONFIG, staticlib) {
 	# Executable
 	# Use a fixed base-address under windows
 	QMAKE_LFLAGS += /FIXED /BASE:"0x00400000" /DYNAMICBASE:NO

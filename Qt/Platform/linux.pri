@@ -1,6 +1,6 @@
 
 
-equals(TARGET, PPSSPPQt) {
+!contains(CONFIG, staticlib) {
 	# Executable
 	LIBS += -ldl -lrt
 

@@ -19,7 +19,7 @@ include(Platform/OSDetection.pri)
 # OS dependent paths
 INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
 
-equals(TARGET, PPSSPPQt) {
+!contains(CONFIG, staticlib) {
 	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
 	contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL

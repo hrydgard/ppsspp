@@ -21,7 +21,7 @@ win32 {
 	INCLUDEPATH += $$P/dx9sdk/Include
 }
 
-SOURCES += 	$$P/GPU/GeDisasm.cpp \ # GPU
+SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/GPUCommon.cpp \
 	$$P/GPU/GPUState.cpp \
 	$$P/GPU/Math3D.cpp \
@@ -55,7 +55,7 @@ armv7: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 arm: SOURCES += $$P/GPU/GLES/VertexDecoderArm.cpp
 else: SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
 
-HEADERS += 	$$P/GPU/GLES/*.h \
+HEADERS += $$P/GPU/GLES/*.h \
 	$$P/GPU/Software/*.h \
 	$$P/GPU/Debugger/*.h \
 	$$P/GPU/Common/*.h \

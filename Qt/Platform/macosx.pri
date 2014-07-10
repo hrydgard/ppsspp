@@ -1,6 +1,6 @@
 QMAKE_MAC_SDK=macosx10.9
 
-equals(TARGET, PPSSPPQt) {
+!contains(CONFIG, staticlib) {
 	# Executable
 	LIBS += -liconv
 }

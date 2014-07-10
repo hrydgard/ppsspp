@@ -1,7 +1,7 @@
 DEFINES += MAEMO __GL_EXPORTS
 contains(MEEGO_EDITION,harmattan): DEFINES += "_SYS_UCONTEXT_H=1"
 
-equals(TARGET, PPSSPPQt) {
+!contains(CONFIG, staticlib) {
 	# Packaging
 	target.path = /opt/PPSSPP/bin
 	desktopfile.files = PPSSPP.desktop
