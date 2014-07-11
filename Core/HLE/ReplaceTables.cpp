@@ -113,7 +113,10 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0 && destPtr != 0) {
+	if (bytes != 0)
+	if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr)))
+		WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc); else
+	if (!skip && destPtr != 0) {
 		u8 *dst = Memory::GetPointerUnchecked(destPtr);
 		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
 
