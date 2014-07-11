@@ -142,8 +142,7 @@ template<int func(int, int, int, int, int, int, u32)> void WrapI_IIIIIIU() {
 
 // Hm, do so many params get passed in registers?
 template<int func(int, int, int, int, int, int, int, int, u32)> void WrapI_IIIIIIIIU() {
-	u32 param8 = *(u32*)Memory::GetPointer(currentMIPS->r[29]); //Fixed 9th parameter, thanks to Kingcom
-	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6), PARAM(7), param8);
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6), PARAM(7), PARAM(8));
 	RETURN(retval);
 }
 
@@ -518,12 +517,6 @@ template<int func(const char *, u32, u32, int, u32, u32)> void WrapI_CUUIUU() {
 template<int func(const char *, int, int, u32, int, int)> void WrapI_CIIUII() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2),
 		PARAM(3), PARAM(4), PARAM(5));
-	RETURN(retval);
-}
-
-template<int func(const char *, int, int, int, u32, u32, int)> void WrapI_CIIIUUI() {
-	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2),
-		PARAM(3), PARAM(4), PARAM(5), PARAM(6));
 	RETURN(retval);
 }
 

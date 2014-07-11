@@ -1,20 +1,3 @@
-// Copyright (c) 2013- PPSSPP Project.
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License 2.0 for more details.
-
-// A copy of the GPL 2.0 should have been included with the program.
-// If not, see http://www.gnu.org/licenses/
-
-// Official git repository and contact information can be found at
-// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
 #pragma once
 
 #include "base/timeutil.h"
@@ -53,12 +36,10 @@ typedef int socklen_t;
 #undef EAGAIN
 #undef EINPROGRESS
 #undef EISCONN
-#undef EALREADY
 #define errno WSAGetLastError()
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
-#define EALREADY WSAEALREADY
 inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINVAL || errcode == WSAEALREADY); }
 #else
 #define INVALID_SOCKET -1
@@ -97,31 +78,10 @@ inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #define UTILITY_NETCONF_STATUS_FINISHED 3
 #define UTILITY_NETCONF_STATUS_SHUTDOWN 4
 
-// Event Flags
-#define INET_POLLRDNORM 0x0040
-#define INET_POLLWRNORM 0x0004
-
-// Event Flags
-#define ADHOC_EV_SEND 1
-#define ADHOC_EV_RECV 2
-#define ADHOC_EV_ALERT 0x400
-
 // PTP Connection States
 #define PTP_STATE_CLOSED 0
 #define PTP_STATE_LISTEN 1
 #define PTP_STATE_ESTABLISHED 4
-
-// Alert Flags
-#define ADHOC_F_ALERTSEND 0x0010
-#define ADHOC_F_ALERTRECV 0x0020
-#define ADHOC_F_ALERTPOLL 0x0040
-#define ADHOC_F_ALERTCONNECT 0x0080
-#define ADHOC_F_ALERTACCEPT 0x0100
-#define ADHOC_F_ALERTFLUSH 0x0200
-#define ADHOC_F_ALERTALL (ADHOC_F_ALERTSEND | ADHOC_F_ALERTRECV | ADHOC_F_ALERTPOLL | ADHOC_F_ALERTCONNECT | ADHOC_F_ALERTACCEPT | ADHOC_F_ALERTFLUSH)
-
-// Timeouts
-#define PSP_ADHOCCTL_PING_TIMEOUT 2000000
 
 #ifdef _MSC_VER 
 #pragma pack(push, 1)
@@ -132,15 +92,6 @@ typedef struct SceNetEtherAddr {
   uint8_t data[ETHER_ADDR_LEN];
 } PACK SceNetEtherAddr;
 
-// Broadcast MAC
-extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
-
-// Malloc Pool Information
-typedef struct SceNetMallocStat {
-	int poolsize;
-	int maxsize;
-	int freesize;
-} PACK SceNetMallocStat;
 
 // Adhoc Virtual Network Name
 #define ADHOCCTL_GROUPNAME_LEN 8
@@ -201,8 +152,8 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   u32_le next; // Changed the pointer to u32
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
-  u32_le ip_addr; //jpcsp wrote 6bytes of 0x11 for this & padding
-  u16 padding; // Changed the padding to u16
+  u32_le ip_addr;
+  u32 padding; // Changed the pointer to u32
   u64_le last_recv;
 } PACK SceNetAdhocctlPeerInfoEmu;
 
@@ -226,52 +177,6 @@ typedef struct SceNetAdhocctlGameModeInfo {
   s32_le num;
   SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
 } PACK SceNetAdhocctlGameModeInfo;
-
-// Socket Polling Event Listener
-typedef struct SceNetAdhocPollSd{
-  s32_le id;
-  s32_le events;
-  s32_le revents;
-} PACK SceNetAdhocPollSd;
-
-// PDP Socket Status
-typedef struct SceNetAdhocPdpStat{
-  u32_le next; // struct SceNetAdhocPdpStat * next;
-  s32_le id;
-  SceNetEtherAddr laddr;
-  u16_le lport;
-  u32_le rcv_sb_cc;
-} PACK SceNetAdhocPdpStat;
-
-// PTP Socket Status
-typedef struct SceNetAdhocPtpStat {
-  u32_le next; // Changed the pointer to u32
-  s32_le id;
-  SceNetEtherAddr laddr;
-  SceNetEtherAddr paddr;
-  u16_le lport;
-  u16_le pport;
-  s32_le snd_sb_cc;
-  s32_le rcv_sb_cc;
-  s32_le state;
-} PACK SceNetAdhocPtpStat;
-
-// Gamemode Optional Peer Buffer Data
-typedef struct SceNetAdhocGameModeOptData {
-  u32_le size;
-  u32_le flag;
-  u64_le last_recv;
-} PACK SceNetAdhocGameModeOptData;
-
-// Gamemode Buffer Status
-typedef struct SceNetAdhocGameModeBufferStat {
-  struct SceNetAdhocGameModeBufferStat * next; //should be u32_le ?
-  s32_le id;
-  void * ptr;
-  u32_le size;
-  u32_le master;
-  SceNetAdhocGameModeOptData opt;
-} PACK SceNetAdhocGameModeBufferStat;
 #ifdef _MSC_VER 
 #pragma pack(pop)
 #endif
@@ -279,17 +184,57 @@ typedef struct SceNetAdhocGameModeBufferStat {
 // Adhoc ID (Game Product Key)
 #define ADHOCCTL_ADHOCID_LEN 9
 typedef struct SceNetAdhocctlAdhocId {
-	s32_le type;
-	uint8_t data[ADHOCCTL_ADHOCID_LEN];
-	uint8_t padding[3];
-} SceNetAdhocctlAdhocId; // should this be packed?
+  s32_le type;
+  uint8_t data[ADHOCCTL_ADHOCID_LEN];
+  uint8_t padding[3];
+} SceNetAdhocctlAdhocId;
 
-// Polling Event Field
-typedef struct SceNetInetPollfd {
-	int fd;
-	short events;
-	short revents;
-} SceNetInetPollfd; // should this be packed?
+// Socket Polling Event Listener
+struct SceNetAdhocPollSd {
+  s32_le id;
+  s32_le events;
+  s32_le revents;
+};
+
+// PDP Socket Status
+struct SceNetAdhocPdpStat {
+  struct SceNetAdhocPdpStat * next;
+  s32_le id;
+  SceNetEtherAddr laddr;
+  u16_le lport;
+  u32_le rcv_sb_cc;
+};
+
+// PTP Socket Status
+struct SceNetAdhocPtpStat {
+  u32_le next; // Changed the pointer to u32
+  s32_le id;
+  SceNetEtherAddr laddr;
+  SceNetEtherAddr paddr;
+  u16_le lport;
+  u16_le pport;
+  u32_le snd_sb_cc;
+  u32_le rcv_sb_cc;
+  s32_le state;
+};
+
+// Gamemode Optional Peer Buffer Data
+struct SceNetAdhocGameModeOptData {
+  u32_le size;
+  u32_le flag;
+  u64_le last_recv;
+};
+
+// Gamemode Buffer Status
+struct SceNetAdhocGameModeBufferStat {
+  struct SceNetAdhocGameModeBufferStat * next;
+  s32_le id;
+  void * ptr;
+  u32_le size;
+  u32_le master;
+  SceNetAdhocGameModeOptData opt;
+};
+
 
 // Internal Matching Peer Information
 typedef struct SceNetAdhocMatchingMemberInternal {
@@ -313,10 +258,10 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 // Matching handler
 struct SceNetAdhocMatchingHandlerArgs {
   s32_le id;
-  s32_le opcode; // event;
-  SceNetEtherAddr mac; // peer //u32_le macaddr;
+  s32_le event;
+  SceNetEtherAddr * peer;
   s32_le optlen;
-  void * opt; //u32_le optaddr
+  void * opt;
 };
 
 struct SceNetAdhocMatchingHandler {
@@ -393,139 +338,35 @@ typedef struct SceNetAdhocMatchingContext {
   // Event Handler
   SceNetAdhocMatchingHandler handler;
 
-  // Event Handler Args
-  //SceNetAdhocMatchingHandlerArgs handlerArgs;
+  // Socket Connectivity
+  //bool connected;
 
   // Hello Data Length
-  s32_le hellolen;
+  u32_le hellolen;
 
   // Hello Data Address
   u32_le helloAddr;
 
   // Hello Data
-  uint8_t * hello;
+  void * hello;
 
   // Event Caller Thread
-  std::thread eventThread; // s32_le event_thid;
-  bool eventRunning = false;
+  s32_le event_thid;
 
   // IO Handler Thread
-  std::thread inputThread; // s32_le input_thid;
-  bool inputRunning = false;
+  s32_le input_thid;
 
   // Event Caller Thread Message Stack
-  recursive_mutex * eventlock; // s32_le event_stack_lock;
+  s32_le event_stack_lock;
   ThreadMessage * event_stack;
 
   // IO Handler Thread Message Stack
-  recursive_mutex * inputlock; // s32_le input_stack_lock;
+  s32_le input_stack_lock;
   ThreadMessage * input_stack;
-
-  // Socket Connectivity
-  //bool connected = false;
-  //bool InConnection = false;
-  u32_le handlerid = -1;
-  //int eventMatchingHandlerUpdate = -1;
 } SceNetAdhocMatchingContext;
 
 // End of psp definitions
 
-enum {
-	/**
-	* Matching events used in pspAdhocMatchingCallback
-	*/
-	/** Hello event. optdata contains data if optlen > 0. */
-	PSP_ADHOC_MATCHING_EVENT_HELLO = 1,
-	/** Join request. optdata contains data if optlen > 0. */
-	PSP_ADHOC_MATCHING_EVENT_JOIN = 2,
-	/** Target left matching. */
-	PSP_ADHOC_MATCHING_EVENT_LEFT = 3,
-	/** Join request rejected. */
-	PSP_ADHOC_MATCHING_EVENT_REJECT = 4,
-	/** Join request cancelled. */
-	PSP_ADHOC_MATCHING_EVENT_CANCEL = 5,
-	/** Join request accepted. optdata contains data if optlen > 0. */
-	PSP_ADHOC_MATCHING_EVENT_ACCEPT = 6,
-	/** Matching is complete. */
-	PSP_ADHOC_MATCHING_EVENT_COMPLETE = 7,
-	/** Ping timeout event. */
-	PSP_ADHOC_MATCHING_EVENT_TIMEOUT = 8,
-	/** Error event. */
-	PSP_ADHOC_MATCHING_EVENT_ERROR = 9,
-	/** Peer disconnect event. */
-	PSP_ADHOC_MATCHING_EVENT_DISCONNECT = 10,
-	/** Data received event. optdata contains data if optlen > 0. */
-	PSP_ADHOC_MATCHING_EVENT_DATA = 11,
-	/** Data acknowledged event. */
-	PSP_ADHOC_MATCHING_EVENT_DATA_CONFIRM = 12,
-	/** Data timeout event. */
-	PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT = 13,
-
-	/** Internal ping message. */
-	PSP_ADHOC_MATCHING_EVENT_INTERNAL_PING = 100,
-
-	/**
-	* Matching modes used in sceNetAdhocMatchingCreate
-	*/
-	/** Host */
-	PSP_ADHOC_MATCHING_MODE_HOST = 1,
-	/** Client */
-	PSP_ADHOC_MATCHING_MODE_CLIENT = 2,
-	/** Peer to peer */
-	PSP_ADHOC_MATCHING_MODE_PTP = 3,
-};
-
-// Matching modes
-#define PSP_ADHOC_MATCHING_MODE_PARENT			1
-#define PSP_ADHOC_MATCHING_MODE_CHILD			2
-#define PSP_ADHOC_MATCHING_MODE_P2P				3
-
-// Matching Events
-#define PSP_ADHOC_MATCHING_EVENT_HELLO			1
-#define PSP_ADHOC_MATCHING_EVENT_REQUEST		2
-#define PSP_ADHOC_MATCHING_EVENT_LEAVE			3
-#define PSP_ADHOC_MATCHING_EVENT_DENY			4
-#define PSP_ADHOC_MATCHING_EVENT_CANCEL			5
-#define PSP_ADHOC_MATCHING_EVENT_ACCEPT			6
-#define PSP_ADHOC_MATCHING_EVENT_ESTABLISHED	7
-#define PSP_ADHOC_MATCHING_EVENT_TIMEOUT		8
-#define PSP_ADHOC_MATCHING_EVENT_ERROR			9
-#define PSP_ADHOC_MATCHING_EVENT_BYE			10
-#define PSP_ADHOC_MATCHING_EVENT_DATA			11
-#define PSP_ADHOC_MATCHING_EVENT_DATA_ACK		12
-#define PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT	13
-
-// Peer Status
-// Offer only seen in P2P and PARENT mode after hello
-// Parent only seen in CHILD mode after connection accept
-// Child only seen in PARENT and CHILD mode after connection accept
-// P2P only seen in P2P mode after connection accept
-// Requester only seen in P2P and PARENT mode after connection request
-#define PSP_ADHOC_MATCHING_PEER_OFFER				1
-#define PSP_ADHOC_MATCHING_PEER_PARENT				2
-#define PSP_ADHOC_MATCHING_PEER_CHILD				3
-#define PSP_ADHOC_MATCHING_PEER_P2P					4
-#define PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST	5
-#define PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST	6
-#define PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS	7
-
-// Stack Targets
-#define PSP_ADHOC_MATCHING_INPUT_STACK	1
-#define PSP_ADHOC_MATCHING_EVENT_STACK	2
-
-// Packet Opcodes
-#define PSP_ADHOC_MATCHING_PACKET_PING			0
-#define PSP_ADHOC_MATCHING_PACKET_HELLO			1
-#define PSP_ADHOC_MATCHING_PACKET_JOIN			2
-#define PSP_ADHOC_MATCHING_PACKET_ACCEPT		3
-#define PSP_ADHOC_MATCHING_PACKET_CANCEL		4
-#define PSP_ADHOC_MATCHING_PACKET_BULK			5
-#define PSP_ADHOC_MATCHING_PACKET_BULK_ABORT	6
-#define PSP_ADHOC_MATCHING_PACKET_BIRTH			7
-#define PSP_ADHOC_MATCHING_PACKET_DEATH			8
-#define PSP_ADHOC_MATCHING_PACKET_BYE			9
-
-// Pro Adhoc Server Packets Opcodes
 #define OPCODE_PING 0
 #define OPCODE_LOGIN 1
 #define OPCODE_CONNECT 2
@@ -537,9 +378,6 @@ enum {
 
 // PSP Product Code
 #define PRODUCT_CODE_LENGTH 9
-
-// Nonblocking Flag for Adhoc API
-#define PSP_ADHOC_F_NONBLOCK 1
 
 #ifdef _MSC_VER 
 #pragma pack(push,1) 
@@ -607,23 +445,6 @@ typedef struct {
   SceNetAdhocctlChatPacketC2S base;
   SceNetAdhocctlNickname name;
 } PACK SceNetAdhocctlChatPacketS2C;
-
-// P2P Packet
-typedef struct {
-	SceNetEtherAddr fromMAC;
-	SceNetEtherAddr toMAC;
-	void * data;
-} PACK SceNetAdhocMatchingPacketBase;
-
-// P2P Accept Packet
-typedef struct {
-	SceNetAdhocctlPacketBase base; //opcode
-	u32_le dataLen;
-	u32_le numMACs; //number of peers
-	void * data;
-	SceNetEtherAddr * MACs; //peers
-} PACK SceNetAdhocMatchingPacketAccept;
-
 #ifdef _MSC_VER 
 #pragma pack(pop)
 #endif
@@ -631,7 +452,6 @@ typedef struct {
 // Aux vars
 extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
-extern SceNetAdhocctlAdhocId product_code;
 extern std::thread friendFinderThread;
 extern recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
@@ -643,8 +463,7 @@ extern int one;
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks; 
-extern int eventAdhocctlHandlerUpdate;
-extern int eventMatchingHandlerUpdate;
+extern int eventHandlerUpdate;
 extern int threadStatus;
 // End of Aux vars
 
@@ -672,10 +491,10 @@ int isPTPPortInUse(uint16_t port);
 /*
  * Matching Members
  */
-//SceNetAdhocMatchingMemberInternal* findMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac); // findPeer
-SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
-//void deleteMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac); // deletePeer
-//void deleteAllMembers(SceNetAdhocMatchingContext * context); // clearPeerList
+SceNetAdhocMatchingMemberInternal* findMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void deleteMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
+void deleteAllMembers(SceNetAdhocMatchingContext * context);
 
 
 /**
@@ -683,11 +502,6 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
  * @param packet Friend Information
  */
 void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
-
-/*
- * Find a Peer/Friend by MAC address
- */
-SceNetAdhocctlPeerInfo * findFriend(SceNetEtherAddr * MAC);
 
 /**
  * Changes the Blocking Mode of the socket
@@ -729,6 +543,19 @@ void deleteAllPTP(void);
 void deleteFriendByIP(uint32_t ip);
 
 /**
+ * Find Free Matching ID
+ * @return First unoccupied Matching ID
+ */
+int findFreeMatchingID(void);
+
+/**
+ * Find Internal Matching Context for Matching ID
+ * @param id Matching ID
+ * @return Matching Context Pointer or... NULL
+ */
+SceNetAdhocMatchingContext * findMatchingContext(int id);
+
+/**
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
@@ -743,176 +570,6 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node);
 int friendFinder();
 
 /**
-* Find Free Matching ID
-* @return First unoccupied Matching ID
-*/
-int findFreeMatchingID(void);
-
-/**
-* Find Internal Matching Context for Matching ID
-* @param id Matching ID
-* @return Matching Context Pointer or... NULL
-*/
-SceNetAdhocMatchingContext * findMatchingContext(int id);
-
-/*
-* Notify Matching Event Handler
-*/
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt);
-
-/*
- * Packet Handler
- */
-void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context);
-void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcount, SceNetEtherAddr * siblings);
-
-/*
- * Timeout Handler
- */
-void handleTimeout(SceNetAdhocMatchingContext * context);
-
-/**
-* Clear Thread Stack
-* @param context Matching Context Pointer
-* @param stack ADHOC_MATCHING_EVENT_STACK or ADHOC_MATCHING_INPUT_STACK
-*/
-void clearStack(SceNetAdhocMatchingContext * context, int stack);
-
-/**
-* Clear Peer List
-* @param context Matching Context Pointer
-*/
-void clearPeerList(SceNetAdhocMatchingContext * context);
-
-/**
-* Find Outgoing Request Target Peer
-* @param context Matching Context Pointer
-* @return Internal Peer Reference or... NULL
-*/
-SceNetAdhocMatchingMemberInternal * findOutgoingRequest(SceNetAdhocMatchingContext * context);
-
-/**
-* Send Accept Message from P2P -> P2P or Parent -> Children
-* @param context Matching Context Pointer
-* @param peer Target Peer
-* @param optlen Optional Data Length
-* @param opt Optional Data
-*/
-void sendAcceptMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int optlen, const void * opt);
-
-/**
-* Send Join Request from P2P -> P2P or Children -> Parent
-* @param context Matching Context Pointer
-* @param peer Target Peer
-* @param optlen Optional Data Length
-* @param opt Optional Data
-*/
-void sendJoinRequest(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int optlen, const void * opt);
-
-/**
-* Send Cancel Message to Peer (has various effects)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-* @param optlen Optional Data Length
-* @param opt Optional Data
-*/
-void sendCancelMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int optlen, const void * opt);
-
-/**
-* Send Bulk Data to Peer
-* @param context Matching Context Pointer
-* @param peer Target Peer
-* @param datalen Data Length
-* @param data Data
-*/
-void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int datalen, const void * data);
-
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
-
-/**
-* Notify all established Peers about new Kid in the Neighborhood
-* @param context Matching Context Pointer
-* @param peer New Kid
-*/
-void sendBirthMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
-
-/**
-* Notify all established Peers about abandoned Child
-* @param context Matching Context Pointer
-* @param peer Abandoned Child
-*/
-void sendDeathMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
-
-/**
-* Count Children Peers (for Parent)
-* @param context Matching Context Pointer
-* @return Number of Children
-*/
-s32_le countChildren(SceNetAdhocMatchingContext * context);
-
-/**
-* Delete Peer from List
-* @param context Matching Context Pointer
-* @param peer Internal Peer Reference
-*/
-void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
-
-/**
-* Find Peer in Context by MAC
-* @param context Matching Context Pointer
-* @param mac Peer MAC Address
-* @return Internal Peer Reference or... NULL
-*/
-SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac);
-
-/**
-* Find Parent Peer
-* @param context Matching Context Pointer
-* @return Internal Peer Reference or... NULL
-*/
-SceNetAdhocMatchingMemberInternal * findParent(SceNetAdhocMatchingContext * context);
-
-/**
-* Find P2P Buddy Peer
-* @param context Matching Context Pointer
-* @return Internal Peer Reference or... NULL
-*/
-SceNetAdhocMatchingMemberInternal * findP2P(SceNetAdhocMatchingContext * context);
-
-/**
-* Return Number of Connected Peers
-* @param context Matching Context Pointer
-* @return Number of Connected Peers
-*/
-uint32_t countConnectedPeers(SceNetAdhocMatchingContext * context);
-
-/**
-* Spawn Local Event for Event Thread
-* @param context Matching Context Pointer
-* @param event Event ID
-* @param mac Event Source MAC
-* @param optlen Optional Data Length
-* @param opt Optional Data
-*/
-void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEtherAddr * mac, int optlen, void * opt);
-
-/*
- * Matching Event Thread (Send Ping and Hello Data) Part of AdhocMatching
- */
-//int matchingEvent(int matchingId);
-//int matchingEventThread(int matchingId); //(uint32_t args, void * argp)
-
-/*
-* Matching Input Thread (process Members) Part of AdhocMatching
-*/
-//int matchingInputThread(int matchingId); //(uint32_t args, void * argp)
-
-/**
  * Return Number of active Peers in the same Network as the Local Player
  * @return Number of active Peers
  */
@@ -924,24 +581,6 @@ int getActivePeerCount(void);
  */
 int getLocalIp(sockaddr_in * SocketAddress);
 uint32_t getLocalIp(int sock);
-
-/*
- * Get Socket Buffer Size (opt = SO_RCVBUF/SO_SNDBUF)
- */
-int getSockBufferSize(int sock, int opt);
-
-/*
-* Set Socket Buffer Size (opt = SO_RCVBUF/SO_SNDBUF)
-*/
-int setSockBufferSize(int sock, int opt, int size);
-
-/**
-* Return the Number of Players with the chosen Nickname in the Local Users current Network
-* @param nickname To-be-searched Nickname
-* @return Number of matching Players
-*/
-int getNicknameCount(const char * nickname);
-
 
 /**
  * Joins two 32 bits number into a 64 bit one
@@ -970,12 +609,6 @@ void getLocalMac(SceNetEtherAddr * addr);
  * Returns the local port used by the socket
  */
 uint16_t getLocalPort(int sock);
-
-/**
-* PDP Socket Counter
-* @return Number of internal PDP Sockets
-*/
-int getPDPSocketCount(void);
 
 /**
  * PTP Socket Counter
