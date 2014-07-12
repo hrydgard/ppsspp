@@ -1,5 +1,6 @@
 #include "net/resolve.h"
 #include "base/logging.h"
+#include "base/timeutil.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,11 +99,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	int result = getaddrinfo(host.c_str(), servicep, &hints, res);
 	if (result == EAI_AGAIN) {
 		// Temporary failure.  Since this already blocks, let's just try once more.
-#ifdef _WIN32
-		Sleep(1);
-#else
-		sleep(1);
-#endif
+		sleep_ms(1);
 		result = getaddrinfo(host.c_str(), servicep, &hints, res);
 	}
 

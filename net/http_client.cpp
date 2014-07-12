@@ -85,11 +85,7 @@ bool Connection::Connect(int maxTries) {
 			if (retval >= 0)
 				return true;
 		}
-#ifdef _WIN32
-		Sleep(1);
-#else
-		sleep(1);
-#endif
+		sleep_ms(1);
 	}
 
 	// Let's not leak this socket.
