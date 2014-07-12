@@ -1868,7 +1868,7 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::Advance();
-	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
+	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
 	{
 		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";
