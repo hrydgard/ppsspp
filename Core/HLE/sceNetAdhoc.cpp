@@ -517,7 +517,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									uint8_t * sip = (uint8_t *)&target.sin_addr.s_addr;
 									// Sent Data
 									if (sent == len) {
-										INFO_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
+										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 
 										// Success
 										return 0;
@@ -572,7 +572,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									changeBlockingMode(socket->id, 0);
 									if (sent >= 0) {
 										uint8_t * sip = (uint8_t *)&target.sin_addr.s_addr;
-										INFO_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](BC): Sent %u bytes to %u.%u.%u.%u:%u", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
+										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u](BC): Sent %u bytes to %u.%u.%u.%u:%u", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 									}
 								}
 
@@ -689,7 +689,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 				// Received Data
 				if (received >= 0) {
 					uint8_t * sip = (uint8_t *)&sin.sin_addr.s_addr;
-					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %u.%u.%u.%u:%u", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
+					DEBUG_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %u.%u.%u.%u:%u", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port));
 
 					// Peer MAC
 					SceNetEtherAddr mac;
@@ -1353,6 +1353,9 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
 			if (peer != NULL) {
+				// Fake Receive Time
+				peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+
 				//buf->next = 0;
 				buf->nickname = peer->nickname;
 				buf->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
@@ -1824,7 +1827,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 	if (Memory::IsValidAddress(peerPortPtr)) {
 		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
 	}
-	INFO_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%08x,%08x,%d,%u) at %08x", id, peerMacAddrPtr, peerPortPtr, timeout, flag, currentMIPS->pc);
+	DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%08x,%08x,%d,%u) at %08x", id, peerMacAddrPtr, peerPortPtr, timeout, flag, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
@@ -1877,7 +1880,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 
 					if (newsocket == SOCKET_ERROR) {
 						int error = errno;
-						ERROR_LOG(SCENET, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, error);
+						DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, error);
 					}
 					
 					// Restore Blocking Behaviour
@@ -1942,6 +1945,9 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 										
 										// Add Port Forward to Router
 										// sceNetPortOpen("TCP", internal->lport);
+
+										uint8_t * pip = (uint8_t *)&peeraddr.sin_addr.s_addr;
+										INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%u.%u.%u.%u:%u)", id, i+1, internal->lport, pip[0], pip[1], pip[2], pip[3], internal->pport);
 										
 										// Return Socket
 										return i + 1;
@@ -2074,6 +2080,9 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 							if (sin.sin_addr.s_addr == peer.sin_addr.s_addr/* && sin.sin_port == peer.sin_port*/) {
 								// Set Connected State
 								socket->state = PTP_STATE_ESTABLISHED;
+
+								uint8_t * pip = (uint8_t *)&peer.sin_addr.s_addr;
+								INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%u.%u.%u.%u:%u)", id, socket->lport, pip[0], pip[1], pip[2], pip[3], socket->pport);
 								
 								// Success
 								return 0;
@@ -2325,6 +2334,9 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 					if (sent > 0) {
 						// Save Length
 						*len = sent;
+
+						uint8_t * smac = (uint8_t *)&socket->paddr;
+						INFO_LOG(SCENET, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %02X:%02X:%02X:%02X:%02X:%02X:%u", id, socket->lport, sent, smac[0], smac[1], smac[2], smac[3], smac[4], smac[5], socket->pport);
 						
 						// Return Success
 						return 0;
@@ -2410,6 +2422,9 @@ int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 				if (received > 0) {
 					// Save Length
 					*len = received;
+
+					uint8_t * smac = (uint8_t *)&socket->paddr;
+					INFO_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %02X:%02X:%02X:%02X:%02X:%02X:%u", id, socket->lport, received, smac[0], smac[1], smac[2], smac[3], smac[4], smac[5], socket->pport);
 					
 					// Return Success
 					return 0;
@@ -3599,9 +3614,8 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 
 					// Iterate Peers
 					for (; peer != NULL && discovered < requestcount; peer = peer->next) {
-						// Fake Receive Time, will it be okay to fake it like this? as some games may behave differently depend on this timestamp
-						if (peer->last_recv == 0)
-							peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL);
+						// Fake Receive Time
+						peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL);
 
 						// Copy Peer Info
 						buf[discovered].nickname = peer->nickname;
@@ -3702,8 +3716,7 @@ int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr)
 						if (strcmp((char *)peer->nickname.data, nickName) == 0)
 						{
 							// Fake Receive Time
-							if (peer->last_recv == 0)
-								peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL); //sceKernelGetSystemTimeWide();
+							peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL); //sceKernelGetSystemTimeWide();
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
@@ -4947,7 +4960,7 @@ int matchingInputThread(int matchingId)
 				if (peer != NULL) {
 					u64_le delta = now - peer->last_recv;
 					DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu)", delta, now, peer->last_recv);
-					peer->last_recv = now;// - context->keepalive_int; // Need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
+					peer->last_recv = now; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
 				}
 				peerlock.unlock();
 				

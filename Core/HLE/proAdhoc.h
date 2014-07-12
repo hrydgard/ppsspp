@@ -137,9 +137,9 @@ extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
 
 // Malloc Pool Information
 typedef struct SceNetMallocStat {
-	int poolsize;
-	int maxsize;
-	int freesize;
+	s32_le poolsize;
+	s32_le maxsize;
+	s32_le freesize;
 } PACK SceNetMallocStat;
 
 // Adhoc Virtual Network Name
@@ -193,7 +193,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   SceNetEtherAddr mac_addr;
   u32_le ip_addr;
   uint8_t padding[2];
-  u64_le last_recv;
+  u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -203,7 +203,7 @@ typedef struct SceNetAdhocctlPeerInfoEmu {
   SceNetEtherAddr mac_addr;
   u32_le ip_addr; //jpcsp wrote 6bytes of 0x11 for this & padding
   u16 padding; // Changed the padding to u16
-  u64_le last_recv;
+  u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfoEmu;
 
 // Member Information
@@ -260,14 +260,14 @@ typedef struct SceNetAdhocPtpStat {
 typedef struct SceNetAdhocGameModeOptData {
   u32_le size;
   u32_le flag;
-  u64_le last_recv;
+  u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocGameModeOptData;
 
 // Gamemode Buffer Status
 typedef struct SceNetAdhocGameModeBufferStat {
   struct SceNetAdhocGameModeBufferStat * next; //should be u32_le ?
   s32_le id;
-  void * ptr;
+  void * ptr; //should be u32_le ?
   u32_le size;
   u32_le master;
   SceNetAdhocGameModeOptData opt;
@@ -286,9 +286,9 @@ typedef struct SceNetAdhocctlAdhocId {
 
 // Polling Event Field
 typedef struct SceNetInetPollfd {
-	int fd;
-	short events;
-	short revents;
+	s32_le fd;
+	s16_le events;
+	s16_le revents;
 } SceNetInetPollfd; // should this be packed?
 
 // Internal Matching Peer Information
@@ -306,7 +306,7 @@ typedef struct SceNetAdhocMatchingMemberInternal {
   s32_le sending;
 
   // Last Heartbeat
-  u64_le lastping;
+  u64_le lastping; // May need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } SceNetAdhocMatchingMemberInternal;
 
 
@@ -612,7 +612,7 @@ typedef struct {
 typedef struct {
 	SceNetEtherAddr fromMAC;
 	SceNetEtherAddr toMAC;
-	void * data;
+	u32_le dataPtr; //void * data
 } PACK SceNetAdhocMatchingPacketBase;
 
 // P2P Accept Packet
@@ -620,8 +620,8 @@ typedef struct {
 	SceNetAdhocctlPacketBase base; //opcode
 	u32_le dataLen;
 	u32_le numMACs; //number of peers
-	void * data;
-	SceNetEtherAddr * MACs; //peers
+	u32_le dataPtr; //void * data
+	u32_le MACsPtr; //peers //SceNetEtherAddr * MACs // using PSPPointer<SceNetEtherAddr> seems to get syntax error: missing ';' before '<'
 } PACK SceNetAdhocMatchingPacketAccept;
 
 #ifdef _MSC_VER 
