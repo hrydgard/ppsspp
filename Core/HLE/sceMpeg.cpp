@@ -1408,10 +1408,9 @@ void PostPutAction::run(MipsCall &call) {
 // Program signals that it has written data to the ringbuffer and gets a callback ?
 u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 {
-	DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i)", ringbufferAddr, numPackets, available);
-
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
+		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i): no packets to enqueue", ringbufferAddr, numPackets, available);
 		return 0;
 	}
 
@@ -1430,6 +1429,8 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
 	if (ringbuffer->callback_addr != 0) {
+		DEBUG_LOG(ME, "sceMpegRingbufferPut(%08x, %i, %i)", ringbufferAddr, numPackets, available);
+
 		PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 		action->setRingAddr(ringbufferAddr);
 		// TODO: Should call this multiple times until we get numPackets.

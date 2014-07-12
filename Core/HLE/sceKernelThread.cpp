@@ -3385,8 +3385,10 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	cur->currentMipscallId = call->savedId;
 
-	if (call->cbId != 0)
+	// IF the thread called ExitDelete, we might've alreayd decreased g_inCbCount.
+	if (call->cbId != 0 && g_inCbCount > 0) {
 		g_inCbCount--;
+	}
 	currentCallbackThreadID = 0;
 
 	if (cur->nt.waitType != WAITTYPE_NONE)
