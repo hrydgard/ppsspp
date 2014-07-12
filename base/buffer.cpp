@@ -14,6 +14,7 @@
 #endif
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "file/fd_util.h"
 
 Buffer::Buffer() { }
@@ -137,26 +138,21 @@ bool Buffer::FlushToFile(const char *filename) {
 }
 
 bool Buffer::FlushSocket(uintptr_t sock) {
-  for (size_t pos = 0, end = data_.size(); pos < end; ) {
-    int sent = send(sock, &data_[pos], end - pos, 0);
-    if (sent < 0) {
-      ELOG("FlushSocket failed");
-      return false;
-    }
-    pos += sent;
+	for (size_t pos = 0, end = data_.size(); pos < end; ) {
+		int sent = send(sock, &data_[pos], end - pos, 0);
+		if (sent < 0) {
+			ELOG("FlushSocket failed");
+			return false;
+		}
+		pos += sent;
 
-    // Buffer full, don't spin.
-    if (sent == 0) {
-#ifdef _WIN32
-      Sleep(1);
-#else
-      sleep(1);
-#endif
-    }
-  }
-
-  data_.resize(0);
-  return true;
+		// Buffer full, don't spin.
+		if (sent == 0) {
+			sleep_ms(1);
+		}
+	}
+	data_.resize(0);
+	return true;
 }
 
 bool Buffer::ReadAll(int fd) {
