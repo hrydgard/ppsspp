@@ -1972,7 +1972,7 @@ void __KernelReturnFromModuleFunc()
 			} else {
 				if (it->statusPtr != 0)
 					Memory::Write_U32(exitStatus, it->statusPtr);
-				__KernelResumeThreadFromWait(it->threadID, 0);
+				__KernelResumeThreadFromWait(it->threadID, module->nm.status == MODULE_STATUS_STARTED ? leftModuleID : 0);
 			}
 		}
 	}
