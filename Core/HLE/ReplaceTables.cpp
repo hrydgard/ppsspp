@@ -113,28 +113,31 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (bytes != 0)
-	if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr)))
-		WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc); 
-	else
-		if (!skip && destPtr != 0) {
-			u8 *dst = Memory::GetPointerUnchecked(destPtr);
-			const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
+			WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+		}
+		else {
+			if (!skip && destPtr != 0) {
+				u8 *dst = Memory::GetPointerUnchecked(destPtr);
+				const u8 *src = Memory::GetPointerUnchecked(srcPtr);
 
-			if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
-				// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
-				const u32 blocks = bytes & ~0x0f;
-				for (u32 offset = 0; offset < blocks; offset += 0x10) {
-					memcpy(dst + offset, src + offset, 0x10);
+				if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+					// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+					const u32 blocks = bytes & ~0x0f;
+					for (u32 offset = 0; offset < blocks; offset += 0x10) {
+						memcpy(dst + offset, src + offset, 0x10);
+					}
+					for (u32 offset = blocks; offset < bytes; ++offset) {
+						dst[offset] = src[offset];
+					}
 				}
-				for (u32 offset = blocks; offset < bytes; ++offset) {
-					dst[offset] = src[offset];
+				else {
+					memmove(dst, src, bytes);
 				}
-			}
-			else {
-				memmove(dst, src, bytes);
 			}
 		}
+	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);

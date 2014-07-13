@@ -24,6 +24,7 @@
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceKernel.h"
@@ -621,7 +622,7 @@ typedef struct {
 	u32_le dataLen;
 	u32_le numMACs; //number of peers
 	u32_le dataPtr; //void * data
-	u32_le MACsPtr; //peers //SceNetEtherAddr * MACs // using PSPPointer<SceNetEtherAddr> seems to get syntax error: missing ';' before '<'
+	/*u32_le*/PSPPointer<SceNetEtherAddr> MACsPtr; //peers //SceNetEtherAddr * MACs
 } PACK SceNetAdhocMatchingPacketAccept;
 
 #ifdef _MSC_VER 

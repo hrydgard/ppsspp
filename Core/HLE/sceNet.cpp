@@ -172,7 +172,7 @@ u32 sceWlanGetSwitchState() {
 }
 
 // Probably a void function, but often returns a useful value.
-/*int*/ void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
+int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -180,11 +180,11 @@ u32 sceWlanGetSwitchState() {
 		const u8 *mac = Memory::GetPointer(macPtr);
 
 		// MAC address is always 6 bytes / 48 bits.
-		/*return*/ sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+		return sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	} else {
 		// Possibly a void function, seems to return this on bad args.
-		//return 0x09d40000;
+		return 0x09d40000;
 	}
 }
 
@@ -199,7 +199,7 @@ static int hex_to_digit(int c) {
 }
 
 // Probably a void function, but sometimes returns a useful-ish value.
-/*int*/ void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
+int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -231,10 +231,10 @@ static int hex_to_digit(int c) {
 		}
 
 		// Seems to maybe kinda return the last value.  Probably returns void.
-		//return value;
+		return value;
 	} else {
 		// Possibly a void function, seems to return this on bad args (or crash.)
-		//return 0;
+		return 0;
 	}
 }
 
@@ -377,8 +377,8 @@ int sceNetApctlDisconnect() {
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
-	{0x89360950, WrapV_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
-	{0xd27961c9, WrapV_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
+	{0x89360950, WrapI_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
+	{0xd27961c9, WrapI_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
 	{0x0bf0a3ae, WrapU_U<sceNetGetLocalEtherAddr>, "sceNetGetLocalEtherAddr"},
 	{0x50647530, 0, "sceNetFreeThreadinfo"},
 	{0xcc393e48, WrapI_U<sceNetGetMallocStat>, "sceNetGetMallocStat"},

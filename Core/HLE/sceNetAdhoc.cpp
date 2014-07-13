@@ -138,7 +138,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 	p.Do(netAdhocctlInited);
 	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
-	p.Do(matchingHandlers);
+	//p.Do(matchingHandlers); // This seems to cause Failure to load savestate from old savestate where AdhocMatching functions haven't been implemented yet
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
@@ -269,6 +269,7 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	if (netAdhocctlInited) return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 	
 	if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) != 0) WARN_LOG(SCENET, "sceNetAdhocctlInit: Faking success");
+
 	if (!friendFinderRunning) {
 		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
