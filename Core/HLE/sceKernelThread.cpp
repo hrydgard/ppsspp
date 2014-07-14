@@ -1153,7 +1153,7 @@ void __KernelThreadingInit()
 		MIPS_MAKE_JR_RA(),
 		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
-		MIPS_MAKE_BREAK(),
+		MIPS_MAKE_BREAK(0),
 	};
 
 	// If you add another func here, don't forget __KernelThreadingDoState() below.
