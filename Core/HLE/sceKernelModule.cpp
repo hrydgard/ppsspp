@@ -1449,6 +1449,12 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	// Wipe kernel here, loadexec should reset the entire system
 	if (__KernelIsRunning())
 	{
+		u32 error;
+		while (!loadedModules.empty()) {
+			Module *module = kernelObjects.Get<Module>(*loadedModules.begin(), error);
+			module->Cleanup();
+		}
+
 		Replacement_Shutdown();
 		__KernelShutdown();
 		//HLE needs to be reset here
@@ -1634,7 +1640,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 		if (info.name == "BOOT.BIN")
 		{
 			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
-			return __KernelLoadExec(name, 0, &error_string);
+			// Name might get deleted.
+			const std::string safeName = name;
+			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		}
 		else
 		{
