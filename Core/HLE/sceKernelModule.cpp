@@ -31,6 +31,7 @@
 #include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
@@ -733,6 +734,14 @@ void Module::Cleanup() {
 	for (auto it = exportedFuncs.begin(), end = exportedFuncs.end(); it != end; ++it) {
 		UnexportFuncSymbol(*it);
 	}
+
+	if (memoryBlockAddr != 0 && nm.text_addr != 0 && memoryBlockSize >= nm.data_size + nm.bss_size + nm.text_size) {
+		DEBUG_LOG(HLE, "Zeroing out module %s memory: %08x - %08x", nm.name, memoryBlockAddr, memoryBlockAddr + memoryBlockSize);
+		for (u32 i = 0; i < (u32)(nm.text_size + 3); i += 4) {
+			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
+		}
+		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size);
+	}
 }
 
 void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
@@ -981,15 +990,18 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			}
 #endif
 		}
+	} else {
+		module->nm.text_addr = 0;
+		module->nm.text_size = 0;
 	}
 
 	SectionID bssSection = reader.GetSectionByName(".bss");
 	if (bssSection != -1) {
 		module->nm.bss_size = reader.GetSectionSize(bssSection);
-		module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
 	} else {
-		module->nm.data_size = reader.GetTotalDataSize();
+		module->nm.bss_size = 0;
 	}
+	module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
 
 	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
 
