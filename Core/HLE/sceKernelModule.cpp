@@ -1247,6 +1247,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			default:
 				func.nid = nid;
 				func.symAddr = exportAddr;
+				if (ent->name == NULL) {
+					WARN_LOG_REPORT(HLE, "Exporting func from syslib export: %08x", nid);
+				}
 				module->ExportFunc(func);
 			}
 		}
@@ -1301,6 +1304,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			default:
 				var.nid = nid;
 				var.symAddr = exportAddr;
+				if (ent->name == NULL) {
+					WARN_LOG_REPORT(HLE, "Exporting var from syslib export: %08x", nid);
+				}
 				module->ExportVar(var);
 				break;
 			}
