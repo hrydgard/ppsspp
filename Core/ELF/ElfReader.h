@@ -77,8 +77,8 @@ public:
 	u32 GetEntryPoint() { return entryPoint; }
 	u32 GetFlags() { return (u32)(header->e_flags); }
 
-	int GetNumSegments() { return (int)(header->e_phnum); }
-	int GetNumSections() { return (int)(header->e_shnum); }
+	int GetNumSegments() const { return (int)(header->e_phnum); }
+	int GetNumSections() const { return (int)(header->e_shnum); }
 	const char *GetSectionName(int section);
 	u8 *GetPtr(u32 offset) const {
 		return (u8*)base + offset;
@@ -129,6 +129,9 @@ public:
 	u32 GetTotalSize() const {
 		return totalSize;
 	}
+
+	u32 GetTotalTextSize() const;
+	u32 GetTotalDataSize() const;
 
 	// More indepth stuff:)
 	int LoadInto(u32 vaddr);

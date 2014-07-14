@@ -570,6 +570,26 @@ SectionID ElfReader::GetSectionByName(const char *name, int firstSection)
 	return -1;
 }
 
+u32 ElfReader::GetTotalTextSize() const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC)) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
+u32 ElfReader::GetTotalDataSize() const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		if ((sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_MASKPROC)) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
 bool ElfReader::LoadSymbols()
 {
 	bool hasSymbols = false;

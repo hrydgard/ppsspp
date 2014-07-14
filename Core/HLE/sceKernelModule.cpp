@@ -966,10 +966,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->textEnd = module->textStart + textSize;
 
 		module->nm.text_addr = module->textStart;
-		// TODO: This value appears to be wrong.  In one example, the PSP has a value > 0x1000 bigger.
-		module->nm.text_size = textSize;
-		// TODO: It seems like the data size excludes the text size, which kinda makes sense?
-		module->nm.data_size -= textSize;
+		module->nm.text_size = reader.GetTotalTextSize();
 
 		if (!module->isFake) {
 #if !defined(MOBILE_DEVICE)
@@ -982,6 +979,14 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			}
 #endif
 		}
+	}
+
+	SectionID bssSection = reader.GetSectionByName(".bss");
+	if (bssSection != -1) {
+		module->nm.bss_size = reader.GetSectionSize(bssSection);
+		module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
+	} else {
+		module->nm.data_size = reader.GetTotalDataSize();
 	}
 
 	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
