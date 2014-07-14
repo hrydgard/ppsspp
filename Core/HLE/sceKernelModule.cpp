@@ -948,8 +948,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	module->nm.data_size = 0;
 	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
 	for (int i = 0; i < reader.GetNumSegments(); ++i) {
-		module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
-		module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
+		if (i < (int)ARRAY_SIZE(module->nm.segmentaddr)) {
+			module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
+			module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
+		}
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
 	module->nm.gp_value = modinfo->gp;
@@ -968,7 +970,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	if (!module->isFake &&  module->memoryBlockAddr != 0) {
+	if (!module->isFake && module->memoryBlockAddr != 0) {
 		symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 	}
 
