@@ -80,12 +80,10 @@ public:
 	int GetNumSegments() { return (int)(header->e_phnum); }
 	int GetNumSections() { return (int)(header->e_shnum); }
 	const char *GetSectionName(int section);
-	u8 *GetPtr(u32 offset)
-	{
+	u8 *GetPtr(u32 offset) const {
 		return (u8*)base + offset;
 	}
-	u8 *GetSectionDataPtr(int section)
-	{
+	u8 *GetSectionDataPtr(int section) const {
 		if (section < 0 || section >= header->e_shnum)
 			return 0;
 		if (sections[section].sh_type != SHT_NOBITS)
@@ -93,45 +91,42 @@ public:
 		else
 			return 0;
 	}
-	u8 *GetSegmentPtr(int segment)
-	{
+	u8 *GetSegmentPtr(int segment) const {
 		return GetPtr(segments[segment].p_offset);
 	}
-	u32 GetSectionAddr(SectionID section) {return sectionAddrs[section];}
-	int GetSectionSize(SectionID section)
-	{
+	u32 GetSectionAddr(SectionID section) const {
+		return sectionAddrs[section];
+	}
+	int GetSectionSize(SectionID section) const {
 		return sections[section].sh_size;
 	}
 	SectionID GetSectionByName(const char *name, int firstSection=0); //-1 for not found
 
-	u32 GetSegmentPaddr(int segment)
-	{
+	u32 GetSegmentPaddr(int segment) const {
 	    return segments[segment].p_paddr;
 	}
-	u32 GetSegmentOffset(int segment)
-	{
+	u32 GetSegmentOffset(int segment) const {
 	    return segments[segment].p_offset;
 	}
-	u32 GetSegmentVaddr(int segment)
-	{
+	u32 GetSegmentVaddr(int segment) const {
 		return segmentVAddr[segment];
 	}
-	u32 GetSegmentDataSize(int segment)
-	{
+	u32 GetSegmentDataSize(int segment) const {
 		return segments[segment].p_filesz;
 	}
+	u32 GetSegmentMemSize(int segment) const {
+		return segments[segment].p_memsz;
+	}
 
-	bool DidRelocate() {
+	bool DidRelocate() const {
 		return bRelocate;
 	}
 
-	u32 GetVaddr()
-	{
+	u32 GetVaddr() const {
 		return vaddr;
 	}
 
-	u32 GetTotalSize()
-	{
+	u32 GetTotalSize() const {
 		return totalSize;
 	}
 

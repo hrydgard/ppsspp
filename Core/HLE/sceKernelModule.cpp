@@ -934,6 +934,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	module->nm.data_size = 0;
 	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
 	for (int i = 0; i < reader.GetNumSegments(); ++i) {
+		module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
+		module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
 	module->nm.gp_value = modinfo->gp;
@@ -1668,6 +1670,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module) {
+		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): error %08x", moduleId, argsize, argAddr, returnValueAddr, optionAddr, error);
 		RETURN(error);
 		return;
 	} else if (module->isFake) {
