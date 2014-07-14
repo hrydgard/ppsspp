@@ -518,8 +518,10 @@ void CallSyscall(MIPSOpcode op)
 		start = time_now_d();
 	}
 	const HLEFunction *info = GetSyscallInfo(op);
-	if (!info)
+	if (!info) {
+		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 		return;
+	}
 
 	if (info->func)
 	{
@@ -530,8 +532,10 @@ void CallSyscall(MIPSOpcode op)
 		else
 			CallSyscallWithoutFlags(info);
 	}
-	else
+	else {
+		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
+	}
 
 	if (g_Config.bShowDebugStats)
 	{
