@@ -275,7 +275,9 @@ public:
 		if (p.mode == p.MODE_READ) {
 			char moduleName[29] = {0};
 			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
-			symbolMap.AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+			if (memoryBlockAddr != 0) {
+				symbolMap.AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+			}
 		}
 	}
 
@@ -954,7 +956,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	if (!module->isFake) {
+	if (!module->isFake &&  module->memoryBlockAddr != 0) {
 		symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 	}
 
@@ -2001,7 +2003,7 @@ struct GetModuleIdByAddressArg
 bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *state)
 {
 	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-	if (start <= state->addr && start + size > state->addr)
+	if (start != 0 && start <= state->addr && start + size > state->addr)
 	{
 		state->result = module->GetUID();
 		return false;
