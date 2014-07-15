@@ -902,7 +902,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 			delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
-		error = -1;
+		error = SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
 		return 0;
 	}
 	// Open ELF reader
@@ -1635,12 +1635,13 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
-		return SCE_KERNEL_ERROR_NOFILE;
+		// ERRNO_FILE_NOT_FOUND
+		return 0x80010002;
 	}
 
 	if (!size) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
-		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+		return SCE_KERNEL_ERROR_FILEERR;
 	}
 
 	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
