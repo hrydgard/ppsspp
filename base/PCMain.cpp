@@ -776,7 +776,9 @@ int main(int argc, char *argv[]) {
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
+#ifdef PPSSPP
 		UpdateRunLoop();
+#endif
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)
