@@ -778,6 +778,9 @@ int main(int argc, char *argv[]) {
 		UpdateInputState(&input_state, true);
 #ifdef PPSSPP
 		UpdateRunLoop();
+#else
+		NativeUpdate(input_state);
+		NativeRender();
 #endif
 		if (g_QuitRequested)
 			break;
