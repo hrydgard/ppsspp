@@ -392,6 +392,11 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
 	BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+	std::string modName = "ELF";
+	if (modInfo) {
+		size_t n = strnlen(modInfo->name, 28);
+		modName = "ELF/" + std::string(modInfo->name, n);
+	}
 
 	entryPoint = header->e_entry;
 	u32 totalStart = 0xFFFFFFFF;
@@ -409,17 +414,17 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts
-		vaddr = memblock.AllocAt(totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(totalStart, totalSize, modName.c_str());
 	}
 	else if (loadAddress)
 	{
 		// Binary needs to be relocated: add loadAddress to the binary start address
-		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, modName.c_str());
 	}
 	else
 	{
 		// Just put it where there is room
-		vaddr = memblock.Alloc(totalSize, fromTop, "ELF");
+		vaddr = memblock.Alloc(totalSize, fromTop, modName.c_str());
 	}
 
 	if (vaddr == (u32)-1) {
