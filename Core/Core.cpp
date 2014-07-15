@@ -161,9 +161,9 @@ void Core_RunLoop() {
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
 		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000000.0 / 60.0) - (int)(diffTime * 1000000.0);
+		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
-			Sleep(sleepTime / 1000);
+			Sleep(sleepTime);
 		if (!windowHidden) {
 			GL_SwapBuffers();
 		}
