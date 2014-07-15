@@ -11,10 +11,10 @@
 // line height
 // dist-per-pixel
 
-#include <png.h>
+#include <libpng17/png.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <ftbitmap.h>
+#include <freetype/ftbitmap.h>
 #include <set>
 #include <map>
 #include <vector>
@@ -22,6 +22,7 @@
 #include <string>
 #include <cmath>
 
+#include "base/logging.h"
 #include "gfx/texture_atlas.h"
 
 #include "image/png_load.h"
@@ -774,7 +775,10 @@ int main(int argc, char **argv) {
   // initProgram(&argc, const_cast<const char ***>(&argv));
   // /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
   // /usr/share/fonts/truetype/ubuntu-font-family/Ubuntu-R.ttf
-
+	if (argc < 3) {
+		FLOG("Not enough arguments");
+		return 1;
+	}
 	CHECK(argc >= 3);
 	if (argc > 3)
 	{

@@ -116,7 +116,7 @@ void OutputDebugStringUTF8(const char *p);
 
 #undef CHECK
 
-#define CHECK(a) {if (!(a)) {FLOG("CHECK failed");}}
+#define CHECK(a) {if (!(a)) {FLOG("%i: CHECK failed on this line", __LINE__);}}
 #define CHECK_P(a, ...) {if (!(a)) {FLOG("CHECK failed: " __VA_ARGS__);}}
 #define CHECK_EQ(a, b) CHECK((a) == (b));
 #define CHECK_NE(a, b) CHECK((a) != (b));

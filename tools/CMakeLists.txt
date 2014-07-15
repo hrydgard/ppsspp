@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
 project (Tools)
-find_package(PNG REQUIRED)
 
 add_definitions(-O2)
 add_definitions(-Wall)
@@ -25,12 +24,13 @@ endif()
 # add_definitions(-fstrict-aliasing)
 
 include_directories(..)
+include_directories(../ext)
 include_directories(../math/lin)
 include_directories(../image)
 include_directories(../ext/libzip)
 include_directories(../ext/rg_etc1)
+include_directories(../ext/glew)
 include_directories(/usr/local/include)
-include_directories(${PNG_INCLUDE_DIR})
 
 link_directories(/usr/X11R6/lib)
 link_directories(/opt/local/lib)
@@ -39,6 +39,7 @@ link_directories(/opt/local/lib)
 include_directories(/usr/include/freetype2)
 include_directories(/usr/local/include/freetype2)
 include_directories(/opt/local/include/freetype2)
+include_directories(/opt/local/include)
 
 add_subdirectory(../base base)
 add_subdirectory(../gfx gfx)
@@ -49,10 +50,11 @@ add_subdirectory(../util util)
 add_subdirectory(../ext/libzip libzip)
 add_subdirectory(../ext/rg_etc1 rg_etc1)
 add_subdirectory(../ext/stb_image stb_image)
+add_subdirectory(../ext/libpng17 png17)
 
 
 add_executable(atlastool atlastool.cpp)
-target_link_libraries(atlastool ${PNG_LIBRARY} freetype util image z stb_image rg_etc1 file zip)
+target_link_libraries(atlastool png17 freetype util image z stb_image rg_etc1 file zip base)
 
 add_executable(zimtool zimtool.cpp)
-target_link_libraries(zimtool ${PNG_LIBRARY} freetype image z stb_image rg_etc1 file zip)
+target_link_libraries(zimtool png17 freetype image z stb_image rg_etc1 file zip base)

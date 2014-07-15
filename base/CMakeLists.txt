@@ -4,7 +4,8 @@ set(SRCS
   ../thread/threadutil.cpp
   error_context.cpp
   display.cpp
-  buffer.cpp)
+  buffer.cpp
+	backtrace.cpp)
 
 add_library(base STATIC ${SRCS})
 
