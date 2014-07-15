@@ -546,7 +546,12 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
+#ifdef _WIN32
 				sleep_ms(1); // Sleep for 1ms on this thread
+#else
+				const double left = nextFrameTime - curFrameTime;
+				usleep((long)(left * 1000000));
+#endif
 				time_update();
 			}
 		}
@@ -557,7 +562,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 }
 
 void DoFrameIdleTiming() {
-	if (!FrameTimingThrottled() || wasPaused) {
+	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
 
@@ -582,7 +587,12 @@ void DoFrameIdleTiming() {
 		// Give a little extra wiggle room in case the next vblank does more work.
 		const double goal = lastFrameTime + numVBlanksSinceFlip * scaledVblank - 0.001;
 		while (time_now_d() < goal) {
+#ifdef _WIN32
 			sleep_ms(1);
+#else
+			const double left = goal - time_now_d();
+			usleep((long)(left * 1000000));
+#endif
 			time_update();
 		}
 	}
@@ -727,8 +737,8 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	time_update();
 	// Don't lag too long ever, if they leave it paused.
 	while (time_now_d() < goal && goal < time_now_d() + 0.01) {
-		const double left = goal - time_now_d();
 #ifndef _WIN32
+		const double left = goal - time_now_d();
 		usleep((long)(left * 1000000));
 #endif
 		time_update();
