@@ -217,7 +217,11 @@ public:
 	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
-			userMemory.Free(memoryBlockAddr);
+			if (memoryBlockAddr < PSP_GetUserMemoryBase()) {
+				kernelMemory.Free(memoryBlockAddr);
+			} else {
+				userMemory.Free(memoryBlockAddr);
+			}
 			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
@@ -920,19 +924,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
-
-	struct PspModuleInfo {
-		// 0, 0, 1, 1 ?
-		u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
-		u16_le moduleVersion;
-		// 28 bytes of module name, packed with 0's.
-		char name[28];
-		u32_le gp;					 // ptr to MIPS GOT data	(global offset table)
-		u32_le libent;			 // ptr to .lib.ent section 
-		u32_le libentend;		// ptr to end of .lib.ent section 
-		u32_le libstub;			// ptr to .lib.stub section 
-		u32_le libstubend;	 // ptr to end of .lib.stub section 
-	};
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	PspModuleInfo *modinfo;

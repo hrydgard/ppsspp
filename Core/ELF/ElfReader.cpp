@@ -22,6 +22,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelModule.h"
 
 
 const char *ElfReader::GetSectionName(int section)
@@ -376,6 +377,22 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	// Should we relocate?
 	bRelocate = (header->e_type != ET_EXEC);
 
+	// Look for the module info - we need to know whether this is kernel or user.
+	const PspModuleInfo *modInfo = 0;
+	for (int i = 0; i < GetNumSections(); i++) {
+		Elf32_Shdr *s = &sections[i];
+		const char *name = GetSectionName(i);
+		if (name && !strcmp(name, ".rodata.sceModuleInfo")) {
+			modInfo = (const PspModuleInfo *)GetPtr(s->sh_offset);
+		}
+	}
+	if (!modInfo && GetNumSegments() >= 1) {
+		modInfo = (const PspModuleInfo *)GetPtr(segments[0].p_paddr & 0x7FFFFFFF);
+	}
+
+	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
+	BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+
 	entryPoint = header->e_entry;
 	u32 totalStart = 0xFFFFFFFF;
 	u32 totalEnd = 0;
@@ -392,17 +409,17 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts
-		vaddr = userMemory.AllocAt(totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(totalStart, totalSize, "ELF");
 	}
 	else if (loadAddress)
 	{
 		// Binary needs to be relocated: add loadAddress to the binary start address
-		vaddr = userMemory.AllocAt(loadAddress + totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, "ELF");
 	}
 	else
 	{
 		// Just put it where there is room
-		vaddr = userMemory.Alloc(totalSize, fromTop, "ELF");
+		vaddr = memblock.Alloc(totalSize, fromTop, "ELF");
 	}
 
 	if (vaddr == (u32)-1) {
@@ -447,7 +464,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
-	userMemory.ListBlocks();
+	memblock.ListBlocks();
 
 	DEBUG_LOG(LOADER,"%i sections:", header->e_shnum);
 
