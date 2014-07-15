@@ -2038,6 +2038,7 @@ void __KernelReturnFromModuleFunc()
 
 	if (module->nm.status == MODULE_STATUS_UNLOADING) {
 		// TODO: Delete the waiting thread?
+		module->Cleanup();
 		kernelObjects.Destroy<Module>(leftModuleID);
 	}
 }
