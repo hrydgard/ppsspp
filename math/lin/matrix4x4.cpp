@@ -39,6 +39,7 @@ Matrix4x4 Matrix4x4::simpleInverse() const {
 
 	return out;
 }
+
 Matrix4x4 Matrix4x4::transpose() const
 {
 	Matrix4x4 out;
@@ -52,7 +53,7 @@ Matrix4x4 Matrix4x4::transpose() const
 Matrix4x4 Matrix4x4::operator * (const Matrix4x4 &other) const 
 {
 	Matrix4x4 temp;
-	fast_matrix_mul_4x4(temp.m, this->m, other.m);
+	fast_matrix_mul_4x4(temp.m, other.m, this->m);
 	return temp;
 }
 
