@@ -23,7 +23,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernelMemory.h" // "Core/HLE/sceHeap.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
@@ -100,16 +100,10 @@ bool netAdhocctlInited;
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 
-struct AdhocctlHandler {
-	u32 entryPoint;
-	u32 argument;
-};
+std::map<int, AdhocctlHandler> adhocctlHandlers;
 
-static std::map<int, AdhocctlHandler> adhocctlHandlers;
-static std::map<int, SceNetAdhocMatchingHandler> matchingHandlers;
-
-int matchingEventThread(int matchingId); //(uint32_t args, void * argp)
-int matchingInputThread(int matchingId); //(uint32_t args, void * argp)
+int matchingEventThread(int matchingId); 
+int matchingInputThread(int matchingId); 
 
 int sceNetAdhocTerm();
 int sceNetAdhocctlTerm();
@@ -138,7 +132,6 @@ void __NetAdhocDoState(PointerWrap &p) {
 	p.Do(netAdhocctlInited);
 	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
-	//p.Do(matchingHandlers); // This seems to cause Failure to load savestate from old savestate where AdhocMatching functions haven't been implemented yet
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
@@ -150,39 +143,6 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
 		args[2] = it->second.argument;
 		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 	}
-}
-
-void __UpdateMatchingHandlers(SceNetAdhocMatchingHandlerArgs * Args) {
-	u32_le args[5] = { 0, 0, 0, 0, 0};
-	static u32 oldlen = 0;
-	static u32 optdata = 0;
-	if ((s32)oldlen < (Args->optlen + 8)) {
-		oldlen = Args->optlen + 8;
-		if (Memory::IsValidAddress(optdata)) userMemory.Free(optdata);
-		optdata = userMemory.Alloc(oldlen);
-		INFO_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", Args->optlen+8, oldlen, optdata);
-	}
-	args[0] = Args->id;
-	args[1] = Args->opcode;
-	args[2] = optdata; // PSP_GetScratchpadMemoryBase() + 0x6000; 
-	args[3] = Args->optlen;
-	args[4] = args[2] + 8; 
-	
-	SceNetEtherAddr * mac = (SceNetEtherAddr *)Memory::GetPointer(args[2]);
-	*mac = Args->mac;
-	uint8_t * opt = Memory::GetPointer(args[4]);
-	if (Args->optlen > 0) memcpy(opt, Args->opt, Args->optlen);
-
-	//ActionAfterMipsCall *after = (ActionAfterMipsCall *)__KernelCreateAction(actionAfterMipsCall);
-	for (std::map<int, SceNetAdhocMatchingHandler>::iterator it = matchingHandlers.begin(); it != matchingHandlers.end(); ++it) {
-		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 5, true);
-	}
-	//while (after->isProcessingCallbacks) sleep_ms(1); //can this be used to check if MIPS call have returned/completed?
-	//sleep_ms(40); // Must not sleep in this handler! otherwise there will be ThreadQueueList Empty issue on Metal Slug XX
-	free(Args); // Free input's memory since nobody is using it anymore
-
-	// original Call Event Handler (on PSP [PRO custom firmware] side)
-	//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt); // void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt)
 }
 
 int getBlockingFlag(int id) {
@@ -200,19 +160,13 @@ void __handlerAdhocctlUpdateCallback(u64 userdata, int cycleslate) {
 	__UpdateAdhocctlHandlers(buff[0], buff[1]);
 }
 
-void __handlerMatchingUpdateCallback(u64 userdata, int cycleslate) {
-	__UpdateMatchingHandlers((SceNetAdhocMatchingHandlerArgs *)userdata);
-}
-
 void __NetAdhocInit() {
 	friendFinderRunning = false;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
 	netAdhocMatchingInited = false;
 	adhocctlHandlers.clear();
-	matchingHandlers.clear();
 	eventAdhocctlHandlerUpdate = CoreTiming::RegisterEvent("AdhocctlHandlerUpdateEvent", __handlerAdhocctlUpdateCallback);
-	eventMatchingHandlerUpdate = CoreTiming::RegisterEvent("MatchingHandlerUpdateEvent", __handlerMatchingUpdateCallback);
 }
 
 u32 sceNetAdhocInit() {
@@ -231,30 +185,6 @@ u32 sceNetAdhocInit() {
 	}
 	// Already initialized
 	return ERROR_NET_ADHOC_ALREADY_INITIALIZED;
-}
-
-int addMatchingHandler(u32_le handlerPtr) {
-	bool foundHandler = false;
-	u32 retval = 0;
-	struct SceNetAdhocMatchingHandler handler;
-	memset(&handler, 0, sizeof(handler));
-
-	while (matchingHandlers.find(retval) != matchingHandlers.end())
-		++retval;
-
-	handler.entryPoint = handlerPtr;
-	for (std::map<int, SceNetAdhocMatchingHandler>::iterator it = matchingHandlers.begin(); it != matchingHandlers.end(); it++) {
-		if (it->second.entryPoint == handlerPtr) {
-			foundHandler = true;
-			break;
-		}
-	}
-
-	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
-		if (matchingHandlers.size() >= MAX_MATCHING_HANDLERS) retval = -1;
-		else matchingHandlers[retval] = handler;
-	}
-	return retval;
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
@@ -1424,8 +1354,8 @@ int sceNetAdhocctlCreate(const char *groupName) {
 					//return ERROR_NET_ADHOCCTL_NOT_INITIALIZED; // ERROR_NET_ADHOCCTL_DISCONNECTED; // ERROR_NET_ADHOCCTL_BUSY;
 					//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
 					threadStatus = ADHOCCTL_STATE_CONNECTED;
-					// Notify Event Handlers
-					CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); // Needed for the Nickname to be shown on the screen when success is faked
+					// Notify Event Handlers, Needed for the Nickname to be shown on the screen when success is faked
+					//CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0)); // Might be better not to notify when failed to connect to adhoc server, at least the player will know that it failed to connect 
 				}
 
 				// Free Network Lock
@@ -2596,8 +2526,6 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 				sceNetAdhocMatchingStop(matchingId);
 			}
 
-			// Remove Callback Handler
-			matchingHandlers.erase(item->handlerid);
 			// Delete the socket
 			sceNetAdhocPdpDelete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
 			// Free allocated memories
@@ -2657,9 +2585,6 @@ int sceNetAdhocMatchingTerm() {
 			sceNetAdhocMatchingDelete(context->id);
 			context = next;
 		}
-
-		//May also need to clear Handlers
-		matchingHandlers.clear();
 	}
 	
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingTerm()");
@@ -2743,7 +2668,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
 								peerlock.lock(); //contextlock.lock();
 								
 								// Add Callback Handler
-								context->handlerid = addMatchingHandler(callbackAddr); 
+								context->handler.entryPoint = callbackAddr;
 
 								// Link Context
 								//context->connected = true;
@@ -2895,11 +2820,13 @@ int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int 
 									// Accept Peer in Group
 									peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
 
-									// Send Accept Confirmation to Peer
-									sendAcceptMessage(context, peer, optLen, opt);
+									// Sending order may need to be reversed since Stack appends to the front, so the order will be switched around.
 
 									// Tell Children about new Sibling
 									sendBirthMessage(context, peer);
+
+									// Send Accept Confirmation to Peer
+									sendAcceptMessage(context, peer, optLen, opt);
 
 									// Return Success
 									return 0;
@@ -4121,7 +4048,13 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)
 			{
 				// Send Packet
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, PSP_ADHOC_F_NONBLOCK);
+				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, PSP_ADHOC_F_NONBLOCK);
+			
+				// Log Send Success
+				if (sent >= 0) 
+					INFO_LOG(SCENET, "InputLoop: Sending BIRTH to %02X:%02X:%02X:%02X:%02X:%02X", peer->mac.data[0], peer->mac.data[1], peer->mac.data[2], peer->mac.data[3], peer->mac.data[4], peer->mac.data[5]); 
+				else
+					WARN_LOG(SCENET, "InputLoop: Failed to Send BIRTH to %02X:%02X:%02X:%02X:%02X:%02X", peer->mac.data[0], peer->mac.data[1], peer->mac.data[2], peer->mac.data[3], peer->mac.data[4], peer->mac.data[5]);
 			}
 		}
 	}
@@ -4644,9 +4577,13 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 				// Initialize Ping Timer
 				peer->lastping = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0;
 
+				peerlock.lock();
+
 				// Link Peer
 				sibling->next = context->peerlist;
 				context->peerlist = sibling;
+
+				peerlock.unlock();
 
 				// Spawn Established Event
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
@@ -4746,6 +4683,9 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 */
 int matchingEventThread(int matchingId) 
 {
+	u32 bufLen = 0;
+	u32 bufAddr = 0;
+
 	// Multithreading Lock
 	peerlock.lock();
 	// Cast Context
@@ -4776,16 +4716,16 @@ int matchingEventThread(int matchingId)
 					if (msg->optlen > 0) opt = ((u8 *)msg) + sizeof(ThreadMessage); //&msg[1]
 
 					// Log Matching Events
-					//printf("Matching Event [ID=%d] [EVENT=%d]\n", context->id, msg->opcode);
-					if (msg->opcode > 0)
-						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [EVENT=%d] OptSize=%d\n", matchingId, msg->opcode, msg->optlen);
-
-					//if (msg->opcode == 1) addMember(context, &msg->mac);
+					if (msg->opcode >= 0) {
+						char buf[16];
+						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode, buf), msg->optlen);
+					}
 
 					// Call Event Handler
 					//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 					// Notify Event Handlers
-					notifyMatchingHandler(context, msg, opt);
+					notifyMatchingHandler(context, msg, opt, bufAddr, bufLen);
+					//sleep_ms(80); // Ugly workaround, Giving time for the callback to fully executed and return, needed for DBZ Team Tag to be able to join a room successfully
 				}
 
 				// Clear Event Message Stack
@@ -4822,7 +4762,8 @@ int matchingEventThread(int matchingId)
 				// Original Call Event Handler
 				//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 				// Notify Event Handlers
-				notifyMatchingHandler(context, msg, opt);
+				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen);
+				//sleep_ms(80); // Ugly workaround, Giving time for the callback to fully executed and return
 			}
 
 			// Clear Event Message Stack
@@ -4838,6 +4779,9 @@ int matchingEventThread(int matchingId)
 
 	// Log Shutdown
 	INFO_LOG(SCENET, "EventLoop: End of EventLoop[%i] Thread", matchingId);
+
+	// Free memory
+	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 
 	// Return Zero to shut up Compiler (never reached anyway)
 	return 0;
@@ -4951,14 +4895,16 @@ int matchingInputThread(int matchingId)
 			if (recvresult == 0 && rxbuflen > 0 && context->port == senderport)
 			{
 				// Log Receive Success
-				//printf("Received %d Bytes (Opcode: %d)\n", rxbuflen, context->rxbuf[0]);
-				if (context->rxbuf[0] > 1)
-				INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode: %d)\n", matchingId, rxbuflen, context->rxbuf[0]);
+				if (context->rxbuf[0] > 1) {
+					char buf[16];
+					INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0], buf));
+				}
 
 				// Update Peer Timestamp
 				peerlock.lock();
 				SceNetAdhocctlPeerInfo * peer = findFriend(&sendermac);
 				if (peer != NULL) {
+					now = CoreTiming::GetGlobalTimeUsScaled();
 					u64_le delta = now - peer->last_recv;
 					DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu)", delta, now, peer->last_recv);
 					peer->last_recv = now; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)

@@ -324,6 +324,11 @@ struct SceNetAdhocMatchingHandler {
   u32_le entryPoint;
 };
 
+struct AdhocctlHandler {
+	u32 entryPoint;
+	u32 argument;
+};
+
 // Thread Message Stack Item
 typedef struct ThreadMessage {
   // Next Thread Message
@@ -425,7 +430,7 @@ typedef struct SceNetAdhocMatchingContext {
   // Socket Connectivity
   //bool connected = false;
   //bool InConnection = false;
-  u32_le handlerid = -1;
+  //u32_le handlerid = -1;
   //int eventMatchingHandlerUpdate = -1;
 } SceNetAdhocMatchingContext;
 
@@ -637,6 +642,7 @@ extern std::thread friendFinderThread;
 extern recursive_mutex peerlock;
 extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
+extern std::map<int, AdhocctlHandler> adhocctlHandlers;
 
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
@@ -759,7 +765,9 @@ SceNetAdhocMatchingContext * findMatchingContext(int id);
 /*
 * Notify Matching Event Handler
 */
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt);
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen);
+// Notifiy Adhocctl Handlers
+void notifyAdhocctlHandlers(int flag, int error);
 
 /*
  * Packet Handler
@@ -1021,3 +1029,10 @@ int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
  * @return 1 if valid or... 0
  */
  int validNetworkName(const SceNetAdhocctlGroupName * groupname);
+
+ // Convert Matching Event Code to String
+ char* getMatchingEventStr(int code, char* buf);
+
+ // Convert Matching Opcode ID to String
+ char* getMatchingOpcodeStr(int code, char* buf);
+

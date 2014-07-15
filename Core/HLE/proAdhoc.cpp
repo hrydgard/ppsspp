@@ -23,6 +23,9 @@
 #include <cstring>
 #include "util/text/parsers.h"
 #include "Core/Core.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "proAdhoc.h" 
 
 uint32_t fakePoolSize                 = 0;
@@ -32,7 +35,6 @@ bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 int eventAdhocctlHandlerUpdate        = -1;
-int eventMatchingHandlerUpdate        = -1;
 int threadStatus                      = ADHOCCTL_STATE_DISCONNECTED;
 
 // Broadcast MAC
@@ -866,9 +868,26 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 	peerlock.unlock();
 }
 
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt) {
+void notifyAdhocctlHandlers(int flag, int error) {
+	u32_le args[3] = { 0, 0, 0 };
+	args[0] = flag;
+	args[1] = error;
+
+	for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
+		args[2] = it->second.argument;
+		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
+	}
+	// Make sure MIPS calls have been fully executed and returned before the next notifyAdhocctlHandlers
+	//while (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) sleep_ms(1);
+	__KernelCheckCallbacks(); //__KernelForceCallbacks(); //__KernelExecutePendingMipsCalls(__GetCurrentThread(), true);
+	//__KernelReturnFromMipsCall();
+	sleep_ms(80); // ugly workaround to give time for the mips callback to executes and returned
+}
+
+// Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game may need to prepare something for the next callback event to use
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen) {
 	// Notify Event Handlers
-	SceNetAdhocMatchingHandlerArgs * Args = (SceNetAdhocMatchingHandlerArgs *)malloc(sizeof(SceNetAdhocMatchingHandlerArgs) + msg->optlen);
+	/*SceNetAdhocMatchingHandlerArgs * Args = (SceNetAdhocMatchingHandlerArgs *)malloc(sizeof(SceNetAdhocMatchingHandlerArgs) + msg->optlen);
 	//memset(&Args, 0, sizeof(Args));
 	Args->id = context->id;
 	Args->opcode = msg->opcode;
@@ -877,7 +896,32 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	Args->opt = (u8*)Args + sizeof(SceNetAdhocMatchingHandlerArgs); //&Args[1];
 	if (Args->optlen > 0) memcpy(Args->opt, opt, Args->optlen);
 	//it seems the content of msg->mac or opt may changed when it reached __UpdateMatchingHandlers, so we need to copy the content instead of using the pointer
-	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)Args);
+	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)Args);*/
+
+	u32_le args[5] = { 0, 0, 0, 0, 0 };
+	if ((s32)bufLen < (msg->optlen + 8)) {
+		bufLen = msg->optlen + 8;
+		if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
+		bufAddr = userMemory.Alloc(bufLen);
+		INFO_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, bufLen, bufAddr);
+	}
+	u8 * optPtr = Memory::GetPointer(bufAddr);
+	memcpy(optPtr, &msg->mac, sizeof(msg->mac));
+	if (msg->optlen > 0) memcpy(optPtr + 8, opt, msg->optlen);
+	args[0] = context->id;
+	args[1] = msg->opcode;
+	args[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
+	args[3] = msg->optlen;
+	args[4] = args[2] + 8;
+	//ActionAfterMipsCall *after = (ActionAfterMipsCall *)__KernelCreateAction(actionAfterMipsCall);
+	__KernelDirectMipsCall(context->handler.entryPoint, NULL, args, 5, true);
+	//while (after->isProcessingCallbacks) sleep_ms(1);
+	// Make sure MIPS call have been fully executed and returned before the next notifyMatchingHandler
+	//while (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) sleep_ms(1);
+	__KernelCheckCallbacks(); //__KernelForceCallbacks(); //__KernelExecutePendingMipsCalls(__GetCurrentThread(), true); // Need to make sure the MIPS call is executed and returned before calling the next __KernelDirectMipsCall to prevent some games (ie. DBZ Tag Team) unable to join a host successfully
+	//while (__KernelInCallback()) sleep_ms(1);
+	//__KernelReturnFromMipsCall();
+	sleep_ms(80); // ugly workaround to give time for the MIPS call to executes and returned before calling the next __KernelDirectMipsCall
 }
 
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
@@ -971,7 +1015,9 @@ int friendFinder(){
           // Change State
           threadStatus = ADHOCCTL_STATE_CONNECTED;
           // Notify Event Handlers
-          CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0));
+		  notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+		  //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0));
+		  //sleep_ms(80); // Giving time for the callback to fully executed and return
 
           // Move RX Buffer
           memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
@@ -1133,7 +1179,9 @@ int friendFinder(){
         threadStatus = ADHOCCTL_STATE_DISCONNECTED;
 
         // Notify Event Handlers
-        CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate,join32(ADHOCCTL_EVENT_SCAN, 0));
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+		//CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate,join32(ADHOCCTL_EVENT_SCAN, 0));
+		//sleep_ms(80); // Giving time for the callback to fully executed and return
         //int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
         //{
         //        // Active Handler
@@ -1501,3 +1549,70 @@ void split64(u64 num, int buff[]){
   buff[0] = num1;
   buff[1] = num2;
 }
+
+char* getMatchingEventStr(int code, char* buf) {
+	if (buf == NULL) return NULL;
+	switch (code) {
+	case PSP_ADHOC_MATCHING_EVENT_HELLO:
+		buf = "HELLO"; break;
+	case PSP_ADHOC_MATCHING_EVENT_REQUEST:
+		buf = "JOIN"; break;
+	case PSP_ADHOC_MATCHING_EVENT_LEAVE:
+		buf = "LEAVE"; break;
+	case PSP_ADHOC_MATCHING_EVENT_DENY:
+		buf = "REJECT"; break;
+	case PSP_ADHOC_MATCHING_EVENT_CANCEL:
+		buf = "CANCEL"; break;
+	case PSP_ADHOC_MATCHING_EVENT_ACCEPT:
+		buf = "ACCEPT"; break;
+	case PSP_ADHOC_MATCHING_EVENT_ESTABLISHED:
+		buf = "ESTABLISHED"; break;
+	case PSP_ADHOC_MATCHING_EVENT_TIMEOUT:
+		buf = "TIMEOUT"; break;
+	case PSP_ADHOC_MATCHING_EVENT_ERROR:
+		buf = "ERROR"; break;
+	case PSP_ADHOC_MATCHING_EVENT_BYE:
+		buf = "DISCONNECT"; break;
+	case PSP_ADHOC_MATCHING_EVENT_DATA:
+		buf = "DATA"; break;
+	case PSP_ADHOC_MATCHING_EVENT_DATA_ACK:
+		buf = "DATA_ACK"; break;
+	case PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT:
+		buf = "DATA_TIMEOUT"; break;
+	case PSP_ADHOC_MATCHING_EVENT_INTERNAL_PING:
+		buf = "INTERNAL_PING"; break;
+	default:
+		buf = "UNKNOWN";
+	}
+	return buf;
+}
+
+char* getMatchingOpcodeStr(int code, char* buf) {
+	if (buf == NULL) return NULL;
+	switch (code) {
+	case PSP_ADHOC_MATCHING_PACKET_PING:
+		buf = "PING"; break;
+	case PSP_ADHOC_MATCHING_PACKET_HELLO:
+		buf = "HELLO"; break;
+	case PSP_ADHOC_MATCHING_PACKET_JOIN:
+		buf = "JOIN"; break;
+	case PSP_ADHOC_MATCHING_PACKET_ACCEPT:
+		buf = "ACCEPT"; break;
+	case PSP_ADHOC_MATCHING_PACKET_CANCEL:
+		buf = "CANCEL"; break;
+	case PSP_ADHOC_MATCHING_PACKET_BULK:
+		buf = "BULK"; break;
+	case PSP_ADHOC_MATCHING_PACKET_BULK_ABORT:
+		buf = "BULK_ABORT"; break;
+	case PSP_ADHOC_MATCHING_PACKET_BIRTH:
+		buf = "BIRTH"; break;
+	case PSP_ADHOC_MATCHING_PACKET_DEATH:
+		buf = "DEATH"; break;
+	case PSP_ADHOC_MATCHING_PACKET_BYE:
+		buf = "BYE"; break;
+	default:
+		buf = "UNKNOWN";
+	}
+	return buf;
+}
+
