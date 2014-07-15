@@ -42,8 +42,6 @@
 
 #include "util/text/utf8.h"
 
-#define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
-
 using namespace std;
 static int global_id;
 static bool etc1 = false;
@@ -812,6 +810,7 @@ int main(int argc, char **argv) {
 	while (!feof(script)) {
 		if (!fgets(line, 511, script)) break;
 		if (!strlen(line)) break;
+		if (line[0] == '#') continue;
 		char *rest = strchr(line, ' ');
 		if (rest) {
 			*rest = 0;
