@@ -1153,7 +1153,7 @@ void __KernelThreadingInit()
 		MIPS_MAKE_JR_RA(),
 		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
-		MIPS_MAKE_BREAK(),
+		MIPS_MAKE_BREAK(0),
 	};
 
 	// If you add another func here, don't forget __KernelThreadingDoState() below.
@@ -3385,8 +3385,10 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	cur->currentMipscallId = call->savedId;
 
-	if (call->cbId != 0)
+	// If the thread called ExitDelete, we might've already decreased g_inCbCount.
+	if (call->cbId != 0 && g_inCbCount > 0) {
 		g_inCbCount--;
+	}
 	currentCallbackThreadID = 0;
 
 	if (cur->nt.waitType != WAITTYPE_NONE)

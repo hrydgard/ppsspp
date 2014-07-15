@@ -628,8 +628,10 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						*remains = 0;
 						return ATRAC_ERROR_ALL_DATA_DECODED;
 					}
-					if (avret != packet.size) {
-						ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame/packet");
+					// FFmpeg seems to return packet.size / 10.
+					// However, advancing the packet by this causes decode errors.  Bug?
+					if (avret != packet.size && avret != packet.size / 10) {
+						ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame per packet");
 					}
 
 					if (got_frame) {

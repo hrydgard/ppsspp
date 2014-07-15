@@ -32,7 +32,7 @@
 #define MIPS_MAKE_LUI(reg, immval) (0x3c000000 | ((reg) << 16) | (immval))
 #define MIPS_MAKE_LW(rt, rs, immval) (0x8c000000 | ((rs) << 21) | ((rt) << 16) | (immval))
 #define MIPS_MAKE_SYSCALL(module, function) GetSyscallOp(module, GetNibByName(module, function))
-#define MIPS_MAKE_BREAK() (13)  // ! :)
+#define MIPS_MAKE_BREAK(n) (((n) << 6) | 13)  // ! :)
 
 #define MIPS_GET_OP(op)   ((op>>26) & 0x3F)
 #define MIPS_GET_FUNC(op) (op & 0x3F)

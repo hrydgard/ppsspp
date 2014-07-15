@@ -323,12 +323,7 @@ namespace MainWindow
 		::SetMenu(hWnd, menu);
 
 		// Resize to normal view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = g_normalRC.left;
-		const int y = g_normalRC.top;
-		const int cx = g_normalRC.right - g_normalRC.left;
-		const int cy = g_normalRC.bottom - g_normalRC.top;
-		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		ShowWindow(hwndMain, SW_RESTORE);
 
 		// Reset full screen indicator.
 		g_Config.bFullScreen = false;
@@ -363,12 +358,7 @@ namespace MainWindow
 		::SetMenu(hWnd, NULL);
 
 		// Resize to full screen view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = 0;
-		const int y = 0;
-		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
-		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		ShowWindow(hwndMain, SW_MAXIMIZE);
 
 		// Set full screen indicator.
 		g_Config.bFullScreen = true;

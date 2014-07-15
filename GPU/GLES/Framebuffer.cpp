@@ -1018,22 +1018,31 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
+		bool writingDepth = true;
+		// Technically, it may write depth later, but we're trying to detect it only when it's really true.
+		if (gstate.isModeClear()) {
+			writingDepth = !gstate.isClearModeDepthMask() && gstate.isDepthWriteEnabled();
+		} else {
+			writingDepth = gstate.isDepthWriteEnabled();
+		}
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
 			if (vfbs_[i]->z_stride != 0 && fb_address == vfbs_[i]->z_address) {
 				// If it's clearing it, most likely it just needs more video memory.
 				// Technically it could write something interesting and the other might not clear, but that's not likely.
 				if (!gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask()) {
-					WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+					if (fb_address != z_address && vfbs_[i]->fb_address != vfbs_[i]->z_address) {
+						WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+					}
 				}
 			} else if (z_stride != 0 && z_address == vfbs_[i]->fb_address) {
 				// If it's clearing it, then it's probably just the reverse of the above case.
-				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				if (writingDepth) {
 					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
 			} else if (vfbs_[i]->z_stride != 0 && z_address == vfbs_[i]->z_address && fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
-				if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				if (writingDepth) {
 					WARN_LOG_REPORT(SCEGE, "FBO reusing depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 					sharingReported = true;
 				}
