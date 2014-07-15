@@ -823,7 +823,7 @@ static bool IsHLEVersionedModule(const char *name) {
 	return false;
 }
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic, u32 &error) {
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -908,7 +908,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	// Open ELF reader
 	ElfReader reader((void*)ptr);
 
-	int result = reader.LoadInto(loadAddress);
+	int result = reader.LoadInto(loadAddress, fromTop);
 	if (result != SCE_KERNEL_ERROR_OK) 	{
 		ERROR_LOG(SCEMODULE, "LoadInto failed with error %08x",result);
 		if (newptr)
@@ -1364,7 +1364,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
 	u32 magic;
 	u32 error;
-	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 	if (!module) {
 		delete [] elfData;
 		return false;
@@ -1404,7 +1404,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		}
 
 		u32 error;
-		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 
 		if (temp) {
 			delete [] temp;
@@ -1414,7 +1414,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 	{
 		u32 error;
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 	}
 
 	return module;
@@ -1649,8 +1649,6 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported flags: %08x", flags);
 	}
 	SceKernelLMOption *lmoption = 0;
-	int position = 0;
-	// TODO: Use position to decide whether to load high or low
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
@@ -1662,7 +1660,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
 
@@ -2116,7 +2114,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u8 *temp = new u8[size];
 	pspFileSystem.ReadFile(handle, temp, size);
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 
 	if (!module) {
@@ -2172,7 +2170,7 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	Module *module = 0;
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.

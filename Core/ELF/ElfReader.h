@@ -134,7 +134,7 @@ public:
 	u32 GetTotalDataSize() const;
 
 	// More indepth stuff:)
-	int LoadInto(u32 vaddr);
+	int LoadInto(u32 vaddr, bool fromTop);
 	bool LoadSymbols();
 	bool LoadRelocations(Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);

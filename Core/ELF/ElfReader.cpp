@@ -348,7 +348,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-int ElfReader::LoadInto(u32 loadAddress)
+int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 {
 	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
 
@@ -402,7 +402,7 @@ int ElfReader::LoadInto(u32 loadAddress)
 	else
 	{
 		// Just put it where there is room
-		vaddr = userMemory.Alloc(totalSize, false, "ELF");
+		vaddr = userMemory.Alloc(totalSize, fromTop, "ELF");
 	}
 
 	if (vaddr == (u32)-1) {
