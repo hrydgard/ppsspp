@@ -863,6 +863,17 @@ void NativeResized() {
 		// The UI now supports any offset but not the EmuScreen yet.
 		uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
 		// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
+
+
+// OSX 10.6 and SDL 1.2 bug.
+#ifdef __APPLE__
+		static int dp_xres_old=dp_xres;
+		if (dp_xres != dp_xres_old) {
+			UIShader_Init();
+			uiTexture->Load("ui_atlas.zim");
+			dp_xres_old = dp_xres;
+		}
+#endif
 	}
 }
 
