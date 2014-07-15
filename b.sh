@@ -12,6 +12,9 @@ fi
 while test $# -gt 0
 do
 	case "$1" in
+		--release)
+			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release ${CMAKE_ARGS}"
+			;;
 		--headless) echo "Headless mode enabled"
 			CMAKE_ARGS="-DHEADLESS=ON ${CMAKE_ARGS}"
 			;;
