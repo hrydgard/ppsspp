@@ -1651,6 +1651,18 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	SceKernelLMOption *lmoption = 0;
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
+		if (lmoption->position < 0 || lmoption->position > 4) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position", name, lmoption->position);
+			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+		}
+		if (lmoption->position == 3 || lmoption->position == 4) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name, lmoption->position);
+			return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
+		}
+		if (lmoption->position == 2) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name, lmoption->position);
+			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		}
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 
