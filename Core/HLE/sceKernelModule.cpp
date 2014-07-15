@@ -1479,7 +1479,9 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		u32 error;
 		while (!loadedModules.empty()) {
 			Module *module = kernelObjects.Get<Module>(*loadedModules.begin(), error);
-			module->Cleanup();
+			if (module) {
+				module->Cleanup();
+			}
 		}
 
 		Replacement_Shutdown();
