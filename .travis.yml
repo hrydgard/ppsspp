@@ -21,6 +21,7 @@ matrix:
 
 before_install:
   - git submodule update --init --recursive
+  - sudo apt-get update -qq
   - sudo apt-get install aria2 -qq
   - download_extract() { aria2c -x 16 $1 -o $2 && tar -xf $2; }
 # Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
