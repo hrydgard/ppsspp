@@ -217,7 +217,8 @@ public:
 	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
-			if (memoryBlockAddr < PSP_GetUserMemoryBase()) {
+			// If it's either below user memory, or using a high kernel bit, it's in kernel.
+			if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
 				kernelMemory.Free(memoryBlockAddr);
 			} else {
 				userMemory.Free(memoryBlockAddr);
