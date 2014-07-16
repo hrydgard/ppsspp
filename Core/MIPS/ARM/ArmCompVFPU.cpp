@@ -180,14 +180,9 @@ namespace MIPSComp
 			if (js.VfpuWriteMask(i))
 				continue;
 
-			// TODO: These clampers are wrong - put this into google
-			// and look at the plot:   abs(x) - abs(x-0.5) + 0.5
-			// It's too steep.
-
-			// Also, they mishandle NaN and Inf.
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
-				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
+				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				
 				MOVI2F(S0, 0.0f, SCRATCHREG1);
@@ -203,6 +198,7 @@ namespace MIPSComp
 				VMOV(fpr.V(vregs[i]), S1);
 				SetCC(CC_AL);
 			} else if (sat == 3) {
+				// clamped = x < -1 ? (x > 1 ? 1 : x) : x [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 
 				MOVI2F(S0, -1.0f, SCRATCHREG1);
@@ -976,8 +972,7 @@ namespace MIPSComp
 				// Seems to work well enough but can disable if it becomes a problem.
 				// Should be easy enough to translate to NEON. There we can load all the constants
 				// in one go of course.
-				MOVI2F(S0, 0.0f, SCRATCHREG1);
-				VCMP(fpr.V(sregs[i]), S0);       // flags = sign(sregs[i])
+				VCMP(fpr.V(sregs[i]));       // flags = sign(sregs[i])
 				VMRS_APSR();
 				MOVI2F(S0, 1.0f, SCRATCHREG1);
 				VABS(t4, fpr.V(sregs[i]));   // t4 = |sregs[i]|
@@ -1606,7 +1601,6 @@ namespace MIPSComp
 
 		case VC_EZ:
 		case VC_NZ:
-			MOVI2F(S0, 0.0f, SCRATCHREG1);
 			break;
 		default:
 			;
@@ -1710,14 +1704,14 @@ namespace MIPSComp
 
 			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]), S0);
+				VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
 				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_NZ: // c = s[i] != 0
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]), S0);
+				VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
 				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
@@ -1997,11 +1991,7 @@ namespace MIPSComp
 
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			// Let's do it integer registers for now. NEON later.
-			// There's gotta be a shorter way, can't find one though that takes
-			// care of NaNs like the interpreter (ignores them and just operates on the bits).
-			MOVI2F(S0, 0.0f, SCRATCHREG1);
-			VCMP(fpr.V(sregs[i]), S0);
+			VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
 			VMOV(SCRATCHREG1, fpr.V(sregs[i]));
 			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 			SetCC(CC_NEQ);
