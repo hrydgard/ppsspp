@@ -512,7 +512,7 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 		} else {
 			DEBUG_LOG(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 		}
-	} else if (error = SCE_KERNEL_ERROR_FOUND_HANDLER) {
+	} else if (error == SCE_KERNEL_ERROR_FOUND_HANDLER) {
 		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): duplicate handler", intrNumber, subIntrNumber, handler, handlerArg);
 	} else {
 		ERROR_LOG_REPORT(SCEINTC, "sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x): error %08x", intrNumber, subIntrNumber, handler, handlerArg, error);
@@ -532,7 +532,7 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
 
 	u32 error = __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
 	if (error != SCE_KERNEL_ERROR_OK) {
-		ERROR_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber);
+		ERROR_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i): error %08x", intrNumber, subIntrNumber, error);
 	}
 	return error;
 }
