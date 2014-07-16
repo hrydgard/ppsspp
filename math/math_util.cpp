@@ -5,7 +5,7 @@
 #endif
 
 // QNX can only use RunFast mode and it is already the default.
-#if defined(ARM) && !defined(BLACKBERRY) && !defined(__SYMBIAN32__)
+#if defined(__ARM_ARCH_7A__) && !defined(BLACKBERRY) && !defined(__SYMBIAN32__)
 // Enables 'RunFast' VFP mode.
 void EnableFZ() {
 	int x;
