@@ -1691,7 +1691,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
-	__KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
+	bool NeedReSchedule = __KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
 	thread->nt.numReleases++;
 	thread->waitInfo.waitValue = waitValue;
 	thread->waitInfo.timeoutPtr = timeoutPtr;
@@ -1702,8 +1702,8 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	// TODO: time waster
 	if (!reason)
 		reason = "started wait";
-
-	hleReSchedule(processCallbacks, reason);
+	if (NeedReSchedule)
+		hleReSchedule(processCallbacks, reason);
 	// TODO: Remove thread from Ready queue?
 }
 
@@ -3217,13 +3217,25 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	}
 }
 
-void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
+bool __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
 	if (!thread || thread->nt.status == newStatus)
-		return;
+		return false;
 
-	if (!dispatchEnabled && thread == __GetCurrentThread() && newStatus != THREADSTATUS_RUNNING) {
-		ERROR_LOG(SCEKERNEL, "Dispatching suspended, not changing thread state");
-		return;
+	if (thread == __GetCurrentThread() && newStatus != THREADSTATUS_RUNNING) {
+		if (__IsInInterrupt()) {
+			ERROR_LOG(SCEKERNEL, "Inside an interrupt, not changing thread state");
+			return false;
+		}
+
+		if (!__InterruptsEnabled()) {
+			ERROR_LOG(SCEKERNEL, "Interrupts are disabled, not changing thread state");
+			return false;
+		}
+
+		if (!dispatchEnabled) {
+			ERROR_LOG(SCEKERNEL, "Dispatching suspended, not changing thread state");
+			return false;
+		}
 	}
 
 	// TODO: JPSCP has many conditions here, like removing wait timeout actions etc.
@@ -3239,6 +3251,7 @@ void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
 
 		// Schedule deletion of stopped threads here.  if (thread->isStopped())
 	}
+	return true;
 }
 
 
