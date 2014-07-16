@@ -21,6 +21,7 @@
 #include "base/mutex.h"
 #include "thread/thread.h"
 #include "net/resolve.h"
+#include "Common/ChunkFile.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -414,6 +415,7 @@ typedef struct SceNetAdhocMatchingContext {
   // Event Caller Thread
   std::thread eventThread; // s32_le event_thid;
   bool eventRunning = false;
+  bool IsMatchingInCB = false;
 
   // IO Handler Thread
   std::thread inputThread; // s32_le input_thid;
@@ -634,6 +636,27 @@ typedef struct {
 #pragma pack(pop)
 #endif
 
+class AfterMatchingMipsCall : public Action {
+public:
+	AfterMatchingMipsCall() {}
+	static Action *Create() { return new AfterMatchingMipsCall(); }
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("AfterMatchingMipsCall", 1, 2);
+		if (!s)
+			return;
+
+		p.Do(ID);
+	}
+	void run(MipsCall &call);
+	void SetID(u32 Id) { ID = Id; }
+
+private:
+	u32 ID;
+};
+
+extern int actionAfterMatchingMipsCall;
+extern bool IsAdhocctlInCB;
+
 // Aux vars
 extern int metasocket;
 extern SceNetAdhocctlParameter parameter;
@@ -654,6 +677,9 @@ extern int eventAdhocctlHandlerUpdate;
 extern int eventMatchingHandlerUpdate;
 extern int threadStatus;
 // End of Aux vars
+
+// Check if Matching callback is running
+bool IsMatchingInCallback(SceNetAdhocMatchingContext * context);
 
 /**
  * Local MAC Check
@@ -765,7 +791,7 @@ SceNetAdhocMatchingContext * findMatchingContext(int id);
 /*
 * Notify Matching Event Handler
 */
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen);
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args);
 // Notifiy Adhocctl Handlers
 void notifyAdhocctlHandlers(int flag, int error);
 

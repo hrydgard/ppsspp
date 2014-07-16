@@ -132,6 +132,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 	p.Do(netAdhocctlInited);
 	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
+
+	//p.Do(actionAfterMatchingMipsCall);
+	//__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
@@ -143,6 +146,19 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
 		args[2] = it->second.argument;
 		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 	}
+}
+
+void __UpdateMatchingHandler(u64 ArgsPtr) {
+	u32_le * args = (u32_le *)ArgsPtr;
+	peerlock.lock();
+	SceNetAdhocMatchingContext * context = findMatchingContext(args[0]);
+	peerlock.unlock();
+	AfterMatchingMipsCall *after = (AfterMatchingMipsCall *)__KernelCreateAction(actionAfterMatchingMipsCall);
+	after->SetID(context->id);
+	context->IsMatchingInCB = true;
+	__KernelDirectMipsCall(context->handler.entryPoint, after, args, 5, true);
+	// Make sure MIPS call have been fully executed before the next callback invoked
+	//while (/*(after != NULL) &&*/ IsMatchingInCallback(context)) sleep_ms(1); //Must not sleep inside callback handler otherwise Metal Slug XX will gets ThreadQueueList Empty popup
 }
 
 int getBlockingFlag(int id) {
@@ -160,13 +176,19 @@ void __handlerAdhocctlUpdateCallback(u64 userdata, int cycleslate) {
 	__UpdateAdhocctlHandlers(buff[0], buff[1]);
 }
 
+void __handlerMatchingUpdateCallback(u64 userdata, int cycleslate) {
+	__UpdateMatchingHandler(userdata);
+}
+
 void __NetAdhocInit() {
 	friendFinderRunning = false;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
 	netAdhocMatchingInited = false;
 	adhocctlHandlers.clear();
+	actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
 	eventAdhocctlHandlerUpdate = CoreTiming::RegisterEvent("AdhocctlHandlerUpdateEvent", __handlerAdhocctlUpdateCallback);
+	eventMatchingHandlerUpdate = CoreTiming::RegisterEvent("MatchingHandlerUpdateEvent", __handlerMatchingUpdateCallback);
 }
 
 u32 sceNetAdhocInit() {
@@ -871,16 +893,6 @@ int sceNetAdhocctlScan() {
 		if (threadStatus == ADHOCCTL_STATE_DISCONNECTED) {
 			threadStatus = ADHOCCTL_STATE_SCANNING;
 
-			// Multithreading Lock
-			peerlock.lock();
-
-			// It seems AdHoc Server always sent the full group list, so we should reset current networks to prevent leaving host to be listed again
-			freeGroupsRecursive(networks);
-			networks = NULL;
-
-			// Multithreading Unlock
-			peerlock.unlock();
-
 			// Prepare Scan Request Packet
 			uint8_t opcode = OPCODE_SCAN;
 
@@ -1271,7 +1283,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			buf->mac_addr = *maddr;
 			buf->ip_addr = addr.sin_addr.s_addr; // 0x11111111;
 			//buf->padding = 0x1111; //0;
-			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; // (uint64_t)time(NULL);
+			buf->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
 
 			// Success
 			retval = 0;
@@ -1285,7 +1297,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
 			if (peer != NULL) {
 				// Fake Receive Time
-				peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+				if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 
 				//buf->next = 0;
 				buf->nickname = peer->nickname;
@@ -2541,6 +2553,7 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 			delete item->inputlock; 
 			// Free item context memory
 			free(item);
+			item = NULL;
 
 			// Stop Search
 			break;
@@ -2558,7 +2571,7 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 }
 
 int sceNetAdhocMatchingInit(u32 memsize) {
-	INFO_LOG(SCENET, "sceNetAdhocMatchingInit(%d) at %08x", memsize, currentMIPS->pc);
+	WARN_LOG(SCENET, "sceNetAdhocMatchingInit(%d) at %08x", memsize, currentMIPS->pc);
 	
 	// Uninitialized Library
 	if (netAdhocMatchingInited) return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
@@ -2597,7 +2610,7 @@ int sceNetAdhocMatchingTerm() {
 
 // Presumably returns a "matchingId".
 int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int hello_int, int keepalive_int, int init_count, int rexmt_int, u32 callbackAddr) {
-	INFO_LOG(SCENET, "sceNetAdhocMatchingCreate(mode=%i, maxnum=%i, port=%i, rxbuflen=%i, hello=%i, keepalive=%i, initcount=%i, rexmt=%i, callbackAddr=%08x) at %08x", mode, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, callbackAddr, currentMIPS->pc);
+	WARN_LOG(SCENET, "sceNetAdhocMatchingCreate(mode=%i, maxnum=%i, port=%i, rxbuflen=%i, hello=%i, keepalive=%i, initcount=%i, rexmt=%i, callbackAddr=%08x) at %08x", mode, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, callbackAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -2650,7 +2663,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbuflen, int 
 								context->rxbuflen = rxbuflen;
 								if (hello_int < 10000) context->hello_int = 10000; else context->hello_int = hello_int;
 								//context->keepalive_int = 500000;
-								if (keepalive_int < 10000) context->keepalive_int = 10000; else context->keepalive_int = keepalive_int;
+								if (keepalive_int < 100000) context->keepalive_int = 100000; else context->keepalive_int = keepalive_int;
 								if (init_count < 1) context->resendcounter = 1; else context->resendcounter = init_count;
 								//context->keepalivecounter = 100;
 								if (init_count < 10) context->keepalivecounter = 10; else context->keepalivecounter = init_count;
@@ -3543,7 +3556,7 @@ int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 					// Iterate Peers
 					for (; peer != NULL && discovered < requestcount; peer = peer->next) {
 						// Fake Receive Time
-						peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL);
+						if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 
 						// Copy Peer Info
 						buf[discovered].nickname = peer->nickname;
@@ -3631,7 +3644,7 @@ int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr)
 						getLocalMac(&buf[discovered].mac_addr);
 						buf[discovered].ip_addr = addr.sin_addr.s_addr; // 0x11111111;
 						//buf->padding = 0x1111; //0;
-						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; // (uint64_t)time(NULL);
+						buf[discovered++].last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
 					}
 
 					// Peer Reference
@@ -3644,7 +3657,7 @@ int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr)
 						if (strcmp((char *)peer->nickname.data, nickName) == 0)
 						{
 							// Fake Receive Time
-							peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL); //sceKernelGetSystemTimeWide();
+							if (peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //sceKernelGetSystemTimeWide();
 
 							// Copy Peer Info
 							buf[discovered].nickname = peer->nickname;
@@ -4685,6 +4698,7 @@ int matchingEventThread(int matchingId)
 {
 	u32 bufLen = 0;
 	u32 bufAddr = 0;
+	static u32_le args[5] = { 0, 0, 0, 0, 0 }; // Need to be global/static so it can be accessed from a different thread
 
 	// Multithreading Lock
 	peerlock.lock();
@@ -4724,8 +4738,7 @@ int matchingEventThread(int matchingId)
 					// Call Event Handler
 					//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 					// Notify Event Handlers
-					notifyMatchingHandler(context, msg, opt, bufAddr, bufLen);
-					//sleep_ms(80); // Ugly workaround, Giving time for the callback to fully executed and return, needed for DBZ Team Tag to be able to join a room successfully
+					notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
 				}
 
 				// Clear Event Message Stack
@@ -4762,8 +4775,7 @@ int matchingEventThread(int matchingId)
 				// Original Call Event Handler
 				//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 				// Notify Event Handlers
-				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen);
-				//sleep_ms(80); // Ugly workaround, Giving time for the callback to fully executed and return
+				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
 			}
 
 			// Clear Event Message Stack
@@ -4907,7 +4919,7 @@ int matchingInputThread(int matchingId)
 					now = CoreTiming::GetGlobalTimeUsScaled();
 					u64_le delta = now - peer->last_recv;
 					DEBUG_LOG(SCENET, "Timestamp Delta: %llu (%llu - %llu)", delta, now, peer->last_recv);
-					peer->last_recv = now; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
+					if (/*context->rxbuf[0] > 0 &&*/ peer->last_recv != 0) peer->last_recv = now; // - context->keepalive_int; // May need to deduce by ping interval to prevent Dissidia 012 unable to see other players (ie. disappearing issue)
 				}
 				peerlock.unlock();
 				

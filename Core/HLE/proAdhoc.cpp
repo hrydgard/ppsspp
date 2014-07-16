@@ -34,8 +34,13 @@ int one                               = 1;
 bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
+SceNetAdhocctlScanInfo * newnetworks  = NULL;
 int eventAdhocctlHandlerUpdate        = -1;
+int eventMatchingHandlerUpdate        = -1;
 int threadStatus                      = ADHOCCTL_STATE_DISCONNECTED;
+
+bool IsAdhocctlInCB = false;
+int actionAfterMatchingMipsCall;
 
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
@@ -105,7 +110,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	  peer->mac_addr = packet->mac;
 	  peer->ip_addr = packet->ip;
 	  // Update TimeStamp
-	  peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL);
+	  peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
   }
   else
   {
@@ -127,7 +132,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 		  peer->ip_addr = packet->ip;
 
 		  // TimeStamp
-		  peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0; //(uint64_t)time(NULL);
+		  peer->last_recv = CoreTiming::GetGlobalTimeUsScaled(); 
 
 		  // Link to existing Peers
 		  peer->next = friends;
@@ -253,38 +258,42 @@ void deleteAllPTP(void) {
 }
 
 void deleteFriendByIP(uint32_t ip) {
-  // Previous Peer Reference
-  SceNetAdhocctlPeerInfo * prev = NULL;
+	// Previous Peer Reference
+	SceNetAdhocctlPeerInfo * prev = NULL;
 
-  // Peer Pointer
-  SceNetAdhocctlPeerInfo * peer = friends;
+	// Peer Pointer
+	SceNetAdhocctlPeerInfo * peer = friends;
 
-  // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
-    // Found Peer
-    if(peer->ip_addr == ip) {
-      // Multithreading Lock
-      peerlock.lock();
+	// Iterate Peers
+	for (; peer != NULL; peer = peer->next) {
+		// Found Peer
+		if (peer->ip_addr == ip) {
+			// Instead of removing it from the list we'll make it timeout since most Matching games are moving group and still need the peer data
+			peer->last_recv = 0;
 
-      // Unlink Left (Beginning)
-      if(prev == NULL)friends = peer->next;
+			// Multithreading Lock
+			/*peerlock.lock();
 
-      // Unlink Left (Other)
-      else prev->next = peer->next;
+			// Unlink Left (Beginning)
+			if(prev == NULL)friends = peer->next;
 
-      // Multithreading Unlock
-      peerlock.unlock();
+			// Unlink Left (Other)
+			else prev->next = peer->next;
 
-      // Free Memory
-      free(peer);
+			// Multithreading Unlock
+			peerlock.unlock();
 
-      // Stop Search
-      break;
-    }
+			// Free Memory
+			free(peer);
+			peer = NULL;*/
 
-    // Set Previous Reference
-    prev = peer;
-  }
+			// Stop Search
+			break;
+		}
+
+		// Set Previous Reference
+		prev = peer;
+	}
 }
 
 int findFreeMatchingID(void) {
@@ -781,7 +790,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //real_time_now()*1000000.0
 		// Timeout!
-		if ((now - peer->lastping) >= (context->keepalive_int * (context->keepalivecounter + 1) * 4)) // For internet play we need higher timeout than what the game wanted
+		if ((now - peer->lastping) >= (context->keepalive_int * (context->keepalivecounter + 1))) // For internet play we need higher timeout than what the game wanted
 		{
 			// Spawn Timeout Event
 			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)) ||
@@ -868,37 +877,38 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 	peerlock.unlock();
 }
 
-void notifyAdhocctlHandlers(int flag, int error) {
-	u32_le args[3] = { 0, 0, 0 };
-	args[0] = flag;
-	args[1] = error;
-
-	for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
-		args[2] = it->second.argument;
-		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
-	}
-	// Make sure MIPS calls have been fully executed and returned before the next notifyAdhocctlHandlers
-	//while (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) sleep_ms(1);
-	__KernelCheckCallbacks(); //__KernelForceCallbacks(); //__KernelExecutePendingMipsCalls(__GetCurrentThread(), true);
-	//__KernelReturnFromMipsCall();
-	sleep_ms(80); // ugly workaround to give time for the mips callback to executes and returned
+bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
+	bool inCB = false;
+	peerlock.lock();
+	inCB = (context != NULL && context->IsMatchingInCB);
+	peerlock.unlock();
+	return inCB;
 }
 
-// Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game may need to prepare something for the next callback event to use
-void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen) {
-	// Notify Event Handlers
-	/*SceNetAdhocMatchingHandlerArgs * Args = (SceNetAdhocMatchingHandlerArgs *)malloc(sizeof(SceNetAdhocMatchingHandlerArgs) + msg->optlen);
-	//memset(&Args, 0, sizeof(Args));
-	Args->id = context->id;
-	Args->opcode = msg->opcode;
-	Args->mac = msg->mac;
-	Args->optlen = msg->optlen;
-	Args->opt = (u8*)Args + sizeof(SceNetAdhocMatchingHandlerArgs); //&Args[1];
-	if (Args->optlen > 0) memcpy(Args->opt, opt, Args->optlen);
-	//it seems the content of msg->mac or opt may changed when it reached __UpdateMatchingHandlers, so we need to copy the content instead of using the pointer
-	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)Args);*/
+void AfterMatchingMipsCall::run(MipsCall &call) {
+	VERBOSE_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i]", ID);
+	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
+	peerlock.lock();
+	SceNetAdhocMatchingContext * context = findMatchingContext(ID);
+	if (context != NULL) {
+		context->IsMatchingInCB = false;
+	}
+	peerlock.unlock();
+	//call.setReturnValue(0);
+	VERBOSE_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i]", ID);
+}
 
-	u32_le args[5] = { 0, 0, 0, 0, 0 };
+// Make sure MIPS calls have been fully executed before the next notifyAdhocctlHandlers
+void notifyAdhocctlHandlers(int flag, int error) {
+	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(flag, error));
+	__KernelCheckCallbacks();
+	//while (__KernelCurHasReadyCallbacks() || __KernelInCallback()) sleep_ms(1);
+	sleep_ms(80); // Ugly workaround to give time for the mips callback to fully executed
+}
+
+// Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game (ie. DBZ Tag Team) may need to prepare something for the next callback event to use
+void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
+	//u32_le args[5] = { 0, 0, 0, 0, 0 };
 	if ((s32)bufLen < (msg->optlen + 8)) {
 		bufLen = msg->optlen + 8;
 		if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
@@ -913,15 +923,16 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	args[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
 	args[3] = msg->optlen;
 	args[4] = args[2] + 8;
-	//ActionAfterMipsCall *after = (ActionAfterMipsCall *)__KernelCreateAction(actionAfterMipsCall);
-	__KernelDirectMipsCall(context->handler.entryPoint, NULL, args, 5, true);
-	//while (after->isProcessingCallbacks) sleep_ms(1);
-	// Make sure MIPS call have been fully executed and returned before the next notifyMatchingHandler
-	//while (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) sleep_ms(1);
-	__KernelCheckCallbacks(); //__KernelForceCallbacks(); //__KernelExecutePendingMipsCalls(__GetCurrentThread(), true); // Need to make sure the MIPS call is executed and returned before calling the next __KernelDirectMipsCall to prevent some games (ie. DBZ Tag Team) unable to join a host successfully
-	//while (__KernelInCallback()) sleep_ms(1);
-	//__KernelReturnFromMipsCall();
-	sleep_ms(80); // ugly workaround to give time for the MIPS call to executes and returned before calling the next __KernelDirectMipsCall
+	
+	context->IsMatchingInCB = true;
+	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)args);
+
+	/*AfterMatchingMipsCall *after = (AfterMatchingMipsCall *)__KernelCreateAction(actionAfterMatchingMipsCall); // Does Action need to resides in the same address space with the thread that runs callback handlers?
+	after->SetID(context->id);
+	__KernelDirectMipsCall(context->handler.entryPoint, after, args, 5, true);*/
+	// Make sure MIPS call have been fully executed before the next notifyMatchingHandler
+	while (/*(after != NULL) &&*/ IsMatchingInCallback(context)) sleep_ms(1);
+	sleep_ms(20); // Wait a little more to prevent DBZ Tag Team from getting connection lost
 }
 
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
@@ -1016,8 +1027,6 @@ int friendFinder(){
           threadStatus = ADHOCCTL_STATE_CONNECTED;
           // Notify Event Handlers
 		  notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-		  //CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_CONNECT, 0));
-		  //sleep_ms(80); // Giving time for the callback to fully executed and return
 
           // Move RX Buffer
           memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
@@ -1091,7 +1100,7 @@ int friendFinder(){
           SceNetAdhocctlDisconnectPacketS2C * packet = (SceNetAdhocctlDisconnectPacketS2C *)rx;
 
           // Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
-          //deleteFriendByIP(packet->ip); 
+          deleteFriendByIP(packet->ip); 
 
           // Update HUD User Count
 #ifdef LOCALHOST_AS_PEER
@@ -1121,8 +1130,6 @@ int friendFinder(){
 		  // Multithreading Lock
 		  peerlock.lock();
 
-		  // It seems AdHoc Server always sent the full group list, so we should reset group list during Scan initialization
-
 		  // Should only add non-existing group (or replace an existing group) to prevent Ford Street Racing from showing a strange game session list
 		  /*SceNetAdhocctlScanInfo * group = findGroup(&packet->mac);
 
@@ -1145,7 +1152,7 @@ int friendFinder(){
 				  memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
 
 				  // Link to existing Groups
-				  group->next = networks;
+				  group->next = newnetworks;
 
 				  // Copy Group Name
 				  group->group_name = packet->group;
@@ -1154,7 +1161,7 @@ int friendFinder(){
 				  group->bssid.mac_addr = packet->mac;
 
 				  // Link into Group List
-				  networks = group;
+				  newnetworks = group;
 			  }
 		  }
 
@@ -1175,13 +1182,18 @@ int friendFinder(){
         // Log Scan Completion
         INFO_LOG(SCENET,"FriendFinder: Incoming Scan complete response...");
 
+		// Reset current networks to prevent leaving host to be listed again
+		peerlock.lock();
+		freeGroupsRecursive(networks);
+		networks = newnetworks;
+		newnetworks = NULL;
+		peerlock.unlock();
+
         // Change State
         threadStatus = ADHOCCTL_STATE_DISCONNECTED;
 
         // Notify Event Handlers
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-		//CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate,join32(ADHOCCTL_EVENT_SCAN, 0));
-		//sleep_ms(80); // Giving time for the callback to fully executed and return
         //int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
         //{
         //        // Active Handler
