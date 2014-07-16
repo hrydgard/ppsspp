@@ -351,7 +351,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	currentBlock = block*blockLBAs;
 
 	if(table[block].unk_1c!=0){
-		if(block==(numBlocks-1))
+		if((u32)block==(numBlocks-1))
 			return true; // demos make by fake_np
 		else
 			return false;
@@ -366,7 +366,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 
 	readSize = fread(readBuf, 1, table[block].size, f);
 	if(readSize != (size_t)table[block].size){
-		if(block==(numBlocks-1))
+		if((u32)block==(numBlocks-1))
 			return true;
 		else
 			return false;

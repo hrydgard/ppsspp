@@ -15,11 +15,11 @@ class AT3PlusReader {
 public:
 	AT3PlusReader(const std::string &data)
 	: data_(data),
-		raw_offset_(0),
 		file_((const uint8_t *)&data[0],
 		(int32_t)data.size()),
 		raw_data_(0),
 		raw_data_size_(0),
+		raw_offset_(0),
 		buffer_(0),
 		decoder_(0) {
 
@@ -123,7 +123,7 @@ public:
 	bool Read(short *buffer, int len) {
 		if (!raw_data_)
 			return false;
-		while (bgQueue.size() < len * 2) {
+		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outBytes;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
 			if (!outBytes)
@@ -205,4 +205,5 @@ int MixBackgroundAudio(short *buffer, int size) {
 		memset(buffer, 0, size * 2 * sizeof(s16));
 	}
 	return 0;
-}	
+}
+

@@ -80,7 +80,7 @@ SOURCES += $$P/UI/*Screen.cpp \
 arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 
 HEADERS += $$P/UI/*.h
-INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext
+INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext $$P/native/ext/glew
 
 mobile_platform: RESOURCES += $$P/Qt/assets.qrc
 else {

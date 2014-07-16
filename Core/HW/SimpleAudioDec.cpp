@@ -62,7 +62,7 @@ bool SimpleAudio::GetAudioCodecID(int audioType) {
 }
 
 SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
-: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels), codec_(0), codecCtx_(0), swrCtx_(0), outSamples(0), srcPos(0), wanted_resample_freq(44100), extradata_(0) {
+: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels), outSamples(0), srcPos(0), wanted_resample_freq(44100), codec_(0), codecCtx_(0), swrCtx_(0), extradata_(0) {
 	Init();
 }
 
@@ -404,17 +404,17 @@ int AuCtx::AuCheckStreamDataNeeded()
 u32 AuCtx::AuNotifyAddStreamData(int size)
 {
 	realReadSize = size;
-	int diffszie = realReadSize - askedReadSize;
+	int diffsize = realReadSize - askedReadSize;
 	// Notify the real read size
-	if (diffszie != 0){
-		readPos += diffszie;
-		AuBufAvailable += diffszie;
+	if (diffsize != 0){
+		readPos += diffsize;
+		AuBufAvailable += diffsize;
 	}
 
 	// append AuBuf into sourcebuff
 	sourcebuff.append((const char*)Memory::GetPointer(AuBuf), size);
 
-	if (readPos >= endPos && LoopNum != 0){
+	if (readPos >= (int)endPos && LoopNum != 0){
 		// if we need loop, reset readPos
 		readPos = startPos;
 		// reset LoopNum

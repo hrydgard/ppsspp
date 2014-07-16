@@ -69,8 +69,8 @@ private:
 	std::string prevHighlightedGamePath_;
 	float highlightProgress_;
 	float prevHighlightProgress_;
-	bool lockBackgroundAudio_;
 	bool backFromStore_;
+	bool lockBackgroundAudio_;
 	bool lastVertical_;
 
 	bool UseVerticalLayout() const;

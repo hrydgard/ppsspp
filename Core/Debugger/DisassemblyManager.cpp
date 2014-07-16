@@ -168,7 +168,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 
 			u32 next = symbolMap.GetNextSymbolAddress(address,ST_ALL);
 
-			if ((next % 4) && next != -1)
+			if ((next % 4) && next != (u32)-1)
 			{
 				u32 alignedNext = next & ~3;
 
@@ -204,6 +204,8 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 				entries[info.address] = data;
 				address = info.address+info.size;
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -524,6 +526,8 @@ void DisassemblyFunction::load()
 		case LINE_UP:
 			branchTargets.insert(lines[i].first);
 			break;
+		default:
+			break;
 		}
 	}
 	
@@ -625,6 +629,8 @@ void DisassemblyFunction::load()
 					case MEMTYPE_VQUAD:
 						dataSize = 16;
 						break;
+					default:
+						return;
 					}
 
 					macro->setMacroMemory(MIPSGetName(next),immediate,rt,dataSize);
@@ -967,6 +973,8 @@ void DisassemblyData::createLines()
 						sprintf(buffer,"0x%08X",value);
 					pos += 4;
 				}
+				break;
+			default:
 				break;
 			}
 

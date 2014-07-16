@@ -112,9 +112,9 @@ void Debugger_DisplayList::ShowDLCode()
 
 	FillDisplayListCmd(data, startPc,0, listState);
 
-	u32 curTexAddr;
-	u32 curVtxAddr;
-	u32 curIdxAddr;
+	u32 curTexAddr = 0;
+	u32 curVtxAddr = 0;
+	u32 curIdxAddr = 0;
 
 	for(std::map<int,DListLine>::iterator it = data.begin(); it != data.end(); it++)
 	{

@@ -259,7 +259,7 @@ public:
 	}
 
 	LoadedFont(Font *font, FontOpenMode mode, u32 fontLibID, u32 handle)
-		: fontLibID_(fontLibID), font_(font), handle_(handle), open_(true), mode_(mode) {}
+		: fontLibID_(fontLibID), font_(font), handle_(handle), mode_(mode), open_(true) {}
 
 	~LoadedFont() {
 		switch (mode_) {
