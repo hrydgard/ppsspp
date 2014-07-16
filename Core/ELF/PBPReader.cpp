@@ -24,16 +24,14 @@
 #include "Core/ELF/PBPReader.h"
 
 PBPReader::PBPReader(const char *filename) : header_(), isELF_(false) {
-	file_ = File::OpenCFile(filename, "rb");
-	if (!file_) {
+	if (!File::OpenCPPFile(file_, filename, std::ios::in | std::ios::binary | std::ios::ate)) {
 		ERROR_LOG(LOADER, "Failed to open PBP file %s", filename);
 		return;
 	}
 
-	fseek(file_, 0, SEEK_END);
-	fileSize_ = ftell(file_);
-	fseek(file_, 0, SEEK_SET);
-	fread((char *)&header_, 1, sizeof(header_), file_);
+	fileSize_ = file_.tellg();
+	file_.seekg(0, std::ios::beg);
+	file_.read((char*)&header_, sizeof(header_));
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
 		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
 			DEBUG_LOG(LOADER, "%s: File actually an ELF, not a PBP", filename);
@@ -41,29 +39,23 @@ PBPReader::PBPReader(const char *filename) : header_(), isELF_(false) {
 		} else {
 			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", filename, header_.magic);
 		}
-		fclose(file_);
-		file_ = 0;
-		return;
+		file_.close();
+	} else { 
+		DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
 	}
-
-	DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
 }
 
 u8 *PBPReader::GetSubFile(PBPSubFile file, size_t *outSize) {
 	*outSize = GetSubFileSize(file);
 	u8 *buffer = new u8[*outSize];
-	fseek(file_, header_.offsets[(int)file], SEEK_SET);
-	fread(buffer, 1, *outSize, file_);
+	file_.seekg(header_.offsets[(int)file], std::ios::beg);
+	file_.read((char*)buffer, *outSize);
 	return buffer;
 }
 
 void PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) {
 	out->resize(GetSubFileSize(file));
-	fseek(file_, header_.offsets[(int)file], SEEK_SET);
-	fread((void *)out->data(), 1, out->size(), file_);
+	file_.seekg(header_.offsets[(int)file], std::ios::beg);
+	file_.read((char*)out->data(), out->size());
 }
 
-PBPReader::~PBPReader() {
-	if (file_)
-		fclose(file_);
-}
