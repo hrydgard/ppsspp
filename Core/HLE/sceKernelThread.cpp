@@ -40,6 +40,8 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
+bool NeedReSchedule = true;
+
 typedef struct
 {
 	WaitType type;
@@ -1365,7 +1367,8 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 	if (!t)
 	{
 		ERROR_LOG_REPORT(SCEKERNEL, "__KernelSwitchToThread: %x doesn't exist", threadID);
-		hleReSchedule("switch to deleted thread");
+		if (NeedReSchedule)
+			hleReSchedule("switch to deleted thread");
 	}
 	else if (t->isReady() || t->isRunning())
 	{
@@ -1378,7 +1381,8 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 	}
 	else
 	{
-		hleReSchedule("switch to waiting thread");
+		if (NeedReSchedule)
+			hleReSchedule("switch to waiting thread");
 	}
 
 	return false;
@@ -1518,7 +1522,8 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	}
 
 	hleEatCycles(1220);
-	hleReSchedule("refer thread status");
+	if (NeedReSchedule)
+		hleReSchedule("refer thread status");
 	return 0;
 }
 
@@ -1691,7 +1696,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
-	bool NeedReSchedule = __KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
+	NeedReSchedule = __KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
 	thread->nt.numReleases++;
 	thread->waitInfo.waitValue = waitValue;
 	thread->waitInfo.timeoutPtr = timeoutPtr;
@@ -2121,7 +2126,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	hleEatCycles(32000);
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
-	hleReSchedule("thread created");
+	if (NeedReSchedule)
+		hleReSchedule("thread created");
 	return id;
 }
 
@@ -2169,7 +2175,8 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 	{
 		__KernelChangeReadyState(cur, currentThread, true);
-		hleReSchedule("thread started");
+		if (NeedReSchedule)
+			hleReSchedule("thread started");
 	}
 
 	// Starting a thread automatically resumes the dispatch thread.
@@ -2252,8 +2259,8 @@ void __KernelReturnFromThread()
 
 	INFO_LOG(SCEKERNEL,"__KernelReturnFromThread: %d", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread returned");
-
-	hleReSchedule("thread returned");
+	if (NeedReSchedule)
+		hleReSchedule("thread returned");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -2265,8 +2272,8 @@ void sceKernelExitThread(int exitStatus)
 
 	INFO_LOG(SCEKERNEL, "sceKernelExitThread(%d)", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread exited");
-
-	hleReSchedule("thread exited");
+	if (NeedReSchedule)
+		hleReSchedule("thread exited");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -2278,8 +2285,8 @@ void _sceKernelExitThread(int exitStatus)
 
 	ERROR_LOG_REPORT(SCEKERNEL, "_sceKernelExitThread(%d): should not be called directly", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread _exited");
-
-	hleReSchedule("thread _exited");
+	if (NeedReSchedule)
+		hleReSchedule("thread _exited");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -2293,8 +2300,8 @@ void sceKernelExitDeleteThread(int exitStatus)
 		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete");
 		// Temporary hack since we don't reschedule within callbacks.
 		g_inCbCount = 0;
-
-		hleReSchedule("thread exited with delete");
+		if (NeedReSchedule)
+			hleReSchedule("thread exited with delete");
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
@@ -2326,7 +2333,8 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = enabled != 0;
 	DEBUG_LOG(SCEKERNEL, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
-	hleReSchedule("dispatch resumed");
+	if (NeedReSchedule)
+		hleReSchedule("dispatch resumed");
 	hleEatCycles(940);
 	return 0;
 }
@@ -2362,8 +2370,8 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		else
 			threadReadyQueue.rotate(priority);
 	}
-
-	hleReSchedule("rotatethreadreadyqueue");
+	if (NeedReSchedule)
+		hleReSchedule("rotatethreadreadyqueue");
 	hleEatCycles(250);
 	return 0;
 }
@@ -2550,7 +2558,8 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 		}
 
 		hleEatCycles(450);
-		hleReSchedule("change thread priority");
+		if (NeedReSchedule)
+			hleReSchedule("change thread priority");
 		return 0;
 	} else {
 		ERROR_LOG(SCEKERNEL, "%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, threadID, priority);
@@ -2575,7 +2584,8 @@ int sceKernelDelayThreadCB(u32 usec) {
 		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
 	} else {
 		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec): no delay", usec);
-		hleReSchedule("thread delayed");
+		if (NeedReSchedule)
+			hleReSchedule("thread delayed");
 	}
 	return 0;
 }
@@ -2589,7 +2599,8 @@ int sceKernelDelayThread(u32 usec) {
 		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
 	} else {
 		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec): no delay", usec);
-		hleReSchedule("thread delayed");
+		if (NeedReSchedule)
+			hleReSchedule("thread delayed");
 	}
 	return 0;
 }
@@ -2665,7 +2676,8 @@ int sceKernelWakeupThread(SceUID uid)
 		} else {
 			VERBOSE_LOG(SCEKERNEL,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
 			__KernelResumeThreadFromWait(uid, 0);
-			hleReSchedule("thread woken up");
+			if (NeedReSchedule)
+				hleReSchedule("thread woken up");
 		}
 		return 0;
 	} 
@@ -2817,7 +2829,8 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_RELEASE_WAIT);
-		hleReSchedule("thread released from wait");
+		if (NeedReSchedule)
+			hleReSchedule("thread released from wait");
 		return 0;
 	}
 	else
