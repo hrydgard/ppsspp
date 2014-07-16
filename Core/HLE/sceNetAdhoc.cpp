@@ -284,7 +284,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
  */
 // When choosing AdHoc menu in Wipeout Pulse sometimes it's saying that "WLAN is turned off" on game screen and getting "kUnityCommandCode_MediaDisconnected" error in the Log Console when calling sceNetAdhocPdpCreate, probably it needed to wait something from the thread before calling this (ie. need to receives 7 bytes from adhoc server 1st?)
 int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
-	INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%08x, %u, %u, %u) at %08x", mac, port, bufferSize, unknown, currentMIPS->pc);
+	INFO_LOG(SCENET, "sceNetAdhocPdpCreate(%p, %u, %u, %u) at %08x", mac, port, bufferSize, unknown, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -1501,7 +1501,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 	if (Memory::IsValidAddress(peerPortPtr)) {
 		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
 	}
-	DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%p,[%p]=%u,%d,%u)", id, peerMacAddrPtr, peerPortPtr, *port, timeout, flag);
+	DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d,%08x,[%08x]=%u,%d,%u)", id, peerMacAddrPtr, peerPortPtr, port ? *port : -1, timeout, flag);
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
