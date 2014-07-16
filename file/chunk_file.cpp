@@ -225,8 +225,8 @@ void ChunkFile::writeWString(const std::string &str) {
 	unsigned short *text;
 	int len = (int)str.length();
 	text = new unsigned short[len+1];
-	for (size_t i=0; i<len; i++)
-		text[i]=str[i];
+	for (int i = 0; i < len; i++)
+		text[i] = str[i];
 	text[len]=0;
 	writeInt(len);
 	writeData((char *)text, len * sizeof(unsigned short));
@@ -243,7 +243,7 @@ static void toUnicode(const std::string &str, uint16 *t) {
 static std::string fromUnicode(const uint16_t *src, int len) {
 	std::string str;
 	str.resize(len);
-	for (int i=0; i<len; i++) {
+	for (int i = 0; i < len; i++) {
 		str[i] = src[i] > 255 ? ' ' : src[i];
 	}
 	return str;

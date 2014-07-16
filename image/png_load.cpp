@@ -30,7 +30,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
         // Qt4 does not support RGBA 
-	for (size_t sz = 0; sz < image.byteCount(); sz+=4, ++src, ++dest) {
+	for (size_t sz = 0; sz < (size_t)image.byteCount(); sz+=4, ++src, ++dest) {
 		const uint32_t v = *src;
 		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // ARGB -> RGBA
 	}
@@ -77,7 +77,7 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	uint32_t *src = (uint32_t*) image.bits();
 	uint32_t *dest = (uint32_t*) *image_data_ptr;
 	// Qt4 does not support RGBA
-	for (size_t sz = 0; sz < image.byteCount(); sz+=4, ++src, ++dest) {
+	for (size_t sz = 0; sz < (size_t)image.byteCount(); sz+=4, ++src, ++dest) {
 		const uint32_t v = *src;
 		*dest = (v & 0xFF00FF00) | ((v & 0xFF) << 16) | (( v >> 16 ) & 0xFF); // convert it!
 	}
