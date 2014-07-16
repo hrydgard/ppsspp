@@ -37,7 +37,6 @@ set(code_string "// This is a generated file.\n\n"
 	"// If you don't want this file to update/recompile, change to 1.\n"
 	"#define PPSSPP_GIT_VERSION_NO_UPDATE 0\n")
 
-message(WARNING "UPDATE: ${GIT_VERSION_FILE}")
 if ("${GIT_VERSION_UPDATE}" EQUAL "1")
 	file(WRITE ${GIT_VERSION_FILE} ${code_string})
 endif()
