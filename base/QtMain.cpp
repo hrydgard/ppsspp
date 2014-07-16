@@ -18,7 +18,6 @@
 #endif
 
 #ifdef __SYMBIAN32__
-#include <e32std.h>
 #include <QSystemScreenSaver>
 #include <QFeedbackHapticsEffect>
 #include "SymbianMediaKeys.h"
@@ -28,6 +27,7 @@
 #include "SDL_audio.h"
 #endif
 #include "QtMain.h"
+#include "math/math_util.h"
 
 #include <string.h>
 
@@ -119,9 +119,8 @@ static int mainInternal(QApplication &a)
 	emugl->resize(pixel_xres, pixel_yres);
 	emugl->showFullScreen();
 #endif
+	EnableFZ();
 #ifdef __SYMBIAN32__
-	// Set RunFast hardware mode for VFPv2.
-	User::SetFloatingPointMode(EFpModeRunFast);
 	// Disable screensaver
 	QScopedPointer<QSystemScreenSaver> ssObject(new QSystemScreenSaver(emugl));
 	ssObject->setScreenSaverInhibit();
