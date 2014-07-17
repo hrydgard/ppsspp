@@ -1,0 +1,5 @@
+tar-ignore = ".git/*"
+tar-ignore = "build-qt/*"
+tar-ignore = "Qt/languages/*"
+tar-ignore = "Tools/SaveTool/kernelcall.prx"
+tar-ignore = "pspautotests/demos/*"
