@@ -49,7 +49,7 @@ namespace MainWindow
 	};
 
 	void Init(HINSTANCE hInstance);
-	BOOL Show(HINSTANCE hInstance, int nCmdShow);
+	BOOL Show(HINSTANCE hInstance);
 	void CreateDebugWindows();
 	void DestroyDebugWindows();
 	void Close();
@@ -63,8 +63,7 @@ namespace MainWindow
 	HWND GetDisplayHWND();
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 	void SaveStateActionFinished(bool result, void *userdata);
-	void SwitchToFullscreen(HWND hWnd);
-	void SwitchToWindowed(HWND hWnd);
+	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
 	void ToggleDebugConsoleVisibility();
 	void TranslateMenus();
 	void setTexScalingMultiplier(int level);

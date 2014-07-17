@@ -374,7 +374,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
 
-	MainWindow::Show(_hInstance, iCmdShow);
+	MainWindow::Show(_hInstance);
 
 	HWND hwndMain = MainWindow::GetHWND();
 	HWND hwndDisplay = MainWindow::GetDisplayHWND();
