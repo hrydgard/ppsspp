@@ -7,7 +7,7 @@ Build-Depends: 	debhelper (>= 9),
 		libglew-dev, 
 		qt4-qmake, 
 		libqt4-dev, 
-		libqt4-opengl
+		libqt4-opengl-dev
 Standards-Version: 3.9.5
 Homepage: http://www.ppsspp.org/
 Vcs-Git: git://github.com/hrydgard/ppsspp.git
