@@ -336,10 +336,10 @@ namespace MainWindow
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
 		// Remove the menu bar.
-		::SetMenu(hWnd, g_Config.bFullScreen ? NULL : menu);
+		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
 		// Resize to normal view.
-		ShowWindow(hwndMain, g_Config.bFullScreen ? SW_MAXIMIZE : SW_RESTORE);
+		ShowWindow(hwndMain, goingFullscreen ? SW_MAXIMIZE : SW_RESTORE);
 
 		g_Config.bFullScreen = goingFullscreen;
 		CorrectCursor();
@@ -349,7 +349,7 @@ namespace MainWindow
 		if (showOSM) {
 			ShowScreenResolution();
 		}
-		ShowOwnedPopups(hwndMain, TRUE);
+		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
 		g_inModeSwitch = false;
