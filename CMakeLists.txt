@@ -709,6 +709,7 @@ elseif(IOS)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
+	message(FATAL_ERROR "Cmake does not yet support Qt. Please use qmake instead.")
 	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
 	include(${QT_USE_FILE})
 	qt4_wrap_cpp(nativeQtHeader native/base/QtMain.h)
