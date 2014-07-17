@@ -309,24 +309,39 @@ namespace MainWindow
 		}
 	}
 
-	void SwitchToWindowed(HWND hWnd) {
+	void ToggleFullscreen(HWND hWnd, bool goingFullscreen = false) {
 		// Make sure no rendering is happening during the switch.
 		Core_NotifyWindowHidden(true);
 		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
 
-		// Put caption and border styles back.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+		DWORD dwOldStyle;
+		DWORD dwNewStyle;
+
+		if (!goingFullscreen) {
+			// Put caption and border styles back.
+			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+			dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+			
+			// Put back the menu bar.
+			::SetMenu(hWnd, menu);
+		} else {
+			// Remember the normal window rectangle.
+			::GetWindowRect(hWnd, &g_normalRC);
+
+			// Remove caption and border styles.
+			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+			dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
+		}
+
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-		// Put back the menu bar.
-		::SetMenu(hWnd, menu);
+		// Remove the menu bar.
+		::SetMenu(hWnd, g_Config.bFullScreen ? NULL : menu);
 
 		// Resize to normal view.
-		ShowWindow(hwndMain, SW_RESTORE);
+		ShowWindow(hwndMain, g_Config.bFullScreen ? SW_MAXIMIZE : SW_RESTORE);
 
-		// Reset full screen indicator.
-		g_Config.bFullScreen = false;
+		g_Config.bFullScreen = goingFullscreen;
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
@@ -336,41 +351,6 @@ namespace MainWindow
 		}
 		ShowOwnedPopups(hwndMain, TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
-
-		g_inModeSwitch = false;
-		Core_NotifyWindowHidden(false);
-	}
-
-	void SwitchToFullscreen(HWND hWnd) {
-		// Make sure no rendering is happening during the switch.
-		Core_NotifyWindowHidden(true);
-		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
-
-		// Remember the normal window rectangle.
-		::GetWindowRect(hWnd, &g_normalRC);
-
-		// Remove caption and border styles.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
-		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
-
-		// Remove the menu bar.
-		::SetMenu(hWnd, NULL);
-
-		// Resize to full screen view.
-		ShowWindow(hwndMain, SW_MAXIMIZE);
-
-		// Set full screen indicator.
-		g_Config.bFullScreen = true;
-		CorrectCursor();
-
-		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(false);
-		if (showOSM) {
-			ShowScreenResolution();
-		}
-
-		ShowOwnedPopups(hwndMain, FALSE);
 
 		g_inModeSwitch = false;
 		Core_NotifyWindowHidden(false);
@@ -819,10 +799,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
-		if (g_Config.bFullScreen)
-			SwitchToFullscreen(hwndMain);
-		
-		ShowWindow(hwndMain, nCmdShow);
+		ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -1506,10 +1483,7 @@ namespace MainWindow
 				case ID_OPTIONS_FULLSCREEN:
 					g_Config.bFullScreen = !g_Config.bFullScreen;
 
-					if (g_Config.bFullScreen)
-						SwitchToFullscreen(hWnd);
-					else
-						SwitchToWindowed(hWnd);
+					ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 					break;
 
