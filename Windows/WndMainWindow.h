@@ -49,7 +49,7 @@ namespace MainWindow
 	};
 
 	void Init(HINSTANCE hInstance);
-	BOOL Show(HINSTANCE hInstance, int nCmdShow);
+	BOOL Show(HINSTANCE hInstance);
 	void CreateDebugWindows();
 	void DestroyDebugWindows();
 	void Close();

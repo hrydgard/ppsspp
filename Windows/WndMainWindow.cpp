@@ -338,7 +338,7 @@ namespace MainWindow
 		// Remove the menu bar.
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
-		// Resize to normal view.
+		// Resize to the appropriate view.
 		ShowWindow(hwndMain, goingFullscreen ? SW_MAXIMIZE : SW_RESTORE);
 
 		g_Config.bFullScreen = goingFullscreen;
@@ -757,7 +757,7 @@ namespace MainWindow
 		windowTitle = title;
 	}
 
-	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
+	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
 
