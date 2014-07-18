@@ -377,8 +377,14 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(s->T("Networking")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
+
+#ifdef _WIN32
+	systemSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), "", screenManager()));
+	systemSettings->Add(new PopupTextInputChoice(&g_Config.localMacAddress, s->T("Change Mac Address"), "", screenManager()));
+#else
 	systemSettings->Add(new Choice(s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 	systemSettings->Add(new Choice(s->T("Change Mac Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+#endif
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
