@@ -7,6 +7,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
+#include "util/text/utf8.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
@@ -570,6 +571,89 @@ void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 void TextView::Draw(UIContext &dc) {
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
 	dc.DrawTextRect(text_.c_str(), bounds_, 0xFFFFFFFF, textAlign_);
+}
+
+TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
+  : View(layoutParams), text_(text), placeholderText_(placeholderText) {
+	caret_ = (int)text_.size();
+}
+
+void TextEdit::Draw(UIContext &dc) {
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.FillRect(UI::Drawable(0x80000000), bounds_);
+	if (text_.empty()) {
+		if (placeholderText_.size()) {
+			dc.DrawTextRect(placeholderText_.c_str(), bounds_, 0x50FFFFFF, ALIGN_CENTER);
+		}
+	} else {
+		dc.DrawTextRect(text_.c_str(), bounds_, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
+	}
+	// Hack to find the caret position. Might want to find a better way...
+
+	std::string subset = text_.substr(0, caret_);
+	float w, h;
+	dc.MeasureText(dc.theme->uiFont, subset.c_str(), &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
+	float caretX = bounds_.x + w;
+	dc.FillRect(UI::Drawable(0xFFFFFFFF), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+}
+
+void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.MeasureText(dc.theme->uiFont, text_.size() ? text_.c_str() : "Wj", &w, &h);
+	w += 2;
+	h += 2;
+}
+
+void TextEdit::Key(const KeyInput &input) {
+	// Process navigation keys. These aren't chars.
+	if (input.flags & KEY_DOWN) {
+		switch (input.keyCode) {
+		case NKCODE_DPAD_LEFT:  // ASCII left arrow
+			caret_--;
+			break;
+		case NKCODE_DPAD_RIGHT: // ASCII right arrow
+			caret_++;
+			break;
+		case NKCODE_MOVE_HOME:
+		case NKCODE_PAGE_UP:
+			caret_ = 0;
+			break;
+		case NKCODE_MOVE_END:
+		case NKCODE_PAGE_DOWN:
+			caret_ = (int)text_.size();
+			break;
+		case NKCODE_FORWARD_DEL:
+			if (caret_ < text_.size()) {
+				text_.erase(text_.begin() + caret_, text_.begin() + caret_ + 1);
+			}
+		case NKCODE_DEL:
+			if (caret_ > 0) {
+				text_.erase(text_.begin() + caret_ - 1, text_.begin() + caret_);
+				caret_--;
+			}
+			break;
+		}
+
+		if (caret_ < 0) {
+			caret_ = 0;
+		}
+		if (caret_ > (int)text_.size()) {
+			caret_ = (int)text_.size();
+		}
+	}
+
+	// Process chars.
+	if (input.flags & KEY_CHAR) {
+		int unichar = input.keyCode;
+		if (unichar >= 0x20) {  // Ignore control characters.
+			// Insert it! (todo: do it with a string insert)
+			char buf[8];
+			buf[u8_wc_toutf8(buf, unichar)] = '\0';
+			for (int i = 0; i < strlen(buf); i++) {
+				text_.insert(text_.begin() + caret_, buf[i]);
+				caret_++;
+			}
+		}
+	}
 }
 
 void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

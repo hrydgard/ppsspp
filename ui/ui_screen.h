@@ -160,6 +160,23 @@ private:
 	float maxValue_;
 };
 
+class TextEditPopupScreen : public PopupScreen {
+public:
+	TextEditPopupScreen(std::string *value, std::string &placeholder, const std::string &title)
+		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder) {}
+	void CreatePopupContents(ViewGroup *parent);
+
+	Event OnChange;
+
+private:
+	virtual void OnCompleted(DialogResult result) override;
+	TextEdit *edit_;
+	std::string *value_;
+	std::string textEditValue_;
+	std::string placeholder_;
+	int step_;
+};
+
 // Reads and writes value to determine the current selection.
 class PopupMultiChoice : public UI::Choice {
 public:
@@ -228,6 +245,23 @@ private:
 	float minValue_;
 	float maxValue_;
 	ScreenManager *screenManager_;
+};
+
+class PopupTextInputChoice: public Choice {
+public:
+	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+
+	void Draw(UIContext &dc);
+
+	Event OnChange;
+
+private:
+	EventReturn HandleClick(EventParams &e);
+	EventReturn HandleChange(EventParams &e);
+	ScreenManager *screenManager_;
+	std::string *value_;
+	std::string placeHolder_;
+	std::string defaultText_;
 };
 
 }  // namespace UI

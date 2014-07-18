@@ -654,14 +654,31 @@ public:
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(textAlign), small_(small) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	virtual void Draw(UIContext &dc) override;
 	void SetText(const std::string &text) { text_ = text; }
 	void SetSmall(bool small) { small_ = small; }
 private:
 	std::string text_;
 	int textAlign_;
 	bool small_;
+};
+
+class TextEdit : public View {
+public:
+	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
+	void SetText(const std::string &text) { text_ = text; caret_ = (int)text_.size(); }
+	const std::string &GetText() const { return text_; }
+
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	virtual void Draw(UIContext &dc) override;
+	virtual void Key(const KeyInput &input) override;
+
+private:
+	std::string text_;
+	std::string placeholderText_;
+	int caret_;
+	// TODO: Selections
 };
 
 enum ImageSizeMode {
