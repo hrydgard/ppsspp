@@ -300,7 +300,7 @@ public class NativeActivity extends Activity {
 	}
 
 	// Override this to scale the backbuffer (use the Android hardware scaler)
-	private void getDesiredBackbufferSize(Point sz) {
+	public void getDesiredBackbufferSize(Point sz) {
 		// GetScreenSize(sz, useImmersive());
 		// sz.x /= 2;
 		// sz.y /= 2;
