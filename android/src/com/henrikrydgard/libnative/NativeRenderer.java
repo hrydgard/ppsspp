@@ -21,8 +21,10 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		isDark = d;
 	}
 	
+	@Override
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
 		if (isDark) {
+			GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
 			GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 			GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_STENCIL_BUFFER_BIT);
 		} else {
@@ -30,17 +32,20 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		}
 	}
 
+	@Override
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
 		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
 		displayInit();
 	}
  
+	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
 		Log.i(TAG, "onSurfaceChanged");
 		displayResize(width, height);
 	}
-	
+
+	// Not override, it's custom.
 	public void onDestroyed() {
 		displayShutdown();
 	}

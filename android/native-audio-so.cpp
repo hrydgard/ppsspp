@@ -1,8 +1,6 @@
 // Minimal audio streaming using OpenSL.
 //
 // Loosely based on the Android NDK sample code.
-// Hardcoded to 44.1kHz stereo 16-bit audio, because as far as I'm concerned,
-// that's the only format that makes any sense.
 
 #include <assert.h>
 #include <string.h>

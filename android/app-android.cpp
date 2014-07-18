@@ -44,8 +44,6 @@ std::queue<FrameCommand> frameCommands;
 std::string systemName;
 std::string langRegion;
 
-const bool extraLog = true;
-
 static float left_joystick_x_async;
 static float left_joystick_y_async;
 static float right_joystick_x_async;
@@ -134,13 +132,9 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEn
 	return landscape;
 }
 
-// For the Back button to work right.
+// Allow the app to intercept the back button.
 extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
-	bool isAtTop = NativeIsAtTopLevel();
-	if (extraLog) {
-		ILOG("isAtTopLevel %i", (int)isAtTop);
-	}
-	return isAtTop;
+	return NativeIsAtTopLevel();
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig

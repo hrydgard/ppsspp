@@ -51,41 +51,6 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-class Installation {
-    private static String sID = null;
-    private static final String INSTALLATION = "INSTALLATION";
-
-    public synchronized static String id(Context context) {
-        if (sID == null) {  
-            File installation = new File(context.getFilesDir(), INSTALLATION);
-            try {
-                if (!installation.exists())
-                    writeInstallationFile(installation);
-                sID = readInstallationFile(installation);
-            } catch (Exception e) {
-            	// We can't even open a file for writing? Then we can't get a unique-ish installation id.
-            	return "BROKENAPPUSERFILESYSTEM";
-            }
-        }
-        return sID;
-    }
-
-    private static String readInstallationFile(File installation) throws IOException {
-        RandomAccessFile f = new RandomAccessFile(installation, "r");
-        byte[] bytes = new byte[(int) f.length()];
-        f.readFully(bytes);
-        f.close();
-        return new String(bytes);
-    }
-
-    private static void writeInstallationFile(File installation) throws IOException {
-        FileOutputStream out = new FileOutputStream(installation);
-        String id = UUID.randomUUID().toString();
-        out.write(id.getBytes());
-        out.close();
-    }
-}
- 
 public class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
@@ -135,6 +100,10 @@ public class NativeActivity extends Activity {
 	private void detectOptimalAudioSettings() {
 		try {
 			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
+		} catch (NumberFormatException e) {
+			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
+		}
+		try {
 			optimalSampleRate = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
 		} catch (NumberFormatException e) {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
@@ -159,7 +128,7 @@ public class NativeActivity extends Activity {
 	    return libdir;
 	}
 
-	@TargetApi(13)
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
 	void GetScreenSizeHC(Point size) {
         WindowManager w = getWindowManager();
 		w.getDefaultDisplay().getSize(size);
