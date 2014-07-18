@@ -1,5 +1,8 @@
 package com.henrikrydgard.libnative;
 
+
+// Note that the display* methods are in NativeRenderer.java 
+
 public class NativeApp {
 	public final static int DEVICE_ID_DEFAULT = 0; 
 	public final static int DEVICE_ID_KEYBOARD = 1; 

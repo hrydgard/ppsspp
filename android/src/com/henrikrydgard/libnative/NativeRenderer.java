@@ -4,6 +4,7 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.util.DisplayMetrics;
@@ -17,23 +18,37 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	private int dpi;
 	private float refreshRate;
 
+	private double dpi_scale_x;
+	private double dpi_scale_y;
+
+	int last_width, last_height;
+
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
-
 		DisplayMetrics metrics = new DisplayMetrics();
 		Display display = act.getWindowManager().getDefaultDisplay();
 		display.getMetrics(metrics);
 		dpi = metrics.densityDpi;
-		refreshRate = display.getRefreshRate();
 
-		// Log.i(TAG, "Display name: " + display.getName());
-		Log.i(TAG, " rate: " + refreshRate + " dpi: " + dpi);
+		refreshRate = display.getRefreshRate();
+	}
+
+	double getDpiScaleX() {
+		return dpi_scale_x;
+	}
+	double getDpiScaleY() {
+		return dpi_scale_y;
 	}
 
 	public void setDark(boolean d) {
 		isDark = d;
 	}
 	
+	public void setFixedSize(int xres, int yres, GLSurfaceView surfaceView) {
+		Log.i(TAG, "Setting surface to fixed size " + xres + "x" + yres);
+		surfaceView.getHolder().setFixedSize(xres, yres);
+	}
+
 	@Override
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
 		if (isDark) {
@@ -54,8 +69,17 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
  
 	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
-		Log.i(TAG, "onSurfaceChanged");
-		displayResize(width, height, dpi, refreshRate);
+		Point sz = new Point();
+		mActivity.GetScreenSize(sz);
+		double actualW = sz.x;
+		double actualH = sz.y;
+		dpi_scale_x = ((double)width / (double)actualW);
+		dpi_scale_y = ((double)height / (double)actualH);
+		Log.i(TAG, "onSurfaceChanged: " + dpi_scale_x + "x" + dpi_scale_y + " (width=" + width + ", actualW=" + actualW);
+		int scaled_dpi = (int)((double)dpi * dpi_scale_x);
+		displayResize(width, height, scaled_dpi, refreshRate);
+		last_width = width;
+		last_height = height;
 	}
 
 	// Not override, it's custom.

@@ -96,6 +96,10 @@ public class NativeActivity extends Activity {
     	return true;
     }
     
+	NativeRenderer getRenderer() {
+		return nativeRenderer;
+	}
+    
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		try {
@@ -128,16 +132,29 @@ public class NativeActivity extends Activity {
 	    return libdir;
 	}
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
-	void GetScreenSizeHC(Point size) {
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+	void GetScreenSizeJB(Point size, boolean real) {
         WindowManager w = getWindowManager();
-		w.getDefaultDisplay().getSize(size);
+		if (real) {
+			w.getDefaultDisplay().getRealSize(size);
+		}
+	}
+
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
+	void GetScreenSizeHC(Point size, boolean real) {
+        WindowManager w = getWindowManager();
+		if (real && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			GetScreenSizeJB(size, real);
+		} else {
+			w.getDefaultDisplay().getSize(size);
+		}
 	}
 
 	@SuppressWarnings("deprecation")
-	void GetScreenSize(Point size) {
+	public void GetScreenSize(Point size) {
+        boolean real = useImmersive();
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-			GetScreenSizeHC(size);
+			GetScreenSizeHC(size, real);
 		} else {
 	        WindowManager w = getWindowManager();
 	        Display d = w.getDefaultDisplay();
@@ -185,7 +202,6 @@ public class NativeActivity extends Activity {
 		
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
-		@SuppressWarnings("deprecation")
 
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
@@ -251,17 +267,19 @@ public class NativeActivity extends Activity {
 		}
 	}
 	
+	private boolean useImmersive() {
+		String immersive = NativeApp.queryConfig("immersiveMode");
+		return immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+	}
+
 	@SuppressLint("InlinedApi")
 	@TargetApi(14)
 	private void updateSystemUiVisibility() {
-		String immersive = NativeApp.queryConfig("immersiveMode");
-		boolean useImmersive = immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
-
 		int flags = 0;
 		if (useLowProfileButtons()) {
 			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		}
-		if (useImmersive) {
+		if (useImmersive()) {
 			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 		}
 		if (getWindow().getDecorView() != null) {
@@ -280,7 +298,16 @@ public class NativeActivity extends Activity {
 	        }
         }
 	}
-	
+
+	// Override this to scale the backbuffer (use the Android hardware scaler)
+	private void getDesiredBackbufferSize(Point sz) {
+		// GetScreenSize(sz, useImmersive());
+		// sz.x /= 2;
+		// sz.y /= 2;
+		sz.x = 0;
+		sz.y = 0;
+	}
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState); 
@@ -307,6 +334,12 @@ public class NativeActivity extends Activity {
         mGLSurfaceView = new NativeGLView(this);
 		nativeRenderer = new NativeRenderer(this);
 
+		Point sz = new Point();
+		getDesiredBackbufferSize(sz);
+		if (sz.x > 0) {
+			// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
+			nativeRenderer.setFixedSize(sz.x, sz.y, mGLSurfaceView);
+		}
         mGLSurfaceView.setEGLContextClientVersion(2);
         
         // Setup the GLSurface and ask android for the correct 
@@ -356,7 +389,7 @@ public class NativeActivity extends Activity {
     @Override
     protected void onStop() {
     	super.onStop(); 
-    	Log.i(TAG, "onStop - do nothing, just let Android switch away");
+    	Log.i(TAG, "onStop - do nothing special");
     } 
 
     @Override
@@ -393,11 +426,8 @@ public class NativeActivity extends Activity {
         if (audioPlayer != null) {
         	audioPlayer.stop();
         }
-    	Log.i(TAG, "nativeapp pause");
         NativeApp.pause();
-    	Log.i(TAG, "gl pause");
         mGLSurfaceView.onPause();
-    	Log.i(TAG, "onPause returning");
     }
       
 	@Override
@@ -431,6 +461,12 @@ public class NativeActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
+        
+		Point sz = new Point();
+		getDesiredBackbufferSize(sz);
+		if (sz.x > 0) {
+			mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
+		}
     }
     
     // We simply grab the first input device to produce an event and ignore all others that are connected.
