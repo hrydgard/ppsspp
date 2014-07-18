@@ -329,7 +329,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
-			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;

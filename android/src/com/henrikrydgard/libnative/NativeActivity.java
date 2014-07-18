@@ -272,7 +272,6 @@ public class NativeActivity extends Activity {
 			Log.e(TAG, "Invalid rotation: " + rotString);
 			return;
 		}
-		Log.i(TAG, "Rotation requested: " + rot);
 		switch (rot) {
 		case 0:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
@@ -296,7 +295,6 @@ public class NativeActivity extends Activity {
 	@TargetApi(14)
 	private void updateSystemUiVisibility() {
 		String immersive = NativeApp.queryConfig("immersiveMode");
-		Log.i(TAG, "Immersive: " + immersive);
 		boolean useImmersive = immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
 
 		int flags = 0;
@@ -599,7 +597,7 @@ public class NativeActivity extends Activity {
 	    }
 		return super.onGenericMotionEvent(event);
 	}
-	
+
 	@SuppressLint("NewApi")
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {

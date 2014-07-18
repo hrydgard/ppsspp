@@ -280,7 +280,6 @@ bool Texture::LoadZIM(const char *filename) {
 
 	int flags;
 	int num_levels = ::LoadZIM(filename, &width[0], &height[0], &flags, &image_data[0]);
-	ILOG("ZIM loaded: %i levels", num_levels);
 	if (!num_levels)
 		return false;
 	if (num_levels >= ZIM_MAX_MIP_LEVELS)
@@ -310,8 +309,6 @@ bool Texture::LoadZIM(const char *filename) {
 
 	GL_CHECK();
 
-
-	ILOG("Gen-binding texture");
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
 	SetTextureParameters(flags);
