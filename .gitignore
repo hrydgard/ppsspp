@@ -64,3 +64,12 @@ local.properties
 # For vim
 *.swp
 tags
+
+# Other VCS
+.bzr/
+.bzrignore
+
+# Debian build
+debian/files
+debian/ppsspp.substvars
+debian/ppsspp/
