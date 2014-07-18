@@ -69,6 +69,7 @@ private:
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
+	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnFrameSkipChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
