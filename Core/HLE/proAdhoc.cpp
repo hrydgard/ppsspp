@@ -660,8 +660,8 @@ uint32_t getLocalIp(int sock) {
 void getLocalMac(SceNetEtherAddr * addr){
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
-	if (!ParseMacAddress(g_Config.localMacAddress.c_str(), mac)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.localMacAddress.c_str());
+	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
 	memcpy(addr, mac, ETHER_ADDR_LEN);
 }

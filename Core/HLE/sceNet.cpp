@@ -148,8 +148,8 @@ u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
   // Read MAC Address from config
 	uint8_t mac[6] = {0};
-	if (!ParseMacAddress(g_Config.localMacAddress.c_str(), mac)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.localMacAddress.c_str());
+	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)

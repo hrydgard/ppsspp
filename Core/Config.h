@@ -264,7 +264,7 @@ public:
 	// SystemParam
 	std::string sNickName;
 	std::string proAdhocServer;
-	std::string localMacAddress;
+	std::string sMACAddress;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -347,6 +347,7 @@ private:
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+const char *CreateRandMAC();
 
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;
