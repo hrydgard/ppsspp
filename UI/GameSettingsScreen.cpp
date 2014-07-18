@@ -392,7 +392,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), models, 0, ARRAY_SIZE(models), s, screenManager()));
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(_WIN32)  // TODO: Add all platforms where KEY_CHAR support is added
+	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, s->T("Change Nickname"), "", screenManager()));
+#elif defined(USING_QT_UI)
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
