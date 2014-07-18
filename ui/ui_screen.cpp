@@ -450,4 +450,19 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+void ChoiceWithValueDisplay::Draw(UIContext &dc) {
+	Style style = dc.theme->itemStyle;
+	std::ostringstream valueText;
+	Choice::Draw(dc);
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	if (sValue_ != nullptr) {
+		valueText << *sValue_;
+	} else if (iValue_ != nullptr) {
+		valueText << *iValue_;
+	}
+
+	dc.DrawText(valueText.str().c_str(), bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
 }  // namespace UI
