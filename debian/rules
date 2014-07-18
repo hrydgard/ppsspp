@@ -35,7 +35,7 @@ build-indep: build-stamp
 build-stamp: configure-stamp
 	dh_testdir
 	# Add here commands to compile the package.
-	$(MAKE) -C build-qt/ -j4
+	$(MAKE) -C build-qt/
 
 clean:
 	dh_testdir
