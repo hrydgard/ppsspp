@@ -580,7 +580,7 @@ TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, 
 
 void TextEdit::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.FillRect(UI::Drawable(0x80000000), bounds_);
+	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
 	if (text_.empty()) {
 		if (placeholderText_.size()) {
 			dc.DrawTextRect(placeholderText_.c_str(), bounds_, 0x50FFFFFF, ALIGN_CENTER);
@@ -604,6 +604,8 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void TextEdit::Key(const KeyInput &input) {
+	if (!HasFocus())
+		return;
 	// Process navigation keys. These aren't chars.
 	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {

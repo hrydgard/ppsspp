@@ -55,6 +55,7 @@ public:
 	virtual void CreateViews() override;
 	virtual bool isTransparent() const override { return true; }
 	virtual bool touch(const TouchInput &touch) override;
+	virtual bool key(const KeyInput &key) override;
 
 protected:
 	virtual bool FillVertical() const { return false; }
@@ -66,6 +67,7 @@ private:
 	UI::EventReturn OnCancel(UI::EventParams &e);
 
 	UI::ViewGroup *box_;
+	UI::Button *defaultButton_;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;

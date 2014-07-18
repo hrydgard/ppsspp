@@ -129,7 +129,7 @@ UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
 }
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
-	: box_(0), title_(title) {
+	: box_(0), title_(title), defaultButton_(NULL) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	if (!button1.empty())
 		button1_ = d->T(button1.c_str());
@@ -146,6 +146,18 @@ bool PopupScreen::touch(const TouchInput &touch) {
 		screenManager()->finishDialog(this, DR_BACK);
 
 	return UIDialogScreen::touch(touch);
+}
+
+bool PopupScreen::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		if (key.keyCode == NKCODE_ENTER) {
+			UI::EventParams e;
+			defaultButton_->OnClick.Trigger(e);
+			return true;
+		}
+	}
+
+	return UIDialogScreen::key(key);
 }
 
 void PopupScreen::CreateViews() {
@@ -178,13 +190,15 @@ void PopupScreen::CreateViews() {
 
 		// Adjust button order to the platform default.
 #if defined(_WIN32)
-		buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
+		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
 		if (!button2_.empty())
 			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle(this, &PopupScreen::OnCancel);
 #else
 		if (!button2_.empty())
 			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
-		buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
+		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
+		defaultButton_->OnClick.Handle(this, &PopupScreen::OnOK);
 #endif
 
 		box_->Add(buttonRow);
