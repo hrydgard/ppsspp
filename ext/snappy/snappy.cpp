@@ -249,11 +249,11 @@ static inline char* EmitCopyLessThan64(char* op, size_t offset, int len) {
   if ((len < 12) && (offset < 2048)) {
     size_t len_minus_4 = len - 4;
     assert(len_minus_4 < 8);            // Must fit in 3 bits
-    *op++ = COPY_1_BYTE_OFFSET + ((len_minus_4) << 2) + ((offset >> 8) << 5);
+    *op++ = static_cast<char>(COPY_1_BYTE_OFFSET + ((len_minus_4) << 2) + ((offset >> 8) << 5));
     *op++ = offset & 0xff;
   } else {
     *op++ = COPY_2_BYTE_OFFSET + ((len-1) << 2);
-    LittleEndian::Store16(op, offset);
+    LittleEndian::Store16(op, static_cast<uint16_t>(offset));
     op += 2;
   }
   return op;
@@ -311,7 +311,7 @@ uint16* WorkingMemory::GetHashTable(size_t input_size, int* table_size) {
     table = large_table_;
   }
 
-  *table_size = htsize;
+  *table_size = static_cast<int>(htsize);
   memset(table, 0, htsize * sizeof(*table));
   return table;
 }
@@ -596,7 +596,7 @@ static const uint16 char_table[256] = {
 
 // In debug mode, allow optional computation of the table at startup.
 // Also, check that the decompression table is correct.
-#ifndef NDEBUG
+#ifdef _DEBUG
 DEFINE_bool(snappy_dump_decompression_table, false,
             "If true, we print the decompression table at startup.");
 
@@ -803,7 +803,7 @@ class SnappyDecompressor {
           size_t n;
           ip = reader_->Peek(&n);
           avail = n;
-          peeked_ = avail;
+          peeked_ = static_cast<uint32>(avail);
           if (avail == 0) return;  // Premature end of input
           ip_limit_ = ip + avail;
         }
@@ -840,7 +840,7 @@ bool SnappyDecompressor::RefillTag() {
     reader_->Skip(peeked_);   // All peeked bytes are used up
     size_t n;
     ip = reader_->Peek(&n);
-    peeked_ = n;
+    peeked_ = static_cast<uint32>(n);
     if (n == 0) {
       eof_ = true;
       return false;
@@ -869,7 +869,7 @@ bool SnappyDecompressor::RefillTag() {
       size_t length;
       const char* src = reader_->Peek(&length);
       if (length == 0) return false;
-      uint32 to_add = min<uint32>(needed - nbuf, length);
+      uint32 to_add = min<uint32>(needed - nbuf, static_cast<uint32>(length));
       memcpy(scratch_ + nbuf, src, to_add);
       nbuf += to_add;
       reader_->Skip(to_add);
@@ -921,7 +921,7 @@ size_t Compress(Source* reader, Sink* writer) {
   size_t written = 0;
   size_t N = reader->Available();
   char ulength[Varint::kMax32];
-  char* p = Varint::Encode32(ulength, N);
+  char* p = Varint::Encode32(ulength, static_cast<uint32>(N));
   writer->Append(ulength, p-ulength);
   written += (p - ulength);
 
@@ -971,7 +971,7 @@ size_t Compress(Source* reader, Sink* writer) {
     uint16* table = wmem.GetHashTable(num_to_read, &table_size);
 
     // Compress input_fragment and append to dest
-    const int max_output = MaxCompressedLength(num_to_read);
+    const size_t max_output = MaxCompressedLength(num_to_read);
 
     // Need a scratch buffer for the output, in case the byte sink doesn't
     // have room for us directly.
@@ -1056,7 +1056,7 @@ class SnappyIOVecWriter {
       assert(curr_iov_written_ <= output_iov_[curr_iov_index_].iov_len);
       if (curr_iov_written_ >= output_iov_[curr_iov_index_].iov_len) {
         // This iovec is full. Go to the next one.
-        if (curr_iov_index_ + 1 >= output_iov_count_) {
+        if (static_cast<size_t>(curr_iov_index_) + 1 >= output_iov_count_) {
           return false;
         }
         curr_iov_written_ = 0;
@@ -1138,7 +1138,7 @@ class SnappyIOVecWriter {
                                   len);
         if (to_copy == 0) {
           // This iovec is full. Go to the next one.
-          if (curr_iov_index_ + 1 >= output_iov_count_) {
+          if (static_cast<size_t>(curr_iov_index_) + 1 >= output_iov_count_) {
             return false;
           }
           ++curr_iov_index_;
