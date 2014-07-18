@@ -3,18 +3,31 @@ package com.henrikrydgard.libnative;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.util.DisplayMetrics;
 import android.util.Log;
-
+import android.view.Display;
 
 public class NativeRenderer implements GLSurfaceView.Renderer {
 	private static String TAG = "NativeRenderer";
-	NativeActivity mActivity;
+	private NativeActivity mActivity;
 	private boolean isDark = false;
+	private int dpi;
+	private float refreshRate;
 
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
+
+		DisplayMetrics metrics = new DisplayMetrics();
+		Display display = act.getWindowManager().getDefaultDisplay();
+		display.getMetrics(metrics);
+		dpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
+
+		// Log.i(TAG, "Display name: " + display.getName());
+		Log.i(TAG, " rate: " + refreshRate + " dpi: " + dpi);
 	}
 
 	public void setDark(boolean d) {
@@ -42,7 +55,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
 		Log.i(TAG, "onSurfaceChanged");
-		displayResize(width, height);
+		displayResize(width, height, dpi, refreshRate);
 	}
 
 	// Not override, it's custom.
@@ -55,7 +68,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects. 
 	public native void displayInit(); 
-	public native void displayResize(int w, int h);
+	public native void displayResize(int w, int h, int dpi, float refreshRate);
 	public native void displayRender();
 	public native void displayShutdown();
 	

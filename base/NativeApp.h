@@ -16,8 +16,6 @@ struct AxisInput;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
-// The detected DP dimensions of the screen are set as dp_xres and dp_yres and you're free to change
-// them if you have a fixed-size app that needs to stretch a little to fit.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
 
 // Generic host->C++ messaging, used for functionality like system-native popup input boxes.
@@ -38,6 +36,7 @@ bool NativeIsAtTopLevel();
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID);
 
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
+// Should not initialize anything screen-size-dependent - do that in NativeResized.
 void NativeInitGraphics();
 
 // Signals that you need to destroy and recreate all buffered OpenGL resources,

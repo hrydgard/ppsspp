@@ -152,7 +152,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
-	(JNIEnv *env, jclass, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
+	(JNIEnv *env, jclass, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
@@ -192,10 +192,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	bool landscape;
 
 	net::Init();
-
-	g_dpi = dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-	ILOG("DPI detected: %i %f", dpi, g_dpi_scale);
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
@@ -262,39 +258,32 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jc
 static jmethodID postCommand;
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit(pixel_xres = %i, pixel_yres = %i)", pixel_xres, pixel_yres);
+	ILOG("NativeApp.displayInit()");
 	if (!renderer_inited) {
-		// We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
-		// Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
-		// can change the dp resolution if it feels like it.
-		dp_xres = pixel_xres * g_dpi_scale;
-		dp_yres = pixel_yres * g_dpi_scale;
-
 		NativeInitGraphics();
-		ILOG("NativeInitGraphics() completed: dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
-
-		dp_xscale = (float)dp_xres / pixel_xres;
-		dp_yscale = (float)dp_yres / pixel_yres;
 		renderer_inited = true;
 	} else {
-		NativeDeviceLost();
-		ILOG("NativeDeviceLost completed.");
+		NativeDeviceLost();  // ???
+		ILOG("displayInit: NativeDeviceLost completed.");
 	}
+
 	DLOG("(Re)-fetching method ID to postCommand...");
-	jclass cls = env->GetObjectClass(obj);
-	postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
-	ILOG("NativeApp.displayResize(%i, %i)", w, h);
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
+	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
 
-	// TODO: Move some of the logic from displayInit here?
+	g_dpi = dpi;
+	g_dpi_scale = 240.0f / (float)g_dpi;
+
 	pixel_xres = w;
 	pixel_yres = h;
 	dp_xres = pixel_xres * g_dpi_scale;
 	dp_yres = pixel_yres * g_dpi_scale;
 	dp_xscale = (float)dp_xres / pixel_xres;
 	dp_yscale = (float)dp_yres / pixel_yres;
+	display_hz = refreshRate;
 
 	NativeResized();
 }

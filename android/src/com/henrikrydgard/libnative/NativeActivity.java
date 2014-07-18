@@ -185,31 +185,22 @@ public class NativeActivity extends Activity {
 		
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
-        Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 		@SuppressWarnings("deprecation")
 
-		float scrRefreshRate = display.getRefreshRate();
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
-		DisplayMetrics metrics = new DisplayMetrics();
-		getWindowManager().getDefaultDisplay().getMetrics(metrics);
-
-		int dpi = metrics.densityDpi;
 		
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 				
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL());
+		NativeApp.init(deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL());
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
 			updateScreenRotation();
 		}	
-
-		Log.i(TAG, "Device: " + deviceType);     
-	    Log.i(TAG, " rate: " + scrRefreshRate + " dpi: " + dpi);     
 
 	    // Detect OpenGL support.
 	    // We don't currently use this detection for anything but good to have in the log.
@@ -272,7 +263,6 @@ public class NativeActivity extends Activity {
 		}
 		if (useImmersive) {
 			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-			Log.i(TAG, "Setting immersive mode");
 		}
 		if (getWindow().getDecorView() != null) {
 			getWindow().getDecorView().setSystemUiVisibility(flags);
@@ -315,6 +305,7 @@ public class NativeActivity extends Activity {
         NativeApp.audioInit();
         
         mGLSurfaceView = new NativeGLView(this);
+		nativeRenderer = new NativeRenderer(this);
 
         mGLSurfaceView.setEGLContextClientVersion(2);
         
@@ -339,7 +330,6 @@ public class NativeActivity extends Activity {
         	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
         }
         
-		nativeRenderer = new NativeRenderer(this);
         mGLSurfaceView.setRenderer(nativeRenderer);
 		setContentView(mGLSurfaceView);
 
