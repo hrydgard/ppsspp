@@ -293,7 +293,7 @@ enum ThreadStatus
 	THREADSTATUS_WAITSUSPEND = THREADSTATUS_WAIT | THREADSTATUS_SUSPEND
 };
 
-void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);
+bool __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);
 
 typedef void (*ThreadCallback)(SceUID threadID);
 void __KernelListenThreadEnd(ThreadCallback callback);
