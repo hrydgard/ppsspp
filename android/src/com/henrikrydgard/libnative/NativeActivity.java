@@ -760,6 +760,7 @@ public class NativeActivity extends Activity {
 		} else if (command.equals("toast")) {
 			Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
 			toast.show();
+			Log.i(TAG, params);
 			return true;
 		} else if (command.equals("showKeyboard")) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -828,7 +829,24 @@ public class NativeActivity extends Activity {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				updateSystemUiVisibility();
 			}
+		} else if (command.equals("recreate")) {
+			recreate();
 		}
     	return false;
+    }
+
+    @SuppressLint("NewApi")
+	@Override
+    public void recreate()
+    {
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
+        {
+            super.recreate();
+        }
+        else
+        {
+            startActivity(getIntent());
+            finish();
+        }
     }
 }
