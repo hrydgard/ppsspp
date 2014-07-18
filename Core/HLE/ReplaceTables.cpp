@@ -458,6 +458,37 @@ static int Replace_dl_write_matrix() {
 	return 60;
 }
 
+static int Replace_peacewalker_codehash() {
+	u32 srcPtr = PARAM(1);
+	const u32 size = PARAM(2);
+	const u32 *table = (const u32 *)Memory::GetPointer(PARAM(3));
+	const u32 salt = PARAM(4);
+
+	// Note: this seems like an anti-cheat device, makes sure code doesn't get modified.
+	// It detects emuhacks being modified, so we override it here.
+	// We could clear the jit, but this is called a ton, and that wouldn't fix replacements.
+
+	// We need it aligned to read behind the emuhacks.
+	u32 offset = srcPtr & 3;
+	u32 srcOffset = srcPtr & ~3;
+	u32 sizeOffset = offset + size;
+
+	u32 hash = ~PARAM(0);
+	for (u32 i = 0; i < sizeOffset; i += 4) {
+		union { u32 w; u8 b[4]; } word;
+		word.w = Memory::Read_Instruction(srcOffset + i, true).encoding;
+		const u32 remaining = std::min(4U, size - i);
+		for (u32 j = offset; j < remaining; ++j) {
+			const u8 index = (word.b[j] ^ hash) & 0xFF;
+			hash = table[index] ^ salt ^ (hash >> 8);
+		}
+		offset = 0;
+	}
+	RETURN(~hash);
+
+	return 9 + 13 * size;
+}
+
 static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
 	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset, true);
 	if (upper != MIPS_MAKE_LUI(MIPS_GET_RT(upper), upper & 0xffff)) {
@@ -586,6 +617,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34},
 	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
 	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER},
+	{ "peacewalker_codehash", &Replace_peacewalker_codehash, 0, 0},
 	{}
 };
 
