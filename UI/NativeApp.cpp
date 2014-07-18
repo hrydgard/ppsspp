@@ -200,7 +200,15 @@ std::string NativeQueryConfig(std::string query) {
 	} else if (query == "immersiveMode") {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
 	} else if (query == "hwScale") {
-		sprintf(temp, "%i", g_Config.iAndroidHwScale);
+		int scale = g_Config.iAndroidHwScale;
+		if (scale == 1) {
+			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
+			scale = g_Config.iInternalResolution;
+		} else if (scale >= 2) {
+			scale -= 1;
+		}
+
+		sprintf(temp, "%i", scale);
 		return std::string(temp);
 	} else {
 		return std::string("");

@@ -142,8 +142,8 @@ void GameSettingsScreen::CreateViews() {
 	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
 
 #ifdef ANDROID
-	static const char *deviceResolutions[] = { "Native", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
-	UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gs->T("Device Resolution (HW scaler)"), deviceResolutions, 0, ARRAY_SIZE(deviceResolutions), gs, screenManager()));
+	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+	UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gs->T("Display Resolution (HW scaler)"), deviceResolutions, 0, ARRAY_SIZE(deviceResolutions), gs, screenManager()));
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 #endif
 
@@ -492,6 +492,9 @@ UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (gpu) {
 		gpu->Resized();
+	}
+	if (g_Config.iAndroidHwScale == 1) {
+		System_SendMessage("recreate", "");
 	}
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
