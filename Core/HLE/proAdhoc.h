@@ -104,26 +104,48 @@ inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #define INET_POLLWRNORM 0x0004
 
 // Event Flags
-#define ADHOC_EV_SEND 1
-#define ADHOC_EV_RECV 2
-#define ADHOC_EV_ALERT 0x400
+#define ADHOC_EV_SEND		0x0001
+#define ADHOC_EV_RECV		0x0002
+#define ADHOC_EV_CONNECT	0x0004
+#define ADHOC_EV_ACCEPT		0x0008
+#define ADHOC_EV_FLUSH		0x0010
+#define ADHOC_EV_INVALID	0x0100
+#define ADHOC_EV_DELETE		0x0200
+#define ADHOC_EV_ALERT		0x0400
+#define ADHOC_EV_DISCONNECT	0x0800
 
 // PTP Connection States
-#define PTP_STATE_CLOSED 0
-#define PTP_STATE_LISTEN 1
-#define PTP_STATE_ESTABLISHED 4
+#define ADHOC_PTP_STATE_CLOSED		0
+#define ADHOC_PTP_STATE_LISTEN		1
+#define ADHOC_PTP_STATE_SYN_SENT	2
+#define ADHOC_PTP_STATE_SYN_RCVD	3
+#define ADHOC_PTP_STATE_ESTABLISHED 4
 
+// Nonblocking Flag for Adhoc socket API
+#define ADHOC_F_NONBLOCK		0x0001
 // Alert Flags
-#define ADHOC_F_ALERTSEND 0x0010
-#define ADHOC_F_ALERTRECV 0x0020
-#define ADHOC_F_ALERTPOLL 0x0040
-#define ADHOC_F_ALERTCONNECT 0x0080
-#define ADHOC_F_ALERTACCEPT 0x0100
-#define ADHOC_F_ALERTFLUSH 0x0200
-#define ADHOC_F_ALERTALL (ADHOC_F_ALERTSEND | ADHOC_F_ALERTRECV | ADHOC_F_ALERTPOLL | ADHOC_F_ALERTCONNECT | ADHOC_F_ALERTACCEPT | ADHOC_F_ALERTFLUSH)
+#define ADHOC_F_ALERTSEND		0x0010
+#define ADHOC_F_ALERTRECV		0x0020
+#define ADHOC_F_ALERTPOLL		0x0040
+#define ADHOC_F_ALERTCONNECT	0x0080
+#define ADHOC_F_ALERTACCEPT		0x0100
+#define ADHOC_F_ALERTFLUSH		0x0200
+#define ADHOC_F_ALERTALL		(ADHOC_F_ALERTSEND | ADHOC_F_ALERTRECV | ADHOC_F_ALERTPOLL | ADHOC_F_ALERTCONNECT | ADHOC_F_ALERTACCEPT | ADHOC_F_ALERTFLUSH)
+
+/* PDP Maximum Fragment Size */
+#define PSP_ADHOC_PDP_MFS		1444
+
+/* PDP Maximum Transfer Unit */
+#define PSP_ADHOC_PDP_MTU		65523
+
+/* PTP Maximum Segment Size */
+#define PSP_ADHOC_PTP_MSS		1444
+
+/* GameMode Optional Data */
+#define ADHOC_GAMEMODE_F_UPDATE		0x00000001
 
 // Timeouts
-#define PSP_ADHOCCTL_PING_TIMEOUT 2000000
+#define PSP_ADHOCCTL_PING_TIMEOUT	2000000
 
 #ifdef _MSC_VER 
 #pragma pack(push, 1)
@@ -139,9 +161,9 @@ extern uint8_t broadcastMAC[ETHER_ADDR_LEN];
 
 // Malloc Pool Information
 typedef struct SceNetMallocStat {
-	s32_le poolsize;
-	s32_le maxsize;
-	s32_le freesize;
+	s32_le pool; // Pointer to the pool?
+	s32_le maximum; // Maximum size of the pool?
+	s32_le free; // How much memory is free
 } PACK SceNetMallocStat;
 
 // Adhoc Virtual Network Name
@@ -401,6 +423,7 @@ typedef struct SceNetAdhocMatchingContext {
   SceNetAdhocMatchingHandler handler;
 
   // Event Handler Args
+  u32_le handlerArgs[5];
   //SceNetAdhocMatchingHandlerArgs handlerArgs;
 
   // Hello Data Length
@@ -483,6 +506,13 @@ enum {
 	PSP_ADHOC_MATCHING_MODE_PTP = 3,
 };
 
+enum {
+	PSP_ADHOC_POLL_READY_TO_SEND = 1, // POLLIN ?
+	PSP_ADHOC_POLL_DATA_AVAILABLE = 2, // POLLPRI ?
+	PSP_ADHOC_POLL_CAN_CONNECT = 4, // POLLOUT ?
+	PSP_ADHOC_POLL_CAN_ACCEPT = 8, // POLLERR ?
+};
+
 // Matching modes
 #define PSP_ADHOC_MATCHING_MODE_PARENT			1
 #define PSP_ADHOC_MATCHING_MODE_CHILD			2
@@ -545,9 +575,6 @@ enum {
 
 // PSP Product Code
 #define PRODUCT_CODE_LENGTH 9
-
-// Nonblocking Flag for Adhoc API
-#define PSP_ADHOC_F_NONBLOCK 1
 
 #ifdef _MSC_VER 
 #pragma pack(push,1) 

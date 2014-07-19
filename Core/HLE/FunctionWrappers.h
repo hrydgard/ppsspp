@@ -799,3 +799,8 @@ template<int func(int, const char *, u32, void *, int, int, int)> void WrapI_ICU
   u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointer(PARAM(3)), PARAM(4), PARAM(5), PARAM(6));
   RETURN(retval);
 }
+
+template<int func(void *, u32, int)> void WrapI_VUI(){
+	u32 retval = func(Memory::GetPointer(PARAM(0)), PARAM(1), PARAM(2));
+	RETURN(retval);
+}

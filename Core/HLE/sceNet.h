@@ -25,3 +25,5 @@ void Register_sceWlanDrv();
 void __NetInit();
 void __NetShutdown();
 void __NetDoState(PointerWrap &p);
+
+int sceNetInetPoll(void *fds, u32 nfds, int timeout);

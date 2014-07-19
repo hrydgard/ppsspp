@@ -25,6 +25,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/proAdhoc.h"
+#include "Core/HLE/sceNet.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
 
@@ -82,13 +83,6 @@ enum {
 	ERROR_NET_ADHOC_MATCHING_DATA_BUSY           = 0x80410818,
 
 	ERROR_NET_NO_SPACE                           = 0x80410001 
-};
-
-enum {
-	PSP_ADHOC_POLL_READY_TO_SEND  = 1,
-	PSP_ADHOC_POLL_DATA_AVAILABLE = 2,
-	PSP_ADHOC_POLL_CAN_CONNECT    = 4,
-	PSP_ADHOC_POLL_CAN_ACCEPT     = 8,
 };
 
 const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
@@ -509,6 +503,9 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								// Iterate Peers
 								SceNetAdhocctlPeerInfo * peer = friends;
 								for (; peer != NULL; peer = peer->next) {
+									// Skip timed out friends
+									if (peer->last_recv == 0) continue;
+
 									// Fill in Target Structure
 									sockaddr_in target;
 									target.sin_family = AF_INET;
@@ -662,7 +659,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 						// Return Success
 						return 0;
 					}
-					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Unknown Peer %u.%u.%u.%u:%u [%02X:%02X:%02X:%02X:%02X:%02X]", id, getLocalPort(socket->id), sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port), mac.data[0], mac.data[1], mac.data[2], mac.data[3], mac.data[4], mac.data[5]);
+					INFO_LOG(SCENET, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %u.%u.%u.%u:%u [%02X:%02X:%02X:%02X:%02X:%02X]", id, getLocalPort(socket->id), received, sip[0], sip[1], sip[2], sip[3], ntohs(sin.sin_port), mac.data[0], mac.data[1], mac.data[2], mac.data[3], mac.data[4], mac.data[5]);
 
 					// Free Network Lock
 					//_freeNetworkLock();
@@ -704,7 +701,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 }
 
 int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonblock) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPollSocket(%08x, %i, %i, %i)", socketStructAddr, count, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNTESTED sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", socketStructAddr, count, timeout, nonblock, currentMIPS->pc);
 	
 	// Library is initialized
 	if (netAdhocInited)
@@ -719,7 +716,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			int i = 0; for (; i < count; i++)
 			{
 				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > 255 || pdp[sds[i].id - 1] == NULL) return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+				if (sds[i].id < 1 || sds[i].id > 255 || (pdp[sds[i].id - 1] == NULL && ptp[sds[i].id - 1] == NULL)) return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
 			}
 
 			// Allocate Infrastructure Memory
@@ -735,7 +732,14 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 				for (i = 0; i < count; i++)
 				{
 					// Fill in Infrastructure Socket ID
-					isds[i].fd = pdp[sds[i].id - 1]->id;
+					if (pdp[sds[i].id - 1] != NULL) {
+						isds[i].fd = pdp[sds[i].id - 1]->id;
+					}
+					else {
+						isds[i].fd = ptp[sds[i].id - 1]->id;
+						//if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_LISTEN) sds[i].events |= ADHOC_EV_ACCEPT; else
+						//if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_CLOSED) sds[i].events |= ADHOC_EV_CONNECT;
+					}
 
 					// Send Event
 					if (sds[i].events & ADHOC_EV_SEND) isds[i].events |= INET_POLLWRNORM;
@@ -761,7 +765,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 				//acquireNetworkLock();
 
 				// Poll Sockets
-				int affectedsockets = 0; // = sceNetInetPoll(isds, count, timeout); //Not implemented yet
+				int affectedsockets = sceNetInetPoll(isds, count, timeout); //Not implemented yet
 
 				// Free Network Lock
 				//freeNetworkLock();
@@ -773,10 +777,19 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 					for (i = 0; i < count; i++)
 					{
 						// Send Event
-						if (isds[i].revents & INET_POLLWRNORM) sds[i].revents |= ADHOC_EV_SEND;
+						if (isds[i].revents & INET_POLLWRNORM) sds[i].revents |= ADHOC_EV_SEND; //PSP_ADHOC_POLL_READY_TO_SEND
 
 						// Receive Event
-						if (isds[i].revents & INET_POLLRDNORM) sds[i].revents |= ADHOC_EV_RECV;
+						if (isds[i].revents & INET_POLLRDNORM) sds[i].revents |= ADHOC_EV_RECV; //PSP_ADHOC_POLL_DATA_AVAILABLE
+
+						// Other Events
+						sds[i].revents |= (PSP_ADHOC_POLL_CAN_CONNECT | PSP_ADHOC_POLL_CAN_ACCEPT); // TODO: Need to check if it's binded/Listening or not
+						
+						// Event Masking
+						sds[i].revents &= sds[i].events;
+
+						// Error Events
+						//if (isds[i].revents & POLLERR) sds[i].revents |= ADHOC_EV_ALERT;
 					}
 				}
 
@@ -1156,9 +1169,9 @@ int sceNetAdhocctlTerm() {
 		// Free stuff here
 		closesocket(metasocket);
 		metasocket = (int)INVALID_SOCKET;
-#ifdef _MSC_VER
+/*#ifdef _MSC_VER
 		WSACleanup(); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
-#endif
+#endif*/
 	}
 
 	return 0;
@@ -1783,7 +1796,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
 			// Listener Socket
-			if (socket->state == PTP_STATE_LISTEN) {
+			if (socket->state == ADHOC_PTP_STATE_LISTEN) {
 				// Valid Arguments
 				if (addr != NULL /*&& port != NULL*/) { //GTA:VCS seems to use 0 for the portPtr
 					// Address Information
@@ -1877,7 +1890,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 										internal->pport = ntohs(peeraddr.sin_port);
 										
 										// Set Connected State
-										internal->state = PTP_STATE_ESTABLISHED;
+										internal->state = ADHOC_PTP_STATE_ESTABLISHED;
 										
 										// Return Peer Address Information
 										*addr = internal->paddr;
@@ -1993,7 +2006,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Instant Connection (Lucky!)
 					if (connectresult == 0 || (connectresult == -1 && (errorcode == EISCONN /*|| errorcode == EALREADY)*/))) {
 						// Set Connected State
-						socket->state = PTP_STATE_ESTABLISHED;
+						socket->state = ADHOC_PTP_STATE_ESTABLISHED;
 						
 						// Success
 						return 0;
@@ -2022,7 +2035,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 							// Connected in Time
 							if (sin.sin_addr.s_addr == peer.sin_addr.s_addr/* && sin.sin_port == peer.sin_port*/) {
 								// Set Connected State
-								socket->state = PTP_STATE_ESTABLISHED;
+								socket->state = ADHOC_PTP_STATE_ESTABLISHED;
 
 								uint8_t * pip = (uint8_t *)&peer.sin_addr.s_addr;
 								INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Established (%u.%u.%u.%u:%u)", id, socket->lport, pip[0], pip[1], pip[2], pip[3], socket->pport);
@@ -2178,7 +2191,7 @@ int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int rexmt_i
 										internal->lport = sport;
 										
 										// Flag Socket as Listener
-										internal->state = PTP_STATE_LISTEN;
+										internal->state = ADHOC_PTP_STATE_LISTEN;
 										
 										// Set Buffer Size
 										internal->rcv_sb_cc = bufsize;
@@ -2252,7 +2265,7 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
 			// Connected Socket
-			if (socket->state == PTP_STATE_ESTABLISHED) {
+			if (socket->state == ADHOC_PTP_STATE_ESTABLISHED) {
 				// Valid Arguments
 				if (data != NULL && len != NULL && *len > 0) {
 					// Schedule Timeout Removal
@@ -2295,7 +2308,7 @@ int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 					}
 					
 					// Change Socket State
-					socket->state = PTP_STATE_CLOSED;
+					socket->state = ADHOC_PTP_STATE_CLOSED;
 					
 					// Disconnected
 					return ERROR_NET_ADHOC_DISCONNECTED;
@@ -2337,7 +2350,7 @@ int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL && ptp[id - 1]->state == PTP_STATE_ESTABLISHED) {
+		if (id > 0 && id <= 255 && ptp[id - 1] != NULL && ptp[id - 1]->state == ADHOC_PTP_STATE_ESTABLISHED) {
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = ptp[id - 1];
 			
@@ -2383,7 +2396,7 @@ int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int 
 				}
 				
 				// Change Socket State
-				socket->state = PTP_STATE_CLOSED;
+				socket->state = ADHOC_PTP_STATE_CLOSED;
 				
 				// Disconnected
 				return ERROR_NET_ADHOC_DISCONNECTED;
@@ -3442,9 +3455,9 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 		if (poolstat != NULL)
 		{
 			// Fill Poolstat with Fake Data
-			poolstat->poolsize = fakePoolSize;
-			poolstat->maxsize = fakePoolSize / 8 * 6;
-			poolstat->freesize = fakePoolSize / 8 * 7;
+			poolstat->pool = fakePoolSize;
+			poolstat->maximum = fakePoolSize / 8 * 6;
+			poolstat->free = fakePoolSize / 8 * 7;
 
 			// Return Success
 			return 0;
@@ -3780,7 +3793,7 @@ void broadcastPingMessage(SceNetAdhocMatchingContext * context)
 	uint8_t ping = PSP_ADHOC_MATCHING_PACKET_PING;
 
 	// Send Broadcast
-	sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, &ping, sizeof(ping), 0, PSP_ADHOC_F_NONBLOCK);
+	sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, &ping, sizeof(ping), 0, ADHOC_F_NONBLOCK);
 }
 
 /**
@@ -3811,7 +3824,7 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 		if (context->hellolen > 0) memcpy(hello + 5, context->hello, context->hellolen);
 
 		// Send Broadcast
-		sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, hello, 5 + context->hellolen, 0, PSP_ADHOC_F_NONBLOCK);
+		sceNetAdhocPdpSend(context->socket, (const char*)(SceNetEtherAddr *)broadcastMAC, context->port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
 
 		// Free Memory, not needed since it may be reused again later
 		//free(hello);
@@ -3885,7 +3898,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 			}
 
 			// Send Data
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, accept, 9 + optlen + siblingbuflen, 0, PSP_ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, accept, 9 + optlen + siblingbuflen, 0, ADHOC_F_NONBLOCK);
 
 			// Free Memory
 			free(accept);
@@ -3927,7 +3940,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 			if (optlen > 0) memcpy(join + 5, opt, optlen);
 
 			// Send Data
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, join, 5 + optlen, 0, PSP_ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 
 			// Free Memory
 			free(join);
@@ -3960,7 +3973,7 @@ void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		if (optlen > 0) memcpy(cancel + 5, opt, optlen);
 
 		// Send Data
-		sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, cancel, 5 + optlen, 0, PSP_ADHOC_F_NONBLOCK);
+		sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 
 		// Free Memory
 		free(cancel);
@@ -4015,7 +4028,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 			memcpy(send + 5, data, datalen);
 
 			// Send Data
-			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, send, 5 + datalen, 0, PSP_ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)mac, context->port, send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
 
 			// Free Memory
 			free(send);
@@ -4061,7 +4074,7 @@ void sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)
 			{
 				// Send Packet
-				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, PSP_ADHOC_F_NONBLOCK);
+				int sent = sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 			
 				// Log Send Success
 				if (sent >= 0) 
@@ -4105,7 +4118,7 @@ void sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)
 			{
 				// Send Packet
-				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, PSP_ADHOC_F_NONBLOCK);
+				sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 			}
 		}
 	}
@@ -4127,7 +4140,7 @@ void sendByePacket(SceNetAdhocMatchingContext * context)
 			uint8_t opcode = PSP_ADHOC_MATCHING_PACKET_BYE;
 
 			// Send Bye Packet
-			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, &opcode, sizeof(opcode), 0, PSP_ADHOC_F_NONBLOCK);
+			sceNetAdhocPdpSend(context->socket, (const char*)&peer->mac, context->port, &opcode, sizeof(opcode), 0, ADHOC_F_NONBLOCK);
 		}
 	}
 }
@@ -4698,7 +4711,6 @@ int matchingEventThread(int matchingId)
 {
 	u32 bufLen = 0;
 	u32 bufAddr = 0;
-	static u32_le args[5] = { 0, 0, 0, 0, 0 }; // Need to be global/static so it can be accessed from a different thread
 
 	// Multithreading Lock
 	peerlock.lock();
@@ -4712,6 +4724,9 @@ int matchingEventThread(int matchingId)
 
 	// Run while needed...
 	if (context != NULL) {
+		//static u32_le args[5] = { 0, 0, 0, 0, 0 }; // Need to be global/static so it can be accessed from a different thread
+		u32_le * args = context->handlerArgs;
+
 		while (context->eventRunning) // (context->eventThread.get_id() != NULL)
 		{
 			// Messages on Stack ready for processing
@@ -4901,7 +4916,7 @@ int matchingInputThread(int matchingId)
 			SceNetEtherAddr sendermac;
 			uint16_t senderport;
 			int rxbuflen = context->rxbuflen;
-			int recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, PSP_ADHOC_F_NONBLOCK);
+			int recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
 
 			// Received Data from a Sender that interests us
 			if (recvresult == 0 && rxbuflen > 0 && context->port == senderport)
