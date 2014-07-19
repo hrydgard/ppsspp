@@ -235,6 +235,7 @@ public:
 		InitializeConditionVariable(&cond_);
 #else
 		sema_ = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
+		waiting_ = 0;
 #endif
 #else
 		pthread_cond_init(&event_, NULL);
@@ -256,7 +257,10 @@ public:
 #ifdef _M_X64
 		WakeConditionVariable(&cond_);
 #else
-		ReleaseSemaphore(sema_, 1, NULL);
+		// Should be locked at this time.
+		if (waiting_ != 0) {
+			ReleaseSemaphore(sema_, 1, NULL);
+		}
 #endif
 #else
 		pthread_cond_signal(&event_);
@@ -275,9 +279,11 @@ public:
 		// Since a semaphore keeps a count, the window between unlock and lock won't cause us to deadlock.
 		// However, we could wake early incorrectly (if the semaphore is signalled already.)
 		// That's better than deadlocking or forgetting to wake.
+		waiting_++;
 		mtx.unlock();
 		WaitForSingleObject(sema_, INFINITE);
 		mtx.lock();
+		waiting_--;
 #endif
 #else
 		pthread_cond_wait(&event_, &mtx.native_handle());
@@ -292,9 +298,11 @@ public:
 		// Since a semaphore keeps a count, the window between unlock and lock won't cause us to deadlock.
 		// However, we could wake early incorrectly (if the semaphore is signalled already.)
 		// That's better than deadlocking or forgetting to wake.
+		waiting_++;
 		mtx.unlock();
 		WaitForSingleObject(sema_, milliseconds);
 		mtx.lock();
+		waiting_--;
 #endif
 #else
 		timespec timeout;
@@ -318,6 +326,7 @@ private:
 	CONDITION_VARIABLE cond_;
 #else
 	HANDLE sema_;
+	volatile int waiting_;
 #endif
 #else
 	pthread_cond_t event_;
