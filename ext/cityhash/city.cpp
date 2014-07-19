@@ -27,7 +27,7 @@
 // possible hash functions, by using SIMD instructions, or by
 // compromising on hash quality.
 
-#ifndef __WIN32__
+#ifdef ANDROID
 #undef __SSE4_2__
 #endif
 #include "city.h"
