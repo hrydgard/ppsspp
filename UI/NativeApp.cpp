@@ -193,14 +193,25 @@ void QtHost::ShutdownSound() { g_mixer = 0; }
 #endif
 
 std::string NativeQueryConfig(std::string query) {
+	char temp[128];
 	if (query == "screenRotation") {
-		char temp[128];
 		sprintf(temp, "%i", g_Config.iScreenRotation);
-		return temp;
+		return std::string(temp);
 	} else if (query == "immersiveMode") {
-		return g_Config.bImmersiveMode ? "1" : "0";
+		return std::string(g_Config.bImmersiveMode ? "1" : "0");
+	} else if (query == "hwScale") {
+		int scale = g_Config.iAndroidHwScale;
+		if (scale == 1) {
+			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
+			scale = g_Config.iInternalResolution;
+		} else if (scale >= 2) {
+			scale -= 1;
+		}
+
+		sprintf(temp, "%i", scale);
+		return std::string(temp);
 	} else {
-		return "";
+		return std::string("");
 	}
 }
 
@@ -540,8 +551,6 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 
 #ifdef _WIN32
 	DSound::DSound_StartSound(MainWindow::GetHWND(), &Win32Mix);
