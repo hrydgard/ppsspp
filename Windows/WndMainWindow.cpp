@@ -320,6 +320,9 @@ namespace MainWindow
 		if (!goingFullscreen) {
 			// Put caption and border styles back.
 			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+
+			dwOldStyle &= ~WS_POPUP;
+
 			dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
 			
 			// Put back the menu bar.
@@ -331,6 +334,9 @@ namespace MainWindow
 			// Remove caption and border styles.
 			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 			dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
+
+			// Add WS_POPUP
+			dwNewStyle |= WS_POPUP;
 		}
 
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);

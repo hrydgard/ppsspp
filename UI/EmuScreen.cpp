@@ -520,7 +520,6 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 				if (!IsAnalogStickKey(resultsOpposite[i]))
 					pspKey(resultsOpposite[i], KEY_UP);
 			}
-			// Hm, why do we use a different way below?
 		} else if (axisState == 0) {
 			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
 			for (size_t i = 0; i < results.size(); i++) {
