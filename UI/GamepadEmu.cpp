@@ -136,7 +136,7 @@ void PSPDpad::Touch(const TouchInput &input) {
 
 void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	float stick_size = spacing_ * D_pad_Radius * scale_;
-	float inv_stick_size = 1.0f / (stick_size * scale_);
+	float inv_stick_size = 1.0f / stick_size;
 	const float deadzone = 0.17f;
 
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
