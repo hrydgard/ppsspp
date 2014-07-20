@@ -70,10 +70,6 @@ inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK ||
 inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #endif
 
-#ifndef POLLERR
-#define POLLERR = POLL_ERR;
-#endif
-
 #define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)
 
 // psp strutcs and definitions
