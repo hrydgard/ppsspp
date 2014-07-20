@@ -706,7 +706,7 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 void Slider::Key(const KeyInput &input) {
-	if (HasFocus() && input.flags & KEY_DOWN) {
+	if (HasFocus() && (input.flags & KEY_DOWN)) {
 		switch (input.keyCode) {
 		case NKCODE_DPAD_LEFT:
 		case NKCODE_MINUS:
@@ -776,7 +776,7 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 void SliderFloat::Key(const KeyInput &input) {
-	if (HasFocus() && input.flags & KEY_DOWN) {
+	if (HasFocus() && (input.flags & KEY_DOWN)) {
 		switch (input.keyCode) {
 		case NKCODE_DPAD_LEFT:
 		case NKCODE_MINUS:

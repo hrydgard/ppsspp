@@ -674,7 +674,7 @@ int main(int argc, char *argv[]) {
 						TouchInput input;
 						input.x = mx;
 						input.y = my;
-						input.flags = TOUCH_DOWN;
+						input.flags = TOUCH_DOWN | TOUCH_MOUSE;
 						input.id = 0;
 						NativeTouch(input);
 						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
@@ -715,7 +715,7 @@ int main(int argc, char *argv[]) {
 					TouchInput input;
 					input.x = mx;
 					input.y = my;
-					input.flags = TOUCH_MOVE;
+					input.flags = TOUCH_MOVE | TOUCH_MOUSE;
 					input.id = 0;
 					NativeTouch(input);
 				}
@@ -732,7 +732,7 @@ int main(int argc, char *argv[]) {
 						TouchInput input;
 						input.x = mx;
 						input.y = my;
-						input.flags = TOUCH_UP;
+						input.flags = TOUCH_UP | TOUCH_MOUSE;
 						input.id = 0;
 						NativeTouch(input);
 						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
@@ -748,7 +748,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_WHEELUP:
 					{
 						KeyInput key;
-						key.deviceId = DEVICE_ID_DEFAULT;
+						key.deviceId = DEVICE_ID_MOUSE;
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						key.flags = KEY_UP;
 						NativeKey(key);
@@ -757,7 +757,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_WHEELDOWN:
 					{
 						KeyInput key;
-						key.deviceId = DEVICE_ID_DEFAULT;
+						key.deviceId = DEVICE_ID_MOUSE;
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 						key.flags = KEY_UP;
 						NativeKey(key);

@@ -130,7 +130,8 @@ enum {
 	TOUCH_DOWN = 1 << 1,
 	TOUCH_UP = 1 << 2,
 	TOUCH_CANCEL = 1 << 3,  // Sent by scrollviews to their children when they detect a scroll
-	TOUCH_WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y.
+	TOUCH_WHEEL = 1 << 4,  // Scrollwheel event. Usually only affects Y but can potentially affect X.
+	TOUCH_MOUSE = 1 << 5,  // Identifies that this touch event came from a mouse
 
 	// These are the Android getToolType() codes, shifted by 10.
 	TOUCH_TOOL_MASK = 7 << 10,
