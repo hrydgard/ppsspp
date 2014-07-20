@@ -23,10 +23,11 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "UI/MiscScreens.h"
-#include "UI/DevScreens.h"
-#include "UI/GameSettingsScreen.h"
+#include "ext/disarm.h"
+
 #include "Common/LogManager.h"
+#include "Common/CPUDetect.h"
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -35,8 +36,9 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "ext/disarm.h"
-#include "Common/CPUDetect.h"
+#include "UI/MiscScreens.h"
+#include "UI/DevScreens.h"
+#include "UI/GameSettingsScreen.h"
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -180,6 +182,20 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+const char *GetCompilerABI() {
+#ifdef HAVE_ARMV7
+	return "armeabi-v7a";
+#elif defined(ARM)
+	return "armeabi"
+#elif defined(_M_IX86)
+	return "x86";
+#elif defined(_M_X64)
+	return "x86-64";
+#else
+	return "other";
+#endif
+}
+
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *d = GetI18NCategory("Dialog");
@@ -204,6 +220,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("System Information"));
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
 #ifdef ARM
