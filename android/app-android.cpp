@@ -478,6 +478,7 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
 extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
 		return false;
+
 	// Theoretically this needs locking but I doubt it matters. Worst case, the X
 	// from one "sensor frame" will be used together with Y from the next.
 	// Should look into quantization though, for compressed movement storage.
@@ -492,16 +493,17 @@ extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerom
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
 	axis.value = x;
-	bool retval = NativeAxis(axis);
+	bool retvalX = NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
 	axis.value = y;
-	retval = retval || NativeAxis(axis);
+	bool retvalY = NativeAxis(axis);
 
 	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
 	axis.value = z;
-	retval = retval || NativeAxis(axis);
-	return retval;
+	bool retvalZ = NativeAxis(axis);
+
+	return retvalX || retvalY || retvalZ;
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
