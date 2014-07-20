@@ -443,10 +443,23 @@ UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+static void RecreateActivity() {
+	const int SYSTEM_JELLYBEAN = 16;
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
+		System_SendMessage("recreate", "");
+	} else {
+		I18NCategory *gs = GetI18NCategory("Graphics");
+		System_SendMessage("toast", gs->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
-	if (g_Config.iAndroidHwScale != 0)
-		System_SendMessage("recreate", "");
+	const int SYSTEM_JELLYBEAN = 16;
+	// recreate doesn't seem reliable on earlier versions.
+	if (g_Config.iAndroidHwScale != 0) {
+		RecreateActivity();
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -500,14 +513,14 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 		gpu->Resized();
 	}
 	if (g_Config.iAndroidHwScale == 1) {
-		System_SendMessage("recreate", "");
+		RecreateActivity();
 	}
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
-	System_SendMessage("recreate", "");
+	RecreateActivity();
 	return UI::EVENT_DONE;
 }
 

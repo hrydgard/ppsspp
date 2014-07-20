@@ -91,4 +91,4 @@ public class PpssppActivity extends NativeActivity {
 		}
 		correctRatio(sz, (float)scale);
 	}
-}
+}  
