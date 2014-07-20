@@ -113,21 +113,29 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0 && destPtr != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
+			WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+		}
+		else {
+			if (!skip && destPtr != 0) {
+				u8 *dst = Memory::GetPointerUnchecked(destPtr);
+				const u8 *src = Memory::GetPointerUnchecked(srcPtr);
 
-		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
-			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
-			const u32 blocks = bytes & ~0x0f;
-			for (u32 offset = 0; offset < blocks; offset += 0x10) {
-				memcpy(dst + offset, src + offset, 0x10);
+				if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+					// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+					const u32 blocks = bytes & ~0x0f;
+					for (u32 offset = 0; offset < blocks; offset += 0x10) {
+						memcpy(dst + offset, src + offset, 0x10);
+					}
+					for (u32 offset = blocks; offset < bytes; ++offset) {
+						dst[offset] = src[offset];
+					}
+				}
+				else {
+					memmove(dst, src, bytes);
+				}
 			}
-			for (u32 offset = blocks; offset < bytes; ++offset) {
-				dst[offset] = src[offset];
-			}
-		} else {
-			memmove(dst, src, bytes);
 		}
 	}
 	RETURN(destPtr);
@@ -207,10 +215,17 @@ static int Replace_memmove() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
+			WARN_LOG(HLE, "memmove: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+		}
+		else {
+			if (!skip) {
+				u8 *dst = Memory::GetPointerUnchecked(destPtr);
+				u8 *src = Memory::GetPointerUnchecked(srcPtr);
+				memmove(dst, src, bytes);
+			}
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -229,8 +244,13 @@ static int Replace_memset() {
 	if (Memory::IsVRAMAddress(destPtr)) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
-	if (!skip) {
-		memset(dst, value, bytes);
+	if (!skip && bytes != 0) {
+		if (!g_Config.bFastMemory && !Memory::IsValidAddress(destPtr)) {
+			WARN_LOG(HLE, "memset: Invalid address (%08x,%02x,%i) at %08x", destPtr, value, bytes, currentMIPS->pc);
+		}
+		else {
+			memset(dst, value, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
