@@ -325,10 +325,12 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	}
 
 	int fn_len = (int)strlen(filename);
+	bool fileSystemFound = false;
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
+			fileSystemFound = true;
 			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
@@ -338,6 +340,9 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 			// Else try the other registered file systems.
 		}
 	}
+	if (!fileSystemFound) {
+		ELOG("Missing filesystem for %s", filename);
+	}  // Otherwise, the file was just missing. No need to log.
 	return 0;
 }
 
@@ -354,16 +359,21 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 	}
 	
 	int fn_len = (int)strlen(path);
+	bool fileSystemFound = false;
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
+			fileSystemFound = true;
 			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter)) {
 				return true;
 			}
 		}
 	}
-	ELOG("Missing filesystem for %s", path);
+
+	if (!fileSystemFound) {
+		ELOG("Missing filesystem for %s", path);
+	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
 
@@ -378,17 +388,21 @@ bool VFSGetFileInfo(const char *path, FileInfo *info) {
 		return getFileInfo(path, info);
 	}
 
+	bool fileSystemFound = false;
 	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
+			fileSystemFound = true;
 			if (entries[i].reader->GetFileInfo(path + prefix_len, info))
 				return true;
 			else
 				continue;
 		}
 	}
-	ELOG("Missing filesystem for %s", path);
+	if (!fileSystemFound) {
+		ELOG("Missing filesystem for %s", path);
+	}  // Otherwise, the file was just missing. No need to log.
 	return false;
 }
