@@ -123,6 +123,10 @@ enum SystemProperty {
 	SYSPROP_NAME,
 	SYSPROP_LANGREGION,
 	SYSPROP_CPUINFO,
+
+	// Available as Int:
+	SYSPROP_SYSTEMVERSION,
 };
 
 std::string System_GetProperty(SystemProperty prop);
+int System_GetPropertyInt(SystemProperty prop);

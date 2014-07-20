@@ -53,6 +53,7 @@ static float hat_joystick_y_async;
 
 int optimalFramesPerBuffer = 0;
 int optimalSampleRate = 0;
+static int androidVersion;
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
@@ -100,6 +101,15 @@ std::string System_GetProperty(SystemProperty prop) {
 		return langRegion;
 	default:
 		return "";
+	}
+}
+
+int System_GetPropertyInt(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_SYSTEMVERSION:
+		return androidVersion;
+	default:
+		return -1;
 	}
 }
 
@@ -154,7 +164,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
-		jstring jinstallID, jboolean juseNativeAudio) {
+		jstring jinstallID, jboolean juseNativeAudio, jint jAndroidVersion) {
 	jniEnvUI = env;
 
 	ILOG("NativeApp.init() -- begin");
@@ -162,6 +172,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;
 	first_lost = true;
+	androidVersion = jAndroidVersion;
 
 	g_buttonTracker.Reset();
 
