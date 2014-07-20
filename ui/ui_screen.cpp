@@ -150,7 +150,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode == NKCODE_ENTER) {
+		if (key.keyCode == NKCODE_ENTER && defaultButton_) {
 			UI::EventParams e;
 			defaultButton_->OnClick.Trigger(e);
 			return true;
