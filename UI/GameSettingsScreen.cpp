@@ -286,6 +286,7 @@ void GameSettingsScreen::CreateViews() {
 
 	audioSettings->Add(new ItemHeader(a->T("Audio hacks")));
 	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (DOA etc.)")));
+	audioSettings->Add(new CheckBox(&g_Config.bSasHack, a->T("Motorstorm and Gripshift hack (No Sound)")));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
