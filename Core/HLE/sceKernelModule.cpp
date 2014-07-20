@@ -941,8 +941,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
 	for (int i = 0; i < reader.GetNumSegments(); ++i) {
 		if (i < (int)ARRAY_SIZE(module->nm.segmentaddr)) {
-			module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
 			module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
+			if (module->nm.segmentsize[i] != 0) {
+				module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
+			}
 		}
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
