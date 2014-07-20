@@ -73,6 +73,5 @@ LOCAL_SRC_FILES :=\
 	zip_unchange_data.c
 
 LOCAL_CFLAGS := -O2
-LOCAL_LDLIBS := -lz
 
 include $(BUILD_STATIC_LIBRARY)
