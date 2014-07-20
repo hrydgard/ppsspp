@@ -28,8 +28,7 @@
 using std::strnlen;
 #endif
 
-const char *ElfReader::GetSectionName(int section)
-{
+const char *ElfReader::GetSectionName(int section) const {
 	if (sections[section].sh_type == SHT_NULL)
 		return 0;
 
@@ -609,6 +608,17 @@ u32 ElfReader::GetTotalDataSize() const {
 	u32 total = 0;
 	for (int i = 0; i < GetNumSections(); ++i) {
 		if ((sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_MASKPROC)) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
+u32 ElfReader::GetTotalSectionSizeByPrefix(const std::string &prefix) const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		const char *secname = GetSectionName(i);
+		if (secname && !strncmp(secname, prefix.c_str(), prefix.length())) {
 			total += sections[i].sh_size;
 		}
 	}

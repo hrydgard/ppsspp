@@ -994,12 +994,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 		module->nm.text_size = 0;
 	}
 
-	SectionID bssSection = reader.GetSectionByName(".bss");
-	if (bssSection != -1) {
-		module->nm.bss_size = reader.GetSectionSize(bssSection);
-	} else {
-		module->nm.bss_size = 0;
-	}
+	module->nm.bss_size = reader.GetTotalSectionSizeByPrefix(".bss");
 	module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
 
 	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
