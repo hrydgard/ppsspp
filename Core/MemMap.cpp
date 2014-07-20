@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/mutex.h"
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
 #ifndef __SYMBIAN32__
@@ -88,6 +89,8 @@ u8 *m_pUncachedVRAM4;
 u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
+
+recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -370,6 +373,7 @@ void DoState(PointerWrap &p)
 
 void Shutdown()
 {
+	lock_guard guard(g_shutdownLock);
 	u32 flags = 0;
 
 	MemoryMap_Shutdown(flags);
@@ -385,6 +389,21 @@ void Clear()
 		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
 	if (m_pVRAM)
 		memset(m_pVRAM, 0, VRAM_SIZE);
+}
+
+// Wanting to avoid include pollution, MemMap.h is included a lot.
+MemoryInitedLock::MemoryInitedLock()
+{
+	g_shutdownLock.lock();
+}
+MemoryInitedLock::~MemoryInitedLock()
+{
+	g_shutdownLock.unlock();
+}
+
+MemoryInitedLock Lock()
+{
+	return MemoryInitedLock();
 }
 
 static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)

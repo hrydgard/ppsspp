@@ -152,6 +152,11 @@ void CGEDebugger::SetupPreviews() {
 }
 
 void CGEDebugger::UpdatePreviews() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		return;
+	}
+
 	wchar_t desc[256];
 	const GPUDebugBuffer *primaryBuffer = NULL;
 	bool bufferResult = false;
