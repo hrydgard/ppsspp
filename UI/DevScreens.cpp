@@ -239,6 +239,12 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
 	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
 
+#ifdef ANDROID
+	char temp[256];
+	sprintf(temp, "%dx%d", System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
+	deviceSpecs->Add(new InfoItem("Display resolution", temp));
+#endif
+
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
 	cpuExtensions->SetSpacing(0);
