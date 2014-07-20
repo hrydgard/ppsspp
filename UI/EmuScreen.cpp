@@ -440,12 +440,25 @@ bool EmuScreen::axis(const AxisInput &axis) {
 	return false;
 }
 
+inline bool IsAnalogStickKey(int key) {
+	switch (key) {
+	case VIRTKEY_AXIS_X_MIN:
+	case VIRTKEY_AXIS_X_MAX:
+	case VIRTKEY_AXIS_Y_MIN:
+	case VIRTKEY_AXIS_Y_MAX:
+	case VIRTKEY_AXIS_RIGHT_X_MIN:
+	case VIRTKEY_AXIS_RIGHT_X_MAX:
+	case VIRTKEY_AXIS_RIGHT_Y_MIN:
+	case VIRTKEY_AXIS_RIGHT_Y_MAX:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	std::vector<int> results;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
-	std::vector<int> resultsOpposite;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
-
 	for (size_t i = 0; i < results.size(); i++) {
 		int result = results[i];
 		switch (result) {
@@ -474,25 +487,32 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
 			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
 			break;
+		}
+	}
 
-		default:
-			if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
-				pspKey(result, KEY_DOWN);
+	std::vector<int> resultsOpposite;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
-				// Also unpress the other direction.
-				std::vector<int> opposite;
-				KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1, &opposite);
-				for (size_t i = 0; i < opposite.size(); i++) {
-					pspKey(opposite[i], KEY_UP);
-				}
-				// Hm, why do we use a different way below?
-			} else {
-				// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-				pspKey(result, KEY_UP);
-				for (size_t i = 0; i < resultsOpposite.size(); i++) {
-					pspKey(resultsOpposite[i], KEY_UP);
-				}
-			}
+	if ((direction == 1 && axis.value >= AXIS_BIND_THRESHOLD) || (direction == -1 && axis.value <= -AXIS_BIND_THRESHOLD)) {
+		for (size_t i = 0; i < results.size(); i++) {
+			if (!IsAnalogStickKey(results[i]))
+				pspKey(results[i], KEY_DOWN);
+		}
+		// Also unpress the other direction.
+		for (size_t i = 0; i < resultsOpposite.size(); i++) {
+			if (!IsAnalogStickKey(resultsOpposite[i]))
+				pspKey(resultsOpposite[i], KEY_UP);
+		}
+		// Hm, why do we use a different way below?
+	} else {
+		// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
+		for (size_t i = 0; i < results.size(); i++) {
+			if (!IsAnalogStickKey(results[i]))
+				pspKey(results[i], KEY_UP);
+		}
+		for (size_t i = 0; i < resultsOpposite.size(); i++) {
+			if (!IsAnalogStickKey(resultsOpposite[i]))
+				pspKey(resultsOpposite[i], KEY_UP);
 		}
 	}
 }
