@@ -203,6 +203,10 @@ COLORREF scaleColor(COLORREF color, float factor)
 
 bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return false;
+
 	if (displaySymbols)
 	{
 		const std::string addressSymbol = symbolMap.GetLabelString(address);
@@ -256,6 +260,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
 	u32 encoded;
 
+	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -1085,6 +1090,10 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::updateStatusBarText()
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	char text[512];
 	DisassemblyLineInfo line;
 	manager.getLine(curAddress,true,line);

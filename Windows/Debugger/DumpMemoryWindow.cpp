@@ -69,6 +69,10 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 		case IDOK:
 			if (bp->fetchDialogData(hwnd))
 			{
+				auto memLock = Memory::Lock();
+				if (!PSP_IsInited())
+					break;
+
 				FILE* output = fopen(bp->fileName,"wb");
 				if (output == NULL)
 				{

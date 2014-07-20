@@ -342,15 +342,20 @@ void DisassemblyManager::clear()
 
 DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_address), size(_size)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	hash = computeHash(address,size);
 	load();
 }
 
 void DisassemblyFunction::recheck()
 {
-	if (!PSP_IsInited()) {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
 		return;
-	}
+
 	u32 newHash = computeHash(address,size);
 	if (hash != newHash)
 	{
@@ -800,12 +805,20 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 
 DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	hash = computeHash(address,size);
 	createLines();
 }
 
 void DisassemblyData::recheck()
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	u32 newHash = computeHash(address,size);
 	if (newHash != hash)
 	{

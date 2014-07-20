@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+#include "Core/System.h"
 #include "Windows/resource.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabVertices.h"
@@ -175,6 +176,12 @@ void CtrlVertexList::FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, in
 }
 
 void CtrlVertexList::FormatVertColRaw(wchar_t *dest, int row, int col) {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		wcscpy(dest, L"Invalid");
+		return;
+	}
+
 	// We could use the vertex decoder and reader, but those already do some minor adjustments.
 	// There's only a few values - let's just go after them directly.
 	const u8 *vert = Memory::GetPointer(gpuDebug->GetVertexAddress()) + row * decoder->size;
@@ -255,6 +262,11 @@ void CtrlVertexList::FormatVertColRawColor(wchar_t *dest, const void *data, int 
 }
 
 int CtrlVertexList::GetRowCount() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		return 0;
+	}
+
 	if (!gpuDebug || !Memory::IsValidAddress(gpuDebug->GetVertexAddress())) {
 		rowCount_ = 0;
 		return rowCount_;
