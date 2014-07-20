@@ -315,10 +315,9 @@ void System_Wake() {
 
 static bool pspIsInited = false;
 static bool pspIsIniting = false;
-static bool pspIsQuiting = false;
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
-	if (pspIsIniting || pspIsQuiting) {
+	if (pspIsIniting) {
 		return false;
 	}
 
@@ -395,12 +394,12 @@ bool PSP_IsIniting() {
 }
 
 bool PSP_IsInited() {
-	return pspIsInited && !pspIsQuiting;
+	return pspIsInited;
 }
 
 void PSP_Shutdown() {
 	// Do nothing if we never inited.
-	if (!pspIsInited && !pspIsIniting && !pspIsQuiting) {
+	if (!pspIsInited && !pspIsIniting) {
 		return;
 	}
 
@@ -410,8 +409,6 @@ void PSP_Shutdown() {
 	}
 #endif
 
-	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuiting = true;
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
@@ -429,7 +426,6 @@ void PSP_Shutdown() {
 	currentMIPS = 0;
 	pspIsInited = false;
 	pspIsIniting = false;
-	pspIsQuiting = false;
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
