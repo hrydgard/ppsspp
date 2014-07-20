@@ -38,6 +38,7 @@
 
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/Config.h"
 
 enum {
 	ERROR_SAS_INVALID_GRAIN           = 0x80420001,
@@ -104,7 +105,8 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 		return ERROR_SAS_INVALID_SAMPLE_RATE;
 	}
 	INFO_LOG(SCESAS, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
-
+	if (g_Config.bSasHack)
+		return -1;
 	sas->SetGrainSize(grainSize);
 	// Seems like maxVoices is actually ignored for all intents and purposes.
 	sas->maxVoices = PSP_SAS_VOICES_MAX;

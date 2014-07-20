@@ -152,6 +152,7 @@ public:
 
 	// Sound
 	bool bEnableSound;
+	bool bSasHack;
 	int IaudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iSFXVolume;
 	int iBGMVolume;

@@ -427,6 +427,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
 	ConfigSetting("AudioLatency", &g_Config.IaudioLatency, 1),
 	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false),
+	ConfigSetting("SasHack", &g_Config.bSasHack, false),
 
 	ConfigSetting(false),
 };
