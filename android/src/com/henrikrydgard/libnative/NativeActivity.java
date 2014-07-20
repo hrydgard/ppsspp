@@ -206,12 +206,14 @@ public class NativeActivity extends Activity {
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
-		
+
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
-				
+
+		Point displaySize = new Point();
+		GetScreenSize(displaySize);
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL(), Build.VERSION.SDK_INT);
+		NativeApp.init(deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, useOpenSL(), Build.VERSION.SDK_INT);
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
@@ -301,9 +303,6 @@ public class NativeActivity extends Activity {
 
 	// Override this to scale the backbuffer (use the Android hardware scaler)
 	public void getDesiredBackbufferSize(Point sz) {
-		// GetScreenSize(sz, useImmersive());
-		// sz.x /= 2;
-		// sz.y /= 2;
 		sz.x = 0;
 		sz.y = 0;
 	}
@@ -337,6 +336,7 @@ public class NativeActivity extends Activity {
 		Point sz = new Point();
 		getDesiredBackbufferSize(sz);
 		if (sz.x > 0) {
+			Log.i(TAG, "Requesting fixed size buffer: " + sz.x + "x" + sz.y);
 			// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
 			nativeRenderer.setFixedSize(sz.x, sz.y, mGLSurfaceView);
 		}

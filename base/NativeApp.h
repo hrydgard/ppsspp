@@ -126,6 +126,8 @@ enum SystemProperty {
 
 	// Available as Int:
 	SYSPROP_SYSTEMVERSION,
+	SYSPROP_DISPLAY_XRES,
+	SYSPROP_DISPLAY_YRES,
 };
 
 std::string System_GetProperty(SystemProperty prop);

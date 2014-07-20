@@ -55,6 +55,10 @@ int optimalFramesPerBuffer = 0;
 int optimalSampleRate = 0;
 static int androidVersion;
 
+// Should only be used for display detection during startup (for config defaults etc)
+static int display_xres;
+static int display_yres;
+
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
 	lock_guard guard(frameCommandLock);
@@ -108,6 +112,10 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SYSTEMVERSION:
 		return androidVersion;
+	case SYSPROP_DISPLAY_XRES:
+		return display_xres;
+	case SYSPROP_DISPLAY_YRES:
+		return display_yres;
 	default:
 		return -1;
 	}
@@ -162,7 +170,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
-	(JNIEnv *env, jclass, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
+  (JNIEnv *env, jclass, jstring jdevicetype, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jboolean juseNativeAudio, jint jAndroidVersion) {
 	jniEnvUI = env;
@@ -182,6 +190,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	right_joystick_y_async = 0;
 	hat_joystick_x_async = 0;
 	hat_joystick_y_async = 0;
+	display_xres = jxres;
+	display_yres = jyres;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
