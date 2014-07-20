@@ -62,6 +62,7 @@
 
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	memset(axisState_, 0, sizeof(axisState_));
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -457,6 +458,11 @@ inline bool IsAnalogStickKey(int key) {
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
+	// Sanity check
+	if (axis.axisId < 0 || axis.axisId >= JOYSTICK_AXIS_MAX) {
+		return;
+	}
+
 	std::vector<int> results;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
 	for (size_t i = 0; i < results.size(); i++) {
@@ -493,26 +499,38 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	std::vector<int> resultsOpposite;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
-	if ((direction == 1 && axis.value >= AXIS_BIND_THRESHOLD) || (direction == -1 && axis.value <= -AXIS_BIND_THRESHOLD)) {
-		for (size_t i = 0; i < results.size(); i++) {
-			if (!IsAnalogStickKey(results[i]))
-				pspKey(results[i], KEY_DOWN);
-		}
-		// Also unpress the other direction.
-		for (size_t i = 0; i < resultsOpposite.size(); i++) {
-			if (!IsAnalogStickKey(resultsOpposite[i]))
-				pspKey(resultsOpposite[i], KEY_UP);
-		}
-		// Hm, why do we use a different way below?
+	int axisState = 0;
+	if ((direction == 1 && axis.value >= AXIS_BIND_THRESHOLD)) {
+		axisState = 1;
+	} else if (direction == -1 && axis.value <= -AXIS_BIND_THRESHOLD) {
+		axisState = -1;
 	} else {
-		// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-		for (size_t i = 0; i < results.size(); i++) {
-			if (!IsAnalogStickKey(results[i]))
-				pspKey(results[i], KEY_UP);
-		}
-		for (size_t i = 0; i < resultsOpposite.size(); i++) {
-			if (!IsAnalogStickKey(resultsOpposite[i]))
-				pspKey(resultsOpposite[i], KEY_UP);
+		axisState = 0;
+	}
+
+	if (axisState != axisState_[axis.axisId]) {
+		axisState_[axis.axisId] = axisState;
+		if (axisState != 0) {
+			for (size_t i = 0; i < results.size(); i++) {
+				if (!IsAnalogStickKey(results[i]))
+					pspKey(results[i], KEY_DOWN);
+			}
+			// Also unpress the other direction.
+			for (size_t i = 0; i < resultsOpposite.size(); i++) {
+				if (!IsAnalogStickKey(resultsOpposite[i]))
+					pspKey(resultsOpposite[i], KEY_UP);
+			}
+			// Hm, why do we use a different way below?
+		} else if (axisState == 0) {
+			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
+			for (size_t i = 0; i < results.size(); i++) {
+				if (!IsAnalogStickKey(results[i]))
+					pspKey(results[i], KEY_UP);
+			}
+			for (size_t i = 0; i < resultsOpposite.size(); i++) {
+				if (!IsAnalogStickKey(resultsOpposite[i]))
+					pspKey(resultsOpposite[i], KEY_UP);
+			}
 		}
 	}
 }

@@ -21,6 +21,7 @@
 #include <vector>
 #include <list>
 
+#include "input/keycodes.h"
 #include "ui/screen.h"
 #include "ui/ui_screen.h"
 #include "Common/KeyMap.h"
@@ -78,4 +79,7 @@ private:
 	std::vector<u8> freezeState_;
 
 	std::string tag_;
+
+	// De-noise mapped axis updates
+	int axisState_[JOYSTICK_AXIS_MAX];
 };
