@@ -186,7 +186,7 @@ const char *GetCompilerABI() {
 #ifdef HAVE_ARMV7
 	return "armeabi-v7a";
 #elif defined(ARM)
-	return "armeabi"
+	return "armeabi";
 #elif defined(_M_IX86)
 	return "x86";
 #elif defined(_M_X64)
