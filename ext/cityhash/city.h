@@ -38,12 +38,16 @@
 // nearest competitor is Bob Jenkins' Spooky.  We don't have great data for
 // other 64-bit CPUs, but for long strings we know that Spooky is slightly
 // faster than CityHash on some relatively recent AMD x86-64 CPUs, for example.
+// Note that CityHashCrc128 is declared in citycrc.h.
 //
 // For 32-bit x86 code, we don't know of anything faster than CityHash32 that
 // is of comparable quality.  We believe our nearest competitor is Murmur3A.
 // (On 64-bit CPUs, it is typically faster to use the other CityHash variants.)
 //
 // Functions in the CityHash family are not suitable for cryptography.
+//
+// Please see CityHash's README file for more details on our performance
+// measurements and so on.
 //
 // WARNING: This code has been only lightly tested on big-endian platforms!
 // It is known to work well on little-endian platforms that have a small penalty
