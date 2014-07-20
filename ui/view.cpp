@@ -624,7 +624,7 @@ void TextEdit::Key(const KeyInput &input) {
 			caret_ = (int)text_.size();
 			break;
 		case NKCODE_FORWARD_DEL:
-			if (caret_ < text_.size()) {
+			if (caret_ < (int)text_.size()) {
 				text_.erase(text_.begin() + caret_, text_.begin() + caret_ + 1);
 			}
 		case NKCODE_DEL:
@@ -650,7 +650,7 @@ void TextEdit::Key(const KeyInput &input) {
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			for (int i = 0; i < strlen(buf); i++) {
+			for (size_t i = 0; i < strlen(buf); i++) {
 				text_.insert(text_.begin() + caret_, buf[i]);
 				caret_++;
 			}
