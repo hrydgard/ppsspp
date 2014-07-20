@@ -598,7 +598,7 @@ SectionID ElfReader::GetSectionByName(const char *name, int firstSection)
 u32 ElfReader::GetTotalTextSize() const {
 	u32 total = 0;
 	for (int i = 0; i < GetNumSections(); ++i) {
-		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC)) {
+		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_STRINGS)) {
 			total += sections[i].sh_size;
 		}
 	}
