@@ -31,7 +31,7 @@ public class PpssppActivity extends NativeActivity {
 
 		super.onCreate(savedInstanceState);
 	}
-
+  
 	@Override
 	public void onStart() {
 		super.onStart();
@@ -43,7 +43,34 @@ public class PpssppActivity extends NativeActivity {
 		super.onStop();
 		EasyTracker.getInstance(this).activityStop(this);
 	}
-	
+
+	private void correctRatio(Point sz, float scale) {
+		float x = sz.x;
+		float y = sz.y;
+		float ratio = x / y;
+		// Log.i(TAG, "Considering size: " + sz.x + "x" + sz.y + "=" + ratio);
+		float targetRatio;
+		if (x >= y) {
+			targetRatio = 480.0f / 272.0f;
+			x = 480.f * scale;
+			y = 272.f * scale;
+		} else {
+			targetRatio = 272.0f / 480.0f;
+			x = 272.0f * scale;
+			y = 480.0f * scale;
+		}
+		float correction = targetRatio / ratio;
+		// Log.i(TAG, "Target ratio: " + targetRatio + " ratio: " + ratio + " correction: " + correction);
+		if (ratio < targetRatio) {
+			y *= correction;
+		} else {
+			x /= correction;
+		}
+		sz.x = (int)x;
+		sz.y = (int)y;
+		// Log.i(TAG, "Corrected ratio: " + sz.x + "x" + sz.y);
+	}
+
 	@Override
 	public void getDesiredBackbufferSize(Point sz) {
 		GetScreenSize(sz);
@@ -62,26 +89,6 @@ public class PpssppActivity extends NativeActivity {
 			sz.y = 0;
 			return;
 		}
-		
-		float ratio = (float)sz.x / (float)sz.y;
-		//Log.i(TAG, "GetScreenSize returned: " + sz.x + "x" + sz.y + "=" + ratio);
-		float targetRatio;
-		if (sz.x > sz.y) {
-			targetRatio = 480.0f / 272.0f;
-			sz.x = 480 * scale;
-			sz.y = 272 * scale;
-		} else {
-			targetRatio = 272.0f / 480.0f;
-			sz.x = 272 * scale;
-			sz.y = 480 * scale;
-		}
-		//Log.i(TAG, "Target ratio: " + targetRatio + " ratio: " + ratio);
-		float correction = targetRatio / ratio;
-		if (ratio < targetRatio) {
-			sz.y *= correction;
-		} else {
-			sz.x *= correction;
-		}
-		//Log.i(TAG, "Corrected ratio: " + sz.x + " x " + sz.y);
+		correctRatio(sz, (float)scale);
 	}
 }
