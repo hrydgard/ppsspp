@@ -772,49 +772,55 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
-bool NativeAxis(const AxisInput &key) {
+bool NativeAxis(const AxisInput &axis) {
 	using namespace TiltEventProcessor;
 
 	// only handle tilt events if tilt is enabled.
-	if (g_Config.iTiltInputType == TILT_NULL){
+	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, then run it through the usual way. 
 		if (screenManager) {
-			screenManager->axis(key);
-			return true;
+			return screenManager->axis(axis);
 		} else {
 			return false;
 		}
 	}
 
-	//create the base coordinate tilt system from the calibration data. 
-	//This is static for no particular reason, can be un-static'ed
+	// create the base coordinate tilt system from the calibration data.
+	// This is static for no particular reason, can be un-static'ed
 	static Tilt baseTilt;
 	baseTilt.x_ = g_Config.fTiltBaseX;
 	baseTilt.y_ = g_Config.fTiltBaseY;
 
-	//figure out what the current tilt orientation is by checking the axis event
-	//This is static, since we need to remember where we last were (in terms of orientation) 
+	// figure out what the current tilt orientation is by checking the axis event
+	// This is static, since we need to remember where we last were (in terms of orientation)
 	static Tilt currentTilt;
 
-	switch (key.axisId) {
+	// x and y are flipped if we are in landscape orientation. The events are
+	// sent with respect to the portrait coordinate system, while we
+	// take all events in landscape.
+	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
+	bool portrait = dp_yres > dp_xres;
+	switch (axis.axisId) {
 		case JOYSTICK_AXIS_ACCELEROMETER_X:
-			//x and y are flipped due to landscape orientation. The events are
-			//sent with respect to the portrait coordinate system, while we
-			//take all events in landscape. 
-			//see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-			currentTilt.y_ = key.value;
+			if (portrait) {
+				currentTilt.x_ = axis.value;
+			} else {
+				currentTilt.y_ = axis.value;
+			}
 			break;
 
 		case JOYSTICK_AXIS_ACCELEROMETER_Y:
-			currentTilt.x_ = key.value;
+			if (portrait) {
+				currentTilt.y_ = axis.value;
+			} else {
+				currentTilt.x_ = axis.value;
+			}
 			break;
-
 
 		case JOYSTICK_AXIS_ACCELEROMETER_Z:
 			//don't handle this now as only landscape is enabled.
 			//TODO: make this generic.
 			return false;
-
 			
 		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
 		case JOYSTICK_AXIS_OUYA_UNKNOWN2:
