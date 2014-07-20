@@ -48,6 +48,7 @@
 #define RET(a) if (!(a)) { return false; }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
 
 #define M_PI_2     1.57079632679489661923
 

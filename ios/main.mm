@@ -22,6 +22,8 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
+
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		exit(0);

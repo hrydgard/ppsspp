@@ -73,6 +73,7 @@ void NativeRender() { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 

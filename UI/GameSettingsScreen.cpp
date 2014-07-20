@@ -126,8 +126,12 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bSmallDisplay, gs->T("Small Display")));
 	if (pixel_xres < pixel_yres * 1.3) // Smaller than 4:3
 		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gs->T("Partial Vertical Stretch")));
+
 #ifdef ANDROID
-	graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gs->T("Immersive Mode")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+	// Hide Immersive Mode on pre-kitkat Android
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gs->T("Immersive Mode")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+	}
 #endif
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Performance")));
@@ -441,6 +445,8 @@ UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	System_SendMessage("immersive", "");
+	if (g_Config.iAndroidHwScale != 0)
+		System_SendMessage("recreate", "");
 	return UI::EVENT_DONE;
 }
 
