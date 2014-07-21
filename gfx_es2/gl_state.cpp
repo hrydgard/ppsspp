@@ -101,15 +101,15 @@ void CheckGLExtensions() {
 		if (vendor == "NVIDIA Corporation"
 			|| vendor == "Nouveau"
 			|| vendor == "nouveau") {
-				gl_extensions.gpuVendor = GPU_VENDOR_NVIDIA;
+			gl_extensions.gpuVendor = GPU_VENDOR_NVIDIA;
 		} else if (vendor == "Advanced Micro Devices, Inc."
 			|| vendor == "ATI Technologies Inc.") {
-				gl_extensions.gpuVendor = GPU_VENDOR_AMD;
+			gl_extensions.gpuVendor = GPU_VENDOR_AMD;
 		} else if (vendor == "Intel"
 			|| vendor == "Intel Inc."
 			|| vendor == "Intel Corporation"
 			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
-				gl_extensions.gpuVendor = GPU_VENDOR_INTEL;
+			gl_extensions.gpuVendor = GPU_VENDOR_INTEL;
 		} else if (vendor == "ARM") {
 			gl_extensions.gpuVendor = GPU_VENDOR_ARM;
 		} else if (vendor == "Imagination Technologies") {
@@ -129,7 +129,7 @@ void CheckGLExtensions() {
 	ILOG("GPU Vendor : %s ; GL version str: %s ; GLSL version str: %s", cvendor, versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
 
 #ifndef USING_GLES2
-	char buffer[64] = {0};
+	char buffer[64] = { 0 };
 	if (versionStr) {
 		strncpy(buffer, versionStr, 63);
 	}
@@ -154,11 +154,18 @@ void CheckGLExtensions() {
 	// Try to load GLES 3.0 only if "3.0" found in version
 	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
 	// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
-	// Really, we should do something much better.
-	if (strstr(versionStr, "3.0") && strstr(glslVersionStr, "3.0") && gl3stubInit()) {
+	// TODO: Do something way more robust!
+	bool gl_3_0_in_string = strstr(versionStr, "3.0") && strstr(glslVersionStr, "3.0");
+	bool gl_3_1_in_string = strstr(versionStr, "3.1") && strstr(glslVersionStr, "3.1");  // intentionally left out .1
+	if ((gl_3_0_in_string || gl_3_1_in_string) && gl3stubInit()) {
 		gl_extensions.ver[0] = 3;
+		if (gl_3_1_in_string) {
+			ILOG("OpenGL ES 3.1 support detected!\n");
+			gl_extensions.ver[1] = 1;
+		} else {
+			ILOG("OpenGL ES 3.0 support detected!\n");
+		}
 		gl_extensions.GLES3 = true;
-		ILOG("Full OpenGL ES 3.0 support detected!\n");
 		// Though, let's ban Mali from the GLES 3 path for now, see #4078
 		if (strstr(renderer, "Mali") != 0) {
 			gl_extensions.GLES3 = false;
