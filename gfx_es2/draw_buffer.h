@@ -123,7 +123,9 @@ public:
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
 	void MeasureText(int font, const char *text, float *w, float *h);
-	
+
+	// NOTE: Count is in plain chars not utf-8 chars!
+	void MeasureTextCount(int font, const char *text, int count, float *w, float *h);
 	
 	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);

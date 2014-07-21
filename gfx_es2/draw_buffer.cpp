@@ -364,7 +364,7 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 	DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
 }
 
-void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
+void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *w, float *h) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
 
 	unsigned int cval;
@@ -374,6 +374,8 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 	UTF8 utf(text);
 	while (true) {
 		if (utf.end())
+			break;
+		if (utf.byteIndex() >= count)
 			break;
 		cval = utf.next();
 		// Translate non-breaking space to space.
@@ -396,6 +398,10 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 	}
 	if (w) *w = std::max(wacc, maxX);
 	if (h) *h = atlasfont.height * fontscaley * lines;
+}
+
+void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
+	return MeasureTextCount(font, text, strlen(text), w, h);
 }
 
 void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Color color, int flags) {

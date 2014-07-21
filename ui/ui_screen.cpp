@@ -402,13 +402,13 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, ScreenManager *screenManager, LayoutParams *layoutParams)
-: Choice(title, "", false, layoutParams), value_(value), placeHolder_(placeholder), screenManager_(screenManager) {
+PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
+: Choice(title, "", false, layoutParams), value_(value), placeHolder_(placeholder), screenManager_(screenManager), maxLen_(maxLen) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
 EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
-	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, text_);
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, text_, maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -436,6 +436,7 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	textEditValue_ = *value_;
 	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams((UI::Size)300, WRAP_CONTENT)));
 	edit_ = new TextEdit(textEditValue_, placeholder_, new LinearLayoutParams(1.0f));
+	edit_->SetMaxLen(maxLen_);
 	lin->Add(edit_);
 
 	UI::SetFocusedView(edit_);

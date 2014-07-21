@@ -22,11 +22,14 @@
 uint32_t u8_nextchar(const char *s, int *i);
 int u8_wc_toutf8(char *dest, uint32_t ch);
 int u8_strlen(const char *s);
+void u8_inc(const char *s, int *i);
+void u8_dec(const char *s, int *i);
 
 class UTF8 {
 public:
 	static const uint32_t INVALID = (uint32_t)-1;
 	UTF8(const char *c) : c_(c), index_(0) {}
+	UTF8(const char *c, int index) : c_(c), index_(index) {}
 	bool end() const { return c_[index_] == 0; }
 	uint32_t next() {
 		return u8_nextchar(c_, &index_);
@@ -34,6 +37,12 @@ public:
 	uint32_t peek() {
 		int tempIndex = index_;
 		return u8_nextchar(c_, &tempIndex);
+	}
+	void fwd() {
+		u8_inc(c_, &index_);
+	}
+	void bwd() {
+		u8_dec(c_, &index_);
 	}
 	int length() const {
 		return u8_strlen(c_);

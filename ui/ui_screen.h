@@ -164,8 +164,8 @@ private:
 
 class TextEditPopupScreen : public PopupScreen {
 public:
-	TextEditPopupScreen(std::string *value, std::string &placeholder, const std::string &title)
-		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder) {}
+	TextEditPopupScreen(std::string *value, std::string &placeholder, const std::string &title, int maxLen)
+		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
 	void CreatePopupContents(ViewGroup *parent);
 
 	Event OnChange;
@@ -177,6 +177,7 @@ private:
 	std::string textEditValue_;
 	std::string placeholder_;
 	int step_;
+	int maxLen_;
 };
 
 // Reads and writes value to determine the current selection.
@@ -251,7 +252,7 @@ private:
 
 class PopupTextInputChoice: public Choice {
 public:
-	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	void Draw(UIContext &dc);
 
@@ -264,6 +265,7 @@ private:
 	std::string *value_;
 	std::string placeHolder_;
 	std::string defaultText_;
+	int maxLen_;
 };
 
 class ChoiceWithValueDisplay : public UI::Choice {

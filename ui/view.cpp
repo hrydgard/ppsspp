@@ -11,6 +11,7 @@
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
+#include "base/NativeApp.h"
 
 namespace UI {
 
@@ -574,7 +575,7 @@ void TextView::Draw(UIContext &dc) {
 }
 
 TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
-  : View(layoutParams), text_(text), placeholderText_(placeholderText) {
+  : View(layoutParams), text_(text), placeholderText_(placeholderText), maxLen_(255), ctrlDown_(false) {
 	caret_ = (int)text_.size();
 }
 
@@ -590,9 +591,8 @@ void TextEdit::Draw(UIContext &dc) {
 	}
 	// Hack to find the caret position. Might want to find a better way...
 
-	std::string subset = text_.substr(0, caret_);
 	float w, h;
-	dc.MeasureText(dc.theme->uiFont, subset.c_str(), &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
+	dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
 	float caretX = bounds_.x + w;
 	dc.FillRect(UI::Drawable(0xFFFFFFFF), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
 }
@@ -603,17 +603,34 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	h += 2;
 }
 
+// Handles both windows and unix line endings.
+std::string FirstLine(const std::string &text) {
+	size_t pos = text.find("\r\n");
+	if (pos != std::string::npos) {
+		return text.substr(0, pos);
+	}
+	pos = text.find('\n');
+	if (pos != std::string::npos) {
+		return text.substr(0, pos);
+	}
+	return text;
+}
+
 void TextEdit::Key(const KeyInput &input) {
 	if (!HasFocus())
 		return;
 	// Process navigation keys. These aren't chars.
 	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
+		case NKCODE_CTRL_LEFT:
+		case NKCODE_CTRL_RIGHT:
+			ctrlDown_ = true;
+			break;
 		case NKCODE_DPAD_LEFT:  // ASCII left arrow
-			caret_--;
+			u8_dec(text_.c_str(), &caret_);
 			break;
 		case NKCODE_DPAD_RIGHT: // ASCII right arrow
-			caret_++;
+			u8_inc(text_.c_str(), &caret_);
 			break;
 		case NKCODE_MOVE_HOME:
 		case NKCODE_PAGE_UP:
@@ -625,14 +642,41 @@ void TextEdit::Key(const KeyInput &input) {
 			break;
 		case NKCODE_FORWARD_DEL:
 			if (caret_ < (int)text_.size()) {
-				text_.erase(text_.begin() + caret_, text_.begin() + caret_ + 1);
+				int endCaret = caret_;
+				u8_inc(text_.c_str(), &endCaret);
+				text_.erase(text_.begin() + caret_, text_.begin() + endCaret);
 			}
+			break;
 		case NKCODE_DEL:
 			if (caret_ > 0) {
-				text_.erase(text_.begin() + caret_ - 1, text_.begin() + caret_);
+				int begCaret = caret_;
+				u8_dec(text_.c_str(), &begCaret);
+				text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
 				caret_--;
 			}
 			break;
+		}
+
+		if (ctrlDown_) {
+			switch (input.keyCode) {
+			case NKCODE_V:
+				{
+					std::string clipText = System_GetProperty(SYSPROP_CLIPBOARD_TEXT);
+					clipText = FirstLine(clipText);
+					if (clipText.size() > 32) {
+						int end = 0;
+						while (end < 32) {
+							u8_inc(clipText.c_str(), &end);
+						}
+						if (end > 0) {
+							u8_dec(clipText.c_str(), &end);
+						}
+						clipText = clipText.substr(0, end);
+					}
+					InsertAtCaret(clipText.c_str());
+				}
+				break;
+			}
 		}
 
 		if (caret_ < 0) {
@@ -643,18 +687,32 @@ void TextEdit::Key(const KeyInput &input) {
 		}
 	}
 
+	if (input.flags & KEY_UP) {
+		switch (input.keyCode) {
+		case NKCODE_CTRL_LEFT:
+		case NKCODE_CTRL_RIGHT:
+			ctrlDown_ = false;
+			break;
+		}
+	}
+
 	// Process chars.
 	if (input.flags & KEY_CHAR) {
 		int unichar = input.keyCode;
-		if (unichar >= 0x20) {  // Ignore control characters.
+		if (unichar >= 0x20 && !ctrlDown_) {  // Ignore control characters.
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			for (size_t i = 0; i < strlen(buf); i++) {
-				text_.insert(text_.begin() + caret_, buf[i]);
-				caret_++;
-			}
+			InsertAtCaret(buf);
 		}
+	}
+}
+
+void TextEdit::InsertAtCaret(const char *text) {
+	size_t len = strlen(text);
+	for (size_t i = 0; i < len; i++) {
+		text_.insert(text_.begin() + caret_, text[i]);
+		caret_++;
 	}
 }
 

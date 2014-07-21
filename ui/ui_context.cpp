@@ -142,13 +142,18 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 }
 
 void UIContext::MeasureText(const UI::FontStyle &style, const char *str, float *x, float *y, int align) const {
+	MeasureTextCount(style, str, (int)strlen(str), x, y, align);
+}
+
+void UIContext::MeasureTextCount(const UI::FontStyle &style, const char *str, int count, float *x, float *y, int align) const {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
-		Draw()->MeasureText(style.atlasFont, str, x, y);
+		Draw()->MeasureTextCount(style.atlasFont, str, count, x, y);
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
-		textDrawer_->MeasureString(str, x, y);
+		std::string subset(str, count);
+		textDrawer_->MeasureString(subset.c_str(), x, y);
 	}
 }
 
