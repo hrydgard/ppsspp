@@ -252,6 +252,9 @@ std::string SavedataParam::GetSaveFilePath(const SceUtilitySavedataParam *param,
 		return "";
 	}
 
+	if (!saveDir.size())
+		return "";
+
 	return savePath + saveDir;
 }
 
@@ -311,14 +314,23 @@ bool SavedataParam::HasKey(const SceUtilitySavedataParam *param) const
 	return false;
 }
 
-bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
-{
-	if (!param)
-	{
+bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
+	if (!param) {
+		return false;
+	}
+
+	// Sanity check, preventing full delete of savedata/ in MGS PW demo (!)
+	if (!strlen(param->gameName)) {
+		ERROR_LOG(SCEUTILITY, "Bad param with gameName empty - cannot delete save directory");
 		return false;
 	}
 
 	std::string dirPath = GetSaveFilePath(param,saveId);
+	if (dirPath.size() == 0) {
+		ERROR_LOG(SCEUTILITY, "GetSaveFilePath returned empty - cannot delete save directory");
+		return false;
+	}
+
 	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
 		return false;
 	}
@@ -328,21 +340,28 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 }
 
 int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
-	if(!param)
+	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
-	if (param->fileName[0] == '\0')
+	}
+	if (param->fileName[0] == '\0') {
 		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+	}
 
-	std::string filename = savePath + GetGameName(param) + GetSaveName(param) + "/" + GetFileName(param);
+	std::string subFolder = GetGameName(param) + GetSaveName(param);
+	std::string filename = savePath + subFolder + "/" + GetFileName(param);
+	if (!subFolder.size()) {
+		ERROR_LOG(SCEUTILITY, "Bad subfolder, ignoring delete of %s", filename.c_str());
+		return 0;
+	}
+
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if (info.exists)
+	if (info.exists) {
 		pspFileSystem.RemoveFile(filename);
-
+	}
 	return 0;
 }
 
-bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode)
-{
+bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode) {
 	if (!param) {
 		return false;
 	}
