@@ -879,33 +879,38 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 	bool inCB = false;
+	if (context == NULL) return inCB;
 	peerlock.lock();
-	inCB = (context != NULL && context->IsMatchingInCB);
+	inCB = context->IsMatchingInCB;
 	peerlock.unlock();
 	return inCB;
 }
 
 void AfterMatchingMipsCall::run(MipsCall &call) {
-	VERBOSE_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i]", ID);
+	DEBUG_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i] [cbId: %u]", ID, call.cbId);
 	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
+	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i] is Returning Inside an Interrupt!", ID);
+	//while (__IsInInterrupt()) sleep_ms(1); // Must not sleep inside callback handler
 	peerlock.lock();
 	SceNetAdhocMatchingContext * context = findMatchingContext(ID);
 	if (context != NULL) {
 		context->IsMatchingInCB = false;
 	}
 	peerlock.unlock();
-	//call.setReturnValue(0);
-	VERBOSE_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i]", ID);
+	//call.setReturnValue(v0);
+	DEBUG_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i] [retV0: %08x]", ID, currentMIPS->r[MIPS_REG_V0]);
 }
 
 // Make sure MIPS calls have been fully executed before the next notifyAdhocctlHandlers
 void notifyAdhocctlHandlers(int flag, int error) {
 	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(flag, error));
+	//CoreTiming::ScheduleEvent_Threadsafe(usToCycles(10000), eventAdhocctlHandlerUpdate, join32(flag, error));
 	__KernelCheckCallbacks();
 	//while (__KernelCurHasReadyCallbacks() || __KernelInCallback()) sleep_ms(1);
 	sleep_ms(80); // Ugly workaround to give time for the mips callback to fully executed
 }
 
+// Matching callback is void function: typedef void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt);
 // Important! The MIPS call need to be fully executed before the next MIPS call invoked, as the game (ie. DBZ Tag Team) may need to prepare something for the next callback event to use
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
 	//u32_le args[5] = { 0, 0, 0, 0, 0 };
@@ -925,14 +930,17 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	args[4] = args[2] + 8;
 	
 	context->IsMatchingInCB = true;
-	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)args);
+	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
+	//CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)args);
+	CoreTiming::ScheduleEvent_Threadsafe(usToCycles(1), eventMatchingHandlerUpdate, (u64)args); // I don't like guessing the time like this, if only there is a way to prevent callback from returning inside an interrupt
 
 	/*AfterMatchingMipsCall *after = (AfterMatchingMipsCall *)__KernelCreateAction(actionAfterMatchingMipsCall); // Does Action need to resides in the same address space with the thread that runs callback handlers?
 	after->SetID(context->id);
 	__KernelDirectMipsCall(context->handler.entryPoint, after, args, 5, true);*/
+	__KernelCheckCallbacks();
 	// Make sure MIPS call have been fully executed before the next notifyMatchingHandler
 	while (/*(after != NULL) &&*/ IsMatchingInCallback(context)) sleep_ms(1);
-	sleep_ms(20); // Wait a little more to prevent DBZ Tag Team from getting connection lost
+	//sleep_ms(30); // Wait a little more (for context switching may be?) to prevent DBZ Tag Team from getting connection lost
 }
 
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
@@ -949,7 +957,7 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 int friendFinder(){
 	// Receive Buffer
 	int rxpos = 0;
-	uint8_t rx[1024];
+	uint8_t rx[8192]; //1024
 
 	// Chat Packet
 	SceNetAdhocctlChatPacketC2S chat;

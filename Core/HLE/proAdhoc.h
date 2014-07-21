@@ -41,8 +41,10 @@ typedef int socklen_t;
 #elif defined(_MSC_VER)
 #include <WS2tcpip.h>
 #else
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -75,6 +77,13 @@ inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #endif
 #ifndef POLLERR
 #define POLLERR POLL_ERR
+#endif
+
+#ifndef POLL_PRI
+#define POLL_PRI 0x002 /* There is urgent data to read. */
+#endif
+#ifndef POLLPRI
+#define POLLPRI POLL_PRI
 #endif
 
 #define IsMatch(buf1, buf2)	(memcmp(&buf1, &buf2, sizeof(buf1)) == 0)

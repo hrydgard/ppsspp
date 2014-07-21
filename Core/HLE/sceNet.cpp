@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _WIN32
+/*
+#ifndef _MSC_VER
+#include <unistd.h>
 #include <sys/select.h>
 #else
 #include <winsock2.h>
 #endif
-
+*/
 #include "net/resolve.h"
 #include "util/text/parsers.h"
 
@@ -330,20 +332,24 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 	fd_set readfds, writefds, exceptfds;
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 	for (int i = 0; i < (s32)nfds; i++) {
-		FD_SET(fdarray[i].fd, &readfds);
-		FD_SET(fdarray[i].fd, &writefds);
-		FD_SET(fdarray[i].fd, &exceptfds);
+		if (fdarray[i].events & (INET_POLLRDNORM)) FD_SET(fdarray[i].fd, &readfds); // (POLLRDNORM | POLLIN)
+		if (fdarray[i].events & (INET_POLLWRNORM)) FD_SET(fdarray[i].fd, &writefds); // (POLLWRNORM | POLLOUT)
+		//if (fdarray[i].events & (ADHOC_EV_ALERT)) // (POLLRDBAND | POLLPRI) // POLLERR 
+		FD_SET(fdarray[i].fd, &exceptfds); 
 		fdarray[i].revents = 0;
 	}
 	timeval tmout;
 	tmout.tv_sec = timeout / 1000; // seconds
 	tmout.tv_usec = (timeout % 1000) * 1000; // microseconds
 	retval = select(nfds, &readfds, &writefds, &exceptfds, &tmout);
+	if (retval < 0) return -1;
+	retval = 0;
 	for (int i = 0; i < (s32)nfds; i++) {
 		if (FD_ISSET(fdarray[i].fd, &readfds)) fdarray[i].revents |= INET_POLLRDNORM; //POLLIN
 		if (FD_ISSET(fdarray[i].fd, &writefds)) fdarray[i].revents |= INET_POLLWRNORM; //POLLOUT
 		fdarray[i].revents &= fdarray[i].events;
-		if (FD_ISSET(fdarray[i].fd, &exceptfds)) fdarray[i].revents |= POLLERR; //INET_POLLERR // can be raised on revents regardless of events bitmask?
+		if (FD_ISSET(fdarray[i].fd, &exceptfds)) fdarray[i].revents |= ADHOC_EV_ALERT; // POLLPRI; // POLLERR; // can be raised on revents regardless of events bitmask?
+		if (fdarray[i].revents) retval++;
 	}
 //#else
 	/*

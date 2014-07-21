@@ -405,7 +405,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 									uint8_t * sip = (uint8_t *)&target.sin_addr.s_addr;
 									// Sent Data
 									if (sent == len) {
-										INFO_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
+										DEBUG_LOG(SCENET, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %u.%u.%u.%u:%u\n", id, getLocalPort(socket->id), sent, sip[0], sip[1], sip[2], sip[3], ntohs(target.sin_port));
 
 										// Success
 										return 0;
@@ -635,8 +635,9 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 }
 
 // Assuming < 0 for failure, homebrew SDK doesn't have much to say about this one..
+// Flags seems to be bitmasks of ADHOC_F_ALERT...
 int sceNetAdhocSetSocketAlert(int id, int flag) {
- 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %d)", id, flag);
+ 	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %08x)", id, flag);
 
 	return 0; //Dummy Result
 }
@@ -732,8 +733,8 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 						// Event Masking
 						sds[i].revents &= sds[i].events;
 
-						// Error Events
-						if (isds[i].revents & POLLERR) sds[i].revents |= ADHOC_EV_ALERT; // Error flags can be raised regardless of bitmask ?
+						// Exception Events
+						if (isds[i].revents & ADHOC_EV_ALERT) sds[i].revents |= ADHOC_EV_ALERT; // Exception flags can be raised regardless of bitmask ?
 					
 						if (sds[i].revents) counted++;
 					}
@@ -746,7 +747,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 				if (!nonblock)
 				{
 					// Success
-					if (affectedsockets >= 0) return counted; //affectedsockets; //(affectedsockets > 0)
+					if (affectedsockets >= 0) return counted; // (affectedsockets > 0) return affectedsockets;
 
 					// Timeout
 					return ERROR_NET_ADHOC_TIMEOUT;
@@ -1434,7 +1435,7 @@ int sceNetAdhocTerm() {
 }
 
 int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocGetPdpStat(%08x, %08x)", structSize, structAddr);
+	VERBOSE_LOG(SCENET, "UNTESTED sceNetAdhocGetPdpStat(%08x, %08x) at %08x", structSize, structAddr, currentMIPS->pc);
 	
 	// Library is initialized
 	if (netAdhocInited)
@@ -1480,11 +1481,11 @@ int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 					buf[i].id = j + 1;
 
 					// Write End of List Reference
-					buf[i].next = NULL;
+					buf[i].next = 0;
 
 					// Link Previous Element
 					if (i > 0) 
-						buf[i - 1].next = structAddr + (i*sizeof(SceNetAdhocPdpStat)) + sizeof(SceNetAdhocPdpStat); //buf[i - 1].next = &buf[i];
+						buf[i - 1].next = structAddr + ((i - 1) * sizeof(SceNetAdhocPdpStat)) + sizeof(SceNetAdhocPdpStat); //buf[i - 1].next = &buf[i];
 
 					// Increment Counter
 					i++;
@@ -1515,7 +1516,7 @@ int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
  */
 int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 	// Spams a lot 
-	VERBOSE_LOG(SCENET,"sceNetAdhocGetPtpStat(%u,%u)",structSize,structAddr);
+	VERBOSE_LOG(SCENET,"sceNetAdhocGetPtpStat(%08x, %08x) at %08x",structSize,structAddr,currentMIPS->pc);
 
 	if (!g_Config.bEnableWlan) {
 		return 0;
@@ -1561,7 +1562,7 @@ int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					
 					// Link previous Element to this one
 					if (i > 0)
-						buf[i-1].next = structAddr + (i*sizeof(SceNetAdhocPtpStat)) + sizeof(SceNetAdhocPtpStat);
+						buf[i - 1].next = structAddr + ((i - 1) * sizeof(SceNetAdhocPtpStat)) + sizeof(SceNetAdhocPtpStat);
 					
 					// Increment Counter
 					i++;
@@ -2426,7 +2427,7 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 	
 	// Dummy Value
 	if (Memory::IsValidAddress(flagPtr)) {
-		int32_t * flag = (int32_t*)Memory::GetPointer(flagPtr);
+		s32_le * flag = (s32_le*)Memory::GetPointer(flagPtr);
 		*flag = 0;
 	}
 
@@ -2953,7 +2954,9 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddres
 					}
 
 					// Peer not found
-					return ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET;
+					//return ERROR_NET_ADHOC_MATCHING_UNKNOWN_TARGET;
+					// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function
+					return 0;
 				}
 
 				// Context not running
