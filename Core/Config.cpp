@@ -310,7 +310,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
 	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false),
 #endif
-	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, true),
+	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false),
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false),
 	ConfigSetting(false),
 };
