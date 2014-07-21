@@ -170,7 +170,10 @@ std::string System_GetProperty(SystemProperty prop) {
 			if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 				HANDLE handle = GetClipboardData(CF_UNICODETEXT);
 				const wchar_t *wstr = (const wchar_t*)GlobalLock(handle);
-				retval = ConvertWStringToUTF8(wstr);
+				if (wstr)
+					retval = ConvertWStringToUTF8(wstr);
+				else
+					retval = "";
 				GlobalUnlock(handle);
 				CloseClipboard();
 			}
