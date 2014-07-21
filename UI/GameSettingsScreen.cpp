@@ -392,7 +392,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	systemSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #else
-	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
 
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, s->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
