@@ -438,6 +438,11 @@ void __KernelMemoryInit()
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VPL, __KernelVplBeginCallback, __KernelVplEndCallback);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_FPL, __KernelFplBeginCallback, __KernelFplEndCallback);
+
+	// The kernel statically allocates this memory, which has some code in it.
+	// It appears this is used for some common funcs in Kernel_Library (memcpy, lwmutex, suspend intr, etc.)
+	// Allocating this block is necessary to have the same memory semantics as real firmware.
+	userMemory.AllocAt(PSP_GetUserMemoryBase(), 0x4000, "usersystemlib");
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
