@@ -83,7 +83,10 @@ void GameScreen::CreateViews() {
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
 	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData); 
+	std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
+	if (saveDirs.size()) {
+		rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	}
 	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
@@ -176,9 +179,13 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
-		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
-			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+		// Check that there's any savedata to delete
+		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
+		if (saveDirs.size()) {
+			screenManager()->push(
+				new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+		}
 	}
 
 	RecreateViews();

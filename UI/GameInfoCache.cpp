@@ -94,7 +94,7 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	getFilesInDir(memc.c_str(), &dirs);
 
 	std::vector<std::string> directories;
-	if (id.empty()) {
+	if (id.size() < 5) {
 		return directories;
 	}
 	for (size_t i = 0; i < dirs.size(); i++) {
