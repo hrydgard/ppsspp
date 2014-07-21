@@ -1,5 +1,5 @@
 2048
-font UBUNTU24 C:/Windows/Fonts/Roboto-Condensed.ttf UWER 34 -2
+font UBUNTU24 C:/Windows/Fonts/RobotoCondensed-Regular.ttf UWER 34 -2
 font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVe 30 0
 image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
