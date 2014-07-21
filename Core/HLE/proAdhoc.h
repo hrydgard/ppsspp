@@ -70,6 +70,9 @@ inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK ||
 inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #endif
 
+#ifndef POLL_ERR
+#define POLL_ERR 0x008 /* Error condition. */
+#endif
 #ifndef POLLERR
 #define POLLERR POLL_ERR
 #endif

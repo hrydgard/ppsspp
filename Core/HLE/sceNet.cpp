@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifndef _WIN32
+#include <sys/select.h>
+#else
+#include <winsock2.h>
+#endif
+
 #include "net/resolve.h"
 #include "util/text/parsers.h"
 
