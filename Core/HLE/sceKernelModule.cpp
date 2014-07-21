@@ -56,6 +56,10 @@
 
 #include "GPU/GPUState.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
+
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
@@ -872,15 +876,37 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 		if (ret == MISSING_KEY) {
-			// This should happen for all "kernel" modules so disabling.
-			// Reporting::ReportMessage("Missing PRX decryption key!");
+			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
-			error = 0;
+
+			// Let's still try to allocate it.  It may use user memory.
+			u32 totalSize = 0;
+			for (int i = 0; i < 4; ++i) {
+				if (head->seg_size[i]) {
+					const u32 align = head->seg_align[i] - 1;
+					totalSize = ((totalSize + align) & ~align) + head->seg_size[i];
+				}
+			}
+			bool kernelModule = (head->attribute & 0x1000) != 0;
+			BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+			size_t n = strnlen(head->modname, 28);
+			const std::string modName = "ELF/" + std::string(head->modname, n);
+			u32 addr = memblock.Alloc(totalSize, fromTop, modName.c_str());
+			if (addr == (u32)-1) {
+				error = SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+				module->Cleanup();
+				kernelObjects.Destroy<Module>(module->GetUID());
+			} else {
+				error = 0;
+				module->memoryBlockAddr = addr;
+				module->memoryBlockSize = totalSize;
+			}
+
 			return module;
 		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
