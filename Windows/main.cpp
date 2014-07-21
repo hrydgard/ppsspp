@@ -191,6 +191,17 @@ int System_GetPropertyInt(SystemProperty prop) {
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+	} else if (!strcmp(command, "setclipboardtext")) {
+		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
+			std::wstring data = ConvertUTF8ToWString(parameter);
+			HANDLE handle = GlobalAlloc(GMEM_MOVEABLE, (data.size() + 1) * sizeof(wchar_t));
+			wchar_t *wstr = (wchar_t *)GlobalLock(handle);
+			memcpy(wstr, data.c_str(), (data.size() + 1) * sizeof(wchar_t));
+			GlobalUnlock(wstr);
+			SetClipboardData(CF_UNICODETEXT, handle);
+			GlobalFree(handle);
+			CloseClipboard();
+		}
 	}
 }
 
