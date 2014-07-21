@@ -23,12 +23,14 @@ What's new in 0.9.9
 * CLUT (paletted) texturing from framebuffers supported, fixing many graphical issues
   like the shadows in Final Fantasy: Type-0
 * More types of framebuffer copies are now handled correctly, fixing a variety of graphical
-  issues, like the sun in Burnout and many more.
+  issues, like the sun in Burnout and many more
+* Better savedata compatibility with the real PSP
+* Emulation of the vrot CPU instruction improved - it caused cracks in FF3 graphics before
 * Many bugfixes around the UI, touch D-pad now works better when scaled large
-* Workaround implemented to support Star Ocean's stencil trickery as efficiently as possible on all platforms.
-* A Thai language translation was contributed (only works correctly on Windows due to font issues)
-* Major corrections to module loading and memory management, fixing further games.
-* Many, many more game fixes and bug fixes.
+* Workaround implemented to support Star Ocean's stencil trickery as efficiently as possible on all platforms
+* Major corrections to module loading and memory management, fixing further games
+* Bulgarian and Thai language translations were contributed
+* Many, many more game fixes and bug fixes
 
 What's new in 0.9.8
 -------------------
