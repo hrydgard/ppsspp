@@ -689,14 +689,23 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 }
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
+	int ret = -1;
+	if (!Memory::IsValidAddress(outAddr)) {
+		ERROR_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, ...): Bad out addr, skipping", ret, atracID, outAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	int ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
+	ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
-		Memory::Write_U32(numSamples, numSamplesAddr);
-		Memory::Write_U32(finish, finishFlagAddr);
-		Memory::Write_U32(remains, remainAddr);
+		if (Memory::IsValidAddress(numSamplesAddr))
+			Memory::Write_U32(numSamples, numSamplesAddr);
+		if (Memory::IsValidAddress(finishFlagAddr))
+			Memory::Write_U32(finish, finishFlagAddr);
+		if (Memory::IsValidAddress(remainAddr))
+			Memory::Write_U32(remains, remainAddr);
 	}
 	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
 			  numSamplesAddr, numSamples,
