@@ -389,7 +389,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bEnableWlan, s->T("Enable networking", "Enable networking/wlan (beta)")));
 
 #ifdef _WIN32
-	systemSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), "", screenManager()));
+	systemSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #else
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
@@ -409,7 +409,7 @@ void GameSettingsScreen::CreateViews() {
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #if defined(_WIN32)  // TODO: Add all platforms where KEY_CHAR support is added
-	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, s->T("Change Nickname"), "", screenManager()));
+	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, s->T("Change Nickname"), "", 32, screenManager()));
 #elif defined(USING_QT_UI)
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif

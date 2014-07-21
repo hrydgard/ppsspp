@@ -164,6 +164,18 @@ std::string System_GetProperty(SystemProperty prop) {
 		return osName;
 	case SYSPROP_LANGREGION:
 		return langRegion;
+	case SYSPROP_CLIPBOARD_TEXT:
+		{
+			std::string retval;
+			if (OpenClipboard(MainWindow::GetDisplayHWND())) {
+				HANDLE handle = GetClipboardData(CF_UNICODETEXT);
+				const wchar_t *wstr = (const wchar_t*)GlobalLock(handle);
+				retval = ConvertWStringToUTF8(wstr);
+				GlobalUnlock(handle);
+				CloseClipboard();
+			}
+			return retval;
+		}
 	default:
 		return "";
 	}
@@ -179,8 +191,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-void EnableCrashingOnCrashes() 
-{ 
+void EnableCrashingOnCrashes() { 
   typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags); 
   typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
   const DWORD EXCEPTION_SWALLOWING = 0x1;
