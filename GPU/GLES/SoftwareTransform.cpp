@@ -433,8 +433,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	if (gstate_c.flipTexture && maxIndex >= 2) {
 		// Even if not rectangles, this will detect if either of the first two are outside the framebuffer.
-		const bool tlOutside = transformed[0].v < 0.0f && transformed[0].v > 1.0f - heightFactor;
-		const bool brOutside = transformed[1].v < 0.0f && transformed[1].v > 1.0f - heightFactor;
+		// HACK: Adding one pixel margin to this detection fixes issues in Assassin's Creed : Bloodlines,
+		// while still keeping BOF working (see below).
+		const float invTexH = 1.0f / gstate_c.curTextureHeight; // size of one texel.
+		const bool tlOutside = transformed[0].v < -invTexH && transformed[0].v > 1.0f - heightFactor;
+		const bool brOutside = transformed[1].v < -invTexH && transformed[1].v > 1.0f - heightFactor;
 		if (tlOutside || brOutside) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
