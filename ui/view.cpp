@@ -659,6 +659,10 @@ void TextEdit::Key(const KeyInput &input) {
 
 		if (ctrlDown_) {
 			switch (input.keyCode) {
+			case NKCODE_C:
+				// Just copy the entire text contents, until we get selection support.
+				System_SendMessage("setclipboardtext", text_.c_str());
+				break;
 			case NKCODE_V:
 				{
 					std::string clipText = System_GetProperty(SYSPROP_CLIPBOARD_TEXT);
