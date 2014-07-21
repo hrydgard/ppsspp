@@ -1093,11 +1093,17 @@ namespace MainWindow
 				case SIZE_MAXIMIZED:
 				case SIZE_RESTORED:
 					Core_NotifyWindowHidden(false);
+					if (!g_Config.bPauseWhenMinimized) {
+						NativeMessageReceived("window minimized", "false");
+					}
 					SavePosition();
 					ResizeDisplay();
 					break;
 				case SIZE_MINIMIZED:
 					Core_NotifyWindowHidden(true);
+					if (!g_Config.bPauseWhenMinimized) {
+						NativeMessageReceived("window minimized", "true");
+					}
 					break;
 				default:
 					break;

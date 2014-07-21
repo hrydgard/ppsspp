@@ -74,6 +74,8 @@ public:
 	bool bIgnoreWindowsKey;
 #endif
 
+	bool bPauseWhenMinimized;
+
 #if !defined(MOBILE_DEVICE)
 	bool bPauseExitsEmulator;
 #endif

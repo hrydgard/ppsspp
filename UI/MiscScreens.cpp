@@ -37,6 +37,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
+#include "GPU/GPUState.h"
 
 #include "ui_atlas.h"
 
@@ -197,6 +198,12 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 		auto langScreen = new NewLanguageScreen(de->T("Language"));
 		langScreen->OnChoice.Handle(this, &UIDialogScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
+	} else if (!strcmp(message, "window minimized")) {
+		if (!strcmp(value, "true")) {
+			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
+		} else {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
+		}
 	}
 }
 
