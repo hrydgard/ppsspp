@@ -20,6 +20,8 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
@@ -114,8 +116,12 @@ static int Replace_memcpy() {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (bytes != 0) {
-		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) { 
 			WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
 		}
 		else {
 			if (!skip && destPtr != 0) {
@@ -218,6 +224,10 @@ static int Replace_memmove() {
 	if (bytes != 0) {
 		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
 			WARN_LOG(HLE, "memmove: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
 		}
 		else {
 			if (!skip) {
@@ -247,6 +257,10 @@ static int Replace_memset() {
 	if (!skip && bytes != 0) {
 		if (!g_Config.bFastMemory && !Memory::IsValidAddress(destPtr)) {
 			WARN_LOG(HLE, "memset: Invalid address (%08x,%02x,%i) at %08x", destPtr, value, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
 		}
 		else {
 			memset(dst, value, bytes);
