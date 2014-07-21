@@ -271,16 +271,17 @@ private:
 class ChoiceWithValueDisplay : public UI::Choice {
 public:
 	ChoiceWithValueDisplay(int *value, const std::string &text, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), iValue_(value) { sValue_ = nullptr; }
+		: Choice(text, layoutParams), iValue_(value), category_(nullptr) { sValue_ = nullptr; }
 
-	ChoiceWithValueDisplay(std::string *value, const std::string &text, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), sValue_(value) { iValue_ = nullptr; }
+	ChoiceWithValueDisplay(std::string *value, const std::string &text, I18NCategory *category, LayoutParams *layoutParams = 0)
+		: Choice(text, layoutParams), sValue_(value), category_(category) { iValue_ = nullptr; }
 
 	void Draw(UIContext &dc);
 
 private:
 	int *iValue_;
 	std::string *sValue_;
+	I18NCategory *category_;
 };
 
 }  // namespace UI

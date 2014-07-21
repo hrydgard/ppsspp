@@ -458,7 +458,10 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	if (sValue_ != nullptr) {
-		valueText << *sValue_;
+		if (category_)
+			valueText << category_->T(*sValue_);
+		else
+			valueText << *sValue_;
 	} else if (iValue_ != nullptr) {
 		valueText << *iValue_;
 	}

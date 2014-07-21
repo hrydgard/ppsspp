@@ -37,6 +37,9 @@ class I18NCategory {
 public:
 	I18NCategory(const char *name) : name_(name) {}
 	const char *T(const char *key, const char *def = 0);
+	const char *T(const std::string &key) {
+		return T(key.c_str(), nullptr);
+	}
 
 	const std::map<std::string, std::string> &Missed() const {
 		return missedKeyLog_;
