@@ -68,4 +68,14 @@ echo. >> "%GIT_VERSION_FILE%"
 echo // If you don't want this file to update/recompile, change to 1. >> "%GIT_VERSION_FILE%"
 echo #define PPSSPP_GIT_VERSION_NO_UPDATE 0 >> "%GIT_VERSION_FILE%"
 
+rem // Version number, eg: 0.9.8
+for /f "tokens=1 delims=-" %%a in ("%GIT_VERSION:~1%") do set num_version=%%a
+rem // Build number eg: "1351"
+for /f "tokens=2 delims=-" %%a in ("%GIT_VERSION%") do set num_build=%%a
+
+set WIN_VERSION_FILE=%~p0.\windows-version.h
+echo // version.rc update follows PPSSPP_GIT_VERSION_NO_UPDATE > "%WIN_VERSION_FILE%"
+echo #define PPSSPP_WINDOWS_VERSION_COMMA   %num_version:.=,%,%num_build% >> "%WIN_VERSION_FILE%"
+echo #define PPSSPP_WINDOWS_VERSION_STRING "%GIT_VERSION:~1%" >> "%WIN_VERSION_FILE%"
+
 :done

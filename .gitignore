@@ -47,6 +47,7 @@ libs
 obj
 build*/
 /git-version.cpp
+Windows/windows-version.h
 
 .pspsh.hist
 __testoutput.txt
