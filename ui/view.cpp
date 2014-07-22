@@ -580,21 +580,36 @@ TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, 
 }
 
 void TextEdit::Draw(UIContext &dc) {
+	dc.PushScissor(bounds_);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
+
+	float textX = bounds_.x;
+	float w, h;
+	// Hack to find the caret position. Might want to find a better way...
+	dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
+	float caretX = w;
+
+	if (caretX > bounds_.w) {
+		// Scroll text to the left if the caret won't fit. Not ideal but looks better than not scrolling it.
+		textX -= caretX - bounds_.w;
+	}
+
+	caretX += textX;
+
+	Bounds textBounds = bounds_;
+	textBounds.x = textX;
+
 	if (text_.empty()) {
 		if (placeholderText_.size()) {
 			dc.DrawTextRect(placeholderText_.c_str(), bounds_, 0x50FFFFFF, ALIGN_CENTER);
 		}
 	} else {
-		dc.DrawTextRect(text_.c_str(), bounds_, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
+		dc.DrawTextRect(text_.c_str(), textBounds, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
 	}
-	// Hack to find the caret position. Might want to find a better way...
 
-	float w, h;
-	dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
-	float caretX = bounds_.x + w;
 	dc.FillRect(UI::Drawable(0xFFFFFFFF), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+	dc.PopScissor();
 }
 
 void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -667,9 +682,10 @@ void TextEdit::Key(const KeyInput &input) {
 				{
 					std::string clipText = System_GetProperty(SYSPROP_CLIPBOARD_TEXT);
 					clipText = FirstLine(clipText);
-					if (clipText.size() > 32) {
+					size_t maxPaste = maxLen_ - text_.size();
+					if (clipText.size() > maxPaste) {
 						int end = 0;
-						while (end < 32) {
+						while (end < maxPaste) {
 							u8_inc(clipText.c_str(), &end);
 						}
 						if (end > 0) {
@@ -707,7 +723,9 @@ void TextEdit::Key(const KeyInput &input) {
 			// Insert it! (todo: do it with a string insert)
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
-			InsertAtCaret(buf);
+			if (strlen(buf) + text_.size() < maxLen_) {
+				InsertAtCaret(buf);
+			}
 		}
 	}
 }
