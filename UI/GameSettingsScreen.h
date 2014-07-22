@@ -60,6 +60,7 @@ private:
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
 	UI::EventReturn OnLanguageChange(UI::EventParams &e);
+	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
 	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
@@ -70,7 +71,6 @@ private:
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
-	UI::EventReturn OnFrameSkipChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
