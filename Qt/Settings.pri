@@ -21,7 +21,7 @@ INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
 
 !contains(CONFIG, staticlib) {
 	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
-	contains(DEFINES, USE_FFMPEG): LIBS += -lavformat -lavcodec -lavutil -lswresample -lswscale
+	contains(DEFINES, USE_FFMPEG): LIBS += -Wl,-Bstatic -lavformat -lavcodec -lavutil -lswresample -lswscale -Wl,-Bdynamic
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
 }
 
@@ -48,7 +48,7 @@ win32-msvc* {
 	else: QMAKE_CXXFLAGS += -std=c++11
 	QMAKE_CFLAGS_RELEASE ~= s/-O.*/
 	QMAKE_CXXFLAGS_RELEASE ~= s/-O.*/
-	QMAKE_ALLFLAGS_RELEASE += -O3 -ffast-math
+	QMAKE_ALLFLAGS_RELEASE += -O3 -ffast-math -fno-strict-aliasing
 }
 
 contains(QT_CONFIG, opengles.) {
