@@ -24,8 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "")
-		: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "");
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -37,9 +36,11 @@ protected:
 	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
 
+	bool UseVerticalLayout() const;
+
 private:
 	std::string gameID_;
-
+	bool lastVertical_;
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;

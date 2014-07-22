@@ -17,6 +17,7 @@
 
 #include "GamepadEmu.h"
 #include "base/colorutil.h"
+#include "base/display.h"
 #include "base/NativeApp.h"
 #include "math/math_util.h"
 #include "ui/virtual_input.h"
@@ -339,7 +340,10 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
-	const int bottom_key_spacing = 100 * scale;
+	float bottom_key_spacing = 100;
+	if (dp_xres < 750) {
+		bottom_key_spacing *= 0.8f;
+	}
 
 	int start_key_X = xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = yres - 60 * scale;

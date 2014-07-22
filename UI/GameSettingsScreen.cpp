@@ -53,12 +53,23 @@
 extern bool iosCanUseJit;
 #endif
 
+GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID)
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false) {
+	lastVertical_ = UseVerticalLayout();
+}
+
+bool GameSettingsScreen::UseVerticalLayout() const {
+	return dp_yres > dp_xres * 1.1f;
+}
+
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
 	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
+
+	bool vertical = UseVerticalLayout();
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -73,16 +84,22 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 	I18NCategory *dev = GetI18NCategory("Developer");
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	if (vertical) {
+		root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	} else {
+		root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	}
 
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
-
-	root_->Add(tabHolder);
+	TabHolder *tabHolder;
+	if (vertical) {
+		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
+		root_->Add(tabHolder);
+		root_->Add(new Choice(d->T("Back"), "", false, new LinearLayoutParams(0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	} else {
+		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+		root_->Add(tabHolder);
+		root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	}
 	root_->SetDefaultFocusView(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.
@@ -401,7 +418,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
 //#endif
-	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
@@ -545,6 +561,12 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
 	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
+
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
 }
 
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {

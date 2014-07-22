@@ -721,7 +721,6 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	// Vertical mode is not finished.
 	bool vertical = UseVerticalLayout();
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
