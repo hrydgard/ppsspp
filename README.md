@@ -25,6 +25,8 @@ What's new in 0.9.9
 * More types of framebuffer copies are now handled correctly, fixing a variety of graphical
   issues, like the sun in Burnout and many more
 * Better savedata compatibility with the real PSP
+* Support for more codecs used by "Custom BGM" and sometimes regular music in games: MP3, AAC
+* Implemented some strange blending modes like ABSDIFF as shaders, fixing the outlines in DBZ Tag Team and more.
 * Emulation of the vrot CPU instruction improved - it caused cracks in FF3 graphics before
 * Many bugfixes around the UI, touch D-pad now works better when scaled large
 * Workaround implemented to support Star Ocean's stencil trickery as efficiently as possible on all platforms
