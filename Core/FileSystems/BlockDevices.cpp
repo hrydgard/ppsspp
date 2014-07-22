@@ -239,7 +239,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 		{
 			ERROR_LOG(LOADER, "block %d:inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
 			inflateEnd(&z);
-			return 1;
+			return 1;  // TODO: This seems like the wrong return value? Surely we are screwed here (corrupt CSO) ?
 		}
 		int cmp_size = blockSize - z.avail_out;
 		if (cmp_size != (int)blockSize)
