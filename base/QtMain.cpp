@@ -15,6 +15,7 @@
 
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QStandardPaths>
+#include <QScreenSaver>
 #endif
 
 #ifdef __SYMBIAN32__
@@ -122,11 +123,14 @@ static int mainInternal(QApplication &a)
 	emugl->showFullScreen();
 #endif
 	EnableFZ();
-#ifdef __SYMBIAN32__
 	// Disable screensaver
-	QScopedPointer<QSystemScreenSaver> ssObject(new QSystemScreenSaver(emugl));
-	ssObject->setScreenSaverInhibit();
+#ifdef __SYMBIAN32__
+	QSystemScreenSaver ssObject(emugl);
+	ssObject.setScreenSaverInhibit();
 	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
+#elif QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+	QScreenSaver ssObject(emugl);
+	ssObject.setScreenSaverEnabled(false);
 #endif
 
 #ifdef QT_HAS_SDL
