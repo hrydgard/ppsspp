@@ -575,7 +575,7 @@ void TextView::Draw(UIContext &dc) {
 }
 
 TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
-  : View(layoutParams), text_(text), placeholderText_(placeholderText), maxLen_(255), ctrlDown_(false) {
+  : View(layoutParams), text_(text), undo_(text), placeholderText_(placeholderText), maxLen_(255), ctrlDown_(false) {
 	caret_ = (int)text_.size();
 }
 
@@ -659,6 +659,7 @@ void TextEdit::Key(const KeyInput &input) {
 			if (caret_ < (int)text_.size()) {
 				int endCaret = caret_;
 				u8_inc(text_.c_str(), &endCaret);
+				undo_ = text_;
 				text_.erase(text_.begin() + caret_, text_.begin() + endCaret);
 			}
 			break;
@@ -666,6 +667,7 @@ void TextEdit::Key(const KeyInput &input) {
 			if (caret_ > 0) {
 				int begCaret = caret_;
 				u8_dec(text_.c_str(), &begCaret);
+				undo_ = text_;
 				text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
 				caret_--;
 			}
@@ -682,19 +684,29 @@ void TextEdit::Key(const KeyInput &input) {
 				{
 					std::string clipText = System_GetProperty(SYSPROP_CLIPBOARD_TEXT);
 					clipText = FirstLine(clipText);
-					size_t maxPaste = maxLen_ - text_.size();
-					if (clipText.size() > maxPaste) {
-						int end = 0;
-						while (end < maxPaste) {
-							u8_inc(clipText.c_str(), &end);
+					if (clipText.size()) {
+						// Until we get selection, replace the whole text
+						undo_ = text_;
+						text_.clear();
+						caret_ = 0;
+
+						size_t maxPaste = maxLen_ - text_.size();
+						if (clipText.size() > maxPaste) {
+							int end = 0;
+							while (end < maxPaste) {
+								u8_inc(clipText.c_str(), &end);
+							}
+							if (end > 0) {
+								u8_dec(clipText.c_str(), &end);
+							}
+							clipText = clipText.substr(0, end);
 						}
-						if (end > 0) {
-							u8_dec(clipText.c_str(), &end);
-						}
-						clipText = clipText.substr(0, end);
+						InsertAtCaret(clipText.c_str());
 					}
-					InsertAtCaret(clipText.c_str());
 				}
+				break;
+			case NKCODE_Z:
+				text_ = undo_;
 				break;
 			}
 		}
@@ -724,6 +736,7 @@ void TextEdit::Key(const KeyInput &input) {
 			char buf[8];
 			buf[u8_wc_toutf8(buf, unichar)] = '\0';
 			if (strlen(buf) + text_.size() < maxLen_) {
+				undo_ = text_;
 				InsertAtCaret(buf);
 			}
 		}

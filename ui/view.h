@@ -680,6 +680,7 @@ private:
 	void InsertAtCaret(const char *text);
 
 	std::string text_;
+	std::string undo_;
 	std::string placeholderText_;
 	int caret_;
 	int maxLen_;
