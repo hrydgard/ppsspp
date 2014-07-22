@@ -253,6 +253,10 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+void PopupMultiChoice::Update(const InputState &input_state) {
+	UpdateText();
+}
+
 void PopupMultiChoice::UpdateText() {
 	// Clamp the value to be safe.
 	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {

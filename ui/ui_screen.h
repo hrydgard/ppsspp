@@ -93,9 +93,9 @@ public:
 	virtual std::string tag() const override { return std::string("listpopup"); }
 
 protected:
-	virtual bool FillVertical() const { return false; }
-	virtual bool ShowButtons() const { return showButtons_; }
-	void CreatePopupContents(UI::ViewGroup *parent);
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return showButtons_; }
+	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::StringVectorListAdaptor adaptor_;
 	UI::ListView *listView_;
 
@@ -112,9 +112,9 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() const { return false; }
-	virtual bool ShowButtons() const { return true; }
-	void CreatePopupContents(UI::ViewGroup *parent);
+	virtual bool FillVertical() const override { return false; }
+	virtual bool ShowButtons() const override { return true; }
+	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
 
 private:
 	std::string message_;
@@ -129,14 +129,14 @@ class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1) 
 	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
-	void CreatePopupContents(ViewGroup *parent);
+	virtual void CreatePopupContents(ViewGroup *parent) override;
 
 	Event OnChange;
 
 private:
 	EventReturn OnDecrease(EventParams &params);
 	EventReturn OnIncrease(EventParams &params);
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	Slider *slider_;
 	int *value_;
 	int sliderValue_;
@@ -149,12 +149,12 @@ class SliderFloatPopupScreen : public PopupScreen {
 public:
 	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) 
 	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
-	void CreatePopupContents(UI::ViewGroup *parent);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	Event OnChange;
 
 private:
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	UI::SliderFloat *slider_;
 	float sliderValue_;
 	float *value_;
@@ -166,7 +166,7 @@ class TextEditPopupScreen : public PopupScreen {
 public:
 	TextEditPopupScreen(std::string *value, std::string &placeholder, const std::string &title, int maxLen)
 		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
-	void CreatePopupContents(ViewGroup *parent);
+	virtual void CreatePopupContents(ViewGroup *parent) override;
 
 	Event OnChange;
 
@@ -187,13 +187,14 @@ public:
 		I18NCategory *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = 0)
 		: UI::Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
 		category_(category), screenManager_(screenManager) {
-			if (*value >= numChoices+minVal) *value = numChoices+minVal-1;
-			if (*value < minVal) *value = minVal;
-			OnClick.Handle(this, &PopupMultiChoice::HandleClick);
-			UpdateText();
+		if (*value >= numChoices+minVal) *value = numChoices+minVal-1;
+		if (*value < minVal) *value = minVal;
+		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
+		UpdateText();
 	}
 
-	virtual void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
+	virtual void Update(const InputState &input_state) override;
 
 	UI::Event OnChoice;
 
@@ -218,7 +219,7 @@ public:
 	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
-	void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
 
 	Event OnChange;
 
@@ -237,7 +238,7 @@ class PopupSliderChoiceFloat : public Choice {
 public:
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
-	void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
 
 	Event OnChange;
 
@@ -254,7 +255,7 @@ class PopupTextInputChoice: public Choice {
 public:
 	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
-	void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
 
 	Event OnChange;
 
@@ -276,7 +277,7 @@ public:
 	ChoiceWithValueDisplay(std::string *value, const std::string &text, I18NCategory *category, LayoutParams *layoutParams = 0)
 		: Choice(text, layoutParams), sValue_(value), category_(category) { iValue_ = nullptr; }
 
-	void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
 
 private:
 	int *iValue_;
