@@ -424,7 +424,7 @@ int sceKernelDcacheWritebackInvalidateAll()
 
 u32 sceKernelIcacheInvalidateAll()
 {
-	INFO_LOG(CPU, "sceKernelIcacheInvalidateAll");
+	ERROR_LOG(CPU, "Unimpl sceKernelIcacheInvalidateAll");
 #ifdef LOG_CACHE
 	NOTICE_LOG(CPU, "Icache invalidated - should clear JIT someday");
 #endif
