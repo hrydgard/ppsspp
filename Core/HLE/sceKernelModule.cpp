@@ -970,6 +970,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 			module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
 			if (module->nm.segmentsize[i] != 0) {
 				module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
+			} else {
+				module->nm.segmentaddr[i] = 0;
 			}
 		}
 		module->nm.data_size += reader.GetSegmentDataSize(i);
@@ -1667,15 +1669,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	SceKernelLMOption *lmoption = 0;
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
-		if (lmoption->position < 0 || lmoption->position > 4) {
+		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position", name, lmoption->position);
 			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 		}
-		if (lmoption->position == 3 || lmoption->position == 4) {
+		if (lmoption->position == PSP_SMEM_LowAligned || lmoption->position == PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name, lmoption->position);
 			return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
 		}
-		if (lmoption->position == 2) {
+		if (lmoption->position == PSP_SMEM_Addr) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name, lmoption->position);
 			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 		}

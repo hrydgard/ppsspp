@@ -888,15 +888,6 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
 //////////////////////////////////////////////////////////////////////////
 //00:49:12 <TyRaNiD> ector, well the partitions are 1 = kernel, 2 = user, 3 = me, 4 = kernel mirror :)
 
-enum MemblockType
-{
-	PSP_SMEM_Low = 0,
-	PSP_SMEM_High = 1,
-	PSP_SMEM_Addr = 2,
-	PSP_SMEM_LowAligned = 3,
-	PSP_SMEM_HighAligned = 4,
-};
-
 class PartitionMemoryBlock : public KernelObject
 {
 public:
