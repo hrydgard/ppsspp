@@ -73,7 +73,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
 	leftColumn->Add(new Choice(k->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
 	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
@@ -145,9 +145,9 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 }
 
 UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
+	std::string cheatFile;
 #ifdef _WIN32
-	std::string cheatFile = activeCheatFile;
-
+	cheatFile = activeCheatFile;
 	// Can't rely on a .txt file extension to auto-open in the right editor,
 	// so let's find notepad
 	wchar_t notepad_path[MAX_PATH];
@@ -175,6 +175,15 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (!retval) {
 		ERROR_LOG(BOOT, "Failed creating notepad process");
 	}
+#elif defined(__APPLE__) || defined(__linux__)
+#if defined(__linux__)
+	cheatFile = "xdg-open ";
+#elif defined(__APPLE__)
+	cheatFile = "open ";
+#endif
+	cheatFile.append(activeCheatFile);
+	NOTICE_LOG(BOOT, "Launching %s", cheatFile.c_str());
+	system(cheatFile.c_str());
 #endif
 	return UI::EVENT_DONE;
 }
