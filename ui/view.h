@@ -43,7 +43,7 @@ class View;
 void EnableFocusMovement(bool enable);
 bool IsFocusMovementEnabled();
 View *GetFocusedView();
-void SetFocusedView(View *view);
+void SetFocusedView(View *view, bool force = false);
 
 enum DrawableType {
 	DRAW_NOTHING,
@@ -674,7 +674,8 @@ public:
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	virtual void Draw(UIContext &dc) override;
-	virtual void Key(const KeyInput &input) override;
+	virtual void Key(const KeyInput &key) override;
+	virtual void Touch(const TouchInput &touch) override;
 
 private:
 	void InsertAtCaret(const char *text);

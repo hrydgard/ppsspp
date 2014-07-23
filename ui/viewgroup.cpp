@@ -17,7 +17,7 @@ const float ITEM_HEIGHT = 64.f;
 
 static recursive_mutex focusLock;
 static std::vector<int> focusMoves;
-
+extern bool focusForced;
 bool dragCaptured[MAX_POINTERS];
 
 void CaptureDrag(int id) {
@@ -1192,9 +1192,11 @@ static void ProcessHeldKeys(ViewGroup *root) {
 }
 
 bool TouchEvent(const TouchInput &touch, ViewGroup *root) {
-	EnableFocusMovement(false);
-
+	focusForced = false;
 	root->Touch(touch);
+	if ((touch.flags & TOUCH_DOWN) && !focusForced) {
+		EnableFocusMovement(false);
+	}
 	return true;
 }
 

@@ -17,7 +17,7 @@ namespace UI {
 
 static View *focusedView;
 static bool focusMovementEnabled;
-
+bool focusForced;
 static recursive_mutex mutex_;
 
 const float ITEM_HEIGHT = 64.f;
@@ -63,21 +63,25 @@ View *GetFocusedView() {
 	return focusedView;
 }
 
-void SetFocusedView(View *view) {
+void SetFocusedView(View *view, bool force) {
 	if (focusedView) {
 		focusedView->FocusChanged(FF_LOSTFOCUS);
 	}
 	focusedView = view;
 	if (focusedView) {
 		focusedView->FocusChanged(FF_GOTFOCUS);
+		if (force) {
+			focusForced = true;
+		}
 	}
 }
 
 void EnableFocusMovement(bool enable) {
 	focusMovementEnabled = enable;
 	if (!enable) {
-		if (focusedView)
+		if (focusedView) {
 			focusedView->FocusChanged(FF_LOSTFOCUS); 
+		}
 		focusedView = 0;
 	}
 }
@@ -619,7 +623,7 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 // Handles both windows and unix line endings.
-std::string FirstLine(const std::string &text) {
+static std::string FirstLine(const std::string &text) {
 	size_t pos = text.find("\r\n");
 	if (pos != std::string::npos) {
 		return text.substr(0, pos);
@@ -629,6 +633,14 @@ std::string FirstLine(const std::string &text) {
 		return text.substr(0, pos);
 	}
 	return text;
+}
+
+void TextEdit::Touch(const TouchInput &touch) {
+	if (touch.flags & TOUCH_DOWN) {
+		if (bounds_.Contains(touch.x, touch.y)) {
+			SetFocusedView(this, true);
+		}
+	}
 }
 
 void TextEdit::Key(const KeyInput &input) {
