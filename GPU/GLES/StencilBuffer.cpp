@@ -157,8 +157,6 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 
 	shaderManager_->DirtyLastShader();
 
-	// TODO: Check if it's all the same value, commonly 0?
-	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 	glstate.stencilTest.enable();
@@ -195,6 +193,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		fbo_bind_as_render_target(dstBuffer->fbo);
 	}
 	glViewport(0, 0, w, h);
+
+	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);
