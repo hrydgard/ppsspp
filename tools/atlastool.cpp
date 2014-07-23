@@ -14,7 +14,12 @@
 #include <libpng17/png.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#ifdef _WIN32
+// Hackery for our broken path structure
+#include <ftbitmap.h>
+#else
 #include <freetype/ftbitmap.h>
+#endif
 #include <set>
 #include <map>
 #include <vector>
@@ -363,8 +368,9 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 	for (size_t i = 0, n = fontRefs.size(); i < n; ++i) {
 		FT_Face &font = fonts[i];
 		if (FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font) != 0) {
-			printf("Failed to load file %s\n", fontRefs[i].file_.c_str());
-			CHECK(false);
+			printf("Failed to load font file %s\n", fontRefs[i].file_.c_str());
+			printf("bailing");
+			exit(0);
 		}
 		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
