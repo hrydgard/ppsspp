@@ -1473,9 +1473,19 @@ if (TargetBin)
 		set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/assets/icon-114.icns)
 		set( MACOSX_BUNDLE_ICON_FILE icon-114.icns )
 		set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-		#set( MACOSX_BUNDLE_ICON_FILE Resouces/icon-114.icns )
-		#set_source_files_properties(assets PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAppSource})
+
+		# TODO: there must a native way to copy these.
+		# Now this is very prone to errors when changes occur.
+		# Also better to have assets under Resources dir.
+		file(GLOB_RECURSE FLASH0_FILES flash0/*)
+		file(GLOB_RECURSE LANG_FILES lang/*)
+		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
+		set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
+		set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
+		set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
+		set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+		
+		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
 	endif()
