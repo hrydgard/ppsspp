@@ -452,7 +452,7 @@ inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
 
-inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
+inline u32 PSP_GetDefaultLoadAddress() { return 0;}
 //inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
 inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
