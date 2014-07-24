@@ -96,11 +96,13 @@ fi
 make -j4 $MAKE_OPT
 
 if [ "$PACKAGE" == "1" ]; then
-	if [ "$OS" == "Blackberry" ]; then
+	if [ "$TARGET_OS" == "Blackberry" ]; then
 		cp ../Blackberry/bar-descriptor.xml .
 		blackberry-nativepackager -package PPSSPP.bar bar-descriptor.xml $DEBUG_ARGS
-	elif [ "$OS" == "Symbian" ]; then
+	elif [ "$TARGET_OS" == "Symbian" ]; then
 		make sis
+	elif [ "$TARGET_OS" == "iOS" ]; then
+		xcodebuild -configuration Release
 	fi
 fi
 popd
