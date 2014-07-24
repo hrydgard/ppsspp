@@ -1,5 +1,4 @@
-INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis
-DEFINES += "BOOST_COMPILER_CONFIG=\"$$EPOCROOT/epoc32/include/stdapis/boost/mpl/aux_/config/gcc.hpp\"" SYMBIAN_OGLES_DLL_EXPORTS
+DEFINES += "BOOST_COMPILER_CONFIG=\"boost/mpl/aux_/config/gcc.hpp\""
 QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment -Wno-unused-local-typedefs
 
 !contains(CONFIG, staticlib) {
