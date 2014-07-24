@@ -72,7 +72,7 @@ done
 if [ ! -z "$TARGET_OS" ]; then
 	echo "Building for $TARGET_OS"
 	BUILD_DIR="$(tr [A-Z] [a-z] <<< build-"$TARGET_OS")"
-	// HACK (doesn't like shadowed dir)
+# HACK (doesn't like shadowed dir)
 	if [ "$TARGET_OS" == "Symbian" ]; then
 		BUILD_DIR="Qt"
 	fi
