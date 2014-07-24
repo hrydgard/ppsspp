@@ -22,7 +22,7 @@
 #include "Core/Reporting.h"
 #include "Common/ArmEmitter.h"
 
-#if defined(MAEMO)
+#ifndef offsetof
 #include "stddef.h"
 #endif
 

@@ -97,11 +97,9 @@ else {
 	# Grab all possible directories (win32/unix)
 	win32: PATHS = $$split($$(PATH), ;)
 	else: PATHS = $$split($$(PATH), :)
-	greaterThan(QT_MAJOR_VERSION, 4) {
-		for(bin, PATHS): exists($${bin}/$${LREL_TOOL}-qt5): LREL_TOOL=$${bin}/$${LREL_TOOL}-qt5
-	} else {
-		for(bin, PATHS): exists($${bin}/$${LREL_TOOL}-qt4): LREL_TOOL=$${bin}/$${LREL_TOOL}-qt4
-	}
+	# Either -qt4 or -qt5 will work.
+	for(bin, PATHS): exists($${bin}/$${LREL_TOOL}-qt4): LREL_TOOL=$${bin}/$${LREL_TOOL}-qt4
+	for(bin, PATHS): exists($${bin}/$${LREL_TOOL}-qt5): LREL_TOOL=$${bin}/$${LREL_TOOL}-qt5
 
 	# Translations
 	TRANSLATIONS = $$files($$P/Qt/languages/ppsspp_*.ts)

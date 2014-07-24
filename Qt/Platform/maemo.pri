@@ -1,5 +1,5 @@
 DEFINES += MAEMO __GL_EXPORTS
-contains(MEEGO_EDITION,harmattan): DEFINES += "_SYS_UCONTEXT_H=1"
+DEFINES += "_SYS_UCONTEXT_H=1"
 
 !contains(CONFIG, staticlib) {
 	# Packaging

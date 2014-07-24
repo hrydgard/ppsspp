@@ -27,9 +27,11 @@ do
 			;;
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=ios/ios.toolchain.cmake -GXcode ${CMAKE_ARGS}"
 			TARGET_OS=iOS
+			PACKAGE=1
 			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
-			TARGET_OS="Android"
+			TARGET_OS=Android
+			PACKAGE=1
 			;;
 		--simulator) echo "Simulator mode enabled"
 			CMAKE_ARGS="-DSIMULATOR=ON ${CMAKE_ARGS}"

@@ -23,7 +23,7 @@
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
 
-#if defined(MAEMO)
+#ifndef offsetof
 #include "stddef.h"
 #endif
 

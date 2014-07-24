@@ -20,7 +20,8 @@
 #include <cstring>
 #ifdef __SYMBIAN32__
 #include <e32std.h>
-#elif defined(MAEMO)
+#endif
+#ifndef offsetof
 #include <stddef.h>
 #endif
 

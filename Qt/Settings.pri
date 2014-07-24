@@ -1,5 +1,6 @@
 VERSION = 0.9.9
 DEFINES += USING_QT_UI USE_FFMPEG
+
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
 else:win32:CONFIG(debug, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/debug)
@@ -8,7 +9,8 @@ OBJECTS_DIR = $$CONFIG_DIR/.obj/$$TARGET
 MOC_DIR = $$CONFIG_DIR/.moc/$$TARGET
 UI_DIR = $$CONFIG_DIR/.ui/$$TARGET
 RCC_DIR = $$CONFIG_DIR/.rcc/$$TARGET
-QMAKE_CLEAN += -r $$CONFIG_DIR/.obj $$CONFIG_DIR/.ui $$CONFIG_DIR/.moc $$CONFIG_DIR/.rcc $$TARGET
+QMAKE_CLEAN += -r $$OBJECTS_DIR $$MOC_DIR $$UI_DIR $$RCC_DIR
+
 P = $$_PRO_FILE_PWD_/..
 INCLUDEPATH += $$P/ext/zlib $$P/Common
 
