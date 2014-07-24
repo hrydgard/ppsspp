@@ -9,6 +9,9 @@ else: LIBS += -lCore -lGPU -lCommon -lNative
 
 include(Settings.pri)
 
+# To support Sailfish which is stuck on GCC 4.6
+linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
+
 lessThan(QT_MAJOR_VERSION, 5) {
 	macx: error(PPSSPP requires Qt5 for OS X but $$[QT_VERSION] was detected.)
 	else:lessThan(QT_MINOR_VERSION, 7): error(PPSSPP requires Qt 4.7 or newer but Qt $$[QT_VERSION] was detected.)
@@ -64,22 +67,12 @@ symbian {
 }
 
 # UI
-SOURCES += $$P/UI/*Screen.cpp \
-	$$P/UI/*Screens.cpp \
-	$$P/UI/BackgroundAudio.cpp \
-	$$P/UI/Store.cpp \
-	$$P/UI/GamepadEmu.cpp \
-	$$P/UI/GameInfoCache.cpp \
-	$$P/UI/NativeApp.cpp \
-	$$P/UI/OnScreenDisplay.cpp \
-	$$P/UI/TiltEventProcessor.cpp \
-	$$P/UI/UIShader.cpp \
-	$$P/UI/ui_atlas_lowmem.cpp \
+SOURCES += $$files($$P/UI/*.cpp) \
 	$$P/android/jni/TestRunner.cpp
-
+SOURCES -= $$P/UI/ui_atlas.cpp
 arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
-
 HEADERS += $$P/UI/*.h
+
 INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext $$P/native/ext/glew
 
 mobile_platform: RESOURCES += $$P/Qt/assets.qrc
