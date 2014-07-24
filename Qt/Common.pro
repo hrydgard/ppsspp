@@ -18,7 +18,7 @@ else {
 		$$P/Common/Thunk.cpp \
 		$$P/Common/x64Analyzer.cpp \
 		$$P/Common/x64Emitter.cpp
-	HEADERS +=  $$P/Common/ABI.h \
+	HEADERS += $$P/Common/ABI.h \
 		$$P/Common/Thunk.h \
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h

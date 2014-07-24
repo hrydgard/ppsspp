@@ -67,7 +67,7 @@ symbian {
 }
 
 # UI
-SOURCES += $$files($$P/UI/*.cpp) \
+SOURCES += $$P/UI/*.cpp \
 	$$P/android/jni/TestRunner.cpp
 arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 HEADERS += $$P/UI/*.h
