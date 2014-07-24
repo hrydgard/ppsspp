@@ -35,7 +35,7 @@ const static float FONT_SCALE = 0.55f;
 // These are rough, it seems to take at least 100ms or so to init, and shutdown depends on threads.
 // Some games seem to required slightly longer delays to work, so we try 200ms as a compromise.
 const static int SAVEDATA_INIT_DELAY_US = 200000;
-const static int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
+const static int SAVEDATA_SHUTDOWN_DELAY_US = 1500; //Fix "Crash Tag Team Racing" stuck at Checking MemoryStick issue, Instead of guessing the time like this isn't better to loop and wait for the status to changed before exiting sceUtilitySavedataShutdownStart to prevent issue on the next sceUtilitySavedataInitStart ?
 
 // These are the only sizes which are allowed.
 // TODO: We should test what the different behavior is for each.
