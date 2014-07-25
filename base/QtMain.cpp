@@ -15,7 +15,9 @@
 
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QStandardPaths>
+#ifdef QT_HAS_SYSTEMINFO
 #include <QScreenSaver>
+#endif
 #endif
 
 #ifdef __SYMBIAN32__
@@ -128,7 +130,7 @@ static int mainInternal(QApplication &a)
 	QSystemScreenSaver ssObject(emugl);
 	ssObject.setScreenSaverInhibit();
 	QScopedPointer<SymbianMediaKeys> mediakeys(new SymbianMediaKeys());
-#elif QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+#elif defined(QT_HAS_SYSTEMINFO)
 	QScreenSaver ssObject(emugl);
 	ssObject.setScreenSaverEnabled(false);
 #endif
