@@ -601,7 +601,7 @@ void CWCheatEngine::Run() {
 				}
 				else if (arg >> 28 == 0x4 || arg >> 28 == 0x5 || arg >> 28 == 0x6 || arg >> 28 == 0x7) {
 					int addr1 = GetAddress(comm & 0x0FFFFFFF);
-					int addr2 = GetAddress(arg & 0xFFFFFFFF);
+					int addr2 = GetAddress(arg & 0x0FFFFFFF);
 					code = GetNextCode();
 					if (true)
 						if (Memory::IsValidAddress(addr1) && Memory::IsValidAddress(addr2)) {
