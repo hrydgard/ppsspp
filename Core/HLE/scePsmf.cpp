@@ -427,7 +427,7 @@ void Psmf::DoState(PointerWrap &p) {
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
-	auto s = p.Section("PsmfPlayer", 1, 6);
+	auto s = p.Section("PsmfPlayer", 1, 7);
 	if (!s)
 		return;
 
@@ -485,6 +485,12 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	}
 	p.Do(psmfPlayerAvcAu);
 	if (s >= 6) {
+		bool hasFinishThread = finishThread != NULL;
+		p.Do(hasFinishThread);
+		if (hasFinishThread) {
+			p.Do(finishThread);
+		}
+	} else if (s >= 6) {
 		p.Do(finishThread);
 	} else {
 		finishThread = NULL;
