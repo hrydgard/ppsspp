@@ -881,7 +881,7 @@ void NativeResized() {
 
 
 // OSX 10.6 and SDL 1.2 bug.
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(USING_QT_UI)
 		static int dp_xres_old=dp_xres;
 		if (dp_xres != dp_xres_old) {
 			UIShader_Init();
