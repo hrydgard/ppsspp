@@ -19,7 +19,12 @@ lessThan(QT_MAJOR_VERSION, 5) {
 
 # Extra Qt modules
 greaterThan(QT_MAJOR_VERSION,4) {
-	QT += widgets systeminfo
+	QT += widgets
+	# Most platforms don't have this pre-installed. Especially hard to get on OSX.
+	exists($$[QT_INSTALL_HEADERS]/QtSystemInfo) {
+		QT += systeminfo
+		DEFINES += QT_HAS_SYSTEMINFO
+	}
 	mobile_platform: QT += sensors
 } else:!maemo5:mobile_platform {
 	CONFIG += mobility
