@@ -174,7 +174,7 @@ static int mainInternal(QApplication &a)
 #endif
 	int ret = a.exec();
 #ifndef QT_HAS_SDL
-	thread->quit();
+	thread->terminate();
 #endif
 	return ret;
 }
