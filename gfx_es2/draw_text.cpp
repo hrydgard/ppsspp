@@ -284,7 +284,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		painter.begin(&image);
 		painter.setFont(*font);
 		painter.setPen(color);
-		painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str));
+		painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str).replace("&&", "&"));
 		painter.end();
 
 		entry = new TextStringEntry();
