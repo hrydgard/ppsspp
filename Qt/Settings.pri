@@ -23,7 +23,9 @@ INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
 
 !contains(CONFIG, staticlib) {
 	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
-	contains(DEFINES, USE_FFMPEG): LIBS += -Wl,-Bstatic -lavformat -lavcodec -lavutil -lswresample -lswscale -Wl,-Bdynamic
+	g++: LIBS += -Wl,-Bstatic
+	contains(DEFINES, USE_FFMPEG): LIBS+=  -lavformat -lavcodec -lavutil -lswresample -lswscale
+	g++: LIBS += -Wl,-Bdynamic
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
 }
 
