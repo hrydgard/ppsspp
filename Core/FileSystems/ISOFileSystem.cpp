@@ -311,7 +311,10 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 	if (path[0] == '/')
 		path.erase(0,1);
 
-	if (path == "umd0")
+	// Ignore the filename in "umd0:xxx".
+	// Using umd0: is always opening the whole UMD in sector block mode,
+	// ignoring the file name specified after the colon.
+	if (path.substr(0, 3) == "umd")
 		return &entireISO;
 
 	TreeEntry *e = treeroot;
