@@ -60,6 +60,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 	FileInfo info;
 	if (!getFileInfo(fileToStart.c_str(), &info)) return;
 
+	bool actualIso = false;
 	if (info.isDirectory)
 	{
 		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
@@ -71,15 +72,24 @@ void InitMemoryForGameISO(std::string fileToStart) {
 		if (!bd)
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+		actualIso = true;
 	}
 
 	// Parse PARAM.SFO
 
 	//pspFileSystem.Mount("host0:",umd2);
-	pspFileSystem.Mount("umd0:", umd2);
-	pspFileSystem.Mount("umd1:", umd2);
+
+	IFileSystem *entireIso = 0;
+	if (actualIso) {
+		entireIso = new OnlyEntireISOFileSystem(static_cast<ISOFileSystem *>(umd2));
+	} else {
+		entireIso = umd2;
+	}
+
+	pspFileSystem.Mount("umd0:", entireIso);
+	pspFileSystem.Mount("umd1:", entireIso);
 	pspFileSystem.Mount("disc0:", umd2);
-	pspFileSystem.Mount("umd:", umd2);
+	pspFileSystem.Mount("umd:", entireIso);
 
 	std::string gameID;
 

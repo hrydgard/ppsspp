@@ -31,35 +31,31 @@ class ISOFileSystem : public IFileSystem
 public:
 	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath = "");
 	~ISOFileSystem();
-	void DoState(PointerWrap &p);
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
-	void     CloseFile(u32 handle);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle);
-	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
-	int      DevType(u32 handle);
-	int      Flags() { return 0; }
 
-	size_t WriteFile(u32 handle, const u8 *pointer, s64 size);
+	void DoState(PointerWrap &p) override;
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
+	void     CloseFile(u32 handle) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	PSPFileInfo GetFileInfo(std::string filename) override;
+	bool     OwnsHandle(u32 handle) override;
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
+	int      DevType(u32 handle) override;
+	int      Flags() override { return 0; }
+
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
-	virtual bool MkDir(const std::string &dirname) {return false;}
-	virtual bool RmDir(const std::string &dirname) {return false;}
-	virtual int  RenameFile(const std::string &from, const std::string &to) {return -1;}
-	virtual bool RemoveFile(const std::string &filename) {return false;}
+	bool MkDir(const std::string &dirname) override {return false;}
+	bool RmDir(const std::string &dirname) override { return false; }
+	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
+	bool RemoveFile(const std::string &filename) override { return false; }
 
 private:
 	struct TreeEntry
 	{
 		TreeEntry(){}
-		~TreeEntry()
-		{
-			for (size_t i = 0; i < children.size(); ++i)
-				delete children[i];
-			children.clear();
-		}
+		~TreeEntry();
 
 		std::string name;
 		u32 flags;
@@ -81,7 +77,6 @@ private:
 		u32 openSize;
 	};
 	
-
 	typedef std::map<u32,OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
@@ -94,6 +89,55 @@ private:
 	std::vector<std::string> restrictTree;
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
-	TreeEntry *GetFromPath(std::string path, bool catchError=true);
+	TreeEntry *GetFromPath(std::string path, bool catchError = true);
 	std::string EntryFullPath(TreeEntry *e);
+};
+
+// On the "umd0:" device, any file you open is the entire ISO.
+// Simply wrap around an ISOFileSystem which has all the necessary machinery, while changing
+// the filenames to "", to achieve this.
+class OnlyEntireISOFileSystem : public IFileSystem {
+public:
+	OnlyEntireISOFileSystem(ISOFileSystem *isoFileSystem) : isoFileSystem_(isoFileSystem) {}
+
+	void DoState(PointerWrap &p) override {}
+
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override { return std::vector<PSPFileInfo>(); }
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override {
+		return isoFileSystem_->OpenFile("", access, devicename);
+	}
+	void     CloseFile(u32 handle) override {
+		isoFileSystem_->CloseFile(handle);
+	}
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override {
+		return isoFileSystem_->ReadFile(handle, pointer, size);
+	}
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override {
+		return isoFileSystem_->SeekFile(handle, position, type);
+	}
+	PSPFileInfo GetFileInfo(std::string filename) override {
+		return isoFileSystem_->GetFileInfo("");
+	}
+	bool     OwnsHandle(u32 handle) override {
+		return isoFileSystem_->OwnsHandle(handle);
+	}
+	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {
+		return isoFileSystem_->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
+	}
+	int      DevType(u32 handle) override {
+		return isoFileSystem_->DevType(handle);
+	}
+	int      Flags() override { return isoFileSystem_->Flags(); }
+
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override {
+		return isoFileSystem_->WriteFile(handle, pointer, size);
+	}
+	bool GetHostPath(const std::string &inpath, std::string &outpath) { return false; }
+	bool MkDir(const std::string &dirname) override { return false; }
+	bool RmDir(const std::string &dirname) override { return false; }
+	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
+	bool RemoveFile(const std::string &filename) override { return false; }
+
+private:
+	ISOFileSystem *isoFileSystem_;
 };

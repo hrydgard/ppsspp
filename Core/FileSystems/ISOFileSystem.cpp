@@ -299,9 +299,8 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)
 {
-	if (path.length() == 0)
-	{
-		//Ah, the device!	"umd0:"
+	if (path.length() == 0) {
+		// Ah, the device!	"umd0:"
 		return &entireISO;
 	}
 
@@ -310,9 +309,6 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 
 	if (path[0] == '/')
 		path.erase(0,1);
-
-	if (path == "umd0")
-		return &entireISO;
 
 	TreeEntry *e = treeroot;
 	if (path.length() == 0)
@@ -724,6 +720,12 @@ std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
 	}
 
 	return path;
+}
+
+ISOFileSystem::TreeEntry::~TreeEntry() {
+	for (size_t i = 0; i < children.size(); ++i)
+		delete children[i];
+	children.clear();
 }
 
 void ISOFileSystem::DoState(PointerWrap &p)
