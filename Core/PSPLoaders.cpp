@@ -81,7 +81,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 
 	IFileSystem *entireIso = 0;
 	if (actualIso) {
-		entireIso = new OnlyEntireISOFileSystem(static_cast<ISOFileSystem *>(umd2));
+		entireIso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
 	} else {
 		entireIso = umd2;
 	}

@@ -96,11 +96,14 @@ private:
 // On the "umd0:" device, any file you open is the entire ISO.
 // Simply wrap around an ISOFileSystem which has all the necessary machinery, while changing
 // the filenames to "", to achieve this.
-class OnlyEntireISOFileSystem : public IFileSystem {
+class ISOBlockSystem : public IFileSystem {
 public:
-	OnlyEntireISOFileSystem(ISOFileSystem *isoFileSystem) : isoFileSystem_(isoFileSystem) {}
+	ISOBlockSystem(ISOFileSystem *isoFileSystem) : isoFileSystem_(isoFileSystem) {}
 
-	void DoState(PointerWrap &p) override {}
+	void DoState(PointerWrap &p) override {
+		// This is a bit iffy, as block device savestates already are iffy (loads/saves multiple times for multiple mounts..)
+		isoFileSystem_->DoState(p);
+	}
 
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override { return std::vector<PSPFileInfo>(); }
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override {
