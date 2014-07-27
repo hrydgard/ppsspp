@@ -208,9 +208,15 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() { mediaengine = new MediaEngine; filehandle = 0;}
+	PsmfPlayer() : filehandle(0), finishThread(nullptr) {
+		mediaengine = new MediaEngine();
+	}
 	PsmfPlayer(const PsmfPlayerCreateData *data);
-	~PsmfPlayer() { if (mediaengine) delete mediaengine; pspFileSystem.CloseFile(filehandle);}
+	~PsmfPlayer() {
+		if (mediaengine) 
+			delete mediaengine;
+		pspFileSystem.CloseFile(filehandle);
+	}
 	void DoState(PointerWrap &p);
 
 	void ScheduleFinish(u32 handle) {
@@ -219,10 +225,11 @@ public:
 			finishThread->Start(handle, 0);
 		}
 	}
+
 	void AbortFinish() {
 		if (finishThread) {
 			delete finishThread;
-			finishThread = NULL;
+			finishThread = nullptr;
 		}
 	}
 
@@ -372,7 +379,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	totalDurationTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
-	finishThread = NULL;
+	finishThread = nullptr;
 	filehandle = 0;
 	fileoffset = 0;
 	readSize = 0;
