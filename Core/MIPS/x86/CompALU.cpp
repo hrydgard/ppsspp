@@ -305,12 +305,16 @@ namespace MIPSComp
 			if (doImm == &RType3_ImmAnd) {
 				gpr.SetImm(rd, invertResult ? 0xFFFFFFFF : 0);
 			} else {
-				MIPSGPReg rsource = rt == MIPS_REG_ZERO ? rs : rt;
+				MIPSGPReg rsource = (rt == MIPS_REG_ZERO) ? rs : rt;
 				if (rsource != rd) {
 					gpr.MapReg(rd, false, true);
 					MOV(32, gpr.R(rd), gpr.R(rsource));
-				}
-				if (invertResult) {
+					if (invertResult) {
+						NOT(32, gpr.R(rd));
+					}
+				} else if (invertResult) {
+					// rsource == rd, but still need to invert.
+					gpr.MapReg(rd, true, true);
 					NOT(32, gpr.R(rd));
 				}
 			}
