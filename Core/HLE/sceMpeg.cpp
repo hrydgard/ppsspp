@@ -1362,6 +1362,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 		return ERROR_MPEG_NOT_YET_INIT;
 	}
 
+	ctx->mpegRingbufferAddr = ringbufferAddr;
 	hleEatCycles(2020);
 	hleReSchedule("mpeg ringbuffer avail");
 
