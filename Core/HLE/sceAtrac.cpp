@@ -57,6 +57,7 @@
 #define PSP_MODE_AT_3_PLUS  0x00001000
 #define PSP_MODE_AT_3       0x00001001
 
+const int RIFF_CHUNK_MAGIC = 0x46464952;
 const int FMT_CHUNK_MAGIC  = 0x20746D66;
 const int DATA_CHUNK_MAGIC = 0x61746164;
 const int SMPL_CHUNK_MAGIC = 0x6C706D73;
@@ -410,6 +411,11 @@ int Atrac::Analyze() {
 	}
 
 	// TODO: Validate stuff.
+
+	if (Memory::Read_U32(first.addr) != RIFF_CHUNK_MAGIC) {
+		ERROR_LOG(ME, "Atrac buffer invalid RIFF header: %08x", first.addr);
+		return ATRAC_ERROR_UNKNOWN_FORMAT;
+	}
 
 	// RIFF size excluding chunk header.
 	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
