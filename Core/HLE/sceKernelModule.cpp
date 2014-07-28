@@ -1702,7 +1702,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 		if (info.name == "BOOT.BIN")
 		{
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
+			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
