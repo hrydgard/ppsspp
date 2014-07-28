@@ -270,7 +270,7 @@ namespace MIPSComp
 	}
 
 	//rd = rs X rt
-	void Jit::CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
+	void Jit::CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32), bool invertResult)
 	{
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -278,7 +278,8 @@ namespace MIPSComp
 
 		// Both sides known, we can just evaporate the instruction.
 		if (doImm && gpr.IsImm(rs) && gpr.IsImm(rt)) {
-			gpr.SetImm(rd, doImm(gpr.GetImm(rs), gpr.GetImm(rt)));
+			u32 value = doImm(gpr.GetImm(rs), gpr.GetImm(rt));
+			gpr.SetImm(rd, invertResult ? (~value) : value);
 			return;
 		}
 
@@ -292,6 +293,9 @@ namespace MIPSComp
 		if (doImm == &RType3_ImmSub && rs == MIPS_REG_ZERO && rt == rd) {
 			gpr.MapReg(rd, true, true);
 			NEG(32, gpr.R(rd));
+			if (invertResult) {
+				NOT(32, gpr.R(rd));
+			}
 			return;
 		}
 
@@ -299,12 +303,19 @@ namespace MIPSComp
 		// Optimize out operations against 0... and is the only one that isn't a MOV.
 		if (rt == MIPS_REG_ZERO || (rs == MIPS_REG_ZERO && doImm != &RType3_ImmSub)) {
 			if (doImm == &RType3_ImmAnd) {
-				gpr.SetImm(rd, 0);
+				gpr.SetImm(rd, invertResult ? 0xFFFFFFFF : 0);
 			} else {
-				MIPSGPReg rsource = rt == MIPS_REG_ZERO ? rs : rt;
+				MIPSGPReg rsource = (rt == MIPS_REG_ZERO) ? rs : rt;
 				if (rsource != rd) {
 					gpr.MapReg(rd, false, true);
 					MOV(32, gpr.R(rd), gpr.R(rsource));
+					if (invertResult) {
+						NOT(32, gpr.R(rd));
+					}
+				} else if (invertResult) {
+					// rsource == rd, but still need to invert.
+					gpr.MapReg(rd, true, true);
+					NOT(32, gpr.R(rd));
 				}
 			}
 		} else if (gpr.IsImm(rt)) {
@@ -315,6 +326,9 @@ namespace MIPSComp
 				MOV(32, gpr.R(rd), gpr.R(rs));
 			}
 			(this->*arith)(32, gpr.R(rd), Imm32(rtval));
+			if (invertResult) {
+				NOT(32, gpr.R(rd));
+			}
 		} else {
 			// Use EAX as a temporary if we'd overwrite it.
 			if (rd == rt)
@@ -323,6 +337,9 @@ namespace MIPSComp
 			if (rs != rd)
 				MOV(32, gpr.R(rd), gpr.R(rs));
 			(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
+			if (invertResult) {
+				NOT(32, gpr.R(rd));
+			}
 		}
 		gpr.UnlockAll();
 	}
@@ -410,11 +427,7 @@ namespace MIPSComp
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
-			CompTriArith(op, &XEmitter::OR, &RType3_ImmOr);
-			if (gpr.IsImm(rd))
-				gpr.SetImm(rd, ~gpr.GetImm(rd));
-			else
-				NOT(32, gpr.R(rd));
+			CompTriArith(op, &XEmitter::OR, &RType3_ImmOr, true);
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
