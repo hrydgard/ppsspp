@@ -135,6 +135,7 @@ namespace MainWindow
 	static W32Util::AsyncBrowseDialog *browseDialog;
 	static bool browsePauseAfter;
 	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
+	static int g_WindowState;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -328,6 +329,11 @@ namespace MainWindow
 			// Put back the menu bar.
 			::SetMenu(hWnd, menu);
 		} else {
+			// If the window was maximized before going fullscreen, make sure to restore first
+			// in order not to have the taskbar show up on top of PPSSPP.
+			if (g_WindowState == SIZE_MAXIMIZED) {
+				ShowWindow(hwndMain, SW_RESTORE);
+			}
 			// Remember the normal window rectangle.
 			::GetWindowRect(hWnd, &g_normalRC);
 
@@ -345,7 +351,12 @@ namespace MainWindow
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
 		// Resize to the appropriate view.
-		ShowWindow(hwndMain, goingFullscreen ? SW_MAXIMIZE : SW_RESTORE);
+		// If we're returning to window mode, re-apply the appropriate size setting.
+		if (goingFullscreen) {
+			ShowWindow(hwndMain, SW_MAXIMIZE);
+		} else {
+			ShowWindow(hwndMain, g_WindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
+		}
 
 		g_Config.bFullScreen = goingFullscreen;
 		CorrectCursor();
@@ -1098,6 +1109,7 @@ namespace MainWindow
 					}
 					SavePosition();
 					ResizeDisplay();
+					g_WindowState = wParam;
 					break;
 				case SIZE_MINIMIZED:
 					Core_NotifyWindowHidden(true);
