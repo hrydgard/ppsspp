@@ -166,8 +166,8 @@ void __KernelShutdown()
 	__AudioCodecShutdown();
 	__VideoPmpShutdown();
 	__AACShutdown();
-	__NetShutdown();
 	__NetAdhocShutdown();
+	__NetShutdown();
 	__FontShutdown();
 
 	__Mp3Shutdown();
