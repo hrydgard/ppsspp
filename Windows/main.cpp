@@ -17,6 +17,7 @@
 
 #include <WinNls.h>
 #include <math.h>
+#include <Wbemidl.h>
 
 #include "Common/CommonWindows.h"
 
@@ -67,6 +68,7 @@ CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
 static std::string osName;
+static std::string gpuDriverVersion;
 
 typedef BOOL(WINAPI *isProcessDPIAwareProc)();
 typedef BOOL(WINAPI *setProcessDPIAwareProc)();
@@ -158,6 +160,54 @@ std::string GetWindowsSystemArchitecture() {
 		return "(Unknown)";
 }
 
+// Adapted mostly as-is from http://www.gamedev.net/topic/495075-how-to-retrieve-info-about-videocard/?view=findpost&p=4229170
+// so credit goes to that post's author, and in turn, the author of the site mentioned in that post (which seems to be down?).
+std::string GetVideoCardDriverVersion() {
+	std::string retvalue = "";
+
+	HRESULT hr;
+	hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+	IWbemLocator *pIWbemLocator = NULL;
+	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, 
+		__uuidof(IWbemLocator), (LPVOID *)&pIWbemLocator);
+
+	BSTR bstrServer = SysAllocString(L"\\\\.\\root\\cimv2");
+	IWbemServices *pIWbemServices;
+	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
+
+	hr = CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, 
+		NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL,EOAC_DEFAULT);
+
+	BSTR bstrWQL = SysAllocString(L"WQL");
+	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
+	IEnumWbemClassObject* pEnum;
+	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
+
+	IWbemClassObject* pObj = NULL;
+	ULONG uReturned;
+	VARIANT var;
+	hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
+
+	if (uReturned) {
+		hr = pObj->Get(L"DriverVersion", 0, &var, NULL, NULL);
+		if (SUCCEEDED(hr)) {
+			char str[MAX_PATH];
+			WideCharToMultiByte(CP_ACP, 0, var.bstrVal, -1, str, sizeof(str), NULL, NULL);
+			retvalue = str;
+		}
+	}
+
+	pEnum->Release();
+	SysFreeString(bstrPath);
+	SysFreeString(bstrWQL);
+	pIWbemServices->Release();
+	SysFreeString(bstrServer);
+	CoUninitialize();
+
+	return retvalue;
+}
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
@@ -179,6 +229,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			}
 			return retval;
 		}
+	case SYSPROP_GPUDRIVER_VERSION:
+		return gpuDriverVersion;
 	default:
 		return "";
 	}
@@ -313,6 +365,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
+	gpuDriverVersion = GetVideoCardDriverVersion();
 
 	const char *configFilename = NULL;
 	const char *configOption = "--config=";
