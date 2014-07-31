@@ -26,9 +26,12 @@
 // There's a good description of the thread scheduling rules in:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
 
+class Thread;
+
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
+Thread* __KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
@@ -211,6 +214,7 @@ class Action;
 
 // Not an official Callback object, just calls a mips function on the current thread.
 void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter);
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
@@ -219,7 +223,6 @@ bool __KernelInCallback();
 bool __KernelCheckCallbacks();
 bool __KernelForceCallbacks();
 bool __KernelCurHasReadyCallbacks();
-class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls(Thread *currentThread, bool reschedAfter);
 void __KernelNotifyCallback(SceUID cbId, int notifyArg);
