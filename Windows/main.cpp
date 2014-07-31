@@ -162,8 +162,7 @@ std::string GetWindowsSystemArchitecture() {
 
 // Adapted mostly as-is from http://www.gamedev.net/topic/495075-how-to-retrieve-info-about-videocard/?view=findpost&p=4229170
 // so credit goes to that post's author, and in turn, the author of the site mentioned in that post (which seems to be down?).
-std::string GetVideoCardDriverVersion()
-{
+std::string GetVideoCardDriverVersion() {
 	std::string retvalue = "";
 
 	HRESULT hr;
