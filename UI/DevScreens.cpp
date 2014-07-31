@@ -233,6 +233,9 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
 	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
 	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
+#ifdef _WIN32
+	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+#endif
 	deviceSpecs->Add(new ItemHeader("OpenGL Version Information"));
 	std::string openGL = (char *)glGetString(GL_VERSION);
 	openGL.resize(30);
