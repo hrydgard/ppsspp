@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 #include "net/resolve.h"
 #include "util/text/parsers.h"
 
@@ -30,50 +31,15 @@
 #include "sceKernelMutex.h"
 #include "sceUtility.h"
 
+#include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceNet.h"
 
 static bool netInited;
 static bool netInetInited;
 static bool netApctlInited;
 
-// TODO: Determine how many handlers we can actually have
-const size_t MAX_APCTL_HANDLERS = 32;
-
-enum {
-	ERROR_NET_BUFFER_TOO_SMALL           = 0x80400706,
-
-	ERROR_NET_INET_ALREADY_INITIALIZED   = 0x80410201,
-
-	ERROR_NET_RESOLVER_BAD_ID            = 0x80410408,
-	ERROR_NET_RESOLVER_ALREADY_STOPPED   = 0x8041040a,
-	ERROR_NET_RESOLVER_INVALID_HOST      = 0x80410414,
-
-	ERROR_NET_APCTL_ALREADY_INITIALIZED  = 0x80410a01,
-	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS = 0x80410b12,
-};
-
-enum {
-	PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST = 5,
-};
-
-struct ProductStruct {
-	s32_le unknown; // Unknown, set to 0
-	char product[9]; // Game ID (Example: ULUS10000)
-};
-
-struct SceNetMallocStat {
-	s32_le pool; // Pointer to the pool?
-	s32_le maximum; // Maximum size of the pool?
-	s32_le free; // How much memory is free
-};
-
 static struct SceNetMallocStat netMallocStat;
-
-
-struct ApctlHandler {
-	u32 entryPoint;
-	u32 argument;
-};
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
@@ -86,11 +52,23 @@ void __ResetInitNetLib() {
 }
 
 void __NetInit() {
+	//net::Init();
+#ifdef _MSC_VER
+	WSADATA data;
+	int iResult = WSAStartup(MAKEWORD(2, 2), &data); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
+	if (iResult != NOERROR){
+		ERROR_LOG(SCENET, "WSA Failed");
+	}
+#endif
 	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
 	__ResetInitNetLib();
+	//net::Shutdown();
+#ifdef _MSC_VER
+	WSACleanup(); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
+#endif
 }
 
 
@@ -128,6 +106,7 @@ u32 sceNetTerm() {
 
 	WARN_LOG(SCENET, "UNTESTED sceNetTerm()");
 	netInited = false;
+
 	return 0;
 }
 
@@ -136,12 +115,12 @@ u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u
 	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
 	if (netInited) sceNetTerm();
 
-	ERROR_LOG(SCENET, "UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
+	ERROR_LOG(SCENET, "UNTESTED sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
 	netMallocStat.maximum = poolSize;
 	netMallocStat.free = poolSize;
 	netMallocStat.pool = 0;
-
+	
 	return 0;
 }
 
@@ -167,7 +146,7 @@ u32 sceWlanDevIsPowerOn() {
 }
 
 u32 sceWlanGetSwitchState() {
-	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
+	VERBOSE_LOG(SCENET, "sceWlanGetSwitchState()");
 	return g_Config.bEnableWlan ? 1 : 0;
 }
 
@@ -252,8 +231,7 @@ int sceNetGetMallocStat(u32 statPtr) {
 
 int sceNetInetInit() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetInit()");
-	if (netInetInited)
-		return ERROR_NET_INET_ALREADY_INITIALIZED;
+	if (netInetInited) return ERROR_NET_INET_ALREADY_INITIALIZED;
 	netInetInited = true;
 
 	return 0;
@@ -312,9 +290,9 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 		apctlHandlers[retval] = handler;
 		WARN_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	}
-	else
+	else {
 		ERROR_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
-
+	}
 
 	// The id to return is the number of handlers currently registered
 	return retval;
@@ -325,15 +303,70 @@ int sceNetApctlDelHandler(u32 handlerID) {
 		apctlHandlers.erase(handlerID);
 		WARN_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
 	}
-	else
+	else {
 		ERROR_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
-
+	}
 	return 0;
 }
 
 int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
 	return -1;
+}
+
+int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
+	DEBUG_LOG(SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
+	int retval = -1;
+	SceNetInetPollfd *fdarray = (SceNetInetPollfd *)fds; // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
+//#ifdef _MSC_VER
+	//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
+	if (nfds > FD_SETSIZE) return -1;
+	fd_set readfds, writefds, exceptfds;
+	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
+	for (int i = 0; i < (s32)nfds; i++) {
+		if (fdarray[i].events & (INET_POLLRDNORM)) FD_SET(fdarray[i].fd, &readfds); // (POLLRDNORM | POLLIN)
+		if (fdarray[i].events & (INET_POLLWRNORM)) FD_SET(fdarray[i].fd, &writefds); // (POLLWRNORM | POLLOUT)
+		//if (fdarray[i].events & (ADHOC_EV_ALERT)) // (POLLRDBAND | POLLPRI) // POLLERR 
+		FD_SET(fdarray[i].fd, &exceptfds); 
+		fdarray[i].revents = 0;
+	}
+	timeval tmout;
+	tmout.tv_sec = timeout / 1000; // seconds
+	tmout.tv_usec = (timeout % 1000) * 1000; // microseconds
+	retval = select(nfds, &readfds, &writefds, &exceptfds, &tmout);
+	if (retval < 0) return -1;
+	retval = 0;
+	for (int i = 0; i < (s32)nfds; i++) {
+		if (FD_ISSET(fdarray[i].fd, &readfds)) fdarray[i].revents |= INET_POLLRDNORM; //POLLIN
+		if (FD_ISSET(fdarray[i].fd, &writefds)) fdarray[i].revents |= INET_POLLWRNORM; //POLLOUT
+		fdarray[i].revents &= fdarray[i].events;
+		if (FD_ISSET(fdarray[i].fd, &exceptfds)) fdarray[i].revents |= ADHOC_EV_ALERT; // POLLPRI; // POLLERR; // can be raised on revents regardless of events bitmask?
+		if (fdarray[i].revents) retval++;
+	}
+//#else
+	/*
+	// Doesn't work properly yet
+	pollfd *fdtmp = (pollfd *)malloc(sizeof(pollfd) * nfds);
+	// Note: sizeof(pollfd) = 16bytes in 64bit and 8bytes in 32bit, while sizeof(SceNetInetPollfd) is always 8bytes
+	for (int i = 0; i < (s32)nfds; i++) {
+		fdtmp[i].fd = fdarray[i].fd;
+		fdtmp[i].events = 0;
+		if (fdarray[i].events & INET_POLLRDNORM) fdtmp[i].events |= (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI);
+		if (fdarray[i].events & INET_POLLWRNORM) fdtmp[i].events |= (POLLOUT | POLLWRNORM | POLLWRBAND);
+		fdtmp[i].revents = 0;
+		fdarray[i].revents = 0;
+	}
+	retval = poll(fdtmp, (nfds_t)nfds, timeout); //retval = WSAPoll(fdarray, nfds, timeout);
+	for (int i = 0; i < (s32)nfds; i++) {
+		if (fdtmp[i].revents & (POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI)) fdarray[i].revents |= INET_POLLRDNORM;
+		if (fdtmp[i].revents & (POLLOUT | POLLWRNORM | POLLWRBAND)) fdarray[i].revents |= INET_POLLWRNORM;
+		fdarray[i].revents &= fdarray[i].events;
+		if (fdtmp[i].revents & POLLERR) fdarray[i].revents |= POLLERR; //INET_POLLERR // can be raised on revents regardless of events bitmask?
+	}
+	free(fdtmp);
+	*/
+//#endif
+	return retval;
 }
 
 int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
@@ -347,8 +380,19 @@ int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 }
 
 int sceNetInetGetErrno() {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetGetErrno()");
-	return -1;
+	ERROR_LOG(SCENET, "UNTESTED sceNetInetGetErrno()");
+	int error = errno;
+	switch (error) {
+	case ETIMEDOUT:		
+		return INET_ETIMEDOUT;
+	case EISCONN:		
+		return INET_EISCONN;
+	case EINPROGRESS:	
+		return INET_EINPROGRESS;
+	//case EAGAIN:
+	//	return INET_EAGAIN;
+	}
+	return error; //-1;
 }
 
 int sceNetInetSocket(int domain, int type, int protocol) {
@@ -410,7 +454,7 @@ const HLEFunction sceNetInet[] = {
 	{0x805502DD, 0, "sceNetInetCloseWithRST"},
 	{0xd10a1a7a, 0, "sceNetInetListen"},
 	{0xdb094e1b, 0, "sceNetInetAccept"},
-	{0xfaabb1dd, 0, "sceNetInetPoll"},
+	{0xfaabb1dd, WrapI_VUI<sceNetInetPoll>, "sceNetInetPoll" },
 	{0x5be8d595, 0, "sceNetInetSelect"},
 	{0x8d7284ea, 0, "sceNetInetClose"},
 	{0xcda85c99, WrapI_IUUU<sceNetInetRecv>, "sceNetInetRecv"},
