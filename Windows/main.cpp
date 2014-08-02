@@ -167,29 +167,43 @@ std::string GetVideoCardDriverVersion() {
 
 	HRESULT hr;
 	hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hr)) {
+		return retvalue;
+	}
 
 	IWbemLocator *pIWbemLocator = NULL;
 	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, 
 		__uuidof(IWbemLocator), (LPVOID *)&pIWbemLocator);
+	if (FAILED(hr)) {
+		CoUninitialize();
+		return retvalue;
+	}
 
 	BSTR bstrServer = SysAllocString(L"\\\\.\\root\\cimv2");
 	IWbemServices *pIWbemServices;
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
+	if (FAILED(hr)) {
+		pIWbemLocator->Release();
+		CoUninitialize();
+		return retvalue;
+	}
 
 	hr = CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, 
 		NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL,EOAC_DEFAULT);
-
+	
 	BSTR bstrWQL = SysAllocString(L"WQL");
 	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
 	IEnumWbemClassObject* pEnum;
 	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 
-	IWbemClassObject* pObj = NULL;
 	ULONG uReturned;
 	VARIANT var;
-	hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
+	IWbemClassObject* pObj = NULL;
+	if (!FAILED(hr)) {
+		hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
+	}
 
-	if (uReturned) {
+	if (uReturned && !FAILED(hr)) {
 		hr = pObj->Get(L"DriverVersion", 0, &var, NULL, NULL);
 		if (SUCCEEDED(hr)) {
 			char str[MAX_PATH];
@@ -202,13 +216,14 @@ std::string GetVideoCardDriverVersion() {
 	SysFreeString(bstrPath);
 	SysFreeString(bstrWQL);
 	pIWbemServices->Release();
+	pIWbemLocator->Release();
 	SysFreeString(bstrServer);
 	CoUninitialize();
-
 	return retvalue;
 }
 
 std::string System_GetProperty(SystemProperty prop) {
+	static bool hasCheckedGPUDriverVersion = false;
 	switch (prop) {
 	case SYSPROP_NAME:
 		return osName;
@@ -230,6 +245,10 @@ std::string System_GetProperty(SystemProperty prop) {
 			return retval;
 		}
 	case SYSPROP_GPUDRIVER_VERSION:
+		if (!hasCheckedGPUDriverVersion) {
+			hasCheckedGPUDriverVersion = true;
+			gpuDriverVersion = GetVideoCardDriverVersion();
+		}
 		return gpuDriverVersion;
 	default:
 		return "";
@@ -365,7 +384,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
-	gpuDriverVersion = GetVideoCardDriverVersion();
 
 	const char *configFilename = NULL;
 	const char *configOption = "--config=";
