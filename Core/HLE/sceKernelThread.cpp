@@ -507,9 +507,9 @@ public:
 	void setReturnValue(u32 retval);
 	void setReturnValue(u64 retval);
 	void resumeFromWait();
-	bool isWaitingFor(WaitType type, int id);
-	int getWaitID(WaitType type);
-	ThreadWaitInfo getWaitInfo();
+	bool isWaitingFor(WaitType type, int id) const;
+	int getWaitID(WaitType type) const;
+	ThreadWaitInfo getWaitInfo() const;
 
 	// Utils
 	inline bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
@@ -1592,23 +1592,77 @@ u32 sceKernelGetThreadmanIdType(u32 uid) {
 	}
 }
 
+bool __ThreadmanIdListIsSleeping(const Thread *t) {
+	return t->isWaitingFor(WAITTYPE_SLEEP, 0);
+}
+
+bool __ThreadmanIdListIsDelayed(const Thread *t) {
+	return t->isWaitingFor(WAITTYPE_DELAY, t->GetUID());
+}
+
+bool __ThreadmanIdListIsSuspended(const Thread *t) {
+	return t->isSuspended();
+}
+
+bool __ThreadmanIdListIsDormant(const Thread *t) {
+	return t->isStopped();
+}
+
 u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr) {
-	if (type == 0 || type > SCE_KERNEL_TMID_DormantThread || (type > SCE_KERNEL_TMID_Tlspl && type < SCE_KERNEL_TMID_SleepThread)) {
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid type", type, readBufPtr, readBufSize, idCountPtr);
-		return SCE_KERNEL_ERROR_ILLEGAL_TYPE;
-	}
 	if (readBufSize >= 0x8000000) {
 		// Not exact, it's probably if the sum ends up negative or something.
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid size", type, readBufPtr, readBufSize, idCountPtr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
 	if (!Memory::IsValidAddress(readBufPtr) && readBufSize > 0) {
 		// Crashes on a PSP.
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid pointer", type, readBufPtr, readBufSize, idCountPtr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 
-	u32 total = kernelObjects.ListIDType(type, PSPPointer<SceUID>::Create(readBufPtr), readBufSize);
+	u32 total = 0;
+	auto uids = PSPPointer<SceUID>::Create(readBufPtr);
+	u32 error;
+	if (type > 0 && type <= SCE_KERNEL_TMID_Tlspl) {
+		DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
+		total = kernelObjects.ListIDType(type, uids, readBufSize);
+	} else if (type >= SCE_KERNEL_TMID_SleepThread && type <= SCE_KERNEL_TMID_DormantThread) {
+		bool (*checkFunc)(const Thread *t) = NULL;
+		switch (type) {
+		case SCE_KERNEL_TMID_SleepThread:
+			checkFunc = &__ThreadmanIdListIsSleeping;
+			break;
+
+		case SCE_KERNEL_TMID_DelayThread:
+			checkFunc = &__ThreadmanIdListIsDelayed;
+			break;
+
+		case SCE_KERNEL_TMID_SuspendThread:
+			checkFunc = &__ThreadmanIdListIsSuspended;
+			break;
+
+		case SCE_KERNEL_TMID_DormantThread:
+			checkFunc = &__ThreadmanIdListIsDormant;
+			break;
+
+		default:
+			_dbg_assert_msg_(SCEKERNEL, false, "Unexpected type %d", type);
+		}
+
+		for (size_t i = 0; i < threadqueue.size(); i++) {
+			const Thread *t = kernelObjects.Get<Thread>(threadqueue[i], error);
+			if (checkFunc(t)) {
+				if (total < readBufSize) {
+					*uids++ = threadqueue[i];
+				}
+				++total;
+			}
+		}
+	} else {
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid type", type, readBufPtr, readBufSize, idCountPtr);
+		return SCE_KERNEL_ERROR_ILLEGAL_TYPE;
+	}
+
 	if (Memory::IsValidAddress(idCountPtr)) {
 		Memory::Write_U32(total, idCountPtr);
 	}
@@ -3135,21 +3189,21 @@ void Thread::resumeFromWait()
 	isProcessingCallbacks = false;
 }
 
-bool Thread::isWaitingFor(WaitType type, int id)
+bool Thread::isWaitingFor(WaitType type, int id) const
 {
 	if (nt.status & THREADSTATUS_WAIT)
 		return nt.waitType == type && nt.waitID == id;
 	return false;
 }
 
-int Thread::getWaitID(WaitType type)
+int Thread::getWaitID(WaitType type) const
 {
 	if (nt.waitType == type)
 		return nt.waitID;
 	return 0;
 }
 
-ThreadWaitInfo Thread::getWaitInfo()
+ThreadWaitInfo Thread::getWaitInfo() const
 {
 	return waitInfo;
 }
