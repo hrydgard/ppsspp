@@ -1603,7 +1603,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 	DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
-	if (!Memory::IsValidAddress(readBufPtr)) {
+	if (!Memory::IsValidAddress(readBufPtr) && readBufSize > 0) {
 		// Crashes on a PSP.
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
