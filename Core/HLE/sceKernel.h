@@ -489,11 +489,9 @@ public:
 	}
 
 	template <class T, typename ArgT>
-	void Iterate(bool func(T *, ArgT), ArgT arg)
-	{
+	void Iterate(bool func(T *, ArgT), ArgT arg) {
 		int type = T::GetStaticIDType();
-		for (int i = 0; i < maxCount; i++)
-		{
+		for (int i = 0; i < maxCount; i++) {
 			if (!occupied[i])
 				continue;
 			T *t = static_cast<T *>(pool[i]);
@@ -502,6 +500,22 @@ public:
 					break;
 			}
 		}
+	}
+
+	int ListIDType(int type, SceUID *uids, int count) const {
+		int total = 0;
+		for (int i = 0; i < maxCount; i++) {
+			if (!occupied[i]) {
+				continue;
+			}
+			if (pool[i]->GetIDType() == type) {
+				if (total < count) {
+					*uids++ = pool[i]->GetUID();
+				}
+				++total;
+			}
+		}
+		return total;
 	}
 
 	bool GetIDType(SceUID handle, int *type) const

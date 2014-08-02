@@ -1592,24 +1592,27 @@ u32 sceKernelGetThreadmanIdType(u32 uid) {
 	}
 }
 
-u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr)
-{
-	DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)",
-		type, readBufPtr, readBufSize, idCountPtr);
-	if (!Memory::IsValidAddress(readBufPtr))
-		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-
-	if (type != SCE_KERNEL_TMID_Thread) {
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList only implemented for threads");
+u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr) {
+	if (type == 0 || type > SCE_KERNEL_TMID_DormantThread || (type > SCE_KERNEL_TMID_Tlspl && type < SCE_KERNEL_TMID_SleepThread)) {
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid type", type, readBufPtr, readBufSize, idCountPtr);
+		return SCE_KERNEL_ERROR_ILLEGAL_TYPE;
+	}
+	if (readBufSize >= 0x8000000) {
+		// Not exact, it's probably if the sum ends up negative or something.
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x): invalid size", type, readBufPtr, readBufSize, idCountPtr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+	DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
+	if (!Memory::IsValidAddress(readBufPtr)) {
+		// Crashes on a PSP.
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 
-	for (size_t i = 0; i < std::min((size_t)readBufSize, threadqueue.size()); i++)
-	{
-		Memory::Write_U32(threadqueue[i], readBufPtr + (u32)i * 4);
+	u32 total = kernelObjects.ListIDType(type, PSPPointer<SceUID>::Create(readBufPtr), readBufSize);
+	if (Memory::IsValidAddress(idCountPtr)) {
+		Memory::Write_U32(total, idCountPtr);
 	}
-	Memory::Write_U32((u32)threadqueue.size(), idCountPtr);
-	return 0;
+	return total > readBufSize ? readBufSize : total;
 }
 
 // Saves the current CPU context
