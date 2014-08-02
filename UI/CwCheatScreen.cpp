@@ -252,7 +252,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		fs << title[0] << "\n" << title[1];
 	}
 
-	NOTICE_LOG(COMMON, "Imported %lu entries from %s.\n", newList.size(), cheatFile.c_str());
+	NOTICE_LOG(COMMON, "Imported %u entries from %s.\n", (int)newList.size(), cheatFile.c_str());
 	if (newList.size() != 0) {
 		fs << "\n";
 	}
