@@ -327,12 +327,13 @@ enum TMIDPurpose
 	SCE_KERNEL_TMID_VTimer             = 11,
 	SCE_KERNEL_TMID_Mutex              = 12,
 	SCE_KERNEL_TMID_LwMutex            = 13,
+	SCE_KERNEL_TMID_Tlspl              = 14,
 	SCE_KERNEL_TMID_SleepThread        = 64,
 	SCE_KERNEL_TMID_DelayThread        = 65,
 	SCE_KERNEL_TMID_SuspendThread      = 66,
 	SCE_KERNEL_TMID_DormantThread      = 67,
-	// No idea what the correct value is here or how to find out.
-	SCE_KERNEL_TMID_Tlspl              = 0x1001,
+	// This is kept for old savestates.  Not the real value.
+	SCE_KERNEL_TMID_Tlspl_v0           = 0x1001,
 
 	// Not official, but need ids for save states.
 	PPSSPP_KERNEL_TMID_Module          = 0x100001,
