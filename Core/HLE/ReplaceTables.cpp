@@ -624,12 +624,20 @@ static const ReplacementTableEntry entries[] = {
 
 
 static std::map<u32, u32> replacedInstructions;
+static std::map<std::string, int> replacementNameLookup;
 
 void Replacement_Init() {
+	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
+		const auto entry = &entries[i];
+		if (!entry->name || (entry->flags & REPFLAG_DISABLED) != 0)
+			continue;
+		replacementNameLookup[entry->name] = i;
+	}
 }
 
 void Replacement_Shutdown() {
 	replacedInstructions.clear();
+	replacementNameLookup.clear();
 }
 
 // TODO: Do something on load state?
@@ -644,13 +652,9 @@ int GetReplacementFuncIndex(u64 hash, int funcSize) {
 		return -1;
 	}
 
-	// TODO: Build a lookup and keep it around
-	for (size_t i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!entries[i].name || (entries[i].flags & REPFLAG_DISABLED) != 0)
-			continue;
-		if (!strcmp(name, entries[i].name)) {
-			return (int)i;
-		}
+	auto index = replacementNameLookup.find(name);
+	if (index != replacementNameLookup.end()) {
+		return index->second;
 	}
 	return -1;
 }
