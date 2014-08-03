@@ -39,11 +39,13 @@
 typedef int (* ReplaceFunc)();
 
 enum {
-	REPFLAG_ALLOWINLINE = 1,
-	// Note that this will re-execute in a funciton that loops at start.
-	REPFLAG_HOOKENTER = 2,
+	REPFLAG_ALLOWINLINE = 0x01,
+	// Used to keep things around but disable them.
+	REPFLAG_DISABLED = 0x02,
+	// Note that this will re-execute in a function that loops at start.
+	REPFLAG_HOOKENTER = 0x04,
 	// Only hooks jr ra, so only use on funcs that have that.
-	REPFLAG_HOOKEXIT = 4,
+	REPFLAG_HOOKEXIT = 0x08,
 };
 
 // Kind of similar to HLE functions but with different data.

@@ -580,43 +580,44 @@ static const ReplacementTableEntry entries[] = {
 	// should of course be implemented JIT style, inline.
 
 	/*  These two collide (same hash) and thus can't be replaced :/
-	{ "asinf", &Replace_asinf, 0, 0},
-	{ "acosf", &Replace_acosf, 0, 0},
+	{ "asinf", &Replace_asinf, 0, REPFLAG_DISABLED },
+	{ "acosf", &Replace_acosf, 0, REPFLAG_DISABLED },
 	*/
 
-	{ "sinf", &Replace_sinf, 0, 0},
-	{ "cosf", &Replace_cosf, 0, 0},
-	{ "tanf", &Replace_tanf, 0, 0},
+	{ "sinf", &Replace_sinf, 0, REPFLAG_DISABLED },
+	{ "cosf", &Replace_cosf, 0, REPFLAG_DISABLED },
+	{ "tanf", &Replace_tanf, 0, REPFLAG_DISABLED },
 
-	{ "atanf", &Replace_atanf, 0, 0},
-	{ "sqrtf", &Replace_sqrtf, 0, 0},
-	{ "atan2f", &Replace_atan2f, 0, 0},
-	{ "floorf", &Replace_floorf, 0, 0},
-	{ "ceilf", &Replace_ceilf, 0, 0},
-	{ "memcpy", &Replace_memcpy, 0, 0},
-	{ "memcpy16", &Replace_memcpy16, 0, 0},
-	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0},
-	{ "memmove", &Replace_memmove, 0, 0},
-	{ "memset", &Replace_memset, 0, 0},
-	{ "strlen", &Replace_strlen, 0, 0},
-	{ "strcpy", &Replace_strcpy, 0, 0},
-	{ "strncpy", &Replace_strncpy, 0, 0},
-	{ "strcmp", &Replace_strcmp, 0, 0},
-	{ "strncmp", &Replace_strncmp, 0, 0},
-	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
-	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
-	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},
+	{ "atanf", &Replace_atanf, 0, REPFLAG_DISABLED },
+	{ "sqrtf", &Replace_sqrtf, 0, REPFLAG_DISABLED },
+	{ "atan2f", &Replace_atan2f, 0, REPFLAG_DISABLED },
+	{ "floorf", &Replace_floorf, 0, REPFLAG_DISABLED },
+	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
+	{ "memcpy", &Replace_memcpy, 0, 0 },
+	{ "memcpy16", &Replace_memcpy16, 0, 0 },
+	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
+	{ "memmove", &Replace_memmove, 0, 0 },
+	{ "memset", &Replace_memset, 0, 0 },
+	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
+	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
+	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
+	{ "strcmp", &Replace_strcmp, 0, REPFLAG_DISABLED },
+	{ "strncmp", &Replace_strncmp, 0, REPFLAG_DISABLED },
+	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
+	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED }, // &MIPSComp::Jit::Replace_dl_write_matrix, REPFLAG_DISABLED },
+	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED },
+	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, REPFLAG_DISABLED },
 	// dl_write_matrix_3 doesn't take the dl as a parameter, it accesses a global instead. Need to extract the address of the global from the code when replacing...
 	// Haven't investigated write_matrix_4 and 5 but I think they are similar to 1 and 2.
 
-	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, REPFLAG_DISABLED },
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
 	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
 	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
 	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34},
 	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
+	// This is actually used in other games, not just Dissidia.
 	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER},
 	{}
 };
@@ -645,7 +646,7 @@ int GetReplacementFuncIndex(u64 hash, int funcSize) {
 
 	// TODO: Build a lookup and keep it around
 	for (size_t i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!entries[i].name)
+		if (!entries[i].name || (entries[i].flags & REPFLAG_DISABLED) != 0)
 			continue;
 		if (!strcmp(name, entries[i].name)) {
 			return (int)i;
