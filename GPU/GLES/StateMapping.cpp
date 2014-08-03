@@ -273,6 +273,10 @@ void TransformDrawEngine::ApplyBlendState() {
 
 	if (usePreSrc) {
 		glBlendFuncA = GL_ONE;
+		// Need to pull in the fixed color.
+		if (blendFuncA == GE_SRCBLEND_FIXA) {
+			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		}
 	}
 
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
