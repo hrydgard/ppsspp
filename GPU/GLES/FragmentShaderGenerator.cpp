@@ -327,6 +327,12 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
+				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
+				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
+			}
+			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
