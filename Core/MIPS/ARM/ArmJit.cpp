@@ -388,7 +388,6 @@ bool Jit::ReplaceJalTo(u32 dest) {
 			BL(R0);
 		}
 		WriteDownCountR(R0);
-		js.downcountAmount = 0;  // we just subtracted most of it
 	}
 
 	js.compilerPC += 4;
@@ -428,7 +427,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			FlushAll();
 			// Flushed, so R1 is safe.
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
-			js.downcountAmount = cycles;
+			js.downcountAmount += cycles;
 			WriteExitDestInR(R1);
 			js.compiling = false;
 		}
@@ -452,7 +451,6 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
-			js.downcountAmount = 0;  // we just subtracted most of it
 			WriteExitDestInR(R1);
 			js.compiling = false;
 		}

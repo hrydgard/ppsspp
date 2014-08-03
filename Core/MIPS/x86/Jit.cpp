@@ -444,7 +444,6 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
-		js.downcountAmount = 0;  // we just subtracted most of it
 	}
 
 	js.compilerPC += 4;
@@ -483,7 +482,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			FlushAll();
 			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-			js.downcountAmount = cycles;
+			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -501,7 +500,6 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
 			SUB(32, M(&currentMIPS->downcount), R(EAX));
-			js.downcountAmount = 0;  // we just subtracted most of it
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
