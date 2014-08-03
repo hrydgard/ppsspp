@@ -213,51 +213,51 @@ void TransformDrawEngine::ApplyBlendState() {
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
 	//    If possible, we double the src color or src alpha in the shader to account for these.
-	//    These may clip incorrectly, but they're close.
+	//    These may clip incorrectly, so we avoid unfortunately.
 	//  * OpenGL only has one arbitrary fixed color.  We premultiply the other in the shader.
 	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 
-	GEBlendMode blendFuncEq = gstate.getBlendEq();
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	bool usePreSrc = false;
 
-	if (ShouldUseShaderBlending()) {
-		if (ShouldUseShaderFixedBlending()) {
-			// If both sides are fixed, we can do this without a blit but still in the shader.
-			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+	switch (replaceBlend) {
+	case REPLACE_BLEND_NO:
+		glstate.blend.disable();
+		ResetShaderBlending();
+		return;
 
-			// Okay, so we'll use src * 1.0 + dst * fixB, and then premultiply in the shader.
-			const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
-			glstate.blend.enable();
-			glstate.blendColor.set(blendColor);
-
-			ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
-			if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
-				glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ONE, GL_ZERO);
-			} else {
-				glstate.blendFuncSeparate.set(GL_ONE, GL_CONSTANT_COLOR, GL_ZERO, GL_ONE);
-			}
-
-			// Min/max/absdiff are not possible here.
-			glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], GL_FUNC_ADD);
-
-			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
-			ResetShaderBlending();
-			return;
-		} else if (ApplyShaderBlending()) {
+	case REPLACE_BLEND_COPY_FBO:
+		if (ApplyShaderBlending()) {
 			// None of the below logic is interesting, we're gonna do it entirely in the shader.
 			glstate.blend.disable();
 			return;
 		}
+		// TODO: Otherwise, we probably apply shading wrong.  Hmm.
+		break;
+
+	case REPLACE_BLEND_PRE_SRC:
+	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
+		usePreSrc = true;
+		break;
+
+	case REPLACE_BLEND_STANDARD:
+	case REPLACE_BLEND_2X_ALPHA:
+	case REPLACE_BLEND_2X_SRC:
+		break;
 	}
-	ResetShaderBlending();
 
 	glstate.blend.enable();
+	ResetShaderBlending();
 
+	GEBlendMode blendFuncEq = gstate.getBlendEq();
 	int blendFuncA  = gstate.getBlendFuncA();
 	int blendFuncB  = gstate.getBlendFuncB();
-	if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
-	if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
+	if (blendFuncA > GE_SRCBLEND_FIXA)
+		blendFuncA = GE_SRCBLEND_FIXA;
+	if (blendFuncB > GE_DSTBLEND_FIXB)
+		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
@@ -270,6 +270,10 @@ void TransformDrawEngine::ApplyBlendState() {
 	// Shortcut by using GL_ONE where possible, no need to set blendcolor
 	GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
 	GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
+
+	if (usePreSrc) {
+		glBlendFuncA = GL_ONE;
+	}
 
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
 		glBlendFuncA = toDualSource(glBlendFuncA);
@@ -326,7 +330,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		} else {
 			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
 			// For now let's just pick whichever was fixed instead of checking error.
-			if (blendFuncA == GE_SRCBLEND_FIXA) {
+			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc) {
 				glBlendFuncA = GL_CONSTANT_COLOR;
 				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
 				glstate.blendColor.set(blendColor);
@@ -375,7 +379,11 @@ void TransformDrawEngine::ApplyBlendState() {
 			break;
 		case STENCIL_VALUE_UNIFORM:
 			// This won't give a correct value (it multiplies) but it may be better than random values.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ZERO);
+			if (constantAlpha < 1.0f) {
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ZERO);
+			} else {
+				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
+			}
 			break;
 		case STENCIL_VALUE_UNKNOWN:
 			// For now, let's err at zero.  This is INVERT or INCR/DECR.
@@ -408,12 +416,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	// Set blend - unless we need to do it in the shader.
-	if (!gstate.isModeClear() && gstate.isAlphaBlendEnabled()) {
-		ApplyBlendState();
-	} else {
-		glstate.blend.disable();
-		ResetShaderBlending();
-	}
+	ApplyBlendState();
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
