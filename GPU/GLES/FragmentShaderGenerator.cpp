@@ -316,7 +316,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
-			return REPLACE_BLEND_PRE_SRC;
+			if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000) {
+				return REPLACE_BLEND_STANDARD;
+			} else {
+				return REPLACE_BLEND_PRE_SRC;
+			}
 
 		default:
 			return REPLACE_BLEND_STANDARD;
