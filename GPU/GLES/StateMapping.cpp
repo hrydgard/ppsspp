@@ -260,7 +260,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
-	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil();
+	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
 			constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);

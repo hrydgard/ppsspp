@@ -137,15 +137,13 @@ const bool nonAlphaDestFactors[16] = {
 	true,  // GE_DSTBLEND_FIXB,
 };
 
-ReplaceAlphaType ReplaceAlphaWithStencil() {
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
-	if (gstate.isAlphaBlendEnabled()) {
+	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_COPY_FBO) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
-			return REPLACE_ALPHA_YES;
-		} else if (ReplaceBlendWithShader() == REPLACE_BLEND_COPY_FBO) {
 			return REPLACE_ALPHA_YES;
 		} else {
 			if (gl_extensions.ARB_blend_func_extended) {
@@ -355,8 +353,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -510,8 +508,8 @@ void GenerateFragmentShader(char *buffer) {
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
