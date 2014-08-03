@@ -274,11 +274,8 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
-			if (g_Config.bDisableSlowFramebufEffects) {
-				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
-			} else {
-				return REPLACE_BLEND_COPY_FBO;
-			}
+			// Using a copy isn't accurate either, though, when there's overlap.
+			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		default:
 			// TODO: Could use vertexFullAlpha, but it's not calculated yet.
