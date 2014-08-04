@@ -362,7 +362,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		return false;
 	}
 
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
 		return false;
 	}
@@ -388,7 +388,6 @@ bool Jit::ReplaceJalTo(u32 dest) {
 			BL(R0);
 		}
 		WriteDownCountR(R0);
-		js.downcountAmount = 0;  // we just subtracted most of it
 	}
 
 	js.compilerPC += 4;
@@ -415,8 +414,9 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		return;
 	}
 
-	// JIT goes first.
-	if (entry->jitReplaceFunc) {
+	if (entry->flags & REPFLAG_DISABLED) {
+		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
@@ -427,7 +427,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			FlushAll();
 			// Flushed, so R1 is safe.
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
-			js.downcountAmount = cycles;
+			js.downcountAmount += cycles;
 			WriteExitDestInR(R1);
 			js.compiling = false;
 		}
@@ -451,7 +451,6 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
-			js.downcountAmount = 0;  // we just subtracted most of it
 			WriteExitDestInR(R1);
 			js.compiling = false;
 		}

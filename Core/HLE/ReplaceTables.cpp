@@ -113,11 +113,13 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0 && destPtr != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
 
-		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+		if (!dst || !src) {
+			// Already logged.
+		} else if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
 			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
 			const u32 blocks = bytes & ~0x0f;
 			for (u32 offset = 0; offset < blocks; offset += 0x10) {
@@ -150,9 +152,11 @@ static int Replace_memcpy16() {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		u8 *dst = Memory::GetPointer(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
+		if (dst && src) {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -170,22 +174,24 @@ static int Replace_memcpy_swizzled() {
 	if (Memory::IsVRAMAddress(srcPtr)) {
 		gpu->PerformMemoryDownload(srcPtr, pitch * h);
 	}
-	u8 *dstp = Memory::GetPointerUnchecked(destPtr);
-	const u8 *srcp = Memory::GetPointerUnchecked(srcPtr);
+	u8 *dstp = Memory::GetPointer(destPtr);
+	const u8 *srcp = Memory::GetPointer(srcPtr);
 
-	const u8 *ysrcp = srcp;
-	for (u32 y = 0; y < h; y += 8) {
-		const u8 *xsrcp = ysrcp;
-		for (u32 x = 0; x < pitch; x += 16) {
-			const u8 *src = xsrcp;
-			for (int n = 0; n < 8; ++n) {
-				memcpy(dstp, src, 16);
-				src += pitch;
-				dstp += 16;
+	if (dstp && srcp) {
+		const u8 *ysrcp = srcp;
+		for (u32 y = 0; y < h; y += 8) {
+			const u8 *xsrcp = ysrcp;
+			for (u32 x = 0; x < pitch; x += 16) {
+				const u8 *src = xsrcp;
+				for (int n = 0; n < 8; ++n) {
+					memcpy(dstp, src, 16);
+					src += pitch;
+					dstp += 16;
+				}
+				xsrcp += 16;
 			}
-			xsrcp += 16;
+			ysrcp += 8 * pitch;
 		}
-		ysrcp += 8 * pitch;
 	}
 
 	RETURN(0);
@@ -208,9 +214,11 @@ static int Replace_memmove() {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
 	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+		u8 *dst = Memory::GetPointer(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
+		if (dst && src) {
+			memmove(dst, src, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -222,15 +230,17 @@ static int Replace_memmove() {
 
 static int Replace_memset() {
 	u32 destPtr = PARAM(0);
-	u8 *dst = Memory::GetPointerUnchecked(destPtr);
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
 	if (Memory::IsVRAMAddress(destPtr)) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
-	if (!skip) {
-		memset(dst, value, bytes);
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		if (dst) {
+			memset(dst, value, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -241,43 +251,55 @@ static int Replace_memset() {
 
 static int Replace_strlen() {
 	u32 srcPtr = PARAM(0);
-	const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
-	u32 len = (u32)strlen(src);
+	const char *src = (const char *)Memory::GetPointer(srcPtr);
+	u32 len = src ? (u32)strlen(src) : 0UL;
 	RETURN(len);
 	return 7 + len * 4;  // approximation
 }
 
 static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
-	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	strcpy(dst, src);
+	char *dst = (char *)Memory::GetPointer(destPtr);
+	const char *src = (const char *)Memory::GetPointer(PARAM(1));
+	if (dst && src) {
+		strcpy(dst, src);
+	}
 	RETURN(destPtr);
 	return 10;  // approximation
 }
 
 static int Replace_strncpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
-	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
+	char *dst = (char *)Memory::GetPointer(destPtr);
+	const char *src = (const char *)Memory::GetPointer(PARAM(1));
 	u32 bytes = PARAM(2);
-	strncpy(dst, src, bytes);
+	if (dst && src && bytes != 0) {
+		strncpy(dst, src, bytes);
+	}
 	RETURN(destPtr);
 	return 10;  // approximation
 }
 
 static int Replace_strcmp() {
-	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
-	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	RETURN(strcmp(a, b));
+	const char *a = (const char *)Memory::GetPointer(PARAM(0));
+	const char *b = (const char *)Memory::GetPointer(PARAM(1));
+	if (a && b) {
+		RETURN(strcmp(a, b));
+	} else {
+		RETURN(0);
+	}
 	return 10;  // approximation
 }
 
 static int Replace_strncmp() {
-	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
-	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
+	const char *a = (const char *)Memory::GetPointer(PARAM(0));
+	const char *b = (const char *)Memory::GetPointer(PARAM(1));
 	u32 bytes = PARAM(2);
-	RETURN(strncmp(a, b, bytes));
+	if (a && b && bytes != 0) {
+		RETURN(strncmp(a, b, bytes));
+	} else {
+		RETURN(0);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -287,12 +309,14 @@ static int Replace_fabsf() {
 }
 
 static int Replace_vmmul_q_transp() {
-	float *out = (float *)Memory::GetPointerUnchecked(PARAM(0));
-	const float *a = (const float *)Memory::GetPointerUnchecked(PARAM(1));
-	const float *b = (const float *)Memory::GetPointerUnchecked(PARAM(2));
+	float *out = (float *)Memory::GetPointer(PARAM(0));
+	const float *a = (const float *)Memory::GetPointer(PARAM(1));
+	const float *b = (const float *)Memory::GetPointer(PARAM(2));
 
 	// TODO: Actually use an optimized matrix multiply here...
-	Matrix4ByMatrix4(out, b, a);
+	if (out && b && a) {
+		Matrix4ByMatrix4(out, b, a);
+	}
 	return 16;
 }
 
@@ -300,46 +324,49 @@ static int Replace_vmmul_q_transp() {
 // a1 = matrix
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
-	u32 *ptr = (u32 *)Memory::GetPointerUnchecked(PARAM(0));
-	u32 *dest = (u32_le *)Memory::GetPointerUnchecked(ptr[0]);
-	u32 *src = (u32_le *)Memory::GetPointerUnchecked(PARAM(2));
+	u32 *ptr = (u32 *)Memory::GetPointer(PARAM(0));
+	u32 *dest = (u32_le *)Memory::GetPointer(ptr[0]);
+	u32 *src = (u32_le *)Memory::GetPointer(PARAM(2));
 	u32 matrix = PARAM(1) << 24;
 
+	if (ptr && src && dest) {
 #if defined(_M_IX86) || defined(_M_X64)
-	__m128i topBytes = _mm_set1_epi32(matrix);
-	__m128i m0 = _mm_loadu_si128((const __m128i *)src);
-	__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
-	__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
-	__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
-	m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
-	m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
-	m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
-	m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
-	// These three stores overlap by a word, due to the offsets.
-	_mm_storeu_si128((__m128i *)dest, m0);
-	_mm_storeu_si128((__m128i *)(dest + 3), m1);
-	_mm_storeu_si128((__m128i *)(dest + 6), m2);
-	// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
-	_mm_storel_epi64((__m128i *)(dest + 9), m3);
-	m3 = _mm_srli_si128(m3, 8);
-	_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
+		__m128i topBytes = _mm_set1_epi32(matrix);
+		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
+		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
+		__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
+		__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
+		m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
+		m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
+		m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
+		m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
+		// These three stores overlap by a word, due to the offsets.
+		_mm_storeu_si128((__m128i *)dest, m0);
+		_mm_storeu_si128((__m128i *)(dest + 3), m1);
+		_mm_storeu_si128((__m128i *)(dest + 6), m2);
+		// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
+		_mm_storel_epi64((__m128i *)(dest + 9), m3);
+		m3 = _mm_srli_si128(m3, 8);
+		_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
 #else
-	// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
-	dest[0] = matrix | (src[0] >> 8);
-	dest[1] = matrix | (src[1] >> 8);
-	dest[2] = matrix | (src[2] >> 8);
-	dest[3] = matrix | (src[4] >> 8);
-	dest[4] = matrix | (src[5] >> 8);
-	dest[5] = matrix | (src[6] >> 8);
-	dest[6] = matrix | (src[8] >> 8);
-	dest[7] = matrix | (src[9] >> 8);
-	dest[8] = matrix | (src[10] >> 8);
-	dest[9] = matrix | (src[12] >> 8);
-	dest[10] = matrix | (src[13] >> 8);
-	dest[11] = matrix | (src[14] >> 8);
+		// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
+		dest[0] = matrix | (src[0] >> 8);
+		dest[1] = matrix | (src[1] >> 8);
+		dest[2] = matrix | (src[2] >> 8);
+		dest[3] = matrix | (src[4] >> 8);
+		dest[4] = matrix | (src[5] >> 8);
+		dest[5] = matrix | (src[6] >> 8);
+		dest[6] = matrix | (src[8] >> 8);
+		dest[7] = matrix | (src[9] >> 8);
+		dest[8] = matrix | (src[10] >> 8);
+		dest[9] = matrix | (src[12] >> 8);
+		dest[10] = matrix | (src[13] >> 8);
+		dest[11] = matrix | (src[14] >> 8);
 #endif
 
-	(*ptr) += 0x30;
+		(*ptr) += 0x30;
+	}
+
 	RETURN(0);
 	return 38;
 }
@@ -348,9 +375,14 @@ static int Replace_gta_dl_write_matrix() {
 // TODO: Inline into a few NEON or SSE instructions - especially if a1 is a known immediate!
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
-	u32 *dlStruct = (u32 *)Memory::GetPointerUnchecked(PARAM(0));
-	u32 *dest = (u32 *)Memory::GetPointerUnchecked(dlStruct[2]);
-	u32 *src = (u32 *)Memory::GetPointerUnchecked(PARAM(2));
+	u32 *dlStruct = (u32 *)Memory::GetPointer(PARAM(0));
+	u32 *dest = (u32 *)Memory::GetPointer(dlStruct[2]);
+	u32 *src = (u32 *)Memory::GetPointer(PARAM(2));
+
+	if (!dlStruct || !dest || !src) {
+		RETURN(0);
+		return 60;
+	}
 
 	u32 matrix;
 	int count = 12;
@@ -548,55 +580,64 @@ static const ReplacementTableEntry entries[] = {
 	// should of course be implemented JIT style, inline.
 
 	/*  These two collide (same hash) and thus can't be replaced :/
-	{ "asinf", &Replace_asinf, 0, 0},
-	{ "acosf", &Replace_acosf, 0, 0},
+	{ "asinf", &Replace_asinf, 0, REPFLAG_DISABLED },
+	{ "acosf", &Replace_acosf, 0, REPFLAG_DISABLED },
 	*/
 
-	{ "sinf", &Replace_sinf, 0, 0},
-	{ "cosf", &Replace_cosf, 0, 0},
-	{ "tanf", &Replace_tanf, 0, 0},
+	{ "sinf", &Replace_sinf, 0, REPFLAG_DISABLED },
+	{ "cosf", &Replace_cosf, 0, REPFLAG_DISABLED },
+	{ "tanf", &Replace_tanf, 0, REPFLAG_DISABLED },
 
-	{ "atanf", &Replace_atanf, 0, 0},
-	{ "sqrtf", &Replace_sqrtf, 0, 0},
-	{ "atan2f", &Replace_atan2f, 0, 0},
-	{ "floorf", &Replace_floorf, 0, 0},
-	{ "ceilf", &Replace_ceilf, 0, 0},
-	{ "memcpy", &Replace_memcpy, 0, 0},
-	{ "memcpy16", &Replace_memcpy16, 0, 0},
-	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0},
-	{ "memmove", &Replace_memmove, 0, 0},
-	{ "memset", &Replace_memset, 0, 0},
-	{ "strlen", &Replace_strlen, 0, 0},
-	{ "strcpy", &Replace_strcpy, 0, 0},
-	{ "strncpy", &Replace_strncpy, 0, 0},
-	{ "strcmp", &Replace_strcmp, 0, 0},
-	{ "strncmp", &Replace_strncmp, 0, 0},
-	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE},
-	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, 0}, // &MIPSComp::Jit::Replace_dl_write_matrix, 0},
-	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, 0},
-	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, 0},
+	{ "atanf", &Replace_atanf, 0, REPFLAG_DISABLED },
+	{ "sqrtf", &Replace_sqrtf, 0, REPFLAG_DISABLED },
+	{ "atan2f", &Replace_atan2f, 0, REPFLAG_DISABLED },
+	{ "floorf", &Replace_floorf, 0, REPFLAG_DISABLED },
+	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
+	{ "memcpy", &Replace_memcpy, 0, 0 },
+	{ "memcpy16", &Replace_memcpy16, 0, 0 },
+	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
+	{ "memmove", &Replace_memmove, 0, 0 },
+	{ "memset", &Replace_memset, 0, 0 },
+	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
+	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
+	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
+	{ "strcmp", &Replace_strcmp, 0, REPFLAG_DISABLED },
+	{ "strncmp", &Replace_strncmp, 0, REPFLAG_DISABLED },
+	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
+	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED }, // &MIPSComp::Jit::Replace_dl_write_matrix, REPFLAG_DISABLED },
+	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED },
+	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, REPFLAG_DISABLED },
 	// dl_write_matrix_3 doesn't take the dl as a parameter, it accesses a global instead. Need to extract the address of the global from the code when replacing...
 	// Haven't investigated write_matrix_4 and 5 but I think they are similar to 1 and 2.
 
-	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, 0},
+	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, REPFLAG_DISABLED },
 
 	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
 	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
 	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
 	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34},
 	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
+	// This is actually used in other games, not just Dissidia.
 	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER},
 	{}
 };
 
 
 static std::map<u32, u32> replacedInstructions;
+static std::map<std::string, int> replacementNameLookup;
 
 void Replacement_Init() {
+	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
+		const auto entry = &entries[i];
+		if (!entry->name || (entry->flags & REPFLAG_DISABLED) != 0)
+			continue;
+		replacementNameLookup[entry->name] = i;
+	}
 }
 
 void Replacement_Shutdown() {
 	replacedInstructions.clear();
+	replacementNameLookup.clear();
 }
 
 // TODO: Do something on load state?
@@ -611,13 +652,9 @@ int GetReplacementFuncIndex(u64 hash, int funcSize) {
 		return -1;
 	}
 
-	// TODO: Build a lookup and keep it around
-	for (size_t i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!entries[i].name)
-			continue;
-		if (!strcmp(name, entries[i].name)) {
-			return (int)i;
-		}
+	auto index = replacementNameLookup.find(name);
+	if (index != replacementNameLookup.end()) {
+		return index->second;
 	}
 	return -1;
 }

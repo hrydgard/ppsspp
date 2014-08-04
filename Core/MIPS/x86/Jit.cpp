@@ -422,7 +422,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		return false;
 	}
 
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
 		return false;
 	}
@@ -444,7 +444,6 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction(entry->replaceFunc);
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
-		js.downcountAmount = 0;  // we just subtracted most of it
 	}
 
 	js.compilerPC += 4;
@@ -471,8 +470,9 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		return;
 	}
 
-	// JIT goes first.
-	if (entry->jitReplaceFunc) {
+	if (entry->flags & REPFLAG_DISABLED) {
+		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
@@ -482,7 +482,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			FlushAll();
 			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-			js.downcountAmount = cycles;
+			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -500,7 +500,6 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
 			SUB(32, M(&currentMIPS->downcount), R(EAX));
-			js.downcountAmount = 0;  // we just subtracted most of it
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
