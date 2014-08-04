@@ -411,6 +411,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 		// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
 		glstate.stencilTest.disable();
+		glstate.stencilMask.set(0xFF);
 		glstate.depthTest.disable();
 
 		GLbitfield target = 0;
