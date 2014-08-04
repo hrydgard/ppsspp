@@ -401,7 +401,7 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 }
 
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
-	return MeasureTextCount(font, text, strlen(text), w, h);
+	return MeasureTextCount(font, text, (int)strlen(text), w, h);
 }
 
 void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Color color, int flags) {
