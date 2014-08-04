@@ -44,7 +44,7 @@ void OpenGLState::Restore() {
 	int count = 0;
 
 	blend.restore(); count++;
-	blendEquation.restore(); count++;
+	blendEquationSeparate.restore(); count++;
 	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
 
