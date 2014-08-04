@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include "Core/HLE/HLE.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -365,16 +366,19 @@ namespace MIPSDis
 
 	void Dis_Emuhack(MIPSOpcode op, char *out)
 	{
+		auto resolved = Memory::Read_Instruction(disPC, true);
+		char disasm[256];
+		MIPSDisAsm(resolved, disPC, disasm, true);
+
 		switch (op.encoding >> 24) {
 		case 0x68:
-			strcpy(out, "* jitblock");
+			snprintf(out, 256, "* jitblock: %s", disasm);
 			break;
 		case 0x6a:
-			strcpy(out, "* replacement");
+			snprintf(out, 256, "* replacement: %s", disasm);
 			break;
 		default:
-			out[0]='*';
-			out[1]=0;
+			snprintf(out, 256, "* (invalid): %s", disasm);
 			break;
 		}
 	}
