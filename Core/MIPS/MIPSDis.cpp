@@ -128,7 +128,7 @@ namespace MIPSDis
 		off += imm + 4;
 
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, ->$%08x",name,RN(rs),off);
+		sprintf(out, "%s\t%s, ->$%08x", name, RN(rs), off);
 	}
 
 	void Dis_Syscall(MIPSOpcode op, char *out)
@@ -163,11 +163,11 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int o = op>>26;
 		if (o==4 && rs == rt)//beq
-			sprintf(out,"b\t->$%08x",off);
+			sprintf(out, "b\t->$%08x", off);
 		else if (o==20 && rs == rt)//beql
-			sprintf(out,"bl\t->$%08x",off);
+			sprintf(out, "bl\t->$%08x", off);
 		else
-			sprintf(out, "%s\t%s, %s, ->$%08x",name,RN(rt),RN(rs),off);
+			sprintf(out, "%s\t%s, %s, ->$%08x", name, RN(rs), RN(rt), off);
 	}
 
 	void Dis_IType(MIPSOpcode op, char *out)
