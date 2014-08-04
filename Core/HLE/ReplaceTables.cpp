@@ -20,6 +20,8 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
@@ -113,21 +115,33 @@ static int Replace_memcpy() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0 && destPtr != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		const u8 *src = Memory::GetPointerUnchecked(srcPtr);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) { 
+			WARN_LOG(HLE, "memcpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+		}
+		else {
+			if (!skip && destPtr != 0) {
+				u8 *dst = Memory::GetPointerUnchecked(destPtr);
+				const u8 *src = Memory::GetPointerUnchecked(srcPtr);
 
-		if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
-			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
-			const u32 blocks = bytes & ~0x0f;
-			for (u32 offset = 0; offset < blocks; offset += 0x10) {
-				memcpy(dst + offset, src + offset, 0x10);
+				if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+					// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+					const u32 blocks = bytes & ~0x0f;
+					for (u32 offset = 0; offset < blocks; offset += 0x10) {
+						memcpy(dst + offset, src + offset, 0x10);
+					}
+					for (u32 offset = blocks; offset < bytes; ++offset) {
+						dst[offset] = src[offset];
+					}
+				}
+				else {
+					memmove(dst, src, bytes);
+				}
 			}
-			for (u32 offset = blocks; offset < bytes; ++offset) {
-				dst[offset] = src[offset];
-			}
-		} else {
-			memmove(dst, src, bytes);
 		}
 	}
 	RETURN(destPtr);
@@ -207,10 +221,21 @@ static int Replace_memmove() {
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 	}
-	if (!skip && bytes != 0) {
-		u8 *dst = Memory::GetPointerUnchecked(destPtr);
-		u8 *src = Memory::GetPointerUnchecked(srcPtr);
-		memmove(dst, src, bytes);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(srcPtr) || !Memory::IsValidAddress(destPtr))) {
+			WARN_LOG(HLE, "memmove: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+		}
+		else {
+			if (!skip) {
+				u8 *dst = Memory::GetPointerUnchecked(destPtr);
+				u8 *src = Memory::GetPointerUnchecked(srcPtr);
+				memmove(dst, src, bytes);
+			}
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -229,8 +254,17 @@ static int Replace_memset() {
 	if (Memory::IsVRAMAddress(destPtr)) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
-	if (!skip) {
-		memset(dst, value, bytes);
+	if (!skip && bytes != 0) {
+		if (!g_Config.bFastMemory && !Memory::IsValidAddress(destPtr)) {
+			WARN_LOG(HLE, "memset: Invalid address (%08x,%02x,%i) at %08x", destPtr, value, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+		}
+		else {
+			memset(dst, value, bytes);
+		}
 	}
 	RETURN(destPtr);
 #ifndef MOBILE_DEVICE
@@ -241,43 +275,104 @@ static int Replace_memset() {
 
 static int Replace_strlen() {
 	u32 srcPtr = PARAM(0);
-	const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
-	u32 len = (u32)strlen(src);
+	u32 len = 0;
+	if (g_Config.bFastMemory || Memory::IsValidAddress(srcPtr)) {
+		const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
+		len = (u32)strlen(src);
+	}
+	else {
+		WARN_LOG(HLE, "strlen: Invalid address (%08x) at %08x", srcPtr, currentMIPS->pc);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
+	}
 	RETURN(len);
 	return 7 + len * 4;  // approximation
 }
 
 static int Replace_strcpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
-	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	strcpy(dst, src);
+	u32 srcPtr = PARAM(1);
+	if (!g_Config.bFastMemory && (!Memory::IsValidAddress(destPtr) || !Memory::IsValidAddress(srcPtr))) {
+		WARN_LOG(HLE, "strcpy: Invalid address (%08x,%08x) at %08x", destPtr, srcPtr, currentMIPS->pc);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
+	}
+	else {
+		char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
+		const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
+		strcpy(dst, src);
+	}
 	RETURN(destPtr);
 	return 10;  // approximation
 }
 
 static int Replace_strncpy() {
 	u32 destPtr = PARAM(0);
-	char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
-	const char *src = (const char *)Memory::GetPointerUnchecked(PARAM(1));
+	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	strncpy(dst, src, bytes);
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(destPtr) || !Memory::IsValidAddress(srcPtr))) {
+			WARN_LOG(HLE, "strncpy: Invalid address (%08x,%08x,%i) at %08x", destPtr, srcPtr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+		}
+		else {
+			char *dst = (char *)Memory::GetPointerUnchecked(destPtr);
+			const char *src = (const char *)Memory::GetPointerUnchecked(srcPtr);
+			strncpy(dst, src, bytes);
+		}
+	}
 	RETURN(destPtr);
 	return 10;  // approximation
 }
 
 static int Replace_strcmp() {
-	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
-	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
-	RETURN(strcmp(a, b));
+	u32 str1Ptr = PARAM(0);
+	u32 str2Ptr = PARAM(1);
+	if (!g_Config.bFastMemory && (!Memory::IsValidAddress(str1Ptr) || !Memory::IsValidAddress(str2Ptr))) {
+		WARN_LOG(HLE, "strcmp: Invalid address (%08x,%08x) at %08x", str1Ptr, str2Ptr, currentMIPS->pc);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
+		RETURN(-1);
+	}
+	else {
+		const char *a = (const char *)Memory::GetPointerUnchecked(str1Ptr);
+		const char *b = (const char *)Memory::GetPointerUnchecked(str2Ptr);
+		RETURN(strcmp(a, b));
+	}
 	return 10;  // approximation
 }
 
 static int Replace_strncmp() {
-	const char *a = (const char *)Memory::GetPointerUnchecked(PARAM(0));
-	const char *b = (const char *)Memory::GetPointerUnchecked(PARAM(1));
+	u32 str1Ptr = PARAM(0);
+	u32 str2Ptr = PARAM(1);
 	u32 bytes = PARAM(2);
-	RETURN(strncmp(a, b, bytes));
+	if (bytes != 0) {
+		if (!g_Config.bFastMemory && (!Memory::IsValidAddress(str1Ptr) || !Memory::IsValidAddress(str2Ptr))) {
+			WARN_LOG(HLE, "strncmp: Invalid address (%08x,%08x,%i) at %08x", str1Ptr, str2Ptr, bytes, currentMIPS->pc);
+			if (!g_Config.bIgnoreBadMemAccess) {
+				Core_EnableStepping(true);
+				host->SetDebugMode(true);
+			}
+			RETURN(-1);
+		}
+		else {
+			const char *a = (const char *)Memory::GetPointerUnchecked(str1Ptr);
+			const char *b = (const char *)Memory::GetPointerUnchecked(str2Ptr);
+			RETURN(strncmp(a, b, bytes));
+		}
+	}
+	else {
+		RETURN(0);
+	}
 	return 10 + bytes / 4;  // approximation
 }
 
