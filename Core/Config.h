@@ -27,7 +27,6 @@
 extern const char *PPSSPP_GIT_VERSION;
 #endif
 
-const int MAX_CONFIG_VOLUME = 8;
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
@@ -154,9 +153,7 @@ public:
 
 	// Sound
 	bool bEnableSound;
-	int IaudioLatency; // 0 = low , 1 = medium(default) , 2 = high
-	int iSFXVolume;
-	int iBGMVolume;
+	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 
 	// Audio Hack
 	bool bSoundSpeedHack;

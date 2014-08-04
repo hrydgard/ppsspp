@@ -243,8 +243,6 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 
 		// each sample occupies 2 bytes
 		*outbytes = outSamples * 2;
-		// We always convert to stereo.
-		__AdjustBGMVolume((s16 *)outbuf, frame_->nb_samples * 2);
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
 		// SaveAudio("dump.pcm", outbuf, *outbytes);

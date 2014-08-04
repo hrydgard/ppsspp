@@ -292,14 +292,9 @@ void GameSettingsScreen::CreateViews() {
 
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 
-	PopupSliderChoice *sfxVol = audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, MAX_CONFIG_VOLUME, a->T("SFX volume"), screenManager()));
-	sfxVol->SetEnabledPtr(&g_Config.bEnableSound);
-	PopupSliderChoice *bgmVol = audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, MAX_CONFIG_VOLUME, a->T("BGM volume"), screenManager()));
-	bgmVol->SetEnabledPtr(&g_Config.bEnableSound);
-
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	static const char *latency[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.IaudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gs, screenManager()));
+	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gs, screenManager()));
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
 
 	audioSettings->Add(new ItemHeader(a->T("Audio hacks")));

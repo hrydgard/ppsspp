@@ -106,7 +106,7 @@ void __AudioCPUMHzChange() {
 void __AudioInit() {
 	mixFrequency = 44100;
 
-	switch (g_Config.IaudioLatency) {
+	switch (g_Config.iAudioLatency) {
 	case LOW_LATENCY:
 		chanQueueMaxSizeFactor = 1;
 		chanQueueMinSizeFactor = 1;
