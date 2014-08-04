@@ -2083,6 +2083,9 @@ void FramebufferManager::DestroyAllFBOs() {
 		fbo_destroy(it->second.fbo);
 	}
 	tempFBOs_.clear();
+
+	fbo_unbind();
+	DisableState();
 }
 
 void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
