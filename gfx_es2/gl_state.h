@@ -280,6 +280,7 @@ public:
 	BoolState<GL_STENCIL_TEST, false> stencilTest;
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
+	STATE1(glStencilMask, GLuint, 0xFF) stencilMask;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)
