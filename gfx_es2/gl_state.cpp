@@ -44,7 +44,7 @@ void OpenGLState::Restore() {
 	int count = 0;
 
 	blend.restore(); count++;
-	blendEquation.restore(); count++;
+	blendEquationSeparate.restore(); count++;
 	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
 
@@ -66,6 +66,7 @@ void OpenGLState::Restore() {
 	stencilTest.restore(); count++;
 	stencilOp.restore(); count++;
 	stencilFunc.restore(); count++;
+	stencilMask.restore(); count++;
 
 	dither.restore(); count++;
 

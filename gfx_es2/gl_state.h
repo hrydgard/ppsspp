@@ -239,7 +239,7 @@ public:
 	STATE4(glBlendFuncSeparate, GLenum, GLenum, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFuncSeparate;
 
 	// On OpenGL ES, using minmax blend requires glBlendEquationEXT (in theory at least but I don't think it's true in practice)
-	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
+	STATE2(glBlendEquationSeparate, GLenum, GLenum, GL_FUNC_ADD, GL_FUNC_ADD) blendEquationSeparate;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
 	// Logic Ops. Not available on OpenGL ES at all.
@@ -280,6 +280,7 @@ public:
 	BoolState<GL_STENCIL_TEST, false> stencilTest;
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
+	STATE1(glStencilMask, GLuint, 0xFF) stencilMask;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

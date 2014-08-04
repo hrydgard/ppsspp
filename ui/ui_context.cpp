@@ -37,6 +37,7 @@ void UIContext::Init(const GLSLProgram *uishader, const GLSLProgram *uishadernot
 void UIContext::Begin() {
 	glstate.blend.enable();
 	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.dither.enable();
@@ -54,6 +55,7 @@ void UIContext::Begin() {
 void UIContext::BeginNoTex() {
 	glstate.blend.enable();
 	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.dither.enable();
