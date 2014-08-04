@@ -461,6 +461,7 @@ struct GPUStateCache
 	UVScale uv;
 	bool flipTexture;
 	bool needShaderTexClamp;
+	bool allowShaderBlend;
 
 	float morphWeights[8];
 

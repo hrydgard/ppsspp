@@ -242,14 +242,14 @@ ReplaceBlendType ReplaceBlendWithShader() {
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
 		if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	default:
@@ -265,11 +265,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -288,17 +288,17 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -306,11 +306,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
@@ -334,11 +334,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			}
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return g_Config.bDisableSlowFramebufEffects ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			return REPLACE_BLEND_STANDARD;

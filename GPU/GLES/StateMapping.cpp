@@ -218,6 +218,7 @@ void TransformDrawEngine::ApplyBlendState() {
 	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
+	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	bool usePreSrc = false;
@@ -234,7 +235,8 @@ void TransformDrawEngine::ApplyBlendState() {
 			glstate.blend.disable();
 			return;
 		}
-		// TODO: Otherwise, we probably apply shading wrong.  Hmm.
+		// Until next time, force it off.
+		gstate_c.allowShaderBlend = false;
 		break;
 
 	case REPLACE_BLEND_PRE_SRC:
