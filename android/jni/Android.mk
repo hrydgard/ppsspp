@@ -240,6 +240,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceMp3.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
   $(SRC)/Core/HLE/proAdhoc.cpp \
+  $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \

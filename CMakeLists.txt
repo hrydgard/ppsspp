@@ -1170,6 +1170,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNetAdhoc.h
 	Core/HLE/proAdhoc.h
 	Core/HLE/proAdhoc.cpp
+	Core/HLE/proAdhocServer.h
+	Core/HLE/proAdhocServer.cpp
 	Core/HLE/sceOpenPSID.cpp
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
