@@ -95,6 +95,7 @@ void UIShader_Prepare()
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
 	glstate.stencilTest.disable();
+	glstate.stencilMask.set(0xFF);
 #if !defined(USING_GLES2)
   	glstate.colorLogicOp.disable();
 #endif 

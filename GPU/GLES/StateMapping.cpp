@@ -455,6 +455,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// We should set "ref" to that value instead of 0.
 			// In case of clear rectangles, we set it again once we know what the color is.
 			glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
+			glstate.stencilMask.set(0xFF);
 		} else {
 			glstate.stencilTest.disable();
 		}
@@ -505,6 +506,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
 		}
 		if (abits != 0 && abits != 0xFF) {
+			// The stencil part of the mask is supported.
 			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
 		}
 #endif
@@ -530,6 +532,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+			glstate.stencilMask.set(~abits);
 		} else {
 			glstate.stencilTest.disable();
 		}
