@@ -388,9 +388,9 @@ void TransformDrawEngine::ApplyBlendState() {
 	}
 
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
-		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], GL_FUNC_ADD);
 	} else {
-		glstate.blendEquation.set(eqLookupNoMinMax[blendFuncEq]);
+		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], GL_FUNC_ADD);
 	}
 }
 

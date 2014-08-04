@@ -103,7 +103,7 @@ void UIShader_Prepare()
 
 	glstate.blend.enable();
 	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glstate.blendEquation.set(GL_FUNC_ADD);
+	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
 
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
