@@ -436,28 +436,14 @@ endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 
 if(USE_FFMPEG)
 	# Using shared libraries
-	if(DEFINED FFMPEG_BUILDDIR)
-		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
-
-		add_library(libavformat STATIC IMPORTED)
-		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
-		add_library(libavcodec STATIC IMPORTED)
-		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
-		add_library(libavutil STATIC IMPORTED)
-		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
-		add_library(libswresample STATIC IMPORTED)
-		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
-		add_library(libswscale STATIC IMPORTED)
-		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
-
 		SET (FFMPEG_LIBRARIES
-			libavformat
-			libavcodec
-			libavutil
-			libswresample
-			libswscale
+			avformat
+			avcodec
+			avutil
+			swresample
+			swscale
 		)
-	endif()
+		set(nativeExtraLibs ${nativeExtraLibs} ${FFMPEG_LIBRARIES})
 
 	if(APPLE OR BLACKBERRY)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
