@@ -1,4 +1,4 @@
-TARGET = PPSSPPQt
+TARGET = ppsspp
 
 # Main Qt modules
 QT += core gui opengl

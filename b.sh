@@ -77,7 +77,11 @@ if [ ! -z "$TARGET_OS" ]; then
 	fi
 else
 	echo "Building for native host."
-	BUILD_DIR="build"
+	if [ "$CMAKE" == "0" ]; then
+		BUILD_DIR="build-qt"
+	else
+		BUILD_DIR="build"
+	fi
 fi
 
 # Strict errors. Any non-zero return exits this script

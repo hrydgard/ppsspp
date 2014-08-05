@@ -22,7 +22,8 @@ include(Platform/OSDetection.pri)
 !system_ffmpeg: INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
 
 !contains(CONFIG, staticlib) {
-	!system_ffmpeg: QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
+	QMAKE_LIBDIR += $$CONFIG_DIR
+	!system_ffmpeg: QMAKE_LIBDIR += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
 	contains(DEFINES, USE_FFMPEG): LIBS+=  -lavformat -lavcodec -lavutil -lswresample -lswscale
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
 }
