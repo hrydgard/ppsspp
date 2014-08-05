@@ -63,10 +63,8 @@ SceNetAdhocctlGameNode * _db_game = NULL;
 bool adhocServerRunning = false;
 std::thread adhocServerThread;
 
-// I'm too lazy to copy the whole list here, we should read these from database.db
-std::vector<db_crosslink> crosslinks = { { "ULES01408", "ULUS10511" }, { "NPJH50263", "ULUS10511" } };
-std::vector<db_productid> productids = { { "ULUS10511", "Ace Combat X2 - Joint Assault" }, { "NPUH10023", "Armored Core 3 Portable" } };
-
+std::vector<db_crosslink> crosslinks;
+std::vector<db_productid> productids;
 
 // Function Prototypes
 const char * strcpyxml(char * out, const char * in, uint32_t size);
@@ -78,6 +76,12 @@ void change_blocking_mode(int fd, int nonblocking);
 int create_listen_socket(uint16_t port);
 int server_loop(int server);
 
+void __AdhocServerInit() {
+	// I'm too lazy to copy the whole list here, we should read these from database.db
+	crosslinks.push_back(db_crosslink{ "NPJH50263", "ULUS10511" });
+	productids.push_back(db_productid{ "ULUS10511", "Ace Combat X2 - Joint Assault" });
+	productids.push_back(db_productid{ "NPUH10023", "Armored Core 3 Portable" });
+}
 
 /**
  * Login User into Database (Stream)

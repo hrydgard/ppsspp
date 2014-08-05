@@ -168,6 +168,7 @@ void __NetAdhocInit() {
 	netAdhocctlInited = false;
 	netAdhocMatchingInited = false;
 	adhocctlHandlers.clear();
+	__AdhocServerInit();
 	dummyThreadCode[0] = MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 1000);
 	dummyThreadCode[1] = MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread");
 	dummyThreadCode[2] = MIPS_MAKE_B(-3);
