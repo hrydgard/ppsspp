@@ -239,7 +239,7 @@ void TransformDrawEngine::ApplyBlendState() {
 			}
 
 			// Min/max/absdiff are not possible here.
-			glstate.blendEquationSeparate.set(eqLookup[blendFuncEq]);
+			glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], GL_FUNC_ADD);
 
 			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 			ResetShaderBlending();
