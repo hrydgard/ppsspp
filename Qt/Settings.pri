@@ -19,13 +19,11 @@ include(Platform/ArchDetection.pri)
 # Work out platform name
 include(Platform/OSDetection.pri)
 # OS dependent paths
-INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
+!system_ffmpeg: INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
 
 !contains(CONFIG, staticlib) {
-	QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
-	g++: LIBS += -Wl,-Bstatic
+	!system_ffmpeg: QMAKE_LIBDIR += $$CONFIG_DIR $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
 	contains(DEFINES, USE_FFMPEG): LIBS+=  -lavformat -lavcodec -lavutil -lswresample -lswscale
-	g++: LIBS += -Wl,-Bdynamic
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
 }
 

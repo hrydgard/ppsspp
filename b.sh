@@ -37,18 +37,15 @@ do
 			CMAKE_ARGS="-DSIMULATOR=ON ${CMAKE_ARGS}"
 			;;
 		--release)
-			if [ "$CMAKE" == "1" ]; then
-				CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release ${CMAKE_ARGS}"
-			else
-				QMAKE_ARGS="CONFIG+=release ${QMAKE_ARGS}"
-			fi
+			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release ${CMAKE_ARGS}"
+			QMAKE_ARGS="CONFIG+=release ${QMAKE_ARGS}"
 			;;
 		--debug)
-			if [ "$CMAKE" == "1" ]; then
-				CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug ${CMAKE_ARGS}"
-			else
-				QMAKE_ARGS="CONFIG+=debug ${QMAKE_ARGS}"
-			fi
+			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug ${CMAKE_ARGS}"
+			QMAKE_ARGS="CONFIG+=debug ${QMAKE_ARGS}"
+			;;
+		--system-ffmpeg)
+			QMAKE_ARGS="CONFIG+=system_ffmpeg ${QMAKE_ARGS}"
 			;;
 		--headless) echo "Headless mode enabled"
 			CMAKE_ARGS="-DHEADLESS=ON ${CMAKE_ARGS}"
