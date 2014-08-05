@@ -38,6 +38,7 @@ struct FBO {
 	int width;
 	int height;
 	FBOColorDepth colorDepth;
+	bool native_fbo;
 };
 
 static FBO *g_overriddenBackbuffer;
@@ -48,6 +49,7 @@ static FBO *g_overriddenBackbuffer;
 #ifndef USING_GLES2
 FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	FBO *fbo = new FBO();
+	fbo->native_fbo = false;
 	fbo->width = width;
 	fbo->height = height;
 	fbo->colorDepth = colorDepth;
@@ -129,6 +131,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 #endif
 
 	FBO *fbo = new FBO();
+	fbo->native_fbo = false;
 	fbo->width = width;
 	fbo->height = height;
 	fbo->colorDepth = colorDepth;
@@ -237,6 +240,24 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	return fbo;
 }
 
+FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
+{
+	if (!fbo)
+		fbo = new FBO();
+
+	fbo->native_fbo = true;
+	fbo->handle = native_fbo;
+	fbo->color_texture = 0;
+	fbo->z_stencil_buffer = 0;
+	fbo->z_buffer = 0;
+	fbo->stencil_buffer = 0;
+	fbo->width = 0;
+	fbo->height = 0;
+	fbo->colorDepth = FBO_8888;
+
+	return fbo;
+}
+
 void fbo_unbind() {
 	if (g_overriddenBackbuffer) {
 		fbo_bind_as_render_target(g_overriddenBackbuffer);
@@ -312,6 +333,11 @@ void fbo_bind_color_as_texture(FBO *fbo, int color) {
 }
 
 void fbo_destroy(FBO *fbo) {
+	if (fbo->native_fbo) {
+		delete fbo;
+		return;
+	}
+
 	if (gl_extensions.FBO_ARB) {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
