@@ -1584,8 +1584,14 @@ int sceKernelGetThreadExitStatus(SceUID threadID)
 u32 sceKernelGetThreadmanIdType(u32 uid) {
 	int type;
 	if (kernelObjects.GetIDType(uid, &type)) {
-		DEBUG_LOG(SCEKERNEL, "%i=sceKernelGetThreadmanIdType(%i)", type, uid);
-		return type;
+		if (type < 0x1000) {
+			DEBUG_LOG(SCEKERNEL, "%i=sceKernelGetThreadmanIdType(%i)", type, uid);
+			return type;
+		} else {
+			// This means a partition memory block or module, etc.
+			ERROR_LOG(SCEKERNEL, "sceKernelGetThreadmanIdType(%i): invalid object type %i", uid, type);
+			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		}
 	} else {
 		ERROR_LOG(SCEKERNEL, "sceKernelGetThreadmanIdType(%i) - FAILED", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
