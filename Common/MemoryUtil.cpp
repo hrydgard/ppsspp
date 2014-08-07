@@ -170,10 +170,12 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 #endif
 		PanicAlert("Failed to allocate executable memory");
 	}
+#if defined(_M_X64) && !defined(_WIN32)
 	else if (exec && (uintptr_t) map_hint <= 0xFFFFFFFF)
 	{
 		map_hint += round_page(size); /* round up if we're below 32-bit mark, probably allocating sequentially */
 	}
+#endif
 
 	return ptr;
 }
