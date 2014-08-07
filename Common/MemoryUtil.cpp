@@ -105,7 +105,7 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 #if defined(_WIN32)
 	void* ptr;
 #if defined(_M_X64)
-	if (exec && (uintptr_t) &hint_location >= 0x100000000ULL)
+	if (exec && (uintptr_t) &hint_location > 0xFFFFFFFFULL)
 	{
 		if (!last_addr)
 			GetSystemInfo(&sys_info);
@@ -132,14 +132,21 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 	void* ptr = (void*)g_next_ptr;
 	g_next_ptr += size;
 #else
-	char *map_hint = 0;
+	static char *map_hint = 0;
 #if defined(_M_X64)
 	// Try to request one that is close to our memory location if we're in high memory.
 	// We use a dummy global variable to give us a good location to start from.
-	if (exec && (!map_hint) && (uintptr_t) &hint_location >= 0x100000000ULL)
-		map_hint = (char*)round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
-	else if (exec && map_hint)
-		map_hint -= round_page(size); /* round down to the next page */
+	if (exec && (!map_hint))
+	{
+		if ((uintptr_t) &hint_location > 0xFFFFFFFFULL)
+			map_hint = (char*)round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
+		else
+			map_hint = (char*)0x20000000; // 0.5GB mark in memory
+	}
+	else if (exec && (uintptr_t) map_hint > 0xFFFFFFFFULL)
+	{
+		map_hint -= round_page(size); /* round down to the next page if we're in high memory */
+	}
 #endif
 	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE	| PROT_EXEC,
 		MAP_ANON | MAP_PRIVATE
@@ -162,6 +169,10 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 	{
 #endif
 		PanicAlert("Failed to allocate executable memory");
+	}
+	else if (exec && (uintptr_t) map_hint <= 0xFFFFFFFF)
+	{
+		map_hint += round_page(size); /* round up if we're below 32-bit mark, probably allocating sequentially */
 	}
 
 	return ptr;
