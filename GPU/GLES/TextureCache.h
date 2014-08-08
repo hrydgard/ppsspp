@@ -37,6 +37,11 @@ enum TextureFiltering {
 	LINEARFMV = 4,
 };
 
+enum BufferFilter {
+	SCALE_LINEAR = 1,
+	SCALE_NEAREST = 2,
+};
+
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
 	NOTIFY_FB_UPDATED,

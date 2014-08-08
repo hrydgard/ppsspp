@@ -245,6 +245,10 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *texFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, ARRAY_SIZE(texFilters), gs, screenManager()));
 	texFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	static const char *bufFilters[] = { "Linear", "Nearest", };
+	PopupMultiChoice *bufFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gs->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gs, screenManager()));
+	bufFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
 	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gs->T("Disable Alpha Test (PowerVR speedup)")));
