@@ -275,6 +275,7 @@ void NativeInit(int argc, const char *argv[],
 #elif defined(__APPLE__) || (defined(__linux__) && !defined(ANDROID))
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
+	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
