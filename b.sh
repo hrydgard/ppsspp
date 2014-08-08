@@ -1,5 +1,6 @@
 #!/bin/bash
 CMAKE=1
+MAKE_JOBS=4
 # Check Blackberry NDK
 BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
 if [ ! -z "$BB_OS" ]; then
@@ -71,9 +72,11 @@ done
 if [ ! -z "$TARGET_OS" ]; then
 	echo "Building for $TARGET_OS"
 	BUILD_DIR="$(tr [A-Z] [a-z] <<< build-"$TARGET_OS")"
-# HACK (doesn't like shadowed dir)
+	# HACK (doesn't like shadowed dir)
 	if [ "$TARGET_OS" == "Symbian" ]; then
 		BUILD_DIR="Qt"
+		# Temporarily limiting memory usage for automated builds.
+		MAKE_JOBS=2
 	fi
 else
 	echo "Building for native host."
@@ -96,7 +99,7 @@ else
 	qmake $QMAKE_ARGS ../Qt/PPSSPPQt.pro
 fi
 
-make -j4 $MAKE_OPT
+make -j$MAKE_JOBS $MAKE_OPT
 
 if [ "$PACKAGE" == "1" ]; then
 	if [ "$TARGET_OS" == "Blackberry" ]; then
