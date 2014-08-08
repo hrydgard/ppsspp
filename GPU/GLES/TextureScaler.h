@@ -20,7 +20,9 @@
 #include "Common/MemoryUtil.h"
 #include "../Globals.h"
 #include "gfx/gl_common.h"
-
+#ifndef MOBILE_DEVICE
+#include "ext/OclScale/OclScale.h"
+#endif
 #include <vector>
 
 
@@ -30,7 +32,11 @@ public:
 
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 
-	enum { XBRZ= 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
+#ifndef MOBILE_DEVICE
+	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3, NNEDI3 = 4, SPLINE36 = 5};
+#else
+	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3};
+#endif
 
 private:
 	void ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height);
@@ -38,6 +44,10 @@ private:
 	void ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic = false);
+#ifndef MOBILE_DEVICE
+	void ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height);
+	void ScaleSpline36(int factor, u32* source, u32* dest, int width, int height);
+#endif
 	void ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height);
 
 	void DePosterize(u32* source, u32* dest, int width, int height);
@@ -48,4 +58,8 @@ private:
 	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
 	// of course, scaling factor 5 is totally silly anyway
 	SimpleBuf<u32> bufInput, bufDeposter, bufOutput, bufTmp1, bufTmp2, bufTmp3;
+
+#ifndef MOBILE_DEVICE
+	oclscale::OclScaler oclCtx;
+#endif
 };

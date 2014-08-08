@@ -98,6 +98,12 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <AdditionalDependencies>OpenCL.lib;</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -115,6 +121,12 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <Lib>
+      <AdditionalDependencies>OpenCL.lib;</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86_64</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -136,6 +148,10 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib>
+      <AdditionalDependencies>OpenCL.lib;</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -158,8 +174,19 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <Lib>
+      <AdditionalDependencies>OpenCL.lib;</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86_64</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\OclScale\CL\cl.h" />
+    <ClInclude Include="..\ext\OclScale\CL\cl_ext.h" />
+    <ClInclude Include="..\ext\OclScale\CL\cl_gl.h" />
+    <ClInclude Include="..\ext\OclScale\CL\cl_gl_ext.h" />
+    <ClInclude Include="..\ext\OclScale\CL\cl_platform.h" />
+    <ClInclude Include="..\ext\OclScale\OclScale.h" />
+    <ClInclude Include="..\ext\OclScale\opencl.h" />
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="Common\FramebufferCommon.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
@@ -217,6 +244,7 @@
     <ClInclude Include="Common\TextureDecoder.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\OclScale\OclScale.cpp" />
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="Common\FramebufferCommon.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
@@ -285,6 +313,12 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\assets\opencl\mergeIntoRGBA.cl" />
+    <None Include="..\assets\opencl\nnedi3ocl_mad.cl" />
+    <None Include="..\assets\opencl\BGRAtoYUVA.cl" />
+    <None Include="..\assets\opencl\spline36.cl" />
+    <None Include="..\assets\opencl\spline36SingleChan.cl" />
+    <None Include="..\assets\opencl\YUVAtoBGRAwithMerge.cl" />
     <None Include="CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
