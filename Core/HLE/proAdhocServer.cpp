@@ -78,6 +78,7 @@ int server_loop(int server);
 
 void __AdhocServerInit() {
 	// I'm too lazy to copy the whole list here, we should read these from database.db
+	crosslinks.push_back(db_crosslink{ "ULES01408", "ULUS10511" });
 	crosslinks.push_back(db_crosslink{ "NPJH50263", "ULUS10511" });
 	productids.push_back(db_productid{ "ULUS10511", "Ace Combat X2 - Joint Assault" });
 	productids.push_back(db_productid{ "NPUH10023", "Armored Core 3 Portable" });
@@ -438,7 +439,8 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = user->resolver.ip;
 
 					// Send Data
-					send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+					int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send peer] (Socket error %d)", errno);
 
 					// Set Player Name
 					packet.name = peer->resolver.name;
@@ -450,7 +452,8 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					packet.ip = peer->resolver.ip;
 
 					// Send Data
-					send(user->stream, (const char*)&packet, sizeof(packet), 0);
+					iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+					if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user] (Socket error %d)", errno);
 
 					// Set BSSID
 					if(peer->group_next == NULL) bssid.mac = peer->resolver.mac;
@@ -471,7 +474,8 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 				g->playercount++;
 
 				// Send Network BSSID to User
-				send(user->stream, (const char*)&bssid, sizeof(bssid), 0);
+				int iResult = send(user->stream, (const char*)&bssid, sizeof(bssid), 0);
+				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: connect_user[send user bssid] (Socket error %d)", errno);
 
 				// Notify User
 				uint8_t * ip = (uint8_t *)&user->resolver.ip;
@@ -565,7 +569,8 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 			packet.ip = user->resolver.ip;
 
 			// Send Data
-			send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: disconnect_user[send peer] (Socket error %d)", errno);
 
 			// Move Pointer
 			peer = peer->group_next;
@@ -665,12 +670,14 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 			}
 
 			// Send Group Packet
-			send(user->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send user] (Socket error %d)", errno);
 		}
 
 		// Notify Player of End of Scan
 		uint8_t opcode = OPCODE_SCAN_COMPLETE;
-		send(user->stream, (const char*)&opcode, 1, 0);
+		int iResult = send(user->stream, (const char*)&opcode, 1, 0);
+		if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: send_scan_result[send peer complete] (Socket error %d)", errno);
 
 		// Notify User
 		uint8_t * ip = (uint8_t *)&user->resolver.ip;
@@ -730,7 +737,8 @@ void spread_message(SceNetAdhocctlUserNode * user, char * message)
 				strcpy(packet.base.message, message);
 
 				// Send Data
-				send(user->stream, (const char*)&packet, sizeof(packet), 0);
+				int iResult = send(user->stream, (const char*)&packet, sizeof(packet), 0);
+				if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send user chat] (Socket error %d)", errno);
 			}
 		}
 
@@ -771,7 +779,8 @@ void spread_message(SceNetAdhocctlUserNode * user, char * message)
 			packet.name = user->resolver.name;
 
 			// Send Data
-			send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			int iResult = send(peer->stream, (const char*)&packet, sizeof(packet), 0);
+			if (iResult < 0) ERROR_LOG(SCENET, "AdhocServer: spread_message[send peer chat] (Socket error %d)", errno);
 
 			// Move Pointer
 			peer = peer->group_next;
@@ -1393,14 +1402,14 @@ int create_listen_socket(uint16_t port)
 		}
 
 		// Notify User
-		else INFO_LOG(SCENET, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
+		else ERROR_LOG(SCENET, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
 
 		// Close Socket
 		closesocket(fd);
 	}
 
 	// Notify User
-	else INFO_LOG(SCENET, "AdhocServer: Socket returned %i (Socket error %d)", fd, errno);
+	else ERROR_LOG(SCENET, "AdhocServer: Socket returned %i (Socket error %d)", fd, errno);
 
 	// Return Error
 	return -1;
