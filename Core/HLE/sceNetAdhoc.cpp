@@ -754,20 +754,21 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			fd_set readfds, writefds, exceptfds;
 			int fd;
 			FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
+			// TODO: PDP and PTP should share the same indexing to prevent identical PDP & PTP socket id
 			for (int i = 0; i < count; i++) {
 				sds[i].revents = 0;
 				// Fill in Socket ID
-				if (pdp[sds[i].id - 1] != NULL) {
-					fd = pdp[sds[i].id - 1]->id;
-				}
-				else {
+				if (ptp[sds[i].id - 1] != NULL) {
 					fd = ptp[sds[i].id - 1]->id;
 					if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_LISTEN) sds[i].revents |= ADHOC_EV_ACCEPT;
 					else
 					if (ptp[sds[i].id - 1]->state == ADHOC_PTP_STATE_CLOSED) sds[i].revents |= ADHOC_EV_CONNECT;
 				}
+				else {
+					fd = pdp[sds[i].id - 1]->id;
+				}
 				if (sds[i].events & ADHOC_EV_RECV) FD_SET(fd, &readfds);
-				if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds);
+				if (sds[i].events & ADHOC_EV_SEND) FD_SET(fd, &writefds); 
 				//if (sds[i].events & ADHOC_EV_ALERT) 
 				FD_SET(fd, &exceptfds);
 			}
@@ -778,14 +779,14 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			if (affectedsockets > 0) {
 				affectedsockets = 0;
 				for (int i = 0; i < count; i++) {
-					if (pdp[sds[i].id - 1] != NULL) {
-						fd = pdp[sds[i].id - 1]->id;
-					}
-					else {
+					if (ptp[sds[i].id - 1] != NULL) {
 						fd = ptp[sds[i].id - 1]->id;
 					}
+					else {
+						fd = pdp[sds[i].id - 1]->id;
+					}
 					if (FD_ISSET(fd, &readfds)) sds[i].revents |= ADHOC_EV_RECV;
-					if (FD_ISSET(fd, &writefds)) sds[i].revents |= ADHOC_EV_SEND;
+					if (FD_ISSET(fd, &writefds)) sds[i].revents |= ADHOC_EV_SEND; // Data can always be sent ?
 					sds[i].revents &= sds[i].events;
 					if (FD_ISSET(fd, &exceptfds)) sds[i].revents |= ADHOC_EV_ALERT; // can be raised on revents regardless of events bitmask?
 					if (sds[i].revents) affectedsockets++;
@@ -805,7 +806,9 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			}
 
 			// No Events generated
-			return 0;
+			if (affectedsockets >= 0) return 0;
+
+			return ERROR_NET_ADHOC_WOULD_BLOCK; // Bleach 7 seems to use nonblocking and check the return value against 0 and 0x80410709 (also 0x80410717 ?)
 		}
 
 		// Invalid Argument
@@ -2010,6 +2013,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Set Connected State
 						socket->state = ADHOC_PTP_STATE_ESTABLISHED;
 						
+						INFO_LOG(SCENET, "sceNetAdhocPtpConnect[%i:%u]: Already Connected", id, socket->lport);
 						// Success
 						return 0;
 					}
@@ -2874,6 +2878,9 @@ int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int 
 									// Tell Children about new Sibling
 									sendBirthMessage(context, peer);
 
+									// Spawn Established Event
+									//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, target, 0, NULL);
+
 									// Send Accept Confirmation to Peer
 									sendAcceptMessage(context, peer, optLen, opt);
 
@@ -2933,6 +2940,8 @@ int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int 
 									// Accept Peer in Group
 									peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
 
+									// Tell Children about new Sibling
+									//sendBirthMessage(context, peer);
 									// Send Accept Confirmation to Peer
 									sendAcceptMessage(context, peer, optLen, opt);
 
