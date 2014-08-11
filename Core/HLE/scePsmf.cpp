@@ -1464,7 +1464,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		return ERROR_PSMFPLAYER_INVALID_STATUS;
 	}
 	auto videoData = PSPPointer<PsmfVideoData>::Create(videoDataAddr);
-	if (!videoData.IsValid() || !Memory::IsValidAddress(videoData->displaybuf)) {
+	if (!videoData.IsValid()) {
 		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): invalid data pointer", psmfPlayer, videoDataAddr);
 		// Technically just crashes if videoData is not valid.
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
@@ -1495,6 +1495,12 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 	// In case we change warm up later, save a high value in savestates - video started.
 	psmfplayer->warmUp = 10000;
+
+	// It's fine to pass an invalid value here if it's still warming up, but after that it's not okay.
+	if (!Memory::IsValidAddress(videoData->displaybuf)) {
+		ERROR_LOG(ME, "scePsmfPlayerGetVideoData(%08x, %08x): invalid buffer pointer %08x", psmfPlayer, videoDataAddr, videoData->displaybuf);
+		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 
 	bool doVideoStep = true;
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
