@@ -1415,7 +1415,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 	DEBUG_LOG(ME, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
 	bool videoPtsEnd = (s64)psmfplayer->psmfPlayerAvcAu.pts >= (s64)psmfplayer->totalDurationTimestamp - VIDEO_FRAME_DURATION_TS;
 	if (videoPtsEnd || (psmfplayer->mediaengine->IsVideoEnd() && psmfplayer->mediaengine->IsNoAudioData())) {
-		if (videoLoopStatus == PSMF_PLAYER_CONFIG_NO_LOOP && psmfplayer->videoStep >= 1) {
+		if (videoLoopStatus == PSMF_PLAYER_CONFIG_LOOP && psmfplayer->videoStep >= 1) {
 			if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING_FINISHED) {
 				psmfplayer->ScheduleFinish(psmfPlayer);
 				INFO_LOG(ME, "scePsmfPlayerUpdate(%08x): video end scheduled", psmfPlayer);
