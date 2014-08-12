@@ -73,6 +73,7 @@ set(SRCS
   HLE/sceSas.cpp
   HLE/sceUmd.cpp
   HLE/sceUsb.cpp
+  HLE/sceUsbGps.cpp
   HLE/sceUtility.cpp
   HLE/sceParseUri.cpp
   HLE/sceSsl.cpp
