@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceUsbGps.h"
 
 enum UsbStatus {
@@ -24,6 +25,11 @@ enum UsbStatus {
 	GPS_STATE_ACTIVATING2 = 2,
 	GPS_STATE_ON = 3,
 };
+
+int sceUsbGpsOpen() {
+	ERROR_LOG(HLE, "sceUsbGpsOpen");
+	return 0;
+}
 
 const HLEFunction sceUsbGps[] =
 {
@@ -36,7 +42,7 @@ const HLEFunction sceUsbGps[] =
 	{0x7C16AC3A, 0, "sceUsbGpsGetState"},
 	{0x934EC2B2, 0, "sceUsbGpsGetData"},
 	{0x9D8F99E8, 0, "sceUsbGpsSetPowerSaveMode"},
-	{0x9F267D34, 0, "sceUsbGpsOpen"},
+	{0x9F267D34, WrapI_V<sceUsbGpsOpen>, "sceUsbGpsOpen" },
 	{0xA259CD67, 0, "sceUsbGpsReset"},
 };
 
