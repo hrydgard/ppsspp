@@ -80,7 +80,7 @@ script:
       ./b.sh --release --no-package;
     fi
   - if [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
-      ./b.sh --release --no-package;
+      ./b.sh --debug --no-package;
     fi
 
 after_success:
