@@ -142,6 +142,7 @@ struct DisplayList
 	PSPPointer<u32_le> context;
 	u32 offsetAddr;
 	bool bboxResult;
+	u32_le stackAddr;
 };
 
 enum GPUInvalidationType {

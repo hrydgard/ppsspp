@@ -210,6 +210,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
+	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;
 	// Check compatibility
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
@@ -220,6 +221,10 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
 				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
 					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+					return 0x80000021;
+				}
+				else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
+					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
 					return 0x80000021;
 				}
 			}
@@ -266,6 +271,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.started = false;
 	dl.offsetAddr = 0;
 	dl.bboxResult = false;
+	dl.stackAddr = stackAddr;
 
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
