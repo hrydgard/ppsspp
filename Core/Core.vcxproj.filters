@@ -529,6 +529,9 @@
     <ClCompile Include="HLE\HLEHelperThread.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceUsbGps.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -977,6 +980,9 @@
     </ClInclude>
     <ClInclude Include="HLE\HLEHelperThread.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceUsbGps.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
