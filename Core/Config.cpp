@@ -541,9 +541,8 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f),
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale),
-#if !defined(MOBILE_DEVICE)
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.5f),
-#endif
+
 	ConfigSetting(false),
 };
 
