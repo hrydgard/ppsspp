@@ -329,6 +329,6 @@ void RegisterAllModules() {
 	Register_sceDisplay_driver();
 	Register_sceMpegbase();
 	Register_sceUsbGps();
-
+	Register_sceLibFttt();
 }
 

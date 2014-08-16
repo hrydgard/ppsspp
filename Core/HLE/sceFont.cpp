@@ -1395,3 +1395,6 @@ void Register_sceFont() {
 	RegisterModule("sceLibFont", ARRAY_SIZE(sceLibFont), sceLibFont);
 }
 
+void Register_sceLibFttt() {
+	RegisterModule("sceLibFttt", ARRAY_SIZE(sceLibFont), sceLibFont);
+}
