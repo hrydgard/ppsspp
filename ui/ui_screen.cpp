@@ -300,7 +300,7 @@ PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, con
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), screenManager_(screenManager) {
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
