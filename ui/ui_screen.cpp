@@ -304,6 +304,11 @@ PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, flo
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, LayoutParams *layoutParams)
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager) {
+	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
+}
+
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_, step_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
@@ -330,7 +335,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_, step_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -381,8 +386,25 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
-	slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
+	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 5))));
+	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(1.0f));
+	lin->Add(slider_);
+	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	UI::SetFocusedView(slider_);
+}
+
+EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
+	sliderValue_ -= step_;
+	slider_->Clamp();
+	return EVENT_DONE;
+}
+
+EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
+	sliderValue_ += step_;
+	slider_->Clamp();
+	return EVENT_DONE;
 }
 
 void SliderPopupScreen::OnCompleted(DialogResult result) {
