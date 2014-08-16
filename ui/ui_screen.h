@@ -147,19 +147,22 @@ private:
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) 
-	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f) 
+	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	Event OnChange;
 
 private:
+	EventReturn OnIncrease(EventParams &params);
+	EventReturn OnDecrease(EventParams &params);
 	virtual void OnCompleted(DialogResult result) override;
 	UI::SliderFloat *slider_;
 	float sliderValue_;
 	float *value_;
 	float minValue_;
 	float maxValue_;
+	float step_;
 };
 
 class TextEditPopupScreen : public PopupScreen {
@@ -237,6 +240,7 @@ private:
 class PopupSliderChoiceFloat : public Choice {
 public:
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	virtual void Draw(UIContext &dc) override;
 
@@ -248,6 +252,7 @@ private:
 	float *value_;
 	float minValue_;
 	float maxValue_;
+	float step_;
 	ScreenManager *screenManager_;
 };
 
