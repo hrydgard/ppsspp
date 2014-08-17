@@ -69,6 +69,7 @@ public:
 		glstate.blend.set(enabled);
 		glstate.blendEquationSeparate.set(eqCol, eqAlpha);
 		glstate.blendFuncSeparate.set(srcCol, dstCol, srcAlpha, dstAlpha);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		// glstate.blendColor.set(fixedColor);
 
 #if !defined(USING_GLES2)
@@ -240,6 +241,12 @@ public:
 		s->Apply();
 	}
 
+	// Bound state objects
+	void SetDepthStencilState(Thin3DDepthStencilState *state) override {
+		Thin3DGLDepthStencilState *s = static_cast<Thin3DGLDepthStencilState *>(state);
+		s->Apply();
+	}
+
 	// The implementation makes the choice of which shader code to use.
 	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source);
 	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source);
@@ -263,6 +270,8 @@ public:
 	}
 
 	void SetTextures(int start, int count, Thin3DTexture **textures) override;
+
+	void SetRenderState(T3DRenderState rs, uint32_t value) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
@@ -515,6 +524,18 @@ void Thin3DGLShaderSet::Apply() {
 
 void Thin3DGLShaderSet::Unapply() {
 	glUseProgram(0);
+}
+
+void Thin3DGLContext::SetRenderState(T3DRenderState rs, uint32_t value) {
+	switch (rs) {
+	case T3DRenderState::CULL_MODE:
+		switch (value) {
+		case T3DCullMode::NO_CULL: glstate.cullFace.disable(); break;
+		case T3DCullMode::CCW: glstate.cullFace.enable(); glstate.cullFaceMode.set(GL_CCW); break;
+		case T3DCullMode::CW: glstate.cullFace.enable(); glstate.cullFaceMode.set(GL_CW); break;
+		}
+		break;
+	}
 }
 
 void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {

@@ -5,7 +5,6 @@
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/gl_state.h"
 
 UIContext::UIContext()
 	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
@@ -39,24 +38,16 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 
 void UIContext::Begin() {
 	thin3d_->SetBlendState(blend_);
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
+	thin3d_->SetDepthStencilState(depth_);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d_->SetTexture(0, uitexture_);
 
 	UIBegin(uishader_);
 }
 
 void UIContext::BeginNoTex() {
-	glstate.blend.enable();
-	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.dither.enable();
-#if !defined(USING_GLES2)
-	glstate.colorLogicOp.disable();
-#endif
-// 	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->SetBlendState(blend_);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 
 	UIBegin(uishadernotex_);
 }
@@ -113,10 +104,10 @@ void UIContext::ActivateTopScissor() {
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
 
-		glstate.scissorRect.set(x, y, w, h);
-		glstate.scissorTest.enable();
+		thin3d_->SetScissorRect(x, y, w, h);
+		thin3d_->SetScissorEnabled(true);
 	} else {
-		glstate.scissorTest.disable();
+		thin3d_->SetScissorEnabled(false);
 	}
 }
 

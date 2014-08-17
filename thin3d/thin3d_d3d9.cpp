@@ -264,7 +264,14 @@ public:
 	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	void SetBlendState(Thin3DBlendState *state);
+	void SetBlendState(Thin3DBlendState *state) {
+		Thin3DDX9BlendState *bs = static_cast<Thin3DDX9BlendState *>(state);
+		bs->Apply(device_);
+	}
+	void SetDepthStencilState(Thin3DDepthStencilState *state) {
+		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
+		bs->Apply(device_);
+	}
 
 	void SetTextures(int start, int count, Thin3DTexture **textures);
 
@@ -272,6 +279,7 @@ public:
 	void SetScissorEnabled(bool enable);
 	void SetScissorRect(int left, int top, int width, int height);
 	void SetViewports(int count, T3DViewport *viewports);
+	void SetRenderState(T3DRenderState rs, uint32_t value) override;
 
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
@@ -408,10 +416,6 @@ Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(const std::vector<Thin3DVertexCompo
 	stride_ = stride;
 }
 
-void Thin3DDX9Context::SetBlendState(Thin3DBlendState *state) {
-	Thin3DDX9BlendState *bs = static_cast<Thin3DDX9BlendState *>(state);
-}
-
 Thin3DBuffer *Thin3DDX9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DDX9Buffer(device_, size, usageFlags);
 }
@@ -419,6 +423,18 @@ Thin3DBuffer *Thin3DDX9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 void Thin3DDX9ShaderSet::Apply(LPDIRECT3DDEVICE9 device) {
 	vshader->Apply(device);
 	pshader->Apply(device);
+}
+
+void Thin3DDX9Context::SetRenderState(T3DRenderState rs, uint32_t value) {
+	switch (rs) {
+	case T3DRenderState::CULL_MODE:
+		switch (value) {
+		case T3DCullMode::CCW: device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		case T3DCullMode::CW: device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+		case T3DCullMode::NO_CULL: device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		}
+		break;
+	}
 }
 
 void Thin3DDX9Context::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {

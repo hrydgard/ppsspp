@@ -104,9 +104,9 @@ enum T3DBlendStatePreset : int {
 };
 
 enum T3DClear : int {
-	COLOR,
-	DEPTH,
-	STENCIL,
+	COLOR = 1,
+	DEPTH = 2,
+	STENCIL = 4,
 };
 
 // Binary compatible with D3D11 viewport.
@@ -210,6 +210,16 @@ enum T3DImageFormat : uint8_t {
 	D24X8,
 };
 
+enum T3DRenderState : uint8_t {
+	CULL_MODE,
+};
+
+enum T3DCullMode : uint8_t {
+	NO_CULL,
+	CW,
+	CCW,
+};
+
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
@@ -236,6 +246,7 @@ public:
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
+	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
 	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
 
 	void SetTexture(int stage, Thin3DTexture *texture) {
@@ -246,6 +257,9 @@ public:
 	virtual void SetScissorEnabled(bool enable) = 0;
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, T3DViewport *viewports) = 0;
+
+	// Single render states that aren't worth state blocks. May have to convert some of these state blocks on D3D11 though...
+	virtual void SetRenderState(T3DRenderState rs, uint32_t value) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
 	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
