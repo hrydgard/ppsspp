@@ -1009,7 +1009,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	gstate.FastLoadBoneMatrix(target);
 }
 
-struct DisplayListOld {
+struct DisplayList_v1 {
 	int id;
 	u32 startpc;
 	u32 pc;
@@ -1030,20 +1030,49 @@ struct DisplayListOld {
 	bool bboxResult;
 };
 
+struct DisplayList_v2 {
+	int id;
+	u32 startpc;
+	u32 pc;
+	u32 stall;
+	DisplayListState state;
+	SignalBehavior signal;
+	int subIntrBase;
+	u16 subIntrToken;
+	DisplayListStackEntry stack[32];
+	int stackptr;
+	bool interrupted;
+	u64 waitTicks;
+	bool interruptsEnabled;
+	bool pendingInterrupt;
+	bool started;
+	PSPPointer<u32_le> context;
+	u32 offsetAddr;
+	bool bboxResult;
+};
+
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
-	auto s = p.Section("GPUCommon", 1, 2);
+	auto s = p.Section("GPUCommon", 1, 3);
 	if (!s)
 		return;
 
 	p.Do<int>(dlQueue);
-	if (s >= 2) {
+	if (s >= 3) {
 		p.DoArray(dls, ARRAY_SIZE(dls));
+	} else if (s >= 2) {
+		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+			DisplayList_v2 oldDL;
+			p.Do(oldDL);
+			// Copy over everything except the last, new member (stackAddr.)
+			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v2));
+			dls[i].stackAddr = 0;
+		}
 	} else {
 		// Can only be in read mode here.
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
-			DisplayListOld oldDL;
+			DisplayList_v1 oldDL;
 			p.Do(oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList));
@@ -1051,6 +1080,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].context = 0;
 			dls[i].offsetAddr = oldDL.offsetAddr;
 			dls[i].bboxResult = oldDL.bboxResult;
+			dls[i].stackAddr = 0;
 		}
 	}
 	int currentID = 0;
