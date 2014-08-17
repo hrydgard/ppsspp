@@ -252,7 +252,7 @@ void UnloadD3DXDynamic() {
 #define GB_D3D9_D3DXDLL_LOADER_CHECK_ENTRY_NULL_PTR(funcname)  assert(false && GB_MAKE_STR2(funcname) ); 
 
 
-BOOL D3DXCheckVersion(UINT D3DSDKVersion, UINT D3DXSDKVersion) {
+BOOL dyn_D3DXCheckVersion(UINT D3DSDKVersion, UINT D3DXSDKVersion) {
 	if (!m_TFunc_D3DXCheckVersion) {
 		GB_D3D9_D3DXDLL_LOADER_CHECK_ENTRY_NULL_PTR(D3DXCheckVersion)
 	}
@@ -260,7 +260,7 @@ BOOL D3DXCheckVersion(UINT D3DSDKVersion, UINT D3DXSDKVersion) {
 	return m_TFunc_D3DXCheckVersion(D3DSDKVersion, D3DXSDKVersion);
 }
 
-HRESULT D3DXAssembleShader(LPCSTR pSrcData, UINT SrcDataLen, CONST D3DXMACRO* pDefines,
+HRESULT dyn_D3DXAssembleShader(LPCSTR pSrcData, UINT SrcDataLen, CONST D3DXMACRO* pDefines,
 	LPD3DXINCLUDE pInclude, DWORD Flags, LPD3DXBUFFER* ppShader, LPD3DXBUFFER * ppErrorMsgs)
 {
 	if (!m_TFunc_D3DXAssembleShader) {	
@@ -270,7 +270,7 @@ HRESULT D3DXAssembleShader(LPCSTR pSrcData, UINT SrcDataLen, CONST D3DXMACRO* pD
 		pInclude, Flags, ppShader, ppErrorMsgs);
 }
 
-HRESULT D3DXCompileShader(LPCSTR pSrcData, UINT srcDataLen, CONST D3DXMACRO* pDefines,
+HRESULT dyn_D3DXCompileShader(LPCSTR pSrcData, UINT srcDataLen, CONST D3DXMACRO* pDefines,
 	LPD3DXINCLUDE pInclude, LPCSTR pFunctionName, LPCSTR pProfile,
 	DWORD Flags, LPD3DXBUFFER* ppShader, LPD3DXBUFFER* ppErrorMsgs,
 	LPD3DXCONSTANTTABLE * ppConstantTable)

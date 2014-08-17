@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <vector>
 #include <stddef.h>
 
 #include "base/display.h"
@@ -40,7 +41,11 @@ void DrawBuffer::Init(Thin3DContext *t3d, bool registerAsHolder) {
 	vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
 	inited_ = true;
 
-	vformat_ = t3d_->CreateVertexFormat(FVF_POS_UV_COLOR);
+	std::vector<Thin3DVertexComponent> components;
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
+	vformat_ = t3d_->CreateVertexFormat(components, 24);
 
 	if (registerAsHolder) {
 		register_gl_resource_holder(this);

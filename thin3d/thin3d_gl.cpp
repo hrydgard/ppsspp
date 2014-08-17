@@ -177,28 +177,6 @@ bool Thin3DGLShader::Compile(const char *source) {
 	return ok_;
 }
 
-enum T3DVertexDataType : uint8_t {
-	INVALID,
-	FLOATx2,
-	FLOATx3,
-	FLOATx4,
-	UNORM8x4,
-};
-
-struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(T3DVertexDataType::INVALID), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DVertexDataType dataType, uint8_t offset) {
-		this->name = name;
-		this->semantic = semantic;
-		this->type = dataType;
-		this->offset = offset;
-	}
-	const char *name;
-	T3DVertexDataType type;
-	uint8_t semantic;
-	uint8_t offset;
-};
-
 class Thin3DGLVertexFormat : public Thin3DVertexFormat {
 public:
 	void Apply();
@@ -253,7 +231,7 @@ public:
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(T3DVertexFormatPreset preset) override;
+	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
 
 	// Bound state objects
 	void SetBlendState(Thin3DBlendState *state) override {
@@ -296,16 +274,10 @@ Thin3DGLContext::Thin3DGLContext() {
 Thin3DGLContext::~Thin3DGLContext() {
 }
 
-Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(T3DVertexFormatPreset preset) {
+Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) {
 	Thin3DGLVertexFormat *fmt = new Thin3DGLVertexFormat();
-	switch (preset) {
-	case FVF_POS_UV_COLOR:
-		fmt->components_.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
-		fmt->components_.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
-		fmt->components_.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
-		fmt->stride_ = 24;
-		break;
-	}
+	fmt->components_ = components;
+	fmt->stride_ = stride;
 	fmt->Compile();
 	return fmt;
 }

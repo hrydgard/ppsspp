@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <vector>
 
 class Matrix4x4;
 
@@ -50,14 +51,19 @@ enum T3DBufferUsage : int {
 	DYNAMIC = 16,
 };
 
-enum T3DVertexFormatPreset : int {
-	FVF_POS_UV_COLOR
+enum T3DVertexDataType : uint8_t {
+	INVALID,
+	FLOATx2,
+	FLOATx3,
+	FLOATx4,
+	UNORM8x4,
 };
 
 enum T3DSemantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
 	SEM_TEXCOORD0,
+	SEM_TEXCOORD1,
 	SEM_NORMAL,
 	SEM_TANGENT,
 	SEM_BINORMAL,  // really BITANGENT
@@ -144,6 +150,20 @@ public:
 	virtual void SetRectangle(int x, int y, int w, int h, const uint8_t *data, int level = 0, int layer = 0);
 };
 
+struct Thin3DVertexComponent {
+	Thin3DVertexComponent() : name(nullptr), type(T3DVertexDataType::INVALID), semantic(255), offset(255) {}
+	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DVertexDataType dataType, uint8_t offset) {
+		this->name = name;
+		this->semantic = semantic;
+		this->type = dataType;
+		this->offset = offset;
+	}
+	const char *name;
+	T3DVertexDataType type;
+	uint8_t semantic;
+	uint8_t offset;
+};
+
 class Thin3DVertexFormat : public Thin3DObject {
 public:
 };
@@ -177,7 +197,7 @@ public:
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
-	virtual Thin3DVertexFormat *CreateVertexFormat(T3DVertexFormatPreset preset) = 0;
+	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) = 0;
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
@@ -216,5 +236,6 @@ private:
 Thin3DContext *T3DCreateGLContext();
 
 #ifdef _WIN32
-Thin3DContext *T3DCreateDX9Context();
+struct IDirect3DDevice9;
+Thin3DContext *T3DCreateDX9Context(IDirect3DDevice9 *device);
 #endif
