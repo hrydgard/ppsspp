@@ -67,6 +67,9 @@
     <ClCompile Include="DSoundStream.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
+    <ClCompile Include="D3D9Base.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
     <ClCompile Include="OpenGLBase.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -185,6 +188,9 @@
       <Filter>Windows\UI</Filter>
     </ClInclude>
     <ClInclude Include="DSoundStream.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D9Base.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="OpenGLBase.h">

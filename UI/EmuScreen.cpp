@@ -707,7 +707,14 @@ void EmuScreen::render() {
 	screenManager()->getUIContext()->RebindTexture();
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
 	glstate.viewport.restore();
 
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));

@@ -38,6 +38,7 @@
 #include "ext/jpge/jpge.h"
 #include "Windows/DSoundStream.h"
 #include "Windows/WndMainWindow.h"
+#include "Windows/D3D9Base.h"
 #endif
 
 #include "base/display.h"
@@ -48,7 +49,7 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gl_state.h"  // only for screenshot!
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/gl_lost_manager.h"
@@ -112,7 +113,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Texture *uiTexture;
+Thin3DTexture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -464,9 +465,12 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
-	thin3d = T3DCreateGLContext();
-
-	CheckGLExtensions();
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		thin3d = T3DCreateGLContext();
+		CheckGLExtensions();
+	} else {
+		thin3d = D3D9_CreateThin3DContext();
+	}
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -488,18 +492,6 @@ void NativeInitGraphics() {
 	ui_theme.whiteImage = I_SOLIDWHITE;
 	ui_theme.sliderKnob = I_CIRCLE;
 	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
-
-	/*
-	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
-	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonStyle.image = I_BUTTON;
-	ui_theme.buttonFocusedStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFFe0e0e0);
-	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonDownStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON_SELECTED, 0xFFFFFFFF);
-	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
-	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
-	*/
 
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
@@ -531,16 +523,16 @@ void NativeInitGraphics() {
 	ui_draw2d.Init(thin3d);
 	ui_draw2d_front.Init(thin3d);
 
-	uiTexture = new Texture();
 #ifdef USING_QT_UI
-	if (!uiTexture->Load("ui_atlas_lowmem.zim")) {
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim");
+	if (!uiTexture) {
 #else
-	if (!uiTexture->Load("ui_atlas.zim")) {
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim");
+	if (!uiTexture) {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 	}
-	uiTexture->Bind(0);
 
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
@@ -571,8 +563,7 @@ void NativeShutdownGraphics() {
 
 	g_gameInfoCache.Clear();
 
-	delete uiTexture;
-	uiTexture = NULL;
+	uiTexture->Release();
 
 	delete uiContext;
 	uiContext = NULL;
@@ -584,7 +575,13 @@ void NativeShutdownGraphics() {
 }
 
 void TakeScreenshot() {
+	if (g_Config.iGPUBackend != GPU_BACKEND_OPENGL) {
+		// Not yet supported
+		return;
+	}
+
 	g_TakeScreenshot = false;
+
 #if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
 
@@ -675,15 +672,23 @@ void DrawDownloadsOverlay(UIContext &dc) {
 void NativeRender() {
 	g_GameManager.Update();
 
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
 
-	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.Restore();
+	}
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
-	glstate.Restore();
+	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
 	float yres = dp_yres;
@@ -694,7 +699,6 @@ void NativeRender() {
 
 	ui_draw2d.SetDrawMatrix(ortho);
 	ui_draw2d_front.SetDrawMatrix(ortho);
-
 
 	// glsl_bind(UIShader_Get());
 

@@ -42,6 +42,7 @@
 #include "WindowsHost.h"
 #include "WndMainWindow.h"
 #include "OpenGLBase.h"
+#include "D3D9Base.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -88,14 +89,26 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 	SetConsolePosition();
 }
 
-bool WindowsHost::InitGL(std::string *error_message)
-{
-	return GL_Init(displayWindow_, error_message);
+bool WindowsHost::InitGL(std::string *error_message) {
+	switch (g_Config.iGPUBackend) {
+	case GPU_BACKEND_OPENGL:
+		return GL_Init(displayWindow_, error_message);
+	case GPU_BACKEND_DIRECT3D9:
+		return D3D9_Init(displayWindow_, true, error_message);
+	default:
+		return false;
+	}
 }
 
-void WindowsHost::ShutdownGL()
-{
-	GL_Shutdown();
+void WindowsHost::ShutdownGL() {
+	switch (g_Config.iGPUBackend) {
+	case GPU_BACKEND_OPENGL:
+		GL_Shutdown();
+		break;
+	case GPU_BACKEND_DIRECT3D9:
+		D3D9_Shutdown();
+		break;
+	}
 	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 

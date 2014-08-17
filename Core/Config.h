@@ -39,6 +39,12 @@ enum {
 	ROTATION_LOCKED_VERTICAL180 = 4,
 };
 
+// Software is not among these because it will have one of these perform the blit to display.
+enum {
+	GPU_BACKEND_OPENGL = 0,
+	GPU_BACKEND_DIRECT3D9 = 1,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -100,8 +106,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
-
 	// GFX
+	int iGPUBackend;
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games

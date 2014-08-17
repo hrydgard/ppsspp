@@ -384,6 +384,7 @@ static int DefaultAndroidHwScale() {
 }
 
 static ConfigSetting graphicsSettings[] = {
+	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
 	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
@@ -815,6 +816,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
+
+	iGPUBackend = 0;
 }
 
 void Config::Save() {

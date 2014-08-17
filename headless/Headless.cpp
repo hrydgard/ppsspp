@@ -66,7 +66,8 @@ public:
 };
 
 struct InputState;
-// Temporary hack around annoying linking error.
+// Temporary hacks around annoying linking errors.
+void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }

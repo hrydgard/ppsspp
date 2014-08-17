@@ -1,10 +1,6 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
-#include "util/text/utf8.h"
 #include "Common/CommonWindows.h"
 #include "native/gfx_es2/gl_state.h"
 #include "native/gfx/gl_common.h"
-#include "util/text/utf8.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "util/text/utf8.h"
