@@ -1557,10 +1557,6 @@ namespace MainWindow
 					ShellExecute(NULL, L"open", L"http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
-				case ID_HELP_CHINESE_FORUM:
-					ShellExecute(NULL, L"open", L"http://tieba.baidu.com/f?ie=utf-8&kw=ppsspp", NULL, NULL, SW_SHOWNORMAL);
-					break;
-
 				case ID_HELP_ABOUT:
 					DialogManager::EnableAll(FALSE);
 					DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
