@@ -248,6 +248,7 @@ public:
 
 	bool bHapticFeedback;
 
+	float fAnalogLimiterDeadzone;
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
 	// proper options when good enough.
 	// PrescaleUV:

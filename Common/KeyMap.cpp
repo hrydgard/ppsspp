@@ -630,9 +630,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_X_MIN, "An.Left"},
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
-#ifndef MOBILE_DEVICE
-	{ VIRTKEY_ANALOG_LIGHTLY, "Analog limiter" },
-#endif
+	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},

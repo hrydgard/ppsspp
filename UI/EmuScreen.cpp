@@ -372,7 +372,7 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 }
 
 inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? 0.5f : 1.0f;
+	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 	float axis = 0.0f;
 	// The down events can repeat, so just trust the virtKeys array.
 	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
@@ -383,7 +383,7 @@ inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualK
 }
 
 inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax) {
-	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? 0.5f : 1.0f;
+	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 	float axis = 0.0f;
 	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
 		axis -= value;
