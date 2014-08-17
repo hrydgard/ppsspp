@@ -229,10 +229,18 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
+#ifdef USE_BONE_ARRAY
+	if (u_bone != -1) {
+		for (int i = 0; i < numBones; i++) {
+			availableUniforms |= DIRTY_BONEMATRIX0 << i;
+		}
+	}
+#else
 	for (int i = 0; i < numBones; i++) {
 		if (u_bone[i] != -1)
 			availableUniforms |= DIRTY_BONEMATRIX0 << i;
 	}
+#endif
 	if (u_ambient != -1) availableUniforms |= DIRTY_AMBIENT;
 	if (u_matambientalpha != -1) availableUniforms |= DIRTY_MATAMBIENTALPHA;
 	if (u_matdiffuse != -1) availableUniforms |= DIRTY_MATDIFFUSE;
