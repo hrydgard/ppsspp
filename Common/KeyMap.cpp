@@ -747,7 +747,7 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
 
 bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
 	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key, pspKeys);
+	return KeyToPspButton(deviceId, key, pspKeys);	
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {

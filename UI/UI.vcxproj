@@ -38,7 +38,6 @@
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
-    <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -60,7 +59,6 @@
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
-    <ClInclude Include="UIShader.h" />
     <ClInclude Include="ui_atlas.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

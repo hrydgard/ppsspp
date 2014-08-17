@@ -58,6 +58,7 @@
 #include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
+#include "thin3d/thin3d.h"
 #include "ui/ui.h"
 #include "ui/screen.h"
 #include "ui/ui_context.h"
@@ -80,7 +81,6 @@
 #include "ui_atlas.h"
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
-#include "UIShader.h"
 #include "HostTypes.h"
 
 #include "UI/OnScreenDisplay.h"
@@ -132,6 +132,7 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
+static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
 std::thread *graphicsLoadThread;
@@ -463,11 +464,12 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
+	thin3d = T3DCreateGLContext();
+
 	CheckGLExtensions();
+
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
-
-	UIShader_Init();
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
@@ -526,8 +528,8 @@ void NativeInitGraphics() {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	ui_draw2d.Init();
-	ui_draw2d_front.Init();
+	ui_draw2d.Init(thin3d);
+	ui_draw2d_front.Init(thin3d);
 
 	uiTexture = new Texture();
 #ifdef USING_QT_UI
@@ -542,11 +544,13 @@ void NativeInitGraphics() {
 
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
-	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
+
+	uiContext->Init(thin3d, thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), thin3d->GetShaderSetPreset(SS_COLOR_2D), uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
 	screenManager->setUIContext(uiContext);
+	screenManager->setThin3DContext(thin3d);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -576,7 +580,7 @@ void NativeShutdownGraphics() {
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
 
-	UIShader_Shutdown();
+	thin3d->Release();
 }
 
 void TakeScreenshot() {
@@ -688,8 +692,11 @@ void NativeRender() {
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 
-	glsl_bind(UIShader_Get());
-	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
+	ui_draw2d.SetDrawMatrix(ortho);
+	ui_draw2d_front.SetDrawMatrix(ortho);
+
+
+	// glsl_bind(UIShader_Get());
 
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {

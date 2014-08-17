@@ -30,7 +30,6 @@
 #include "Core/Config.h"
 #include "UI/ui_atlas.h"
 #include "UI/ControlMappingScreen.h"
-#include "UI/UIShader.h"
 #include "UI/GameSettingsScreen.h"
 
 class ControlMapper : public UI::LinearLayout {

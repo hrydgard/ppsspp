@@ -50,7 +50,6 @@
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
-#include "UI/UIShader.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
@@ -705,14 +704,14 @@ void EmuScreen::render() {
 	if (useBufferedRendering)
 		fbo_unbind();
 
-	UIShader_Prepare();
-
-	uiTexture->Bind(0);
+	screenManager()->getUIContext()->RebindTexture();
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.viewport.restore();
 
-	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
+	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
@@ -757,7 +756,6 @@ void EmuScreen::render() {
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
-	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
 	ui_draw2d.Flush();
 

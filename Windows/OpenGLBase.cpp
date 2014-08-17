@@ -19,7 +19,7 @@ static HWND hWnd;   // Holds Our Window Handle
 static int xres, yres;
 
 // TODO: Make config?
-static bool enableGLDebug = false;
+static bool enableGLDebug = true;
 
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
@@ -71,6 +71,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	FILE *outFile = (FILE*)userParam;
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
+	OutputDebugStringA(finalMessage);
 	ERROR_LOG(G3D, "GL: %s", finalMessage);
 }
 
