@@ -102,18 +102,18 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {
 		bool hasPic = false;
 		double loadTime;
 		if (ginfo->pic1Texture) {
-			ginfo->pic1Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
 			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
-			ginfo->pic0Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
 			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}

@@ -6,10 +6,7 @@
 
 namespace DX9 {
 
-// OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
-// as GL state changes can be expensive on some hardware.
-class DirectxState
-{
+class DirectxState {
 private:
 	template<D3DRENDERSTATETYPE cap, bool init>
 	class BoolState {

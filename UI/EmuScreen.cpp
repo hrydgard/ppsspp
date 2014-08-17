@@ -86,6 +86,9 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		coreParam.gpuCore = GPU_DIRECTX9;
+	}
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
@@ -135,11 +138,13 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
-	const char *renderer = (const char*)glGetString(GL_RENDERER);
-	if (strstr(renderer, "Chainfire3D") != 0) {
-		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
-	} else if (strstr(renderer, "GLTools") != 0) {
-		osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		const char *renderer = (const char*)glGetString(GL_RENDERER);
+		if (strstr(renderer, "Chainfire3D") != 0) {
+			osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		} else if (strstr(renderer, "GLTools") != 0) {
+			osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		}
 	}
 
 	System_SendMessage("event", "startgame");
@@ -701,7 +706,7 @@ void EmuScreen::render() {
 		return;
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering)
+	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
 	screenManager()->getUIContext()->RebindTexture();

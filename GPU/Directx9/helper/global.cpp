@@ -1,5 +1,6 @@
 #include "global.h"
 #include "fbo.h"
+#include "thin3d/d3dx9_loader.h"
 
 namespace DX9 {
 
@@ -91,6 +92,19 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 		&pShaderCode, 
 		&pErrorMsg,
 		pShaderTable );
+#else
+	// Compile pixel shader.
+	hr = dyn_D3DXCompileShader(code,
+		(UINT)strlen(code),
+		NULL,
+		NULL,
+		"main",
+		"ps_3_0",
+		0,
+		&pShaderCode,
+		&pErrorMsg,
+		pShaderTable);
+
 #endif
 	if( FAILED(hr) )
 	{
@@ -128,6 +142,17 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 		&pShaderCode, 
 		&pErrorMsg,
 		pShaderTable );
+#else
+	hr = dyn_D3DXCompileShader(code,
+		(UINT)strlen(code),
+		NULL,
+		NULL,
+		"main",
+		"vs_3_0",
+		0,
+		&pShaderCode,
+		&pErrorMsg,
+		pShaderTable);
 #endif
 	if( FAILED(hr) )
 	{
@@ -163,6 +188,19 @@ void CompileShaders() {
 		&pShaderCode, 
 		&pErrorMsg,
 		NULL );
+#else
+	// Compile vertex shader.
+	hr = dyn_D3DXCompileShader(vscode,
+		(UINT)strlen(vscode),
+		NULL,
+		NULL,
+		"main",
+		"vs_2_0",
+		0,
+		&pShaderCode,
+		&pErrorMsg,
+		NULL);
+
 #endif 
 
 	if( FAILED(hr) )
@@ -189,6 +227,19 @@ void CompileShaders() {
 		&pShaderCode, 
 		&pErrorMsg,
 		NULL );
+#else
+	// Compile pixel shader.
+	hr = dyn_D3DXCompileShader(pscode,
+		(UINT)strlen(pscode),
+		NULL,
+		NULL,
+		"main",
+		"ps_2_0",
+		0,
+		&pShaderCode,
+		&pErrorMsg,
+		NULL);
+
 #endif
 
 	if( FAILED(hr) )

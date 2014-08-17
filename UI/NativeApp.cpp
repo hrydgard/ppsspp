@@ -527,7 +527,7 @@ void NativeInitGraphics() {
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim");
 	if (!uiTexture) {
 #else
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim");
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DFileType::ZIM);
 	if (!uiTexture) {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
@@ -685,6 +685,8 @@ void NativeRender() {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glstate.Restore();
+	} else {
+		// DirectxState::Restore();
 	}
 
 	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
@@ -695,7 +697,8 @@ void NativeRender() {
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	// ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 
 	ui_draw2d.SetDrawMatrix(ortho);
 	ui_draw2d_front.SetDrawMatrix(ortho);

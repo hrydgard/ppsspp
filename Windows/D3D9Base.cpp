@@ -1,12 +1,16 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
+#include "GPU/Directx9/helper/global.h"
+#include "GPU/Directx9/helper/fbo.h"
+
 #include "base/logging.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
 #include "Windows/D3D9Base.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/d3dx9_loader.h"
 
 static LPDIRECT3D9 d3d;
 static LPDIRECT3DDEVICE9 device;
@@ -61,7 +65,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 		d3ddm.Format,
 		D3DUSAGE_DEPTHSTENCIL,
 		D3DRTYPE_SURFACE,
-		D3DFMT_D16))) {
+		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {
 			d3d->Release();
 			return false;
@@ -84,7 +88,8 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.Windowed = windowed;
 	pp.hDeviceWindow = hWnd;
 	pp.EnableAutoDepthStencil = true;
-	pp.AutoDepthStencilFormat = D3DFMT_D16;
+	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
+	pp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
 
 	hr = d3d->CreateDevice(adapter, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
 	if (FAILED(hr)) {
@@ -94,6 +99,13 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	}
 
 	device->BeginScene();
+	DX9::pD3Ddevice = device;
+
+	LoadD3DX9Dynamic();
+
+	DX9::CompileShaders();
+	DX9::fbo_init();
+
 	return true;
 }
 

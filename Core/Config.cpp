@@ -1062,5 +1062,3 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
-
-
