@@ -5,7 +5,6 @@
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 
 UIContext::UIContext()
@@ -21,7 +20,7 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 }
 
-void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	thin3d_ = thin3d;
 	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
 	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
@@ -40,14 +39,9 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 
 void UIContext::Begin() {
 	thin3d_->SetBlendState(blend_);
-	int error = glGetError();
-
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
-
-	if (uitexture_)
-		uitexture_->Bind(0);
-	error = glGetError();
+	thin3d_->SetTexture(0, uitexture_);
 
 	UIBegin(uishader_);
 }
@@ -62,15 +56,13 @@ void UIContext::BeginNoTex() {
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
-	if (uitexture_)
-		uitexture_->Bind(0);
+// 	thin3d_->SetTexture(0, uitexture_);
 
 	UIBegin(uishadernotex_);
 }
 
 void UIContext::RebindTexture() const {
-	if (uitexture_)
-		uitexture_->Bind(0);
+	thin3d_->SetTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {

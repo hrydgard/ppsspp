@@ -109,12 +109,27 @@ Thin3DContext::~Thin3DContext() {
 	}
 }
 
+static T3DImageFormat ZimToT3DFormat(int zim) {
+	switch (zim) {
+	case ZIM_ETC1: return T3DImageFormat::ETC1;
+	case ZIM_RGBA8888: return T3DImageFormat::RGBA8888;
+	case ZIM_LUMINANCE: return T3DImageFormat::LUMINANCE;
+	default: return T3DImageFormat::RGBA8888;
+	}
+}
+
 Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename) {
 	int width[16], height[16], flags;
 	uint8_t *image[16] = { nullptr };
 
 	int num_levels = LoadZIM(filename, width, height, &flags, image);
-	Thin3DTexture *tex = CreateTexture(LINEAR2D, RGBA8888, width[0], height[0], 1, num_levels);
+	if (num_levels == 0) {
+		return NULL;
+	}
+
+	T3DImageFormat fmt = ZimToT3DFormat(flags & ZIM_FORMAT_MASK);
+
+	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
 		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
 		free(image[i]);

@@ -201,6 +201,7 @@ enum T3DTextureType : uint8_t {
 };
 
 enum T3DImageFormat : uint8_t {
+	LUMINANCE,
 	RGBA8888,
 	DXT1,
 	ETC1,  // Needs simulation on many platforms
@@ -251,6 +252,12 @@ public:
 	virtual void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 
+	// Necessary to correctly flip scissor rectangles etc for OpenGL.
+	void SetTargetSize(int w, int h) {
+		targetWidth_ = w;
+		targetHeight_ = h;
+	}
+
 protected:
 	void CreatePresets();
 
@@ -258,6 +265,9 @@ protected:
 	Thin3DShader *fsPresets_[FS_MAX_PRESET];
 	Thin3DBlendState *bsPresets_[BS_MAX_PRESET];
 	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
+
+	int targetWidth_;
+	int targetHeight_;
 
 private:
 };

@@ -141,29 +141,29 @@ private:
 
 class Thin3DDX9Shader : public Thin3DShader {
 public:
-	Thin3DDX9Shader(bool isPixelShader) : isPixelShader_(isPixelShader), vshader(NULL), pshader(NULL) {}
+	Thin3DDX9Shader(bool isPixelShader) : isPixelShader_(isPixelShader), vshader_(NULL), pshader_(NULL) {}
 	~Thin3DDX9Shader() {
-		if (vshader)
-			vshader->Release();
-		if (pshader)
-			pshader->Release();
-		if (constantTable)
-			constantTable->Release();
+		if (vshader_)
+			vshader_->Release();
+		if (pshader_)
+			pshader_->Release();
+		if (constantTable_)
+			constantTable_->Release();
 	}
 	bool Compile(LPDIRECT3DDEVICE9 device, const char *source, const char *profile);
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		if (isPixelShader_) {
-			device->SetPixelShader(pshader);
+			device->SetPixelShader(pshader_);
 		} else {
-			device->SetVertexShader(vshader);
+			device->SetVertexShader(vshader_);
 		}
 	}
 
 private:
 	bool isPixelShader_;
-	LPDIRECT3DVERTEXSHADER9 vshader;
-	LPDIRECT3DPIXELSHADER9 pshader;
-	LPD3DXCONSTANTTABLE constantTable;
+	LPDIRECT3DVERTEXSHADER9 vshader_;
+	LPDIRECT3DPIXELSHADER9 pshader_;
+	LPD3DXCONSTANTTABLE constantTable_;
 };
 
 class Thin3DDX9ShaderSet : public Thin3DShaderSet {
@@ -222,7 +222,6 @@ void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, 
 	switch (type_) {
 	case LINEAR2D:
 		// tex_->LockRect()
-
 		break;
 
 	default:
@@ -293,10 +292,6 @@ Thin3DDX9Context::Thin3DDX9Context(LPDIRECT3DDEVICE9 device) : device_(device) {
 }
 
 Thin3DDX9Context::~Thin3DDX9Context() {
-	for (int i = 0; i < BS_MAX_PRESET; i++) {
-		bsPresets_[i]->Release();
-	}
-	
 }
 
 Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
@@ -484,7 +479,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 	DWORD flags = 0;
 	LPD3DXBUFFER codeBuffer;
 	LPD3DXBUFFER errorBuffer;
-	HRESULT hr = dyn_D3DXCompileShader(source, strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable);
+	HRESULT hr = dyn_D3DXCompileShader(source, strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
 	if (FAILED(hr)) {
 		const char *error = (const char *)errorBuffer->GetBufferPointer();
 		OutputDebugStringA(source);
@@ -493,17 +488,17 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 
 		if (codeBuffer) 
 			codeBuffer->Release();
-		if (constantTable) 
-			constantTable->Release();
+		if (constantTable_) 
+			constantTable_->Release();
 		return false;
 	}
 
 	bool success = false;
 	if (isPixelShader_) {
-		HRESULT result = device->CreatePixelShader((DWORD *)codeBuffer->GetBufferPointer(), &pshader);
+		HRESULT result = device->CreatePixelShader((DWORD *)codeBuffer->GetBufferPointer(), &pshader_);
 		success = SUCCEEDED(result);
 	} else {
-		HRESULT result = device->CreateVertexShader((DWORD *)codeBuffer->GetBufferPointer(), &vshader);
+		HRESULT result = device->CreateVertexShader((DWORD *)codeBuffer->GetBufferPointer(), &vshader_);
 		success = SUCCEEDED(result);
 	}
 
@@ -512,7 +507,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 }
 
 void Thin3DDX9ShaderSet::SetVector(const char *name, float *value, int n) {
-
+	
 }
 
 void Thin3DDX9ShaderSet::SetMatrix4x4(const char *name, const Matrix4x4 &value) {

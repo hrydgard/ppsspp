@@ -12,6 +12,7 @@
 class Thin3DContext;
 class Thin3DShaderSet;
 class Thin3DDepthStencilState;
+class Thin3DTexture;
 class Thin3DBlendState;
 class Texture;
 class DrawBuffer;
@@ -30,7 +31,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Thin3DContext *thin3d, Thin3DShaderSet *uiShaderTex, Thin3DShaderSet *uiShaderNoTex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Thin3DContext *thin3d, Thin3DShaderSet *uiShaderTex, Thin3DShaderSet *uiShaderNoTex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -82,8 +83,8 @@ private:
 	Thin3DBlendState *blend_;
 	Thin3DShaderSet *uishader_;
 	Thin3DShaderSet *uishadernotex_;
+	Thin3DTexture *uitexture_;
 
-	Texture *uitexture_;
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;
 
