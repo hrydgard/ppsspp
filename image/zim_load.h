@@ -48,4 +48,4 @@ enum {
 // Watch out! If the image has mipmaps, multiple values will be written
 // to width, height, and image, as if they were arrays, up to 12 (max texture size is 4096 which is 2^12).
 int LoadZIM(const char *filename, int *width, int *height, int *flags, uint8_t **image);
-int LoadZIMPtr(char *zim, int datasize, int *width, int *height, int *flags, uint8_t **image);
+int LoadZIMPtr(const uint8_t *zim, int datasize, int *width, int *height, int *flags, uint8_t **image);

@@ -4,6 +4,7 @@
 #include <map>
 
 #include "base/logging.h"
+#include "image/zim_load.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx_es2/gl_state.h"
@@ -317,12 +318,17 @@ public:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) override;
 	void AutoGenMipmaps() override;
 
-	GLuint tex_;
+	void Bind() {
+		glBindTexture(target_, tex_);
+	}
+	void Finalize(int zim_flags);
 
 private:
+	GLuint tex_;
 	GLuint target_;
+
 	T3DImageFormat format_;
-	int width_, height_, depth_, mipLevels_;
+	int mipLevels_;
 };
 
 Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
@@ -336,6 +342,12 @@ void Thin3DGLTexture::AutoGenMipmaps() {
 }
 
 void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) {
+	if (level == 0) {
+		width_ = width;
+		height_ = height;
+		depth_ = depth;
+	}
+
 	int internalFormat;
 	int format;
 	int type;
@@ -356,6 +368,25 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		break;
 	}
 }
+
+bool isPowerOf2(int n) {
+	return n == 1 || (n & (n - 1)) == 0;
+}
+
+void Thin3DGLTexture::Finalize(int zim_flags) {
+	GLenum wrap = GL_REPEAT;
+	if ((zim_flags & ZIM_CLAMP) || !isPowerOf2(width_) || !isPowerOf2(height_))
+		wrap = GL_CLAMP_TO_EDGE;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if ((zim_flags & (ZIM_HAS_MIPS | ZIM_GEN_MIPS))) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+	} else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	}
+}
+
 
 void Thin3DGLVertexFormat::Compile() {
 	int sem = 0;
@@ -408,10 +439,10 @@ Thin3DShaderSet *Thin3DGLContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 }
 
 void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures) {
-	for (int i = start; i < count; i++) {
+	for (int i = start; i < start + count; i++) {
 		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, glTex->tex_);
+		glTex->Bind();
 	}
 	glActiveTexture(GL_TEXTURE0);
 }
@@ -545,7 +576,6 @@ void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DV
 
 	vbuf->Bind();
 	fmt->Apply();
-
 	pipe->Apply();
 
 	glDrawArrays(primToGL[prim], offset, vertexCount);

@@ -149,6 +149,13 @@ class Thin3DTexture : public Thin3DObject {
 public:
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
+	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
+
+	int Width() { return width_; }
+	int Height() { return height_; }
+	int Depth() { return depth_; }
+protected:
+	int width_, height_, depth_;
 };
 
 struct Thin3DVertexComponent {
@@ -220,6 +227,13 @@ enum T3DCullMode : uint8_t {
 	CCW,
 };
 
+enum T3DFileType {
+	PNG,
+	JPEG,
+	ZIM,
+	DETECT,
+};
+
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
@@ -232,7 +246,8 @@ public:
 	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
-	Thin3DTexture *CreateTextureFromFile(const char *filename);
+	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DFileType fileType);
+	Thin3DTexture *CreateTextureFromFileData(const char *data, int size, T3DFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }

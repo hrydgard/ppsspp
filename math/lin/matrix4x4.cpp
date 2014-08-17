@@ -211,6 +211,17 @@ void Matrix4x4::setOrtho(float left, float right, float bottom, float top, float
 	wz = -(far + near) / (far - near);
 }
 
+void Matrix4x4::setOrthoD3D(float left, float right, float bottom, float top, float near, float far) {
+	setIdentity();
+	xx = 2.0f / (right - left);
+	yy = 2.0f / (top - bottom);
+	zz = 1.0f / (far - near);
+	wx = -(right + left) / (right - left);
+	wy = -(top + bottom) / (top - bottom);
+	//wz = -(far + near) / (far - near);
+	wz = -near / (far - near);
+}
+
 void Matrix4x4::setProjectionInf(const float near_plane, const float fov_horiz, const float aspect) {
 	empty();
 	float f = fov_horiz*0.5f;

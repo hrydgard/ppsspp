@@ -33,6 +33,9 @@ class DrawBuffer;
 class Texture;
 class UIContext;
 
+class Thin3DTexture;
+
+
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
 namespace UI {
 
@@ -721,6 +724,25 @@ public:
 
 private:
 	Texture *texture_;
+	uint32_t color_;
+	ImageSizeMode sizeMode_;
+};
+
+// TextureView takes a texture that is assumed to be alive during the lifetime
+// of the view.
+class Thin3DTextureView : public InertView {
+public:
+	Thin3DTextureView(Thin3DTexture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
+
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+
+	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
+	void SetColor(uint32_t color) { color_ = color; }
+
+private:
+	Thin3DTexture *texture_;
 	uint32_t color_;
 	ImageSizeMode sizeMode_;
 };

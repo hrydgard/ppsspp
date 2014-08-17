@@ -1,6 +1,7 @@
 #include <thin3d/thin3d.h>
 
 #include "image/zim_load.h"
+#include "image/png_load.h"
 
 static const char * const glsl_fsTexCol =
 "varying vec4 oColor0;\n"
@@ -39,7 +40,7 @@ static const char * const glsl_vsCol =
 static const char * const hlslVsCol =
 "struct VS_INPUT { float3 Position : POSITION; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj : WORLDVIEWPROJ;\n"
+"float4x4 WorldViewProj;\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -63,7 +64,7 @@ static const char * const glsl_vsTexCol =
 static const char * const hlslVsTexCol =
 "struct VS_INPUT { float3 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
 "struct VS_OUTPUT { float4 Position : POSITION; float2 Texcoord0 : TEXCOORD0; float4 Color0 : COLOR0; };\n"
-"float4x4 WorldViewProj : WORLDVIEWPROJ;\n"
+"float4x4 WorldViewProj;\n"
 "VS_OUTPUT main(VS_INPUT input) {\n"
 "  VS_OUTPUT output;\n"
 "  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
@@ -118,7 +119,7 @@ static T3DImageFormat ZimToT3DFormat(int zim) {
 	}
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename) {
+Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DFileType type) {
 	int width[16], height[16], flags;
 	uint8_t *image[16] = { nullptr };
 
@@ -134,5 +135,41 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename) {
 		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
 		free(image[i]);
 	}
+	return tex;
+}
+
+Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const char *data, int size, T3DFileType type) {
+	int width[16], height[16], zim_flags = 0;
+	uint8_t *image[16] = { nullptr };
+
+	int num_levels = 0;
+	T3DImageFormat fmt;
+
+	switch (type) {
+	case ZIM:
+		num_levels = LoadZIMPtr((const uint8_t *)data, size, width, height, &zim_flags, image);
+		fmt = ZimToT3DFormat(zim_flags & ZIM_FORMAT_MASK);
+		break;
+
+	case PNG:
+		if (1 != pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
+			return false;
+		}
+		num_levels = 1;
+		fmt = RGBA8888;
+		break;
+	}
+
+	if (num_levels == 0) {
+		return NULL;
+	}
+
+	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+	for (int i = 0; i < num_levels; i++) {
+		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
+		free(image[i]);
+	}
+
+	tex->Finalize(zim_flags);
 	return tex;
 }
