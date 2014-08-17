@@ -41,7 +41,11 @@ public:
 
 	// Takes ownership! DO NOT add a view to multiple parents!
 	template <class T>
-	T *Add(T *view) { views_.push_back(view); return view; }
+	T *Add(T *view) {
+		lock_guard guard(modifyLock_);
+		views_.push_back(view);
+		return view;
+	}
 
 	virtual bool SetFocus();
 	virtual bool SubviewFocused(View *view);

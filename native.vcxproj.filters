@@ -344,6 +344,12 @@
     <ClInclude Include="util\text\shiftjis.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\thin3d.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\d3dx9_loader.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -802,6 +808,18 @@
     <ClCompile Include="math\fast\fast_matrix_sse.c">
       <Filter>math\fast</Filter>
     </ClCompile>
+    <ClCompile Include="thin3d\thin3d_gl.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\thin3d_d3d9.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\thin3d.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\d3dx9_loader.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -881,6 +899,9 @@
     </Filter>
     <Filter Include="math\fast">
       <UniqueIdentifier>{5ce64c0e-98e4-4411-86cc-aacaf2f60b21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thin3d">
+      <UniqueIdentifier>{06c6305a-a646-485b-85b9-645a24dd6553}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

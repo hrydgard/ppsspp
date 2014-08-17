@@ -7,6 +7,8 @@
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"
+#include "math/lin/matrix4x4.h"
+#include "thin3d/thin3d.h"
 
 #undef DrawText
 
@@ -39,9 +41,9 @@ enum {
 	FLAG_NO_PREFIX = 4096  // means to not process ampersands
 };
 
-struct GLSLProgram;
+class Thin3DShaderSet;
 
-enum DrawBufferMode {
+enum DrawBufferPrimitiveMode {
 	DBMODE_NORMAL = 0,
 	DBMODE_LINES = 1
 };
@@ -58,18 +60,18 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(const GLSLProgram *program, DrawBufferMode mode = DBMODE_NORMAL);
+	void Begin(Thin3DShaderSet *shaders, DrawBufferPrimitiveMode mode = DBMODE_NORMAL);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(bool registerAsHolder = true);
+	void Init(Thin3DContext *t3d, bool registerAsHolder = true);
 	void Shutdown();
 
 	virtual void GLLost();
 
 	int Count() const { return count_; }
 
-	void Flush(bool set_blend_state=true);
+	void Flush(bool set_blend_state = true);
 
 	void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32 color);
@@ -148,19 +150,27 @@ public:
 
 	static void DoAlign(int flags, float *x, float *y, float *w, float *h);
 
+	void SetDrawMatrix(const Matrix4x4 &m) {
+		drawMatrix_ = m;
+	}
+
 private:
 	struct Vertex {
 		float x, y, z;
-		uint32_t rgba;
 		float u, v;
+		uint32_t rgba;
 	};
 
-	const GLSLProgram *program_;
+	Matrix4x4 drawMatrix_;
 
-	int vbo_;
+	Thin3DContext *t3d_;
+	Thin3DBuffer *vbuf_;
+	Thin3DVertexFormat *vformat_;
+	Thin3DShaderSet *shaderSet_;
+
 	Vertex *verts_;
 	int count_;
-	DrawBufferMode mode_;
+	DrawBufferPrimitiveMode mode_;
 	const Atlas *atlas;
 
 	bool inited_;

@@ -21,7 +21,7 @@ enum {
 
 // #define USE_VBO
 
-DrawBuffer::DrawBuffer() : program_(0), count_(0), atlas(0) {
+DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
@@ -32,30 +32,36 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(bool registerAsHolder) {
+void DrawBuffer::Init(Thin3DContext *t3d, bool registerAsHolder) {
 	if (inited_)
 		return;
+
+	t3d_ = t3d;
+	vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
 	inited_ = true;
-	glGenBuffers(1, (GLuint *)&vbo_);
-	if (registerAsHolder)
+
+	vformat_ = t3d_->CreateVertexFormat(FVF_POS_UV_COLOR);
+
+	if (registerAsHolder) {
 		register_gl_resource_holder(this);
+	}
 }
 
 void DrawBuffer::Shutdown() {
-	glDeleteBuffers(1, (GLuint *)&vbo_);
-	vbo_ = 0;
+	vbuf_->Release();
+	vformat_->Release();
+
 	inited_ = false;
 	unregister_gl_resource_holder(this);
 }
 
 void DrawBuffer::GLLost() {
 	inited_ = false;
-	Init(false);
+	Init(t3d_, false);
 }
 
-void DrawBuffer::Begin(const GLSLProgram *program, DrawBufferMode dbmode) {
-	Init();
-	program_ = program;
+void DrawBuffer::Begin(Thin3DShaderSet *program, DrawBufferPrimitiveMode dbmode) {
+	shaderSet_ = program;
 	count_ = 0;
 	mode_ = dbmode;
 }
@@ -65,63 +71,19 @@ void DrawBuffer::End() {
 }
 
 void DrawBuffer::Flush(bool set_blend_state) {
-	if (!program_) {
+	if (!shaderSet_) {
 		ELOG("No program set!");
 		return;
 	}
-	glsl_bind(program_);
+
+	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 	if (count_ == 0)
 		return;
-#ifdef USE_VBO
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * count_, verts_, GL_STREAM_DRAW);
-	if (set_blend_state) {
-		glstate.blend.enable();
-		glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	glUniform1i(program_->sampler0, 0);
-	glEnableVertexAttribArray(program_->a_position);
-	glEnableVertexAttribArray(program_->a_color);
-	if (program_->a_texcoord0 != -1)
-		glEnableVertexAttribArray(program_->a_texcoord0);
-	GL_CHECK();
-	glVertexAttribPointer(program_->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, x));
-	glVertexAttribPointer(program_->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, rgba));
-	if (program_->a_texcoord0 != -1)
-		glVertexAttribPointer(program_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, u));
-	glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
-	GL_CHECK();
-	glDisableVertexAttribArray(program_->a_position);
-	glDisableVertexAttribArray(program_->a_color);
-	if (program_->a_texcoord0 != -1)
-		glDisableVertexAttribArray(program_->a_texcoord0);
-	GL_CHECK();
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-#else
-	if (set_blend_state) {
-		glstate.blend.enable();
-		glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glUniform1i(program_->sampler0, 0);
-	glEnableVertexAttribArray(program_->a_position);
-	glEnableVertexAttribArray(program_->a_color);
-	if (program_->a_texcoord0 != -1)
-		glEnableVertexAttribArray(program_->a_texcoord0);
-	GL_CHECK();
-	glVertexAttribPointer(program_->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)&verts_[0].x);
-	glVertexAttribPointer(program_->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)&verts_[0].rgba);
-	if (program_->a_texcoord0 != -1)
-		glVertexAttribPointer(program_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)&verts_[0].u);
-	glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
-	GL_CHECK();
-	glDisableVertexAttribArray(program_->a_position);
-	glDisableVertexAttribArray(program_->a_color);
-	if (program_->a_texcoord0 != -1)
-		glDisableVertexAttribArray(program_->a_texcoord0);
-	GL_CHECK();
-#endif
+
+	int offset = 0;
+
+	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_);
+	t3d_->Draw(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, vbuf_, count_, offset);
 	count_ = 0;
 }
 

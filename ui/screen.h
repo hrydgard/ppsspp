@@ -35,6 +35,7 @@ enum DialogResult {
 
 class ScreenManager;
 class UIContext;
+class Thin3DContext;
 
 class Screen {
 public:
@@ -94,6 +95,9 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 
+	void setThin3DContext(Thin3DContext *context) { thin3DContext_ = context; }
+	Thin3DContext *getThin3DContext() { return thin3DContext_; }
+
 	void render();
 	void resized();
 	void deviceLost();
@@ -125,6 +129,7 @@ private:
 
 	Screen *nextScreen_;
 	UIContext *uiContext_;
+	Thin3DContext *thin3DContext_;
 
 	const Screen *dialogFinished_;
 	DialogResult dialogResult_;

@@ -321,6 +321,10 @@ void CheckGLExtensions() {
 #endif
 
 	ProcessGPUFeatures();
+
+	int error = glGetError();
+	if (error)
+		ELOG("GL error in init: %i", error);
 }
 
 void OpenGLState::SetVSyncInterval(int interval) {
