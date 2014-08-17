@@ -957,33 +957,12 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVD_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXBD(XMM1, R(XMM1));
-	} else {
-		PUNPCKLBW(XMM1, R(XMM3));
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 24);
-		PSRAD(XMM1, 24);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	Jit_AnyS8ToFloat(dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
-// Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXWD(XMM1, R(XMM1));
-	} else {
-		PSLLD(XMM1, 16);
-		PSRAD(XMM1, 16);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by32768));
+	Jit_AnyS16ToFloat(dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -1017,33 +996,12 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
-	XORPS(XMM3, R(XMM3));
-	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXBD(XMM1, R(XMM1));
-	} else {
-		PUNPCKLBW(XMM1, R(XMM3));
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 24);
-		PSRAD(XMM1, 24);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	Jit_AnyS8ToFloat(dec_->posoff);
 	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXWD(XMM1, R(XMM1));
-	} else {
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 16);
-		PSRAD(XMM1, 16);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by32768));
+	Jit_AnyS16ToFloat(dec_->posoff);
 	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
 }
 
@@ -1058,8 +1016,26 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+	Jit_AnyS8ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	Jit_AnyS16ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+// Just copy 12 bytes.
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXBD(XMM1, R(XMM1));
 	} else {
@@ -1070,12 +1046,13 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
-void VertexDecoderJitCache::Jit_PosS16Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXWD(XMM1, R(XMM1));
 	} else {
@@ -1085,13 +1062,6 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
-}
-
-// Just copy 12 bytes.
-void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {

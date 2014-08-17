@@ -244,10 +244,6 @@ public:
 	void Jit_PosS16Skin();
 	void Jit_PosFloatSkin();
 
-	void Jit_AnyS8Morph(int srcoff, int dstoff);
-	void Jit_AnyS16Morph(int srcoff, int dstoff);
-	void Jit_AnyFloatMorph(int srcoff, int dstoff);
-
 	void Jit_NormalS8Morph();
 	void Jit_NormalS16Morph();
 	void Jit_NormalFloatMorph();
@@ -266,5 +262,11 @@ private:
 	void Jit_ApplyWeights();
 	void Jit_WriteMatrixMul(int outOff, bool pos);
 	void Jit_WriteMorphColor(int outOff, bool checkAlpha = true);
+	void Jit_AnyS8ToFloat(int srcoff);
+	void Jit_AnyS16ToFloat(int srcoff);
+	void Jit_AnyS8Morph(int srcoff, int dstoff);
+	void Jit_AnyS16Morph(int srcoff, int dstoff);
+	void Jit_AnyFloatMorph(int srcoff, int dstoff);
+
 	const VertexDecoder *dec_;
 };
