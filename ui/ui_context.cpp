@@ -17,7 +17,6 @@ UIContext::UIContext()
 }
 
 UIContext::~UIContext() {
-	blend_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
 }
