@@ -118,7 +118,7 @@ public:
 					pos[2] = u[2] * (1.0f / 65535.0f);
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.f / 32767.f);
+						pos[i] = s[i] * (1.0f / 32768.0f);
 				}
 			}
 			break;
@@ -130,10 +130,10 @@ public:
 				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
 						pos[i] = b[i];
-					pos[2] = u[2] / 255.0f;
+					pos[2] = u[2] * (1.0f / 255.0f);
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.f / 127.f);
+						pos[i] = b[i] * (1.0f / 128.0f);
 				}
 			}
 			break;
@@ -168,7 +168,7 @@ public:
 					pos[2] = u[2];
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.f / 32767.f);
+						pos[i] = s[i] * (1.0f / 32768.0f);
 					// TODO: Does depth need conversion?
 				}
 			}
@@ -184,7 +184,7 @@ public:
 					pos[2] = u[2];
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.f / 127.f);
+						pos[i] = b[i] * (1.0f / 128.0f);
 					// TODO: Does depth need conversion?
 				}
 			}
@@ -203,7 +203,7 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = f[i] ;
+					nrm[i] = f[i];
 			}
 			break;
 		case DEC_S16_3:
