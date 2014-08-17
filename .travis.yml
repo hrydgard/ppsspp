@@ -80,7 +80,7 @@ script:
       ./b.sh --release --no-package;
     fi
   - if [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
-      ./b.sh --debug --no-package;
+      QMAKE_ARGS="CONFIG+=no_assets" ./b.sh --debug --no-package;
     fi
 
 after_success:

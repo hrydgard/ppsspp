@@ -79,14 +79,15 @@ HEADERS += $$P/UI/*.h
 
 INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext $$P/native/ext/glew
 
-mobile_platform: RESOURCES += $$P/Qt/assets.qrc
-else {
+mobile_platform {
+	!no_assets: RESOURCES += $$P/Qt/assets.qrc
+} else {
 	# TODO: Rewrite Debugger with same backend as Windows version
 	# Do not use .ui forms. Use Qt5 + C++11 features to minimise code
 	SOURCES += $$P/Qt/*.cpp $$P/Qt/Debugger/*.cpp
 	HEADERS += $$P/Qt/*.h $$P/Qt/Debugger/*.h
 	FORMS += $$P/Qt/Debugger/*.ui
-	RESOURCES += $$P/Qt/desktop_assets.qrc
+	!no_assets: RESOURCES += $$P/Qt/desktop_assets.qrc
 	INCLUDEPATH += $$P/Qt $$P/Qt/Debugger
 	
 	# Creating translations should be done by Qt, really

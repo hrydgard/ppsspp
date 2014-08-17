@@ -1,6 +1,5 @@
 #!/bin/bash
 CMAKE=1
-MAKE_JOBS=4
 # Check Blackberry NDK
 BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
 if [ ! -z "$BB_OS" ]; then
@@ -12,7 +11,7 @@ fi
 
 # Check Symbian NDK
 if [ ! -z "$EPOCROOT" ]; then
-	QMAKE_ARGS="-spec symbian-sbsv2"
+	QMAKE_ARGS="-spec symbian-sbsv2 ${QMAKE_ARGS}"
 	CMAKE=0
 	PACKAGE=1
 	MAKE_OPT="release-gcce ${MAKE_OPT}"
@@ -75,8 +74,6 @@ if [ ! -z "$TARGET_OS" ]; then
 	# HACK (doesn't like shadowed dir)
 	if [ "$TARGET_OS" == "Symbian" ]; then
 		BUILD_DIR="Qt"
-		# Temporarily limiting memory usage for automated builds.
-		MAKE_JOBS=2
 	fi
 else
 	echo "Building for native host."
@@ -99,7 +96,7 @@ else
 	qmake $QMAKE_ARGS ../Qt/PPSSPPQt.pro
 fi
 
-make -j$MAKE_JOBS $MAKE_OPT
+make -j4 $MAKE_OPT
 
 if [ "$PACKAGE" == "1" ]; then
 	if [ "$TARGET_OS" == "Blackberry" ]; then
