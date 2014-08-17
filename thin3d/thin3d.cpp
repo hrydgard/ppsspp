@@ -1,5 +1,7 @@
 #include <thin3d/thin3d.h>
 
+#include "image/zim_load.h"
+
 static const char * const glsl_fsTexCol =
 "varying vec4 oColor0;\n"
 "varying vec2 oTexCoord0;\n"
@@ -105,4 +107,17 @@ Thin3DContext::~Thin3DContext() {
 	for (int i = 0; i < SS_MAX_PRESET; i++) {
 		ssPresets_[i]->Release();
 	}
+}
+
+Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename) {
+	int width[16], height[16], flags;
+	uint8_t *image[16] = { nullptr };
+
+	int num_levels = LoadZIM(filename, width, height, &flags, image);
+	Thin3DTexture *tex = CreateTexture(LINEAR2D, RGBA8888, width[0], height[0], 1, num_levels);
+	for (int i = 0; i < num_levels; i++) {
+		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
+		free(image[i]);
+	}
+	return tex;
 }

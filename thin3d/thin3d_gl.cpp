@@ -232,6 +232,7 @@ public:
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 
 	// Bound state objects
 	void SetBlendState(Thin3DBlendState *state) override {
@@ -261,6 +262,8 @@ public:
 		glstate.depthRange.set(viewports[0].MinDepth, viewports[0].MaxDepth);
 	}
 
+	void SetTextures(int start, int count, Thin3DTexture **textures) override;
+
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
@@ -280,6 +283,69 @@ Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<Thin3D
 	fmt->stride_ = stride;
 	fmt->Compile();
 	return fmt;
+}
+
+GLuint TypeToTarget(T3DTextureType type) {
+	switch (type) {
+	case LINEAR1D: return GL_TEXTURE_1D;
+	case LINEAR2D: return GL_TEXTURE_2D;
+	case LINEAR3D: return GL_TEXTURE_3D;
+	case CUBE: return GL_TEXTURE_CUBE_MAP;
+	case ARRAY1D: return GL_TEXTURE_1D_ARRAY;
+	case ARRAY2D: return GL_TEXTURE_2D_ARRAY;
+	default: return GL_NONE;
+	}
+}
+
+class Thin3DGLTexture : public Thin3DTexture {
+public:
+	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int mipLevels) : format_(format), tex_(0), target_(TypeToTarget(type)), mipLevels_(mipLevels) {
+		glGenTextures(1, &tex_);
+	}
+	~Thin3DGLTexture() {
+		glDeleteTextures(1, &tex_);
+	}
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) override;
+	void AutoGenMipmaps() override;
+
+	GLuint tex_;
+
+private:
+	GLuint target_;
+	T3DImageFormat format_;
+	int width_, height_, depth_, mipLevels_;
+};
+
+Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+	Thin3DGLTexture *tex = new Thin3DGLTexture(type, format, mipLevels);
+	return tex;
+}
+
+void Thin3DGLTexture::AutoGenMipmaps() {
+	glBindTexture(target_, tex_);
+	glGenerateMipmap(target_);
+}
+
+void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) {
+	int internalFormat;
+	int format;
+	int type;
+	switch (format_) {
+	case RGBA8888:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_BYTE;
+		break;
+	default:
+		return;
+	}
+
+	glBindTexture(target_, tex_);
+	switch (target_) {
+	case GL_TEXTURE_2D:
+		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, format, type, data);
+		break;
+	}
 }
 
 void Thin3DGLVertexFormat::Compile() {
@@ -331,6 +397,16 @@ Thin3DShaderSet *Thin3DGLContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 		return NULL;
 	}
 }
+
+void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures) {
+	for (int i = start; i < count; i++) {
+		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, glTex->tex_);
+	}
+	glActiveTexture(GL_TEXTURE0);
+}
+
 
 Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
 	Thin3DGLShader *shader = new Thin3DGLShader(false);

@@ -173,9 +173,81 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n);
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value);
-
 private:
 };
+
+class Thin3DDX9Texture : public Thin3DTexture {
+public:
+	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) override;
+	void AutoGenMipmaps() {}
+	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
+
+private:
+	T3DTextureType type_;
+	D3DFORMAT fmt_;
+	LPDIRECT3DTEXTURE9 tex_;
+	LPDIRECT3DVOLUMETEXTURE9 volTex_;
+	LPDIRECT3DCUBETEXTURE9 cubeTex_;
+};
+
+D3DFORMAT FormatToD3D(T3DImageFormat fmt) {
+	switch (fmt) {
+	case RGBA8888: return D3DFMT_A8B8G8R8;
+	case D24S8: return D3DFMT_D24S8;
+	case D16: return D3DFMT_D16;
+	default: return D3DFMT_UNKNOWN;
+	}
+}
+
+Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
+  : type_(type) {
+	fmt_ = FormatToD3D(format);
+	HRESULT hr;
+	switch (type_) {
+	case LINEAR1D:
+	case LINEAR2D:
+		hr = device->CreateTexture(width, height, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &tex_, NULL);
+		break;
+	case LINEAR3D:
+		hr = device->CreateVolumeTexture(width, height, depth, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &volTex_, NULL);
+		break;
+	case CUBE:
+		hr = device->CreateCubeTexture(width, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &cubeTex_, NULL);
+		break;
+	}
+}
+
+void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) {
+	switch (type_) {
+	case LINEAR2D:
+		// tex_->LockRect()
+
+		break;
+
+	default:
+		// TODO
+		break;
+	}
+}
+
+void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
+	switch (type_) {
+	case LINEAR1D:
+	case LINEAR2D:
+		device->SetTexture(sampler, tex_);
+		break;
+
+	case LINEAR3D:
+		device->SetTexture(sampler, volTex_);
+		break;
+
+	case CUBE:
+		device->SetTexture(sampler, cubeTex_);
+		break;
+	}
+}
+
 
 class Thin3DDX9Context : public Thin3DContext {
 public:
@@ -187,12 +259,15 @@ public:
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 
 	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) override;
 	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	void SetBlendState(Thin3DBlendState *state);
+
+	void SetTextures(int start, int count, Thin3DTexture **textures);
 
 	// Raster state
 	void SetScissorEnabled(bool enable);
@@ -274,6 +349,18 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 	bs->srcAlpha = blendFactorToD3D9[desc.srcAlpha];
 	bs->dstAlpha = blendFactorToD3D9[desc.dstAlpha];
 	return bs;
+}
+
+Thin3DTexture *Thin3DDX9Context::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, type, format, width, height, depth, mipLevels);
+	return tex;
+}
+
+void Thin3DDX9Context::SetTextures(int start, int count, Thin3DTexture **textures) {
+	for (int i = start; i < start + count; i++) {
+		Thin3DDX9Texture *tex = static_cast<Thin3DDX9Texture *>(textures[i - start]);
+		tex->SetToSampler(device_, i);
+	}
 }
 
 void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {

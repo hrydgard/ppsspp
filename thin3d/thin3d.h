@@ -147,7 +147,8 @@ public:
 
 class Thin3DTexture : public Thin3DObject {
 public:
-	virtual void SetRectangle(int x, int y, int w, int h, const uint8_t *data, int level = 0, int layer = 0);
+	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) = 0;
+	virtual void AutoGenMipmaps() = 0;
 };
 
 struct Thin3DVertexComponent {
@@ -190,14 +191,37 @@ struct T3DBlendStateDesc {
 	// int colorMask;
 };
 
+enum T3DTextureType : uint8_t {
+	LINEAR1D,
+	LINEAR2D,
+	LINEAR3D,
+	CUBE,
+	ARRAY1D,
+	ARRAY2D,
+};
+
+enum T3DImageFormat : uint8_t {
+	RGBA8888,
+	DXT1,
+	ETC1,  // Needs simulation on many platforms
+	D16,
+	D24S8,
+	D24X8,
+};
+
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
+
 	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) = 0;
+	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+
+	// Common Thin3D function, uses CreateTexture
+	Thin3DTexture *CreateTextureFromFile(const char *filename);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
@@ -211,6 +235,11 @@ public:
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
+	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
+
+	void SetTexture(int stage, Thin3DTexture *texture) {
+		SetTextures(stage, 1, &texture);
+	}  // from sampler 0 and upwards
 
 	// Raster state
 	virtual void SetScissorEnabled(bool enable) = 0;
