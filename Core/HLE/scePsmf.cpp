@@ -1082,10 +1082,12 @@ int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 		if (addMax <= 0)
 			break;
 	} while (size > 0);
+
 	if (psmfplayer->readSize >= psmfplayer->streamSize && videoLoopStatus == PSMF_PLAYER_CONFIG_LOOP) {
 		// start looping
 		psmfplayer->readSize = 0;
 		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset, FILEMOVE_BEGIN);
+		psmfplayer->mediaengine->loadStream(psmfplayer->mediaengine->m_mpegheader, 2048, psmfplayer->mediaengine->m_ringbuffersize);
 	}
 	return 0;
 }
