@@ -60,6 +60,7 @@ public:
 
 	void closeMedia();
 	bool loadStream(const u8 *buffer, int readSize, int RingbufferSize);
+	bool reloadStream();
 	// open the mpeg context
 	bool openContext();
 	void closeContext();
