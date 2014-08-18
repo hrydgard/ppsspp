@@ -354,7 +354,7 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, "Analog Limiter", 0.10f, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, c->T("Analog Limiter"), 0.10f, screenManager()));
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
