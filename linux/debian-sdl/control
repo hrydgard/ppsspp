@@ -1,22 +1,21 @@
-Source: ppsspp
+Source: ppsspp-sdl
 Section: games
 Priority: extra
-Maintainer: Sergio Benjamim <sergio_br2@yahoo.com.br>
+Maintainer: Sérgio Benjamim <sergio_br2@yahoo.com.br>
 Build-Depends: 	debhelper (>= 9), 
-		libsdl1.2-dev, 
-		libglew-dev, 
-		qt4-qmake, 
-		libqt4-dev, 
-		libqt4-opengl-dev
+		cmake,
+		chrpath,
+		libsdl1.2-dev
 Standards-Version: 3.9.5
 Homepage: http://www.ppsspp.org/
 Vcs-Git: git://github.com/hrydgard/ppsspp.git
 Vcs-Browser: https://github.com/hrydgard/ppsspp
 
-Package: ppsspp
+Package: ppsspp-sdl
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Sony PSP emulator
+Conflicts: ppsspp-qt
+Description: Sony PSP emulator - SDL version
  PPSSPP can run your PSP games on your PC in full HD resolution. It can even 
  upscale textures that would otherwise be too blurry as they were made for 
  the small screen of the original PSP.
@@ -24,3 +23,6 @@ Description: Sony PSP emulator
  All trademarks are property of their respective owners. The emulator is for 
  educational and development purposes only and it may not be used to play games
  you do not legally own.
+ .
+ This package comes with the SDL version of PPSSPP, it has no dependencies in
+ Qt libraries.

@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+
+# Copyright (C) 2014 Sergio Benjamim
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+QUILT=QUILT_PATCHES=debian/patches quilt --quiltrc /dev/null
+PATCH := $(QUILT) push -a || [ "$$($(QUILT) applied)" = "$$(grep -v '^\#' debian/patches/series)" ]
+UNPATCH := $(QUILT) pop -a || [ "$$($(QUILT) applied 2>&1)" = "No patches applied" ]
+
+patch:
+	$(PATCH)
+	
+unpatch:
+	$(UNPATCH)
+
+%:
+	dh $@ --parallel
+
+override_dh_auto_configure:
+	qmake Qt/PPSSPPQt.pro
+
+override_dh_auto_build:
+ifeq ($(shell getconf LONG_BIT),64)
+	cd ffmpeg/ && \
+	./linux_x86-64.sh
+else ifeq ($(shell getconf LONG_BIT),32)
+	cd ffmpeg/ && \
+	./linux_x86.sh
+endif
+	$(MAKE) -C Qt/
+
+override_dh_auto_install:
+	# Add here commands to install the package into debian/retroarch.
+	#$(MAKE) -C build-qt DESTDIR=$(CURDIR)/debian/ppsspp PREFIX=/usr install  # make install of ppsspp installs only icons... needs improvement by upstream
+	cp $(CURDIR)/Qt/ppsspp $(CURDIR)/debian/ppsspp-qt/usr/games/ppsspp
+	cp $(CURDIR)/debian/ppsspp-qt.desktop $(CURDIR)/debian/ppsspp-qt/usr/share/applications/
+	cp -r $(CURDIR)/assets/unix-icons/hicolor/* $(CURDIR)/debian/ppsspp-qt/usr/share/icons/hicolor/
