@@ -1,4 +1,4 @@
-VERSION = 0.9.9
+VERSION = 0.9.91
 DEFINES += USING_QT_UI USE_FFMPEG
 
 # Global specific
