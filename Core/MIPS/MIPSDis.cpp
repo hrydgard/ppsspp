@@ -368,7 +368,11 @@ namespace MIPSDis
 	{
 		auto resolved = Memory::Read_Instruction(disPC, true);
 		char disasm[256];
-		MIPSDisAsm(resolved, disPC, disasm, true);
+		if (MIPS_IS_EMUHACK(resolved)) {
+			strcpy(disasm, "(invalid emuhack)");
+		} else {
+			MIPSDisAsm(resolved, disPC, disasm, true);
+		}
 
 		switch (op.encoding >> 24) {
 		case 0x68:
