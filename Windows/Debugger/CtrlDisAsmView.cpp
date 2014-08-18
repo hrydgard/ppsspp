@@ -230,10 +230,11 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		if (showData)
-			sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
-		else
-			sprintf(dest,"%08X",address);
+		if (showData) {
+			sprintf(dest, "%08X %08X", address, Memory::Read_Instruction(address, true).encoding);
+		} else {
+			sprintf(dest, "%08X", address);
+		}
 		return false;
 	}
 }
