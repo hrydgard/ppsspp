@@ -106,14 +106,18 @@ public:
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		if (vbuffer_) {
 			void *ptr;
-			vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			memcpy(ptr, data, size);
-			vbuffer_->Unlock();
+			HRESULT res = vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+			if (!FAILED(res)) {
+				memcpy(ptr, data, size);
+				vbuffer_->Unlock();
+			}
 		} else if (ibuffer_) {
 			void *ptr;
-			ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
-			memcpy(ptr, data, size);
-			ibuffer_->Unlock();
+			HRESULT res = ibuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
+			if (!FAILED(res)) {
+				memcpy(ptr, data, size);
+				ibuffer_->Unlock();
+			}
 		}
 	}
 	void BindAsVertexBuf(LPDIRECT3DDEVICE9 device, int vertexSize, int offset = 0) {
@@ -483,9 +487,15 @@ void Thin3DDX9Context::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
 
+	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+
+	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
 	fmt->Apply(device_);
-	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	device_->DrawPrimitive(primToD3D9[prim], offset, vertexCount / 3);
 }
 

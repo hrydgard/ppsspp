@@ -11,7 +11,7 @@ static const char * const glsl_fsTexCol =
 
 static const char * const hlslFsTexCol =
 "struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-"sampler2D tex0;\n"
+"sampler2D tex0 : register(s0);\n"
 "float4 main(PS_INPUT input) : COLOR0 {\n"
 "  return input.color * tex2D(tex0, input.uv);\n"
 "}\n";
