@@ -93,7 +93,7 @@ namespace MIPSCodeUtils
 		if (op != 0)
 		{
 			MIPSInfo info = MIPSGetInfo(op);
-			if (info & IS_CONDBRANCH)
+			if ((info & IS_CONDBRANCH) && !(info & (IN_FPUFLAG | IS_VFPU)))
 			{
 				bool sure;
 				bool takeBranch;
