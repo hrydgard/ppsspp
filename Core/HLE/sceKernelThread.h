@@ -261,9 +261,6 @@ struct MipsCall {
 	std::string tag;
 	u32 savedId;
 	bool reschedAfter;
-	u32 savedAt;
-	u32 savedAregs[27];
-	bool IsOldSaveState;
 
 	void DoState(PointerWrap &p);
 	void setReturnValue(u32 value);
