@@ -79,7 +79,7 @@ public:
 
 	int GetNumSegments() const { return (int)(header->e_phnum); }
 	int GetNumSections() const { return (int)(header->e_shnum); }
-	const char *GetSectionName(int section);
+	const char *GetSectionName(int section) const;
 	u8 *GetPtr(u32 offset) const {
 		return (u8*)base + offset;
 	}
@@ -132,9 +132,10 @@ public:
 
 	u32 GetTotalTextSize() const;
 	u32 GetTotalDataSize() const;
+	u32 GetTotalSectionSizeByPrefix(const std::string &prefix) const;
 
 	// More indepth stuff:)
-	int LoadInto(u32 vaddr);
+	int LoadInto(u32 vaddr, bool fromTop);
 	bool LoadSymbols();
 	bool LoadRelocations(Elf32_Rel *rels, int numRelocs);
 	void LoadRelocations2(int rel_seg);

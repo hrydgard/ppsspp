@@ -56,6 +56,10 @@
 
 #include "GPU/GPUState.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
+
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
@@ -217,7 +221,12 @@ public:
 	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
-			userMemory.Free(memoryBlockAddr);
+			// If it's either below user memory, or using a high kernel bit, it's in kernel.
+			if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
+				kernelMemory.Free(memoryBlockAddr);
+			} else {
+				userMemory.Free(memoryBlockAddr);
+			}
 			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
@@ -823,7 +832,7 @@ static bool IsHLEVersionedModule(const char *name) {
 	return false;
 }
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic, u32 &error) {
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -867,15 +876,37 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 		if (ret == MISSING_KEY) {
-			// This should happen for all "kernel" modules so disabling.
-			// Reporting::ReportMessage("Missing PRX decryption key!");
+			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
-			error = 0;
+
+			// Let's still try to allocate it.  It may use user memory.
+			u32 totalSize = 0;
+			for (int i = 0; i < 4; ++i) {
+				if (head->seg_size[i]) {
+					const u32 align = head->seg_align[i] - 1;
+					totalSize = ((totalSize + align) & ~align) + head->seg_size[i];
+				}
+			}
+			bool kernelModule = (head->attribute & 0x1000) != 0;
+			BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+			size_t n = strnlen(head->modname, 28);
+			const std::string modName = "ELF/" + std::string(head->modname, n);
+			u32 addr = memblock.Alloc(totalSize, fromTop, modName.c_str());
+			if (addr == (u32)-1) {
+				error = SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+				module->Cleanup();
+				kernelObjects.Destroy<Module>(module->GetUID());
+			} else {
+				error = 0;
+				module->memoryBlockAddr = addr;
+				module->memoryBlockSize = totalSize;
+			}
+
 			return module;
 		} else if (ret <= 0) {
 			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
@@ -902,13 +933,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
-		error = -1;
+		error = SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
 		return 0;
 	}
 	// Open ELF reader
 	ElfReader reader((void*)ptr);
 
-	int result = reader.LoadInto(loadAddress);
+	int result = reader.LoadInto(loadAddress, fromTop);
 	if (result != SCE_KERNEL_ERROR_OK) 	{
 		ERROR_LOG(SCEMODULE, "LoadInto failed with error %08x",result);
 		if (newptr)
@@ -920,19 +951,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
-
-	struct PspModuleInfo {
-		// 0, 0, 1, 1 ?
-		u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
-		u16_le moduleVersion;
-		// 28 bytes of module name, packed with 0's.
-		char name[28];
-		u32_le gp;					 // ptr to MIPS GOT data	(global offset table)
-		u32_le libent;			 // ptr to .lib.ent section 
-		u32_le libentend;		// ptr to end of .lib.ent section 
-		u32_le libstub;			// ptr to .lib.stub section 
-		u32_le libstubend;	 // ptr to end of .lib.stub section 
-	};
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	PspModuleInfo *modinfo;
@@ -949,8 +967,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	// TODO: Is summing them up correct?  Must not be since the numbers aren't exactly right.
 	for (int i = 0; i < reader.GetNumSegments(); ++i) {
 		if (i < (int)ARRAY_SIZE(module->nm.segmentaddr)) {
-			module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
 			module->nm.segmentsize[i] = reader.GetSegmentMemSize(i);
+			if (module->nm.segmentsize[i] != 0) {
+				module->nm.segmentaddr[i] = reader.GetSegmentVaddr(i);
+			} else {
+				module->nm.segmentaddr[i] = 0;
+			}
 		}
 		module->nm.data_size += reader.GetSegmentDataSize(i);
 	}
@@ -1000,12 +1022,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->nm.text_size = 0;
 	}
 
-	SectionID bssSection = reader.GetSectionByName(".bss");
-	if (bssSection != -1) {
-		module->nm.bss_size = reader.GetSectionSize(bssSection);
-	} else {
-		module->nm.bss_size = 0;
-	}
+	module->nm.bss_size = reader.GetTotalSectionSizeByPrefix(".bss");
 	module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
 
 	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
@@ -1364,7 +1381,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
 	u32 magic;
 	u32 error;
-	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 	if (!module) {
 		delete [] elfData;
 		return false;
@@ -1404,7 +1421,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		}
 
 		u32 error;
-		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 
 		if (temp) {
 			delete [] temp;
@@ -1414,7 +1431,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 	{
 		u32 error;
 		u32 magic = 0;
-		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string, &magic, error);
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 	}
 
 	return module;
@@ -1635,12 +1652,13 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
-		return SCE_KERNEL_ERROR_NOFILE;
+		// ERRNO_FILE_NOT_FOUND
+		return 0x80010002;
 	}
 
 	if (!size) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
-		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+		return SCE_KERNEL_ERROR_FILEERR;
 	}
 
 	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
@@ -1649,10 +1667,20 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported flags: %08x", flags);
 	}
 	SceKernelLMOption *lmoption = 0;
-	int position = 0;
-	// TODO: Use position to decide whether to load high or low
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
+		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position", name, lmoption->position);
+			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+		}
+		if (lmoption->position == PSP_SMEM_LowAligned || lmoption->position == PSP_SMEM_HighAligned) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name, lmoption->position);
+			return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
+		}
+		if (lmoption->position == PSP_SMEM_Addr) {
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name, lmoption->position);
+			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+		}
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
 
@@ -1662,7 +1690,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
 
@@ -1674,7 +1702,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 		if (info.name == "BOOT.BIN")
 		{
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
+			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
@@ -2038,6 +2066,7 @@ void __KernelReturnFromModuleFunc()
 
 	if (module->nm.status == MODULE_STATUS_UNLOADING) {
 		// TODO: Delete the waiting thread?
+		module->Cleanup();
 		kernelObjects.Destroy<Module>(leftModuleID);
 	}
 }
@@ -2115,7 +2144,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u8 *temp = new u8[size];
 	pspFileSystem.ReadFile(handle, temp, size);
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 
 	if (!module) {
@@ -2171,7 +2200,7 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	Module *module = 0;
 	u32 magic;
 	u32 error;
-	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, &error_string, &magic, error);
+	module = __KernelLoadELFFromPtr(Memory::GetPointer(bufPtr), 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 
 	if (!module) {
 		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.

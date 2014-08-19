@@ -148,6 +148,8 @@ enum ElfSectionFlags
 	SHF_WRITE     =0x1,
 	SHF_ALLOC     =0x2,
 	SHF_EXECINSTR =0x4,
+	SHF_MERGE     =0x10,
+	SHF_STRINGS   =0x20,
 	SHF_MASKPROC  =0xF0000000,
 };
 
