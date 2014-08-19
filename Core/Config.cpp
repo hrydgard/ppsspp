@@ -390,6 +390,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
 	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true),
 	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1),
+	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution),
 	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0),

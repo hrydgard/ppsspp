@@ -313,6 +313,8 @@
 #define IDC_GEDBG_TEXLEVELUP             40149
 #define ID_DEBUG_LOADSYMFILE             40150
 #define ID_DEBUG_SAVESYMFILE             40151
+#define ID_OPTIONS_BUFLINEARFILTER       40152
+#define ID_OPTIONS_BUFNEARESTFILTER      40153
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

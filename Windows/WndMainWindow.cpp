@@ -468,7 +468,8 @@ namespace MainWindow
 		SUBMENU_RENDERING_MODE = 13,
 		SUBMENU_FRAME_SKIPPING = 14,
 		SUBMENU_TEXTURE_FILTERING = 15,
-		SUBMENU_TEXTURE_SCALING = 16,
+		SUBMENU_BUFFER_FILTER = 16,
+		SUBMENU_TEXTURE_SCALING = 17,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -662,6 +663,9 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG);
+		TranslateSubMenu("Screen Scaling Filter", MENU_OPTIONS, SUBMENU_BUFFER_FILTER);
+		TranslateMenuItem(ID_OPTIONS_BUFLINEARFILTER);
+		TranslateMenuItem(ID_OPTIONS_BUFNEARESTFILTER);
 		TranslateSubMenu("Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 		TranslateMenuItem(ID_TEXTURESCALING_OFF);
 		// Skip texture scaling 2x-5x...
@@ -694,6 +698,10 @@ namespace MainWindow
 
 	void setTexFiltering(int type) {
 		g_Config.iTexFiltering = type;
+	}
+
+	void setBufFilter(int type) {
+		g_Config.iBufFilter = type;
 	}
 
 	void setTexScalingType(int type) {
@@ -1520,6 +1528,9 @@ namespace MainWindow
 				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(LINEAR); break;
 				case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(LINEARFMV); break;
 
+				case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
+				case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
+
 				case ID_OPTIONS_TOPMOST:
 					g_Config.bTopMost = !g_Config.bTopMost;
 					W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
@@ -1843,6 +1854,20 @@ namespace MainWindow
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		static const int bufferfilteritems[] = {
+			ID_OPTIONS_BUFLINEARFILTER,
+			ID_OPTIONS_BUFNEARESTFILTER,
+		};
+		if (g_Config.iBufFilter < SCALE_LINEAR)
+			g_Config.iBufFilter = SCALE_LINEAR;
+
+		else if (g_Config.iBufFilter > SCALE_NEAREST)
+			g_Config.iBufFilter = SCALE_NEAREST;
+
+		for (int i = 0; i < ARRAY_SIZE(bufferfilteritems); i++) {
+			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iBufFilter ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int renderingmode[] = {
