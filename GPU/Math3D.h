@@ -171,9 +171,9 @@ public:
 	const T& t() const { return y; }
 
 	// swizzlers - create a subvector of specific components
-	Vec2 yx() const { return Vec2(y, x); }
-	Vec2 vu() const { return Vec2(y, x); }
-	Vec2 ts() const { return Vec2(y, x); }
+	const Vec2 yx() const { return Vec2(y, x); }
+	const Vec2 vu() const { return Vec2(y, x); }
+	const Vec2 ts() const { return Vec2(y, x); }
 };
 
 typedef Vec2<float> Vec2f;
@@ -331,7 +331,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, a4, b4) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -494,7 +494,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, a4, b4) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -652,7 +652,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -668,7 +668,7 @@ public:
 #undef DEFINE_SWIZZLER2
 #undef _DEFINE_SWIZZLER2
 
-#define _DEFINE_SWIZZLER3(a, b, c, name) Vec3<T> name() const { return Vec3<T>(a, b, c); }
+#define _DEFINE_SWIZZLER3(a, b, c, name) const Vec3<T> name() const { return Vec3<T>(a, b, c); }
 #define DEFINE_SWIZZLER3(a, b, c, a2, b2, c2) \
 	_DEFINE_SWIZZLER3(a, b, c, a##b##c); \
 	_DEFINE_SWIZZLER3(a, c, b, a##c##b); \
