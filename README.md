@@ -1,4 +1,4 @@
-PPSSPP - a fast and portable PSP emulator
+﻿PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -17,6 +17,14 @@ To contribute, see [the development page](http://www.ppsspp.org/development.html
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
+
+What's new in 0.9.9.1
+-------------------
+A few issues have been discovered in the release that need fixing, the Star Ocean fix had a bug and there are some unexpected slowdowns.
+
+Fixed a mpeg fix -  UFC© Undisputed​™ 2010 now playable
+
+Improved ISO File System - Bleach Soul Carnival 2 now in-game (but freeze when in menu)
 
 What's new in 0.9.9
 -------------------
