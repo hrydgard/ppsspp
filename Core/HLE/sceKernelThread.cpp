@@ -966,10 +966,6 @@ void MipsCall::DoState(PointerWrap &p)
 			doAfter = __KernelCreateAction(actionTypeID);
 		doAfter->DoState(p);
 	}
-
-	IsOldSaveState = true; // just a workaround to prevent using the variable below when it's loading from an old savestate
-	//p.Do(savedAt);
-	//p.DoArray(savedAregs, ARRAY_SIZE(savedAregs)); // This could cause incompatibility with old savestate right?
 }
 
 void MipsCall::setReturnValue(u32 value)
@@ -3407,12 +3403,6 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedId = cur->currentMipscallId;
 	call->reschedAfter = reschedAfter;
-	// Also need to backup other regs which might be used by the called mips function, needed when mipscall executed on any random thread to prevent corrupting the original regs
-	call->IsOldSaveState = false;
-	call->savedAt = currentMIPS->r[MIPS_REG_COMPILER_SCRATCH];
-	for (int i = 0; i < 27; i++) {
-		call->savedAregs[i] = currentMIPS->r[MIPS_REG_A0 + i];
-	}
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
@@ -3457,13 +3447,6 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	cur->currentMipscallId = call->savedId;
-	// Also need to restore regs which might be changed during the call to prevent mipscall corrupting the original regs when mipscall executed on any random thread
-	if (!call->IsOldSaveState) { // Don't restore these regs if MipsCall was loaded from an old savestate
-		currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = call->savedAt;
-		for (int i = 0; i < 27; i++) {
-			currentMIPS->r[MIPS_REG_A0 + i] = call->savedAregs[i];
-		}
-	}
 
 	// If the thread called ExitDelete, we might've already decreased g_inCbCount.
 	if (call->cbId != 0 && g_inCbCount > 0) {
