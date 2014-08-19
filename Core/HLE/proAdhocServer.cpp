@@ -27,7 +27,7 @@
 #include <signal.h>
 
 #if !defined(__APPLE__)
-#include <malloc.h>
+##include <stdlib.h>
 #endif
 
 #include <sys/types.h>
