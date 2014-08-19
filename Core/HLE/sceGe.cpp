@@ -193,6 +193,14 @@ public:
 			return true;
 		}
 
+		if (dl->signal == PSP_GE_SIGNAL_HANDLER_SUSPEND) {
+			if (sceKernelGetCompiledSdkVersion() <= 0x02000010) {
+				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
+					dl->state = PSP_GE_DL_STATE_QUEUED;
+				}
+			}
+		}
+
 		ge_pending_cb.pop_front();
 		gpu->InterruptEnd(intrdata.listid);
 
