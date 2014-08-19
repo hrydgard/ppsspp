@@ -93,7 +93,7 @@ void VertexDecoder::Step_WeightsU8Skin() const
 	for (int j = 0; j < nweights; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
 		if (wdata[j] != 0) {
-			float weight = wdata[j] / 128.0f;
+			float weight = wdata[j] * (1.0f / 128.0f);
 			for (int i = 0; i < 12; i++) {
 				skinMatrix[i] += weight * bone[i];
 			}
@@ -109,7 +109,7 @@ void VertexDecoder::Step_WeightsU16Skin() const
 	for (int j = 0; j < nweights; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
 		if (wdata[j] != 0) {
-			float weight = wdata[j] / 32768.0f;
+			float weight = wdata[j] * (1.0f / 32768.0f);
 			for (int i = 0; i < 12; i++) {
 				skinMatrix[i] += weight * bone[i];
 			}
@@ -354,7 +354,7 @@ void VertexDecoder::Step_NormalS8Skin() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
-	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	const float fn[3] = { sv[0] * (1.0f / 128.0f), sv[1] * (1.0f / 128.0f), sv[2] * (1.0f / 128.0f) };
 	Norm3ByMatrix43(normal, fn, skinMatrix);
 }
 
@@ -362,7 +362,7 @@ void VertexDecoder::Step_NormalS16Skin() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
-	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Norm3ByMatrix43(normal, fn, skinMatrix);
 }
 
@@ -380,7 +380,7 @@ void VertexDecoder::Step_NormalS8Morph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		const s8 *bv = (const s8*)(ptr_ + onesize_*n + nrmoff);
-		float multiplier = gstate_c.morphWeights[n] * (1.0f/127.0f);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 128.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += bv[j] * multiplier;
 	}
@@ -392,8 +392,8 @@ void VertexDecoder::Step_NormalS16Morph() const
 	memset(normal, 0, sizeof(float)*3);
 	for (int n = 0; n < morphcount; n++)
 	{
-		float multiplier = gstate_c.morphWeights[n] * (1.0f/32767.0f);
 		const s16 *sv = (const s16 *)(ptr_ + onesize_*n + nrmoff);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += sv[j] * multiplier;
 	}
@@ -414,20 +414,18 @@ void VertexDecoder::Step_NormalFloatMorph() const
 
 void VertexDecoder::Step_PosS8() const
 {
-	s8 *v = (s8 *)(decoded_ + decFmt.posoff);
+	float *pos = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = sv[j];
-	v[3] = 0;
+		pos[j] = sv[j] * (1.0f / 128.0f);
 }
 
 void VertexDecoder::Step_PosS16() const
 {
-	s16 *v = (s16 *)(decoded_ + decFmt.posoff);
+	float *pos = (float *)(decoded_ + decFmt.posoff);
 	const s16 *sv = (const s16*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = sv[j];
-	v[3] = 0;
+		pos[j] = sv[j] * (1.0f / 32768.0f);
 }
 
 void VertexDecoder::Step_PosFloat() const
@@ -441,7 +439,7 @@ void VertexDecoder::Step_PosS8Skin() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
-	const float fn[3] = { sv[0] / 128.0f, sv[1] / 128.0f, sv[2] / 128.0f };
+	const float fn[3] = { sv[0] * (1.0f / 128.0f), sv[1] * (1.0f / 128.0f), sv[2] * (1.0f / 128.0f) };
 	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
 
@@ -449,7 +447,7 @@ void VertexDecoder::Step_PosS16Skin() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
 	const s16 *sv = (const s16*)(ptr_ + posoff);
-	const float fn[3] = { sv[0] / 32768.0f, sv[1] / 32768.0f, sv[2] / 32768.0f };
+	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
 
@@ -491,7 +489,7 @@ void VertexDecoder::Step_PosS8Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 127.0f;
+		const float multiplier = 1.0f / 128.0f;
 		const s8 *sv = (const s8*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
@@ -503,7 +501,7 @@ void VertexDecoder::Step_PosS16Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 32767.0f;
+		const float multiplier = 1.0f / 32768.0f;
 		const s16 *sv = (const s16*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
@@ -806,18 +804,7 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 				decFmt.posfmt = DEC_FLOAT_3;
 			} else {
 				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
-
-				if (morphcount == 1) {
-					// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
-					switch (pos) {
-					case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
-					case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
-					case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
-					}
-				} else {
-					// Actually, temporarily let's not.
-					decFmt.posfmt = DEC_FLOAT_3;
-				}
+				decFmt.posfmt = DEC_FLOAT_3;
 			}
 		}
 		decFmt.posoff = decOff;

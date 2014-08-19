@@ -29,17 +29,8 @@ static float MEMORY_ALIGNED16(bones[16 * 8]);
 
 using namespace Gen;
 
-static const float MEMORY_ALIGNED16( by127[4] ) = {
-	1.0f / 127.0f, 1.0f / 127.0f, 1.0f / 127.0f, 1.0f / 127.0f
-};
 static const float MEMORY_ALIGNED16( by128[4] ) = {
 	1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f, 1.0f / 128.0f
-};
-static const float MEMORY_ALIGNED16( by256[4] ) = {
-	1.0f / 256, 1.0f / 256, 1.0f / 256, 1.0f / 256
-};
-static const float MEMORY_ALIGNED16( by32767[4] ) = {
-	1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f, 1.0f / 32767.0f,
 };
 static const float MEMORY_ALIGNED16( by32768[4] ) = {
 	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f,
@@ -966,33 +957,12 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVD_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXBD(XMM1, R(XMM1));
-	} else {
-		PUNPCKLBW(XMM1, R(XMM3));
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 24);
-		PSRAD(XMM1, 24);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by128));
+	Jit_AnyS8ToFloat(dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
-// Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->nrmoff));
-	if (cpu_info.bSSE4_1) {
-		PMOVSXWD(XMM1, R(XMM1));
-	} else {
-		PSLLD(XMM1, 16);
-		PSRAD(XMM1, 16);
-	}
-	CVTDQ2PS(XMM3, R(XMM1));
-	MULPS(XMM3, M(&by32768));
+	Jit_AnyS16ToFloat(dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -1025,19 +995,14 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	MOVSS(MDisp(dstReg, dec_->decFmt.posoff + 8), fpScratchReg);
 }
 
-// Copy 3 bytes and then a zero. Might as well copy four.
 void VertexDecoderJitCache::Jit_PosS8() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->posoff));
-	AND(32, R(tempReg1), Imm32(0x00FFFFFF));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
+	Jit_AnyS8ToFloat(dec_->posoff);
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
 }
 
-// Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_PosS16() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->posoff));
-	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->posoff + 4));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff), R(tempReg1));
-	MOV(32, MDisp(dstReg, dec_->decFmt.posoff + 4), R(tempReg2));
+	Jit_AnyS16ToFloat(dec_->posoff);
+	MOVUPS(MDisp(dstReg, dec_->decFmt.posoff), XMM3);
 }
 
 // Just copy 12 bytes.
@@ -1051,8 +1016,26 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVD_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+	Jit_AnyS8ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Skin() {
+	Jit_AnyS16ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+// Just copy 12 bytes.
+void VertexDecoderJitCache::Jit_PosFloatSkin() {
+	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXBD(XMM1, R(XMM1));
 	} else {
@@ -1063,12 +1046,13 @@ void VertexDecoderJitCache::Jit_PosS8Skin() {
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by128));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
-void VertexDecoderJitCache::Jit_PosS16Skin() {
-	XORPS(XMM3, R(XMM3));
-	MOVQ_xmm(XMM1, MDisp(srcReg, dec_->posoff));
+void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXWD(XMM1, R(XMM1));
 	} else {
@@ -1078,19 +1062,12 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
-}
-
-// Just copy 12 bytes.
-void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	MOVUPS(XMM3, MDisp(srcReg, dec_->posoff));
-	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	PXOR(fpScratchReg4, R(fpScratchReg4));
-	MOVAPS(XMM5, M(by127));
+	MOVAPS(XMM5, M(by128));
 
 	// Sum into fpScratchReg.
 	bool first = true;
@@ -1108,7 +1085,7 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		}
 		CVTDQ2PS(reg, R(reg));
 
-		// Now, It's time to multiply by the weight and 1.0f/127.0f.
+		// Now, It's time to multiply by the weight and 1.0f/128.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
@@ -1128,7 +1105,7 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	PXOR(fpScratchReg4, R(fpScratchReg4));
-	MOVAPS(XMM5, M(by32767));
+	MOVAPS(XMM5, M(by32768));
 
 	// Sum into fpScratchReg.
 	bool first = true;
@@ -1145,7 +1122,7 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		}
 		CVTDQ2PS(reg, R(reg));
 
-		// Now, It's time to multiply by the weight and 1.0f/32767.0f.
+		// Now, It's time to multiply by the weight and 1.0f/32768.0f.
 		MOVSS(fpScratchReg3, MDisp(tempReg1, sizeof(float) * n));
 		MULSS(fpScratchReg3, R(XMM5));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
