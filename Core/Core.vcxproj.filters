@@ -532,6 +532,9 @@
     <ClCompile Include="HLE\sceUsbGps.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\proAdhocServer.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -982,6 +985,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceUsbGps.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\proAdhocServer.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
