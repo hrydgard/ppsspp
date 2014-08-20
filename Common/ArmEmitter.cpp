@@ -471,10 +471,10 @@ void ARMXEmitter::FlushLitPool()
 		// Write the constant to Literal Pool
 		if (!pool.loc)
 		{
-			pool.loc = (s32)code;
+			pool.loc = (intptr_t)code;
 			Write32(pool.val);
 		}
-		s32 offset = pool.loc - (s32)pool.ldr_address - 8;
+		s32 offset = (s32)(pool.loc - (intptr_t)pool.ldr_address - 8);
 
 		// Backpatch the LDR
 		*(u32*)pool.ldr_address |= (offset >= 0) << 23 | abs(offset);
