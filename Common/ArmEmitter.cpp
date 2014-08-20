@@ -461,23 +461,23 @@ bool ARMXEmitter::TryEORI2R(ARMReg rd, ARMReg rs, u32 val)
 
 void ARMXEmitter::FlushLitPool()
 {
-	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
+	for (LiteralPool& pool : currentLitPool) {
 		// Search for duplicates
-		for(std::vector<LiteralPool>::iterator old_it = currentLitPool.begin(); old_it != it; ++old_it) {
-			if ((*old_it).val == (*it).val)
-				(*it).loc = (*old_it).loc;
+		for (LiteralPool& old_pool : currentLitPool) {
+			if (old_pool.val == pool.val)
+				pool.loc = old_pool.loc;
 		}
 
 		// Write the constant to Literal Pool
-		if (!(*it).loc)
+		if (!pool.loc)
 		{
-			(*it).loc = (intptr_t)code;
-			Write32((*it).val);
+			pool.loc = (s32)code;
+			Write32(pool.val);
 		}
-		intptr_t offset = (*it).loc - (intptr_t)(*it).ldr_address - 8;
+		s32 offset = pool.loc - (s32)pool.ldr_address - 8;
 
 		// Backpatch the LDR
-		*(u32*)(*it).ldr_address |= (offset >= 0) << 23 | abs(offset);
+		*(u32*)pool.ldr_address |= (offset >= 0) << 23 | abs(offset);
 	}
 	// TODO: Save a copy of previous pools in case they are still in range.
 	currentLitPool.clear();
@@ -517,23 +517,8 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 		if(val & 0xFFFF0000)
 			MOVT(reg, val, true);
 #else
-		if (!TrySetValue_TwoOp(reg,val)) {
-			bool first = true;
-			for (int i = 0; i < 32; i += 2) {
-				u8 bits = RotR(val, i) & 0xFF;
-				if ((bits & 3) != 0) {
-					u8 rotation = i == 0 ? 0 : 16 - i / 2;
-					if (first) {
-						MOV(reg, Operand2(bits, rotation));
-						first = false;
-					} else {
-						ORR(reg, reg, Operand2(bits, rotation));
-					}
-					// Well, we took care of these other bits while we were at it.
-					i += 8 - 2;
-				}
-			}
-			// Use literal pool for ARMv6.
+		if (!TrySetValue_TwoOp(reg, val)) {
+			// If it takes more than 2 cycles we use literal pool for ARMv6 (max 3 cycles).
 			AddNewLit(val);
 			LDR(reg, R_PC); // To be backpatched later
 		}

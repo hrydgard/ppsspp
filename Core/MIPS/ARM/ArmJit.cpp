@@ -283,8 +283,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.compilerPC += 4;
 		js.numInstructions++;
 #ifndef HAVE_ARMV7
-		// Disabled for now as it is crashing since Vertex Decoder JIT
-		if (false && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
+		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
