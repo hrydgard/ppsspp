@@ -27,9 +27,9 @@ void BGRAtoYUVA(__read_only image2d_t srcImg, uint width, uint height, __write_o
 
 	float4 output = 0.0;
 
-	output.s0 = pix.s2 * 0.299 + pix.s1 * 0.587 + pix.s0 * 0.114;
-	output.s1 = pix.s2 * -0.169 + pix.s1 * -0.331 + pix.s0 * 0.5 + 0.5;
-	output.s2 = pix.s2 * 0.5 + pix.s1 * -0.419 + pix.s0 * -0.081 + 0.5;
+	output.s0 = pix.s0 * 0.299 + pix.s1 * 0.587 + pix.s2 * 0.114;
+	output.s1 = pix.s0 * -0.169 + pix.s1 * -0.331 + pix.s2 * 0.5 + 0.5;
+	output.s2 = pix.s0 * 0.5 + pix.s1 * -0.419 + pix.s2 * -0.081 + 0.5;
 	output.s3 = pix.s3;
 
 	uint y = get_group_id(1) * 8 + get_local_id(1);

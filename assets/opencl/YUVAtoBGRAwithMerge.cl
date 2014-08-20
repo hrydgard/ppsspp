@@ -21,7 +21,9 @@
 constant sampler_t srcSampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 
 __kernel __attribute__((reqd_work_group_size(8, 8, 1)))
-void YUVAtoBGRAwithMerge(__read_only image2d_t srcYImg, __read_only image2d_t srcUImg, __read_only image2d_t srcVImg, __read_only image2d_t srcAImg, uint width, uint height, __write_only image2d_t dstImg) {
+void YUVAtoBGRAwithMerge(__read_only image2d_t srcYImg, __read_only image2d_t srcUImg, __read_only image2d_t srcVImg, 
+	__read_only image2d_t srcAImg, uint width, uint height, __write_only image2d_t dstImg, int is5551) {
+	
 	int2 outputPos = (int2)(get_global_id(0), get_global_id(1));
 
 	float4 pixY = read_imagef(srcYImg, srcSampler, outputPos);
@@ -33,10 +35,17 @@ void YUVAtoBGRAwithMerge(__read_only image2d_t srcYImg, __read_only image2d_t sr
 
 	float4 output = 0.0;
 
-	output.s2 = yuva.s0 * 1.0 + yuva.s1 * 0.0 + yuva.s2 * 1.4;
+	output.s0 = yuva.s0 * 1.0 + yuva.s1 * 0.0 + yuva.s2 * 1.4;
 	output.s1 = yuva.s0 * 1.0 + yuva.s1 * -0.343 + yuva.s2 * -0.711;
-	output.s0 = yuva.s0 * 1.0 + yuva.s1 * 1.765 + yuva.s2 * 0.0;
+	output.s2 = yuva.s0 * 1.0 + yuva.s1 * 1.765 + yuva.s2 * 0.0;
 	output.s3 = yuva.s3;
+
+	//If the texture is 5551 we need to zero out any nearly invisible pixels to avoid extraneous black areas
+	if (is5551) {
+		if (output.s3 < 0.1) {
+			output = 0;
+		}
+	}
 
 	uint y = get_group_id(1) * 8 + get_local_id(1);
 	if (y < height) {

@@ -127,10 +127,17 @@ float4 Process(__read_only image2d_t srcImg, float2 const outputPos, float const
 }
 
 __kernel __attribute__((reqd_work_group_size(8, 8, 1)))
-void Spline36(__read_only image2d_t srcImg, __write_only image2d_t dstImg, float srcWidth, float srcHeight, uint resizedWidth, uint resizedHeight, float shiftLeft, float shiftTop) {
+void Spline36(__read_only image2d_t srcImg, __write_only image2d_t dstImg, float srcWidth, float srcHeight, uint resizedWidth, uint resizedHeight, float shiftLeft, float shiftTop, int is5551) {
 	int2 outputPos = (int2)(get_global_id(0), get_global_id(1));
 
 	float4 output = Process(srcImg, convert_float2(outputPos), srcWidth, srcHeight, shiftLeft, shiftTop);
+
+	//If the texture is 5551 we need to zero out any nearly invisible pixels to avoid extraneous black areas
+	if (is5551) {
+		if (output.s3 < 0.1) {
+			output = 0;
+		}
+	}
 
 	//If we don't have these if statements certain drivers (Nvidia) will crash and lockup on the rare texture that isn't divisible by 8
 	uint y = get_group_id(1) * 8 + get_local_id(1);

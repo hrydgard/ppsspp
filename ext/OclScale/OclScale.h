@@ -17,6 +17,7 @@
 #include "../Globals.h"
 #include "Common/MemoryUtil.h"
 #include "Common/CommonFuncs.h"
+#include "gfx/gl_common.h"
 #include "opencl.h"
 
 namespace oclscale {
@@ -35,9 +36,9 @@ namespace oclscale {
 		cl_int Release();
 
 		cl_int NNEDI3Scale(u32 factor, //Only tested on: 2-5 (Note: non-power-of-two sizes are scaled up from a power-of-two using Spline36)
-			u32* src, u32* trg, u32 srcWidth, u32 srcHeight, const u32 neurons[]);
+			u32* src, u32* trg, u32 srcWidth, u32 srcHeight, const u32 neurons[], GLenum format);
 		cl_int Spline36Scale(u32 factor, //Only tested on: 2-5
-			u32* src, u32* trg, u32 srcWidth, u32 srcHeight);
+			u32* src, u32* trg, u32 srcWidth, u32 srcHeight, GLenum format);
 
 	private:
 		cl_int SetupCtx();
@@ -58,23 +59,23 @@ namespace oclscale {
 		cl_int SetupProgram(const char* srcFileName, cl_program& program);
 		cl_int GrabWeights(u32 nns, cl_mem& weightBuffer);
 
-		cl_int NNEDI3RGBAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 truefactor);
-		cl_int NNEDI3YUVAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 truefactor);
+		cl_int NNEDI3RGBAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 trueFactor, GLenum format);
+		cl_int NNEDI3YUVAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 trueFactor, GLenum format);
 
 		cl_int NNEDI3KernelCall(const cl_kernel& nnedi3Kernel, const cl_mem& input, cl_mem& output, const cl_mem& weightBuffer, size_t nns, 
 			u32 curWidth, u32 curHeight, int swapXY, const cl_float4 matrix, int offset, size_t globalWorkGroup[], const size_t localWorkGroup[]);
 		cl_int Spline36KernelCall(const cl_kernel& spline36Kernel, const cl_mem& input, const cl_mem& output,
 			float curWidthFlt, float curHeightFlt, float shiftLeft, float shiftTop, u32 resizedWidth,
-			u32 resizedHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
+			u32 resizedHeight, int is5551, size_t globalWorkGroup[], const size_t localWorkGroup[]);
+		cl_int MergeIntoRGBAKernelCall(const cl_kernel& mergeIntoRGBAKernel, const cl_mem& bChan, const cl_mem& gChan, const cl_mem& rChan,
+			const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
+		cl_int BGRAtoYUVAKernelCall(const cl_kernel& BGRAtoYUVAKernel, const cl_mem& input, cl_mem& output,
+			u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
+		cl_int YUVAtoBGRAwithMergeKernelCall(const cl_kernel& YUVAtoBGRAwithMergeKernel, const cl_mem& yChan, const cl_mem& uChan, const cl_mem& vChan,
+			const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, int is5551, size_t globalWorkGroup[], const size_t localWorkGroup[]);
 		cl_int Spline36SingleChanKernelCall(const cl_kernel& spline36Kernel, const cl_mem& input, const cl_mem& output,
 			float curWidthFlt, float curHeightFlt, float shiftLeft, float shiftTop, u32 resizedWidth, u32 resizedHeight,
 			size_t globalWorkGroup[], const size_t localWorkGroup[], const cl_float4 matrix);
-		cl_int BGRAtoYUVAKernelCall(const cl_kernel& BGRAtoYUVAKernel, const cl_mem& input, cl_mem& output,
-			u32 curWidth,  u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
-		cl_int YUVAtoBGRAwithMergeKernelCall(const cl_kernel& YUVAtoBGRAwithMergeKernel, const cl_mem& yChan, const cl_mem& uChan, const cl_mem& vChan,
-			const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
-		cl_int MergeIntoRGBAKernelCall(const cl_kernel& mergeIntoRGBAKernel, const cl_mem& bChan, const cl_mem& gChan, const cl_mem& rChan, 
-			const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]);
 		cl_int ReadOpenCLImageCall(const cl_mem& input, u32 output[], u32 curWidth, u32 curHeight);
 
 		//These are from: https://graphics.stanford.edu/~seander/bithacks.html
@@ -140,9 +141,9 @@ namespace oclscale {
 			for (u32 j = 0; j < h; j++) {
 				for (u32 i = 0; i < w; i++) {
 					static unsigned char color[4];
-					color[2] = rgba[0][(j * w + i)];
+					color[0] = rgba[0][(j * w + i)];
 					color[1] = rgba[1][(j * w + i)];
-					color[0] = rgba[2][(j * w + i)];
+					color[2] = rgba[2][(j * w + i)];
 					color[3] = rgba[3][(j * w + i)];
 					fwrite(color, 1, 4, fp);
 				}

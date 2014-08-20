@@ -255,7 +255,7 @@ namespace oclscale {
 			}
 
 			if (glSharingOnPlatform) {
-				clGetGLContextInfoKHR_fn pclGetGLContextInfoKHR = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddressForPlatform(platformIDs[i], "clGetGLContextInfoKHR");
+				clGetGLContextInfoKHR_fn pclGetGLContextInfoKHR = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
 				size_t devSizeInBytes = 0;
 				OCL_NEXT_ITER_ON_FAIL(pclGetGLContextInfoKHR, props, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, 0, NULL, &devSizeInBytes);
 
@@ -633,16 +633,16 @@ namespace oclscale {
 		return status;
 	}
 
-	cl_int OclScaler::NNEDI3Scale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, const u32 neurons[]) {
+	cl_int OclScaler::NNEDI3Scale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, const u32 neurons[], GLenum format) {
 		cl_int status = CL_SUCCESS;
 
 		if (!IsActive()) {
 			OCL_SILENT_CHECK_NO_ARGS(SetupCtx);
 		}
 
-		//In the case of 3x and 5x truefactor contains the actual factor value that is passed in
+		//In the case of 3x and 5x trueFactor contains the actual factor value that is passed in
 		//and factor is changed to either 2x or 4x respectively for 3x and 5x
-		const u32 truefactor = factor;
+		const u32 trueFactor = factor;
 
 		//For these non-power-of-two cases spline36 is used to bring the texture to the requested size
 		if (!IsPowerOfTwo(factor)) {
@@ -666,12 +666,12 @@ namespace oclscale {
 			if (!nnedi3RGBAActive || !nnedi3Active || !spline36Active) {
 				OCL_SILENT_CHECK_NO_ARGS(SetupNNEDI3RGBA);
 			}
-			OCL_SILENT_CHECK(NNEDI3RGBAScale, factor, src, trg, srcWidth, srcHeight, factorBase, truefactor);
+			OCL_SILENT_CHECK(NNEDI3RGBAScale, factor, src, trg, srcWidth, srcHeight, factorBase, trueFactor, format);
 		} else { //We use the generic path
 			if (!nnedi3YUVAActive || !nnedi3Active || !spline36Active) {
 				OCL_SILENT_CHECK_NO_ARGS(SetupNNEDI3YUVA);
 			}
-			OCL_SILENT_CHECK(NNEDI3YUVAScale, factor, src, trg, srcWidth, srcHeight, factorBase, truefactor);
+			OCL_SILENT_CHECK(NNEDI3YUVAScale, factor, src, trg, srcWidth, srcHeight, factorBase, trueFactor, format);
 		}
 		goto end;
 
@@ -683,7 +683,7 @@ namespace oclscale {
 	}
 
 	//Used when all the channels are scaled using NNEDI3 at the same number of neurons
-	cl_int OclScaler::NNEDI3RGBAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 truefactor) {
+	cl_int OclScaler::NNEDI3RGBAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 trueFactor, GLenum format) {
 		cl_int status = CL_SUCCESS, memStatus = CL_SUCCESS;
 
 		cl_mem weightBuf = NULL;
@@ -693,7 +693,7 @@ namespace oclscale {
 
 		//For NNEDI3 scaled channels: [(chan * factorBasePlus1 * 2) + (i * 2) + 0] = no resize, [(chan * factorBasePlus1 * 2) + (i * 2) + 1] = horizontal resize
 		cl_mem* clImagesSingle = new cl_mem[4 * (factorBasePlus1)* 2]();
-		//[0] = mergedInto8888, [1] = final result scaled up to truefactor with center shift corrected
+		//[0] = mergedInto8888, [1] = result scaled up to trueFactor with center shift corrected
 		cl_mem clImagesAll[2] = { NULL };
 		ImageBuf image;
 
@@ -702,7 +702,6 @@ namespace oclscale {
 		clImageFormatAll.image_channel_order = CL_RGBA;
 		clImageFormatAll.image_channel_data_type = CL_UNORM_INT8;
 
-		image.Resize(srcWidth*srcHeight);
 		image.SetImage(src, srcWidth, srcHeight);
 		weightBuf = weightBuffers[0];
 
@@ -754,40 +753,40 @@ namespace oclscale {
 		float curHeightFlt = (float)curHeight;
 		float shiftLeft = 0.0f;
 		float shiftTop = 0.0f;
+		int is5551 = 0;
 
-		if (factor == truefactor) { //Applies for power-of-two factors (2x, 4x)
+		if (factor == trueFactor) { //Applies for power-of-two factors (2x, 4x)
 			//Post-resize shift correction
-			shiftLeft = (truefactor - 1.0f) / -2.0f;
-			shiftTop = (truefactor - 1.0f) / -2.0f;
-
-			OCL_CREATE(clImagesAll[1], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormatAll, curWidth, curHeight, 0, NULL);
-			OCL_CHECK(Spline36KernelCall, spline36Kernel, clImagesAll[0], clImagesAll[1], curWidthFlt,
-				curHeightFlt, shiftLeft, shiftTop, curWidth, curHeight, globalWorkGroup, localWorkGroup);
-
-			OCL_CHECK(ReadOpenCLImageCall, clImagesAll[1], trg, curWidth, curHeight);
+			shiftLeft = (trueFactor - 1.0f) / -2.0f;
+			shiftTop = (trueFactor - 1.0f) / -2.0f;
 		} else { //Applies for non-power-of-two factors (3x, 5x)
 			//During resize shift correction
-			if (truefactor == 3) {
+			if (trueFactor == 3) {
 				shiftLeft = -0.70f;
 				shiftTop = -0.70f;
-			} else { //truefactor == 5
+			} else { //trueFactor == 5
 				shiftLeft = -1.50f;
 				shiftTop = -1.50f;
 			}
 
-			curWidth = srcWidth * truefactor;
-			curHeight = srcHeight * truefactor;
-
-			OCL_CREATE(clImagesAll[1], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormatAll, curWidth, curHeight, 0, NULL);
-			OCL_CHECK(Spline36KernelCall, spline36Kernel, clImagesAll[0], clImagesAll[1], curWidthFlt,
-				curHeightFlt, shiftLeft, shiftTop, curWidth, curHeight, globalWorkGroup, localWorkGroup);
-
-			OCL_CHECK(ReadOpenCLImageCall, clImagesAll[1], trg, curWidth, curHeight);
+			curWidth = srcWidth * trueFactor;
+			curHeight = srcHeight * trueFactor;
 		}
 
+		if (format == GL_UNSIGNED_SHORT_5_5_5_1) {
+			is5551 = 1;
+		}
+
+		OCL_CREATE(clImagesAll[1], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormatAll, curWidth, curHeight, 0, NULL);
+		OCL_CHECK(Spline36KernelCall, spline36Kernel, clImagesAll[0], clImagesAll[1], curWidthFlt,
+			curHeightFlt, shiftLeft, shiftTop, curWidth, curHeight, is5551, globalWorkGroup, localWorkGroup);
+
+		OCL_CHECK(ReadOpenCLImageCall, clImagesAll[1], trg, curWidth, curHeight);
+
 	clean_up:
-		OCL_FREE(clReleaseMemObject, clImagesAll[0]);
-		OCL_FREE(clReleaseMemObject, clImagesAll[1]);
+		for (u32 i = 0; i < 2; i++) {
+			OCL_FREE(clReleaseMemObject, clImagesAll[i]);
+		}
 
 		for (u32 i = 0; i < (4 * (factorBasePlus1)* 2); i++) {
 			OCL_FREE(clReleaseMemObject, clImagesSingle[i]);
@@ -798,7 +797,7 @@ namespace oclscale {
 	}
 
 	//Generic path used for various combinations of NNEDI3 and Spline36 scaling
-	cl_int OclScaler::NNEDI3YUVAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 truefactor) {
+	cl_int OclScaler::NNEDI3YUVAScale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, u32 factorBase, u32 trueFactor, GLenum format) {
 		cl_int status = CL_SUCCESS, memStatus = CL_SUCCESS;
 
 		cl_image_format clImageFormatSingle, clImageFormatAll;
@@ -808,7 +807,7 @@ namespace oclscale {
 		//	The final scale with shift correction is in: [(chan * factorBasePlus1 * 2) + (factorBase * 2) + 1]
 		//For Spline36 scaled channels: [(chan * factorBasePlus1 * 2) + (factorBase * 2) + 1] = spline36 scale with shift corrected
 		cl_mem* clImagesSingle = new cl_mem[4 * (factorBasePlus1)* 2]();
-		//[0] = Original Image, [1] = BGRAtoYUVA, [2] = YUVAtoBGRAwithMerge, [3] = final result scaled up to truefactor
+		//[0] = Original Image, [1] = BGRAtoYUVA, [2] = YUVAtoBGRAwithMerge, [3] = result scaled up to trueFactor
 		cl_mem clImagesAll[4] = { NULL };
 
 		clImageFormatSingle.image_channel_order = CL_R;
@@ -918,26 +917,39 @@ namespace oclscale {
 		}
 
 		//Combine the separate Y, UV, and A, and convert back into BGRA
+		int is5551 = 0;
 		OCL_CREATE(clImagesAll[2], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormatAll, curWidth, curHeight, 0, NULL);
-		OCL_CHECK(YUVAtoBGRAwithMergeKernelCall, YUVAtoBGRAwithMergeKernel, clImagesSingle[(0 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
-			clImagesSingle[(1 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesSingle[(2 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
-			clImagesSingle[(3 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesAll[2], curWidth, curHeight, globalWorkGroup, localWorkGroup);
 
 		//Applies for power-of-two factors (2x, 4x)
-		if (factor == truefactor) {
+		if (factor == trueFactor) {
+			if (format == GL_UNSIGNED_SHORT_5_5_5_1) {
+				is5551 = 1;
+			}
+
+			OCL_CHECK(YUVAtoBGRAwithMergeKernelCall, YUVAtoBGRAwithMergeKernel, clImagesSingle[(0 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
+				clImagesSingle[(1 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesSingle[(2 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
+				clImagesSingle[(3 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesAll[2], curWidth, curHeight, is5551, globalWorkGroup, localWorkGroup);
+
 			OCL_CHECK(ReadOpenCLImageCall, clImagesAll[2], trg, curWidth, curHeight);
 		} else { //Applies for non-power-of-two factors (3x, 5x)
+			OCL_CHECK(YUVAtoBGRAwithMergeKernelCall, YUVAtoBGRAwithMergeKernel, clImagesSingle[(0 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
+				clImagesSingle[(1 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesSingle[(2 * factorBasePlus1 * 2) + (factorBase * 2) + 1],
+				clImagesSingle[(3 * factorBasePlus1 * 2) + (factorBase * 2) + 1], clImagesAll[2], curWidth, curHeight, is5551, globalWorkGroup, localWorkGroup);
+
 			curWidthFlt = (float)curWidth;
 			curHeightFlt = (float)curHeight;
 			shiftLeft = -0.125f;
 			shiftTop = -0.125f;
-			curWidth = srcWidth * truefactor;
-			curHeight = srcHeight * truefactor;
+			curWidth = srcWidth * trueFactor;
+			curHeight = srcHeight * trueFactor;
+			if (format == GL_UNSIGNED_SHORT_5_5_5_1) {
+				is5551 = 1;
+			}
 
 			OCL_CREATE(clImagesAll[3], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormatAll, curWidth, curHeight, 0, NULL);
 			OCL_CHECK(Spline36KernelCall, spline36Kernel, clImagesAll[2], clImagesAll[3], curWidthFlt,
-				curHeightFlt, shiftLeft, shiftTop, curWidth, curHeight, globalWorkGroup, localWorkGroup);
-
+				curHeightFlt, shiftLeft, shiftTop, curWidth, curHeight, is5551, globalWorkGroup, localWorkGroup);
+			
 			OCL_CHECK(ReadOpenCLImageCall, clImagesAll[3], trg, curWidth, curHeight);
 		}
 
@@ -954,7 +966,7 @@ namespace oclscale {
 		return status;
 	}
 
-	cl_int OclScaler::Spline36Scale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight) {
+	cl_int OclScaler::Spline36Scale(u32 factor, u32* src, u32* trg, u32 srcWidth, u32 srcHeight, GLenum format) {
 		cl_int status = CL_SUCCESS, memStatus = CL_SUCCESS;
 
 		cl_image_format clImageFormat;
@@ -970,7 +982,7 @@ namespace oclscale {
 			}
 		}
 
-		clImageFormat.image_channel_order = CL_BGRA;
+		clImageFormat.image_channel_order = CL_RGBA;
 		clImageFormat.image_channel_data_type = CL_UNORM_INT8;
 
 		OCL_CREATE(clImages[0], clCreateImage2D, context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
@@ -989,19 +1001,26 @@ namespace oclscale {
 			shiftTop += -0.045;
 		}
 
+		int is5551 = 0;
+		if (format == GL_UNSIGNED_SHORT_5_5_5_1) {
+			is5551 = 1;
+		}
+
 		OCL_CREATE(clImages[1], clCreateImage2D, context, CL_MEM_READ_WRITE, &clImageFormat, resizedWidth, resizedHeight, 0, NULL);
 		OCL_CHECK(Spline36KernelCall, spline36Kernel, clImages[0], clImages[1], curWidthFlt, curHeightFlt,
-			shiftLeft, shiftTop, resizedWidth, resizedHeight, globalWorkGroup, localWorkGroup);
+			shiftLeft, shiftTop, resizedWidth, resizedHeight, is5551, globalWorkGroup, localWorkGroup);
 
 		OCL_CHECK(ReadOpenCLImageCall, clImages[1], trg, resizedWidth, resizedHeight);
+
 		goto end;
 
 	clean_up:
 		//If we hit this it means something went wrong at some point during the scaling
 		//We don't need to touch the trg since it comes pre-zeroed out, and this scaling should fail gracefully
 	end :
-		OCL_FREE(clReleaseMemObject, clImages[0]);
-		OCL_FREE(clReleaseMemObject, clImages[1]);
+		for (u32 i = 0; i < 2; i++) {
+			OCL_FREE(clReleaseMemObject, clImages[i]);
+		}
 
 		return status;
 	}
@@ -1030,7 +1049,7 @@ namespace oclscale {
 	}
 
 	cl_int OclScaler::Spline36KernelCall(const cl_kernel& spline36Kernel, const cl_mem& input, const cl_mem& output, float curWidthFlt, float curHeightFlt,
-		float shiftLeft, float shiftTop, u32 resizedWidth, u32 resizedHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
+		float shiftLeft, float shiftTop, u32 resizedWidth, u32 resizedHeight, int is5551, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
 		cl_int status = CL_SUCCESS;
 
 		OCL_CHECK(clSetKernelArg, spline36Kernel, 0, sizeof(size_t), &input);
@@ -1041,6 +1060,7 @@ namespace oclscale {
 		OCL_CHECK(clSetKernelArg, spline36Kernel, 5, sizeof(u32), &resizedHeight);
 		OCL_CHECK(clSetKernelArg, spline36Kernel, 6, sizeof(float), &shiftLeft);
 		OCL_CHECK(clSetKernelArg, spline36Kernel, 7, sizeof(float), &shiftTop);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 8, sizeof(int), &is5551);
 
 		globalWorkGroup[0] = RoundUp(resizedWidth, 8);
 		globalWorkGroup[1] = RoundUp(resizedHeight, 8);
@@ -1051,24 +1071,22 @@ namespace oclscale {
 		return status;
 	}
 
-	cl_int OclScaler::Spline36SingleChanKernelCall(const cl_kernel& spline36Kernel, const cl_mem& input, const cl_mem& output, float curWidthFlt, float curHeightFlt,
-		float shiftLeft, float shiftTop, u32 resizedWidth, u32 resizedHeight, size_t globalWorkGroup[], const size_t localWorkGroup[], const cl_float4 matrix) {
+	cl_int OclScaler::MergeIntoRGBAKernelCall(const cl_kernel& mergeIntoRGBAKernel, const cl_mem& bChan, const cl_mem& gChan, const cl_mem& rChan,
+		const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
 		cl_int status = CL_SUCCESS;
 
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 0, sizeof(size_t), &input);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 1, sizeof(size_t), &output);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 2, sizeof(float), &curWidthFlt);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 3, sizeof(float), &curHeightFlt);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 4, sizeof(u32), &resizedWidth);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 5, sizeof(u32), &resizedHeight);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 6, sizeof(float), &shiftLeft);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 7, sizeof(float), &shiftTop);
-		OCL_CHECK(clSetKernelArg, spline36Kernel, 8, sizeof(cl_float4), &matrix);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 0, sizeof(size_t), &bChan);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 1, sizeof(size_t), &gChan);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 2, sizeof(size_t), &rChan);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 3, sizeof(size_t), &aChan);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 4, sizeof(u32), &curWidth);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 5, sizeof(u32), &curHeight);
+		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 6, sizeof(size_t), &output);
 
-		globalWorkGroup[0] = RoundUp(resizedWidth, 8);
-		globalWorkGroup[1] = RoundUp(resizedHeight, 8);
+		globalWorkGroup[0] = RoundUp(curWidth, 8);
+		globalWorkGroup[1] = RoundUp(curHeight, 8);
 
-		OCL_CHECK(clEnqueueNDRangeKernel, commandQueue, spline36Kernel, 2, NULL, globalWorkGroup, localWorkGroup, NULL, NULL, NULL);
+		OCL_CHECK(clEnqueueNDRangeKernel, commandQueue, mergeIntoRGBAKernel, 2, NULL, globalWorkGroup, localWorkGroup, NULL, NULL, NULL);
 
 	clean_up:
 		return status;
@@ -1093,7 +1111,7 @@ namespace oclscale {
 	}
 
 	cl_int OclScaler::YUVAtoBGRAwithMergeKernelCall(const cl_kernel& YUVAtoBGRAwithMergeKernel, const cl_mem& yChan, const cl_mem& uChan, const cl_mem& vChan,
-		const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
+		const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, int is5551, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
 		cl_int status = CL_SUCCESS;
 
 		OCL_CHECK(clSetKernelArg, YUVAtoBGRAwithMergeKernel, 0, sizeof(size_t), &yChan);
@@ -1103,6 +1121,7 @@ namespace oclscale {
 		OCL_CHECK(clSetKernelArg, YUVAtoBGRAwithMergeKernel, 4, sizeof(u32), &curWidth);
 		OCL_CHECK(clSetKernelArg, YUVAtoBGRAwithMergeKernel, 5, sizeof(u32), &curHeight);
 		OCL_CHECK(clSetKernelArg, YUVAtoBGRAwithMergeKernel, 6, sizeof(size_t), &output);
+		OCL_CHECK(clSetKernelArg, YUVAtoBGRAwithMergeKernel, 7, sizeof(int), &is5551);
 
 		globalWorkGroup[0] = RoundUp(curWidth, 8);
 		globalWorkGroup[1] = RoundUp(curHeight, 8);
@@ -1113,22 +1132,24 @@ namespace oclscale {
 		return status;
 	}
 
-	cl_int OclScaler::MergeIntoRGBAKernelCall(const cl_kernel& mergeIntoRGBAKernel, const cl_mem& bChan, const cl_mem& gChan, const cl_mem& rChan,
-		const cl_mem& aChan, cl_mem& output, u32 curWidth, u32 curHeight, size_t globalWorkGroup[], const size_t localWorkGroup[]) {
+	cl_int OclScaler::Spline36SingleChanKernelCall(const cl_kernel& spline36Kernel, const cl_mem& input, const cl_mem& output, float curWidthFlt, float curHeightFlt,
+		float shiftLeft, float shiftTop, u32 resizedWidth, u32 resizedHeight, size_t globalWorkGroup[], const size_t localWorkGroup[], const cl_float4 matrix) {
 		cl_int status = CL_SUCCESS;
 
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 0, sizeof(size_t), &bChan);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 1, sizeof(size_t), &gChan);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 2, sizeof(size_t), &rChan);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 3, sizeof(size_t), &aChan);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 4, sizeof(u32), &curWidth);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 5, sizeof(u32), &curHeight);
-		OCL_CHECK(clSetKernelArg, mergeIntoRGBAKernel, 6, sizeof(size_t), &output);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 0, sizeof(size_t), &input);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 1, sizeof(size_t), &output);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 2, sizeof(float), &curWidthFlt);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 3, sizeof(float), &curHeightFlt);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 4, sizeof(u32), &resizedWidth);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 5, sizeof(u32), &resizedHeight);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 6, sizeof(float), &shiftLeft);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 7, sizeof(float), &shiftTop);
+		OCL_CHECK(clSetKernelArg, spline36Kernel, 8, sizeof(cl_float4), &matrix);
 
-		globalWorkGroup[0] = RoundUp(curWidth, 8);
-		globalWorkGroup[1] = RoundUp(curHeight, 8);
+		globalWorkGroup[0] = RoundUp(resizedWidth, 8);
+		globalWorkGroup[1] = RoundUp(resizedHeight, 8);
 
-		OCL_CHECK(clEnqueueNDRangeKernel, commandQueue, mergeIntoRGBAKernel, 2, NULL, globalWorkGroup, localWorkGroup, NULL, NULL, NULL);
+		OCL_CHECK(clEnqueueNDRangeKernel, commandQueue, spline36Kernel, 2, NULL, globalWorkGroup, localWorkGroup, NULL, NULL, NULL);
 
 	clean_up:
 		return status;

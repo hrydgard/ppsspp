@@ -45,8 +45,8 @@ private:
 	void ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic = false);
 #ifndef MOBILE_DEVICE
-	void ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height);
-	void ScaleSpline36(int factor, u32* source, u32* dest, int width, int height);
+	void ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height, GLenum format);
+	void ScaleSpline36(int factor, u32* source, u32* dest, int width, int height, GLenum format);
 #endif
 	void ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height);
 

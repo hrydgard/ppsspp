@@ -494,6 +494,24 @@ namespace {
 
 	// used for debugging texture scaling (writing textures to files)
 	static int g_imgCount = 0;
+	void dbgPAM(u32 w, u32 h, u8* pixels, const char* prefix = "dbg") { // 4 component RGBA
+		char fn[32];
+		snprintf(fn, 32, "%s%04d.pam", prefix, g_imgCount++);
+		FILE *fp = fopen(fn, "wb");
+		fprintf(fp, "P7\nWIDTH %d\nHEIGHT %d\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n", w, h);
+		for (u32 j = 0; j < h; j++) {
+			for (u32 i = 0; i < w; i++) {
+				static unsigned char color[4];
+				color[0] = pixels[(j*w + i) * 4 + 0];
+				color[1] = pixels[(j*w + i) * 4 + 1];
+				color[2] = pixels[(j*w + i) * 4 + 2];
+				color[3] = pixels[(j*w + i) * 4 + 3];
+				fwrite(color, 1, 4, fp);
+			}
+		}
+		fclose(fp);
+	}
+
 	void dbgPPM(int w, int h, u8* pixels, const char* prefix = "dbg") { // 3 component RGB
 		char fn[32];
 		snprintf(fn, 32, "%s%04d.ppm", prefix, g_imgCount++);
@@ -510,6 +528,7 @@ namespace {
 		}
 		fclose(fp);
 	}
+
 	void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 component
 		char fn[32];
 		snprintf(fn, 32, "%s%04d.pgm", prefix, g_imgCount++);
@@ -591,10 +610,10 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 		break;
 #ifndef MOBILE_DEVICE
 	case NNEDI3:
-		ScaleNNEDI3(factor, inputBuf, outputBuf, width, height);
+		ScaleNNEDI3(factor, inputBuf, outputBuf, width, height, dstFmt);
 		break;
 	case SPLINE36:
-		ScaleSpline36(factor, inputBuf, outputBuf, width, height);
+		ScaleSpline36(factor, inputBuf, outputBuf, width, height, dstFmt);
 		break;
 #endif
 	default:
@@ -667,14 +686,14 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 }
 
 #ifndef MOBILE_DEVICE
-void TextureScaler::ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height) {
-	u32 neurons[3] = { g_Config.iNNEDI3NeuronsY, g_Config.iNNEDI3NeuronsUV, g_Config.iNNEDI3NeuronsA };
+void TextureScaler::ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height, GLenum format) {
+	u32 neurons[3] = { static_cast<u32>(g_Config.iNNEDI3NeuronsY), static_cast<u32>(g_Config.iNNEDI3NeuronsUV), static_cast<u32>(g_Config.iNNEDI3NeuronsA) };
 
-	oclCtx.NNEDI3Scale(factor, source, dest, width, height, neurons);
+	oclCtx.NNEDI3Scale(factor, source, dest, width, height, neurons, format);
 }
 
-void TextureScaler::ScaleSpline36(int factor, u32* source, u32* dest, int width, int height) {
-	oclCtx.Spline36Scale(factor, source, dest, width, height);
+void TextureScaler::ScaleSpline36(int factor, u32* source, u32* dest, int width, int height, GLenum format) {
+	oclCtx.Spline36Scale(factor, source, dest, width, height, format);
 }
 #endif
 
