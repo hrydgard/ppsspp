@@ -360,7 +360,7 @@ def init():
     PPSSPP_EXE = None
 
   if not PPSSPP_EXE:
-    print("PPSSPP executable missing, please build one.")
+    print("PPSSPPHeadless executable missing, please build one.")
     sys.exit(1)
 
 def tcprint(arg):
