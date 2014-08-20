@@ -210,6 +210,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
+	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;
 	// Check compatibility
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
 		//numStacks = 0;
@@ -220,6 +221,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
 				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
 					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+					return 0x80000021;
+				} else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
+					ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
 					return 0x80000021;
 				}
 			}
@@ -266,6 +270,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.started = false;
 	dl.offsetAddr = 0;
 	dl.bboxResult = false;
+	dl.stackAddr = stackAddr;
 
 	if (args.IsValid() && args->context.IsValid())
 		dl.context = args->context;
@@ -1003,7 +1008,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	gstate.FastLoadBoneMatrix(target);
 }
 
-struct DisplayListOld {
+struct DisplayList_v1 {
 	int id;
 	u32 startpc;
 	u32 pc;
@@ -1024,20 +1029,49 @@ struct DisplayListOld {
 	bool bboxResult;
 };
 
+struct DisplayList_v2 {
+	int id;
+	u32 startpc;
+	u32 pc;
+	u32 stall;
+	DisplayListState state;
+	SignalBehavior signal;
+	int subIntrBase;
+	u16 subIntrToken;
+	DisplayListStackEntry stack[32];
+	int stackptr;
+	bool interrupted;
+	u64 waitTicks;
+	bool interruptsEnabled;
+	bool pendingInterrupt;
+	bool started;
+	PSPPointer<u32_le> context;
+	u32 offsetAddr;
+	bool bboxResult;
+};
+
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
-	auto s = p.Section("GPUCommon", 1, 2);
+	auto s = p.Section("GPUCommon", 1, 3);
 	if (!s)
 		return;
 
 	p.Do<int>(dlQueue);
-	if (s >= 2) {
+	if (s >= 3) {
 		p.DoArray(dls, ARRAY_SIZE(dls));
+	} else if (s >= 2) {
+		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+			DisplayList_v2 oldDL;
+			p.Do(oldDL);
+			// Copy over everything except the last, new member (stackAddr.)
+			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v2));
+			dls[i].stackAddr = 0;
+		}
 	} else {
 		// Can only be in read mode here.
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
-			DisplayListOld oldDL;
+			DisplayList_v1 oldDL;
 			p.Do(oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList));
@@ -1045,6 +1079,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].context = 0;
 			dls[i].offsetAddr = oldDL.offsetAddr;
 			dls[i].bboxResult = oldDL.bboxResult;
+			dls[i].stackAddr = 0;
 		}
 	}
 	int currentID = 0;
