@@ -63,7 +63,7 @@
 
 extern int g_iNumVideos;
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -909,6 +909,7 @@ void TextureCache::LoadClut() {
 	}
 	// Reload the clut next time.
 	clutLastFormat_ = 0xFFFFFFFF;
+	clutMaxBytes_ = std::max(clutMaxBytes_, clutTotalBytes_);
 }
 
 void TextureCache::UpdateCurrentClut() {
@@ -923,7 +924,8 @@ void TextureCache::UpdateCurrentClut() {
 
 	// Avoid a copy when we don't need to convert colors.
 	if (UseBGRA8888() || clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutExtendedBytes / sizeof(u16));
+		const int numColors = (clutMaxBytes_ + clutBaseBytes) / (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
+		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), numColors);
 		clutBuf_ = clutBufConverted_;
 	} else {
 		clutBuf_ = clutBufRaw_;
