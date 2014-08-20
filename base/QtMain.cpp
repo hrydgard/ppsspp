@@ -162,21 +162,12 @@ static int mainInternal(QApplication &a)
 			SDL_CloseAudio();
 		}
 	}
-
-	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
 #else
-	QScopedPointer<QThread> thread(new QThread);
 	QScopedPointer<MainAudio> audio(new MainAudio());
-	audio->moveToThread(thread.data());
-	QObject::connect(thread.data(), SIGNAL(started()), audio.data(), SLOT(run()));
-	thread->start();
+	audio->run();
 #endif
-	int ret = a.exec();
-#ifndef QT_HAS_SDL
-	thread->terminate();
-#endif
-	return ret;
+	return a.exec();
 }
 
 #ifndef QT_HAS_SDL
