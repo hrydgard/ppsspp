@@ -1,5 +1,10 @@
 #include <vector>
 #include <inttypes.h>
+
+#ifdef _DEBUG
+#define D3D_DEBUG_INFO
+#endif
+
 #include <d3d9.h>
 #include <d3dx9.h>
 
@@ -81,7 +86,7 @@ public:
 
 class Thin3DDX9Buffer : public Thin3DBuffer {
 public:
-	Thin3DDX9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr) {
+	Thin3DDX9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
 		if (flags & T3DBufferUsage::INDEXDATA) {
 			DWORD usage = 0;
 			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_MANAGED, &ibuffer_, NULL);
@@ -91,6 +96,12 @@ public:
 		}
 	}
 	void SetData(const uint8_t *data, size_t size) override {
+		if (!size)
+			return;
+		if (size > maxSize_) {
+			ELOG("Can't SetData with bigger size than buffer was created with on D3D");
+			return;
+		}
 		if (vbuffer_) {
 			void *ptr;
 			vbuffer_->Lock(0, (UINT)size, &ptr, D3DLOCK_DISCARD);
@@ -104,6 +115,12 @@ public:
 		}
 	}
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
+		if (!size)
+			return;
+		if (offset + size > maxSize_) {
+			ELOG("Can't SubData with bigger size than buffer was created with on D3D");
+			return;
+		}
 		if (vbuffer_) {
 			void *ptr;
 			HRESULT res = vbuffer_->Lock((UINT)offset, (UINT)size, &ptr, D3DLOCK_DISCARD);
@@ -132,12 +149,18 @@ public:
 private:
 	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
 	LPDIRECT3DINDEXBUFFER9 ibuffer_;
+	int maxSize_;
 };
 
 
 class Thin3DDX9VertexFormat : public Thin3DVertexFormat {
 public:
 	Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<Thin3DVertexComponent> &components, int stride);
+	~Thin3DDX9VertexFormat() {
+		if (decl_) {
+			decl_->Release();
+		}
+	}
 	int GetStride() const { return stride_; }
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetVertexDeclaration(decl_);
@@ -349,7 +372,7 @@ Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, cons
 }
 
 Thin3DShader *Thin3DDX9Context::CreateFragmentShader(const char *glsl_source, const char *hlsl_source) {
-	Thin3DDX9Shader *shader = new Thin3DDX9Shader(false);
+	Thin3DDX9Shader *shader = new Thin3DDX9Shader(true);
 	if (shader->Compile(device_, hlsl_source, "ps_3_0")) {
 		return shader;
 	} else {
@@ -435,12 +458,12 @@ static int VertexDataTypeToD3DType(T3DVertexDataType type) {
 	case T3DVertexDataType::FLOATx2: return D3DDECLTYPE_FLOAT2;
 	case T3DVertexDataType::FLOATx3: return D3DDECLTYPE_FLOAT3;
 	case T3DVertexDataType::FLOATx4: return D3DDECLTYPE_FLOAT4;
-	case T3DVertexDataType::UNORM8x4: return D3DDECLTYPE_UBYTE4;  // D3DCOLOR?
+	case T3DVertexDataType::UNORM8x4: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
 	default: return D3DDECLTYPE_UNUSED;
 	}
 }
 
-Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<Thin3DVertexComponent> &components, int stride) {
+Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<Thin3DVertexComponent> &components, int stride) : decl_(NULL) {
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[components.size() + 1];
 	int i;
 	for (i = 0; i < components.size(); i++) {

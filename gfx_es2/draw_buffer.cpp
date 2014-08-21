@@ -81,9 +81,9 @@ void DrawBuffer::Flush(bool set_blend_state) {
 		return;
 	}
 
-	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 	if (count_ == 0)
 		return;
+	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 
 	int offset = 0;
 
