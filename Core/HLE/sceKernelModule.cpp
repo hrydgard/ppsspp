@@ -1697,7 +1697,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	if (!module) {
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return error;
+			return -1;
 		}
 
 		if (info.name == "BOOT.BIN")
