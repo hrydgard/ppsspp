@@ -58,9 +58,18 @@ enum ReplaceAlphaType {
 	REPLACE_ALPHA_DUALSOURCE = 2,
 };
 
+enum ReplaceBlendType {
+	REPLACE_BLEND_NO,
+	REPLACE_BLEND_STANDARD,
+	REPLACE_BLEND_PRE_SRC,
+	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
+	REPLACE_BLEND_2X_ALPHA,
+	REPLACE_BLEND_2X_SRC,
+	REPLACE_BLEND_COPY_FBO,
+};
+
 bool IsAlphaTestTriviallyTrue();
 bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
-ReplaceAlphaType ReplaceAlphaWithStencil();
-bool ShouldUseShaderBlending();
-bool ShouldUseShaderFixedBlending();
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
+ReplaceBlendType ReplaceBlendWithShader();

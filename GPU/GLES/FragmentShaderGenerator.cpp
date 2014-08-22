@@ -137,15 +137,13 @@ const bool nonAlphaDestFactors[16] = {
 	true,  // GE_DSTBLEND_FIXB,
 };
 
-ReplaceAlphaType ReplaceAlphaWithStencil() {
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
-	if (gstate.isAlphaBlendEnabled()) {
+	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_COPY_FBO) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
-			return REPLACE_ALPHA_YES;
-		} else if (ShouldUseShaderBlending()) {
 			return REPLACE_ALPHA_YES;
 		} else {
 			if (gl_extensions.ARB_blend_func_extended) {
@@ -232,149 +230,124 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
-static bool AlphaToColorDoubling() {
-	if (!gstate.isAlphaBlendEnabled()) {
-		return false;
-	}
-	// 2x alpha in the source function and not in the dest = source color doubling.
-	switch (gstate.getBlendFuncA()) {
-	case GE_SRCBLEND_DOUBLESRCALPHA:
-	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		break;
-
-	case GE_SRCBLEND_DOUBLEDSTALPHA:
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		// Even dest alpha is safe, since we're moving the * 2.0 into the src color.
-		break;
-
-	default:
-		return false;
-	}
-	switch (gstate.getBlendFuncB()) {
-	case GE_DSTBLEND_SRCCOLOR:
-	case GE_DSTBLEND_INVSRCCOLOR:
-		// Can't double, we need the source color to be correct.
-		return false;
-
-	case GE_DSTBLEND_DOUBLESRCALPHA:
-	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-	case GE_DSTBLEND_DOUBLEDSTALPHA:
-	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		// Won't do the trick, would be better to double both sides.
-		return false;
-
-	default:
-		// In all other cases, we're pre-multiplying the src side by 2.
-		// For example, src * (2.0 * a) + dst * fixB, we're just moving the 2.0.
-		return true;
-	}
-}
-
-static bool CanDoubleSrcBlendMode() {
-	if (!gstate.isAlphaBlendEnabled()) {
-		return false;
-	}
-
-	int funcA = gstate.getBlendFuncA();
-	int funcB = gstate.getBlendFuncB();
-	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA && funcA != GE_SRCBLEND_DOUBLEINVSRCALPHA) {
-		funcB = funcA;
-		funcA = gstate.getBlendFuncB();
-	}
-	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA && funcA != GE_SRCBLEND_DOUBLEINVSRCALPHA) {
-		return false;
-	}
-
-	// One side should be doubled.  Let's check the other side.
-	// LittleBigPlanet and Persona 2, for example, uses 2.0 * src.a, 1.0 - src.a, which can't double.
-	// In that case, we can double the src rgb instead.
-	switch (funcB) {
-	case GE_DSTBLEND_SRCALPHA:
-	case GE_DSTBLEND_INVSRCALPHA:
-		return false;
-
-	default:
-		return true;
-	}
-}
-
-// TODO: Setting to disable?
-bool ShouldUseShaderBlending() {
-	if (!gstate.isAlphaBlendEnabled()) {
-		return false;
-	}
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		return false;
+ReplaceBlendType ReplaceBlendWithShader() {
+	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
+		return REPLACE_BLEND_NO;
 	}
 
 	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
 	GEBlendDstFactor funcB = gstate.getBlendFuncB();
 	GEBlendMode eq = gstate.getBlendEq();
 
+	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !g_Config.bDisableSlowFramebufEffects;
+		return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
-		// These don't use the factors.
-		return !gl_extensions.EXT_blend_minmax && !gl_extensions.GLES3 && !g_Config.bDisableSlowFramebufEffects;
-
-	default:
-		break;
-	}
-
-	// This normally involves a blit, so try to skip it.
-	if (AlphaToColorDoubling() || CanDoubleSrcBlendMode()) {
-		return false;
-	}
-
-	switch (funcA) {
-	case GE_SRCBLEND_DOUBLESRCALPHA:
-	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-	case GE_SRCBLEND_DOUBLEDSTALPHA:
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		return !g_Config.bDisableSlowFramebufEffects;
-
-	case GE_SRCBLEND_FIXA:
-		if (funcB == GE_DSTBLEND_FIXB) {
-			u32 fixA = gstate.getFixA();
-			u32 fixB = gstate.getFixB();
-			// OpenGL only supports one constant color, so check if we could be more exact.
-			if (fixA != fixB && fixA != 0xFFFFFF - fixB && fixA != 0 && fixB != 0 && fixA != 0xFFFFFF && fixB != 0xFFFFFF) {
-				return true;
-			}
+		if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
+			return REPLACE_BLEND_STANDARD;
+		} else {
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	default:
 		break;
 	}
 
-	switch (funcB) {
-	case GE_DSTBLEND_DOUBLESRCALPHA:
-	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-	case GE_DSTBLEND_DOUBLEDSTALPHA:
-	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		return !g_Config.bDisableSlowFramebufEffects;
+	switch (funcA) {
+	case GE_SRCBLEND_DOUBLESRCALPHA:
+	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+		// 2x alpha in the source function and not in the dest = source color doubling.
+		// Even dest alpha is safe, since we're moving the * 2.0 into the src color.
+		switch (funcB) {
+		case GE_DSTBLEND_SRCCOLOR:
+		case GE_DSTBLEND_INVSRCCOLOR:
+			// Can't double, we need the source color to be correct.
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			// We can't technically do this correctly (due to clamping) without reading the dst color.
+			// Using a copy isn't accurate either, though, when there's overlap.
+			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
+
+		default:
+			// TODO: Could use vertexFullAlpha, but it's not calculated yet.
+			return REPLACE_BLEND_PRE_SRC;
+		}
+
+	case GE_SRCBLEND_DOUBLEDSTALPHA:
+	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		switch (funcB) {
+		case GE_DSTBLEND_SRCCOLOR:
+		case GE_DSTBLEND_INVSRCCOLOR:
+			// Can't double, we need the source color to be correct.
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+
+		default:
+			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+		}
+
+	case GE_SRCBLEND_FIXA:
+		switch (funcB) {
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			// Can't safely double alpha, will clamp.
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_FIXB:
+			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
+				// Some games specify this.  Some cards may prefer blending off entirely.
+				return REPLACE_BLEND_NO;
+			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
+				return REPLACE_BLEND_STANDARD;
+			} else {
+				return REPLACE_BLEND_PRE_SRC;
+			}
+
+		default:
+			return REPLACE_BLEND_STANDARD;
+		}
 
 	default:
-		break;
-	}
+		switch (funcB) {
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
+				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
+				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
+			} else {
+				// This means dst alpha/color is used in the src factor.
+				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
+				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
+				return REPLACE_BLEND_2X_ALPHA;
+			}
 
-	return false;
-}
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
-// Doesn't need to be in the shader id, ShouldUseShaderBlending contains all parts.
-bool ShouldUseShaderFixedBlending() {
-	if (!ShouldUseShaderBlending()) {
-		return false;
+		default:
+			return REPLACE_BLEND_STANDARD;
+		}
 	}
-
-	if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
-		GEBlendMode blendEq = gstate.getBlendEq();
-		return blendEq != GE_BLENDMODE_MIN && blendEq != GE_BLENDMODE_MAX && blendEq != GE_BLENDMODE_ABSDIFF;
-	}
-	return false;
 }
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
@@ -391,14 +364,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool useShaderBlending = ShouldUseShaderBlending();
-		bool alphaToColorDoubling = AlphaToColorDoubling() && !useShaderBlending;
-		bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
-		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-		bool enableAlphaDoubling = !alphaToColorDoubling && !useShaderBlending && CanDoubleSrcBlendMode();
+		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -435,29 +405,29 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id0 |= (enableFog & 1) << 19;
 		id0 |= (doTextureProjection & 1) << 20;
 		id0 |= (enableColorDoubling & 1) << 21;
-		id0 |= (enableAlphaDoubling & 1) << 22;
 		// 2 bits
-		id0 |= (stencilToAlpha) << 23;
+		id0 |= (stencilToAlpha) << 22;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 3 bits
-			id0 |= ReplaceAlphaWithStencilType() << 25;
+			id0 |= ReplaceAlphaWithStencilType() << 24;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 28;
+		id0 |= (alphaTestAgainstZero & 1) << 27;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 29 - 31 are free.
+		// 28 - 31 are free.
 
-		if (useShaderBlending) {
-			// 12 bits total.
-			id1 |= 1 << 0;
-			id1 |= gstate.getBlendEq() << 1;
-			id1 |= gstate.getBlendFuncA() << 4;
-			id1 |= gstate.getBlendFuncB() << 8;
+		// 3 bits.
+		id1 |= replaceBlend << 0;
+		if (replaceBlend > REPLACE_BLEND_STANDARD) {
+			// 11 bits total.
+			id1 |= gstate.getBlendEq() << 3;
+			id1 |= gstate.getBlendFuncA() << 6;
+			id1 |= gstate.getBlendFuncB() << 10;
 		}
 	}
 
@@ -548,23 +518,20 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool alphaTestAgainstZero = gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool useShaderBlending = ShouldUseShaderBlending();
-	bool alphaToColorDoubling = AlphaToColorDoubling() && !useShaderBlending;
-	bool enableColorDoubling = (gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled()) || alphaToColorDoubling;
-	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = !alphaToColorDoubling && !useShaderBlending && CanDoubleSrcBlendMode();
+	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil();
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if (!gstate.isModeClear() && useShaderBlending) {
-		if (!gl_extensions.NV_shader_framebuffer_fetch) {
+	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
+		if (!gl_extensions.NV_shader_framebuffer_fetch && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			if (!texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
@@ -815,12 +782,10 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		// Color doubling happens after the color test.
-		if (enableColorDoubling && enableAlphaDoubling) {
-			WRITE(p, "  v = v * 2.0;\n");
-		} else if (enableColorDoubling) {
+		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
+			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
+		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
 			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		} else if (enableAlphaDoubling) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 
 		if (enableFog) {
@@ -829,10 +794,28 @@ void GenerateFragmentShader(char *buffer) {
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
-		if (ShouldUseShaderFixedBlending()) {
-			// Just premultiply by u_blendFixA.
-			WRITE(p, "  v.rgb = v.rgb * u_blendFixA;\n");
-		} else if (useShaderBlending) {
+		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
+			GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+			const char *srcFactor = "ERROR";
+			switch (funcA) {
+			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "vec3(v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "vec3(1.0 - v.a)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
+			// TODO: Double inverse, or inverse double?  Following softgpu for now...
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			}
+
+			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
+		}
+
+		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
 			// TODO: EXT_shader_framebuffer_fetch on iOS 6, possibly others.
@@ -902,6 +885,10 @@ void GenerateFragmentShader(char *buffer) {
 				WRITE(p, "  v.rgb = abs(v.rgb - destColor.rgb);\n");
 				break;
 			}
+		}
+
+		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 	}
 
