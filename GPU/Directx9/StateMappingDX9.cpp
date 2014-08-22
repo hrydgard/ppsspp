@@ -77,6 +77,11 @@ static const D3DCMPFUNC ztests[] = {
 	D3DCMP_LESS, D3DCMP_LESSEQUAL, D3DCMP_GREATER, D3DCMP_GREATEREQUAL,
 };
 
+static const D3DCMPFUNC ztests_backwards[] = {
+	D3DCMP_NEVER, D3DCMP_ALWAYS, D3DCMP_EQUAL, D3DCMP_NOTEQUAL,
+	D3DCMP_GREATER, D3DCMP_GREATEREQUAL, D3DCMP_LESS, D3DCMP_LESSEQUAL,
+};
+
 static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP,
 	D3DSTENCILOP_ZERO,
@@ -229,7 +234,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 	} else {
-		
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		dxstate.cullMode.set(wantCull, gstate.getCullMode());	

@@ -22,11 +22,14 @@
 #include <map>
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "thin3d/d3dx9_loader.h"
+#include "math/lin/matrix4x4.h"
 
 namespace DX9 {
 
 class PSShader;
 class VSShader;
+void ConvertProjMatrixToD3D(Matrix4x4 & in);
 
 class LinkedShaderDX9
 {

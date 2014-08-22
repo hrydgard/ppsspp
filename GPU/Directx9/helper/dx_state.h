@@ -55,6 +55,24 @@ private:
 		}
 	};
 
+	template<D3DSAMPLERSTATETYPE state1, DWORD p1def>
+	class DxSampler0State1 {
+		D3DSAMPLERSTATETYPE _state1;
+		DWORD p1;
+	public:
+		DxSampler0State1() : _state1(state1), p1(p1def) {
+			DirectxState::state_count++;
+		}
+
+		inline void set(DWORD newp1) {
+			p1 = newp1;
+			pD3Ddevice->SetSamplerState(0, _state1, p1);
+		}
+		void restore() {
+			pD3Ddevice->SetSamplerState(0, _state1, p1);
+		}
+	};
+
 	template<D3DRENDERSTATETYPE state1, DWORD p1def, D3DRENDERSTATETYPE state2, DWORD p2def>
 	class DxState2 {
 		D3DRENDERSTATETYPE _state1;
@@ -101,9 +119,9 @@ private:
 			pD3Ddevice->SetRenderState(_state3, p3);
 		}
 		void restore() {
-		//	pD3Ddevice->SetRenderState(_state1, p1);
-		//	pD3Ddevice->SetRenderState(_state2, p2);
-		//	pD3Ddevice->SetRenderState(_state3, p3);
+		  pD3Ddevice->SetRenderState(_state1, p1);
+		  pD3Ddevice->SetRenderState(_state2, p2);
+		  pD3Ddevice->SetRenderState(_state3, p3);
 		}
 	};
 
@@ -134,10 +152,10 @@ private:
 			pD3Ddevice->SetRenderState(_state4, p4);
 		}
 		void restore() {
-			//	pD3Ddevice->SetRenderState(_state1, p1);
-			//	pD3Ddevice->SetRenderState(_state2, p2);
-			//	pD3Ddevice->SetRenderState(_state3, p3);
-			//	pD3Ddevice->SetRenderState(_state3, p4);
+			pD3Ddevice->SetRenderState(_state1, p1);
+			pD3Ddevice->SetRenderState(_state2, p2);
+			pD3Ddevice->SetRenderState(_state3, p3);
+			pD3Ddevice->SetRenderState(_state3, p4);
 		}
 	};
 
@@ -222,15 +240,6 @@ private:
 			viewport.Y=y;
 			viewport.Width=w;
 			viewport.Height=h;	
-			/*
-			if (f > n) {
-				viewport.MinZ=n;
-				viewport.MaxZ=f;
-			} else {
-				viewport.MinZ=f;
-				viewport.MaxZ=n;
-			}
-			*/
 			viewport.MinZ=n;
 			viewport.MaxZ=f;
 
@@ -263,12 +272,10 @@ private:
 				cull = D3DCULL_NONE;
 			} else {
 				// add front face ...
-				cull = cullmode==0?D3DCULL_CW:D3DCULL_CCW;
+				cull = cullmode==0 ? D3DCULL_CW:D3DCULL_CCW;
 			}
-			
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
 		}
-
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
 		}
@@ -308,6 +315,12 @@ public:
 
 	DxState3<D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP> stencilOp;
 	DxState3<D3DRS_STENCILFUNC, D3DCMP_ALWAYS, D3DRS_STENCILREF, 0, D3DRS_STENCILMASK, 0xFFFFFFFF> stencilFunc;
+
+	DxSampler0State1<D3DSAMP_MINFILTER, D3DTEXF_POINT> texMinFilter;
+	DxSampler0State1<D3DSAMP_MAGFILTER, D3DTEXF_POINT> texMagFilter;
+	DxSampler0State1<D3DSAMP_MIPFILTER, D3DTEXF_NONE> texMipFilter;
+	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
+	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

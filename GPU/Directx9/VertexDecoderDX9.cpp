@@ -283,9 +283,9 @@ void VertexDecoderDX9::Step_Color8888() const
 {
 	u8 *c = (u8*)(decoded_ + decFmt.c0off);
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
-	c[0] = cdata[0];
+	c[0] = cdata[2];
 	c[1] = cdata[1];
-	c[2] = cdata[2];
+	c[2] = cdata[0];
 	c[3] = cdata[3];
 }
 

@@ -25,12 +25,14 @@
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/helper/dx_state.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "math/math_util.h"
+
 
 extern int g_iNumVideos;
 
@@ -75,12 +77,14 @@ void TextureCacheDX9::Clear(bool delete_them) {
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
+			if (iter->second.texture)
+				iter->second.texture->Release();
 		}
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
-			iter->second.texture->Release();
+			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
+			if (iter->second.texture)
+				iter->second.texture->Release();
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -103,7 +107,8 @@ void TextureCacheDX9::Decimate() {
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			iter->second.texture->Release();
+			if (iter->second.texture)
+				iter->second.texture->Release();
 			cache.erase(iter++);
 		} else {
 			++iter;
@@ -114,7 +119,8 @@ void TextureCacheDX9::Decimate() {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-				iter->second.texture->Release();
+				if (iter->second.texture)
+					iter->second.texture->Release();
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -451,7 +457,7 @@ D3DFORMAT getClutDestFormat(GEPaletteFormat format) {
 
 static const u8 texByteAlignMap[] = {2, 2, 2, 4};
 
-static const u32 MinFilt[8] = {
+static const u8 MinFilt[8] = {
 	D3DTEXF_POINT,
 	D3DTEXF_LINEAR,
 	D3DTEXF_POINT,
@@ -462,7 +468,7 @@ static const u32 MinFilt[8] = {
 	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
 };
 
-static const u32 MipFilt[8] = {
+static const u8 MipFilt[8] = {
 	D3DTEXF_POINT,
 	D3DTEXF_LINEAR,
 	D3DTEXF_POINT,
@@ -473,13 +479,11 @@ static const u32 MipFilt[8] = {
 	D3DTEXF_LINEAR,	// GL_LINEAR_MIPMAP_LINEAR,
 };
 
-static const u32 MagFilt[2] = {
+static const u8 MagFilt[2] = {
 	D3DTEXF_POINT,
 	D3DTEXF_LINEAR
 };
 
-// This should not have to be done per texture! OpenGL is silly yo
-// TODO: Dirty-check this against the current texture.
 void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -517,23 +521,11 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		minFilt &= 1;
 	}
 
-	if (force || entry.minFilt != minFilt) {
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, MinFilt[minFilt]);
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, MipFilt[minFilt]);
-		entry.minFilt = minFilt;
-	}
-	if (force || entry.magFilt != magFilt) {
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, MagFilt[magFilt]);
-		entry.magFilt = magFilt;
-	}
-	if (force || entry.sClamp != sClamp) {
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_ADDRESSU, sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-		entry.sClamp = sClamp;
-	}
-	if (force || entry.tClamp != tClamp) {
-		pD3Ddevice->SetSamplerState(0, D3DSAMP_ADDRESSV, tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-		entry.tClamp = tClamp;
-	}
+	dxstate.texMinFilter.set(MinFilt[minFilt]);
+	dxstate.texMipFilter.set(MipFilt[minFilt]);
+	dxstate.texMagFilter.set(MagFilt[magFilt]);
+	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
+	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	
 #ifdef _XBOX
 	pD3Ddevice->SetRenderState(D3DRS_HALFPIXELOFFSET, TRUE );
@@ -570,7 +562,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 			u16_le *dst = (u16_le *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
 				u16 rgb = src[i];
-				dst[i] = rgb; // (rgb & 0xF) | (rgb & 0xF0) << 8 | (rgb & 0xF00) | ((rgb & 0xF000) >> 8);
+				dst[i] = ((rgb & 0xF) << 8) | (rgb & 0xF0F0) | ((rgb & 0xF00) >> 8);
 			}
 		}
 		break;
@@ -580,7 +572,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 			u16 *dst = (u16 *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
 				u16 rgb = src[i];
-				dst[i] = ((rgb & 0x1f) << 11) | ( rgb & 0x7e0)  | ((rgb & 0xF800) >>11 );
+				dst[i] = ((rgb & 0x1f) << 11) | (rgb & 0x7e0) | ((rgb & 0xF800) >> 11);
 			}
 		}
 		break;
@@ -725,7 +717,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 				break;
 			}
 			// Alpha 0 doesn't matter.
-			if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
+			if (i != 0 && (clut[i] >> 12) != clutAlphaLinearColor_) {
 				clutAlphaLinear_ = false;
 				break;
 			}
@@ -1304,21 +1296,12 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 		{
 			const u32 *p = pixelData;
 			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-#ifndef BIG_ENDIAN
-				u32 a = p[i] & 0x000F000F;
-				hitZeroAlpha |= a ^ 0x000F000F;
-				if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
-				}
-#else
 				u32 a = p[i] & 0xF000F000;
 				hitZeroAlpha |= a ^ 0xF000F000;
 				if (a != 0xF000F000 && a != 0x0000F000 && a != 0xF0000000 && a != 0) {
 					hitSomeAlpha = 1;
 					break;
 				}
-#endif
 			}
 		}
 		break;
@@ -1326,13 +1309,8 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 		{
 			const u32 *p = pixelData;
 			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-#ifndef BIG_ENDIAN
-				u32 a = p[i] & 0x00010001;
-				hitZeroAlpha |= a ^ 0x00010001;
-#else
-				u32 a = p[i] & 0x10001000;
-				hitZeroAlpha |= a ^ 0x10001000;
-#endif
+				u32 a = p[i] & 0x80008000;
+				hitZeroAlpha |= a ^ 0x80008000;
 			}
 		}
 		break;
@@ -1442,16 +1420,20 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 		} else {
 			// Create texture
 #ifdef _XBOX
-			pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), NULL, &entry.texture, NULL);
+			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), NULL, &entry.texture, NULL);
 #else
-			pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), D3DPOOL_MANAGED, &entry.texture, NULL);
+			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), D3DPOOL_MANAGED, &entry.texture, NULL);
 #endif
-			D3DLOCKED_RECT rect;
-			entry.texture->LockRect(level, &rect, NULL, 0);
+			if (FAILED(hr)) {
+				INFO_LOG(G3D, "Failed to create D3D texture");
+			} else {
+				D3DLOCKED_RECT rect;
+				entry.texture->LockRect(level, &rect, NULL, 0);
 
-			copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
+				copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
 
-			entry.texture->UnlockRect(level);
+				entry.texture->UnlockRect(level);
+			}
 		}
 	}
 }

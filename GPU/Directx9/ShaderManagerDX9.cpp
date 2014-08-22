@@ -268,26 +268,17 @@ void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, 
 void LinkedShaderDX9::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
-
-	if (m_vs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4) == D3D_OK); 
-	else
-		m_fs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
+	m_vs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
 }
 
 void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 	D3DXMATRIX * pDxMat = (D3DXMATRIX*)pMatrix;
-
-	if (m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat) == D3D_OK); 
-	else
-		m_fs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
+	m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1
-static void ConvertMatrices(Matrix4x4 & in) {
-	/*
-	in.zz *= 0.5f;
-	in.wz += 1.f;
-	*/
+// Pretty sure this is wrong, our Z buffer is screwed up anyhow..
+void ConvertProjMatrixToD3D(Matrix4x4 & in) {
 	Matrix4x4 s;
 	Matrix4x4 t;
 	s.setScaling(Vec3(1, 1, 0.5f));
@@ -297,7 +288,6 @@ static void ConvertMatrices(Matrix4x4 & in) {
 }
 
 void LinkedShaderDX9::use() {
-	
 	updateUniforms();
 
 	pD3Ddevice->SetPixelShader(m_fs->shader);
@@ -325,7 +315,7 @@ void LinkedShaderDX9::updateUniforms() {
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 		// Convert matrices !
-		ConvertMatrices(flippedMatrix);
+		ConvertProjMatrixToD3D(flippedMatrix);
 
 		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
@@ -335,7 +325,7 @@ void LinkedShaderDX9::updateUniforms() {
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
 		// Convert matrices !
-		ConvertMatrices(proj_through);
+		ConvertProjMatrixToD3D(proj_through);
 
 		SetMatrix(u_proj_through, proj_through.getReadPtr());
 	}

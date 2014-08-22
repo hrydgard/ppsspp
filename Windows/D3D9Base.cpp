@@ -8,6 +8,7 @@
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
+#include "Core/Config.h"
 #include "Windows/D3D9Base.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
@@ -89,7 +90,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.hDeviceWindow = hWnd;
 	pp.EnableAutoDepthStencil = true;
 	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
-	pp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+	pp.PresentationInterval = (g_Config.bVSync) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 
 	hr = d3d->CreateDevice(adapter, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
 	if (FAILED(hr)) {

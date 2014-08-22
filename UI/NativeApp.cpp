@@ -83,7 +83,9 @@
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
 #include "HostTypes.h"
-
+#ifdef _WIN32
+#include "GPU/Directx9/helper/dx_state.h"
+#endif
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
@@ -686,7 +688,9 @@ void NativeRender() {
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glstate.Restore();
 	} else {
-		// DirectxState::Restore();
+		DX9::dxstate.depthWrite.set(true);
+		DX9::dxstate.colorMask.set(true, true, true, true);
+		DX9::dxstate.Restore();
 	}
 
 	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
@@ -702,8 +706,6 @@ void NativeRender() {
 
 	ui_draw2d.SetDrawMatrix(ortho);
 	ui_draw2d_front.SetDrawMatrix(ortho);
-
-	// glsl_bind(UIShader_Get());
 
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
