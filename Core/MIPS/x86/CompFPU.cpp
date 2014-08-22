@@ -79,6 +79,7 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
+	SetRoundingMode();
 	switch (op & 0x3f) 
 	{
 	case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
@@ -173,6 +174,8 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 void Jit::Comp_FPUComp(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
+	// TODO: Does this matter here?
+	SetRoundingMode();
 
 	int fs = _FS;
 	int ft = _FT;
@@ -357,6 +360,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
 		if (fs == 31) {
+			ClearRoundingMode();
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
 				MOV(32, M(&mips_->fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));

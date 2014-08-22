@@ -181,6 +181,8 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
+	void ClearRoundingMode();
+	void SetRoundingMode();
 	bool ReplaceJalTo(u32 dest);
 	// See CompileDelaySlotFlags for flags.
 	void CompileDelaySlot(int flags, RegCacheState *state = NULL);

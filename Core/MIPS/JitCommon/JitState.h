@@ -58,7 +58,8 @@ namespace MIPSComp {
 			: startDefaultPrefix(true),
 			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
-			prefixDFlag(PREFIX_UNKNOWN) {}
+			prefixDFlag(PREFIX_UNKNOWN),
+			roundingModeSet(false) {}
 
 		u32 compilerPC;
 		u32 blockStart;
@@ -80,6 +81,8 @@ namespace MIPSComp {
 		PrefixState prefixSFlag;
 		PrefixState prefixTFlag;
 		PrefixState prefixDFlag;
+
+		bool roundingModeSet;
 
 		void PrefixStart() {
 			if (startDefaultPrefix) {

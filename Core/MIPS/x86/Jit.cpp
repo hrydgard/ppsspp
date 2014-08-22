@@ -211,6 +211,49 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
+void Jit::ClearRoundingMode()
+{
+	if (js.roundingModeSet && g_Config.bSetRoundingMode)
+	{
+		STMXCSR(M(&currentMIPS->temp));
+		// Clear the rounding mode bits back to 0.
+		AND(32, M(&currentMIPS->temp), Imm32(~(3 << 13)));
+		LDMXCSR(M(&currentMIPS->temp));
+
+		js.roundingModeSet = false;
+	}
+}
+
+void Jit::SetRoundingMode()
+{
+	if (!js.roundingModeSet && g_Config.bSetRoundingMode)
+	{
+		MOV(32, R(EAX), M(&mips_->fcr31));
+		AND(32, R(EAX), Imm8(3));
+
+		// If it's 0, we don't actually bother setting.  This is the most common.
+		// We always use nearest as the default rounding mode.
+		FixupBranch skip = J_CC(CC_Z);
+
+		STMXCSR(M(&currentMIPS->temp));
+
+		// The MIPS bits don't correspond exactly, so we have to adjust.
+		// 0 -> 0 (skip), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
+		CMP(32, R(EAX), Imm8(2));
+		FixupBranch skip2 = J_CC(CC_Z);
+		XOR(32, R(EAX), Imm8(2));
+		SetJumpTarget(skip2);
+
+		SHL(32, R(EAX), Imm8(13));
+		OR(32, M(&currentMIPS->temp), R(EAX));
+		LDMXCSR(M(&currentMIPS->temp));
+
+		SetJumpTarget(skip);
+
+		js.roundingModeSet = true;
+	}
+}
+
 void Jit::ClearCache()
 {
 	blocks.Clear();
@@ -553,6 +596,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	}
 
 	WriteDowncount();
+	ClearRoundingMode();
 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -589,6 +633,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 	}
 
 	WriteDowncount();
+	ClearRoundingMode();
 
 	// Validate the jump to avoid a crash?
 	if (!g_Config.bFastMemory)
@@ -627,6 +672,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
+	ClearRoundingMode();
 	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 		ABI_CallFunction(&JitMemCheckCleanup);
 	}
@@ -646,6 +692,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		CMP(32, R(EAX), Imm32(0));
 		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
+		ClearRoundingMode();
 		// Just to fix the stack.
 		LOAD_FLAGS;
 		JMP(asm_.dispatcherCheckCoreState, true);

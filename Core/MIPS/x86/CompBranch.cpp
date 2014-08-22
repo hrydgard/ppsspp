@@ -681,6 +681,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
 	WriteDowncount(offset);
+	ClearRoundingMode();
 	js.downcountAmount = -offset;
 
 	// Skip the CallSyscall where possible.

@@ -346,6 +346,7 @@ int main(int argc, const char* argv[])
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
+	g_Config.bSetRoundingMode = true;
 
 #ifdef _WIN32
 	InitSysDirectories();

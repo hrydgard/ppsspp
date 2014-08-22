@@ -86,6 +86,7 @@ public:
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
+	bool bSetRoundingMode;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
