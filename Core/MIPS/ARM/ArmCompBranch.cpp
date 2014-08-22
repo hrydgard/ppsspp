@@ -538,6 +538,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
 	WriteDownCount(offset);
+	ClearRoundingMode();
 	js.downcountAmount = -offset;
 
 	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
