@@ -294,10 +294,33 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		MOVSS(fpr.R(fd), XMM0);
 		break;
 
+	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
+		{
+			SetRoundingMode();
+			fpr.SpillLock(fs, fd);
+			fpr.StoreFromRegister(fd);
+			CVTSS2SI(EAX, fpr.R(fs));
+
+			// Did we get an indefinite integer value?
+			CMP(32, R(EAX), Imm32(0x80000000));
+			FixupBranch skip = J_CC(CC_NE);
+			MOVSS(XMM0, fpr.R(fs));
+			XORPS(XMM1, R(XMM1));
+			CMPSS(XMM0, R(XMM1), CMP_LT);
+
+			// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
+			// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
+			MOVD_xmm(R(EAX), XMM0);
+			XOR(32, R(EAX), Imm32(0x7fffffff));
+
+			SetJumpTarget(skip);
+			MOV(32, fpr.R(fd), R(EAX));
+		}
+		break;
+
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
 	case 14: //FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 	case 15: //FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
-	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 	default:
 		DISABLE;
 		return;
