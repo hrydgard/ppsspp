@@ -273,21 +273,20 @@ void VertexDecoderDX9::Step_Color4444() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-	c[0] =  Convert4To8((cdata >> (12)) & 0xF);
-	c[1] =  Convert4To8((cdata >> (0)) & 0xF);
-	c[2] =  Convert4To8((cdata >> (4)) & 0xF);
-	c[3] =  Convert4To8((cdata >> (8)) & 0xF);
+	c[0] =  Convert4To8((cdata >> (0)) & 0xF);
+	c[1] =  Convert4To8((cdata >> (4)) & 0xF);
+	c[2] =  Convert4To8((cdata >> (8)) & 0xF);
+	c[3] =  Convert4To8((cdata >> (12)) & 0xF);
 }
 
 void VertexDecoderDX9::Step_Color8888() const
 {
- 	// Directx want ARGB
 	u8 *c = (u8*)(decoded_ + decFmt.c0off);
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
-	c[0] = cdata[3];
-	c[1] = cdata[0];
-	c[2] = cdata[1];
-	c[3] = cdata[2];
+	c[0] = cdata[0];
+	c[1] = cdata[1];
+	c[2] = cdata[2];
+	c[3] = cdata[3];
 }
 
 void VertexDecoderDX9::Step_Color565Morph() const
@@ -864,7 +863,7 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 			// The normal formats match the gl formats perfectly, let's use 'em.
 			switch (nrm) {
 			//case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
 			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			}

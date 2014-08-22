@@ -569,9 +569,8 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 			const u16_le *src = (const u16_le *)srcBuf;
 			u16_le *dst = (u16_le *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
-				// Already good format
 				u16 rgb = src[i];
-				dst[i] = (rgb & 0xF) | (rgb & 0xF0)<<8 | ( rgb & 0xF00) | ((rgb & 0xF000)>>8);
+				dst[i] = rgb; // (rgb & 0xF) | (rgb & 0xF0) << 8 | (rgb & 0xF00) | ((rgb & 0xF000) >> 8);
 			}
 		}
 		break;
@@ -721,7 +720,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
-			if ((clut[i] & 0xf) != i) {
+			if ((clut[i] >> 12) != i) {
 				clutAlphaLinear_ = false;
 				break;
 			}
@@ -744,48 +743,6 @@ inline const T *TextureCacheDX9::GetCurrentClut() {
 inline u32 TextureCacheDX9::GetCurrentClutHash() {
 	return clutHash_;
 }
-
-// #define DEBUG_TEXTURES
-
-#ifdef DEBUG_TEXTURES
-bool SetDebugTexture() {
-	static const int highlightFrames = 30;
-
-	static int numTextures = 0;
-	static int lastFrames = 0;
-	static int mostTextures = 1;
-
-	if (lastFrames != gpuStats.numFlips) {
-		mostTextures = std::max(mostTextures, numTextures);
-		numTextures = 0;
-		lastFrames = gpuStats.numFlips;
-	}
-
-	static GLuint solidTexture = 0;
-
-	bool changed = false;
-	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFlips % highlightFrames == 0) {
-			NOTICE_LOG(G3D, "Highlighting texture # %d / %d", numTextures, mostTextures);
-		}
-		static const u32 solidTextureData[] = {0x99AA99FF};
-
-		if (solidTexture == 0) {
-			glGenTextures(1, &solidTexture);
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-			glPixelStorei(GL_PACK_ALIGNMENT, 1);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
-		} else {
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-		}
-		changed = true;
-	}
-
-	++numTextures;
-	return changed;
-}
-#endif
 
 void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 {
@@ -1409,12 +1366,13 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 
 static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch, int srcfmt, int fmt, void * pSrc, void * pDst) {
 	// Swap color
+	int y;
 	switch(fmt) {
 		case D3DFMT_R5G6B5:
 		case D3DFMT_A4R4G4B4:
 		case D3DFMT_A1R5G5B5:
 			// Really needed ?
-			for(int y = 0; y < h; y++) {
+			for(y = 0; y < h; y++) {
 				const u16 *src = (const u16 *)((u8*)pSrc + (w*2) * y);
 				u16 *dst = (u16*)((u8*)pDst + pitch * y);
 				memcpy(dst, src, w * sizeof(u16));
@@ -1423,23 +1381,13 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 				
 		// 32 bit texture
 		case D3DFMT_A8R8G8B8:
-			for(int y = 0; y < h; y++) {
+			for(y = 0; y < h; y++) {
 				const u32 *src = (const u32 *)((u8*)pSrc + (w*4) * y);
 				u32 *dst = (u32*)((u8*)pDst + pitch * y);
-				
-				/*
-				// todo use memcpy
-				for(int x = 0; x < w; x++) {
-					unsigned int rgb = src[x];
-					dst[x] = rgb;
-				}
-				*/
 				memcpy(dst, src, w * sizeof(u32));
 			}
 			break;
-
 	}
-
 }
 
 void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages) {
@@ -1505,37 +1453,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 
 			entry.texture->UnlockRect(level);
 		}
-		
-//#ifdef _DEBUG
-#if 0
-		// Hack save to disk ...
-		char fname[256];
-		int fmt = 0;
-		static int ipic = 0;
-		switch(dstFmt) {
-		case D3DFMT_A4R4G4B4:
-			fmt = 0x4444;
-			break;
-		case D3DFMT_A1R5G5B5:
-			fmt = 0x5551;
-			break;
-		case D3DFMT_R5G6B5:
-			fmt = 0x5650;
-			break;
-		case D3DFMT_A8R8G8B8:
-			fmt = 0x8888;
-			break;
-		default:
-			fmt = 0xDEAD;
-			break;
-		}
-		sprintf(fname, "game:\\pic\\pic.%02x.%04x.%08x.%08x.png", ipic++, fmt, entry.format, clutformat);
-		D3DXSaveTextureToFile(fname, D3DXIFF_PNG, entry.texture, NULL);
-#endif
 	}
 }
 
-// Only used by Qt UI?
 bool TextureCacheDX9::DecodeTexture(u8* output, GPUgstate state)
 {
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");

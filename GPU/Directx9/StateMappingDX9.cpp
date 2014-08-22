@@ -192,8 +192,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
-		dxstate.blendEquation.set(eqLookup[blendFuncEq]);
+		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
+		dxstate.blendEquation.set(eqLookup[blendFuncEq], D3DBLENDOP_ADD);
 	}
 
 	// Set Dither
