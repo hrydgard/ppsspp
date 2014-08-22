@@ -11,14 +11,13 @@ static const char * const glsl_fsTexCol =
 
 static const char * const hlslFsTexCol =
 "struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
-"sampler2D tex0 : register(s0);\n"
+"sampler2D Sampler0 : register(s0);\n"
 "float4 main(PS_INPUT input) : COLOR0 {\n"
-"  return input.color * tex2D(tex0, input.uv);\n"
+"  return input.color * tex2D(Sampler0, input.uv);\n"
 "}\n";
 
 static const char * const glsl_fsCol =
 "varying vec4 oColor0;\n"
-"uniform sampler2D Sampler0;\n"
 "void main() { gl_FragColor = oColor0; }\n";
 
 static const char * const hlslFsCol =
@@ -58,7 +57,7 @@ static const char * const glsl_vsTexCol =
 "void main() {\n"
 "	gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
 "	oColor0 = Color0;\n"
-" oTexCoord0 = TexCoord0; \n"
+" oTexCoord0 = TexCoord0;\n"
 "}\n";
 
 static const char * const hlslVsTexCol =
