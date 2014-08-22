@@ -147,7 +147,7 @@ public:
 
 class Thin3DTexture : public Thin3DObject {
 public:
-	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) = 0;
+	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
 
@@ -210,6 +210,7 @@ enum T3DTextureType : uint8_t {
 enum T3DImageFormat : uint8_t {
 	LUMINANCE,
 	RGBA8888,
+	RGBA4444,
 	DXT1,
 	ETC1,  // Needs simulation on many platforms
 	D16,
@@ -232,6 +233,14 @@ enum T3DFileType {
 	JPEG,
 	ZIM,
 	DETECT,
+};
+
+enum T3DInfo {
+	APINAME,
+	APIVERSION,
+	VENDOR,
+	SHADELANGVERSION,
+	RENDERER,
 };
 
 class Thin3DContext : public Thin3DObject {
@@ -287,7 +296,7 @@ public:
 		targetHeight_ = h;
 	}
 
-	virtual const char *GetAPIName() const = 0;
+	virtual const char *GetInfoString(T3DInfo info) const = 0;
 
 protected:
 	void CreatePresets();

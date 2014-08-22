@@ -30,7 +30,7 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
 #if defined(_WIN32) || defined(USING_QT_UI)
-	textDrawer_ = new TextDrawer();
+	textDrawer_ = new TextDrawer(thin3d);
 #else
 	textDrawer_ = 0;
 #endif

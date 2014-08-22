@@ -12,13 +12,23 @@
 
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
+#if !(defined(_WIN32) && !defined(USING_QT_UI))
+#include "gfx_es2/gl_state.h"
+#endif
+
+class Thin3DContext;
+class Thin3DTexture;
 
 #ifdef USING_QT_UI
 #include <QtGui/QFont>
 #endif
 
 struct TextStringEntry {
-	uint32_t textureHandle;
+#if defined(_WIN32) && !defined(USING_QT_UI)
+	Thin3DTexture *texture;
+#else
+	GLuint textureHandle;
+#endif
 	int width;
 	int height;
 	int bmWidth;
@@ -38,7 +48,7 @@ struct TextDrawerFontContext;
 
 class TextDrawer {
 public:
-	TextDrawer();
+	TextDrawer(Thin3DContext *thin3d);
 	~TextDrawer();
 
 	uint32_t SetFont(const char *fontName, int size, int flags);
@@ -52,6 +62,8 @@ public:
 	void OncePerFrame();
 
 private:
+	Thin3DContext *thin3d_;
+
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;

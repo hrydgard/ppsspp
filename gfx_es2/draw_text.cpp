@@ -1,9 +1,9 @@
 #include "base/logging.h"
 #include "base/stringutil.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/draw_text.h"
+#include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
 #include "util/text/utf8.h"
+#include "gfx_es2/draw_text.h"
 
 #ifdef USING_QT_UI
 #include <QtGui/QImage>
@@ -32,9 +32,10 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawer::TextDrawer() {
+TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 	fontScaleX_ = 1.0f;
 	fontScaleY_ = 1.0f;
+
 	ctx_ = new TextDrawerContext();
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
@@ -55,7 +56,7 @@ TextDrawer::TextDrawer() {
 
 TextDrawer::~TextDrawer() {
 	for (auto iter = cache_.begin(); iter != cache_.end(); ++iter) {
-		glDeleteTextures(1, &iter->second->textureHandle);
+		iter->second->texture->Release();
 		delete iter->second;
 	}
 	cache_.clear();
@@ -123,6 +124,9 @@ void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 }
 
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+	if (!strlen(str))
+		return;
+
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
 	uint32_t entryHash = stringHash ^ fontHash_;
 	
@@ -134,7 +138,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	if (iter != cache_.end()) {
 		entry = iter->second;
 		entry->lastUsedFrame = frameCount_;
-		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
+		thin3d_->SetTexture(0, entry->texture);
 	} else {
 		// Render the string to our bitmap and save to a GL texture.
 		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
@@ -163,30 +167,23 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
 
 		entry = new TextStringEntry();
-		glGenTextures(1, &entry->textureHandle);
-		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
 		entry->width = size.cx;
 		entry->height = size.cy;
 		entry->bmWidth = (size.cx + 3) & ~3;
 		entry->bmHeight = (size.cy + 3) & ~3;
 		entry->lastUsedFrame = frameCount_;
+		entry->texture = thin3d_->CreateTexture(LINEAR2D, RGBA4444, entry->bmWidth, entry->bmHeight, 1, 0);
 
 		// Convert the bitmap to a gl-compatible array of pixels.
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
-
 		for (int y = 0; y < entry->bmHeight; y++) {
 			for (int x = 0; x < entry->bmWidth; x++) {
 				BYTE bAlpha = (BYTE)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
 				bitmapData[entry->bmWidth * y + x] = (bAlpha) | 0xfff0; // ^ rand();
 			}
 		}
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, entry->bmWidth, entry->bmHeight, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, bitmapData);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		
+		entry->texture->SetImageData(0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData);
+		entry->texture->Finalize(0);
 		delete [] bitmapData;
 
 		cache_[entryHash] = entry;

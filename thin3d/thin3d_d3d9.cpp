@@ -214,7 +214,7 @@ private:
 class Thin3DDX9Texture : public Thin3DTexture {
 public:
 	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) override;
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
 	void Finalize(int zim_flags) override {}
@@ -230,6 +230,7 @@ private:
 D3DFORMAT FormatToD3D(T3DImageFormat fmt) {
 	switch (fmt) {
 	case RGBA8888: return D3DFMT_A8R8G8B8;
+	case RGBA4444: return D3DFMT_A4R4G4B4;
 	case D24S8: return D3DFMT_D24S8;
 	case D16: return D3DFMT_D16;
 	default: return D3DFMT_UNKNOWN;
@@ -256,9 +257,22 @@ Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type
 		hr = device->CreateCubeTexture(width, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &cubeTex_, NULL);
 		break;
 	}
+	if (FAILED(hr)) {
+		ELOG("Texture creation failed");
+	}
 }
 
-void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) {
+inline uint16_t Shuffle4444(uint16_t x) {
+	return (x << 12) | (x >> 4);
+}
+
+// A rather different transform, for curious reasons..
+inline uint32_t Shuffle8888(uint32_t x) {
+	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
+}
+
+
+void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (!tex_) {
 		return;
 	}
@@ -274,8 +288,25 @@ void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, 
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
 			tex_->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
+
 			for (int i = 0; i < height; i++) {
-				memcpy((uint8_t *)rect.pBits + rect.Pitch * i, data + stride * i, width * 4);
+				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
+				const uint8_t *source = data + stride * i;
+				int j;
+				switch (fmt_) {
+				case D3DFMT_A4R4G4B4:
+					// This is backwards from OpenGL so we need to shuffle around a bit.
+					for (j = 0; j < width; j++) {
+						((uint16_t *)dest)[j] = Shuffle4444(((uint16_t *)source)[j]);
+					}
+					break;
+
+				case D3DFMT_A8R8G8B8:
+					for (j = 0; j < width; j++) {
+						((uint32_t *)dest)[j] = Shuffle8888(((uint32_t *)source)[j]);
+					}
+					break;
+				}
 			}
 			tex_->UnlockRect(level);
 		}
@@ -344,7 +375,17 @@ public:
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
-	const char *GetAPIName() const override { return "Direct3D9"; }
+	const char *GetInfoString(T3DInfo info) const override {
+		// TODO: Make these actually query the right information
+		switch (info) {
+		case APIVERSION: return "DirectX 9.0";
+		case VENDOR: return "?";
+		case RENDERER: return "?";
+		case SHADELANGVERSION: return "3.0";
+		case APINAME: return "Direct3D 9";
+		default: return "?";
+		}
+	}
 
 private:
 	// void CompileShader(const char *hlsl_source);

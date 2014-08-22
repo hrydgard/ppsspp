@@ -279,12 +279,21 @@ public:
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	const char *GetAPIName() const override {
-#ifdef USING_GLES2
-		return "OpenGL ES";
-#else
-		return "OpenGL";
-#endif
+	const char *GetInfoString(T3DInfo info) const override {
+		// TODO: Make these actually query the right information
+		switch (info) {
+			case APINAME:
+	#ifdef USING_GLES2
+				return "OpenGL ES";
+	#else
+				return "OpenGL";
+	#endif
+			case VENDOR: return (const char *)glGetString(GL_VENDOR);
+			case RENDERER: return (const char *)glGetString(GL_RENDERER);
+			case SHADELANGVERSION: return (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
+			case APIVERSION: return (const char *)glGetString(GL_VERSION);
+			default: return "?";
+		}
 	}
 
 };
@@ -318,13 +327,16 @@ GLuint TypeToTarget(T3DTextureType type) {
 
 class Thin3DGLTexture : public Thin3DTexture {
 public:
-	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int mipLevels) : format_(format), tex_(0), target_(TypeToTarget(type)), mipLevels_(mipLevels) {
+	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : format_(format), tex_(0), target_(TypeToTarget(type)), mipLevels_(mipLevels) {
+		width_ = width;
+		height_ = height;
+		depth_ = depth;
 		glGenTextures(1, &tex_);
 	}
 	~Thin3DGLTexture() {
 		glDeleteTextures(1, &tex_);
 	}
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) override;
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override;
 
 	void Bind() {
@@ -341,8 +353,7 @@ private:
 };
 
 Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
-	Thin3DGLTexture *tex = new Thin3DGLTexture(type, format, mipLevels);
-	return tex;
+	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
 }
 
 void Thin3DGLTexture::AutoGenMipmaps() {
@@ -350,13 +361,7 @@ void Thin3DGLTexture::AutoGenMipmaps() {
 	glGenerateMipmap(target_);
 }
 
-void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, uint8_t *data) {
-	if (level == 0) {
-		width_ = width;
-		height_ = height;
-		depth_ = depth;
-	}
-
+void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	int internalFormat;
 	int format;
 	int type;
@@ -366,6 +371,11 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
+	case RGBA4444:
+		internalFormat = GL_RGBA;
+		format = GL_RGBA;
+		type = GL_UNSIGNED_SHORT_4_4_4_4;
+		break;
 	default:
 		return;
 	}
@@ -373,7 +383,7 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 	glBindTexture(target_, tex_);
 	switch (target_) {
 	case GL_TEXTURE_2D:
-		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, format, type, data);
+		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
 		break;
 	}
 }
