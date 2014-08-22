@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "base/logging.h"
 #include "fbo.h"
 
 namespace DX9 {
@@ -60,8 +61,14 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		pD3Ddevice->CreateRenderTarget(fbo->width/FB_DIV, fbo->height/FB_DIV, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &workingRtt, NULL);
 	}
 #else
-	pD3Ddevice->CreateRenderTarget(fbo->width/4, fbo->height/4, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->surf, NULL);
-	pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+	HRESULT rtResult = pD3Ddevice->CreateRenderTarget(fbo->width/4, fbo->height/4, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->surf, NULL);
+	if (FAILED(rtResult)) {
+		ELOG("Failed to create render target");
+	}
+	HRESULT dsResult = pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
+	if (FAILED(dsResult)) {
+		ELOG("Failed to create depth buffer");
+	}
 #endif
 
 	fbo->stencil_buffer = 8;
