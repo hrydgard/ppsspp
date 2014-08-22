@@ -154,8 +154,8 @@ static const DeclTypeInfo VComp[] = {
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_2,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_3,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_4,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_1,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_2,
+	{D3DDECLTYPE_USHORT2N, "D3DDECLTYPE_USHORT2N " },	// 	DEC_U16_1,
+	{D3DDECLTYPE_USHORT2N, "D3DDECLTYPE_USHORT2N " },	// 	DEC_U16_2,
 	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_3,
 	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_4,
 #ifdef _XBOX
@@ -164,7 +164,7 @@ static const DeclTypeInfo VComp[] = {
 #else
 	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
 	{D3DDECLTYPE_UBYTE4   ,"D3DDECLTYPE_BYTE4 "},	// 	DEC_U8A_2,
-	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4 "},	// 	DEC_U16A_2,
+	{D3DDECLTYPE_USHORT2N,  "D3DDECLTYPE_USHORT4 " },	// 	DEC_U16A_2,
 #endif
 };
 
@@ -219,6 +219,7 @@ static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
+
 static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap.find(pspFmt);
 
@@ -271,13 +272,15 @@ static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &dec
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
 	
 		// Create declaration	
-		pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+		if (FAILED(hr)) {
+			// Log
+			LogDecFmtForDraw(decFmt);
+			// DebugBreak();
+		}
 
 		// Add it to map
 		vertexDeclMap[pspFmt] = pHardwareVertexDecl;
-
-		// Log
-		//LogDecFmtForDraw(decFmt);
 	} else {
 		// Set it from map
 		pHardwareVertexDecl = vertexDeclCached->second;
@@ -1135,23 +1138,25 @@ rotateVBO:
 			DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
 			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
-			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
 
-			if (vb_ == NULL) {
-				if (useElements) {
-					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+			if (pHardwareVertexDecl) {
+				pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
+				if (vb_ == NULL) {
+					if (useElements) {
+						pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					} else {
+						pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+					}
 				} else {
-					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
-				}
-			} else {
-				pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
+					pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
 
-				if (useElements) {					
-					pD3Ddevice->SetIndices(ib_);
+					if (useElements) {
+						pD3Ddevice->SetIndices(ib_);
 
-					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
-				} else {
-					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+						pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
+					} else {
+						pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+					}
 				}
 			}
 		} else {
