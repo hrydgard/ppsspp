@@ -211,46 +211,46 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
-void Jit::ClearRoundingMode()
+void Jit::ClearRoundingMode(XEmitter *emitter)
 {
-	if (js.roundingModeSet && g_Config.bSetRoundingMode)
+	if (g_Config.bSetRoundingMode)
 	{
-		STMXCSR(M(&currentMIPS->temp));
+		if (emitter == NULL)
+			emitter = this;
+		emitter->STMXCSR(M(&currentMIPS->temp));
 		// Clear the rounding mode bits back to 0.
-		AND(32, M(&currentMIPS->temp), Imm32(~(3 << 13)));
-		LDMXCSR(M(&currentMIPS->temp));
-
-		js.roundingModeSet = false;
+		emitter->AND(32, M(&currentMIPS->temp), Imm32(~(3 << 13)));
+		emitter->LDMXCSR(M(&currentMIPS->temp));
 	}
 }
 
-void Jit::SetRoundingMode()
+void Jit::SetRoundingMode(XEmitter *emitter)
 {
-	if (!js.roundingModeSet && g_Config.bSetRoundingMode)
+	if (g_Config.bSetRoundingMode)
 	{
-		MOV(32, R(EAX), M(&mips_->fcr31));
-		AND(32, R(EAX), Imm8(3));
+		if (emitter == NULL)
+			emitter = this;
+		emitter->MOV(32, R(EAX), M(&mips_->fcr31));
+		emitter->AND(32, R(EAX), Imm8(3));
 
 		// If it's 0, we don't actually bother setting.  This is the most common.
 		// We always use nearest as the default rounding mode.
-		FixupBranch skip = J_CC(CC_Z);
+		FixupBranch skip = emitter->J_CC(CC_Z);
 
-		STMXCSR(M(&currentMIPS->temp));
+		emitter->STMXCSR(M(&currentMIPS->temp));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
 		// 0 -> 0 (skip), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
-		CMP(32, R(EAX), Imm8(2));
-		FixupBranch skip2 = J_CC(CC_Z);
-		XOR(32, R(EAX), Imm8(2));
-		SetJumpTarget(skip2);
+		emitter->CMP(32, R(EAX), Imm8(2));
+		FixupBranch skip2 = emitter->J_CC(CC_Z);
+		emitter->XOR(32, R(EAX), Imm8(2));
+		emitter->SetJumpTarget(skip2);
 
-		SHL(32, R(EAX), Imm8(13));
-		OR(32, M(&currentMIPS->temp), R(EAX));
-		LDMXCSR(M(&currentMIPS->temp));
+		emitter->SHL(32, R(EAX), Imm8(13));
+		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
+		emitter->LDMXCSR(M(&currentMIPS->temp));
 
-		SetJumpTarget(skip);
-
-		js.roundingModeSet = true;
+		emitter->SetJumpTarget(skip);
 	}
 }
 
@@ -485,7 +485,9 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
+		SetRoundingMode();
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
 	}
 
@@ -535,7 +537,9 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
+		SetRoundingMode();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
@@ -559,11 +563,14 @@ void Jit::Comp_Generic(MIPSOpcode op)
 
 	if (func)
 	{
+		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
+		ClearRoundingMode();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
 			ABI_CallFunctionC(func, op.encoding);
+		SetRoundingMode();
 	}
 	else
 		ERROR_LOG_REPORT(JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
@@ -596,7 +603,6 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	}
 
 	WriteDowncount();
-	ClearRoundingMode();
 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -633,7 +639,6 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 	}
 
 	WriteDowncount();
-	ClearRoundingMode();
 
 	// Validate the jump to avoid a crash?
 	if (!g_Config.bFastMemory)
@@ -672,9 +677,10 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
-	ClearRoundingMode();
 	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+		ClearRoundingMode();
 		ABI_CallFunction(&JitMemCheckCleanup);
+		SetRoundingMode();
 	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
@@ -686,13 +692,14 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		SAVE_FLAGS;
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(&JitBreakpoint);
+		SetRoundingMode();
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMP(32, R(EAX), Imm32(0));
 		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
-		ClearRoundingMode();
 		// Just to fix the stack.
 		LOAD_FLAGS;
 		JMP(asm_.dispatcherCheckCoreState, true);

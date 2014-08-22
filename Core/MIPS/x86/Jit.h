@@ -164,6 +164,9 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
+	void ClearRoundingMode(XEmitter *emitter = NULL);
+	void SetRoundingMode(XEmitter *emitter = NULL);
+
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
 
@@ -181,8 +184,6 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
-	void ClearRoundingMode();
-	void SetRoundingMode();
 	bool ReplaceJalTo(u32 dest);
 	// See CompileDelaySlotFlags for flags.
 	void CompileDelaySlot(int flags, RegCacheState *state = NULL);

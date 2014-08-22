@@ -691,6 +691,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	else
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
 
+	SetRoundingMode();
 	WriteSyscallExit();
 	js.compiling = false;
 }
