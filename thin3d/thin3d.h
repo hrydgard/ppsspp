@@ -287,6 +287,8 @@ public:
 		targetHeight_ = h;
 	}
 
+	virtual const char *GetAPIName() const = 0;
+
 protected:
 	void CreatePresets();
 

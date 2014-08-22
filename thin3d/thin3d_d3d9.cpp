@@ -344,6 +344,8 @@ public:
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
+	const char *GetAPIName() const override { return "Direct3D9"; }
+
 private:
 	// void CompileShader(const char *hlsl_source);
 

@@ -278,6 +278,15 @@ public:
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
+
+	const char *GetAPIName() const override {
+#ifdef USING_GLES2
+		return "OpenGL ES";
+#else
+		return "OpenGL";
+#endif
+	}
+
 };
 
 Thin3DGLContext::Thin3DGLContext() {
