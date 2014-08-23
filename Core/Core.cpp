@@ -152,18 +152,20 @@ void UpdateRunLoop() {
 	}
 }
 
+#if defined(USING_WIN_UI)
+
 void GPU_SwapBuffers() {
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
 		GL_SwapBuffers();
 		break;
-#ifdef _WIN32
 	case GPU_BACKEND_DIRECT3D9:
 		D3D9_SwapBuffers();
 		break;
-#endif
 	}
 }
+
+#endif
 
 void Core_RunLoop() {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {

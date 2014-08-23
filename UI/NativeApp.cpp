@@ -467,11 +467,18 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
+#ifndef _WIN32
+	// Force backend to GL
+	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+#endif
+
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		thin3d = T3DCreateGLContext();
 		CheckGLExtensions();
 	} else {
+#ifdef _WIN32
 		thin3d = D3D9_CreateThin3DContext();
+#endif
 	}
 
 	ui_draw2d.SetAtlas(&ui_atlas);
@@ -688,9 +695,11 @@ void NativeRender() {
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glstate.Restore();
 	} else {
+#ifdef _WIN32
 		DX9::dxstate.depthWrite.set(true);
 		DX9::dxstate.colorMask.set(true, true, true, true);
 		DX9::dxstate.Restore();
+#endif
 	}
 
 	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
@@ -901,7 +910,6 @@ void NativeResized() {
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 		static int dp_xres_old=dp_xres;
 		if (dp_xres != dp_xres_old) {
-			UIShader_Init();
 			uiTexture->Load("ui_atlas.zim");
 			dp_xres_old = dp_xres;
 		}

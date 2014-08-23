@@ -394,14 +394,12 @@ void LogoScreen::render() {
 	UIScreen::render();
 	UIContext &dc = *screenManager()->getUIContext();
 
-	int error = glGetError();
 	const Bounds &bounds = dc.GetBounds();
 
 	float xres = dc.GetBounds().w;
 	float yres = dc.GetBounds().h;
 
 	dc.Begin();
-	error = glGetError();
 	float t = (float)frames_ / 60.0f;
 
 	float alpha = t;
