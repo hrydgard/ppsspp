@@ -88,6 +88,8 @@ LOCAL_SRC_FILES :=\
     image/zim_load.cpp \
     image/zim_save.cpp \
     image/png_load.cpp \
+    thin3d/thin3d.cpp \
+    thin3d/thin3d_gl.cpp \
     ui/view.cpp \
     ui/viewgroup.cpp \
     ui/ui.cpp \

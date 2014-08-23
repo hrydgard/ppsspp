@@ -149,7 +149,7 @@ public:
 private:
 	LPDIRECT3DVERTEXBUFFER9 vbuffer_;
 	LPDIRECT3DINDEXBUFFER9 ibuffer_;
-	int maxSize_;
+	size_t maxSize_;
 };
 
 
@@ -620,7 +620,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 	DWORD flags = 0;
 	LPD3DXBUFFER codeBuffer;
 	LPD3DXBUFFER errorBuffer;
-	HRESULT hr = dyn_D3DXCompileShader(source, strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
+	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
 	if (FAILED(hr)) {
 		const char *error = (const char *)errorBuffer->GetBufferPointer();
 		OutputDebugStringA(source);
@@ -648,7 +648,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 
 	//D3DXCONSTANT_DESC *descs = new D3DXCONSTANT_DESC[desc.Constants];
 	//constantTable_->GetConstantDesc()
-	for (int i = 0; i < desc.Constants; i++) {
+	for (UINT i = 0; i < desc.Constants; i++) {
 		D3DXHANDLE c = constantTable_->GetConstant(NULL, i);
 		D3DXCONSTANT_DESC cdesc;
 		UINT count = 1;
