@@ -77,18 +77,17 @@ bool UIRegionHit(int i, int x, int y, int w, int h, int margin) {
 	}
 }
 
-void UIBegin(const GLSLProgram *shader) {
+void UIBegin(Thin3DShaderSet *shaderSet) {
 	for (int i = 0; i < MAX_POINTERS; i++)
 		uistate.hotitem[i] = 0;
-	ui_draw2d.Begin(shader);
-	ui_draw2d_front.Begin(shader);
+	ui_draw2d.Begin(shaderSet);
+	ui_draw2d_front.Begin(shaderSet);
 }
 
 void UIFlush() {
 	ui_draw2d.Flush();
 	ui_draw2d_front.Flush();
 }
-
 
 void UIEnd() {
 	for (int i = 0; i < MAX_POINTERS; i++) {

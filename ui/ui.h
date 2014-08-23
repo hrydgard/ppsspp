@@ -225,7 +225,7 @@ private:
 bool UIRegionHit(int pointerId, int x, int y, int w, int h, int margin);
 
 // Call at start of frame
-void UIBegin(const GLSLProgram *shader);
+void UIBegin(Thin3DShaderSet *shaderSet);
 
 // Call at end of frame.
 

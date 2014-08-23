@@ -81,7 +81,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -102,7 +102,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -124,7 +124,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -149,7 +149,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include;..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\native\ext;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -272,6 +272,8 @@
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="net\url.h" />
     <ClInclude Include="profiler\profiler.h" />
+    <ClInclude Include="thin3d\d3dx9_loader.h" />
+    <ClInclude Include="thin3d\thin3d.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
     <ClInclude Include="thread\thread.h" />
     <ClInclude Include="thread\threadpool.h" />
@@ -756,6 +758,10 @@
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="net\url.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
+    <ClCompile Include="thin3d\d3dx9_loader.cpp" />
+    <ClCompile Include="thin3d\thin3d.cpp" />
+    <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
+    <ClCompile Include="thin3d\thin3d_gl.cpp" />
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="thread\threadpool.cpp" />
     <ClCompile Include="thread\threadutil.cpp" />

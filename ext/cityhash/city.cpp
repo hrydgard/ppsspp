@@ -170,7 +170,7 @@ static uint32 Hash32Len13to24(const char *s, size_t len) {
   uint32 d = Fetch32(s + (len >> 1));
   uint32 e = Fetch32(s);
   uint32 f = Fetch32(s + len - 4);
-  uint32 h = len;
+  uint32 h = (uint32)len;
 
   return fmix(Mur(f, Mur(e, Mur(d, Mur(c, Mur(b, Mur(a, h)))))));
 }

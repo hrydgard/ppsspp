@@ -54,7 +54,7 @@ static unsigned int log2i(unsigned int val) {
 	return ret;
 }
 
-int LoadZIMPtr(uint8_t *zim, int datasize, int *width, int *height, int *flags, uint8 **image) {
+int LoadZIMPtr(const uint8_t *zim, int datasize, int *width, int *height, int *flags, uint8 **image) {
 	if (zim[0] != 'Z' || zim[1] != 'I' || zim[2] != 'M' || zim[3] != 'G') {
 		ELOG("Not a ZIM file");
 		return 0;

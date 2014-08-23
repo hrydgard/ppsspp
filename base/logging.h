@@ -45,6 +45,9 @@ inline void Crash() {
 
 #endif
 
+// Just ILOGs on nonWindows. On Windows it outputs to the VS output console.
+void OutputDebugStringUTF8(const char *p);
+
 #if defined(ANDROID)
 
 #include <android/log.h>
@@ -82,8 +85,6 @@ inline void Crash() {
 #else
 
 #ifdef _WIN32
-
-void OutputDebugStringUTF8(const char *p);
 
 #ifdef _DEBUG
 #define DLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "D: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "D: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}

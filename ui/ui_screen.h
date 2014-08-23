@@ -4,6 +4,7 @@
 #include "ui/viewgroup.h"
 
 class I18NCategory;
+class Thin3DContext;
 
 class UIScreen : public Screen {
 public:
@@ -32,6 +33,7 @@ protected:
 
 private:
 	void DoRecreateViews();
+
 	bool recreateViews_;
 
 	int hatDown_;

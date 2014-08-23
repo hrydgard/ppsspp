@@ -9,7 +9,11 @@
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.
 
-struct GLSLProgram;
+class Thin3DContext;
+class Thin3DShaderSet;
+class Thin3DDepthStencilState;
+class Thin3DTexture;
+class Thin3DBlendState;
 class Texture;
 class DrawBuffer;
 class TextDrawer;
@@ -27,7 +31,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Thin3DContext *thin3d, Thin3DShaderSet *uiShaderTex, Thin3DShaderSet *uiShaderNoTex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -63,18 +67,24 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
+	Thin3DContext *GetThin3DContext() { return thin3d_; }
 
 private:
+	Thin3DContext *thin3d_;
 	Bounds bounds_;
 
 	float fontScaleX_;
 	float fontScaleY_;
 	UI::FontStyle *fontStyle_;
 	TextDrawer *textDrawer_;
-	// TODO: Collect these into a UIContext
-	const GLSLProgram *uishader_;
-	const GLSLProgram *uishadernotex_;
-	Texture *uitexture_;
+
+	Thin3DContext *thin3D_;
+	Thin3DDepthStencilState *depth_;
+	Thin3DBlendState *blend_;
+	Thin3DShaderSet *uishader_;
+	Thin3DShaderSet *uishadernotex_;
+	Thin3DTexture *uitexture_;
+
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;
 

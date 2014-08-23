@@ -5,8 +5,6 @@
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
 
 UIContext::UIContext()
 	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
@@ -21,58 +19,41 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 }
 
-void UIContext::Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+	thin3d_ = thin3d;
+	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
+	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
+
 	uishader_ = uishader;
 	uishadernotex_ = uishadernotex;
 	uitexture_ = uitexture;
 	uidrawbuffer_ = uidrawbuffer;
 	uidrawbufferTop_ = uidrawbufferTop;
 #if defined(_WIN32) || defined(USING_QT_UI)
-	textDrawer_ = new TextDrawer();
+	textDrawer_ = new TextDrawer(thin3d);
 #else
 	textDrawer_ = 0;
 #endif
 }
 
 void UIContext::Begin() {
-	glstate.blend.enable();
-	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.dither.enable();
-#if !defined(USING_GLES2)
-	glstate.colorLogicOp.disable();
-#endif
-	if (uishader_)
-		glsl_bind(uishader_);
-	if (uitexture_)
-		uitexture_->Bind(0);
+	thin3d_->SetBlendState(blend_);
+	thin3d_->SetDepthStencilState(depth_);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d_->SetTexture(0, uitexture_);
 
 	UIBegin(uishader_);
 }
 
 void UIContext::BeginNoTex() {
-	glstate.blend.enable();
-	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.dither.enable();
-#if !defined(USING_GLES2)
-	glstate.colorLogicOp.disable();
-#endif
-	if (uishader_)
-		glsl_bind(uishader_);
-	if (uitexture_)
-		uitexture_->Bind(0);
+	thin3d_->SetBlendState(blend_);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 
 	UIBegin(uishadernotex_);
 }
 
 void UIContext::RebindTexture() const {
-	if (uitexture_)
-		uitexture_->Bind(0);
+	thin3d_->SetTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {
@@ -123,10 +104,10 @@ void UIContext::ActivateTopScissor() {
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
 
-		glstate.scissorRect.set(x, y, w, h);
-		glstate.scissorTest.enable();
+		thin3d_->SetScissorRect(x, y, w, h);
+		thin3d_->SetScissorEnabled(true);
 	} else {
-		glstate.scissorTest.disable();
+		thin3d_->SetScissorEnabled(false);
 	}
 }
 

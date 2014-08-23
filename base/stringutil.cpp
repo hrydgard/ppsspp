@@ -29,6 +29,12 @@ void OutputDebugStringUTF8(const char *p) {
 	OutputDebugString(temp);
 }
 
+#else
+
+void OutputDebugStringUTF8(const char *p) {
+	ILOG("%s", p);
+}
+
 #endif
 
 unsigned int parseHex(const char *_szValue)

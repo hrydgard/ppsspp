@@ -11,6 +11,7 @@
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
+#include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
 
 namespace UI {
@@ -529,6 +530,28 @@ void TextureView::Draw(UIContext &dc) {
 	if (texture_) {
 		dc.Flush();
 		texture_->Bind(0);
+		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Flush();
+		dc.RebindTexture();
+	}
+}
+
+void Thin3DTextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	// TODO: involve sizemode
+	if (texture_) {
+		w = (float)texture_->Width();
+		h = (float)texture_->Height();
+	} else {
+		w = 16;
+		h = 16;
+	}
+}
+
+void Thin3DTextureView::Draw(UIContext &dc) {
+	// TODO: involve sizemode
+	if (texture_) {
+		dc.Flush();
+		dc.GetThin3DContext()->SetTexture(0, texture_);
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();
