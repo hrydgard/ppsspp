@@ -181,6 +181,12 @@ void __NetAdhocInit() {
 	actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
 	eventAdhocctlHandlerUpdate = CoreTiming::RegisterEvent("AdhocctlHandlerUpdateEvent", __handlerAdhocctlUpdateCallback);
 	eventMatchingHandlerUpdate = CoreTiming::RegisterEvent("MatchingHandlerUpdateEvent", __handlerMatchingUpdateCallback);
+	// Create built-in AdhocServer Thread
+	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
+		//_status = 1;
+		adhocServerRunning = true;
+		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
+	}
 }
 
 u32 sceNetAdhocInit() {
@@ -201,13 +207,6 @@ u32 sceNetAdhocInit() {
 		threadAdhoc = __KernelCreateThread(threadAdhocID, __KernelGetCurThreadModuleId(), "AdhocThread", dummyThreadHackAddr, 0x10, 8192, PSP_THREAD_ATTR_KERNEL); // We don't have access to __KernelCreateThread function that use Thread class from sceKernelThread.h :(
 		if (threadAdhocID > 0) {
 			__KernelStartThread(threadAdhocID, 0, 0);
-		}
-
-		// Create built-in AdhocServer Thread
-		if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
-			//_status = 1;
-			adhocServerRunning = true;
-			adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 		}
 
 		// Return Success
