@@ -211,6 +211,49 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
+void Jit::ClearRoundingMode(XEmitter *emitter)
+{
+	if (g_Config.bSetRoundingMode)
+	{
+		if (emitter == NULL)
+			emitter = this;
+		emitter->STMXCSR(M(&currentMIPS->temp));
+		// Clear the rounding mode bits back to 0.
+		emitter->AND(32, M(&currentMIPS->temp), Imm32(~(3 << 13)));
+		emitter->LDMXCSR(M(&currentMIPS->temp));
+	}
+}
+
+void Jit::SetRoundingMode(XEmitter *emitter)
+{
+	if (g_Config.bSetRoundingMode)
+	{
+		if (emitter == NULL)
+			emitter = this;
+		emitter->MOV(32, R(EAX), M(&mips_->fcr31));
+		emitter->AND(32, R(EAX), Imm8(3));
+
+		// If it's 0, we don't actually bother setting.  This is the most common.
+		// We always use nearest as the default rounding mode.
+		FixupBranch skip = emitter->J_CC(CC_Z);
+
+		emitter->STMXCSR(M(&currentMIPS->temp));
+
+		// The MIPS bits don't correspond exactly, so we have to adjust.
+		// 0 -> 0 (skip), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
+		emitter->CMP(32, R(EAX), Imm8(2));
+		FixupBranch skip2 = emitter->J_CC(CC_Z);
+		emitter->XOR(32, R(EAX), Imm8(2));
+		emitter->SetJumpTarget(skip2);
+
+		emitter->SHL(32, R(EAX), Imm8(13));
+		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
+		emitter->LDMXCSR(M(&currentMIPS->temp));
+
+		emitter->SetJumpTarget(skip);
+	}
+}
+
 void Jit::ClearCache()
 {
 	blocks.Clear();
@@ -442,7 +485,9 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
+		SetRoundingMode();
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
 	}
 
@@ -492,7 +537,9 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		// Standard function call, nothing fancy.
 		// The function returns the number of cycles it took in EAX.
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
+		SetRoundingMode();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
@@ -516,11 +563,14 @@ void Jit::Comp_Generic(MIPSOpcode op)
 
 	if (func)
 	{
+		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
+		ClearRoundingMode();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
 			ABI_CallFunctionC(func, op.encoding);
+		SetRoundingMode();
 	}
 	else
 		ERROR_LOG_REPORT(JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
@@ -628,7 +678,9 @@ void Jit::WriteSyscallExit()
 {
 	WriteDowncount();
 	if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
+		ClearRoundingMode();
 		ABI_CallFunction(&JitMemCheckCleanup);
+		SetRoundingMode();
 	}
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
@@ -640,7 +692,9 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		SAVE_FLAGS;
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		ClearRoundingMode();
 		ABI_CallFunction(&JitBreakpoint);
+		SetRoundingMode();
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMP(32, R(EAX), Imm32(0));

@@ -190,6 +190,8 @@ private:
 
 	void WriteDownCount(int offset = 0);
 	void WriteDownCountR(ARMReg reg);
+	void ClearRoundingMode();
+	void SetRoundingMode();
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
 

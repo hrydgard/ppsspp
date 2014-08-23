@@ -50,6 +50,7 @@ namespace MIPSComp
 void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
+	SetRoundingMode();
 
 	int ft = _FT;
 	int fs = _FS;
@@ -190,6 +191,9 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 
 void Jit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	// TODO: Does this matter here?
+	SetRoundingMode();
+
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
@@ -279,6 +283,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VNEG(fpr.R(fd), fpr.R(fs));
 		break;
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+		ClearRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		break;
@@ -293,9 +298,10 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
+		ClearRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-zero mode.
+		// Assume we're always in round-to-nearest mode.
 		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
 		VMSR(SCRATCHREG1);
 		VCMP(fpr.R(fs), fpr.R(fs));
@@ -310,9 +316,10 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 	{
+		ClearRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-zero mode.
+		// Assume we're always in round-to-nearest mode.
 		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
 		VMSR(SCRATCHREG1);
 		VCMP(fpr.R(fs), fpr.R(fs));
@@ -331,30 +338,13 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
-		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
-		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
-		// MIPS Rounding Mode:       ARM Rounding Mode
-		//   0: Round nearest        0
-		//   1: Round to zero        3
-		//   2: Round up (ceil)      1
-		//   3: Round down (floor)   2
-		CMP(SCRATCHREG1, Operand2(1));
-		SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
-		SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
-		SetCC(CC_AL);
-
-		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-zero mode beforehand.
-		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
-		VMSR(SCRATCHREG1);
+		SetRoundingMode();
 		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
-		VMSR(SCRATCHREG2);
 		break;
 	default:
 		DISABLE;

@@ -324,6 +324,7 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
+	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true),
 
 	ConfigSetting(false),
 };
