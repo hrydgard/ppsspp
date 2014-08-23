@@ -162,7 +162,7 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 	I18NCategory *de = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
 		auto langScreen = new NewLanguageScreen(de->T("Language"));
-		// langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
+		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
 	}
 }
