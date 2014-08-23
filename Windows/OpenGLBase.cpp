@@ -15,7 +15,7 @@ static HWND hWnd;   // Holds Our Window Handle
 static int xres, yres;
 
 // TODO: Make config?
-static bool enableGLDebug = true;
+static bool enableGLDebug = false;
 
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
