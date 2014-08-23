@@ -913,7 +913,7 @@ void NativeResized() {
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 		static int dp_xres_old=dp_xres;
 		if (dp_xres != dp_xres_old) {
-			uiTexture->Load("ui_atlas.zim");
+			// uiTexture->Load("ui_atlas.zim");
 			dp_xres_old = dp_xres;
 		}
 #endif

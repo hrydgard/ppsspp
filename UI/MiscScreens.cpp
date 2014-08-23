@@ -15,16 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
+#include "base/functional.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "file/vfs.h"
 #include "math/curves.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "file/vfs.h"
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
@@ -159,7 +162,7 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 	I18NCategory *de = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
 		auto langScreen = new NewLanguageScreen(de->T("Language"));
-		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
+		// langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
 	}
 }

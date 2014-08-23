@@ -276,9 +276,12 @@ if(ARM)
 		Common/ArmEmitter.cpp
 		Common/ArmThunk.cpp)
 elseif(X86)
+	# ARMEmitter is here for the unit tests and don't really hurt otherwise.
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
 		Common/ABI.h
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
 		Common/Thunk.cpp
@@ -747,11 +750,11 @@ else()
 endif()
 
 set(NativeAppSource
+	android/jni/TestRunner.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
 	UI/DevScreens.cpp
 	UI/EmuScreen.cpp
-	android/jni/TestRunner.cpp
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
 	UI/MiscScreens.cpp
