@@ -316,5 +316,6 @@ Thin3DContext *T3DCreateGLContext();
 
 #ifdef _WIN32
 struct IDirect3DDevice9;
-Thin3DContext *T3DCreateDX9Context(IDirect3DDevice9 *device);
+struct IDirect3D9;
+Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, int adapterId, IDirect3DDevice9 *device);
 #endif

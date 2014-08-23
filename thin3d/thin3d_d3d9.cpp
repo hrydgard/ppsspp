@@ -1,4 +1,5 @@
 #include <vector>
+#include <stdio.h>
 #include <inttypes.h>
 
 #ifdef _DEBUG
@@ -266,7 +267,7 @@ inline uint16_t Shuffle4444(uint16_t x) {
 	return (x << 12) | (x >> 4);
 }
 
-// A rather different transform, for curious reasons..
+// Just switches R and G.
 inline uint32_t Shuffle8888(uint32_t x) {
 	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
 }
@@ -310,12 +311,11 @@ void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, 
 			}
 			tex_->UnlockRect(level);
 		}
-		// tex_->LockRect()
 		break;
 	}
 
 	default:
-		// TODO
+		ELOG("Non-LINEAR2D textures not yet supported");
 		break;
 	}
 }
@@ -337,10 +337,9 @@ void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	}
 }
 
-
 class Thin3DDX9Context : public Thin3DContext {
 public:
-	Thin3DDX9Context(LPDIRECT3DDEVICE9 device);
+	Thin3DDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device);
 	~Thin3DDX9Context();
 
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare);
@@ -376,25 +375,33 @@ public:
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	const char *GetInfoString(T3DInfo info) const override {
-		// TODO: Make these actually query the right information
 		switch (info) {
 		case APIVERSION: return "DirectX 9.0";
-		case VENDOR: return "?";
-		case RENDERER: return "?";
-		case SHADELANGVERSION: return "3.0";
+		case VENDOR: return identifier_.Description;
+		case RENDERER: return identifier_.Driver;  // eh, sort of
+		case SHADELANGVERSION: return shadeLangVersion_;
 		case APINAME: return "Direct3D 9";
 		default: return "?";
 		}
 	}
 
 private:
-	// void CompileShader(const char *hlsl_source);
-
+	LPDIRECT3D9 d3d_;
 	LPDIRECT3DDEVICE9 device_;
+	int adapterId_;
+	D3DADAPTER_IDENTIFIER9 identifier_;
+	D3DCAPS9 caps_;
+	char shadeLangVersion_[64];
 };
 
-Thin3DDX9Context::Thin3DDX9Context(LPDIRECT3DDEVICE9 device) : device_(device) {
+Thin3DDX9Context::Thin3DDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device) : d3d_(d3d), adapterId_(adapterId), device_(device) {
 	CreatePresets();
+	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
+	if (!FAILED(device->GetDeviceCaps(&caps_))) {
+		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", caps_.PixelShaderVersion & 0xFFFF, caps_.VertexShaderVersion & 0xFFFF);
+	} else {
+		strcpy(shadeLangVersion_, "N/A");
+	}
 }
 
 Thin3DDX9Context::~Thin3DDX9Context() {
@@ -635,11 +642,12 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 		success = SUCCEEDED(result);
 	}
 
+#if 0
+	// Just for testing. Will later use to pre populate uniform tables.
+
 	D3DXCONSTANTTABLE_DESC desc;
 	constantTable_->GetDesc(&desc);
 
-	//D3DXCONSTANT_DESC *descs = new D3DXCONSTANT_DESC[desc.Constants];
-	//constantTable_->GetConstantDesc()
 	for (UINT i = 0; i < desc.Constants; i++) {
 		D3DXHANDLE c = constantTable_->GetConstant(NULL, i);
 		D3DXCONSTANT_DESC cdesc;
@@ -647,6 +655,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 		constantTable_->GetConstantDesc(c, &cdesc, &count);
 		ILOG("%s", cdesc.Name);
 	}
+#endif
 
 	codeBuffer->Release();
 	return true;
@@ -666,11 +675,11 @@ void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, c
 	}
 }
 
-Thin3DContext *T3DCreateDX9Context(LPDIRECT3DDEVICE9 device) {
+Thin3DContext *T3DCreateDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device) {
 	int d3dx_ver = LoadD3DX9Dynamic();
 	if (!d3dx_ver) {
 		ELOG("Failed to load D3DX9!");
 		return NULL;
 	}
-	return new Thin3DDX9Context(device);
+	return new Thin3DDX9Context(d3d, adapterId, device);
 }
