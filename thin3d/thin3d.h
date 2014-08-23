@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstddef>
 #include <vector>
 
 class Matrix4x4;

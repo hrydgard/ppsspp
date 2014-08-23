@@ -152,7 +152,7 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const char *data, int si
 
 	case PNG:
 		if (1 != pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
-			return false;
+			return NULL;
 		}
 		num_levels = 1;
 		fmt = RGBA8888;
