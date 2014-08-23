@@ -896,6 +896,9 @@ add_library(native STATIC
 	native/net/url.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
+	native/thin3d/thin3d.cpp
+	native/thin3d/thin3d.h
+	native/thin3d/thin3d_gl.cpp
 	native/thread/prioritizedworkqueue.cpp
 	native/thread/prioritizedworkqueue.h
 	native/thread/threadutil.cpp
