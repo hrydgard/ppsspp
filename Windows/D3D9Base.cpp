@@ -14,6 +14,7 @@
 #include "thin3d/d3dx9_loader.h"
 
 static LPDIRECT3D9 d3d;
+static int adapterId;
 static LPDIRECT3DDEVICE9 device;
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
@@ -31,7 +32,7 @@ void D3D9_SwapBuffers() {
 }
 
 Thin3DContext *D3D9_CreateThin3DContext() {
-	return T3DCreateDX9Context(device);
+	return T3DCreateDX9Context(d3d, adapterId, device);
 }
 
 bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
@@ -54,8 +55,8 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 		return false;
 	}
 
-	int adapter = D3DADAPTER_DEFAULT;
-	if (FAILED(d3d->GetDeviceCaps(adapter, D3DDEVTYPE_HAL, &d3dCaps))) {
+	adapterId = D3DADAPTER_DEFAULT;
+	if (FAILED(d3d->GetDeviceCaps(adapterId, D3DDEVTYPE_HAL, &d3dCaps))) {
 		d3d->Release();
 		return false;
 	}
@@ -92,7 +93,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
 	pp.PresentationInterval = (g_Config.bVSync) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 
-	hr = d3d->CreateDevice(adapter, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
+	hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
 	if (FAILED(hr)) {
 		ELOG("Failed to create D3D device");
 		d3d->Release();
