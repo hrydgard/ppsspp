@@ -7,7 +7,7 @@
 #include <d3dx9.h>
 
 // Returns the D3DX9 version we got. 0 if none.
-int LoadD3DX9Dynamic();
+int LoadD3DX9Dynamic(bool debugVersion = false);  // If debugVersion is set, load d3dx9d.dll
 int GetD3DXVersion();
 void UnloadD3DXDynamic();
 

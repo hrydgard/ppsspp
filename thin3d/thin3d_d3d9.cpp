@@ -394,10 +394,6 @@ private:
 };
 
 Thin3DDX9Context::Thin3DDX9Context(LPDIRECT3DDEVICE9 device) : device_(device) {
-	int d3dx_ver = LoadD3DX9Dynamic();
-	if (!d3dx_ver) {
-		ELOG("Failed to load D3DX9!");
-	}
 	CreatePresets();
 }
 
@@ -586,10 +582,6 @@ void Thin3DDX9Context::Clear(int mask, uint32_t colorval, float depthVal, int st
 	device_->Clear(0, NULL, d3dMask, (D3DCOLOR)colorval, depthVal, stencilVal);
 }
 
-Thin3DContext *T3DCreateDX9Context(LPDIRECT3DDEVICE9 device) {
-	return new Thin3DDX9Context(device);
-}
-
 void Thin3DDX9Context::SetScissorEnabled(bool enable) {
 	device_->SetRenderState(D3DRS_SCISSORTESTENABLE, enable);
 }
@@ -672,4 +664,13 @@ void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, c
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value.getReadPtr(), 16);
 	}
+}
+
+Thin3DContext *T3DCreateDX9Context(LPDIRECT3DDEVICE9 device) {
+	int d3dx_ver = LoadD3DX9Dynamic();
+	if (!d3dx_ver) {
+		ELOG("Failed to load D3DX9!");
+		return NULL;
+	}
+	return new Thin3DDX9Context(device);
 }

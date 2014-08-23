@@ -33,71 +33,20 @@ typedef HRESULT(__stdcall *TFunc_D3DXAssembleShader)(
 
 static HMODULE hm_d3dx;
 static unsigned int d3dx_version;
+static int failedFunctions;
+
 static TFunc_D3DXCheckVersion m_TFunc_D3DXCheckVersion;
 static TFunc_D3DXAssembleShader m_TFunc_D3DXAssembleShader;
 static TFunc_D3DXCompileShader m_TFunc_D3DXCompileShader;
 
-void makeD3DX9dllFilename_by_version(std::string& strOut, unsigned int vers, bool bDebugV = false) {
-	strOut = "";
-	strOut += "d3dx9";
-	if (bDebugV) {
-		strOut += "d";
-	}
-	strOut += "_";
-	char buf[32];
-	sprintf(buf, "%02i", vers);
-	strOut += buf;
-	strOut += ".dll";
-	// temp mon
-	if (vers < 10) {
-		int _stop = 0;
-	}
-}
-
-void makeD3DX9dllFilename_by_versionW(std::wstring& strOut, unsigned int vers, bool bDebugV = false)
-{
-	strOut = L"";
-	strOut += L"d3dx9";
-
-	if (bDebugV) {
-		strOut += L"d";
-	}
-
-	strOut += L"_";
-
-	wchar_t buf[32];
-	wsprintf(buf, L"%02i", vers);
-	strOut += buf;
-	strOut += L".dll";
-
-	// temp mon
-	if (vers < 10) {
-		int _stop = 0;
-	}
-}
-
-bool checkDllExistsA(const char* fname, bool bIncludeExeDir) {
-	return ::GetFileAttributesA(fname) != DWORD(-1);
+void makeD3DX9dllFilename_by_versionW(std::wstring& strOut, unsigned int versionNumber, bool debugVersion = false) {
+	wchar_t buf[256];
+	wsprintf(buf, L"d3dx9%s_%02i.dll", debugVersion ? L"d" : L"", versionNumber);
+	strOut = buf;
 }
 
 bool checkDllExistsW(const WCHAR* fname, bool bIncludeExeDir) {
 	return ::GetFileAttributesW(fname) != DWORD(-1);
-}
-
-bool checkExistsDll(const char* sDllFilename) {
-	std::string sfullpath;
-	char bufsysdir[MAX_PATH];
-
-	if (!::GetSystemDirectoryA(bufsysdir, MAX_PATH)) {
-		throw (std::runtime_error("system error"));
-	}
-	sfullpath = bufsysdir;
-	sfullpath += '\\';
-	sfullpath += sDllFilename;
-	if (checkDllExistsA(sfullpath.c_str(), true)) {
-		return true;
-	}
-	return false;
 }
 
 bool checkExistsDllW(const WCHAR* sDllFilename) {
@@ -119,12 +68,12 @@ bool checkExistsDllW(const WCHAR* sDllFilename) {
 	return false;
 }
 
-bool getInstaledD3DXlastVersion(unsigned int* piOutVers) {
+bool getLatestInstalledD3DXVersion(unsigned int* piOutVers) {
 	*piOutVers = 0;
-	std::string fname;
+	std::wstring fname;
 	for (unsigned int cvers = 45; cvers > 0; cvers--) {
-		makeD3DX9dllFilename_by_version(fname, cvers);
-		if (checkExistsDll(fname.c_str())) {
+		makeD3DX9dllFilename_by_versionW(fname, cvers);
+		if (checkExistsDllW(fname.c_str())) {
 			*piOutVers = cvers;
 			return true;
 		}
@@ -132,59 +81,21 @@ bool getInstaledD3DXlastVersion(unsigned int* piOutVers) {
 	return false;
 }
 
-//====================================================================
-bool getInstaledD3DXallVersion(std::vector<unsigned int>& versions) {
-	bool result = false;
-	versions.clear();
+HMODULE loadDllLastVersion(unsigned int* version, bool debugVersion) {
+	failedFunctions = 0;
 
-	std::string fname;
-	for (unsigned int cvers = 45; cvers > 0; cvers--) {
-		makeD3DX9dllFilename_by_version(fname, cvers);
-		if (checkExistsDll(fname.c_str())) {
-			versions.push_back(cvers);
-			result = true;
-		}
-	}
-	return  result;
-}
+	if (version)
+		*version = 0;
 
-//====================================================================
-HMODULE loadDllLastVersion(unsigned int* piOutVers) {
-	if (piOutVers)
-		*piOutVers = 0;
-
-	// old code  ansi string
-#if 0
-
-	if (!getInstaledD3DXlastVersion(piOutVers)) {
-
+	if (!getLatestInstalledD3DXVersion(version)) {
 		return 0;
 	}
 
-	std::string dllfname;
-	makeD3DX9dllFilename_by_version(dllfname, *piOutVers);
-
-	HMODULE hm = 0;
-	hm = ::LoadLibraryA(dllfname.c_str());
-
-#else 
-	// unicode
-	if (!getInstaledD3DXlastVersion(piOutVers)) {
-		return 0;
-	}
-
-	bool bdebugvers = false;
-#ifdef _DEBUG
-	bdebugvers = false; // true;
-#endif 
 	std::wstring dllfname;
-	makeD3DX9dllFilename_by_versionW(dllfname, *piOutVers, bdebugvers);
-	HMODULE hm = 0;
-	hm = ::LoadLibraryW(dllfname.c_str());
-#endif
+	makeD3DX9dllFilename_by_versionW(dllfname, *version, debugVersion);
+	HMODULE hm = ::LoadLibraryW(dllfname.c_str());
 	return hm;
 }
-
 
 #define GB_MAKE_STR(s)  # s
 #define GB_MAKE_STR2(x) GB_MAKE_STR(x)
@@ -196,34 +107,18 @@ HMODULE loadDllLastVersion(unsigned int* piOutVers) {
 		handleNotFoundAddr( GB_MAKE_STR(funcname) ); \
   }
 
-//==============================================================
 void handleNotFoundAddr(const char* sFuncName) {
-#ifdef _DEBUG
-	std::string temp;
-	temp = " Entry point not found in d3dx dll :  \n";
-	temp += sFuncName;
-	// ELOG(temp.c_str());
-
-	assert(false && temp.c_str());
-
-	static FILE* st_file = NULL;
-	if (st_file == NULL) {
-		st_file = fopen("__getProcAddrlog.txt", "w");
-	}
-
-	fputs(sFuncName, st_file);
-	fputs("\n", st_file);
-
-#endif
+	ELOG("Failed to find D3DX fucntion %s", sFuncName);
+	failedFunctions++;
 }
 
-int LoadD3DX9Dynamic() {
+int LoadD3DX9Dynamic(bool debugVersion) {
 	if (hm_d3dx) {
 		// Already loaded
 		return d3dx_version;
 	}
 
-	hm_d3dx = loadDllLastVersion(&d3dx_version);
+	hm_d3dx = loadDllLastVersion(&d3dx_version, debugVersion);
 	void* ptr = NULL;
 	const int NERROR = -1;
 	int _begin = 0;
@@ -231,6 +126,10 @@ int LoadD3DX9Dynamic() {
 	__HANDLE_DLL_ENTRY(D3DXCheckVersion);
 	__HANDLE_DLL_ENTRY(D3DXAssembleShader);
 	__HANDLE_DLL_ENTRY(D3DXCompileShader);
+
+	if (failedFunctions > 0) {
+		ELOG("Failed to load %i D3DX functions. This will not go well.", failedFunctions);
+	}
 
 	return d3dx_version;
 }
@@ -256,7 +155,6 @@ BOOL dyn_D3DXCheckVersion(UINT D3DSDKVersion, UINT D3DXSDKVersion) {
 	if (!m_TFunc_D3DXCheckVersion) {
 		GB_D3D9_D3DXDLL_LOADER_CHECK_ENTRY_NULL_PTR(D3DXCheckVersion)
 	}
-
 	return m_TFunc_D3DXCheckVersion(D3DSDKVersion, D3DXSDKVersion);
 }
 
