@@ -454,10 +454,11 @@ Thin3DBuffer *Thin3DGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 }
 
 Thin3DShaderSet *Thin3DGLContext::CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) {
-	Thin3DGLShaderSet *shaderSet = new Thin3DGLShaderSet();
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
+		return NULL;
 	}
+	Thin3DGLShaderSet *shaderSet = new Thin3DGLShaderSet();
 	vshader->AddRef();
 	fshader->AddRef();
 	shaderSet->vshader = static_cast<Thin3DGLShader *>(vshader);

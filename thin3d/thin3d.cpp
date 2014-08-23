@@ -96,16 +96,24 @@ void Thin3DContext::CreatePresets() {
 
 Thin3DContext::~Thin3DContext() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
-		vsPresets_[i]->Release();
+		if (vsPresets_[i]) {
+			vsPresets_[i]->Release();
+		}
 	}
 	for (int i = 0; i < FS_MAX_PRESET; i++) {
-		fsPresets_[i]->Release();
+		if (fsPresets_[i]) {
+			fsPresets_[i]->Release();
+		}
 	}
 	for (int i = 0; i < BS_MAX_PRESET; i++) {
-		bsPresets_[i]->Release();
+		if (bsPresets_[i]) {
+			bsPresets_[i]->Release();
+		}
 	}
 	for (int i = 0; i < SS_MAX_PRESET; i++) {
-		ssPresets_[i]->Release();
+		if (ssPresets_[i]) {
+			ssPresets_[i]->Release();
+		}
 	}
 }
 
