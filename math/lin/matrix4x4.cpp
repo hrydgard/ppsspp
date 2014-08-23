@@ -218,7 +218,6 @@ void Matrix4x4::setOrthoD3D(float left, float right, float bottom, float top, fl
 	zz = 1.0f / (far - near);
 	wx = -(right + left) / (right - left);
 	wy = -(top + bottom) / (top - bottom);
-	//wz = -(far + near) / (far - near);
 	wz = -near / (far - near);
 }
 

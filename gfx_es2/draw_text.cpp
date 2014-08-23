@@ -56,7 +56,8 @@ TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 
 TextDrawer::~TextDrawer() {
 	for (auto iter = cache_.begin(); iter != cache_.end(); ++iter) {
-		iter->second->texture->Release();
+		if (iter->second->texture)
+			iter->second->texture->Release();
 		delete iter->second;
 	}
 	cache_.clear();
@@ -344,6 +345,8 @@ void TextDrawer::OncePerFrame() {
 	if (frameCount_ % 23 == 0) {
 		for (auto iter = cache_.begin(); iter != cache_.end();) {
 			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+				if (iter->second->texture)
+					iter->second->texture->Release();
 				delete iter->second;
 				cache_.erase(iter++);
 			} else {
