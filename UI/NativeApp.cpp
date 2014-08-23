@@ -533,7 +533,7 @@ void NativeInitGraphics() {
 	ui_draw2d_front.Init(thin3d);
 
 #ifdef USING_QT_UI
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim");
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim", T3DFileType::ZIM);
 	if (!uiTexture) {
 #else
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DFileType::ZIM);
