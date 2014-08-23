@@ -664,7 +664,7 @@ void Thin3DGLVertexFormat::Apply() {
 			glEnableVertexAttribArray(i);
 		}
 	}
-	for (int i = 0; i < components_.size(); i++) {
+	for (size_t i = 0; i < components_.size(); i++) {
 		switch (components_[i].type) {
 		case FLOATx2:
 			glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(intptr_t)components_[i].offset);
