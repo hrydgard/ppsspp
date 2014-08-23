@@ -710,8 +710,11 @@ void NativeRender() {
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	// ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-	ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	} else {
+		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	}
 
 	ui_draw2d.SetDrawMatrix(ortho);
 	ui_draw2d_front.SetDrawMatrix(ortho);
