@@ -160,6 +160,14 @@ private:
 
 bool Thin3DGLShader::Compile(const char *source) {
 	shader_ = glCreateShader(type_);
+
+	std::string temp;
+	// Add the prelude on automatically for fragment shaders.
+	if (type_ == GL_FRAGMENT_SHADER) {
+		temp = std::string(glsl_fragment_prelude) + source;
+		source = temp.c_str();
+	}
+
 	glShaderSource(shader_, 1, &source, 0);
 	glCompileShader(shader_);
 	GLint success;
