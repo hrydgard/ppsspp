@@ -559,6 +559,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}
 	RestoreDowncount();
+	SetRoundingMode();
 
 	WriteSyscallExit();
 	js.compiling = false;

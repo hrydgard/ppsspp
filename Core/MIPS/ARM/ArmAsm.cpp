@@ -114,7 +114,9 @@ void Jit::GenerateFixedCode()
 	MovToPC(R0);
 	outerLoop = GetCodePtr();
 		SaveDowncount();
+		ClearRoundingMode();
 		QuickCallFunction(R0, &CoreTiming::Advance);
+		SetRoundingMode();
 		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 
@@ -173,7 +175,9 @@ void Jit::GenerateFixedCode()
 
 			// No block found, let's jit
 			SaveDowncount();
+			ClearRoundingMode();
 			QuickCallFunction(R2, (void *)&JitAt);
+			SetRoundingMode();
 			RestoreDowncount();
 
 			B(dispatcherNoCheck); // no point in special casing this
@@ -195,6 +199,7 @@ void Jit::GenerateFixedCode()
 	}
 
 	SaveDowncount();
+	ClearRoundingMode();
 
 	ADD(R_SP, R_SP, 4);
 

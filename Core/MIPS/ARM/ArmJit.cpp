@@ -467,10 +467,13 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	if (func)
 	{
 		SaveDowncount();
+		// TODO: Perhaps keep the rounding mode for interp?
+		ClearRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);
+		SetRoundingMode();
 		RestoreDowncount();
 	}
 
@@ -544,20 +547,18 @@ void Jit::WriteDownCountR(ARMReg reg)
 
 void Jit::ClearRoundingMode()
 {
-	if (js.roundingModeSet && g_Config.bSetRoundingMode)
+	if (g_Config.bSetRoundingMode)
 	{
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand.
 		BIC(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
 		VMSR(SCRATCHREG1);
-
-		js.roundingModeSet = false;
 	}
 }
 
 void Jit::SetRoundingMode()
 {
-	if (!js.roundingModeSet && g_Config.bSetRoundingMode)
+	if (g_Config.bSetRoundingMode)
 	{
 		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
 		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
@@ -575,8 +576,6 @@ void Jit::SetRoundingMode()
 		// Assume we're always in round-to-nearest mode beforehand.
 		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
 		VMSR(SCRATCHREG1);
-
-		js.roundingModeSet = true;
 	}
 }
 
@@ -587,7 +586,6 @@ void Jit::SetRoundingMode()
 void Jit::WriteExit(u32 destination, int exit_num)
 {
 	WriteDownCount(); 
-	ClearRoundingMode();
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
@@ -609,7 +607,6 @@ void Jit::WriteExitDestInR(ARMReg Reg)
 {
 	MovToPC(Reg);
 	WriteDownCount();
-	ClearRoundingMode();
 	// TODO: shouldn't need an indirect branch here...
 	B((const void *)dispatcher);
 }
@@ -617,7 +614,6 @@ void Jit::WriteExitDestInR(ARMReg Reg)
 void Jit::WriteSyscallExit()
 {
 	WriteDownCount();
-	ClearRoundingMode();
 	B((const void *)dispatcherCheckCoreState);
 }
 
