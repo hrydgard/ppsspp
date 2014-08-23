@@ -315,11 +315,15 @@ Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<Thin3D
 
 GLuint TypeToTarget(T3DTextureType type) {
 	switch (type) {
+#ifndef USING_GLES2
 	case LINEAR1D: return GL_TEXTURE_1D;
+#endif
 	case LINEAR2D: return GL_TEXTURE_2D;
 	case LINEAR3D: return GL_TEXTURE_3D;
 	case CUBE: return GL_TEXTURE_CUBE_MAP;
+#ifndef USING_GLES2
 	case ARRAY1D: return GL_TEXTURE_1D_ARRAY;
+#endif
 	case ARRAY2D: return GL_TEXTURE_2D_ARRAY;
 	default: return GL_NONE;
 	}
@@ -522,12 +526,13 @@ bool Thin3DGLShaderSet::Link() {
 	}
 
 	// Auto-initialize samplers.
+	glUseProgram(program_);
 	for (int i = 0; i < 4; i++) {
 		char temp[256];
 		sprintf(temp, "Sampler%i", i);
 		int samplerLoc = GetUniformLoc(temp);
 		if (samplerLoc != -1) {
-			glProgramUniform1i(program_, samplerLoc, i);
+			glUniform1i(samplerLoc, i);
 		}
 	}
 	// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
@@ -550,21 +555,23 @@ int Thin3DGLShaderSet::GetUniformLoc(const char *name) {
 }
 
 void Thin3DGLShaderSet::SetVector(const char *name, float *value, int n) {
+	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
 		switch (n) {
-		case 1: glProgramUniform1fv(program_, loc, 1, value); break;
-		case 2: glProgramUniform1fv(program_, loc, 2, value); break;
-		case 3: glProgramUniform1fv(program_, loc, 3, value); break;
-		case 4: glProgramUniform1fv(program_, loc, 4, value); break;
+		case 1: glUniform1fv(loc, 1, value); break;
+		case 2: glUniform1fv(loc, 2, value); break;
+		case 3: glUniform1fv(loc, 3, value); break;
+		case 4: glUniform1fv(loc, 4, value); break;
 		}
 	}
 }
 
 void Thin3DGLShaderSet::SetMatrix4x4(const char *name, const Matrix4x4 &value) {
+	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
-		glProgramUniformMatrix4fv(program_, loc, 1, false, value.getReadPtr());
+		glUniformMatrix4fv(loc, 1, false, value.getReadPtr());
 	}
 }
 
@@ -633,7 +640,11 @@ void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
 	if (mask & T3DClear::DEPTH) {
+#ifdef USING_GLES2
+		glClearDepthf(depthVal);
+#else
 		glClearDepth(depthVal);
+#endif
 		glMask |= GL_DEPTH_BUFFER_BIT;
 	}
 	if (mask & T3DClear::STENCIL) {

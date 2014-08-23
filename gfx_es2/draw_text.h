@@ -24,11 +24,7 @@ class Thin3DTexture;
 #endif
 
 struct TextStringEntry {
-#if defined(_WIN32) && !defined(USING_QT_UI)
 	Thin3DTexture *texture;
-#else
-	GLuint textureHandle;
-#endif
 	int width;
 	int height;
 	int bmWidth;
