@@ -411,7 +411,7 @@ void GameSettingsScreen::CreateViews() {
 #else
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, s->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
-
+	systemSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, s->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, s->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
 //#ifndef ANDROID
