@@ -64,7 +64,7 @@ public:
 	GLuint eqCol, eqAlpha;
 	GLuint srcCol, srcAlpha, dstCol, dstAlpha;
 	// int maskBits;
-	uint32_t fixedColor;
+	// uint32_t fixedColor;
 
 	void Apply() {
 		glstate.blend.set(enabled);
@@ -78,7 +78,6 @@ public:
 #endif
 
 		// glstate.colorMask.set(maskBits & 1, (maskBits >> 1) & 1, (maskBits >> 2) & 1, (maskBits >> 3) & 1);
-		// glstate.blendColor.set(fixedColor);
 	}
 };
 
@@ -173,7 +172,7 @@ bool Thin3DGLShader::Compile(const char *source) {
 		infoLog[len] = '\0';
 		glDeleteShader(shader_);
 		shader_ = 0;
-		// print?
+		ILOG("%s Shader compile error:\n%s", type_ == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
 	}
 	ok_ = success != 0;
 	return ok_;
@@ -295,7 +294,6 @@ public:
 			default: return "?";
 		}
 	}
-
 };
 
 Thin3DGLContext::Thin3DGLContext() {
@@ -361,7 +359,7 @@ Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageForma
 }
 
 void Thin3DGLTexture::AutoGenMipmaps() {
-	glBindTexture(target_, tex_);
+	Bind();
 	glGenerateMipmap(target_);
 }
 
@@ -384,10 +382,13 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 		return;
 	}
 
-	glBindTexture(target_, tex_);
+	Bind();
 	switch (target_) {
 	case GL_TEXTURE_2D:
 		glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width_, height_, 0, format, type, data);
+		break;
+	default:
+		ELOG("Thin3D GL: Targets other than GL_TEXTURE_2D not yet supported");
 		break;
 	}
 }
@@ -512,15 +513,12 @@ bool Thin3DGLShaderSet::Link() {
 		if (bufLength) {
 			char* buf = new char[bufLength];
 			glGetProgramInfoLog(program_, bufLength, NULL, buf);
-			//ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			//ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
-			//ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
-#ifdef SHADERLOG
+			ELOG("Could not link program:\n %s", buf);
+			// We've thrown out the source at this point. Might want to do something about that.
+#ifdef _WIN32
 			OutputDebugStringUTF8(buf);
-			OutputDebugStringUTF8(vs->source().c_str());
-			OutputDebugStringUTF8(fs->source().c_str());
 #endif
-			delete[] buf;	// we're dead!
+			delete[] buf;
 		}
 		return false;
 	}
@@ -535,6 +533,7 @@ bool Thin3DGLShaderSet::Link() {
 			glUniform1i(samplerLoc, i);
 		}
 	}
+
 	// Here we could (using glGetAttribLocation) save a bitmask about which pieces of vertex data are used in the shader
 	// and then AND it with the vertex format bitmask later...
 	return true;
