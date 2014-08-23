@@ -204,7 +204,7 @@ u32 sceNetAdhocInit() {
 		}
 
 		// Create built-in AdhocServer Thread
-		if (g_Config.bEnableAdhocServer) {
+		if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 			//_status = 1;
 			adhocServerRunning = true;
 			adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
