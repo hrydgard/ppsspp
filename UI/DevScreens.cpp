@@ -231,16 +231,20 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Threads", cores));
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
-	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
-	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
+
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+
+	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(T3DInfo::APINAME)));
+	deviceSpecs->Add(new InfoItem("Vendor", thin3d->GetInfoString(T3DInfo::VENDOR)));
+	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #endif
-	deviceSpecs->Add(new ItemHeader("OpenGL Version Information"));
-	std::string openGL = (char *)glGetString(GL_VERSION);
-	openGL.resize(30);
-	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
-	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	deviceSpecs->Add(new ItemHeader("Version Information"));
+	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+	apiVersion.resize(30);
+	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
+	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
 
 #ifdef ANDROID
 	char temp[256];

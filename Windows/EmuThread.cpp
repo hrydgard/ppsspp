@@ -106,7 +106,7 @@ unsigned int WINAPI TheThread(void *)
 
 	std::string error_string;
 	if (!host->InitGL(&error_string)) {
-		Reporting::ReportMessage("OpenGL init error: %s", error_string.c_str());
+		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
 		MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), L"OpenGL Error", MB_OK | MB_ICONERROR);
 		ERROR_LOG(BOOT, full_error.c_str());

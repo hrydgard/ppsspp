@@ -6,10 +6,7 @@
 
 namespace DX9 {
 
-// OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
-// as GL state changes can be expensive on some hardware.
-class DirectxState
-{
+class DirectxState {
 private:
 	template<D3DRENDERSTATETYPE cap, bool init>
 	class BoolState {
@@ -55,6 +52,24 @@ private:
 		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
+		}
+	};
+
+	template<D3DSAMPLERSTATETYPE state1, DWORD p1def>
+	class DxSampler0State1 {
+		D3DSAMPLERSTATETYPE _state1;
+		DWORD p1;
+	public:
+		DxSampler0State1() : _state1(state1), p1(p1def) {
+			DirectxState::state_count++;
+		}
+
+		inline void set(DWORD newp1) {
+			p1 = newp1;
+			pD3Ddevice->SetSamplerState(0, _state1, p1);
+		}
+		void restore() {
+			pD3Ddevice->SetSamplerState(0, _state1, p1);
 		}
 	};
 
@@ -104,12 +119,46 @@ private:
 			pD3Ddevice->SetRenderState(_state3, p3);
 		}
 		void restore() {
-		//	pD3Ddevice->SetRenderState(_state1, p1);
-		//	pD3Ddevice->SetRenderState(_state2, p2);
-		//	pD3Ddevice->SetRenderState(_state3, p2);
+		  pD3Ddevice->SetRenderState(_state1, p1);
+		  pD3Ddevice->SetRenderState(_state2, p2);
+		  pD3Ddevice->SetRenderState(_state3, p3);
 		}
 	};
-	
+
+	template<D3DRENDERSTATETYPE state1, DWORD p1def, D3DRENDERSTATETYPE state2, DWORD p2def, D3DRENDERSTATETYPE state3, DWORD p3def, D3DRENDERSTATETYPE state4, DWORD p4def>
+	class DxState4 {
+		D3DRENDERSTATETYPE _state1;
+		D3DRENDERSTATETYPE _state2;
+		D3DRENDERSTATETYPE _state3;
+		D3DRENDERSTATETYPE _state4;
+		DWORD p1;
+		DWORD p2;
+		DWORD p3;
+		DWORD p4;
+	public:
+		DxState4() : _state1(state1), _state2(state2), _state3(state3), _state4(state4),
+			p1(p1def), p2(p2def), p3(p3def), p4(p4def) {
+			//	DirectxState::state_count++;
+		}
+
+		inline void set(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {
+			p1 = newp1;
+			p2 = newp2;
+			p3 = newp3;
+			p4 = newp4;
+			pD3Ddevice->SetRenderState(_state1, p1);
+			pD3Ddevice->SetRenderState(_state2, p2);
+			pD3Ddevice->SetRenderState(_state3, p3);
+			pD3Ddevice->SetRenderState(_state4, p4);
+		}
+		void restore() {
+			pD3Ddevice->SetRenderState(_state1, p1);
+			pD3Ddevice->SetRenderState(_state2, p2);
+			pD3Ddevice->SetRenderState(_state3, p3);
+			pD3Ddevice->SetRenderState(_state3, p4);
+		}
+	};
+
 	
 	class SavedBlendFactor {
 		DWORD c;
@@ -191,15 +240,6 @@ private:
 			viewport.Y=y;
 			viewport.Width=w;
 			viewport.Height=h;	
-			/*
-			if (f > n) {
-				viewport.MinZ=n;
-				viewport.MaxZ=f;
-			} else {
-				viewport.MinZ=f;
-				viewport.MaxZ=n;
-			}
-			*/
 			viewport.MinZ=n;
 			viewport.MaxZ=f;
 
@@ -232,12 +272,10 @@ private:
 				cull = D3DCULL_NONE;
 			} else {
 				// add front face ...
-				cull = cullmode==0?D3DCULL_CW:D3DCULL_CCW;
+				cull = cullmode==0 ? D3DCULL_CW:D3DCULL_CCW;
 			}
-			
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
 		}
-
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
 		}
@@ -253,8 +291,8 @@ public:
 
 	// When adding a state here, don't forget to add it to DirectxState::Restore() too
 	BoolState<D3DRS_ALPHABLENDENABLE, false> blend;
-	DxState2<D3DRS_SRCBLEND, D3DBLEND_SRCALPHA, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA> blendFunc;
-	DxState1<D3DRS_BLENDOP, D3DBLENDOP_ADD> blendEquation;
+	DxState4<D3DRS_SRCBLEND, D3DBLEND_SRCALPHA, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA, D3DRS_SRCBLENDALPHA, D3DBLEND_ONE, D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO> blendFunc;
+	DxState2<D3DRS_BLENDOP, D3DBLENDOP_ADD, D3DRS_BLENDOPALPHA, D3DBLENDOP_ADD> blendEquation;
 	SavedBlendFactor blendColor;
 
 	BoolState<D3DRS_SCISSORTESTENABLE, false> scissorTest;
@@ -277,6 +315,12 @@ public:
 
 	DxState3<D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP> stencilOp;
 	DxState3<D3DRS_STENCILFUNC, D3DCMP_ALWAYS, D3DRS_STENCILREF, 0, D3DRS_STENCILMASK, 0xFFFFFFFF> stencilFunc;
+
+	DxSampler0State1<D3DSAMP_MINFILTER, D3DTEXF_POINT> texMinFilter;
+	DxSampler0State1<D3DSAMP_MAGFILTER, D3DTEXF_POINT> texMagFilter;
+	DxSampler0State1<D3DSAMP_MIPFILTER, D3DTEXF_NONE> texMipFilter;
+	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
+	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

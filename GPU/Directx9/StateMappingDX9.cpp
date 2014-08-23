@@ -77,6 +77,11 @@ static const D3DCMPFUNC ztests[] = {
 	D3DCMP_LESS, D3DCMP_LESSEQUAL, D3DCMP_GREATER, D3DCMP_GREATEREQUAL,
 };
 
+static const D3DCMPFUNC ztests_backwards[] = {
+	D3DCMP_NEVER, D3DCMP_ALWAYS, D3DCMP_EQUAL, D3DCMP_NOTEQUAL,
+	D3DCMP_GREATER, D3DCMP_GREATEREQUAL, D3DCMP_LESS, D3DCMP_LESSEQUAL,
+};
+
 static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP,
 	D3DSTENCILOP_ZERO,
@@ -192,8 +197,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
-		dxstate.blendEquation.set(eqLookup[blendFuncEq]);
+		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
+		dxstate.blendEquation.set(eqLookup[blendFuncEq], D3DBLENDOP_ADD);
 	}
 
 	// Set Dither
@@ -229,7 +234,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 	} else {
-		
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		dxstate.cullMode.set(wantCull, gstate.getCullMode());	

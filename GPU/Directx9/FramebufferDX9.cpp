@@ -241,19 +241,6 @@ void FramebufferManagerDX9::DrawPixels(const u8 *framebuf, GEBufferFormat pixelF
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-// Depth in ogl is between -1;1 we need between 0;1
-static void ConvertMatrices(Matrix4x4 & in) {
-	/*
-	in.zz *= 0.5f;
-	in.wz += 1.f;
-	*/
-	Matrix4x4 s;
-	Matrix4x4 t;
-	s.setScaling(Vec3(1, 1, 0.5f));
-	t.setTranslation(Vec3(0, 0, 0.5f));
-	in = in * s;
-	in = in * t;
-}
 
 void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
@@ -269,9 +256,9 @@ void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h
 	}; 
 
 	Matrix4x4 ortho;
-	ConvertMatrices(ortho);
 
 	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
+	ConvertProjMatrixToD3D(ortho);
 
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 	pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
@@ -635,6 +622,7 @@ void FramebufferManagerDX9::CopyDisplayToOutput() {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
+
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 
 		// These are in the output display coordinates

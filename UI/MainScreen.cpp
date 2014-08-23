@@ -174,8 +174,8 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, 0);
-	Texture *texture = 0;
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath_, 0);
+	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 
 	if (ginfo->iconTexture) {
@@ -249,7 +249,7 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		dc.Draw()->Flush();
-		texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, texture);
 		if (holdFrameCount_ > 60) {
 			// Blink before launching by holding
 			if (((holdFrameCount_ >> 3) & 1) == 0)
@@ -959,7 +959,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 
 	GameInfo *ginfo = 0;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+		ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 		// Loading texture data may bind a texture.
 		dc.RebindTexture();
 
@@ -972,9 +972,9 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 	}
 
 	if (ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
 	} else if (ginfo->pic0Texture) {
-		ginfo->pic0Texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;

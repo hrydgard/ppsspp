@@ -19,6 +19,7 @@ void DirectxState::Initialize() {
 
 void DirectxState::Restore() {
 	int count = 0;
+
 	blend.restore(); count++;
 	blendEquation.restore(); count++;
 	blendFunc.restore(); count++;
@@ -37,7 +38,8 @@ void DirectxState::Restore() {
 	depthWrite.restore(); count++;
 
 	colorMask.restore(); count++;
-	viewport.restore(); count++;
+
+	// viewport.restore(); count++;
 
 	stencilTest.restore(); count++;
 	stencilOp.restore(); count++;
@@ -45,7 +47,14 @@ void DirectxState::Restore() {
 
 	dither.restore(); count++;
 
-	assert(count == state_count && "DirectxState::Restore is missing some states");
+	texMinFilter.restore(); count++;
+	texMagFilter.restore(); count++;
+	texMipFilter.restore(); count++;
+	texAddressU.restore(); count++;
+	texAddressV.restore(); count++;
+
+
+	//assert(count == state_count && "DirectxState::Restore is missing some states");
 }
 
 void CheckGLExtensions() {

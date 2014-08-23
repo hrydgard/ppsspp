@@ -386,6 +386,7 @@ static int DefaultAndroidHwScale() {
 
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
+	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
 	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
@@ -1060,5 +1061,3 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
-
-

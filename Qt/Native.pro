@@ -94,6 +94,8 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/fast/*.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
+	$$P/native/thin3d/thin3d.cpp \
+	$$P/native/thin3d/thin3d_gl.cpp \
 	$$P/native/thread/*.cpp \
 	$$P/native/ui/*.cpp \
 	$$P/native/util/bits/*.cpp \

@@ -106,13 +106,6 @@ private:
 		int maxLevel;
 		float lodBias;
 
-		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
-		u8 magFilt;
-		u8 minFilt;
-		bool sClamp;
-		bool tClamp;
-
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
