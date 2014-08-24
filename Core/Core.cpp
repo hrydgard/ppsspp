@@ -129,7 +129,6 @@ void UpdateScreenScale(int width, int height) {
 		dp_yres *= 2;
 		g_dpi_scale = 2.0f;
 	}
-	else
 #endif
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 	NativeResized();
