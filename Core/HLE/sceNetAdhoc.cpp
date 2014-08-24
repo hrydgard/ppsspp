@@ -65,6 +65,13 @@ static u32_le dummyThreadCode[4]; /* = {
 };*/
 
 void __NetAdhocShutdown() {
+	//Kill AdhocServer Thread
+	if (adhocServerRunning) {
+		adhocServerRunning = false;
+		if (adhocServerThread.joinable()) {
+			adhocServerThread.join();
+		}
+	}
 	// Checks to avoid confusing logspam
 	if (netAdhocMatchingInited) {
 		sceNetAdhocMatchingTerm();
@@ -76,13 +83,6 @@ void __NetAdhocShutdown() {
 		sceNetAdhocTerm();
 	}
 	kernelMemory.Free(dummyThreadHackAddr);
-	//Kill AdhocServer Thread
-	if (adhocServerRunning) {
-		adhocServerRunning = false;
-		if (adhocServerThread.joinable()) {
-			adhocServerThread.join();
-		}
-	}
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
