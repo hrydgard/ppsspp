@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GPUState.h"
 
@@ -43,6 +44,10 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		GLuint tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
+			return;
+		}
+		if (!gstate.isColorTestEnabled() && (IsAlphaTestAgainstZero() || IsAlphaTestTriviallyTrue())) {
+			// Common case: testing against zero.  Just skip it.
 			return;
 		}
 		glActiveTexture(unit);
