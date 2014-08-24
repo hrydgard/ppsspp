@@ -76,6 +76,13 @@ void __NetAdhocShutdown() {
 		sceNetAdhocTerm();
 	}
 	kernelMemory.Free(dummyThreadHackAddr);
+	//Kill AdhocServer Thread
+	if (adhocServerRunning) {
+		adhocServerRunning = false;
+		if (adhocServerThread.joinable()) {
+			adhocServerThread.join();
+		}
+	}
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
@@ -1471,14 +1478,6 @@ int sceNetAdhocTerm() {
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
-
-		//Kill AdhocServer Thread
-		if (adhocServerRunning) {
-			adhocServerRunning = false;
-			if (adhocServerThread.joinable()) {
-				adhocServerThread.join();
-			}
-		}
 
 		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
 		// if (_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);
