@@ -392,11 +392,13 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		}
 
 		id0 |= (lmode & 1) << 11;
+#if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
 			// 4 bits total.
 			id0 |= 1 << 12;
 			id0 |= gstate.getAlphaTestFunction() << 13;
 		}
+#endif
 		if (enableColorTest) {
 			// 3 bits total.
 			id0 |= 1 << 16;

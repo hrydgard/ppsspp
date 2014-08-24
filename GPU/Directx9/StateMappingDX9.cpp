@@ -27,6 +27,7 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 namespace DX9 {
 
@@ -267,6 +268,19 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.disable();
 		}
 	}
+
+#if defined(DX9_USE_HW_ALPHA_TEST)
+	// Older hardware (our target for DX9) often has separate alpha testing hardware that
+	// is generally faster than using discard/clip. Let's use it.
+	if (gstate.alphaTestEnable) {
+		dxstate.alphaTest.enable();
+		GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+		dxstate.alphaTestFunc.set(ztests[alphaTestFunc]);
+		dxstate.alphaTestRef.set(gstate.getAlphaTestRef());
+	} else {
+		dxstate.alphaTest.disable();
+	}
+#endif
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;

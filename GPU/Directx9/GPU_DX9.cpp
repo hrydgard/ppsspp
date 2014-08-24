@@ -17,6 +17,8 @@
 
 #include <set>
 
+#include "Common/ChunkFile.h"
+#include "base/logging.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
@@ -56,8 +58,6 @@ struct CommandTableEntry {
 
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -69,9 +69,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
-	// Changes that precompute some value. Can probably get rid of these. Or should these maybe flush?
-	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	// Should these maybe flush?
+	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
 	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -115,7 +115,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
@@ -139,8 +139,8 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// Uniform changes
 	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -148,8 +148,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
-	{GE_CMD_SCISSOR1,	FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CULL,	FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
@@ -195,8 +195,13 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
-	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_OFFSETY, FLAG_FLUSHBEFOREONCHANGE},
+	// Region
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+
+	// Scissor
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -275,7 +280,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
-	{GE_CMD_TEXLEVEL, 0},  // we don't support this anyway, no need to flush.
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
 	{GE_CMD_TEXSYNC, 0},
 
 	// These are just nop or part of other later commands.
@@ -334,23 +339,42 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE},
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE},
 
+	// Vertex Screen/Texture/Color
+	{ GE_CMD_VSCX, FLAG_EXECUTE },
+	{ GE_CMD_VSCY, FLAG_EXECUTE },
+	{ GE_CMD_VSCZ, FLAG_EXECUTE },
+	{ GE_CMD_VTCS, FLAG_EXECUTE },
+	{ GE_CMD_VTCT, FLAG_EXECUTE },
+	{ GE_CMD_VTCQ, FLAG_EXECUTE },
+	{ GE_CMD_VCV, FLAG_EXECUTE },
+	{ GE_CMD_VAP, FLAG_EXECUTE },
+	{ GE_CMD_VFC, FLAG_EXECUTE },
+	{ GE_CMD_VSCV, FLAG_EXECUTE },
+
 	// "Missing" commands (gaps in the sequence)
-	{0x03},
-	{0x0d},
-	{0x11},
-	{0x29},
-	{0x34},
-	{0x35},
-	{0x39},
-	{0x4e},
-	{0x4f},
-	{0x52},
-	{0x59},
-	{0x5a},
-	{0xb6},
-	{0xb7},
-	{0xd1},
-	{0xed},
+	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_11, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_29, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_34, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_35, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_39, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_4E, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_4F, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_52, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_59, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_5A, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_B6, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_B7, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_EF, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FA, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FB, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
 };
 
 DIRECTX9_GPU::DIRECTX9_GPU()
@@ -390,6 +414,16 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 		}
 	}
 
+	// No need to flush before the tex scale/offset commands if we are baking
+	// the tex scale/offset into the vertices anyway.
+
+	if (g_Config.bPrescaleUV) {
+		commandFlags_[GE_CMD_TEXSCALEU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXSCALEV] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETU] &= ~FLAG_FLUSHBEFOREONCHANGE;
+		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
+	}
+
 	BuildReportingInfo();
 }
 
@@ -421,11 +455,7 @@ void DIRECTX9_GPU::InitClearInternal() {
 	if (useNonBufferedRendering) {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
-		/*
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		*/
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0.f, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
 	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
@@ -479,7 +509,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -496,7 +526,7 @@ bool DIRECTX9_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayFBO();
+	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -518,7 +548,8 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
-	shaderManager_->EndFrame();
+	// shaderManager_->EndFrame();
+	shaderManager_->DirtyLastShader();
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
@@ -526,17 +557,17 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 // Maybe should write this in ASM...
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
-		u32 op = Memory::ReadUnchecked_U32(list.pc);
-		u32 cmd = op >> 24;
-		u8 cmdFlags = commandFlags_[cmd];
-		u32 diff = op ^ gstate.cmdmem[cmd];
+    const u32 op = Memory::ReadUnchecked_U32(list.pc);
+		const u32 cmd = op >> 24;
+		const u8 cmdFlags = commandFlags_[cmd];
+		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 			transformDraw_.Flush();
-		}		
+		}
 		gstate.cmdmem[cmd] = op;
 		if (cmdFlags & FLAG_EXECUTE)
-		ExecuteOp(op, diff);
+			ExecuteOpInternal(op, diff);
 
 		list.pc += 4;
 	}
@@ -580,6 +611,10 @@ void DIRECTX9_GPU::PreExecuteOp(u32 op, u32 diff) {
 }
 
 void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
+	return ExecuteOpInternal(op, diff);
+}
+
+void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
@@ -609,18 +644,19 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
-			// Discard AA lines in DOA
-			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
-				break;
 
-			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && vertTypeIsSkinningEnabled(gstate.vertType))
-				break;
+			if (gstate.isAntiAliasEnabled()) {
+				// Discard AA lines in DOA
+					if (prim == GE_PRIM_LINE_STRIP)
+					break;
+				// Discard AA lines in Summon Night 5
+					if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
+					break;
+			}
 
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
-			{
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 				transformDraw_.SetupVertexDecoder(gstate.vertType);
 				// Rough estimate, not sure what's correct.
 				int vertexCost = transformDraw_.EstimatePerVertexCost();
@@ -669,6 +705,18 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			// This also make skipping drawing very effective.
+			framebufferManager_.SetRenderFrameBuffer();
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
+
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -684,19 +732,34 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 			}
 
-			// TODO: Get rid of this old horror...
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+			}
+
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
-
-			// And instead use this.
-			// GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			// transformDraw_.SubmitBezier(control_points, indices, sp_ucount, sp_vcount, patchPrim, gstate.vertType);
+			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
 		}
 		break;
 
 	case GE_CMD_SPLINE:
 		{
+			// This also make skipping drawing very effective.
+			framebufferManager_.SetRenderFrameBuffer();
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
+				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+				return;
+			}
+
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
+
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -712,6 +775,13 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 			}
 			
+			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+			}
+			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+			}
+
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
@@ -722,10 +792,28 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
-		if (data != 0)
-			WARN_LOG_REPORT_ONCE(boundingbox, G3D, "Unsupported bounding box: %06x", data);
-		// bounding box test. Let's assume the box was within the drawing region.
-		currentList->bboxResult = true;
+		// Just resetting, nothing to bound.
+		if (data == 0) {
+			// TODO: Should this set the bboxResult?  Let's set it true for now.
+			currentList->bboxResult = true;
+			break;
+		}
+		if ((data % 8 == 0) && data < 64) {  // Sanity check
+			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			if (gstate.vertType & GE_VTYPE_IDX_MASK) {
+				ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
+				// Data seems invalid. Let's assume the box test passed.
+				currentList->bboxResult = true;
+				break;
+			}
+
+			// Test if the bounding box is within the drawing region.
+			currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
+		} else {
+			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
+			// Data seems invalid. Let's assume the box test passed.
+			currentList->bboxResult = true;
+		}
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -787,7 +875,6 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSCALEU:
 		if (diff) {
 			gstate_c.uv.uScale = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
 				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
@@ -795,7 +882,6 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSCALEV:
 		if (diff) {
 			gstate_c.uv.vScale = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
 				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
@@ -803,7 +889,6 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXOFFSETU:
 		if (diff) {
 			gstate_c.uv.uOff = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
 				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
@@ -811,15 +896,17 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXOFFSETV:
 		if (diff) {
 			gstate_c.uv.vOff = getFloat24(data);
-			if (!g_Config.bPrescaleUV)
 				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
+		if (diff)
+			gstate_c.framebufChanged = true;
 		break;
 
+		///
 	case GE_CMD_MINZ:
 	case GE_CMD_MAXZ:
 		break;
@@ -841,8 +928,10 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
+		if (diff) {
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		}
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -853,13 +942,17 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
+		if (diff) {
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		}
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_CLUTFORMAT:
+		if (diff) {
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		}
 		// This could be used to "dirty" textures with clut.
 		break;
 
@@ -896,7 +989,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			// Can we skip this on SkipDraw?
 			DoBlockTransfer();
 
-			// Fixes Gran Turismo's funky text issue.
+			// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
 			gstate_c.textureChanged = TEXCHANGE_UPDATED;
 			break;
 		}
@@ -1068,11 +1161,15 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXFUNC:
-	case GE_CMD_TEXFILTER:
+	case GE_CMD_TEXFLUSH:
+		break;
+
 	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFORMAT:
-	case GE_CMD_TEXFLUSH:
+	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1082,6 +1179,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_STENCILTESTENABLE:
 	case GE_CMD_ZTESTENABLE:
 	case GE_CMD_ZTEST:
+	case GE_CMD_ZWRITEDISABLE:
 		break;
 
 	case GE_CMD_MORPHWEIGHT0:
@@ -1111,7 +1209,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			float newVal = getFloat24(data);
 			if (num < 12 && newVal != gstate.worldMatrix[num]) {
 				Flush();
-				gstate.worldMatrix[num] = getFloat24(data);
+				gstate.worldMatrix[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 			}
 			num++;
@@ -1148,7 +1246,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (newVal != gstate.projMatrix[num]) {
 				Flush();
 				gstate.projMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
+				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			}
 			num++;
 			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
@@ -1217,9 +1315,92 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data);
 		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 #endif
 
+	case GE_CMD_VSCX:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscx, G3D, "Unsupported Vertex Screen Coordinate X : %06x", data);
+		break;
+
+	case GE_CMD_VSCY:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscy, G3D, "Unsupported Vertex Screen Coordinate Y : %06x", data);
+		break;
+
+	case GE_CMD_VSCZ:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscz, G3D, "Unsupported Vertex Screen Coordinate Z : %06x", data);
+		break;
+
+	case GE_CMD_VTCS:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtcs, G3D, "Unsupported Vertex Texture Coordinate S : %06x", data);
+		break;
+
+	case GE_CMD_VTCT:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtct, G3D, "Unsupported Vertex Texture Coordinate T : %06x", data);
+		break;
+
+	case GE_CMD_VTCQ:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vtcq, G3D, "Unsupported Vertex Texture Coordinate Q : %06x", data);
+		break;
+
+	case GE_CMD_VCV:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vcv, G3D, "Unsupported Vertex Color Value : %06x", data);
+		break;
+
+	case GE_CMD_VAP:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vap, G3D, "Unsupported Vertex Alpha and Primitive : %06x", data);
+		break;
+
+	case GE_CMD_VFC:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vfc, G3D, "Unsupported Vertex Fog Coefficient : %06x", data);
+		break;
+
+	case GE_CMD_VSCV:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(vscv, G3D, "Unsupported Vertex Secondary Color Value : %06x", data);
+		break;
+
+
+	case GE_CMD_UNKNOWN_03: 
+	case GE_CMD_UNKNOWN_0D:
+	case GE_CMD_UNKNOWN_11:
+	case GE_CMD_UNKNOWN_29:
+	case GE_CMD_UNKNOWN_34:
+	case GE_CMD_UNKNOWN_35:
+	case GE_CMD_UNKNOWN_39:
+	case GE_CMD_UNKNOWN_4E:
+	case GE_CMD_UNKNOWN_4F:
+	case GE_CMD_UNKNOWN_52:
+	case GE_CMD_UNKNOWN_59:
+	case GE_CMD_UNKNOWN_5A:
+	case GE_CMD_UNKNOWN_B6:
+	case GE_CMD_UNKNOWN_B7:
+	case GE_CMD_UNKNOWN_D1:
+	case GE_CMD_UNKNOWN_ED:
+	case GE_CMD_UNKNOWN_EF:
+	case GE_CMD_UNKNOWN_FA:
+	case GE_CMD_UNKNOWN_FB:
+	case GE_CMD_UNKNOWN_FC:
+	case GE_CMD_UNKNOWN_FD:
+	case GE_CMD_UNKNOWN_FE:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(unknowncmd, G3D, "Unknown GE command : %08x ", op);
+		break;
+	case GE_CMD_UNKNOWN_FF:
+		// This is hit in quite a few games, supposedly it is a no-op.
+		// Might be used for debugging or something?
+		break;
+		
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
@@ -1273,7 +1454,9 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 		return;
 	}
 
-	// Do the copy!
+	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
+	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
+	// entirely by walking a couple of pointers...
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointerUnchecked(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
 		u8 *dst = Memory::GetPointerUnchecked(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
@@ -1312,7 +1495,7 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 		textureCache_.InvalidateAll(type);
 
 	if (type != GPU_INVALIDATE_ALL)
-		framebufferManager_.UpdateFromMemory(addr, size);
+		framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 }
 
 bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
@@ -1327,6 +1510,11 @@ bool DIRECTX9_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
 
 bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (Memory::IsRAMAddress(dest)) {
+//		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
+	}
 	return false;
 }
 
@@ -1346,21 +1534,46 @@ void DIRECTX9_GPU::ClearCacheNextFrame() {
 void DIRECTX9_GPU::Resized() {
 	framebufferManager_.Resized();
 }
-
-std::vector<FramebufferInfo> DIRECTX9_GPU::GetFramebufferList()
-{
+void DIRECTX9_GPU::ClearShaderCache() {
+	shaderManager_->ClearCache(true);
+}
+std::vector<FramebufferInfo> DIRECTX9_GPU::GetFramebufferList() {
 	return framebufferManager_.GetFramebufferList();
 }
 
 void DIRECTX9_GPU::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
-	textureCache_.Clear(true);
-	transformDraw_.ClearTrackedVertexArrays();
+	// TODO: Some of these things may not be necessary.
+	// None of these are necessary when saving.
+	if (p.mode == p.MODE_READ) {
+		textureCache_.Clear(true);
+		transformDraw_.ClearTrackedVertexArrays();
 
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
-	framebufferManager_.DestroyAllFBOs();
-	shaderManager_->ClearCache(true);
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		framebufferManager_.DestroyAllFBOs();
+		shaderManager_->ClearCache(true);
+	}
+}
+
+bool DIRECTX9_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_.GetCurrentFramebuffer(buffer);
+}
+
+bool DIRECTX9_GPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_.GetCurrentDepthbuffer(buffer);
+}
+
+bool DIRECTX9_GPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+	return framebufferManager_.GetCurrentStencilbuffer(buffer);
+}
+
+bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
+
+	return false;
 }
 
 };

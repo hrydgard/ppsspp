@@ -19,6 +19,9 @@
 
 #include "Globals.h"
 
+// TODO: Bench both ways. Result may be different on old vs new hardware though..
+// #define DX9_USE_HW_ALPHA_TEST 1
+
 namespace DX9 {
 
 struct FragmentShaderIDDX9

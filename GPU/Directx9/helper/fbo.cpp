@@ -89,8 +89,13 @@ void fbo_bind_as_render_target(FBO *fbo) {
 	pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
 }
 
+
+LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo) {
+	return fbo->tex;
+}
+
 void fbo_bind_for_read(FBO *fbo) {
-	OutputDebugStringA("fbo_bind_for_read: Fix me\r\n");
+	// pD3Ddevice->SetRenderTarget(0, fbo->surf);
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {

@@ -2,6 +2,10 @@
 #include "fbo.h"
 #include "thin3d/d3dx9_loader.h"
 
+#ifdef _XBOX
+#include <xgraphics.h>
+#endif
+
 namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
@@ -27,7 +31,7 @@ static const char * vscode =
     " VS_OUT main( VS_IN In )                      "
     " {                                            "
     "		VS_OUT Out;                              "
-	"     Out.ProjPos = mul( matWVP, In.ObjPos );  "  // Transform vertex into
+	"		Out.ProjPos = In.ObjPos;  "  // Transform vertex into
 	"		Out.Uv = In.Uv;			"
     "		return Out;                              "  // Transfer color
     " }                                            ";
@@ -324,6 +328,49 @@ void DirectxInit(HWND window) {
 	CompileShaders();
 
 	fbo_init();
+}
+
+void BeginFrame() {
+#ifdef USE_PREDICATED_TILLING	
+	D3DVECTOR4 ClearColor = { 0, 0, 0, 0};
+	const XboxTilingSetting & CurrentScenario = getCurrentTilingScenario();
+
+	// Set our tiled render target.
+    pD3Ddevice->SetRenderTarget( 0, pTilingRenderTarget );
+    pD3Ddevice->SetDepthStencilSurface( pTilingDepthStencil );
+
+	pD3Ddevice->BeginTiling(
+            D3DSEQM_PRECLIP,
+            CurrentScenario.tileCount,
+            CurrentScenario.tilingRects,
+            &ClearColor, 1.0f, 0L );
+#else
+	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 1.f, 0);	
+#endif
+}
+
+void EndFrame() {
+#ifdef USE_PREDICATED_TILLING
+	
+	D3DVECTOR4 ClearColor = { 0, 0, 0, 0 };
+
+	// Resolve the rendered scene back to the front buffer.
+    pD3Ddevice->EndTiling( D3DRESOLVE_RENDERTARGET0 |
+                                 D3DRESOLVE_ALLFRAGMENTS |
+                                 D3DRESOLVE_CLEARRENDERTARGET |
+                                 D3DRESOLVE_CLEARDEPTHSTENCIL,
+                                 NULL, pFrontBufferTexture,
+                                 &ClearColor, 0.0f, 0L, NULL );
+#endif
+}
+
+void SwapBuffers() {
+#ifndef USE_PREDICATED_TILLING
+	pD3Ddevice->Present(NULL, NULL, NULL, NULL);
+#else
+	pD3Ddevice->SynchronizeToPresentationInterval();
+  pD3Ddevice->Swap( pFrontBufferTexture, NULL );
+#endif
 }
 
 };

@@ -39,6 +39,11 @@ enum {
 	ROTATION_LOCKED_VERTICAL180 = 4,
 };
 
+enum BufferFilter {
+	SCALE_LINEAR = 1,
+	SCALE_NEAREST = 2,
+};
+
 // Software is not among these because it will have one of these perform the blit to display.
 enum {
 	GPU_BACKEND_OPENGL = 0,
