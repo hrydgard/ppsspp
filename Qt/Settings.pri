@@ -1,5 +1,5 @@
 VERSION = 0.9.9.1
-DEFINES += USING_QT_UI USE_FFMPEG
+DEFINES += USING_QT_UI
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)
@@ -24,7 +24,7 @@ include(Platform/OSDetection.pri)
 !contains(CONFIG, staticlib) {
 	QMAKE_LIBDIR += $$CONFIG_DIR
 	!system_ffmpeg: QMAKE_LIBDIR += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/lib/
-	contains(DEFINES, USE_FFMPEG): LIBS+=  -lavformat -lavcodec -lavutil -lswresample -lswscale
+	LIBS+=  -lavformat -lavcodec -lavutil -lswresample -lswscale
 	equals(PLATFORM_NAME, "linux"):arm|android: LIBS += -lEGL
 }
 

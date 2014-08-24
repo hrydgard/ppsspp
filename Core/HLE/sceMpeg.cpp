@@ -92,15 +92,11 @@ static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decod
 static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
-#ifdef USE_FFMPEG 
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 }
 static AVPixelFormat pmp_want_pix_fmt;
-
-#endif
 
 struct SceMpegLLI
 {
@@ -361,10 +357,8 @@ void __MpegInit() {
 	streamIdGen = 1;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 
-#ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
-#endif
 }
 
 void __MpegDoState(PointerWrap &p) {
@@ -741,7 +735,6 @@ bool isContextExist(u32 ctxAddr){
 
 // Initialize Pmp video parameters and decoder.
 bool InitPmp(MpegContext * ctx){
-#ifdef USE_FFMPEG
 	InitFFmpeg();
 	auto mediaengine = ctx->mediaengine;
 	mediaengine->m_isVideoEnd = false;
@@ -801,10 +794,6 @@ bool InitPmp(MpegContext * ctx){
 	mediaengine->m_buffer = (u8*)av_malloc(mediaengine->m_bufSize);
 
 	return true;
-#else
-	// we can not play pmp video without ffmpeg
-	return false;
-#endif
 }
 
 // This class H264Frames is used for collecting small pieces of frames into larger frames for ffmpeg to decode
@@ -875,9 +864,7 @@ public:
 			stream = str;
 		}
 	};
-#ifndef USE_FFMPEG
 #define FF_INPUT_BUFFER_PADDING_SIZE 16
-#endif
 	void addpadding(){
 		u8* str = new u8[size + FF_INPUT_BUFFER_PADDING_SIZE];
 		memcpy(str, stream, size);
@@ -1006,7 +993,6 @@ void __VideoPmpInit() {
 }
 
 void __VideoPmpShutdown() {
-#ifdef USE_FFMPEG
 	// We need to empty pmp_queue to not leak memory.
 	for (std::list<AVFrame *>::iterator it = pmp_queue.begin(); it != pmp_queue.end(); it++){
 		av_free(*it);
@@ -1015,7 +1001,6 @@ void __VideoPmpShutdown() {
 	pmp_ContextList.clear();
 	delete pmpframes;
 	pmpframes = NULL;
-#endif
 }
 
 void __VideoPmpDoState(PointerWrap &p){

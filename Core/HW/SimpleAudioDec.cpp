@@ -23,18 +23,13 @@
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
-#ifdef USE_FFMPEG
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include <libavutil/samplefmt.h>
 }
 
-#endif  // USE_FFMPEG
-
 bool SimpleAudio::GetAudioCodecID(int audioType) {
-#ifdef USE_FFMPEG
 	switch (audioType) {
 	case PSP_CODEC_AAC:
 		audioCodecId = AV_CODEC_ID_AAC;
@@ -56,9 +51,6 @@ bool SimpleAudio::GetAudioCodecID(int audioType) {
 		return true;
 	}
 	return false;
-#else
-	return false;
-#endif // USE_FFMPEG
 }
 
 SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
@@ -67,7 +59,6 @@ SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
 }
 
 void SimpleAudio::Init() {
-#ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
 	InitFFmpeg();
@@ -96,23 +87,20 @@ void SimpleAudio::Init() {
 	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 	codecCtx_->sample_rate = sample_rate_;
 	OpenCodec();
-#endif  // USE_FFMPEG
 }
 
 bool SimpleAudio::OpenCodec() {
-#ifdef USE_FFMPEG
 	AVDictionary *opts = 0;
 	int retval = avcodec_open2(codecCtx_, codec_, &opts);
 	if (retval < 0) {
 		ERROR_LOG(ME, "Failed to open codec: retval = %i", retval);
 	}
 	av_dict_free(&opts);
-#endif  // USE_FFMPEG
+
 	return retval >= 0;
 }
 
 bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
-#ifdef USE_FFMPEG
 	if (codecCtx_)
 		avcodec_close(codecCtx_);
 
@@ -129,8 +117,6 @@ bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
 	codecCtx_->sample_rate = samplerate;
 	OpenCodec();
 	return true;
-#endif
-	return false;
 }
 
 void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
@@ -142,18 +128,15 @@ void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
 		memcpy(extradata_, data, size);
 	}
 
-#ifdef USE_FFMPEG
 	if (codecCtx_) {
 		codecCtx_->extradata = extradata_;
 		codecCtx_->extradata_size = size;
 		codecCtx_->block_align = wav_bytes_per_packet;
 		OpenCodec();
 	}
-#endif
 }
 
 SimpleAudio::~SimpleAudio() {
-#ifdef USE_FFMPEG
 	if (swrCtx_)
 		swr_free(&swrCtx_);
 	if (frame_)
@@ -163,17 +146,12 @@ SimpleAudio::~SimpleAudio() {
 	frame_ = 0;
 	codecCtx_ = 0;
 	codec_ = 0;
-#endif  // USE_FFMPEG
 	delete [] extradata_;
 	extradata_ = 0;
 }
 
 bool SimpleAudio::IsOK() const {
-#ifdef USE_FFMPEG
 	return codec_ != 0;
-#else
-	return 0;
-#endif
 }
 
 void SaveAudio(const char filename[], uint8_t *outbuf, int size){
@@ -185,7 +163,6 @@ void SaveAudio(const char filename[], uint8_t *outbuf, int size){
 }
 
 bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
-#ifdef USE_FFMPEG
 	AVPacket packet;
 	av_init_packet(&packet);
 	packet.data = static_cast<uint8_t *>(inbuf);
@@ -248,11 +225,6 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 		// SaveAudio("dump.pcm", outbuf, *outbytes);
 	}
 	return true;
-#else
-	// Zero bytes output. No need to memset.
-	*outbytes = 0;
-	return true;
-#endif  // USE_FFMPEG
 }
 
 int SimpleAudio::GetOutSamples(){
@@ -264,10 +236,8 @@ int SimpleAudio::GetSourcePos(){
 }
 
 void AudioClose(SimpleAudio **ctx) {
-#ifdef USE_FFMPEG
 	delete *ctx;
 	*ctx = 0;
-#endif  // USE_FFMPEG
 }
 
 

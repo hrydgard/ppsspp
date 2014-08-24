@@ -14,9 +14,6 @@ if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 	set(ARMV7 ON)
 endif()
 
-# Remove soon?
-set(USE_FFMPEG ON)
-
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
@@ -83,8 +80,6 @@ option(MOBILE_DEVICE "Set to ON when targetting a mobile device" ${MOBILE_DEVICE
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
-# :: Options
-option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 
 if(ANDROID OR BLACKBERRY OR IOS)
 	if (NOT CMAKE_TOOLCHAIN_FILE)
@@ -375,7 +370,7 @@ add_library(stb_vorbis STATIC
 	native/ext/stb_vorbis/stb_vorbis.h)
 include_directories(native/ext/stb_vorbis)
 
-if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+if(NOT DEFINED FFMPEG_BUILDDIR)
 	if(ANDROID)
 		if(ARMV7)
 			set(PLATFORM_ARCH "android/armv7")
@@ -433,50 +428,47 @@ if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 			SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswscale)
 		endif()
 	endif(DEFINED PLATFORM_ARCH)
-endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+endif(NOT DEFINED FFMPEG_BUILDDIR)
 
-if(USE_FFMPEG)
-	# Using shared libraries
-	if(DEFINED FFMPEG_BUILDDIR)
-		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+# Using shared libraries
+if(DEFINED FFMPEG_BUILDDIR)
+	include_directories(ffmpeg ${FFMPEG_BUILDDIR})
 
-		add_library(libavformat STATIC IMPORTED)
-		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
-		add_library(libavcodec STATIC IMPORTED)
-		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
-		add_library(libavutil STATIC IMPORTED)
-		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
-		add_library(libswresample STATIC IMPORTED)
-		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
-		add_library(libswscale STATIC IMPORTED)
-		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
+	add_library(libavformat STATIC IMPORTED)
+	set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
+	add_library(libavcodec STATIC IMPORTED)
+	set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
+	add_library(libavutil STATIC IMPORTED)
+	set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
+	add_library(libswresample STATIC IMPORTED)
+	set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
+	add_library(libswscale STATIC IMPORTED)
+	set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
 
-		SET (FFMPEG_LIBRARIES
-			libavformat
-			libavcodec
-			libavutil
-			libswresample
-			libswscale
-		)
+	SET (FFMPEG_LIBRARIES
+		libavformat
+		libavcodec
+		libavutil
+		libswresample
+		libswscale
+	)
+endif()
+
+if(APPLE OR BLACKBERRY)
+	set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+endif()
+
+if(APPLE)
+	set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
+	if (NOT IOS)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
 	endif()
+endif(APPLE)
 
-	if(APPLE OR BLACKBERRY)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
-	endif()
-
-	if(APPLE)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
-		if (NOT IOS)
-			set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
-		endif()
-	endif(APPLE)
-
-	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
-	add_definitions(-DUSE_FFMPEG)
-endif(USE_FFMPEG)
+set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
 
 # Modification to show where we are pulling the ffmpeg libraries from.
-if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
+if(DEFINED FFMPEG_LIBRARIES)
 	target_link_libraries(Common ${FFMPEG_LIBRARIES})
 	message(STATUS "FFMPEG library locations:")
 	if(DEFINED PLATFORM_ARCH)
@@ -500,11 +492,6 @@ if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
 	endif(DEFINED PLATFORM_ARCH)
 else()
 	message(STATUS "ERROR: No FFMPEG library locations")
-endif()
-
-if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
-	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
-	unset(USE_FFMPEG)
 endif()
 
 find_package(ZLIB)

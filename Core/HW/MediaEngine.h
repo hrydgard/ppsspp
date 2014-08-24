@@ -33,22 +33,18 @@
 class PointerWrap;
 class SimpleAudio;
 
-#ifdef USE_FFMPEG
 struct SwsContext;
 struct AVFrame;
 struct AVIOContext;
 struct AVFormatContext;
 struct AVCodecContext;
-#endif
 
 inline s64 getMpegTimeStamp(const u8 *buf) {
 	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
 
-#ifdef USE_FFMPEG
 bool InitFFmpeg();
-#endif
 
 class MediaEngine
 {
@@ -100,14 +96,12 @@ private:
 public:  // TODO: Very little of this below should be public.
 
 	// Video ffmpeg context - not used for audio
-#ifdef USE_FFMPEG
 	AVFormatContext *m_pFormatCtx;
 	std::map<int, AVCodecContext *> m_pCodecCtxs;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
 	SwsContext *m_sws_ctx;
-#endif
 
 	int m_sws_fmt;
 	u8 *m_buffer;
