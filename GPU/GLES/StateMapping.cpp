@@ -208,6 +208,39 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 	}
 }
 
+void TransformDrawEngine::ApplyStencilReplaceOnly() {
+	// We're not blending, but we may still want to blend for stencil.
+	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
+	switch (ReplaceAlphaWithStencilType()) {
+	case STENCIL_VALUE_INCR_4:
+	case STENCIL_VALUE_INCR_8:
+		// We'll add the incremented value output by the shader.
+		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
+		glstate.blend.enable();
+		break;
+
+	case STENCIL_VALUE_DECR_4:
+	case STENCIL_VALUE_DECR_8:
+		// We'll subtract the incremented value output by the shader.
+		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_SUBTRACT);
+		glstate.blend.enable();
+		break;
+
+	case STENCIL_VALUE_INVERT:
+		// The shader will output one, and reverse subtracting will essentially invert.
+		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_REVERSE_SUBTRACT);
+		glstate.blend.enable();
+		break;
+
+	default:
+		glstate.blend.disable();
+		break;
+	}
+}
+
 void TransformDrawEngine::ApplyBlendState() {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
@@ -221,18 +254,29 @@ void TransformDrawEngine::ApplyBlendState() {
 	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		glstate.blend.disable();
 		ResetShaderBlending();
+		// We may still want to do something about stencil -> alpha.
+		if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+			ApplyStencilReplaceOnly();
+		} else {
+			glstate.blend.disable();
+		}
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
 		if (ApplyShaderBlending()) {
-			// None of the below logic is interesting, we're gonna do it entirely in the shader.
-			glstate.blend.disable();
+			// We may still want to do something about stencil -> alpha.
+			if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+				ApplyStencilReplaceOnly();
+			} else {
+				// None of the below logic is interesting, we're gonna do it entirely in the shader.
+				glstate.blend.disable();
+			}
 			return;
 		}
 		// Until next time, force it off.
@@ -262,7 +306,6 @@ void TransformDrawEngine::ApplyBlendState() {
 		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
-	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
