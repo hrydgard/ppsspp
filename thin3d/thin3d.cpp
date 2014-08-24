@@ -32,8 +32,8 @@ static const char * const glsl_vsCol =
 "varying vec4 oColor0;\n"
 "uniform mat4 WorldViewProj;\n"
 "void main() {\n"
-"	gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
-"	oColor0 = Color0;\n"
+"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
+"  oColor0 = Color0;\n"
 "}";
 
 static const char * const hlslVsCol =
@@ -55,9 +55,9 @@ static const char * const glsl_vsTexCol =
 "varying vec2 oTexCoord0;\n"
 "uniform mat4 WorldViewProj;\n"
 "void main() {\n"
-"	gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
-"	oColor0 = Color0;\n"
-" oTexCoord0 = TexCoord0;\n"
+"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
+"  oColor0 = Color0;\n"
+"  oTexCoord0 = TexCoord0;\n"
 "}\n";
 
 static const char * const hlslVsTexCol =
