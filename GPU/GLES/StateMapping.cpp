@@ -383,7 +383,7 @@ void TransformDrawEngine::ApplyBlendState() {
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
 	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
 	// the factors to zero). So let's do that.
-	GLenum alphaFunc = GL_FUNC_ADD;
+	GLenum alphaEq = GL_FUNC_ADD;
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
 		switch (ReplaceAlphaWithStencilType()) {
@@ -396,14 +396,14 @@ void TransformDrawEngine::ApplyBlendState() {
 		case STENCIL_VALUE_DECR_4:
 		case STENCIL_VALUE_DECR_8:
 			// Like add with a small value, but subtracting.
-			alphaFunc = GL_FUNC_SUBTRACT;
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			alphaEq = GL_FUNC_SUBTRACT;
 			break;
 
 		case STENCIL_VALUE_INVERT:
 			// This will subtract by one, effectively inverting the bits.
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
-			alphaFunc = GL_FUNC_REVERSE_SUBTRACT;
+			alphaEq = GL_FUNC_REVERSE_SUBTRACT;
 			break;
 
 		default:
@@ -439,12 +439,12 @@ void TransformDrawEngine::ApplyBlendState() {
 		case STENCIL_VALUE_DECR_8:
 			// This won't give a correct value always, but it will try to decrease at least.
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
-			alphaFunc = GL_FUNC_SUBTRACT;
+			alphaEq = GL_FUNC_SUBTRACT;
 			break;
 		case STENCIL_VALUE_INVERT:
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
 			// If the output alpha is near 1, this will basically invert.  It's our best shot.
-			alphaFunc = GL_FUNC_REVERSE_SUBTRACT;
+			alphaEq = GL_FUNC_REVERSE_SUBTRACT;
 			break;
 		}
 	} else {
@@ -453,9 +453,9 @@ void TransformDrawEngine::ApplyBlendState() {
 	}
 
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
-		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], alphaFunc);
+		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], alphaEq);
 	} else {
-		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], alphaFunc);
+		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], alphaEq);
 	}
 }
 
