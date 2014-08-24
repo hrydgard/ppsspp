@@ -19,7 +19,8 @@
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GPUState.h"
 
-static const int FRAGTEST_TEXTURE_OLD_AGE = 123;
+// These are small, let's give them plenty of frames.
+static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
 
 FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0) {
 	scratchpad_ = new u8[256 * 4];
@@ -38,6 +39,7 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 	const FragmentTestID id = GenerateTestID();
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
+		cached->second.lastFrame = gpuStats.numFlips;
 		GLuint tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
@@ -47,6 +49,7 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		glBindTexture(GL_TEXTURE_2D, tex);
 		// Always return to the default.
 		glActiveTexture(GL_TEXTURE0);
+		lastTexture_ = tex;
 		return;
 	}
 
@@ -68,6 +71,7 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 	const GLuint tex = CreateCache(funcs, refs, masks, valid);
 	// Always return to the default.
 	glActiveTexture(GL_TEXTURE0);
+	lastTexture_ = tex;
 
 	FragmentTestTexture item;
 	item.lastFrame = gpuStats.numFlips;
@@ -92,9 +96,6 @@ FragmentTestID FragmentTestCache::GenerateTestID() const {
 GLuint FragmentTestCache::CreateCache(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
 	// TODO: Might it be better to use GL_ALPHA for simple textures?
 	// TODO: Experiment with 4-bit/etc. textures.
-
-	GLuint tex = textureCache_->AllocTextureName();
-	glBindTexture(GL_TEXTURE_2D, tex);
 
 	// Build the logic map.
 	for (int color = 0; color < 256; ++color) {
@@ -134,6 +135,8 @@ GLuint FragmentTestCache::CreateCache(const GEComparison funcs[4], const u8 refs
 		}
 	}
 
+	GLuint tex = textureCache_->AllocTextureName();
+	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, scratchpad_);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
