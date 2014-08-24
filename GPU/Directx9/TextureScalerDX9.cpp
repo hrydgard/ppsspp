@@ -35,10 +35,7 @@
 #include "ext/xbrz/xbrz.h"
 #include <stdlib.h>
 #include <math.h>
-
-#ifndef _XBOX
 #include <D3D9Types.h>
-#endif
 
 #undef min
 #undef max

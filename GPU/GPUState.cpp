@@ -17,16 +17,16 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#ifndef _XBOX
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
-#endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
-#if defined(_XBOX) || defined(_WIN32)
+
+#if defined(_WIN32)
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
+
 #include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
@@ -57,17 +57,13 @@ bool GPU_Init() {
 		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
-#ifndef _XBOX
 		SetGPU(new GLES_GPU());
-#endif
 		break;
 	case GPU_SOFTWARE:
-#ifndef _XBOX
 		SetGPU(new SoftGPU());
-#endif
 		break;
 	case GPU_DIRECTX9:
-#if defined(_XBOX) || defined(_WIN32)
+#if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU());
 #endif
 		break;

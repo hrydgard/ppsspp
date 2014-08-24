@@ -875,24 +875,6 @@ namespace DX9 {
 		}
 	}
 
-#ifdef _XBOX
-#include <xgraphics.h>
-#endif
-
-	static void Resolve(u8* data, VirtualFramebufferDX9 *vfb) {
-#ifdef _XBOX
-		D3DTexture * rtt = (D3DTexture*)fbo_get_rtt(vfb->fbo);
-		pD3Ddevice->Resolve(D3DRESOLVE_RENDERTARGET0, NULL, rtt, NULL, 0, 0, NULL, 0.f, 0, NULL);
-
-		D3DLOCKED_RECT p;
-		rtt->LockRect(0, &p, NULL, 0);
-		rtt->UnlockRect(0);
-
-		// vfb->fbo->tex is tilled !!!!
-		XGUntileTextureLevel(vfb->width/2, vfb->height/2, 0,  XGGetGpuFormat(D3DFMT_LIN_A8R8G8B8), XGTILE_NONPACKED, data, p.Pitch, NULL, p.pBits, NULL);
-#endif
-	}
-
 	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb) {
 		if (vfb->fbo) {
 			fbo_bind_for_read(vfb->fbo);

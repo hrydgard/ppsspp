@@ -42,11 +42,7 @@ namespace DX9 {
 PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
-#ifdef _XBOX
-	OutputDebugString(code);
-#else
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
-#endif
 #endif
 	bool success;
 
@@ -69,11 +65,7 @@ PSShader::~PSShader() {
 VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
-#ifdef _XBOX
-	OutputDebugString(code);
-#else
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
-#endif
 #endif
 	bool success;
 

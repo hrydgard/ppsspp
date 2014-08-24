@@ -1213,9 +1213,6 @@ void TextureCache::SetTexture(bool force) {
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
-#ifndef MOBILE_DEVICE
-		match = match && host->GPUAllowTextureCache(texaddr);
-#endif
 
 		// Check for FBO - slow!
 		if (entry->framebuffer) {

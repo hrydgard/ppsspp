@@ -124,7 +124,7 @@ static MemoryView views[] =
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
 inline static bool CanIgnoreView(const MemoryView &view) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	// Basically, 32-bit platforms can ignore views that are masked out anyway.
 	return (view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~MEMVIEW32_MASK) != 0;
 #else
@@ -207,7 +207,6 @@ static bool Memory_TryBase(u32 flags) {
 
 	return true;
 
-#if !defined(_XBOX) && !defined(__SYMBIAN32__)
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
@@ -229,7 +228,6 @@ bail:
 		}
 	}
 	return false;
-#endif
 }
 
 void MemoryMap_Setup(u32 flags)
@@ -264,7 +262,7 @@ void MemoryMap_Setup(u32 flags)
 
 
 	// Now, create views in high memory where there's plenty of space.
-#if defined(_WIN32) && !defined(_M_X64) && !defined(_XBOX)
+#if defined(_WIN32) && !defined(_M_X64)
 	// Try a whole range of possible bases. Return once we got a valid one.
 	int base_attempts = 0;
 	u32 max_base_addr = 0x7FFF0000 - 0x10000000;

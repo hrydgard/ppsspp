@@ -626,9 +626,7 @@ int getActivePeerCount(void) {
 }
 
 int getLocalIp(sockaddr_in * SocketAddress){
-#ifdef _XBOX
-	return -1;
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 	// Get local host name
 	char szHostName[128] = "";
 
@@ -686,9 +684,6 @@ int getPTPSocketCount(void) {
 }
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
-#ifdef _XBOX
-	return -1;
-#else
   int iResult = 0;
 #ifdef _MSC_VER
   WSADATA data;
@@ -753,7 +748,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   }else{
     return -1;
   }
-#endif
 }
 
 int isBroadcastMAC(const SceNetEtherAddr * addr) {

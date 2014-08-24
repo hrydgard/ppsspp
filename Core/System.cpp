@@ -17,9 +17,7 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
-#ifndef _XBOX
 #include <ShlObj.h>
-#endif
 #include <string>
 #include <codecvt>
 #endif
@@ -337,11 +335,6 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		Core_ListenShutdown(System_Wake);
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
-#ifdef _XBOX
-		SuspendThread(cpuThread->native_handle());
-		XSetThreadProcessor(cpuThread->native_handle(), 2);
-		ResumeThread(cpuThread->native_handle());
-#endif
 		cpuThreadID = cpuThread->get_id();
 		cpuThread->detach();
 	} else {
@@ -493,7 +486,7 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(_WIN32)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
 	if (!g_Config.memCardDirectory.empty() && !g_Config.flash0Directory.empty())

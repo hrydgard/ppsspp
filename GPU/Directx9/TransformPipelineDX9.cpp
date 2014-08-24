@@ -98,14 +98,9 @@ const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_TRIANGLELIST,
 	D3DPT_TRIANGLESTRIP,
 	D3DPT_TRIANGLEFAN,
-#ifndef _XBOX
 	D3DPT_TRIANGLELIST,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
-#else
-	D3DPT_TRIANGLELIST,
-#endif
 };
 
-#ifndef _XBOX
 // hrydgard's quick guesses - TODO verify
 static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
 	{0, 0}, // invalid
@@ -120,7 +115,6 @@ static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
 int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
 }
-#endif
 
 enum {
 	VERTEX_BUFFER_MAX = 65536,
@@ -133,17 +127,10 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
-#ifndef _XBOX
 // Check for max first as clamping to max is more common than min when lighting.
 inline float clamp(float in, float min, float max) { 
 	return in > max ? max : (in < min ? min : in);
 }
-#else
-inline float clamp(float in, float min, float max) { 
-   in = __fsel( in - min , in, min );
-   return __fsel( in - max, max, in );
-}
-#endif
 
 TransformDrawEngineDX9::TransformDrawEngineDX9()
 	: collectedVerts(0),
@@ -216,12 +203,8 @@ static const DeclTypeInfo VComp[] = {
 	{D3DDECLTYPE_FLOAT2		,"D3DDECLTYPE_FLOAT2 "},	// 	DEC_FLOAT_2,
 	{D3DDECLTYPE_FLOAT3		,"D3DDECLTYPE_FLOAT3 "},	// 	DEC_FLOAT_3,
 	{D3DDECLTYPE_FLOAT4		,"D3DDECLTYPE_FLOAT4 "},	// 	DEC_FLOAT_4,
-#ifdef _XBOX
-	{D3DDECLTYPE_BYTE4N		,"D3DDECLTYPE_BYTE4N "},	// 	DEC_S8_3,
-#else
 	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
 	{D3DDECLTYPE_UBYTE4   ,"D3DDECLTYPE_BYTE4N "},	// 	DEC_S8_3,
-#endif
 
 	{D3DDECLTYPE_SHORT4N	,"D3DDECLTYPE_SHORT4N	"},	// 	DEC_S16_3,
 	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_1,
@@ -232,14 +215,9 @@ static const DeclTypeInfo VComp[] = {
 	{D3DDECLTYPE_USHORT2N, "D3DDECLTYPE_USHORT2N " },	// 	DEC_U16_2,
 	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_3,
 	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "},	// 	DEC_U16_4,
-#ifdef _XBOX
-	{D3DDECLTYPE_BYTE4		,"D3DDECLTYPE_BYTE4 "},	// 	DEC_U8A_2,
-	{D3DDECLTYPE_USHORT4	,"D3DDECLTYPE_USHORT4 "},	// 	DEC_U16A_2,
-#else
 	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
 	{D3DDECLTYPE_UBYTE4   ,"D3DDECLTYPE_BYTE4 "},	// 	DEC_U8A_2,
 	{D3DDECLTYPE_USHORT2N,  "D3DDECLTYPE_USHORT4 " },	// 	DEC_U16A_2,
-#endif
 };
 
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
@@ -782,19 +760,11 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 
 		/// Debug !!
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-#ifdef _XBOX
 		if (drawIndexed) {
 			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 		} else {
 			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 		}
-#else
-		if (drawIndexed) {
-			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
-		} else {
-			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
-		}
-#endif
 }
 
 VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
@@ -1021,11 +991,7 @@ u32 TransformDrawEngineDX9::ComputeFastDCID() {
 	return hash;
 }
 
-#ifdef _XBOX
-enum { VAI_KILL_AGE = 60 };
-#else
 enum { VAI_KILL_AGE = 120 };
-#endif
 
 void TransformDrawEngineDX9::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
@@ -1291,10 +1257,9 @@ rotateVBO:
 		vertexCountInDrawCalls = 0;
 		prevPrim_ = GE_PRIM_INVALID;
 
-#ifndef _XBOX
 		host->GPUNotifyDraw();
-#endif
 }
+
 bool TransformDrawEngineDX9::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	// Simplify away bones and morph before proceeding
 

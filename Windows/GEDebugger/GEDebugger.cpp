@@ -43,8 +43,6 @@ using namespace GPUBreakpoints;
 using namespace GPUStepping;
 
 static bool attached = false;
-// TODO
-static bool textureCaching = true;
 
 static BreakNextType breakNext = BREAK_NONE;
 
@@ -523,8 +521,4 @@ void WindowsHost::GPUNotifyDraw() {
 }
 
 void WindowsHost::GPUNotifyTextureAttachment(u32 addr) {
-}
-
-bool WindowsHost::GPUAllowTextureCache(u32 addr) {
-	return textureCaching;
 }

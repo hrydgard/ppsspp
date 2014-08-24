@@ -93,7 +93,7 @@ enum
 
 	SCRATCHPAD_SIZE = 0x00004000,
 
-#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	// This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
@@ -175,7 +175,7 @@ void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 #else
 
 inline u32 ReadUnchecked_U32(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u32_le *)(base + address);
@@ -183,7 +183,7 @@ inline u32 ReadUnchecked_U32(const u32 address) {
 }
 
 inline u16 ReadUnchecked_U16(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u16_le *)(base + address);
@@ -191,7 +191,7 @@ inline u16 ReadUnchecked_U16(const u32 address) {
 }
 
 inline u8 ReadUnchecked_U8(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	return (*(u8 *)(base + (address & MEMVIEW32_MASK))); 
 #else
 	return (*(u8 *)(base + address));
@@ -199,7 +199,7 @@ inline u8 ReadUnchecked_U8(const u32 address) {
 }
 
 inline void WriteUnchecked_U32(u32 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u32_le *)(base + address) = data;
@@ -207,7 +207,7 @@ inline void WriteUnchecked_U32(u32 data, u32 address) {
 }
 
 inline void WriteUnchecked_U16(u16 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	*(u16_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u16_le *)(base + address) = data;
@@ -215,7 +215,7 @@ inline void WriteUnchecked_U16(u16 data, u32 address) {
 }
 
 inline void WriteUnchecked_U8(u8 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 	(*(u8 *)(base + (address & MEMVIEW32_MASK))) = data;
 #else
 	(*(u8 *)(base + address)) = data;
@@ -325,7 +325,7 @@ struct PSPPointer
 
 	inline T &operator*() const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 		return *(T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return *(T *)(Memory::base + ptr);
@@ -334,7 +334,7 @@ struct PSPPointer
 
 	inline T &operator[](int i) const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
 #else
 		return *((T *)(Memory::base + ptr) + i);
@@ -343,7 +343,7 @@ struct PSPPointer
 
 	inline T *operator->() const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
@@ -412,7 +412,7 @@ struct PSPPointer
 
 	inline operator T*()
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
@@ -421,7 +421,7 @@ struct PSPPointer
 
 	inline operator const T*() const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#if defined(_M_IX86) || defined(_M_ARM32)
 		return (const T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (const T *)(Memory::base + ptr);

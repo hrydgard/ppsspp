@@ -60,10 +60,6 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
 	maxAnisotropyLevel = 16;
 	SetupTextureDecoder();
-#ifdef _XBOX
-	// TODO: Maybe not?  This decimates more often, but it may be speed harmful if unnecessary.
-	lowMemoryMode_ = true;
-#endif
 }
 
 TextureCacheDX9::~TextureCacheDX9() {
@@ -530,21 +526,13 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	dxstate.texMagFilter.set(MagFilt[magFilt]);
 	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
-	
-#ifdef _XBOX
-	pD3Ddevice->SetRenderState(D3DRS_HALFPIXELOFFSET, TRUE );
-#endif
 }
 
 static inline u32 ABGR2RGBA(u32 src) {
-#ifndef _XBOX
 	return ((src & 0xFF000000)) | 
         ((src & 0x00FF0000) >>  16) | 
         ((src & 0x0000FF00)) | 
         ((src & 0x000000FF) << 16);  
-#else
-	return (src >> 8) | (src << 24); 
-#endif
 }
 
 static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int numPixels) {
@@ -642,31 +630,7 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 
-#ifndef _XBOX
 	return DoQuickTexHash(checkp, sizeInRAM);
-#else
-	// TODO: Move this to common tex hash code?  Use hash similar to new texhash?
-	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0x1f) == 0) {
-		__vector4 add, xor;
-		__vector4 cur = __vzero();
-		const __vector4 * ptr = (const __vector4*)checkp;
-		for (u32 i = 0; i < sizeInRAM / 16; i+=2) {
-			add = __lvx(&ptr[i],0);
-			xor = __lvx(&ptr[i+1],0);
-			cur = __vadduwm(cur, add);
-			cur = __vxor(cur, xor);
-		}
-		// Add the four parts into the low i32. // is it possible with vmx ?
-		check = cur.u[0]+cur.u[1]+cur.u[2]+cur.u[3];
-	} else {
-		for (u32 i = 0; i < sizeInRAM / 8; ++i) {
-			check += *checkp++;
-			check ^= *checkp++;
-		}
-	}
-
-	return check;
-#endif
 }
 
 inline bool TextureCacheDX9::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
@@ -830,9 +794,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 		// Validate the texture still matches the cache entry.
 		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
-#ifndef _XBOX
-		match &= host->GPUAllowTextureCache(texaddr);
-#endif
 
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
@@ -1424,11 +1385,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 			pD3Ddevice->SetTexture(0, entry.texture);
 		} else {
 			// Create texture
-#ifdef _XBOX
-			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), NULL, &entry.texture, NULL);
-#else
 			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), D3DPOOL_MANAGED, &entry.texture, NULL);
-#endif
 			if (FAILED(hr)) {
 				INFO_LOG(G3D, "Failed to create D3D texture");
 			} else {
