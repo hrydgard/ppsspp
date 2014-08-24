@@ -207,6 +207,7 @@ static bool Memory_TryBase(u32 flags) {
 
 	return true;
 
+#if !defined(__SYMBIAN32__)
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
@@ -228,6 +229,7 @@ bail:
 		}
 	}
 	return false;
+#endif
 }
 
 void MemoryMap_Setup(u32 flags)
