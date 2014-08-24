@@ -608,10 +608,10 @@ void Thin3DDX9Context::SetScissorRect(int left, int top, int width, int height) 
 
 void Thin3DDX9Context::SetViewports(int count, T3DViewport *viewports) {
 	D3DVIEWPORT9 vp;
-	vp.X = viewports[0].TopLeftX;
-	vp.Y = viewports[0].TopLeftY;
-	vp.Width = viewports[0].Width;
-	vp.Height = viewports[0].Height;
+	vp.X = (DWORD)viewports[0].TopLeftX;
+	vp.Y = (DWORD)viewports[0].TopLeftY;
+	vp.Width = (DWORD)viewports[0].Width;
+	vp.Height = (DWORD)viewports[0].Height;
 	vp.MinZ = viewports[0].MinDepth;
 	vp.MaxZ = viewports[0].MaxDepth;
 	device_->SetViewport(&vp);
