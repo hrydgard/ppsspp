@@ -264,8 +264,23 @@ void TransformDrawEngine::ApplyBlendState() {
 	float constantAlpha = 1.0f;
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
-		if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_UNIFORM:
 			constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
+			break;
+
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_DECR_4:
+			constantAlpha = 1.0f / 15.0f;
+			break;
+
+		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_DECR_8:
+			constantAlpha = 1.0f / 255.0f;
+			break;
+
+		default:
+			break;
 		}
 	}
 
@@ -368,9 +383,27 @@ void TransformDrawEngine::ApplyBlendState() {
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
 	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
 	// the factors to zero). So let's do that.
+	GLenum alphaFunc = GL_FUNC_ADD;
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_INCR_8:
+			// We'll add the increment value.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			break;
+
+		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_DECR_8:
+			// Like add with a small value, but subtracting.
+			alphaFunc = GL_FUNC_SUBTRACT;
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			break;
+
+		default:
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
+			break;
+		}
 	} else if (gstate.isStencilTestEnabled()) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_KEEP:
@@ -391,8 +424,19 @@ void TransformDrawEngine::ApplyBlendState() {
 				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
 			}
 			break;
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_INCR_8:
+			// This won't give a correct value always, but it will try to increase at least.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
+			break;
+		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_DECR_8:
+			// This won't give a correct value always, but it will try to decrease at least.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
+			alphaFunc = GL_FUNC_SUBTRACT;
+			break;
 		case STENCIL_VALUE_UNKNOWN:
-			// For now, let's err at zero.  This is INVERT or INCR/DECR.
+			// For now, let's err at zero.  This is INVERT.
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
 			break;
 		}
@@ -402,9 +446,9 @@ void TransformDrawEngine::ApplyBlendState() {
 	}
 
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
-		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], GL_FUNC_ADD);
+		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], alphaFunc);
 	} else {
-		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], GL_FUNC_ADD);
+		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], alphaFunc);
 	}
 }
 
