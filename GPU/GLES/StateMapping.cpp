@@ -400,6 +400,12 @@ void TransformDrawEngine::ApplyBlendState() {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
 			break;
 
+		case STENCIL_VALUE_INVERT:
+			// This will subtract by one, effectively inverting the bits.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			alphaFunc = GL_FUNC_REVERSE_SUBTRACT;
+			break;
+
 		default:
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
 			break;
@@ -435,9 +441,10 @@ void TransformDrawEngine::ApplyBlendState() {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
 			alphaFunc = GL_FUNC_SUBTRACT;
 			break;
-		case STENCIL_VALUE_UNKNOWN:
-			// For now, let's err at zero.  This is INVERT.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+		case STENCIL_VALUE_INVERT:
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			// If the output alpha is near 1, this will basically invert.  It's our best shot.
+			alphaFunc = GL_FUNC_REVERSE_SUBTRACT;
 			break;
 		}
 	} else {

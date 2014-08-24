@@ -179,7 +179,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return STENCIL_VALUE_ONE;
 
 		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_UNKNOWN;
+			return STENCIL_VALUE_INVERT;
 
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
@@ -207,7 +207,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_INCR_4 : STENCIL_VALUE_INCR_8;
 
 		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_UNKNOWN;
+			return STENCIL_VALUE_INVERT;
 
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
@@ -215,7 +215,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 		break;
 	}
 
-	return STENCIL_VALUE_UNKNOWN;
+	return STENCIL_VALUE_KEEP;
 }
 
 bool IsColorTestTriviallyTrue() {
@@ -924,13 +924,9 @@ void GenerateFragmentShader(char *buffer) {
 			break;
 
 		case STENCIL_VALUE_ONE:
+		case STENCIL_VALUE_INVERT:
+			// In invert, we subtract by one, but we want to output one here.
 			WRITE(p, "  %s.a = 1.0;\n", fragColor0);
-			break;
-
-		case STENCIL_VALUE_UNKNOWN:
-			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
-			// if the stencil mode is KEEP for example.
-			WRITE(p, "  %s.a = 0.0;\n", fragColor0);
 			break;
 
 		case STENCIL_VALUE_INCR_4:
