@@ -644,7 +644,16 @@ namespace DX9 {
 			if (1) {
 				dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 				// These are in the output display coordinates
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+				if (g_Config.iBufFilter == SCALE_LINEAR) {
+					dxstate.texMagFilter.set(D3DTEXF_LINEAR);
+					dxstate.texMinFilter.set(D3DTEXF_LINEAR);
+					dxstate.texMipFilter.set(D3DTEXF_NONE);
+				} else {
+					dxstate.texMagFilter.set(D3DTEXF_POINT);
+					dxstate.texMinFilter.set(D3DTEXF_POINT);
+					dxstate.texMipFilter.set(D3DTEXF_NONE);
+				}
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			}
 			/* 
 			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
