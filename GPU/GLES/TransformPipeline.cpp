@@ -80,6 +80,7 @@
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"

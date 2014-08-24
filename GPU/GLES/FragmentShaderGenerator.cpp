@@ -567,9 +567,13 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "uniform vec4 u_alphacolorref;\n");
-		if (bitwiseOps && (enableColorTest || !alphaTestAgainstZero)) {
-			WRITE(p, "uniform ivec4 u_alphacolormask;\n");
+		if (g_Config.bFragmentTestCache) {
+			WRITE(p, "uniform sampler2D testtex;\n");
+		} else {
+			WRITE(p, "uniform vec4 u_alphacolorref;\n");
+			if (bitwiseOps && (enableColorTest || !alphaTestAgainstZero)) {
+				WRITE(p, "uniform ivec4 u_alphacolormask;\n");
+			}
 		}
 	}
 	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
@@ -592,22 +596,24 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
 	}
 
-	if (enableAlphaTest && !alphaTestAgainstZero) {
-		if (bitwiseOps) {
-			WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
-		} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-			WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-		} else {
-			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+	if (!g_Config.bFragmentTestCache) {
+		if (enableAlphaTest && !alphaTestAgainstZero) {
+			if (bitwiseOps) {
+				WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
+			} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+				WRITE(p, "float roundTo255thf(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+			} else {
+				WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+			}
 		}
-	}
-	if (enableColorTest) {
-		if (bitwiseOps) {
-			WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
-		} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-			WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
-		} else {
-			WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+		if (enableColorTest) {
+			if (bitwiseOps) {
+				WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
+			} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+				WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+			} else {
+				WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+			}
 		}
 	}
 
@@ -748,51 +754,68 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (enableAlphaTest) {
-			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
-			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				if (alphaTestAgainstZero) {
-					// When testing against 0 (extremely common), we can avoid some math.
-					// 0.002 is approximately half of 1.0 / 255.0.
-					if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
-						WRITE(p, "  if (v.a < 0.002) discard;\n");
-					} else {
-						// Anything else is a test for == 0.  Happens sometimes, actually...
-						WRITE(p, "  if (v.a > 0.002) discard;\n");
-					}
-				} else if (bitwiseOps) {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
-				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-					// Work around bad PVR driver problem where equality check + discard just doesn't work.
-					if (alphaTestFunc != GE_COMP_NOTEQUAL)
-						WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+			if (alphaTestAgainstZero) {
+				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+				// When testing against 0 (extremely common), we can avoid some math.
+				// 0.002 is approximately half of 1.0 / 255.0.
+				if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
+					WRITE(p, "  if (v.a < 0.002) discard;\n");
+				} else if (alphaTestFunc != GE_COMP_NEVER) {
+					// Anything else is a test for == 0.  Happens sometimes, actually...
+					WRITE(p, "  if (v.a > 0.002) discard;\n");
 				} else {
-					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					// NEVER has been logged as used by games, although it makes little sense - statically failing.
+					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
+					WRITE(p, "  discard;\n");
 				}
+			} else if (g_Config.bFragmentTestCache) {
+				WRITE(p, "  float aResult = %s(testtex, vec2(v.a, 0)).a;\n", texture);
+				WRITE(p, "  if (aResult < 0.5) discard;\n", texture);
 			} else {
-				// NEVER has been logged as used by games, although it makes little sense - statically failing.
-				// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-				WRITE(p, "  discard;\n");
+				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
+				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
+					if (bitwiseOps) {
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+						// Work around bad PVR driver problem where equality check + discard just doesn't work.
+						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
+							WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+						}
+					} else {
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					}
+				} else {
+					// This means NEVER.  See above.
+					WRITE(p, "  discard;\n");
+				}
 			}
 		}
 
 		if (enableColorTest) {
-			GEComparison colorTestFunc = gstate.getColorTestFunction();
-			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
-			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				if (bitwiseOps) {
-					// Apparently GLES3 does not support vector bitwise ops.
-					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-					const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
-					const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
-					WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
-				} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-					WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
-				} else {
-					WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
-				}
+			if (g_Config.bFragmentTestCache) {
+				WRITE(p, "  float rResult = %s(testtex, vec2(v.r, 0)).r;\n", texture);
+				WRITE(p, "  float gResult = %s(testtex, vec2(v.g, 0)).g;\n", texture);
+				WRITE(p, "  float bResult = %s(testtex, vec2(v.b, 0)).b;\n", texture);
+				WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n", texture);
 			} else {
-				WRITE(p, "  discard;\n");
+				GEComparison colorTestFunc = gstate.getColorTestFunction();
+				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
+				if (colorTestFuncs[colorTestFunc][0] != '#') {
+					if (bitwiseOps) {
+						// Apparently GLES3 does not support vector bitwise ops.
+						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
+						const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
+						WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
+					} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					} else {
+						WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					}
+				} else {
+					WRITE(p, "  discard;\n");
+				}
 			}
 		}
 

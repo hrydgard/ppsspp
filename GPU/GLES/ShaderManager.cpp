@@ -147,6 +147,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 	u_alphacolormask = glGetUniformLocation(program, "u_alphacolormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
+	u_testtex = glGetUniformLocation(program, "testtex");
 
 	u_fbotex = glGetUniformLocation(program, "fbotex");
 	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
@@ -258,6 +259,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
+	glUniform1i(u_testtex, 2);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 	use(vertType, previous);
