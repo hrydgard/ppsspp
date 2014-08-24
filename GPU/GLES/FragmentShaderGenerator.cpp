@@ -194,11 +194,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return STENCIL_VALUE_UNIFORM;
 
 		case GE_STENCILOP_ZERO:
-			if (gstate.getStencilOpZFail() == GE_STENCILOP_ZERO) {
-				return STENCIL_VALUE_ZERO;
-			} else {
-				return STENCIL_VALUE_KEEP;
-			}
+			return STENCIL_VALUE_ZERO;
 
 		case GE_STENCILOP_DECR:
 			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_DECR_4 : STENCIL_VALUE_DECR_8;
