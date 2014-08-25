@@ -73,13 +73,11 @@ void TextureCacheDX9::Clear(bool delete_them) {
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
-			if (iter->second.texture)
-				iter->second.texture->Release();
+			iter->second.ReleaseTexture();
 		}
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
-			if (iter->second.texture)
-				iter->second.texture->Release();
+			iter->second.ReleaseTexture();
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -102,8 +100,7 @@ void TextureCacheDX9::Decimate() {
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			if (iter->second.texture)
-				iter->second.texture->Release();
+			iter->second.ReleaseTexture();
 			cache.erase(iter++);
 		} else {
 			++iter;
@@ -114,8 +111,7 @@ void TextureCacheDX9::Decimate() {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-				if (iter->second.texture)
-					iter->second.texture->Release();
+				iter->second.ReleaseTexture();
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -912,7 +908,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 					if (entry->texture == lastBoundTexture) {
 						lastBoundTexture = INVALID_TEX;
 					}
-					entry->texture->Release();
+					entry->ReleaseTexture();
 				}
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {

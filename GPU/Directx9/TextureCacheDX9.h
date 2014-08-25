@@ -107,6 +107,11 @@ private:
 		float lodBias;
 
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
+		void ReleaseTexture() {
+			if (texture) {
+				texture->Release();
+			}
+		}
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
