@@ -712,6 +712,9 @@ void NativeRender() {
 	Matrix4x4 ortho;
 	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		Matrix4x4 translation;
+		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
+		ortho = translation * ortho;
 	} else {
 		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 	}
