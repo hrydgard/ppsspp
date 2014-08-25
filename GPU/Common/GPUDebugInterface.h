@@ -45,6 +45,12 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_5551_REV = 5,
 	GPU_DBG_FORMAT_4444_REV = 6,
 
+	// 565 is just reversed, the others have B and R swapped.
+	GPU_DBG_FORMAT_565_BGRA = 0x04,
+	GPU_DBG_FORMAT_5551_BGRA = 0x09,
+	GPU_DBG_FORMAT_4444_BGRA = 0x0A,
+	GPU_DBG_FORMAT_8888_BGRA = 0x0B,
+
 	// These don't, they're for depth/stencil buffers.
 	GPU_DBG_FORMAT_FLOAT = 0x10,
 	GPU_DBG_FORMAT_16BIT = 0x11,
@@ -132,7 +138,7 @@ struct GPUDebugBuffer {
 		flipped_ = flipped;
 
 		u32 pixelSize = 2;
-		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_FLOAT) {
+		if (fmt == GPU_DBG_FORMAT_8888 || GPU_DBG_FORMAT_8888_BGRA || fmt == GPU_DBG_FORMAT_FLOAT) {
 			pixelSize = 4;
 		} else if (fmt == GPU_DBG_FORMAT_8BIT) {
 			pixelSize = 1;

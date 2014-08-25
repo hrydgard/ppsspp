@@ -1568,12 +1568,73 @@ bool DIRECTX9_GPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 	return framebufferManager_.GetCurrentStencilbuffer(buffer);
 }
 
-bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer) {
+bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	if (!gstate.isTextureMapEnabled()) {
 		return false;
 	}
 
-	return false;
+	textureCache_.SetTexture(true);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+
+	LPDIRECT3DBASETEXTURE9 baseTex;
+	LPDIRECT3DTEXTURE9 tex;
+	HRESULT hr;
+
+	bool success;
+	hr = pD3Ddevice->GetTexture(0, &baseTex);
+	if (SUCCEEDED(hr)) {
+		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
+		if (SUCCEEDED(hr)) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(level, &desc);
+			RECT rect = {0, 0, desc.Width, desc.Height};
+			hr = tex->LockRect(level, &locked, &rect, D3DLOCK_READONLY);
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt;
+				int pixelSize;
+				switch (desc.Format) {
+				case D3DFMT_A1R5G5B5:
+					fmt = GPU_DBG_FORMAT_5551_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_A4R4G4B4:
+					fmt = GPU_DBG_FORMAT_4444_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_R5G6B5:
+					fmt = GPU_DBG_FORMAT_565_BGRA;
+					pixelSize = 2;
+					break;
+				case D3DFMT_A8R8G8B8:
+					fmt = GPU_DBG_FORMAT_8888_BGRA;
+					pixelSize = 4;
+					break;
+				default:
+					fmt = GPU_DBG_FORMAT_INVALID;
+					break;
+				}
+
+				if (fmt != GPU_DBG_FORMAT_INVALID) {
+					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+					memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+					success = true;
+				} else {
+					success = false;
+				}
+				tex->UnlockRect(level);
+			}
+			tex->Release();
+		}
+		baseTex->Release();
+	}
+
+	return success;
+}
+
+bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
 };

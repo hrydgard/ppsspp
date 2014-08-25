@@ -1062,14 +1062,61 @@ namespace DX9 {
 
 
 	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
-		return true;
+		u32 fb_address = gstate.getFrameBufRawAddress();
+		int fb_stride = gstate.FrameBufStride();
+
+		VirtualFramebufferDX9 *vfb = currentRenderVfb_;
+		if (!vfb) {
+			vfb = GetVFBAt(fb_address);
+		}
+
+		if (!vfb) {
+			// If there's no vfb and we're drawing there, must be memory?
+			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, gstate.FrameBufFormat());
+			return true;
+		}
+
+		LPDIRECT3DSURFACE9 renderTarget;
+		HRESULT hr;
+		hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
+		if (!renderTarget || !SUCCEEDED(hr))
+			return false;
+
+		D3DSURFACE_DESC desc;
+		renderTarget->GetDesc(&desc);
+
+		LPDIRECT3DSURFACE9 offscreen;
+		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		if (!SUCCEEDED(hr))
+			return false;
+
+		bool success = false;
+		hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+		if (SUCCEEDED(hr)) {
+			D3DLOCKED_RECT locked;
+			RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
+			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+			if (SUCCEEDED(hr)) {
+				// TODO: Handle the other formats?  We don't currently create them, I think.
+				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GPU_DBG_FORMAT_8888_BGRA, false);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * vfb->renderHeight);
+				offscreen->UnlockRect();
+				success = true;
+			}
+		}
+
+		offscreen->Release();
+
+		return success;
 	}
 
 	bool FramebufferManagerDX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
+		// TODO: Is this possible?
 		return false;
 	}
 
 	bool FramebufferManagerDX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
+		// TODO: Is this possible?
 		return false;
 	}
 
