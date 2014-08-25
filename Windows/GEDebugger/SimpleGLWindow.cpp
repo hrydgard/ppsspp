@@ -208,10 +208,15 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	GLint components = GL_RGBA;
+	GLint memComponents = 0;
 	GLenum glfmt;
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		glfmt = GL_UNSIGNED_BYTE;
+	} else if (fmt == FORMAT_8888_BGRA) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glfmt = GL_UNSIGNED_BYTE;
+		memComponents = GL_BGRA;
 	} else if (fmt == FORMAT_FLOAT) {
 		glfmt = GL_FLOAT;
 		components = GL_RED;
@@ -231,10 +236,17 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565_REV) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5_REV;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_5551_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+			memComponents = GL_BGRA;
+		} else if (fmt == FORMAT_4444_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+			memComponents = GL_BGRA;
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
 		} else if (fmt == FORMAT_8BIT) {
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 			glfmt = GL_UNSIGNED_BYTE;
 			components = GL_RED;
 		} else {
@@ -242,8 +254,12 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		}
 	}
 
+	if (memComponents == 0) {
+		memComponents = components;
+	}
+
 	glBindTexture(GL_TEXTURE_2D, tex_);
-	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, glfmt, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, memComponents, glfmt, data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

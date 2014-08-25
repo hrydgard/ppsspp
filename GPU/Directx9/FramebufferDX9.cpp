@@ -1086,7 +1086,7 @@ namespace DX9 {
 		renderTarget->GetDesc(&desc);
 
 		LPDIRECT3DSURFACE9 offscreen;
-		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (!SUCCEEDED(hr))
 			return false;
 
@@ -1097,9 +1097,8 @@ namespace DX9 {
 			RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
-				// TODO: Handle the other formats?
-				// TODO: BGRA.
-				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GE_FORMAT_8888, false, true);
+				// TODO: Handle the other formats?  We don't currently create them, I think.
+				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GPU_DBG_FORMAT_8888_BGRA, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * vfb->renderHeight);
 				offscreen->UnlockRect();
 				success = true;

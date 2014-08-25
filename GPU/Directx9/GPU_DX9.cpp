@@ -1594,22 +1594,21 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 			if (SUCCEEDED(hr)) {
 				GPUDebugBufferFormat fmt;
 				int pixelSize;
-				// TODO: These formats are wrong.
 				switch (desc.Format) {
 				case D3DFMT_A1R5G5B5:
-					fmt = GPU_DBG_FORMAT_5551;
+					fmt = GPU_DBG_FORMAT_5551_BGRA;
 					pixelSize = 2;
 					break;
 				case D3DFMT_A4R4G4B4:
-					fmt = GPU_DBG_FORMAT_4444;
+					fmt = GPU_DBG_FORMAT_4444_BGRA;
 					pixelSize = 2;
 					break;
 				case D3DFMT_R5G6B5:
-					fmt = GPU_DBG_FORMAT_565;
+					fmt = GPU_DBG_FORMAT_565_BGRA;
 					pixelSize = 2;
 					break;
 				case D3DFMT_A8R8G8B8:
-					fmt = GPU_DBG_FORMAT_8888;
+					fmt = GPU_DBG_FORMAT_8888_BGRA;
 					pixelSize = 4;
 					break;
 				default:
