@@ -100,10 +100,9 @@ void UIContext::ActivateTopScissor() {
 		const Bounds &bounds = scissorStack_.back();
 		float scale = 1.0f / g_dpi_scale;
 		int x = scale * bounds.x;
-		int y = scale * (dp_yres - bounds.y2());
+		int y = scale * bounds.y;
 		int w = scale * bounds.w;
 		int h = scale * bounds.h;
-
 		thin3d_->SetScissorRect(x, y, w, h);
 		thin3d_->SetScissorEnabled(true);
 	} else {

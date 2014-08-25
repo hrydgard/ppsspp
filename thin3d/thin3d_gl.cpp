@@ -268,7 +268,7 @@ public:
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {
-		glstate.scissorRect.set(left, top, width, height);
+		glstate.scissorRect.set(left, targetHeight_ - (top + height), width, height);
 	}
 
 	void SetViewports(int count, T3DViewport *viewports) override {
