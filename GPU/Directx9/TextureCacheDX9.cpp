@@ -1166,6 +1166,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 				}
 			}
 			finalBuf = tmpTexBuf32.data();
+			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1188,6 +1189,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
+			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1209,6 +1211,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
+			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
