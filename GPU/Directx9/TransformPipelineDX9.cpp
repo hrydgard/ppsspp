@@ -299,12 +299,12 @@ static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &dec
 
 		// COLOR
 		if (decFmt.c0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
+			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLTYPE_UBYTE4N, 0);
 			VertexElement++;
 		}
 		// Never used ?
 		if (decFmt.c1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
+			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLTYPE_UBYTE4N, 1);
 			VertexElement++;
 		}
 
@@ -477,10 +477,10 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				} else {
-					c0[0] = gstate.getMaterialAmbientA() / 255.f;
-					c0[1] = gstate.getMaterialAmbientR() / 255.f;
-					c0[2] = gstate.getMaterialAmbientG() / 255.f;
-					c0[3] = gstate.getMaterialAmbientB() / 255.f;
+					c0[0] = gstate.getMaterialAmbientR() / 255.f;
+					c0[1] = gstate.getMaterialAmbientG() / 255.f;
+					c0[2] = gstate.getMaterialAmbientB() / 255.f;
+					c0[3] = gstate.getMaterialAmbientA() / 255.f;
 				}
 
 				if (reader.hasUV()) {
@@ -538,10 +538,10 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 				if (reader.hasColor0()) {
 					reader.ReadColor0(unlitColor);
 				} else {
-					unlitColor[0] = gstate.getMaterialAmbientA() / 255.f;
-					unlitColor[1] = gstate.getMaterialAmbientR() / 255.f;
-					unlitColor[2] = gstate.getMaterialAmbientG() / 255.f;
-					unlitColor[3] = gstate.getMaterialAmbientB() / 255.f;
+					unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
+					unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
+					unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
+					unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
 				}
 				float litColor0[4];
 				float litColor1[4];
@@ -569,10 +569,10 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 							c0[j] = unlitColor[j];
 						}
 					} else {
-						c0[0] = gstate.getMaterialAmbientA() / 255.f;
-						c0[1] = gstate.getMaterialAmbientR() / 255.f;
-						c0[2] = gstate.getMaterialAmbientG() / 255.f;
-						c0[3] = gstate.getMaterialAmbientB() / 255.f;
+						c0[0] = gstate.getMaterialAmbientR() / 255.f;
+						c0[1] = gstate.getMaterialAmbientG() / 255.f;
+						c0[2] = gstate.getMaterialAmbientB() / 255.f;
+						c0[3] = gstate.getMaterialAmbientA() / 255.f;
 					}
 					if (lmode) {
 						for (int j = 0; j < 4; j++) {
