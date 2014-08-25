@@ -45,11 +45,15 @@ void ComputeFragmentShaderID(FragmentShaderID *id);
 void GenerateFragmentShader(char *buffer);
 
 enum StencilValueType {
-	STENCIL_VALUE_UNKNOWN,
 	STENCIL_VALUE_UNIFORM,
 	STENCIL_VALUE_ZERO,
 	STENCIL_VALUE_ONE,
 	STENCIL_VALUE_KEEP,
+	STENCIL_VALUE_INVERT,
+	STENCIL_VALUE_INCR_4,
+	STENCIL_VALUE_INCR_8,
+	STENCIL_VALUE_DECR_4,
+	STENCIL_VALUE_DECR_8,
 };
 
 enum ReplaceAlphaType {

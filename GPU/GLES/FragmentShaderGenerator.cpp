@@ -179,7 +179,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return STENCIL_VALUE_ONE;
 
 		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_UNKNOWN;
+			return STENCIL_VALUE_INVERT;
 
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
@@ -194,16 +194,16 @@ StencilValueType ReplaceAlphaWithStencilType() {
 			return STENCIL_VALUE_UNIFORM;
 
 		case GE_STENCILOP_ZERO:
-			if (gstate.getStencilOpZFail() == GE_STENCILOP_ZERO) {
-				return STENCIL_VALUE_ZERO;
-			} else {
-				return STENCIL_VALUE_KEEP;
-			}
+			return STENCIL_VALUE_ZERO;
 
 		case GE_STENCILOP_DECR:
+			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_DECR_4 : STENCIL_VALUE_DECR_8;
+
 		case GE_STENCILOP_INCR:
+			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_INCR_4 : STENCIL_VALUE_INCR_8;
+
 		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_UNKNOWN;
+			return STENCIL_VALUE_INVERT;
 
 		case GE_STENCILOP_KEEP:
 			return STENCIL_VALUE_KEEP;
@@ -211,7 +211,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 		break;
 	}
 
-	return STENCIL_VALUE_UNKNOWN;
+	return STENCIL_VALUE_KEEP;
 }
 
 bool IsColorTestTriviallyTrue() {
@@ -411,17 +411,17 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id0 |= (stencilToAlpha) << 22;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
-			// 3 bits
+			// 4 bits
 			id0 |= ReplaceAlphaWithStencilType() << 24;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 27;
+		id0 |= (alphaTestAgainstZero & 1) << 28;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 28 - 31 are free.
+		// 29 - 31 are free.
 
 		// 3 bits.
 		id1 |= replaceBlend << 0;
@@ -920,13 +920,21 @@ void GenerateFragmentShader(char *buffer) {
 			break;
 
 		case STENCIL_VALUE_ONE:
+		case STENCIL_VALUE_INVERT:
+			// In invert, we subtract by one, but we want to output one here.
 			WRITE(p, "  %s.a = 1.0;\n", fragColor0);
 			break;
 
-		case STENCIL_VALUE_UNKNOWN:
-			// Maybe we should even mask away alpha using glColorMask and not change it at all? We do get here
-			// if the stencil mode is KEEP for example.
-			WRITE(p, "  %s.a = 0.0;\n", fragColor0);
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_DECR_4:
+			// We're adding/subtracting, just by the smallest value in 4-bit.
+			WRITE(p, "  %s.a = %f;\n", fragColor0, 1.0 / 15.0);
+			break;
+
+		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_DECR_8:
+			// We're adding/subtracting, just by the smallest value in 8-bit.
+			WRITE(p, "  %s.a = %f;\n", fragColor0, 1.0 / 255.0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
