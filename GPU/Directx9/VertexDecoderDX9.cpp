@@ -251,21 +251,20 @@ void VertexDecoderDX9::Step_Color565() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-
-	c[0] = 255;
-	c[1] = Convert5To8(cdata & 0x1f);
-	c[2] = Convert6To8((cdata>>5) & 0x3f);
-	c[3] = Convert5To8((cdata>>11) & 0x1f);
+	c[0] = Convert5To8(cdata & 0x1f);
+	c[1] = Convert6To8((cdata>>5) & 0x3f);
+	c[2] = Convert5To8((cdata>>11) & 0x1f);
+	c[3] = 255;
 }
 
 void VertexDecoderDX9::Step_Color5551() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-	c[0] = (cdata >> 15) ? 255 : 0;
-	c[1] = Convert5To8(cdata & 0x1f);
-	c[2] = Convert5To8((cdata>>5) & 0x1f);
-	c[3] = Convert5To8((cdata>>10) & 0x1f);
+	c[0] = Convert5To8(cdata & 0x1f);
+	c[1] = Convert5To8((cdata>>5) & 0x1f);
+	c[2] = Convert5To8((cdata>>10) & 0x1f);
+	c[3] = (cdata >> 15) ? 255 : 0;
 }
 
 void VertexDecoderDX9::Step_Color4444() const
@@ -282,9 +281,9 @@ void VertexDecoderDX9::Step_Color8888() const
 {
 	u8 *c = (u8*)(decoded_ + decFmt.c0off);
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
-	c[0] = cdata[2];
+	c[0] = cdata[0];
 	c[1] = cdata[1];
-	c[2] = cdata[0];
+	c[2] = cdata[2];
 	c[3] = cdata[3];
 }
 
@@ -301,11 +300,10 @@ void VertexDecoderDX9::Step_Color565Morph() const
 		col[2] += w * ((cdata>>11) & 0x1f) * (255.0f / 31.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = 255;
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = 255;
 }
 
 void VertexDecoderDX9::Step_Color5551Morph() const
@@ -321,11 +319,10 @@ void VertexDecoderDX9::Step_Color5551Morph() const
 		col[3] += w * ((cdata>>15) ? 255.0f : 0.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_Color4444Morph() const
@@ -339,11 +336,10 @@ void VertexDecoderDX9::Step_Color4444Morph() const
 			col[j] += w * ((cdata >> (j * 4)) & 0xF) * (255.0f / 15.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_Color8888Morph() const
@@ -357,12 +353,10 @@ void VertexDecoderDX9::Step_Color8888Morph() const
 			col[j] += w * cdata[j];
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_NormalS8() const

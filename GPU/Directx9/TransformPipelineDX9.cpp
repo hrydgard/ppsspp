@@ -300,12 +300,12 @@ static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &dec
 
 		// COLOR
 		if (decFmt.c0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLTYPE_UBYTE4N, 0);
+			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
 			VertexElement++;
 		}
 		// Never used ?
 		if (decFmt.c1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLTYPE_UBYTE4N, 1);
+			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
 			VertexElement++;
 		}
 
