@@ -20,6 +20,7 @@
 #include <map>
 
 #include <d3d9.h>
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Directx9/VertexDecoderDX9.h"
 
@@ -105,6 +106,8 @@ public:
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+
 	void DecodeVerts();
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -141,6 +144,7 @@ private:
 	bool IsReallyAClear(int numVerts) const;
 
 	// Preprocessing for spline/bezier
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 	
 	// drawcall ID
