@@ -1,5 +1,7 @@
 ﻿
 ko_KR = "한국어"
+ㄱㄲㄳㄴㄵㄶㄷㄸㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅃㅄㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ
+ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅛㅜㅠㅡㅣ
 
 [MainMenu]
 Load = 불러오기...
@@ -50,16 +52,17 @@ Savestate Slot = 상태 저장 슬롯
 UI Language = UI 언어
 Restore Default Settings = PPSSPP의 설정을 기본으로 복원
 Atomic Audio locks (experimental) = 아토믹 오디오 잠금 (실험적)
-Rewind Snapshot Frequency = 스냅샷 주파수 되감기 (0 = 끄기, mem hog)
+Rewind Snapshot Frequency = 스냅샷 주파수 되감기 (0 = 끄기)
 Auto Load Newest Savestate = 최근 상태 저장 자동 불러오기
 Networking = 네트워킹
 Change proAdhocServer Address = proAdhocServer IP 주소 변경
 Change Mac Address = MAC 주소 변경
 proAdhocServer Address: = proAdhocServer 주소: 
-Mac Address: = MAC 주소: 
 Enable networking = 네트워킹/무선 랜 활성화 (베타)
 VersionCheck = PPSSPP의 새로운 버전을 확인
-PSP Model = PSP 모델
+PSP Model = PSP 기종
+Force real clock sync (slower, less lag) = 강제 실제 클럭 동기화 (느림, 약간의 렉)
+Respect FPU rounding (disable for old GEB saves) = 부동 소수점 반올림 (이전 GEB 저장을 위해 사용 안함)
 
 [Graphics]
 Stretch to Display = 화면 늘이기
@@ -136,19 +139,25 @@ Always Depth Write = 항상 깊이 쓰기 (세인트 Ω, 건담 AGE 수정)
 Disable Stencil Test = 스텐실 테스트 비활성화 (파이널 판타지4 보정)
 Internal Resolution = 내부 해상도
 Window Size = 창 크기
-Texture Coord Speedhack = 스피드핵 텍스처 좌표 (속도 증가)
+Texture Coord Speedhack = 스피드핵 텍스처 좌표 (속도 상승)
 Postprocessing Shader = 후 처리 셰이더
 Antialiasing and postprocessing = 안티앨리어싱 및 후 처리
 Performance = 성능
+Disable Alpha Test (PowerVR speedup) = 알파 테스트 사용 안함 (속도 상승)
 Software Skinning = 소프트웨어 스키닝
 Timer Hack = 타이머 핵
-Lazy texture caching = 게으른 텍스처 캐싱 (속도 상승)
+Lazy texture caching = 텍스처 캐싱을 줄임 (속도 상승)
 Retain changed textures = 변경된 텍스처 유지 (속도 상승, 메모리 점유)
 Small Display = 작은 화면
 Partial Vertical Stretch = 부분 수직 늘이기
-Immersive Mode = 몰입 모드
+Immersive Mode = 집중 모드
 Auto FrameSkip = 자동 프레임 스킵
-Alpha Mask Hack (3rd Birthday) = 알파 마스크 핵 (서드 버스데이 보정)
+Disable slower effects (speedup) = 느림 효과를 비활성화 (속도 상승)
+Native device resolution = 기본 장치 해상도
+Auto (same as Rendering) = 자동 (렌더링 해상도와 같음)
+Display Resolution (HW scaler) = 화면 해상도 (하드웨어 스케일러)
+Must Restart = 이 설정을 적용하기 위해서는 PPSSPP를 재시작 하십시오.
+Screen Scaling Filter = 화면 크기 조절 필터
 
 [Pause]
 Save State = 상태 저장하기
@@ -180,15 +189,13 @@ Dump Decrypted Eboot = 게임 부팅 시 복호화된 EBOOT.BIN 덤프 (암호�
 
 [Audio]
 Enable Sound = 사운드 활성화
-SFX volume = SFX 볼륨
-BGM volume = BGM 볼륨
-Low latency audio = 회전 지연이 낮은 오디오 (끊길 수 있음)
+Audio Latency = 사운드 지연 시간
 Audio hacks = 오디오 핵
 Sound speed hack (DOA etc.) = 사운드 스피드 핵 (데드 오어 얼라이브 등)
 
 [Controls]
 OnScreen = 화면 터치 컨트롤
-Button Scaling = 버튼 크기 조절
+Button Opacity = 버튼 투명도
 Control Mapping = 컨트롤 맵핑
 HapticFeedback = 햅틱 피드백 (진동)
 None (Disabled) = 없음 (비활성)
@@ -215,13 +222,14 @@ Classic = 클래식
 Thin borders = 얇은 테두리
 Keyboard = 키보드 조작 설정
 Ignore Windows Key = 윈도우 키 무시하기
-Show Touch Pause Menu Button = 일시정지 메뉴 버튼 표시
+Show Touch Pause Menu Button = 일시 정지 메뉴 버튼 표시
 Screen Rotation = 화면 회전
 Auto = 자동
 Landscape = 가로
 Portrait = 세로
 Landscape Reversed = 가로 반전
 Portrait Reversed = 세로 반전
+Analog Limiter = 아날로그 제한
 
 [Dialog]
 Back = 뒤로
@@ -233,6 +241,7 @@ Enter = 결정
 Select = 선택
 Space = 스페이스
 Delete = 삭제
+Delete all = 전체 삭제
 Start = 시작
 Finish = 완료
 Shift = 전환
@@ -254,10 +263,13 @@ Deleting = 삭제 중입니다.\n잠시 기다려 주십시오...
 Delete completed = 삭제를 완료했습니다.
 DeleteConfirmAll = 이 게임에 대한 모든 저장 데이터를\n삭제 하시겠습니까?
 DeleteConfirmGame = 이 게임을 정말로 당신의 장치에서\n삭제 하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-Move = 이동
-Network Connection = 네트워크 연결
-Resize = 크기 조정
 Retry = 재시도
+Network Connection = 네트워크 연결
+Move = 이동
+Resize = 크기 조정
+SavingFailed = 저장할 수 없습니다.
+LoadingFailed = 불러올 수 없습니다.
+DeleteFailed = 삭제할 수 없습니다.
 
 [Error]
 Error loading file = 파일 불러오는 중 오류 :
@@ -273,7 +285,7 @@ Error reading file = 파일을 읽는 동안 오류가 발생했습니다.
 No EBOOT.PBP, misidentified game = EBOOT.PBP가 없으면, 게임을 식별할 수 없습니다.
 PSX game image detected. = MODE2 이미지 파일입니다. PPSSPP는 PS1 게임을 지원하지 않습니다.
 OpenGLDriverError = OpenGL 드라이버 오류
-InsufficientOpenGLDriver = OpenGL 드라이버 지원 부족 감지!\n\n현재 PPSSPP를 실행하는데 필요한 OpenGL 2.0을 지원하지 않는다고 당신의 GPU는 보고합니다.\n\n당신의 GPU가 OpenGL 2.0과 호환되는지 확인하십시오. 이 경우, 당신의 GPU 공급업체의 웹사이트에서 새로운 그래픽 드라이버를 찾아 설치해야 합니다.\n\n자세한 내용은 http://forums.ppsspp.org 포럼을 방문하십시오.
+InsufficientOpenGLDriver = OpenGL 드라이버 지원 부족 감지!\n\n현재 PPSSPP를 실행하는데 필요한 OpenGL 2.0을 지원하지 않는다고 당신의 GPU에서 보고합니다.\n\n당신의 GPU가 OpenGL 2.0과 호환되는지 확인하십시오. 이 경우, 당신의 GPU 공급업체의 웹사이트에서 새로운 그래픽 드라이버를 찾아 설치해야 합니다.\n\n자세한 내용은 http://forums.ppsspp.org 포럼을 방문하십시오.
 PPSSPPDoesNotSupportInternet = PPSSPP는 현재 DLC, PSN, 게임 업데이트에 대한 인터넷 연결을 지원하지 않습니다.
 
 [Screen]
@@ -286,20 +298,20 @@ LoadStateWrongVersion = 상태를 불러오지 못했습니다: PPSSPP 이전 �
 Save State Failed = 상태를 저장하지 못했습니다!
 PressESC = ESC를 누르면 중지 메뉴가 열립니다.
 Chainfire3DWarning = 경고: 체인파이어 3D가 검출되었습니다. 문제가 발생할 수 있습니다.
-GLToolsWarning = 경고: GLTools이 감지되었습니다. 문제가 발생할 수 있습니다.
+GLToolsWarning = 경고: GLTools가 감지되었습니다. 문제가 발생할 수 있습니다.
 
 [PSPCredits]
 created = 만든이:
 license = 무료 소프트웨어 GPL 2.0 계약에 따라
 title = 빠르고 휴대성이 높은 PSP 에뮬레이터
 contributors = 도움 주신 분들:
-specialthanks = 특별히 감사 인사드립니다:
+specialthanks = 특별히 감사드립니다:
 written = 속도와 이식성을 보장하기 위해 C++로 작성되었습니다.
 tools = 사용된 무료 도구들:
 website = 웹 사이트에서 확인하세요:
 list = 호환 목록, 포럼 및 개발 정보
 check = 최고의 Wii/GC 에뮬 Dolphin 또한 확인하세요.
-info1 = PPSSPP는 교육적인 목적으로만 사용하기 위한 것입니다.
+info1 = PPSSPP는 교육적인 목적으로만 사용할 수 있습니다.
 info2 = 당신이 어떤 게임에 대한 권리를 소유하고 있는지 확인하십시오.
 info3 = 당신은 UMD를 소유하거나 디지털로 구매하여 재생하십시요.
 info4 = 실제 PSP의 PSN 스토어에서 다운로드 할 수 있습니다.
@@ -311,7 +323,7 @@ this translation by = 번역:
 # Add translators1-6 for up to 6 lines of translator credits.
 # Leave extra lines blank. 4 contributors per line seems to look best.
 # Add translators or contributors who translated PPSSPP into your language here.
-translators1 = mgaver, 朴 正旭®
+translators1 = mgaver
 translators2 = 
 translators3 = 
 translators4 = 
@@ -320,7 +332,7 @@ translators6 =
 
 [KeyMapping]
 Clear All = 모두 지우기
-Default All = 기본 복원 
+Default All = 기본값 복원 
 Map a new key for = 새로운 키 입력
 Autoconfigure for device = 디바이스에 맞게 자동 설정
 
@@ -337,15 +349,15 @@ RapidFire = 속사
 Unthrottle = 터보
 SpeedToggle = 속도 전환
 Pause = 일시 정지
-Rewind = 되감기
-Save State = 상태 저장하기
-Load State = 상태 불러오기
 RightAn.Up = 우측An.상
 RightAn.Down = 우측An.하
 RightAn.Left = 우측An.좌
 RightAn.Right = 우측An.우
 Analog Stick = 아날로그 스틱
 Dpad = 방향 패드
+Rewind = 되감기
+Save State = 상태 저장하기
+Load State = 상태 불러오기
 
 [DesktopUI]
 # If your language does not show well with the default font, you can use Font to specify a different one.
@@ -416,6 +428,7 @@ Nearest = 근접 필터링(&N)
 Linear = 선형 필터링(&L)
 Linear on FMV = FMV(Full Motion Video)에 선형 필터링(&F)
 # Also uses Off from above.  Please open an issue on GitHub if your language needs different words.
+Screen Scaling Filter = 화면 크기 조절 필터(&E)
 Texture Scaling = 텍스처 크기 조절(&T)
 xBRZ = xBRZ(&X)
 Hybrid = 혼합(&H)
@@ -451,6 +464,7 @@ Options = 옵션
 Import Cheats = 치트 가져오기 (cheat.db에서)
 Enable/Disable All = 모든 치트 활성화/비활성화
 Cheats = 치트
+Edit Cheat File = 치트 파일 편집
 
 [PostShaders]
 4xHqGLSL = 4배 HQ GLSL (OpenGL 쉐이딩 언어)
