@@ -256,9 +256,12 @@ void MainWindow::lmapAct()
 	dialog.setAcceptMode(QFileDialog::AcceptOpen);
 	QStringList fileNames;
 	if (dialog.exec())
-	{
 		fileNames = dialog.selectedFiles();
-		symbolMap.LoadSymbolMap(fileNames[0].toStdString().c_str());
+
+	if (fileNames.count() > 0)
+	{
+		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
+		symbolMap.LoadSymbolMap(fileName.toStdString().c_str());
 		notifyMapsLoaded();
 	}
 }
