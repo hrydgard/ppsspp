@@ -875,7 +875,7 @@ void GenerateFragmentShader(char *buffer) {
 				WRITE(p, "  v.rgb = v.rgb * %s - destColor.rgb * %s;\n", srcFactor, dstFactor);
 				break;
 			case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-				WRITE(p, "  v.rgb = destColor.rgb * %s - v.rgb * %s;\n", srcFactor, dstFactor);
+				WRITE(p, "  v.rgb = destColor.rgb * %s - v.rgb * %s;\n", dstFactor, srcFactor);
 				break;
 			case GE_BLENDMODE_MIN:
 				WRITE(p, "  v.rgb = min(v.rgb, destColor.rgb);\n");
