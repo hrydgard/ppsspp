@@ -491,15 +491,13 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 
+	float lodBias = 0.0;
 	if (entry.maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
 	} else {
-		// TODO: Is this a signed value? Which direction?
-		float lodBias = 0.0; // -(float)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
-		if (force || entry.lodBias != lodBias) {
-			entry.lodBias = lodBias;
-		}
+		// Texture lod bias should be signed.
+		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
 	if ((g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) && !gstate.isColorTestEnabled()) {
@@ -519,6 +517,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	dxstate.texMinFilter.set(MinFilt[minFilt]);
 	dxstate.texMipFilter.set(MipFilt[minFilt]);
+	dxstate.texMipLodBias.set(lodBias);
 	dxstate.texMagFilter.set(MagFilt[magFilt]);
 	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
@@ -939,7 +938,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 	entry->lastFrame = gpuStats.numFlips;
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
-	entry->lodBias = 0.0f;
 	
 	entry->dim = gstate.getTextureDimension(0);
 	entry->bufw = bufw;

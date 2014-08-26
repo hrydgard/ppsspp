@@ -73,6 +73,28 @@ private:
 		}
 	};
 
+	// Can't have FLOAT template parameters...
+	template<D3DSAMPLERSTATETYPE state1, DWORD p1def>
+	class DxSampler0State1Float {
+		D3DSAMPLERSTATETYPE _state1;
+		union {
+			FLOAT p1;
+			DWORD p1d;
+		};
+	public:
+		DxSampler0State1Float() : _state1(state1), p1d(p1def) {
+			DirectxState::state_count++;
+		}
+
+		inline void set(FLOAT newp1) {
+			p1 = newp1;
+			pD3Ddevice->SetSamplerState(0, _state1, p1d);
+		}
+		void restore() {
+			pD3Ddevice->SetSamplerState(0, _state1, p1d);
+		}
+	};
+
 	template<D3DRENDERSTATETYPE state1, DWORD p1def, D3DRENDERSTATETYPE state2, DWORD p2def>
 	class DxState2 {
 		D3DRENDERSTATETYPE _state1;
@@ -318,6 +340,7 @@ public:
 	DxSampler0State1<D3DSAMP_MINFILTER, D3DTEXF_POINT> texMinFilter;
 	DxSampler0State1<D3DSAMP_MAGFILTER, D3DTEXF_POINT> texMagFilter;
 	DxSampler0State1<D3DSAMP_MIPFILTER, D3DTEXF_NONE> texMipFilter;
+	DxSampler0State1Float<D3DSAMP_MIPMAPLODBIAS, 0> texMipLodBias;
 	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
 	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
 
