@@ -18,6 +18,7 @@
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
@@ -283,8 +284,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.compilerPC += 4;
 		js.numInstructions++;
 #ifndef HAVE_ARMV7
-		// Disabled for now as it is crashing since Vertex Decoder JIT
-		if (false && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
+		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
@@ -466,10 +466,13 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	if (func)
 	{
 		SaveDowncount();
+		// TODO: Perhaps keep the rounding mode for interp?
+		ClearRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);
+		SetRoundingMode();
 		RestoreDowncount();
 	}
 
@@ -538,6 +541,40 @@ void Jit::WriteDownCountR(ARMReg reg)
 		LDR(R2, CTXREG, offsetof(MIPSState, downcount));
 		SUBS(R2, R2, reg);
 		STR(R2, CTXREG, offsetof(MIPSState, downcount));
+	}
+}
+
+void Jit::ClearRoundingMode()
+{
+	if (g_Config.bSetRoundingMode)
+	{
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-nearest mode beforehand.
+		BIC(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
+		VMSR(SCRATCHREG1);
+	}
+}
+
+void Jit::SetRoundingMode()
+{
+	if (g_Config.bSetRoundingMode)
+	{
+		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
+		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
+		// MIPS Rounding Mode:       ARM Rounding Mode
+		//   0: Round nearest        0
+		//   1: Round to zero        3
+		//   2: Round up (ceil)      1
+		//   3: Round down (floor)   2
+		CMP(SCRATCHREG1, Operand2(1));
+		SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
+		SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
+		SetCC(CC_AL);
+
+		VMRS(SCRATCHREG2);
+		// Assume we're always in round-to-nearest mode beforehand.
+		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
+		VMSR(SCRATCHREG1);
 	}
 }
 

@@ -20,6 +20,7 @@
 #include <map>
 
 #include <d3d9.h>
+#include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Directx9/VertexDecoderDX9.h"
 
@@ -80,8 +81,9 @@ public:
 	LPDIRECT3DINDEXBUFFER9 ebo;
 
 	
-	// Precalculated parameter for drawdrawElements
+	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
+	u16 maxIndex;
 	s8 prim;
 
 	// ID information
@@ -98,12 +100,13 @@ class TransformDrawEngineDX9 {
 public:
 	TransformDrawEngineDX9();
 	virtual ~TransformDrawEngineDX9();
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
-	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type);
-	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type);
+	
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead);
+	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
+	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
-	// legacy
-	void DrawBezier(int ucount, int vcount);
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void DecodeVerts();
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
@@ -140,6 +143,10 @@ private:
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 
+	// Preprocessing for spline/bezier
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
+	
 	// drawcall ID
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
@@ -177,6 +184,9 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	std::map<u32, VertexArrayInfoDX9 *> vai_;
+
+	// Fixed index buffer for easy quad generation from spline/bezier
+	u16 *quadIndices_;
 	
 	// Other
 	ShaderManagerDX9 *shaderManager_;

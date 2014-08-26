@@ -23,9 +23,11 @@
 #include "base/mutex.h"
 #include "file/file_util.h"
 #include "thread/prioritizedworkqueue.h"
-#include "gfx/texture.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
+
+class Thin3DContext;
+class Thin3DTexture;
 
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
@@ -128,11 +130,11 @@ public:
 
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
-	Texture *iconTexture;
+	Thin3DTexture *iconTexture;
 	std::string pic0TextureData;
-	Texture *pic0Texture;
+	Thin3DTexture *pic0Texture;
 	std::string pic1TextureData;
-	Texture *pic1Texture;
+	Thin3DTexture *pic1Texture;
 
 	std::string sndFileData;
 
@@ -170,7 +172,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	GameInfo *GetInfo(const std::string &gamePath, int wantFlags);
+	GameInfo *GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags);
 	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
@@ -179,7 +181,7 @@ public:
 	void Load();
 
 private:
-	void SetupTexture(GameInfo *info, std::string &textureData, Texture *&tex, double &loadTime);
+	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;

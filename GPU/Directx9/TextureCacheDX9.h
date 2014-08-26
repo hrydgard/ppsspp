@@ -47,7 +47,7 @@ public:
 	TextureCacheDX9();
 	~TextureCacheDX9();
 
-	void SetTexture();
+	void SetTexture(bool t = false);
 
 	void Clear(bool delete_them);
 	void StartFrame();
@@ -104,16 +104,13 @@ private:
 		u32 fullhash;
 		u32 cluthash;
 		int maxLevel;
-		float lodBias;
-
-		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
-		u8 magFilt;
-		u8 minFilt;
-		bool sClamp;
-		bool tClamp;
 
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
+		void ReleaseTexture() {
+			if (texture) {
+				texture->Release();
+			}
+		}
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.

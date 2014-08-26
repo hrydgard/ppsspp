@@ -23,9 +23,7 @@
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
-#ifndef _XBOX
 #include "gfx_es2/gpu_features.h"
-#endif
 #include "net/http_client.h"
 #include "util/text/parsers.h"
 #include "net/url.h"
@@ -324,6 +322,7 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
+	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true),
 
 	ConfigSetting(false),
 };
@@ -385,6 +384,7 @@ static int DefaultAndroidHwScale() {
 
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
+	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
 	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
@@ -1059,5 +1059,3 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
-
-

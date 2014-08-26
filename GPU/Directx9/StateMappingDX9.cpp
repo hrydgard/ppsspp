@@ -27,6 +27,7 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 namespace DX9 {
 
@@ -77,13 +78,18 @@ static const D3DCMPFUNC ztests[] = {
 	D3DCMP_LESS, D3DCMP_LESSEQUAL, D3DCMP_GREATER, D3DCMP_GREATEREQUAL,
 };
 
+static const D3DCMPFUNC ztests_backwards[] = {
+	D3DCMP_NEVER, D3DCMP_ALWAYS, D3DCMP_EQUAL, D3DCMP_NOTEQUAL,
+	D3DCMP_GREATER, D3DCMP_GREATEREQUAL, D3DCMP_LESS, D3DCMP_LESSEQUAL,
+};
+
 static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP,
 	D3DSTENCILOP_ZERO,
 	D3DSTENCILOP_REPLACE,
 	D3DSTENCILOP_INVERT,
-	D3DSTENCILOP_INCR,
-	D3DSTENCILOP_DECR,  // don't know if these should be wrap or not
+	D3DSTENCILOP_INCRSAT,
+	D3DSTENCILOP_DECRSAT,
 	D3DSTENCILOP_KEEP, // reserved
 	D3DSTENCILOP_KEEP, // reserved
 };
@@ -192,8 +198,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
-		dxstate.blendEquation.set(eqLookup[blendFuncEq]);
+		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
+		dxstate.blendEquation.set(eqLookup[blendFuncEq], D3DBLENDOP_ADD);
 	}
 
 	// Set Dither
@@ -229,7 +235,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 	} else {
-		
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		dxstate.cullMode.set(wantCull, gstate.getCullMode());	
@@ -263,6 +268,19 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.disable();
 		}
 	}
+
+#if defined(DX9_USE_HW_ALPHA_TEST)
+	// Older hardware (our target for DX9) often has separate alpha testing hardware that
+	// is generally faster than using discard/clip. Let's use it.
+	if (gstate.alphaTestEnable) {
+		dxstate.alphaTest.enable();
+		GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+		dxstate.alphaTestFunc.set(ztests[alphaTestFunc]);
+		dxstate.alphaTestRef.set(gstate.getAlphaTestRef());
+	} else {
+		dxstate.alphaTest.disable();
+	}
+#endif
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;

@@ -15,62 +15,122 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
-#include "Gpu/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
 
-// Just to get something on the screen, we'll just not subdivide correctly.
-void TransformDrawEngineDX9::DrawBezier(int ucount, int vcount) {
-	u16 indices[3 * 3 * 6];
+// This normalizes a set of vertices in any format to SimpleVertex format, by processing away morphing AND skinning.
+// The rest of the transform pipeline like lighting will go as normal, either hardware or software.
+// The implementation is initially a bit inefficient but shouldn't be a big deal.
+// An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
+u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType) {
+	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
+	// implementation of the vertex decoder.
+	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
 
-	static bool reported = false;
-	if (!reported) {
-		Reporting::ReportMessage("Unsupported bezier curve");
-		reported = true;
-	}
+	// OK, morphing eliminated but bones still remain to be taken care of.
+	// Let's do a partial software transform where we only do skinning.
 
-	// if (gstate.patchprimitive)
-	// Generate indices for a rectangular mesh.
-	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 3 + x;
-			indices[c++] = y * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x;
-			indices[c++] = y * 3 + x;
+	VertexReader reader(bufPtr, dec->GetDecVtxFmt(), vertType);
+
+	SimpleVertex *sverts = (SimpleVertex *)outPtr;
+
+	const u8 defaultColor[4] = {
+		(u8)gstate.getMaterialAmbientR(),
+		(u8)gstate.getMaterialAmbientG(),
+		(u8)gstate.getMaterialAmbientB(),
+		(u8)gstate.getMaterialAmbientA(),
+	};
+
+	// Let's have two separate loops, one for non skinning and one for skinning.
+	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
+		for (int i = lowerBound; i <= upperBound; i++) {
+			reader.Goto(i);
+			SimpleVertex &sv = sverts[i];
+			if (vertType & GE_VTYPE_TC_MASK) {
+				reader.ReadUV(sv.uv);
+			}
+
+			if (vertType & GE_VTYPE_COL_MASK) {
+				reader.ReadColor0_8888(sv.color);
+			} else {
+				memcpy(sv.color, defaultColor, 4);
+			}
+
+			float nrm[3], pos[3];
+			float bnrm[3], bpos[3];
+
+			if (vertType & GE_VTYPE_NRM_MASK) {
+				// Normals are generated during tesselation anyway, not sure if any need to supply
+				reader.ReadNrm(nrm);
+			} else {
+				nrm[0] = 0;
+				nrm[1] = 0;
+				nrm[2] = 1.0f;
+			}
+			reader.ReadPos(pos);
+
+			// Apply skinning transform directly
+			float weights[8];
+			reader.ReadWeights(weights);
+			// Skinning
+			Vec3Packedf psum(0,0,0);
+			Vec3Packedf nsum(0,0,0);
+			for (int w = 0; w < numBoneWeights; w++) {
+				if (weights[w] != 0.0f) {
+					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix+w*12);
+					Vec3Packedf tpos(bpos);
+					psum += tpos * weights[w];
+
+					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix+w*12);
+					Vec3Packedf tnorm(bnrm);
+					nsum += tnorm * weights[w];
+				}
+			}
+			sv.pos = psum;
+			sv.nrm = nsum;
 		}
-	}
-
-	// We are free to use the "decoded" buffer here.
-	// Let's split it into two to get a second buffer, there's enough space.
-	u8 *decoded2 = decoded + 65536 * 24;
-
-	// Alright, now for the vertex data.
-	// For now, we will simply inject UVs.
-
-	float customUV[4 * 4 * 2];
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
-			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
-		}
-	}
-
-	if (!vertTypeGetTexCoordMask(gstate.vertType)) {
-		VertexDecoderDX9 *dec = GetVertexDecoder(gstate.vertType);
-		dec->SetVertexType(gstate.vertType);
-		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
-		SubmitPrim(decoded2, &indices[0], GE_PRIM_TRIANGLES, c, newVertType, GE_VTYPE_IDX_16BIT, 0);
 	} else {
-		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
+		for (int i = lowerBound; i <= upperBound; i++) {
+			reader.Goto(i);
+			SimpleVertex &sv = sverts[i];
+			if (vertType & GE_VTYPE_TC_MASK) {
+				reader.ReadUV(sv.uv);
+			} else {
+				sv.uv[0] = 0;  // This will get filled in during tesselation
+				sv.uv[1] = 0;
+			}
+			if (vertType & GE_VTYPE_COL_MASK) {
+				reader.ReadColor0_8888(sv.color);
+			} else {
+				memcpy(sv.color, defaultColor, 4);
+			}
+			if (vertType & GE_VTYPE_NRM_MASK) {
+				// Normals are generated during tesselation anyway, not sure if any need to supply
+				reader.ReadNrm((float *)&sv.nrm);
+			} else {
+				sv.nrm.x = 0;
+				sv.nrm.y = 0;
+				sv.nrm.z = 1.0f;
+			}
+			reader.ReadPos((float *)&sv.pos);
+		}
 	}
-	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
+
+	// Okay, there we are! Return the new type (but keep the index bits)
+	return GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT | (vertType & (GE_VTYPE_IDX_MASK | GE_VTYPE_THROUGH));
 }
 
+u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	VertexDecoderDX9 *dec = GetVertexDecoder(vertTypeID);
+	return NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
+}
 
 // Spline implementation copied and modified from neobrain's softgpu (orphis code?)
 

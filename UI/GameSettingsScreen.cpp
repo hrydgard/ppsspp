@@ -63,7 +63,7 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 }
 
 void GameSettingsScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
@@ -375,6 +375,7 @@ void GameSettingsScreen::CreateViews() {
 #ifndef MOBILE_DEVICE
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, s->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
+	systemSettings->Add(new CheckBox(&g_Config.bSetRoundingMode, s->T("Respect FPU rounding (disable for old GEB saves)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
 #if defined(USING_WIN_UI)

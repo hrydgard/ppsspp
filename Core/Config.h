@@ -39,6 +39,17 @@ enum {
 	ROTATION_LOCKED_VERTICAL180 = 4,
 };
 
+enum BufferFilter {
+	SCALE_LINEAR = 1,
+	SCALE_NEAREST = 2,
+};
+
+// Software is not among these because it will have one of these perform the blit to display.
+enum {
+	GPU_BACKEND_OPENGL = 0,
+	GPU_BACKEND_DIRECT3D9 = 1,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -86,6 +97,7 @@ public:
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
+	bool bSetRoundingMode;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
@@ -100,8 +112,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
-
 	// GFX
+	int iGPUBackend;
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games

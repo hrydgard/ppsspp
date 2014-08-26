@@ -43,7 +43,7 @@ struct PspGeListArgs
 	SceSize_le size;
 	PSPPointer<u32_le> context;
 	u32_le numStacks;
-	u32_le unknown1;
+	u32_le stackAddr;
 };
 
 void Register_sceGe_user();

@@ -15,17 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
+#include "base/functional.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx_es2/gl_state.h"
-#include "file/vfs.h"
 #include "math/curves.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "file/vfs.h"
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
@@ -85,11 +87,8 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_xres = xres;
 		last_yres = yres;
 	}
-
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0.1f, 0.2f, 0.43f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	
+	dc.GetThin3DContext()->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xff224477, 0.0, 0);
 	int img = I_BG;
 #ifdef GOLD
 	img = I_BG_GOLD;
@@ -106,18 +105,18 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {
 		bool hasPic = false;
 		double loadTime;
 		if (ginfo->pic1Texture) {
-			ginfo->pic1Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
 			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
-			ginfo->pic0Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
 			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}
@@ -396,7 +395,6 @@ bool LogoScreen::key(const KeyInput &key) {
 
 void LogoScreen::render() {
 	UIScreen::render();
-
 	UIContext &dc = *screenManager()->getUIContext();
 
 	const Bounds &bounds = dc.GetBounds();
@@ -434,6 +432,8 @@ void LogoScreen::render() {
 	if (boot_filename.size()) {
 		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
+
+	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 
 	dc.End();
 	dc.Flush();

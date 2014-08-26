@@ -185,6 +185,7 @@ void SaveFileInfo::DoState(PointerWrap &p)
 		p.Do(hasTexture);
 		if (hasTexture) {
 			if (p.mode == p.MODE_READ) {
+				delete texture;
 				texture = new PPGeImage("");
 			}
 			texture->DoState(p);

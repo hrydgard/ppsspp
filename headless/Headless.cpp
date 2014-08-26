@@ -66,7 +66,8 @@ public:
 };
 
 struct InputState;
-// Temporary hack around annoying linking error.
+// Temporary hacks around annoying linking errors.
+void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
@@ -346,6 +347,7 @@ int main(int argc, const char* argv[])
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
+	g_Config.bSetRoundingMode = true;
 
 #ifdef _WIN32
 	InitSysDirectories();

@@ -308,6 +308,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
 	{ 0xab97ec58c58a7c75, 52, "vector_divide_t", },
+	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
 	{ 0xad67add5122b8c64, 52, "matrix_q_translate_t", },
 	{ 0xada952a1adcea4f5, 60, "vmmul_q_transp5", },
@@ -388,7 +389,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
 	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
 	{ 0xe8ad7719be44e7c8, 276, "strchr", },
-	{ 0xeabb9c1b4f83d2b4, 52, "memset", },
+	{ 0xeabb9c1b4f83d2b4, 52, "memset", }, // Crisis Core
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
 	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },

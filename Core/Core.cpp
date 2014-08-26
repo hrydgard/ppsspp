@@ -33,6 +33,7 @@
 #ifdef _WIN32
 #ifndef _XBOX
 #include "Windows/OpenGLBase.h"
+#include "Windows/D3D9Base.h"
 #endif
 #include "Windows/InputDevice.h"
 #endif
@@ -128,7 +129,6 @@ void UpdateScreenScale(int width, int height) {
 		dp_yres *= 2;
 		g_dpi_scale = 2.0f;
 	}
-	else
 #endif
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 	NativeResized();
@@ -151,6 +151,21 @@ void UpdateRunLoop() {
 	}
 }
 
+#if defined(USING_WIN_UI)
+
+void GPU_SwapBuffers() {
+	switch (g_Config.iGPUBackend) {
+	case GPU_BACKEND_OPENGL:
+		GL_SwapBuffers();
+		break;
+	case GPU_BACKEND_DIRECT3D9:
+		D3D9_SwapBuffers();
+		break;
+	}
+}
+
+#endif
+
 void Core_RunLoop() {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
@@ -165,7 +180,7 @@ void Core_RunLoop() {
 		if (sleepTime > 0)
 			Sleep(sleepTime);
 		if (!windowHidden) {
-			GL_SwapBuffers();
+			GPU_SwapBuffers();
 		}
 #else
 		UpdateRunLoop();
@@ -177,7 +192,7 @@ void Core_RunLoop() {
 		UpdateRunLoop();
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
-			GL_SwapBuffers();
+			GPU_SwapBuffers();
 		}
 #endif
 	}

@@ -1670,15 +1670,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	if (optionAddr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
-			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position", name, lmoption->position);
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (%i)", name, (int)lmoption->position);
 			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 		}
 		if (lmoption->position == PSP_SMEM_LowAligned || lmoption->position == PSP_SMEM_HighAligned) {
-			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name, lmoption->position);
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name);
 			return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
 		}
 		if (lmoption->position == PSP_SMEM_Addr) {
-			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name, lmoption->position);
+			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name);
 			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 		}
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
@@ -1697,7 +1697,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	if (!module) {
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return error;
+			return -1;
 		}
 
 		if (info.name == "BOOT.BIN")

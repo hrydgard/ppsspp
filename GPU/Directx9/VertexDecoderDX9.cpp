@@ -32,7 +32,6 @@ namespace DX9 {
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK
 
-
 static const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 static const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 static const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
@@ -252,11 +251,10 @@ void VertexDecoderDX9::Step_Color565() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-
-	c[0] = 255;
-	c[1] = Convert5To8(cdata & 0x1f);
-	c[2] = Convert6To8((cdata>>5) & 0x3f);
-	c[3] = Convert5To8((cdata>>11) & 0x1f);
+	c[0] = Convert5To8(cdata & 0x1f);
+	c[1] = Convert6To8((cdata>>5) & 0x3f);
+	c[2] = Convert5To8((cdata>>11) & 0x1f);
+	c[3] = 255;
 }
 
 void VertexDecoderDX9::Step_Color5551() const
@@ -273,21 +271,20 @@ void VertexDecoderDX9::Step_Color4444() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = (u16)(*(u16_le*)(ptr_ + coloff));
-	c[0] =  Convert4To8((cdata >> (12)) & 0xF);
-	c[1] =  Convert4To8((cdata >> (0)) & 0xF);
-	c[2] =  Convert4To8((cdata >> (4)) & 0xF);
-	c[3] =  Convert4To8((cdata >> (8)) & 0xF);
+	c[0] =  Convert4To8((cdata >> (0)) & 0xF);
+	c[1] =  Convert4To8((cdata >> (4)) & 0xF);
+	c[2] =  Convert4To8((cdata >> (8)) & 0xF);
+	c[3] =  Convert4To8((cdata >> (12)) & 0xF);
 }
 
 void VertexDecoderDX9::Step_Color8888() const
 {
- 	// Directx want ARGB
 	u8 *c = (u8*)(decoded_ + decFmt.c0off);
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
-	c[0] = cdata[3];
-	c[1] = cdata[0];
-	c[2] = cdata[1];
-	c[3] = cdata[2];
+	c[0] = cdata[0];
+	c[1] = cdata[1];
+	c[2] = cdata[2];
+	c[3] = cdata[3];
 }
 
 void VertexDecoderDX9::Step_Color565Morph() const
@@ -303,11 +300,10 @@ void VertexDecoderDX9::Step_Color565Morph() const
 		col[2] += w * ((cdata>>11) & 0x1f) * (255.0f / 31.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = 255;
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = 255;
 }
 
 void VertexDecoderDX9::Step_Color5551Morph() const
@@ -323,11 +319,10 @@ void VertexDecoderDX9::Step_Color5551Morph() const
 		col[3] += w * ((cdata>>15) ? 255.0f : 0.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_Color4444Morph() const
@@ -341,11 +336,10 @@ void VertexDecoderDX9::Step_Color4444Morph() const
 			col[j] += w * ((cdata >> (j * 4)) & 0xF) * (255.0f / 15.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_Color8888Morph() const
@@ -359,12 +353,10 @@ void VertexDecoderDX9::Step_Color8888Morph() const
 			col[j] += w * cdata[j];
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	
-	// Dx want ARGB
-	c[0] = (u8)col[3];
-	c[1] = (u8)col[0];
-	c[2] = (u8)col[1];
-	c[3] = (u8)col[2];
+	c[0] = (u8)col[0];
+	c[1] = (u8)col[1];
+	c[2] = (u8)col[2];
+	c[3] = (u8)col[3];
 }
 
 void VertexDecoderDX9::Step_NormalS8() const
@@ -380,12 +372,9 @@ void VertexDecoderDX9::Step_NormalS8() const
 	normal[3] = 0;
 #else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (float)(sv[j] ^ xorval) * (1.0f/127.f);
+		normal[j] = (float)(sv[j]) * (1.0f/127.f);
 	normal[3] = 0;
 #endif
 }
@@ -394,11 +383,9 @@ void VertexDecoderDX9::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
 	u16 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFFFF;
 	const s16_le *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j];
 	normal[3] = 0;
 }
 
@@ -421,13 +408,6 @@ void VertexDecoderDX9::Step_NormalFloat() const
 
 	for (int j = 0; j < 3; j++) 
 		v[j] = sv[j];
-
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1) {
-		multiplier = -multiplier;
-		for (int j = 0; j < 3; j++)
-			normal[j] = normal[j] * multiplier;
-	}
 #endif
 }
 
@@ -493,13 +473,10 @@ void VertexDecoderDX9::Step_NormalFloatMorph() const
 		for (int j = 0; j < 3; j++) {
 			v[j] = sv[j];
 		}
-
-		if (gstate.reversenormals & 1) {
-			multiplier = -multiplier;
-			for (int j = 0; j < 3; j++) {
-				normal[j] += normal[j] * multiplier;
-			}
-		}		
+		
+		for (int j = 0; j < 3; j++) {
+			normal[j] += normal[j] * multiplier;
+		}
 	}
 
 #endif
@@ -517,7 +494,7 @@ void VertexDecoderDX9::Step_PosS8() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = (float)sv[j] * 1.0f / 127.0f;
+		v[j] = (float)sv[j] * (1.0f / 128.0f);
 	v[3] = 0;
 #endif
 }
@@ -592,7 +569,7 @@ void VertexDecoderDX9::Step_PosS8Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 127.0f;
+		float multiplier = 1.0f / 128.0f;
 		const s8 *sv = (const s8*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
@@ -604,7 +581,7 @@ void VertexDecoderDX9::Step_PosS16Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 32767.0f;
+		float multiplier = 1.0f / 32768.0f;
 		const s16_le *sv = (const s16_le*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
@@ -864,7 +841,7 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 			// The normal formats match the gl formats perfectly, let's use 'em.
 			switch (nrm) {
 			//case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
 			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			}
@@ -1007,4 +984,4 @@ int VertexDecoderDX9::ToString(char *output) const {
 	return output - start;
 }
 
-};
+}  // namespace DX9
