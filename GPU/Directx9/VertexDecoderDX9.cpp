@@ -494,7 +494,7 @@ void VertexDecoderDX9::Step_PosS8() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = (float)sv[j] * 1.0f / 127.0f;
+		v[j] = (float)sv[j] * (1.0f / 128.0f);
 	v[3] = 0;
 #endif
 }
@@ -569,7 +569,7 @@ void VertexDecoderDX9::Step_PosS8Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 127.0f;
+		float multiplier = 1.0f / 128.0f;
 		const s8 *sv = (const s8*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
@@ -581,7 +581,7 @@ void VertexDecoderDX9::Step_PosS16Morph() const
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		float multiplier = 1.0f / 32767.0f;
+		float multiplier = 1.0f / 32768.0f;
 		const s16_le *sv = (const s16_le*)(ptr_ + onesize_*n + posoff);
 		for (int j = 0; j < 3; j++)
 			v[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);

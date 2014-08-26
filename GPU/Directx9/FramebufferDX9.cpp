@@ -647,12 +647,12 @@ namespace DX9 {
 				if (g_Config.iBufFilter == SCALE_LINEAR) {
 					dxstate.texMagFilter.set(D3DTEXF_LINEAR);
 					dxstate.texMinFilter.set(D3DTEXF_LINEAR);
-					dxstate.texMipFilter.set(D3DTEXF_NONE);
 				} else {
 					dxstate.texMagFilter.set(D3DTEXF_POINT);
 					dxstate.texMinFilter.set(D3DTEXF_POINT);
-					dxstate.texMipFilter.set(D3DTEXF_NONE);
 				}
+				dxstate.texMipFilter.set(D3DTEXF_NONE);
+				dxstate.texMipLodBias.set(0);
 				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			}
 			/* 

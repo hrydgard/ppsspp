@@ -224,11 +224,7 @@ static const DeclTypeInfo VComp[] = {
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
 	memset(VertexElement, 0, sizeof(D3DVERTEXELEMENT9));
 	VertexElement->Offset = offset;
-	if (usage == D3DDECLUSAGE_COLOR && fmt == DEC_U8_4) {
-		VertexElement->Type = D3DDECLTYPE_D3DCOLOR;	
-	} else {
-		VertexElement->Type = VComp[fmt].type;	
-	}
+	VertexElement->Type = VComp[fmt].type;
 	VertexElement->Usage = usage;
 	VertexElement->UsageIndex = usage_index;
 }
