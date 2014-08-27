@@ -719,7 +719,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 		UpdateSamplingParams(*entry, true);
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
-		gstate_c.flipTexture = true;
+		gstate_c.flipTexture = false;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
 	} else {
 		if (entry->framebuffer->fbo)
