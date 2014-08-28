@@ -1191,6 +1191,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 		return it->second.fbo;
 	}
 
+	textureCache_->ForgetLastTexture();
 	FBO *fbo = fbo_create(w, h, 1, false, depth);
 	if (!fbo)
 		return fbo;
@@ -1445,6 +1446,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 					break;
 			}
 
+			textureCache_->ForgetLastTexture();
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
