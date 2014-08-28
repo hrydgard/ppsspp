@@ -2185,6 +2185,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer_(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
 				SetColorUpdated(dstBuffer);
+				RebindFramebuffer();
 			}
 		}
 		return false;
