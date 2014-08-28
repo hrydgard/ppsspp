@@ -1585,6 +1585,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 #endif // defined(USING_GLES2) && defined(ANDROID)
 		}
 
+		fbo_unbind_read();
 	} else {
 		fbo_bind_color_as_texture(src->fbo, 0);
 
@@ -1601,11 +1602,10 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int
 		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
+		glstate.viewport.restore();
 	}
 
 	glstate.scissorTest.restore();
-	glstate.viewport.restore();
-	fbo_unbind();
 }
 
 // TODO: SSE/NEON
@@ -1825,10 +1825,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			fbo_bind_for_read(vfb->fbo);
 		} else {
 			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferAsync_: vfb->fbo == 0");
-			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
+			fbo_unbind_read();
 			return;
 		}
 
@@ -1845,10 +1842,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
-			fbo_unbind();
-			if (gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
+			fbo_unbind_read();
 			return;
 		}
 
@@ -1872,11 +1866,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		// LogReadPixelsError(glGetError());
 
-		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
-
+		fbo_unbind_read();
 		unbind = true;
 
 		pixelBufObj_[currentPBO_].fb_address = fb_address;
@@ -1901,10 +1891,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		fbo_bind_for_read(vfb->fbo);
 	} else {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
-		fbo_unbind();
-		if (gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
+		fbo_unbind_read();
 		return;
 	}
 
@@ -1949,7 +1936,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		}
 	}
 
-	fbo_unbind();
+	fbo_unbind_read();
 }
 
 void FramebufferManager::EndFrame() {
