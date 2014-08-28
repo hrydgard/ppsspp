@@ -235,8 +235,6 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		}
 	}
 
-	fbo_unbind();
 	RebindFramebuffer();
-	glstate.viewport.restore();
 	return true;
 }
