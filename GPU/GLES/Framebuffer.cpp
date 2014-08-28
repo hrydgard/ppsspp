@@ -763,6 +763,8 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 void FramebufferManager::RebindFramebuffer() {
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
 		fbo_bind_as_render_target(currentRenderVfb_->fbo);
+	} else {
+		fbo_unbind();
 	}
 }
 
@@ -2087,20 +2089,15 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 		if (!Memory::IsValidAddress(displayFramebufPtr_))
 			return;
 
-		bool needUnbind = false;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				FlushBeforeCopy();
-				fbo_unbind();
 
-				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
-				// However, it doesn't seem to work for Star Ocean, at least
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
 					fbo_bind_as_render_target(vfb->fbo);
 					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
-					needUnbind = true;
 					GEBufferFormat fmt = vfb->format;
 					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
 						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
@@ -2116,9 +2113,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 			}
 		}
 
-		if (needUnbind) {
-			fbo_unbind();
-		}
 		RebindFramebuffer();
 	}
 }
@@ -2205,12 +2199,7 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
 			SetColorUpdated(dstBuffer);
-			if (useBufferedRendering_) {
-				RebindFramebuffer();
-			} else {
-				fbo_unbind();
-			}
-			glstate.viewport.restore();
+			RebindFramebuffer();
 			textureCache_->ForgetLastTexture();
 			// This is a memcpy, let's still copy just in case.
 			return false;
@@ -2437,12 +2426,7 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
 				SetColorUpdated(dstBuffer);
-				if (useBufferedRendering_) {
-					RebindFramebuffer();
-				} else {
-					fbo_unbind();
-				}
-				glstate.viewport.restore();
+				RebindFramebuffer();
 				textureCache_->ForgetLastTexture();
 			}
 		}
