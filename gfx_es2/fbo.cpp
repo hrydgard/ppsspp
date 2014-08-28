@@ -43,6 +43,9 @@ struct FBO {
 
 static FBO *g_overriddenBackbuffer;
 
+static GLuint currentDrawHandle_ = 0;
+static GLuint currentReadHandle_ = 0;
+
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 
@@ -118,6 +121,9 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 	// Unbind state we don't need
 	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	currentDrawHandle_ = fbo->handle;
+	currentReadHandle_ = fbo->handle;
 	return fbo;
 }
 #endif
@@ -237,6 +243,9 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	// Unbind state we don't need
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	currentDrawHandle_ = fbo->handle;
+	currentReadHandle_ = fbo->handle;
 	return fbo;
 }
 
@@ -258,6 +267,37 @@ FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
 	return fbo;
 }
 
+static GLenum fbo_get_fb_target(bool read, GLuint **cached) {
+	bool supportsBlit = gl_extensions.FBO_ARB;
+#ifdef USING_GLES2
+	supportsBlit = supportsBlit && (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
+#endif
+
+	// Note: GL_FRAMEBUFFER_EXT and GL_FRAMEBUFFER have the same value, same with _NV.
+	if (supportsBlit) {
+		if (read) {
+			*cached = &currentReadHandle_;
+			return GL_READ_FRAMEBUFFER;
+		} else {
+			*cached = &currentDrawHandle_;
+			return GL_DRAW_FRAMEBUFFER;
+		}
+	} else {
+		*cached = &currentDrawHandle_;
+		return GL_FRAMEBUFFER;
+	}
+}
+
+static void fbo_bind_fb_target(bool read, GLuint name) {
+	GLuint *cached;
+	GLenum target = fbo_get_fb_target(read, &cached);
+
+	if (*cached != name) {
+		glBindFramebuffer(target, name);
+		*cached = name;
+	}
+}
+
 void fbo_unbind() {
 	if (g_overriddenBackbuffer) {
 		fbo_bind_as_render_target(g_overriddenBackbuffer);
@@ -275,6 +315,9 @@ void fbo_unbind() {
 #ifdef IOS
 	bindDefaultFBO();
 #endif
+
+	currentDrawHandle_ = 0;
+	currentReadHandle_ = 0;
 }
 
 void fbo_override_backbuffer(FBO *fbo) {
@@ -282,48 +325,24 @@ void fbo_override_backbuffer(FBO *fbo) {
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {
-	if (gl_extensions.FBO_ARB) {
-#ifndef USING_GLES2
-		if (true) {
-#else
-		if (gl_extensions.GLES3) {
-#endif
-			// GL_DRAW_FRAMEBUFFER is actually the same value as GL_FRAMEBUFFER so this is a bit redundant.
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-		} else {
-			// This will collide with bind_for_read - but there's nothing in ES 2.0
-			// that actually separate them anyway of course, so doesn't matter.
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-		}
-	}else{
-#ifndef USING_GLES2
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
-#endif
-	}
+	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
+	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
+	fbo_bind_fb_target(false, fbo->handle);
 	// Always restore viewport after render target binding
 	glstate.viewport.restore();
 }
 
+void fbo_unbind_render_target() {
+	fbo_unbind();
+}
+
 // For GL_EXT_FRAMEBUFFER_BLIT and similar.
 void fbo_bind_for_read(FBO *fbo) {
-	if (gl_extensions.FBO_ARB) {
-#ifndef USING_GLES2
-		if (true) {
-#else
-		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-#endif
-			// GL_READ_FRAMEBUFFER is defined to the same value as GL_READ_FRAMEBUFFER_NV.
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
-		} else {
-			// This will collide with bind_as_render_target - but there's nothing in ES 2.0
-			// that actually separate them anyway of course, so doesn't matter.
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-		}
-	} else {
-#ifndef USING_GLES2
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
-#endif
-	}
+	fbo_bind_fb_target(true, fbo->handle);
+}
+
+void fbo_unbind_read() {
+	fbo_bind_fb_target(true, 0);
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
@@ -357,6 +376,9 @@ void fbo_destroy(FBO *fbo) {
 		glDeleteRenderbuffersEXT(1, &fbo->z_stencil_buffer);
 #endif
 	}
+
+	currentDrawHandle_ = 0;
+	currentReadHandle_ = 0;
 
 	glDeleteTextures(1, &fbo->color_texture);
 	delete fbo;
