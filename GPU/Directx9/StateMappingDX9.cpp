@@ -231,7 +231,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0xFF);
 		} else {
-			dxstate.depthTest.disable();
+			dxstate.stencilTest.disable();
 		}
 
 	} else {
@@ -244,8 +244,9 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-		} else 
+		} else {
 			dxstate.depthTest.disable();
+		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.

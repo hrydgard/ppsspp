@@ -523,58 +523,6 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 }
 
-static inline u32 ABGR2RGBA(u32 src) {
-	return ((src & 0xFF000000)) | 
-        ((src & 0x00FF0000) >>  16) | 
-        ((src & 0x0000FF00)) | 
-        ((src & 0x000000FF) << 16);  
-}
-
-static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int numPixels) {
-	// TODO: All these can be further sped up with SSE or NEON.
-	switch (dstFmt) {
-	case D3DFMT_A1R5G5B5:
-		{
-			const u16_le *src = (const u16_le *)srcBuf;
-			u16 *dst = (u16 *)dstBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 rgb = (src[i]);
-				((uint16_t *)dst)[i] = (rgb & 0x83E0) | ((rgb & 0x1F) << 10) | ((rgb & 0x7C00) >> 10);
-			}
-		}
-		break;
-	case D3DFMT_A4R4G4B4:
-		{
-			const u16_le *src = (const u16_le *)srcBuf;
-			u16_le *dst = (u16_le *)dstBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 rgb = src[i];
-				dst[i] = ((rgb & 0xF) << 8) | (rgb & 0xF0F0) | ((rgb & 0xF00) >> 8);
-			}
-		}
-		break;
-	case D3DFMT_R5G6B5:
-		{
-			const u16_le *src = (const u16_le *)srcBuf;
-			u16 *dst = (u16 *)dstBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 rgb = src[i];
-				dst[i] = ((rgb & 0x1f) << 11) | (rgb & 0x7e0) | ((rgb & 0xF800) >> 11);
-			}
-		}
-		break;
-	default:
-		{
-			const u32 *src = (const u32 *)srcBuf;
-			u32 *dst = (u32*)dstBuf;
-			for (int i = 0; i < numPixels; i++) {
-				dst[i] = ABGR2RGBA(src[i]);
-			}
-		}
-		break;
-	}
-}
-
 void TextureCacheDX9::StartFrame() {
 	lastBoundTexture = INVALID_TEX;
 	if (clearCacheNextFrame_) {
@@ -587,37 +535,6 @@ void TextureCacheDX9::StartFrame() {
 
 static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
-}
-
-static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
-	// CLUTs always come in multiples of 32 bytes, can't load them any other way.
-	_dbg_assert_msg_(G3D, (bytes & 31) == 0, "CLUT should always have a multiple of 32 bytes.");
-
-	const u32 prime = 2246822519U;
-	u32 hash = 0;
-#ifdef _M_SSE
-	if ((((u32)(intptr_t)clut) & 0xf) == 0) {
-		__m128i cursor = _mm_set1_epi32(0);
-		const __m128i mult = _mm_set1_epi32(prime);
-		const __m128i *p = (const __m128i *)clut;
-		for (u32 i = 0; i < bytes / 16; ++i) {
-			cursor = _mm_add_epi32(cursor, _mm_mul_epu32(_mm_load_si128(&p[i]), mult));
-		}
-		// Add the four parts into the low i32.
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
-		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
-		hash = _mm_cvtsi128_si32(cursor);
-	} else {
-#else
-	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
-	{
-#endif
-		for (const u32 *p = (u32 *)clut, *end = (u32 *)(clut + bytes); p < end; ) {
-			hash += *p++ * prime;
-		}
-	}
-
-	return hash;
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
@@ -653,19 +570,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
 	clutHash_ = DoReliableHash((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-	
-	/*
-	// Avoid a copy when we don't need to convert colors.
-	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		ClutConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutExtendedBytes / sizeof(u16));
-		clutBuf_ = clutBufConverted_;
-	} else {
-		clutBuf_ = clutBufRaw_;
-	}
-	*/
-	ClutConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutExtendedBytes / sizeof(u16));
-	clutBuf_ = clutBufConverted_;
-	//clutBuf_ = clutBufRaw_;
+	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
@@ -720,6 +625,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry)
 		gstate_c.curTextureWidth = entry->framebuffer->width;
 		gstate_c.curTextureHeight = entry->framebuffer->height;
 		gstate_c.flipTexture = false;
+		gstate_c.bgraTexture = false;
 		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
 	} else {
 		if (entry->framebuffer->fbo)
@@ -780,6 +686,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
+	gstate_c.bgraTexture = true;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool replaceImages = false;
@@ -1118,7 +1025,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		}
-		ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
@@ -1140,7 +1046,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		}
-		ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_DXT1:
@@ -1160,7 +1065,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 				}
 			}
 			finalBuf = tmpTexBuf32.data();
-			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1183,7 +1087,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1205,7 +1108,6 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
