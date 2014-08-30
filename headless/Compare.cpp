@@ -18,7 +18,9 @@
 #include "headless/Compare.h"
 #include "file/file_util.h"
 #include "Core/Host.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <iostream>
@@ -282,18 +284,47 @@ inline int ComparePixel(u32 pix1, u32 pix2)
 	return 0;
 }
 
-double CompareScreenshot(const u8 *pixels, int w, int h, int stride, const std::string screenshotFilename, std::string &error)
+std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h)
 {
-	u32 *pixels32 = (u32 *) pixels;
+	// If the output was small, act like everything outside was 0.
+	// This can happen depending on viewport parameters.
+	u32 safeW = std::min(stride, buffer->GetStride());
+	u32 safeH = std::min(h, buffer->GetHeight());
+
+	std::vector<u32> data;
+	data.resize(stride * h, 0);
+
+	const u32 *pixels = (const u32 *)buffer->GetData();
+	int outStride = buffer->GetStride();
+	if (!buffer->GetFlipped())
+	{
+		// Bitmaps are flipped, so we have to compare backwards in this case.
+		pixels += outStride * buffer->GetHeight();
+		outStride = -outStride;
+	}
+
+	u32 errors = 0;
+	for (u32 y = 0; y < safeH; ++y)
+	{
+		for (u32 x = 0; x < safeW; ++x)
+			data[y * stride + x] = pixels[x];
+		pixels += outStride;
+	}
+
+	return data;
+}
+
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string screenshotFilename, std::string &error)
+{
 	// We assume the bitmap is the specified size, not including whatever stride.
-	u32 *reference = (u32 *) calloc(w * h, sizeof(u32));
+	u32 *reference = (u32 *) calloc(stride * h, sizeof(u32));
 
 	FILE *bmp = fopen(screenshotFilename.c_str(), "rb");
 	if (bmp)
 	{
 		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
 		fseek(bmp, 14 + 40, SEEK_SET);
-		fread(reference, sizeof(u32), w * h, bmp);
+		fread(reference, sizeof(u32), stride * h, bmp);
 		fclose(bmp);
 	}
 	else
@@ -304,10 +335,10 @@ double CompareScreenshot(const u8 *pixels, int w, int h, int stride, const std::
 	}
 
 	u32 errors = 0;
-	for (int y = 0; y < h; ++y)
+	for (u32 y = 0; y < h; ++y)
 	{
-		for (int x = 0; x < w; ++x)
-			errors += ComparePixel(pixels32[y * stride + x], reference[y * w + x]);
+		for (u32 x = 0; x < w; ++x)
+			errors += ComparePixel(pixels[y * stride + x], reference[y * stride + x]);
 	}
 
 	free(reference);

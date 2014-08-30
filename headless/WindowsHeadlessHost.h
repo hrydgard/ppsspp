@@ -37,7 +37,7 @@ public:
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
 	virtual void SetComparisonScreenshot(const std::string &filename);
 
-private:
+protected:
 	bool ResizeGL();
 	void LoadNativeAssets();
 	void SendOrCollectDebugOutput(const std::string &output);
