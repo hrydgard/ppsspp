@@ -791,7 +791,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 
 	bool trueColor = g_Config.bTrueColor;
 	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
-		trueColor = false;
+		trueColor = true;
 	}
 
 	if (trueColor) {
@@ -1384,6 +1384,18 @@ inline bool FramebufferManager::ShouldDownloadFramebuffer(const VirtualFramebuff
 	return updateVRAM_ || (hackForce04154000Download_ && vfb->fb_address == 0x00154000);
 }
 
+inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const {
+	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+	// We might get here if hackForce04154000Download_ is hit.
+	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+	// This causes glitches in games that expect the exact values.
+	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+	if (g_Config.iRenderingMode == FB_BUFFERED_MODE && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
+		useCPU = true;
+	}
+	return useCPU;
+}
+
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 
 #ifndef USING_GLES2
@@ -1446,6 +1458,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				default:
 					nvfb->colorDepth = FBO_8888;
 					break;
+			}
+			if (ShouldDownloadUsingCPU(vfb)) {
+				nvfb->colorDepth = vfb->colorDepth;
 			}
 
 			textureCache_->ForgetLastTexture();
@@ -1735,15 +1750,8 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
 	bool unbind = false;
-	u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-	// We might get here if hackForce04154000Download_ is hit.
-	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-	// This causes glitches in games that expect the exact values.
-	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
-		useCPU = true;
-	}
+	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
+	const bool useCPU = ShouldDownloadUsingCPU(vfb);
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
