@@ -92,8 +92,11 @@ namespace DX9 {
 	}
 
 	static void ClearBuffer() {
-		dxstate.depthWrite.set(true);
+		dxstate.scissorTest.disable();
+		dxstate.depthWrite.set(TRUE);
 		dxstate.colorMask.set(true, true, true, true);
+		dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
+		dxstate.stencilMask.set(0xFF);
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
 	}
 
@@ -103,6 +106,8 @@ namespace DX9 {
 		dxstate.depthTest.disable();
 		dxstate.scissorTest.disable();
 		dxstate.stencilTest.disable();
+		dxstate.colorMask.set(true, true, true, true);
+		dxstate.stencilMask.set(0xFF);
 	}
 
 
