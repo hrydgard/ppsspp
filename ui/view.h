@@ -673,7 +673,7 @@ public:
 	TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams = 0);
 	void SetText(const std::string &text) { text_ = text; caret_ = (int)text_.size(); }
 	const std::string &GetText() const { return text_; }
-	void SetMaxLen(int maxLen) { maxLen_ = maxLen; }
+	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	virtual void Draw(UIContext &dc) override;
@@ -687,7 +687,7 @@ private:
 	std::string undo_;
 	std::string placeholderText_;
 	int caret_;
-	int maxLen_;
+	size_t maxLen_;
 	bool ctrlDown_;  // TODO: Make some global mechanism for this.
 	// TODO: Selections
 };

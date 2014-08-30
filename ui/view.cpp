@@ -728,7 +728,7 @@ void TextEdit::Key(const KeyInput &input) {
 						size_t maxPaste = maxLen_ - text_.size();
 						if (clipText.size() > maxPaste) {
 							int end = 0;
-							while (end < maxPaste) {
+							while ((size_t)end < maxPaste) {
 								u8_inc(clipText.c_str(), &end);
 							}
 							if (end > 0) {

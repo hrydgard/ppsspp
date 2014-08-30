@@ -515,7 +515,7 @@ static int VertexDataTypeToD3DType(T3DVertexDataType type) {
 
 Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std::vector<Thin3DVertexComponent> &components, int stride) : decl_(NULL) {
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[components.size() + 1];
-	int i;
+	size_t i;
 	for (i = 0; i < components.size(); i++) {
 		elements[i].Stream = 0;
 		elements[i].Offset = components[i].offset;
