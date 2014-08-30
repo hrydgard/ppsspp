@@ -50,7 +50,6 @@ namespace MIPSComp
 void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
-	SetRoundingMode();
 
 	int ft = _FT;
 	int fs = _FS;
@@ -191,8 +190,6 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 
 void Jit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-	// TODO: Does this matter here?
-	SetRoundingMode();
 
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -338,7 +335,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
-		SetRoundingMode();
 		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
