@@ -94,7 +94,7 @@ int printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
 
-#if HEADLESSHOST_CLASS != HeadlessHost
+#if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
 		fprintf(stderr, "                        options: gles, software, directx9\n");
@@ -112,16 +112,21 @@ int printUsage(const char *progname, const char *reason)
 	return 1;
 }
 
-static HeadlessHost * getHost(GPUCore gpuCore) {
-	switch(gpuCore) {
+static HeadlessHost *getHost(GPUCore gpuCore) {
+	switch (gpuCore) {
 	case GPU_NULL:
 		return new HeadlessHost();
 #ifdef _WIN32
 	case GPU_DIRECTX9:
 		return new WindowsHeadlessHostDx9();
 #endif
+#ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
+#else
+	default:
+		return new HeadlessHost();
+#endif
 	}
 }
 
