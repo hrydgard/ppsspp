@@ -29,7 +29,6 @@
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
-#include "gfx/gl_lost_manager.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -81,8 +80,6 @@ void WindowsHeadlessHost::LoadNativeAssets()
 	VFSRegister("", new DirectoryAssetReader("../"));
 	VFSRegister("", new DirectoryAssetReader("../Windows/assets/"));
 	VFSRegister("", new DirectoryAssetReader("../Windows/"));
-
-	gl_lost_manager_init();
 }
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
