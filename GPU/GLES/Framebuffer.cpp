@@ -1385,6 +1385,7 @@ inline bool FramebufferManager::ShouldDownloadFramebuffer(const VirtualFramebuff
 }
 
 inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const {
+#ifndef USING_GLES2
 	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 	// We might get here if hackForce04154000Download_ is hit.
 	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
@@ -1394,6 +1395,9 @@ inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer 
 		useCPU = true;
 	}
 	return useCPU;
+#else
+	return  true;
+#endif
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
