@@ -406,23 +406,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			} else {
 				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
 			}
-			// Hardware rounding method.
-			// Left here in case it is faster than conditional method.
-			/*
-			AND(SCRATCHREG1, gpr.R(rt), Operand2(3));
-			// MIPS Rounding Mode <-> ARM Rounding Mode
-			//         0, 1, 2, 3 <->  0, 3, 1, 2
-			CMP(SCRATCHREG1, Operand2(1));
-			SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
-			SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
-			SetCC(CC_AL);
 
-			// Load and Store RM to FPSCR
-			VMRS(SCRATCHREG2);
-			BIC(SCRATCHREG2, SCRATCHREG2, Operand2(0x3 << 22));
-			ORR(SCRATCHREG2, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
-			VMSR(SCRATCHREG2);
-			*/
 			// Update MIPS state
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
@@ -433,6 +417,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
 				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
+				SetRoundingMode();
+			} else {
+				if ((gpr.GetImm(rt) & 3) == 0) {
+					// Default nearest mode, let's do this the fast way.
+					ClearRoundingMode();
+				} else {
+					SetRoundingMode();
+				}
 			}
 		} else {
 			Comp_Generic(op);
