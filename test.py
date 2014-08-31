@@ -310,7 +310,9 @@ tests_next = [
   "io/file/rename",
   "io/io/io",
   "io/iodrv/iodrv",
-  "modules/loadexec/loader",
+  # Doesn't work on a PSP for security reasons, hangs in PPSSPP currently.
+  # Commented out to make tests run much faster.
+  #"modules/loadexec/loader",
   "net/http/http",
   "net/primary/ether",
   "power/cpu",
