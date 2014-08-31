@@ -694,10 +694,10 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
-	const bool useIniFilename = (iniFileName != NULL) && (strlen(iniFileName) > 0);
+	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
 
-	const bool useControllerIniFilename = (controllerIniFilename != NULL) && (strlen(controllerIniFilename) > 0);
+	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
 	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
