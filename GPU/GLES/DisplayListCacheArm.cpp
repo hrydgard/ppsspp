@@ -165,24 +165,24 @@ void DisplayListCache::JitDirtyUniform(u32 what, bool exec) {
 void DisplayListCache::Jit_Generic(u32 op) {
 	const u32 cmd = op >> 24;
 	const u32 diff = op ^ gstate.cmdmem[cmd];
-	const u8 cmdFlags = gpu_->commandFlags_[cmd];
+	const GLES_GPU::CommandInfo cmdInfo = GLES_GPU::cmdInfo_[cmd];
 
-	if (cmdFlags & FLAG_FLUSHBEFORE) {
+	if (cmdInfo.flags & FLAG_FLUSHBEFORE) {
 		JitFlush();
-	} else if (cmdFlags & FLAG_FLUSHBEFOREONCHANGE) {
+	} else if (cmdInfo.flags & FLAG_FLUSHBEFOREONCHANGE) {
 		JitFlush(diff, true, diff != 0);
 	}
 
 	gstate.cmdmem[cmd] = op;
 	STR(opReg, gstateReg, cmd * 4);
 
-	if (cmdFlags & FLAG_ANY_EXECUTE) {
+	if (cmdInfo.flags & FLAG_ANY_EXECUTE) {
 		FixupBranch changedSkip;
-		if (!(cmdFlags & FLAG_EXECUTE)) {
+		if (!(cmdInfo.flags & FLAG_EXECUTE)) {
 			CMP(diffReg, 0);
 			changedSkip = B_CC(CC_EQ);
 		}
-		if (cmdFlags & FLAG_READS_PC) {
+		if (cmdInfo.flags & FLAG_READS_PC) {
 			JitStorePC();
 		}
 		gpu_->ExecuteOp(op, diff);
@@ -190,10 +190,10 @@ void DisplayListCache::Jit_Generic(u32 op) {
 		MOV(R1, opReg);
 		MOV(R2, diffReg);
 		QuickCallFunction(R3, &DoExecuteOp);
-		if (cmdFlags & FLAG_WRITES_PC) {
+		if (cmdInfo.flags & FLAG_WRITES_PC) {
 			JitLoadPC();
 		}
-		if (!(cmdFlags & FLAG_EXECUTE)) {
+		if (!(cmdInfo.flags & FLAG_EXECUTE)) {
 			SetJumpTarget(changedSkip);
 		}
 	}
