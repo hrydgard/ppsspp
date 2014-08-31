@@ -1371,10 +1371,12 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no data", atracID, loopNum);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
+		if (atrac->loopinfoNum == 0) {
+			ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no loop information", atracID, loopNum);
+			return ATRAC_ERROR_NO_LOOP_INFORMATION;
+		}
 		// Spammed in MHU
 		DEBUG_LOG(ME, "sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
-		if (atrac->loopinfoNum == 0)
-			return ATRAC_ERROR_NO_LOOP_INFORMATION;
 		atrac->loopNum = loopNum;
 		if (loopNum != 0 && atrac->loopinfoNum == 0) {
 			// Just loop the whole audio
