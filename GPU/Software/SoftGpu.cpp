@@ -626,6 +626,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif
 
+			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+			cyclesExecuted += ((height * width * bpp) * 16) / 10;
+
 			// Could theoretically dirty the framebuffer.
 			framebufferDirty_ = true;
 			break;

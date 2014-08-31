@@ -1478,6 +1478,9 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 			dstStride == 512 && height == 272) {
 		framebufferManager_.DrawPixels(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512);
 	}
+
+	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
 void DIRECTX9_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
