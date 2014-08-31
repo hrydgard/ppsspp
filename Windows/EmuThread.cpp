@@ -98,15 +98,13 @@ unsigned int WINAPI TheThread(void *)
 	// -TheDax
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	std::vector<std::string> argsUTF8;
-	for (auto& string : wideArgs)
-	{
+	for (auto& string : wideArgs) {
 		argsUTF8.push_back(ConvertWStringToUTF8(string));
 	}
 
 	std::vector<const char *> args;
 
-	for (auto& string: argsUTF8)
-	{
+	for (auto& string : argsUTF8) {
 		args.push_back(string.c_str());
 	}
 
