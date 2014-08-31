@@ -409,7 +409,7 @@ Thin3DDX9Context::~Thin3DDX9Context() {
 
 Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
 	Thin3DDX9Shader *shader = new Thin3DDX9Shader(false);
-	if (shader->Compile(device_, hlsl_source, "vs_3_0")) {
+	if (shader->Compile(device_, hlsl_source, "vs_2_0")) {
 		return shader;
 	} else {
 		delete shader;
@@ -419,7 +419,7 @@ Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, cons
 
 Thin3DShader *Thin3DDX9Context::CreateFragmentShader(const char *glsl_source, const char *hlsl_source) {
 	Thin3DDX9Shader *shader = new Thin3DDX9Shader(true);
-	if (shader->Compile(device_, hlsl_source, "ps_3_0")) {
+	if (shader->Compile(device_, hlsl_source, "ps_2_0")) {
 		return shader;
 	} else {
 		delete shader;
