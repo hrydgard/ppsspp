@@ -22,8 +22,6 @@ extern "C" void _ReadBarrier();
 
 #else
 #include <Windows.h>
-#include <vector>
-extern std::vector<std::wstring> GetWideCmdLine();
 #endif
 
 #undef min

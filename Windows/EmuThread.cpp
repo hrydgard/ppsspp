@@ -27,6 +27,8 @@ static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
 
+extern std::vector<std::wstring> GetWideCmdLine();
+
 enum EmuThreadStatus : long
 {
 	THREAD_NONE = 0,
@@ -96,9 +98,9 @@ unsigned int WINAPI TheThread(void *)
 	// -TheDax
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	std::vector<std::string> argsUTF8;
-	for (auto& i : wideArgs)
+	for (auto& string : wideArgs)
 	{
-		argsUTF8.push_back(ConvertWStringToUTF8(i));
+		argsUTF8.push_back(ConvertWStringToUTF8(string));
 	}
 
 	std::vector<const char *> args;
@@ -108,7 +110,7 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
-	NativeInit(args.size(), &args[0], "1234", "1234", "1234");
+	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
 
 	Host *nativeHost = host;
 	host = oldHost;
