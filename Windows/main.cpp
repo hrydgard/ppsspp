@@ -334,6 +334,16 @@ void MakePPSSPPDPIAware()
 	}
 }
 
+std::vector<std::wstring> GetWideCmdLine() {
+	wchar_t **wargv;
+	int wargc = -1;
+	wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+
+	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
+
+	return wideArgs;
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
 	setCurrentThreadName("Main");
@@ -385,23 +395,29 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
 
-	const char *configFilename = NULL;
-	const char *configOption = "--config=";
+	char configFilename[MAX_PATH] = { 0 };
+	const std::wstring configOption = L"--config=";
 
-	const char *controlsConfigFilename = NULL;
-	const char *controlsOption = "--controlconfig=";
+	char controlsConfigFilename[MAX_PATH] = { 0 };
+	const std::wstring controlsOption = L"--controlconfig=";
 
-	for (int i = 1; i < __argc; ++i)
+	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+
+	for (size_t i = 1; i < wideArgs.size(); ++i)
 	{
-		if (__argv[i][0] == '\0')
+		if (wideArgs[i][0] == L'\0')
 			continue;
-		if (__argv[i][0] == '-')
-		{
-			if (!strncmp(__argv[i], configOption, strlen(configOption)) && strlen(__argv[i]) > strlen(configOption)) {
-				configFilename = __argv[i] + strlen(configOption);
+		if (wideArgs[i][0] == L'-') {
+			if (wideArgs[i].find(configOption) != std::wstring::npos && wideArgs[i].size() > configOption.size()) {
+				const std::wstring tempWide = wideArgs[i].substr(configOption.size());
+				const std::string tempStr = ConvertWStringToUTF8(tempWide);
+				std::strncpy(configFilename, tempStr.c_str(), MAX_PATH);
 			}
-			if (!strncmp(__argv[i], controlsOption, strlen(controlsOption)) && strlen(__argv[i]) > strlen(controlsOption)) {
-				controlsConfigFilename = __argv[i] + strlen(controlsOption);
+
+			if (wideArgs[i].find(controlsOption) != std::wstring::npos && wideArgs[i].size() > controlsOption.size()) {
+				const std::wstring tempWide = wideArgs[i].substr(configOption.size());
+				const std::string tempStr = ConvertWStringToUTF8(tempWide);
+				std::strncpy(configFilename, tempStr.c_str(), MAX_PATH);
 			}
 		}
 	}
@@ -420,32 +436,30 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	bool debugLogLevel = false;
 
 	// The rest is handled in NativeInit().
-	for (int i = 1; i < __argc; ++i)
+	for (size_t i = 1; i < wideArgs.size(); ++i)
 	{
-		if (__argv[i][0] == '\0')
+		if (wideArgs[i][0] == L'\0')
 			continue;
 
-		if (__argv[i][0] == '-')
-		{
-			switch (__argv[i][1])
-			{
-			case 'l':
+		if (wideArgs[i][0] == L'-') {
+			switch (wideArgs[i][1]) {
+			case L'l':
 				showLog = true;
 				g_Config.bEnableLogging = true;
 				break;
-			case 's':
+			case L's':
 				g_Config.bAutoRun = false;
 				g_Config.bSaveSettings = false;
 				break;
-			case 'd':
+			case L'd':
 				debugLogLevel = true;
 				break;
 			}
 
-			if (!strncmp(__argv[i], "--fullscreen", strlen("--fullscreen")))
+			if (wideArgs[i] == L"--fullscreen")
 				g_Config.bFullScreen = true;
 
-			if (!strncmp(__argv[i], "--windowed", strlen("--windowed")))
+			if (wideArgs[i] == L"--windowed")
 				g_Config.bFullScreen = false;
 		}
 	}
