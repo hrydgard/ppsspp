@@ -593,101 +593,99 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 	} else if (!atrac->data_buf) {
 		ret = ATRAC_ERROR_NO_DATA;
 	} else {
+		// TODO: This isn't at all right, but at least it makes the music "last" some time.
+		u32 numSamples = 0;
+		u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+#ifdef USE_FFMPEG
+		if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
+			int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
+			atrac->SeekToSample(forceseekSample);
+			atrac->SeekToSample(atrac->currentSample);
+			AVPacket packet;
+			av_init_packet(&packet);
+			int got_frame, avret;
+			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
+				if (packet.stream_index != atrac->audio_stream_index) {
+					av_free_packet(&packet);
+					continue;
+				}
+
+				got_frame = 0;
+				int bytes_in_packet = packet.size;
+				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+				if (avret == AVERROR_PATCHWELCOME) {
+					ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
+					// Let's try the next frame.
+				} else if (avret < 0) {
+					ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
+					av_free_packet(&packet);
+					atrac->failedDecode = true;
+					// No need to free the packet if decode_audio4 fails.
+					// Avoid getting stuck in a loop (Virtua Tennis)
+					*SamplesNum = 0;
+					*finish = 1;
+					*remains = 0;
+					return ATRAC_ERROR_ALL_DATA_DECODED;
+				}
+				// FFmpeg seems to return packet.size / 10.
+				// However, advancing the packet by this causes decode errors.  Bug?
+				if (avret != packet.size && avret != packet.size / 10) {
+					ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame per packet");
+				}
+
+				if (got_frame) {
+					// got a frame
+					// Use a small buffer and keep overwriting it with file data constantly
+					atrac->first.writableBytes += atrac->atracBytesPerFrame;	
+					int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
+					atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
+					u8 *out = outbuf;
+					if (out != NULL) {
+						numSamples = atrac->pFrame->nb_samples;
+						avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
+							(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+						if (avret < 0) {
+							ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+						}
+					}
+				}
+				av_free_packet(&packet);
+				if (got_frame) {
+					// We only want one frame per call, let's continue the next time.
+					break;
+				}
+			}
+		}
+#endif // USE_FFMPEG
 		// We already passed the end - return an error (many games check for this.)
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			*SamplesNum = 0;
 			*finish = 1;
 			*remains = 0;
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
-		} else {
-			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			u32 numSamples = 0;
-			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-#ifdef USE_FFMPEG
-			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
-				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
-				atrac->SeekToSample(forceseekSample);
-				atrac->SeekToSample(atrac->currentSample);
-				AVPacket packet;
-				av_init_packet(&packet);
-				int got_frame, avret;
-				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-					if (packet.stream_index != atrac->audio_stream_index) {
-						av_free_packet(&packet);
-						continue;
-					}
-
-					got_frame = 0;
-					int bytes_in_packet = packet.size;
-					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-					if (avret == AVERROR_PATCHWELCOME) {
-						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
-						// Let's try the next frame.
-					} else if (avret < 0) {
-						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
-						av_free_packet(&packet);
-						atrac->failedDecode = true;
-						// No need to free the packet if decode_audio4 fails.
-						// Avoid getting stuck in a loop (Virtua Tennis)
-						*SamplesNum = 0;
-						*finish = 1;
-						*remains = 0;
-						return ATRAC_ERROR_ALL_DATA_DECODED;
-					}
-					// FFmpeg seems to return packet.size / 10.
-					// However, advancing the packet by this causes decode errors.  Bug?
-					if (avret != packet.size && avret != packet.size / 10) {
-						ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame per packet");
-					}
-
-					if (got_frame) {
-						// got a frame
-						// Use a small buffer and keep overwriting it with file data constantly
-						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
-						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-						u8 *out = outbuf;
-						if (out != NULL) {
-							numSamples = atrac->pFrame->nb_samples;
-							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-								(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
-							if (avret < 0) {
-								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-							}
-						}
-					}
-					av_free_packet(&packet);
-					if (got_frame) {
-						// We only want one frame per call, let's continue the next time.
-						break;
-					}
-				}
-			}
-#endif // USE_FFMPEG
-
-			*SamplesNum = numSamples;
-			// update current sample and decodePos
-			atrac->currentSample += numSamples;
-			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
-
-			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample + (int)atracSamplesPerFrame > atrac->loopEndSample ||
-				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				atrac->currentSample = atrac->loopStartSample;
-				if (atrac->loopNum > 0)
-					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample ||
-				(numSamples == 0 && atrac->first.size >= atrac->first.filesize)) {
-				finishFlag = 1;
-			}
-
-			*finish = finishFlag;
-			*remains = atrac->getRemainFrames();
 		}
-		if (atrac->atracContext.IsValid()) {
-			// refresh atracContext
-			_AtracGenarateContext(atrac, atrac->atracContext);
+		*SamplesNum = numSamples;
+		// update current sample and decodePos
+		atrac->currentSample += numSamples;
+		atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
+
+		int finishFlag = 0;
+		if (atrac->loopNum != 0 && (atrac->currentSample + (int)atracSamplesPerFrame > atrac->loopEndSample ||
+			(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
+			atrac->currentSample = atrac->loopStartSample;
+			if (atrac->loopNum > 0)
+				atrac->loopNum --;
+		} else if (atrac->currentSample >= atrac->endSample ||
+			(numSamples == 0 && atrac->first.size >= atrac->first.filesize)) {
+			finishFlag = 1;
 		}
+
+		*finish = finishFlag;
+		*remains = atrac->getRemainFrames();
+	}
+	if (atrac->atracContext.IsValid()) {
+		// refresh atracContext
+		_AtracGenarateContext(atrac, atrac->atracContext);
 	}
 
 	return ret;
