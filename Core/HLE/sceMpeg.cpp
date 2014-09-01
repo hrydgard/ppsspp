@@ -1569,6 +1569,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 	if (streamInfo == ctx->streamMap.end()) {
 		WARN_LOG_REPORT(ME, "sceMpegGetAtracAu: invalid audio stream %08x", streamId);
+		// TODO: Why was this changed to not return an error?
 	}
 
 	// The audio can end earlier than the video does.
@@ -1580,7 +1581,9 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	// esBuffer is the memory where this au data goes.  We don't write the data to memory.
 	// Instead, let's abuse it to keep track of the stream number.
-	atracAu.esBuffer = streamInfo->second.num;
+	if (streamInfo != ctx->streamMap.end()) {
+		atracAu.esBuffer = streamInfo->second.num;
+	}
 
 	int result = 0;
 	atracAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
