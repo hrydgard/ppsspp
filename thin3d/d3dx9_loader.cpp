@@ -68,11 +68,11 @@ bool checkExistsDllW(const WCHAR* sDllFilename) {
 	return false;
 }
 
-bool getLatestInstalledD3DXVersion(unsigned int* piOutVers) {
+bool getLatestInstalledD3DXVersion(unsigned int* piOutVers, bool debugVersion) {
 	*piOutVers = 0;
 	std::wstring fname;
 	for (unsigned int cvers = 45; cvers > 0; cvers--) {
-		makeD3DX9dllFilename_by_versionW(fname, cvers);
+		makeD3DX9dllFilename_by_versionW(fname, cvers, debugVersion);
 		if (checkExistsDllW(fname.c_str())) {
 			*piOutVers = cvers;
 			return true;
@@ -87,7 +87,7 @@ HMODULE loadDllLastVersion(unsigned int* version, bool debugVersion) {
 	if (version)
 		*version = 0;
 
-	if (!getLatestInstalledD3DXVersion(version)) {
+	if (!getLatestInstalledD3DXVersion(version, debugVersion)) {
 		return 0;
 	}
 
@@ -108,7 +108,7 @@ HMODULE loadDllLastVersion(unsigned int* version, bool debugVersion) {
   }
 
 void handleNotFoundAddr(const char* sFuncName) {
-	ELOG("Failed to find D3DX fucntion %s", sFuncName);
+	ELOG("Failed to find D3DX function %s", sFuncName);
 	failedFunctions++;
 }
 
