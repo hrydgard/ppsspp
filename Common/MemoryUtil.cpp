@@ -76,7 +76,7 @@ static void *SearchForFreeMem(size_t size)
 	while (VirtualQuery((void *)last_addr, &info, sizeof(info)) == sizeof(info))
 	{
 		// went too far, unusable for executable memory
-		if (last_addr + 0x80000000 < (uintptr_t) &hint_loction)
+		if (last_addr + 0x80000000 < (uintptr_t) &hint_location)
 			return NULL;
 
 		uintptr_t end = last_addr + size;
