@@ -500,7 +500,7 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
-	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, pixel_xres, pixel_yres, 0);
+	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, pixel_xres, pixel_yres, mode);
 	if (g_Screen == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
