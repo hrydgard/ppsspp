@@ -232,7 +232,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "		float3 v_color1: COLOR1;              \n");    
 	}
 	if (enableFog) {
-		WRITE(p, "float v_fogdepth:FOG;\n");
+		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, " };                                         \n"); 
 	WRITE(p, "                                            \n");
@@ -328,7 +328,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth.x, 0.0, 1.0);\n");
 			WRITE(p, "  return lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
 		} else {
 			WRITE(p, "  return v;\n");

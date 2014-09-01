@@ -270,7 +270,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "		float3 v_color1    : COLOR1;                 \n");
 
 	if (enableFog) {
-		WRITE(p, "float v_fogdepth:FOG;\n");
+		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, " };                                          \n");
 	WRITE(p, "                                             \n");
@@ -292,7 +292,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 				WRITE(p, "  Out.v_color1 = In.vec3(0.0);\n");
 		}
 		if (enableFog) {
-			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
+			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
 			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
@@ -574,7 +574,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 		// Compute fogdepth
 		if (enableFog)
-			WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+			WRITE(p, "  Out.v_fogdepth.x = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 
 	}
 
