@@ -2,6 +2,7 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
 enable_language(ASM)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
 
 add_definitions(-DPPSSPP)
 
@@ -126,7 +127,7 @@ if(MAEMO)
 endif()
 
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
-	include(FindSDL)
+	include(FindSDL2)
 endif()
 include(FindThreads)
 
@@ -729,15 +730,15 @@ elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
-elseif(SDL_FOUND)
+elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
-	include_directories(${SDL_INCLUDE_DIR})
+	include_directories(${SDL2_INCLUDE_DIR})
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		native/base/PCMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
+	set(nativeExtraLibs ${nativeExtraLibs} ${SDL2_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
@@ -746,7 +747,7 @@ elseif(SDL_FOUND)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
-	message(FATAL_ERROR "Could not find SDL. Failing.")
+	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
 set(NativeAppSource
