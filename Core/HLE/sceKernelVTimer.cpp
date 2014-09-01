@@ -121,8 +121,8 @@ void __rescheduleVTimer(SceUID id, u32 delay) {
 	if (error)
 		return;
 
-	if (delay < 100)
-		delay = 100;
+	if (delay < 250)
+		delay = 250;
 
 	__KernelScheduleVTimer(vt, vt->nvt.schedule + delay);
 }
@@ -372,11 +372,16 @@ void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = CoreTiming::GetGlobalTimeUs();
 
+	u64 delay = vt->nvt.schedule;
+	if (delay < 250)
+		delay = 250;
 	if (vt->nvt.handlerAddr != 0)
-		__KernelScheduleVTimer(vt, vt->nvt.schedule);
+		__KernelScheduleVTimer(vt, delay);
 }
 
 u32 sceKernelStartVTimer(SceUID uid) {
+	hleEatCycles(12200);
+
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelStartVTimer(%08x): invalid vtimer", uid);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
