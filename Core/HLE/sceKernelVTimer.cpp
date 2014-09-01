@@ -99,15 +99,14 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 		// The "real" base is base + current.  But when setting the time, base is important.
 		// The schedule is relative to those.
 		u64 cyclesIntoFuture;
-		// It seems like the minimum is approximately 200us?
-		if (schedule < __getVTimerCurrentTime(vt))
+		if (schedule < 250) {
+			schedule = 250;
+		}
+		u64 goalUs = vt->nvt.base + schedule - vt->nvt.current;
+		if (goalUs < CoreTiming::GetGlobalTimeUs()) {
 			cyclesIntoFuture = usToCycles(200);
-		else {
-			u64 goalUs = vt->nvt.base + schedule - vt->nvt.current;
-			if (goalUs < CoreTiming::GetGlobalTimeUs())
-				cyclesIntoFuture = usToCycles(200);
-			else
-				cyclesIntoFuture = usToCycles(goalUs - CoreTiming::GetGlobalTimeUs());
+		} else {
+			cyclesIntoFuture = usToCycles(goalUs - CoreTiming::GetGlobalTimeUs());
 		}
 
 		CoreTiming::ScheduleEvent(cyclesIntoFuture, vtimerTimer, vt->GetUID());
@@ -120,9 +119,6 @@ void __rescheduleVTimer(SceUID id, u32 delay) {
 
 	if (error)
 		return;
-
-	if (delay < 250)
-		delay = 250;
 
 	__KernelScheduleVTimer(vt, vt->nvt.schedule + delay);
 }
@@ -372,11 +368,8 @@ void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = CoreTiming::GetGlobalTimeUs();
 
-	u64 delay = vt->nvt.schedule;
-	if (delay < 250)
-		delay = 250;
 	if (vt->nvt.handlerAddr != 0)
-		__KernelScheduleVTimer(vt, delay);
+		__KernelScheduleVTimer(vt, vt->nvt.schedule);
 }
 
 u32 sceKernelStartVTimer(SceUID uid) {
@@ -432,6 +425,7 @@ u32 sceKernelStopVTimer(SceUID uid) {
 }
 
 u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
+	hleEatCycles(900);
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
@@ -446,6 +440,7 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 	}
 
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+	hleEatCycles(2000);
 
 	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
@@ -460,6 +455,7 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 }
 
 u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
+	hleEatCycles(900);
 	if (uid == runningVTimer) {
 		WARN_LOG(SCEKERNEL, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
 		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
