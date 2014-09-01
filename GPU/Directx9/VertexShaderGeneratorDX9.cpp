@@ -56,6 +56,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, boo
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
+	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -105,6 +106,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, boo
 		id->d[1] |= gstate.isLightingEnabled() << 24;
 		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 		id->d[1] |= gstate.areNormalsReversed() << 26;
+		id->d[1] |= (hasTexcoord & 1) << 27;
 	}
 }
 
@@ -137,6 +139,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
+	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0 || !useHWTransform;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
@@ -228,7 +231,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType))]);
 		}
-		if (doTexture) {
+		if (doTexture && hasTexcoord) {
 			if (doTextureProjection)
 				WRITE(p, "		float2 texcoord:  TEXCOORD0;             \n");
 			else
@@ -521,9 +524,17 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale) {
-					WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+					if (hasTexcoord) {
+						WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+					} else {
+						WRITE(p, "  Out.v_texcoord = float2(0.0);\n");
+					}
 				} else {
-					WRITE(p, "  Out.v_texcoord = In.texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+					if (hasTexcoord) {
+						WRITE(p, "  Out.v_texcoord = In.texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+					} else {
+						WRITE(p, "  Out.v_texcoord = u_uvscaleoffset.zw;\n");
+					}
 				}
 				break;
 
@@ -536,9 +547,13 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 						break;
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
-							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-							temp_tc = StringFromFormat("float4(In.texcoord.xy %s, 0.0, 1.0)", factor);
+							if (hasTexcoord) {
+								static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+								const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+								temp_tc = StringFromFormat("float4(In.texcoord.xy %s, 0.0, 1.0)", factor);
+							} else {
+								temp_tc = "float4(0.0, 0.0, 0.0, 1.0)";
+							}
 						}
 						break;
 					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
