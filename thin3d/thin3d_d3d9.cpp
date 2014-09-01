@@ -89,11 +89,11 @@ class Thin3DDX9Buffer : public Thin3DBuffer {
 public:
 	Thin3DDX9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
 		if (flags & T3DBufferUsage::INDEXDATA) {
-			DWORD usage = 0;
-			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_MANAGED, &ibuffer_, NULL);
+			DWORD usage = D3DUSAGE_DYNAMIC;
+			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
 		} else {
-			DWORD usage = 0;
-			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_MANAGED, &vbuffer_, NULL);
+			DWORD usage = D3DUSAGE_DYNAMIC;
+			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
 	void SetData(const uint8_t *data, size_t size) override {
