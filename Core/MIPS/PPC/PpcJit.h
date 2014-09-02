@@ -215,6 +215,7 @@ namespace MIPSComp
 		void Comp_VecDo3(MIPSOpcode op);
 		void Comp_VV2Op(MIPSOpcode op);
 		void Comp_Mftv(MIPSOpcode op);
+		void Comp_Vmfvc(MIPSOpcode op);
 		void Comp_Vmtvc(MIPSOpcode op);
 		void Comp_Vmmov(MIPSOpcode op);
 		void Comp_VScl(MIPSOpcode op);

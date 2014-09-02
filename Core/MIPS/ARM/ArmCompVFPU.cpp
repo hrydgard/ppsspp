@@ -1277,6 +1277,25 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vmfvc(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
+		CONDITIONAL_DISABLE;
+
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			fpr.MapRegV(vs);
+			if (imm - 128 == VFPU_CTRL_CC) {
+				gpr.MapReg(MIPS_REG_VFPUCC, 0);
+				VMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+			} else {
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				VLDR(fpr.V(vs), SCRATCHREG1, 0);
+			}
+			fpr.ReleaseSpillLocksAndDiscardTemps();
+		}
+	}
+
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
