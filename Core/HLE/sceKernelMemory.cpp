@@ -653,6 +653,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 
 int sceKernelDeleteFpl(SceUID uid)
 {
+	hleEatCycles(600);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
@@ -833,6 +834,8 @@ retry:
 
 int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 {
+	hleEatCycles(600);
+
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
