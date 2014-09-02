@@ -57,7 +57,7 @@ struct Alarm : public KernelObject
 	NativeAlarm alm;
 };
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 ticks);
+void __KernelScheduleAlarm(Alarm *alarm, u64 micro);
 
 class AlarmIntrHandler : public IntrHandler
 {
@@ -96,7 +96,7 @@ public:
 			DEBUG_LOG(SCEKERNEL, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
 			Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
-			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
+			__KernelScheduleAlarm(alarm, result);
 		}
 		else
 		{
@@ -150,13 +150,13 @@ KernelObject *__KernelAlarmObject()
 	return new Alarm;
 }
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
+void __KernelScheduleAlarm(Alarm *alarm, u64 micro)
 {
-	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + ticks / (u64) CoreTiming::GetClockFrequencyMHz();
-	CoreTiming::ScheduleEvent((int) ticks, alarmTimer, alarm->GetUID());
+	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
+	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
 }
 
-SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
+SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 {
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
@@ -168,14 +168,14 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	__KernelScheduleAlarm(alarm, ticks);
+	__KernelScheduleAlarm(alarm, micro);
 	return uid;
 }
 
 SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(usToCycles((u64) micro), handlerPtr, commonPtr);
+	return __KernelSetAlarm((u64) micro, handlerPtr, commonPtr);
 }
 
 SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
@@ -188,7 +188,7 @@ SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 		return -1;
 
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetSysClockAlarm(%lld, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(usToCycles(micro), handlerPtr, commonPtr);
+	return __KernelSetAlarm(micro, handlerPtr, commonPtr);
 }
 
 int sceKernelCancelAlarm(SceUID uid)
