@@ -88,8 +88,8 @@ namespace MIPSComp
 				else
 				{
 					MOV(32, gpr.R(rt), gpr.R(rs));
-					if (simm != 0)
-						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
+					if (suimm != 0)
+						ADD(32, gpr.R(rt), Imm32(suimm));
 				}
 				gpr.UnlockAll();
 			}
@@ -116,7 +116,7 @@ namespace MIPSComp
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			if (gpr.IsImm(rs))
 			{
-				gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
+				gpr.SetImm(rt, gpr.GetImm(rs) < suimm);
 				break;
 			}
 
@@ -124,7 +124,7 @@ namespace MIPSComp
 			gpr.MapReg(rs, true, false);
 			gpr.MapReg(rt, rt == rs, true);
 			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32((u32)simm));
+			CMP(32, gpr.R(rs), Imm32(suimm));
 			SETcc(CC_B, R(EAX));
 			MOV(32, gpr.R(rt), R(EAX));
 			gpr.UnlockAll();
