@@ -502,12 +502,17 @@ int main(int argc, char *argv[]) {
 
 	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, pixel_xres, pixel_yres, mode);
 	if (g_Screen == NULL) {
-		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
+		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		SDL_Quit();
 		return 2;
 	}
 
 	SDL_GLContext glContext = SDL_GL_CreateContext(g_Screen);
+	if (glContext == NULL) {
+		fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+		SDL_Quit();
+		return 2;
+	}
 
 #ifdef USING_EGL
 	EGL_Init();
