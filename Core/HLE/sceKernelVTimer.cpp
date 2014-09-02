@@ -102,9 +102,10 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 		if (schedule < 250) {
 			schedule = 250;
 		}
-		u64 goalUs = vt->nvt.base + schedule - vt->nvt.current;
-		if (goalUs < CoreTiming::GetGlobalTimeUs()) {
-			cyclesIntoFuture = usToCycles(200);
+		s64 goalUs = (u64)vt->nvt.base + schedule - (u64)vt->nvt.current;
+		s64 minGoalUs = CoreTiming::GetGlobalTimeUs() + 250;
+		if (goalUs < minGoalUs) {
+			cyclesIntoFuture = usToCycles(250);
 		} else {
 			cyclesIntoFuture = usToCycles(goalUs - CoreTiming::GetGlobalTimeUs());
 		}
