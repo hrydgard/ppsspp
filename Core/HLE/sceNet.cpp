@@ -374,6 +374,12 @@ int sceNetApctlDisconnect() {
 	return 0;
 }
 
+int sceNetResolverInit()
+{
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return 0;
+}
+
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
@@ -389,7 +395,7 @@ const HLEFunction sceNetResolver[] = {
 	{0x224c5f44, 0, "sceNetResolverStartNtoA"},
 	{0x244172af, 0, "sceNetResolverCreate"},
 	{0x94523e09, 0, "sceNetResolverDelete"},
-	{0xf3370e61, 0, "sceNetResolverInit"},
+	{0xf3370e61, WrapI_V<sceNetResolverInit>, "sceNetResolverInit"},
 	{0x808F6063, 0, "sceNetResolverStop"},
 	{0x6138194A, 0, "sceNetResolverTerm"},
 	{0x629e2fb7, 0, "sceNetResolverStartAtoN"},
