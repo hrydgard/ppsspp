@@ -320,6 +320,7 @@ retry:
 		if (wokeThreads)
 			hleReSchedule("semaphore signaled");
 
+		hleEatCycles(900);
 		return 0;
 	}
 	else
