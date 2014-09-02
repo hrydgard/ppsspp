@@ -2274,6 +2274,7 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	}
 
 	INFO_LOG(SCEKERNEL, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
+	hleEatCycles(3400);
 	return __KernelStartThread(threadToStartID, argSize, argBlockPtr);
 }
 
