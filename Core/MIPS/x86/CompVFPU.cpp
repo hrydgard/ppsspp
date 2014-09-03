@@ -1742,6 +1742,22 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 	}
 }
 
+void Jit::Comp_Vmfvc(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	int vs = _VS;
+	int imm = op & 0xFF;
+	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		fpr.MapRegV(vs, 0);
+		if (imm - 128 == VFPU_CTRL_CC) {
+			gpr.MapReg(MIPS_REG_VFPUCC, true, false);
+			MOVD_xmm(fpr.VX(vs), gpr.R(MIPS_REG_VFPUCC));
+		} else {
+			MOVSS(fpr.VX(vs), M(&currentMIPS->vfpuCtrl[imm - 128]));
+		}
+		fpr.ReleaseSpillLocks();
+	}
+}
+
 void Jit::Comp_Vmtvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int vs = _VS;

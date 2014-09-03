@@ -20,8 +20,6 @@
 #include "Core/Host.h"
 #include "Core/Debugger/SymbolMap.h"
 
-#define HEADLESSHOST_CLASS HeadlessHost
-
 // TODO: Get rid of this junk
 class HeadlessHost : public Host
 {

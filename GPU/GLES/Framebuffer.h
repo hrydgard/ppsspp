@@ -223,7 +223,6 @@ public:
 		}
 		return true;
 	}
-	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
@@ -254,6 +253,9 @@ private:
 	static void ClearBuffer();
 	static void ClearDepthBuffer();
 	static bool MaskedEqual(u32 addr1, u32 addr2);
+
+	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
+	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
 
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
 		dstBuffer->memoryUpdated = false;

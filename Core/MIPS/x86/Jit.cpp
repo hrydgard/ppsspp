@@ -487,8 +487,8 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SetRoundingMode();
 		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		SetRoundingMode();
 	}
 
 	js.compilerPC += 4;
@@ -539,14 +539,16 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ClearRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SetRoundingMode();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			SetRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
 			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
 			SUB(32, M(&currentMIPS->downcount), R(EAX));
+			SetRoundingMode();
+			SUB(32, M(&currentMIPS->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -694,17 +696,18 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ClearRoundingMode();
 		ABI_CallFunction(&JitBreakpoint);
-		SetRoundingMode();
 
 		// If 0, the conditional breakpoint wasn't taken.
 		CMP(32, R(EAX), Imm32(0));
 		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
 		// Just to fix the stack.
+		SetRoundingMode();
 		LOAD_FLAGS;
 		JMP(asm_.dispatcherCheckCoreState, true);
 		SetJumpTarget(skip);
 
+		SetRoundingMode();
 		LOAD_FLAGS;
 
 		return true;

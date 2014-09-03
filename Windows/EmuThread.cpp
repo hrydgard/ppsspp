@@ -27,6 +27,8 @@ static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
 
+extern std::vector<std::wstring> GetWideCmdLine();
+
 enum EmuThreadStatus : long
 {
 	THREAD_NONE = 0,
@@ -89,7 +91,25 @@ unsigned int WINAPI TheThread(void *)
 
 	Host *oldHost = host;
 
-	NativeInit(__argc, (const char **)__argv, "1234", "1234", "1234");
+	// Convert the command-line arguments to Unicode, then to proper UTF-8 
+	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
+	// This avoids issues with PPSSPP inadvertently destroying paths with Unicode glyphs 
+	// (using the ANSI args resulted in Japanese/Chinese glyphs being turned into question marks, at least for me..).
+	// -TheDax
+	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+	std::vector<std::string> argsUTF8;
+	for (auto& string : wideArgs) {
+		argsUTF8.push_back(ConvertWStringToUTF8(string));
+	}
+
+	std::vector<const char *> args;
+
+	for (auto& string : argsUTF8) {
+		args.push_back(string.c_str());
+	}
+
+	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
+
 	Host *nativeHost = host;
 	host = oldHost;
 

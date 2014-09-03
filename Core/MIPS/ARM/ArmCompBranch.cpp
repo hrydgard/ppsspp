@@ -558,8 +558,8 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}
-	RestoreDowncount();
 	SetRoundingMode();
+	RestoreDowncount();
 
 	WriteSyscallExit();
 	js.compiling = false;

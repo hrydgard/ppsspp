@@ -460,6 +460,7 @@ struct GPUStateCache
 
 	UVScale uv;
 	bool flipTexture;
+	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool allowShaderBlend;
 

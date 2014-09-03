@@ -320,6 +320,7 @@ retry:
 		if (wokeThreads)
 			hleReSchedule("semaphore signaled");
 
+		hleEatCycles(900);
 		return 0;
 	}
 	else
@@ -359,9 +360,9 @@ void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 25;
+		micro = 24;
 	else if (micro <= 249)
-		micro = 250;
+		micro = 245;
 
 	// This should call __KernelSemaTimeout() later, unless we cancel it.
 	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
@@ -369,11 +370,18 @@ void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 
 int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks)
 {
+	hleEatCycles(900);
+
+	if (wantedCount <= 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
+	hleEatCycles(500);
+
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (wantedCount > s->ns.maxCount || wantedCount <= 0)
+		if (wantedCount > s->ns.maxCount)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
 		// If there are any callbacks, we always wait, and wake after the callbacks.

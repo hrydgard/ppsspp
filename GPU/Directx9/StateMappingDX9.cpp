@@ -230,8 +230,9 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.enable();
 			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0xFF);
+			dxstate.stencilMask.set(0xFF);
 		} else {
-			dxstate.depthTest.disable();
+			dxstate.stencilTest.disable();
 		}
 
 	} else {
@@ -244,8 +245,9 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-		} else 
+		} else {
 			dxstate.depthTest.disable();
+		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
@@ -253,6 +255,21 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
+
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
+#ifndef MOBILE_DEVICE
+		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
+		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
+		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
+		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
+			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
+		}
+		if (abits != 0 && abits != 0xFF) {
+			// The stencil part of the mask is supported.
+			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
+		}
+#endif
+
 		dxstate.colorMask.set(rmask, gmask, bmask, amask);
 		
 		// Stencil Test
@@ -264,6 +281,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+			dxstate.stencilMask.set(~abits);
 		} else {
 			dxstate.stencilTest.disable();
 		}

@@ -1936,7 +1936,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 		if (WithStatus)
 			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
 		else
-			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game may have crashed", argSize, argp, statusAddr, optionAddr);
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelSelfStopUnloadModule(%08x, %08x, %08x): game may have crashed", exitCode, argSize,  argp);
 		SceUID moduleID = __KernelGetCurThreadModuleId();
 		u32 priority = 0x20;
 		u32 stacksize = 0x40000;
@@ -1949,7 +1949,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			if (WithStatus)
 				ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): invalid module id", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
-				ERROR_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): invalid module id", argSize, argp, statusAddr, optionAddr);
+				ERROR_LOG(SCEMODULE, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): invalid module id", exitCode, argSize, argp);
 			
 			return error;
 		}
@@ -1990,7 +1990,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			if (WithStatus)
 				INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
-				INFO_LOG(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): no stop func", argSize, argp, statusAddr, optionAddr);
+				INFO_LOG(SCEMODULE, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): no stop func", exitCode, argSize, argp);
 			sceKernelExitDeleteThread(exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
@@ -1998,7 +1998,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 			if (WithStatus)
 				ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
 			else
-				ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): bad stop func address", argSize, argp, statusAddr, optionAddr);
+				ERROR_LOG_REPORT(SCEMODULE, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): bad stop func address", exitCode, argSize, argp);
 			sceKernelExitDeleteThread(exitCode);
 			module->Cleanup();
 			kernelObjects.Destroy<Module>(moduleID);
@@ -2007,15 +2007,15 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 		if (WithStatus)
 			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
 		else
-			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModule(%08x, %08x, %08x, %08x): game has likely crashed", argSize, argp, statusAddr, optionAddr);
+			ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelSelfStopUnloadModule(%08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp);
 	}
 
 	return 0;
 }
 
-u32 sceKernelSelfStopUnloadModule(u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
 	// Used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
-	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(0, argSize, argp, statusAddr, optionAddr, false);
+	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, 0, 0, false);
 }
 
 u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
@@ -2319,7 +2319,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,&WrapU_UUU<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
 	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
-	{0xD675EBB8,WrapU_UUUU<sceKernelSelfStopUnloadModule>, "sceKernelSelfStopUnloadModule"},
+	{0xD675EBB8,WrapU_UUU<sceKernelSelfStopUnloadModule>, "sceKernelSelfStopUnloadModule"},
 	{0xd1ff982a,&WrapU_UUUUU<sceKernelStopModule>,"sceKernelStopModule", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0x2e0911aa,WrapU_U<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},

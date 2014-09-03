@@ -729,6 +729,8 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 
 int sceKernelDeleteMsgPipe(SceUID uid)
 {
+	hleEatCycles(900);
+
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m)
@@ -736,6 +738,10 @@ int sceKernelDeleteMsgPipe(SceUID uid)
 		ERROR_LOG(SCEKERNEL, "sceKernelDeleteMsgPipe(%i) - ERROR %08x", uid, error);
 		return error;
 	}
+
+	hleEatCycles(3100);
+	if (!m->sendWaitingThreads.empty() || !m->receiveWaitingThreads.empty())
+		hleEatCycles(4000);
 
 	for (size_t i = 0; i < m->sendWaitingThreads.size(); i++)
 		m->sendWaitingThreads[i].Cancel(uid, SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -785,6 +791,8 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 
 int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
+	hleEatCycles(2400);
+
 	bool needsResched = false;
 	bool needsWait = false;
 
@@ -962,6 +970,8 @@ int sceKernelTryReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, 
 
 int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThreadsAddr)
 {
+	hleEatCycles(900);
+
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m)
@@ -969,6 +979,10 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 		ERROR_LOG(SCEKERNEL, "sceKernelCancelMsgPipe(%i) - ERROR %08x", uid, error);
 		return error;
 	}
+
+	hleEatCycles(1100);
+	if (!m->sendWaitingThreads.empty() || !m->receiveWaitingThreads.empty())
+		hleEatCycles(4000);
 
 	if (Memory::IsValidAddress(numSendThreadsAddr))
 		Memory::Write_U32((u32) m->sendWaitingThreads.size(), numSendThreadsAddr);

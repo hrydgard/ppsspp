@@ -48,6 +48,7 @@ void DirectxState::Restore() {
 	stencilTest.restore(); count++;
 	stencilOp.restore(); count++;
 	stencilFunc.restore(); count++;
+	stencilMask.restore(); count++;
 
 	dither.restore(); count++;
 

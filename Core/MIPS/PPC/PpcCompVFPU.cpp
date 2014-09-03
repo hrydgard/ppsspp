@@ -712,6 +712,19 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vmfvc(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			fpr.MapRegV(vs);
+			ADDI(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4);
+			LFS(fpr.V(vs), SREG, 0);
+			fpr.ReleaseSpillLocksAndDiscardTemps();
+		}
+	}
+
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 

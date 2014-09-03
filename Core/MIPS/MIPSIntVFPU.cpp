@@ -70,6 +70,12 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
+union FloatBits {
+	float f[4];
+	u32 u[4];
+	int i[4];
+};
+
 // Preserves NaN in first param, takes sign of equal second param.
 // Technically, std::max may do this but it's undefined.
 inline float nanmax(float f, float cst)
@@ -1177,7 +1183,8 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
-		// TODO: Does t have swizzle?
+		// TODO: The swizzle on t behaves oddly with constants, but sign changes seem to work.
+		// Also, seems to round in a non-standard way (sometimes toward zero, not always.)
 		d[0] = s[0] * t[1] - s[1] * t[0];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);
@@ -1267,7 +1274,7 @@ namespace MIPSInt
 
 	void Int_VrndX(MIPSOpcode op)
 	{
-		float d[4];
+		FloatBits d;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1275,14 +1282,14 @@ namespace MIPSInt
 		{
 			switch ((op >> 16) & 0x1f)
 			{
-			case 1: d[i] = (float)currentMIPS->rng.R32(); break;  // vrndi - TODO: copy bits instead?
-			case 2: d[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
-			case 3: d[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
+			case 1: d.u[i] = currentMIPS->rng.R32(); break;  // vrndi
+			case 2: d.f[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
+			case 3: d.f[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
 			default: _dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1530,12 +1537,6 @@ namespace MIPSInt
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-
-		union FloatBits {
-			float f[4];
-			u32 u[4];
-			int i[4];
-		};
 
 		FloatBits s;
 		FloatBits t;
@@ -1810,11 +1811,6 @@ bad:
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		union FloatBits {
-			float f[4];
-			u32 u[4];
-		};
-
 		FloatBits d;
 		FloatBits s;
 		u8 exp = (u8)((op >> 16) & 0xFF);
@@ -1855,11 +1851,6 @@ bad:
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-
-		union FloatBits {
-			float f[4];
-			u32 u[4];
-		};
 
 		FloatBits d;
 		FloatBits s;

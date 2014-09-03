@@ -381,12 +381,14 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		ClearRoundingMode();
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
 			MOVI2R(R0, (u32)entry->replaceFunc);
 			BL(R0);
 		}
+		SetRoundingMode();
 		WriteDownCountR(R0);
 	}
 
@@ -433,6 +435,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		ClearRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
 		MovToPC(SCRATCHREG1);
 
@@ -447,8 +450,10 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			SetRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
+			SetRoundingMode();
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
@@ -550,31 +555,37 @@ void Jit::ClearRoundingMode()
 	{
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand.
-		BIC(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
-		VMSR(SCRATCHREG1);
+		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
+		VMSR(SCRATCHREG2);
 	}
 }
 
 void Jit::SetRoundingMode()
 {
+	// NOTE: Must not destory R0.
 	if (g_Config.bSetRoundingMode)
 	{
-		LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
-		AND(SCRATCHREG1, SCRATCHREG1, Operand2(3));
+		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
+		AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
 		// MIPS Rounding Mode:       ARM Rounding Mode
 		//   0: Round nearest        0
 		//   1: Round to zero        3
 		//   2: Round up (ceil)      1
 		//   3: Round down (floor)   2
-		CMP(SCRATCHREG1, Operand2(1));
-		SetCC(CC_EQ); ADD(SCRATCHREG1, SCRATCHREG1, Operand2(2));
-		SetCC(CC_GT); SUB(SCRATCHREG1, SCRATCHREG1, Operand2(1));
+		CMP(SCRATCHREG2, Operand2(1));
+		FixupBranch skip = B_CC(CC_LT);
+		SetCC(CC_EQ); ADD(SCRATCHREG2, SCRATCHREG2, Operand2(2));
+		SetCC(CC_GT); SUB(SCRATCHREG2, SCRATCHREG2, Operand2(1));
 		SetCC(CC_AL);
 
-		VMRS(SCRATCHREG2);
+		PUSH(1, SCRATCHREG1);
+		VMRS(SCRATCHREG1);
 		// Assume we're always in round-to-nearest mode beforehand.
-		ORR(SCRATCHREG1, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
-		VMSR(SCRATCHREG1);
+		ORR(SCRATCHREG2, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
+		VMSR(SCRATCHREG2);
+		POP(1, SCRATCHREG1);
+
+		SetJumpTarget(skip);
 	}
 }
 

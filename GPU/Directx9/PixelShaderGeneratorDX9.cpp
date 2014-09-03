@@ -167,6 +167,7 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+		id->d[0] |= (gstate_c.bgraTexture & 1) << 19;
 
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
@@ -253,9 +254,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 		if (gstate.isTextureMapEnabled()) {
 			if (doTextureProjection) {
-				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z));\n");
+				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
 			} else {
-				WRITE(p, "  float4 t = tex2D(tex, In.v_texcoord.xy);\n");
+				WRITE(p, "  float4 t = tex2D(tex, In.v_texcoord.xy)%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
 			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
