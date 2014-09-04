@@ -233,25 +233,31 @@ void Jit::SetRoundingMode(XEmitter *emitter)
 		emitter->MOV(32, R(EAX), M(&mips_->fcr31));
 		emitter->AND(32, R(EAX), Imm32(0x1000003));
 
+		// If it's 0, we don't actually bother setting.  This is the most common.
+		// We always use nearest as the default rounding mode with
+		// flush-to-zero disabled.
+		FixupBranch skip = emitter->J_CC(CC_Z);
+
 		emitter->STMXCSR(M(&currentMIPS->temp));
-		emitter->AND(32, M(&currentMIPS->temp), Imm32(~(7 << 13)));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
-		// 0 -> 0 (skip), 1 -> 3, 2 -> 2 (skip), 3 -> 1
+		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
 		emitter->TEST(8, R(AL), Imm8(1));
-		FixupBranch skip = emitter->J_CC(CC_Z);
+		FixupBranch skip2 = emitter->J_CC(CC_Z);
 		emitter->XOR(32, R(EAX), Imm8(2));
-		emitter->SetJumpTarget(skip);
+		emitter->SetJumpTarget(skip2);
 
 		emitter->SHL(32, R(EAX), Imm8(13));
 		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
 
 		emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
-		FixupBranch skip2 = emitter->J_CC(CC_Z);
+		FixupBranch skip3 = emitter->J_CC(CC_Z);
 		emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
-		emitter->SetJumpTarget(skip2);
+		emitter->SetJumpTarget(skip3);
 
 		emitter->LDMXCSR(M(&currentMIPS->temp));
+
+		emitter->SetJumpTarget(skip);
 	}
 }
 
