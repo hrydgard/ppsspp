@@ -218,6 +218,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 
 	hFile = open(fullName.c_str(), flags, 0666);
 	bool success = hFile != -1;
+
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
@@ -237,6 +238,17 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		hFile = open(fullNameC, flags, 0666);
 		success = hFile != -1;
 #endif
+	}
+#endif
+
+#ifndef _WIN32
+	if (success) {
+		struct stat st;
+		if (fstat(hFile, &st) == 0 && S_ISDIR(st.st_mode)) {
+			close(hFile);
+			errno = EISDIR;
+			success = false;
+		}
 	}
 #endif
 
