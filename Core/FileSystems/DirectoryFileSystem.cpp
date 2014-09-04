@@ -218,7 +218,6 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 
 	hFile = open(fullName.c_str(), flags, 0666);
 	bool success = hFile != -1;
-
 #endif
 
 #if HOST_IS_CASE_SENSITIVE
