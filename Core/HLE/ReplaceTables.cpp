@@ -583,7 +583,7 @@ static int Hook_brandish_download_frame() {
 	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
 		return 0;
 	}
-	const u32 fb_index_offset = fb_index_load & 0xffff;
+	const int fb_index_offset = (s16)(fb_index_load & 0xffff);
 	const u32 fb_index = (Memory::Read_U32(fb_info + fb_index_offset) + 1) & 1;
 	const u32 fb_address = 0x4000000 + (0x44000 * fb_index);
 	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
