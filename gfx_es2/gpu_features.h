@@ -52,6 +52,7 @@ struct GLExtensions {
 	bool EXT_unpack_subimage;  // always supported on desktop and ES3
 	bool EXT_bgra;
 	bool EXT_shader_framebuffer_fetch;
+	bool EXT_gpu_shader4;
 	bool EXT_blend_minmax;
 	bool FBO_EXT;
 	bool PBO_EXT;
