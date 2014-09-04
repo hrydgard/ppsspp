@@ -367,7 +367,7 @@ namespace Reporting
 		if (!IsEnabled() || CheckSpamLimited())
 			return;
 
-		const int MESSAGE_BUFFER_SIZE = 32768;
+		const int MESSAGE_BUFFER_SIZE = 65536;
 		char temp[MESSAGE_BUFFER_SIZE];
 
 		va_list args;
