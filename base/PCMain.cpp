@@ -348,17 +348,8 @@ void ToggleFullScreenIfFlagSet() {
 	if (g_ToggleFullScreenNextFrame) {
 		g_ToggleFullScreenNextFrame = false;
 
-#if 1
-		pixel_xres = g_DesktopWidth;
-		pixel_yres = g_DesktopHeight;
-		dp_xres = (float)pixel_xres;
-		dp_yres = (float)pixel_yres;
-
 		Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
 		SDL_SetWindowFullscreen(g_Screen, window_flags ^ SDL_WINDOW_FULLSCREEN_DESKTOP);
-
-		NativeResized();
-#endif
 	}
 }
 
@@ -628,11 +619,26 @@ int main(int argc, char *argv[]) {
 			switch (event.window.event) {
 				case SDL_WINDOWEVENT_RESIZED:
 					{
+						Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+						bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+
 						pixel_xres = event.window.data1;
 						pixel_yres = event.window.data2;
 						dp_xres = (float)pixel_xres * dpi_scale;
 						dp_yres = (float)pixel_yres * dpi_scale;
 						NativeResized();
+
+#if defined(PPSSPP)
+						// Set variable here in case fullscreen was toggled by hotkey
+						g_Config.bFullScreen = fullscreen;
+
+						// Hide/Show cursor correctly toggling fullscreen
+						if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
+								SDL_ShowCursor(SDL_DISABLE);
+						} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
+								SDL_ShowCursor(SDL_ENABLE);
+						}
+#endif
 						break;
 					}
 					break;
@@ -706,7 +712,8 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 
 					// SDL2 doesn't consider the mousewheel a button anymore
-					// so let's send the KEY_UP right away
+					// so let's send the KEY_UP right away.
+					// Maybe KEY_UP alone will suffice?
 					key.flags = KEY_UP;
 					NativeKey(key);
 				}
