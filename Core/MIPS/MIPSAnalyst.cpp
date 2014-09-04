@@ -260,6 +260,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x79faa339fff5a80c, 28, "finitef", },
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
+	{ 0x8126a59ffa504614, 540, "brandish_download_frame", },//Zero no Kiseki and Ao no Kiseki
 	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
 	{ 0x83ac39971df4b966, 336, "sqrtf", },
 	{ 0x84c6cd47834f4c79, 1284, "powf", },
