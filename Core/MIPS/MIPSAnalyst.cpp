@@ -319,6 +319,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xafb2c7e56c04c8e9, 48, "vtfm_q", },
 	{ 0xafc9968e7d246a5e, 1588, "atan", },
 	{ 0xafcb7dfbc4d72588, 44, "vector_transform_3x4", },
+	{ 0xb07f9d82d79deea9, 536, "brandish_download_frame", },  // Brandish
 	{ 0xb0db731f27d3aa1b, 40, "vmax_s", },
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },

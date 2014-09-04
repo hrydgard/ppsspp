@@ -1995,6 +1995,7 @@ void ThreadContext::reset()
 	vfpuCtrl[VFPU_CTRL_DPREFIX] = 0x0;	// neutral
 	vfpuCtrl[VFPU_CTRL_CC] = 0x3f;
 	vfpuCtrl[VFPU_CTRL_INF4] = 0;
+	vfpuCtrl[VFPU_CTRL_REV] = 0x7772ceab;
 	vfpuCtrl[VFPU_CTRL_RCX0] = 0x3f800001;
 	vfpuCtrl[VFPU_CTRL_RCX1] = 0x3f800002;
 	vfpuCtrl[VFPU_CTRL_RCX2] = 0x3f800004;
@@ -2274,6 +2275,7 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	}
 
 	INFO_LOG(SCEKERNEL, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
+	hleEatCycles(3400);
 	return __KernelStartThread(threadToStartID, argSize, argBlockPtr);
 }
 

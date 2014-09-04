@@ -134,7 +134,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			jit->ClearRoundingMode(this);
 			ABI_CallFunction(&Jit);
 			jit->SetRoundingMode(this);
-			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
+			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);

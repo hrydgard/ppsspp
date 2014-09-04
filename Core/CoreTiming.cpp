@@ -326,7 +326,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	{
 		if (first->type == event_type && first->userdata == userdata)
 		{
-			result = first->time - globalTimer;
+			result = first->time - GetTicks();
 
 			Event *next = first->next;
 			FreeEvent(first);
@@ -345,7 +345,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 	{
 		if (ptr->type == event_type && ptr->userdata == userdata)
 		{
-			result = ptr->time - globalTimer;
+			result = ptr->time - GetTicks();
 
 			prev->next = ptr->next;
 			FreeEvent(ptr);
@@ -371,7 +371,7 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 	{
 		if (tsFirst->type == event_type && tsFirst->userdata == userdata)
 		{
-			result = tsFirst->time - globalTimer;
+			result = tsFirst->time - GetTicks();
 
 			Event *next = tsFirst->next;
 			FreeTsEvent(tsFirst);
@@ -394,7 +394,7 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 	{
 		if (ptr->type == event_type && ptr->userdata == userdata)
 		{
-			result = ptr->time - globalTimer;
+			result = ptr->time - GetTicks();
 
 			prev->next = ptr->next;
 			if (ptr == tsLast)

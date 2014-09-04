@@ -383,9 +383,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
 				MOV(32, M(&mips_->fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));
-				if ((gpr.GetImm(rt) & 3) == 0) {
-					// Default nearest mode, let's do this the fast way.
-					ClearRoundingMode();
+				if ((gpr.GetImm(rt) & 0x1000003) == 0) {
+					// Default nearest / no-flush mode, just leave it cleared.
 				} else {
 					SetRoundingMode();
 				}

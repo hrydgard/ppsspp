@@ -763,9 +763,9 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 
 	//16
 	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Vmftvc, Int_Vmfvc, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vmfvc", &Jit::Comp_Vmfvc, Dis_Vmftvc, Int_Vmfvc, IN_OTHER|OUT_OTHER|IS_VFPU),
 	// TODO: Flags may not be correct (prefixes, etc.)
-	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Vmftvc, Int_Vmtvc, IN_OTHER|OUT_OTHER|IS_VFPU),
+	INSTR("vmtvc", &Jit::Comp_Vmtvc, Dis_Vmftvc, Int_Vmtvc, IN_OTHER|OUT_OTHER|IS_VFPU),
 	INVALID,
 	INVALID,
 
