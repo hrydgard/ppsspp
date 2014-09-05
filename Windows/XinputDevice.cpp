@@ -1,4 +1,5 @@
 ﻿#include <limits.h>
+#include <algorithm>
 
 #include "base/NativeApp.h"
 #include "Core/Config.h"
@@ -125,11 +126,20 @@ static Stick NormalizedDeadzoneFilter(short x, short y, short thresh) {
 
 	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
 	if (magnitude > DEADZONE) {
+		// Circle to square mapping (the PSP stick outputs the full -1..1 square of values)
+#if 1
+		// Looks way better than the old one, below, in the axis tester.
+		float sx = s.x;
+		float sy = s.y;
+		float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
+		s.x = sx * scaleFactor;
+		s.y = sy * scaleFactor;
+#else
 		if (magnitude > 1.0f) {
 			s.x *= 1.41421f;
 			s.y *= 1.41421f;
 		}
-
+#endif
 		s.x = Clampf(s.x, -1.0f, 1.0f);
 		s.y = Clampf(s.y, -1.0f, 1.0f);
 	} else {
