@@ -378,6 +378,11 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 		month = 12;
 	}
 
+	while (year < 1900)
+		year += 400;
+	while (year > 2300)
+		year -= 400;
+
 	tm local;
 	local.tm_year = year - 1900;
 	local.tm_mon = month - 1;
