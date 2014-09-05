@@ -54,6 +54,14 @@ const u64 rtcFiletimeOffset = 50491123200000000ULL;
 // 400 years is in other words 20871 full weeks.
 const u64 rtc400YearTicks = (u64)20871 * 7 * 24 * 3600 * 1000000ULL;
 
+// This is the last moment the clock was adjusted.
+// It's possible games may not like the clock being adjusted in the past hour (cheating?)
+// So this returns a static time.
+const u64 rtcLastAdjustedTicks = rtcMagicOffset + 41 * 365 * 24 * 3600 * 1000000ULL;
+// The reincarnated time seems related to the battery or manufacturing date.
+// On a test PSP, it was over 3 years in the past, so we again pick a fixed date.
+const u64 rtcLastReincarnatedTicks = rtcMagicOffset + 40 * 365 * 24 * 3600 * 1000000ULL;
+
 const int PSP_TIME_INVALID_YEAR = -1;
 const int PSP_TIME_INVALID_MONTH = -2;
 const int PSP_TIME_INVALID_DAY = -3;
@@ -900,10 +908,17 @@ int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 
 int sceRtcGetLastAdjustedTime(u32 tickPtr)
 {
-	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(curTick, tickPtr);
+		Memory::Write_U64(rtcLastAdjustedTicks, tickPtr);
 	DEBUG_LOG(SCERTC, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
+	return 0;
+}
+
+int sceRtcGetLastReincarnatedTime(u32 tickPtr)
+{
+	if (Memory::IsValidAddress(tickPtr))
+		Memory::Write_U64(rtcLastReincarnatedTicks, tickPtr);
+	DEBUG_LOG(SCERTC, "sceRtcGetLastReincarnatedTime(%d)", tickPtr);
 	return 0;
 }
 
@@ -1088,7 +1103,7 @@ const HLEFunction sceRtc[] =
 	{0xe1c93e47, &WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
-	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
+	{0x203ceb0d, &WrapI_U<sceRtcGetLastReincarnatedTime>, "sceRtcGetLastReincarnatedTime"},
 	{0x7d1fbed3, &WrapI_UU<sceRtcSetAlarmTick>, "sceRtcSetAlarmTick"},
 	{0xf5fcc995, 0, "sceRtcGetCurrentNetworkTick"},
 	{0x81fcda34, 0, "sceRtcIsAlarmed"},
