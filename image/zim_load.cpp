@@ -54,7 +54,7 @@ static unsigned int log2i(unsigned int val) {
 	return ret;
 }
 
-int LoadZIMPtr(const uint8_t *zim, int datasize, int *width, int *height, int *flags, uint8 **image) {
+int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int *flags, uint8 **image) {
 	if (zim[0] != 'Z' || zim[1] != 'I' || zim[2] != 'M' || zim[3] != 'G') {
 		ELOG("Not a ZIM file");
 		return 0;
@@ -110,8 +110,8 @@ int LoadZIMPtr(const uint8_t *zim, int datasize, int *width, int *height, int *f
 	}
 
 	if (*flags & ZIM_ZLIB_COMPRESSED) {
-		long outlen = total_data_size;
-		if (Z_OK != ezuncompress(*image, &outlen, (unsigned char *)(zim + 16), datasize - 16)) {
+		long outlen = (long)total_data_size;
+		if (Z_OK != ezuncompress(*image, &outlen, (unsigned char *)(zim + 16), (long)datasize - 16)) {
 			free(*image);
 			*image = 0;
 			return 0;

@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <cstddef>
 #include <vector>
+#include <string>
 
 class Matrix4x4;
 
@@ -110,6 +111,53 @@ enum T3DClear : int {
 	STENCIL = 4,
 };
 
+enum T3DTextureType : uint8_t {
+	UNKNOWN,
+	LINEAR1D,
+	LINEAR2D,
+	LINEAR3D,
+	CUBE,
+	ARRAY1D,
+	ARRAY2D,
+};
+
+enum T3DImageFormat : uint8_t {
+	LUMINANCE,
+	RGBA8888,
+	RGBA4444,
+	DXT1,
+	ETC1,  // Needs simulation on many platforms
+	D16,
+	D24S8,
+	D24X8,
+};
+
+enum T3DRenderState : uint8_t {
+	CULL_MODE,
+};
+
+enum T3DCullMode : uint8_t {
+	NO_CULL,
+	CW,
+	CCW,
+};
+
+enum T3DImageType {
+	PNG,
+	JPEG,
+	ZIM,
+	DETECT,
+	TYPE_UNKNOWN,
+};
+
+enum T3DInfo {
+	APINAME,
+	APIVERSION,
+	VENDOR,
+	SHADELANGVERSION,
+	RENDERER,
+};
+
 // Binary compatible with D3D11 viewport.
 struct T3DViewport {
 	float TopLeftX;
@@ -126,7 +174,7 @@ public:
 	virtual ~Thin3DObject() {}
 
 	virtual void AddRef() { refcount_++; }
-	virtual void Release() { refcount_--; if (!refcount_) delete this; }  // TODO: Refcount
+	virtual void Release() { refcount_--; if (!refcount_) delete this; }
 
 private:
 	int refcount_;
@@ -148,6 +196,10 @@ public:
 
 class Thin3DTexture : public Thin3DObject {
 public:
+	bool LoadFromFile(const std::string &filename, T3DImageType type = T3DImageType::DETECT);
+	bool LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type = T3DImageType::DETECT);
+
+	virtual bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
@@ -156,6 +208,7 @@ public:
 	int Height() { return height_; }
 	int Depth() { return depth_; }
 protected:
+	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
 	int width_, height_, depth_;
 };
 
@@ -199,51 +252,6 @@ struct T3DBlendStateDesc {
 	// int colorMask;
 };
 
-enum T3DTextureType : uint8_t {
-	LINEAR1D,
-	LINEAR2D,
-	LINEAR3D,
-	CUBE,
-	ARRAY1D,
-	ARRAY2D,
-};
-
-enum T3DImageFormat : uint8_t {
-	LUMINANCE,
-	RGBA8888,
-	RGBA4444,
-	DXT1,
-	ETC1,  // Needs simulation on many platforms
-	D16,
-	D24S8,
-	D24X8,
-};
-
-enum T3DRenderState : uint8_t {
-	CULL_MODE,
-};
-
-enum T3DCullMode : uint8_t {
-	NO_CULL,
-	CW,
-	CCW,
-};
-
-enum T3DFileType {
-	PNG,
-	JPEG,
-	ZIM,
-	DETECT,
-};
-
-enum T3DInfo {
-	APINAME,
-	APIVERSION,
-	VENDOR,
-	SHADELANGVERSION,
-	RENDERER,
-};
-
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
@@ -253,11 +261,13 @@ public:
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) = 0;
+
+	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
-	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DFileType fileType);
-	Thin3DTexture *CreateTextureFromFileData(const char *data, int size, T3DFileType fileType);
+	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DImageType fileType);
+	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }

@@ -8,6 +8,7 @@
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx_es2/gl_state.h"
+#include "gfx/gl_lost_manager.h"
 
 static const unsigned short compToGL[] = {
 	GL_NEVER,
@@ -96,7 +97,7 @@ public:
 	}
 };
 
-class Thin3DGLBuffer : public Thin3DBuffer {
+class Thin3DGLBuffer : public Thin3DBuffer, GfxResourceHolder {
 public:
 	Thin3DGLBuffer(size_t size, uint32_t flags) {
 		glGenBuffers(1, &buffer_);
@@ -107,8 +108,10 @@ public:
 		else
 			usage_ = GL_STATIC_DRAW;
 		knownSize_ = 0;
+		register_gl_resource_holder(this);
 	}
 	~Thin3DGLBuffer() override {
+		unregister_gl_resource_holder(this);
 		glDeleteBuffers(1, &buffer_);
 	}
 
@@ -131,6 +134,12 @@ public:
 		glBindBuffer(target_, buffer_);
 	}
 
+	void GLLost() override {
+		ILOG("Recreating vertex buffer after glLost");
+		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
+		glGenBuffers(1, &buffer_);
+	}
+
 private:
 	GLuint buffer_;
 	GLuint target_;
@@ -139,6 +148,8 @@ private:
 	size_t knownSize_;
 };
 
+// Not registering this as a resource holder, instead ShaderSet is registered. It will
+// invoke Compile again to recreate the shader then link them together.
 class Thin3DGLShader : public Thin3DShader {
 public:
 	Thin3DGLShader(bool isFragmentShader) : shader_(0), type_(0) {
@@ -146,7 +157,10 @@ public:
 	}
 
 	bool Compile(const char *source);
-	GLuint GetShader() const { return shader_; }
+	GLuint GetShader() const {
+		return shader_;
+	}
+	const std::string &GetSource() const { return source_; }
 
 	~Thin3DGLShader() {
 		glDeleteShader(shader_);
@@ -156,9 +170,11 @@ private:
 	GLuint shader_;
 	GLuint type_;
 	bool ok_;
+	std::string source_;  // So we can recompile in case of context loss.
 };
 
 bool Thin3DGLShader::Compile(const char *source) {
+	source_ = source;
 	shader_ = glCreateShader(type_);
 
 	std::string temp;
@@ -203,12 +219,14 @@ struct UniformInfo {
 
 // TODO: Fold BlendState into this? Seems likely to be right for DX12 etc.
 // TODO: Add Uniform Buffer support.
-class Thin3DGLShaderSet : public Thin3DShaderSet {
+class Thin3DGLShaderSet : public Thin3DShaderSet, GfxResourceHolder {
 public:
 	Thin3DGLShaderSet() {
-		program_ = glCreateProgram();
+		program_ = 0;
+		register_gl_resource_holder(this);
 	}
 	~Thin3DGLShaderSet() {
+		unregister_gl_resource_holder(this);
 		vshader->Release();
 		fshader->Release();
 		glDeleteProgram(program_);
@@ -222,6 +240,12 @@ public:
 
 	void SetVector(const char *name, float *value, int n);
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
+
+	void GLLost() {
+		vshader->Compile(vshader->GetSource().c_str());
+		fshader->Compile(fshader->GetSource().c_str());
+		Link();
+	}
 
 	Thin3DGLShader *vshader;
 	Thin3DGLShader *fshader;
@@ -242,6 +266,7 @@ public:
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture() override;
 
 	// Bound state objects
 	void SetBlendState(Thin3DBlendState *state) override {
@@ -335,22 +360,61 @@ GLuint TypeToTarget(T3DTextureType type) {
 	}
 }
 
-class Thin3DGLTexture : public Thin3DTexture {
+class Thin3DGLTexture : public Thin3DTexture, GfxResourceHolder {
 public:
+	Thin3DGLTexture() : tex_(0), target_(0) {
+		width_ = 0;
+		height_ = 0;
+		depth_ = 0;
+		glGenTextures(1, &tex_);
+		register_gl_resource_holder(this);
+	}
 	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : format_(format), tex_(0), target_(TypeToTarget(type)), mipLevels_(mipLevels) {
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
 		glGenTextures(1, &tex_);
+		register_gl_resource_holder(this);
 	}
 	~Thin3DGLTexture() {
-		glDeleteTextures(1, &tex_);
+		unregister_gl_resource_holder(this);
+		Destroy();
+	}
+
+	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+		format_ = format;
+		target_ = TypeToTarget(type);
+		mipLevels_ = mipLevels;
+		width_ = width;
+		height_ = height;
+		depth_ = depth;
+		return true;
+	}
+
+	void Destroy() {
+		if (tex_) {
+			glDeleteTextures(1, &tex_);
+			tex_ = 0;
+		}
 	}
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override;
 
 	void Bind() {
 		glBindTexture(target_, tex_);
+	}
+
+	void GLLost() {
+		if (!filename_.empty()) {
+			if (LoadFromFile(filename_.c_str())) {
+				ILOG("Reloaded lost texture %s", filename_.c_str());
+			} else {
+				ELOG("Failed to reload lost texture %s", filename_.c_str());
+			}
+		} else {
+			WLOG("Texture %p cannot be restored - has no filename", this);
+			tex_ = 0;
+		}
 	}
 	void Finalize(int zim_flags);
 
@@ -361,6 +425,10 @@ private:
 	T3DImageFormat format_;
 	int mipLevels_;
 };
+
+Thin3DTexture *Thin3DGLContext::CreateTexture() {
+	return new Thin3DGLTexture();
+}
 
 Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
@@ -502,6 +570,7 @@ Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, con
 }
 
 bool Thin3DGLShaderSet::Link() {
+	program_ = glCreateProgram();
 	glAttachShader(program_, vshader->GetShader());
 	glAttachShader(program_, fshader->GetShader());
 

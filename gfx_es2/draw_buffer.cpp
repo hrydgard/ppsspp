@@ -33,7 +33,7 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init(Thin3DContext *t3d, bool registerAsHolder) {
+void DrawBuffer::Init(Thin3DContext *t3d) {
 	if (inited_)
 		return;
 
@@ -46,10 +46,6 @@ void DrawBuffer::Init(Thin3DContext *t3d, bool registerAsHolder) {
 	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
 	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
 	vformat_ = t3d_->CreateVertexFormat(components, 24);
-
-	if (registerAsHolder) {
-		register_gl_resource_holder(this);
-	}
 }
 
 void DrawBuffer::Shutdown() {
@@ -57,12 +53,6 @@ void DrawBuffer::Shutdown() {
 	vformat_->Release();
 
 	inited_ = false;
-	unregister_gl_resource_holder(this);
-}
-
-void DrawBuffer::GLLost() {
-	inited_ = false;
-	Init(t3d_, false);
 }
 
 void DrawBuffer::Begin(Thin3DShaderSet *program, DrawBufferPrimitiveMode dbmode) {

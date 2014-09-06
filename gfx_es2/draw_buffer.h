@@ -55,7 +55,7 @@ struct GradientStop {
 
 class TextDrawer;
 
-class DrawBuffer : public GfxResourceHolder {
+class DrawBuffer {
 public:
 	DrawBuffer();
 	~DrawBuffer();
@@ -64,10 +64,8 @@ public:
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init(Thin3DContext *t3d, bool registerAsHolder = true);
+	void Init(Thin3DContext *t3d);
 	void Shutdown();
-
-	virtual void GLLost();
 
 	int Count() const { return count_; }
 

@@ -1,7 +1,9 @@
 #include <thin3d/thin3d.h>
 
+#include "base/logging.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
+#include "file/vfs.h"
 
 static const char * const glsl_fsTexCol =
 "varying vec4 oColor0;\n"
@@ -126,31 +128,82 @@ static T3DImageFormat ZimToT3DFormat(int zim) {
 	}
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DFileType type) {
-	int width[16], height[16], flags;
+bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type) {
+	int width[16], height[16], zim_flags;
 	uint8_t *image[16] = { nullptr };
 
-	int num_levels = LoadZIM(filename, width, height, &flags, image);
+	int num_levels = LoadZIMPtr(data, dataSize, width, height, &zim_flags, image);
 	if (num_levels == 0) {
-		return NULL;
+		return false;
 	}
 
-	T3DImageFormat fmt = ZimToT3DFormat(flags & ZIM_FORMAT_MASK);
+	T3DImageFormat fmt = ZimToT3DFormat(zim_flags & ZIM_FORMAT_MASK);
 
-	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+	// TODO: Cube map / 3D texture / texture array support
+
+	Create(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
+
 	for (int i = 0; i < num_levels; i++) {
-		tex->SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
+		SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
 		free(image[i]);
 	}
-	return tex;
+
+	Finalize(zim_flags);
+	return true;
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const char *data, int size, T3DFileType type) {
+bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type) {
+	filename_ = "";
+	size_t fileSize;
+	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
+	if (!buffer) {
+		return false;
+	}
+	bool retval = LoadFromFileData(buffer, fileSize, type);
+	if (retval) {
+		filename_ = filename;
+	}
+	delete[] buffer;
+	return retval;
+}
+
+Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DImageType type) {
+	Thin3DTexture *tex = CreateTexture();
+	if (!tex->LoadFromFile(filename, type)) {
+		tex->Release();
+		return NULL;
+	} else {
+		return tex;
+	}
+}
+
+T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
+	if (!memcmp(data, "ZIMG", 4)) {
+		return ZIM;
+	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
+		return PNG;
+	} else if (!memcmp(data, "\xff\xd8\xff\xe0", 4)) {
+		return JPEG;
+	} else {
+		return TYPE_UNKNOWN;
+	}
+}
+
+// TODO: Remove the code duplication between this and LoadFromFileData
+Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType type) {
 	int width[16], height[16], zim_flags = 0;
 	uint8_t *image[16] = { nullptr };
 
 	int num_levels = 0;
 	T3DImageFormat fmt;
+
+	if (type == DETECT) {
+		type = DetectImageFileType(data, size);
+	}
+	if (type == TYPE_UNKNOWN) {
+		ELOG("File has unknown format");
+		return nullptr;
+	}
 
 	switch (type) {
 	case ZIM:
@@ -165,6 +218,10 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const char *data, int si
 		num_levels = 1;
 		fmt = RGBA8888;
 		break;
+
+	default:
+		ELOG("Unknown image format");
+		return nullptr;
 	}
 
 	if (num_levels == 0) {
