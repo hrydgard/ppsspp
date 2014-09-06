@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "MsgHandler.h"
+
 #ifdef __arm__
 #if !defined(ARM)
 #define ARM
@@ -72,7 +74,6 @@ enum LOG_TYPE {
 	NUMBER_OF_LOGS,  // Must be last
 };
 
-// FIXME: should this be removed?
 enum LOG_LEVELS {
 	LNOTICE = NOTICE_LEVEL,
 	LERROR = ERROR_LEVEL,
@@ -82,12 +83,9 @@ enum LOG_LEVELS {
 	LVERBOSE = VERBOSE_LEVEL,
 };
 
-#define LOGTYPES_LEVELS LogTypes::LOG_LEVELS
-#define LOGTYPES_TYPE LogTypes::LOG_TYPE
-
 }  // namespace
 
-void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
+void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 		const char *file, int line, const char *fmt, ...)
 #ifdef __GNUC__
 		__attribute__((format(printf, 5, 6)))

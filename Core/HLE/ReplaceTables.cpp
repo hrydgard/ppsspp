@@ -573,6 +573,27 @@ static int Hook_dissidia_recordframe_avi() {
 	return 0;
 }
 
+static int Hook_brandish_download_frame() {
+	u32 fb_infoaddr;
+	if (!GetMIPSStaticAddress(fb_infoaddr, 0x2c, 0x30)) {
+		return 0;
+	}
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x38, true);
+	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
+		return 0;
+	}
+	const int fb_index_offset = (s16)(fb_index_load & 0xffff);
+	const u32 fb_index = (Memory::Read_U32(fb_info + fb_index_offset) + 1) & 1;
+	const u32 fb_address = 0x4000000 + (0x44000 * fb_index);
+	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsRAMAddress(dest_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -619,6 +640,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
 	// This is actually used in other games, not just Dissidia.
 	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER},
+	{ "brandish_download_frame", &Hook_brandish_download_frame, 0, REPFLAG_HOOKENTER},
 	{}
 };
 

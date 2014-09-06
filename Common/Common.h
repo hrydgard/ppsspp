@@ -59,7 +59,6 @@ private:
 
 #include "Log.h"
 #include "CommonTypes.h"
-#include "MsgHandler.h"
 #include "CommonFuncs.h"
 
 #ifdef __APPLE__
@@ -70,7 +69,9 @@ private:
 #define STACKALIGN __attribute__((__force_align_arg_pointer__))
 #endif
 
-#elif defined _WIN32
+#define CHECK_HEAP_INTEGRITY()
+
+#elif defined(_WIN32)
 
 // Check MSC ver
 	#if !defined _MSC_VER || _MSC_VER <= 1000
@@ -93,12 +94,10 @@ private:
 		#include <crtdbg.h>
 		#undef CHECK_HEAP_INTEGRITY
 		#define CHECK_HEAP_INTEGRITY() {if (!_CrtCheckMemory()) PanicAlert("memory corruption detected. see log.");}
-		// If you want to see how much a pain in the ass singletons are, for example:
-		// {614} normal block at 0x030C5310, 188 bytes long.
-		// Data: <Master Log      > 4D 61 73 74 65 72 20 4C 6F 67 00 00 00 00 00 00
-		struct CrtDebugBreak { CrtDebugBreak(int spot) { _CrtSetBreakAlloc(spot); } };
-		//CrtDebugBreak breakAt(614);
-	#endif // end DEBUG/FAST
+	#endif
+#else
+
+#define CHECK_HEAP_INTEGRITY()
 
 #endif
 
@@ -126,11 +125,9 @@ private:
 #endif
 
 #ifdef _MSC_VER
-#define __strdup _strdup
 #define __getcwd _getcwd
 #define __chdir _chdir
 #else
-#define __strdup strdup
 #define __getcwd getcwd
 #define __chdir chdir
 #endif
@@ -150,52 +147,6 @@ private:
 #elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) && !defined(_XBOX) // Visual Studio 2008
 # define _M_SSE 0x402
 #endif
-
-
-#ifdef _MSC_VER
-#ifndef _XBOX
-inline unsigned long long bswap64(unsigned long long x) { return _byteswap_uint64(x); }
-inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
-inline unsigned short bswap16(unsigned short x) { return _byteswap_ushort(x); }
-#else
-inline unsigned long long bswap64(unsigned long long x) { return __loaddoublewordbytereverse(0, &x); }
-inline unsigned int bswap32(unsigned int x) { return __loadwordbytereverse(0, &x); }
-inline unsigned short bswap16(unsigned short x) { return __loadshortbytereverse(0, &x); }
-#endif
-#else
-// TODO: speedup
-inline unsigned short bswap16(unsigned short x) { return (x << 8) | (x >> 8); }
-inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000) >> 8) | ((x & 0xFF00) << 8) | (x << 24);}
-inline unsigned long long bswap64(unsigned long long x) {return ((unsigned long long)bswap32(x) << 32) | bswap32(x >> 32); }
-#endif
-
-inline float bswapf( float f )
-{
-  union
-  {
-    float f;
-    unsigned int u32;
-  } dat1, dat2;
-
-  dat1.f = f;
-  dat2.u32 = bswap32(dat1.u32);
-
-  return dat2.f;
-}
-
-inline double bswapd( double f )
-{
-  union
-  {
-    double f;
-    unsigned long long u64;
-  } dat1, dat2;
-
-  dat1.f = f;
-  dat2.u64 = bswap64(dat1.u64);
-
-  return dat2.f;
-}
 
 #include "Swap.h"
 

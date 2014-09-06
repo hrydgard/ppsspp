@@ -447,22 +447,27 @@ void GenerateFragmentShader(char *buffer) {
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
 	const char *texture = "texture2D";
+	const char *texelFetch = NULL;
 	bool highpFog = false;
 	bool bitwiseOps = false;
-	bool texelFetch = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
 	// ES doesn't support dual source alpha :(
 	if (gl_extensions.GLES3) {
-		WRITE(p, "#version 300 es\n");  // GLSL ES 1.0
+		WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
 		fragColor0 = "fragColor0";
 		texture = "texture";
 		glslES30 = true;
 		bitwiseOps = true;
-		texelFetch = true;
+		texelFetch = "texelFetch";
 	} else {
 		WRITE(p, "#version 100\n");  // GLSL ES 1.0
+		if (gl_extensions.EXT_gpu_shader4) {
+			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			bitwiseOps = true;
+			texelFetch = "texelFetch2D";
+		}
 	}
 
 	// PowerVR needs highp to do the fog in MHU correctly.
@@ -482,7 +487,7 @@ void GenerateFragmentShader(char *buffer) {
 		texture = "texture";
 		glslES30 = true;
 		bitwiseOps = true;
-		texelFetch = true;
+		texelFetch = "texelFetch";
 		WRITE(p, "#version 330\n");
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
@@ -490,14 +495,22 @@ void GenerateFragmentShader(char *buffer) {
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		fragColor0 = "fragColor0";
 		bitwiseOps = true;
-		texelFetch = true;
+		texelFetch = "texelFetch";
 		WRITE(p, "#version 130\n");
+		if (gl_extensions.EXT_gpu_shader4) {
+			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+		}
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	} else {
 		WRITE(p, "#version 110\n");
+		if (gl_extensions.EXT_gpu_shader4) {
+			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			bitwiseOps = true;
+			texelFetch = "texelFetch2D";
+		}
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
@@ -826,7 +839,7 @@ void GenerateFragmentShader(char *buffer) {
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
 			} else {
-				WRITE(p, "  lowp vec4 destColor = texelFetch(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n");
+				WRITE(p, "  lowp vec4 destColor = %s(fbotex, ivec2(gl_FragCoord.x, gl_FragCoord.y), 0);\n", texelFetch);
 			}
 
 			GEBlendSrcFactor funcA = gstate.getBlendFuncA();

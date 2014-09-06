@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <deque>
+
+#include "base/colorutil.h"
 #include "base/logging.h"
 #include "i18n/i18n.h"
 #include "input/keycodes.h"
@@ -209,6 +213,7 @@ void ControlMappingScreen::CreateViews() {
 	if (KeyMap::GetSeenPads().size()) {
 		leftColumn->Add(new Choice(k->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
+	leftColumn->Add(new Choice(k->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
@@ -258,6 +263,11 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
 	screenManager()->push(autoConfList);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ControlMappingScreen::OnTestAnalogs(UI::EventParams &params) {
+	screenManager()->push(new AnalogTestScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -340,4 +350,96 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 			callback_(kdf);
 	}
 	return true;
+}
+
+class JoystickHistoryView : public UI::InertView {
+public:
+	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
+		: UI::InertView(layoutParams),
+		  xAxis_(xAxis), xDevice_(xDevice),
+			yAxis_(yAxis), yDevice_(yDevice), 
+			curX_(0.0f), curY_(0.0f),
+			maxCount_(500) {}
+	void Draw(UIContext &dc) override;
+	void Update(const InputState &input_state) override;
+	void Axis(const AxisInput &input) {
+		if (input.axisId == xAxis_) {
+			curX_ = input.value;
+		} else if (input.axisId == yAxis_) {
+			curY_ = input.value;
+		}
+	}
+
+private:
+	struct Location {
+		Location() : x(0.0f), y(0.0f) {}
+		Location(float xx, float yy) : x(xx), y(yy) {}
+		float x;
+		float y;
+	};
+
+	int xAxis_;
+	int yAxis_;
+	int xDevice_;
+	int yDevice_;
+
+	float curX_;
+	float curY_;
+
+	std::deque<Location> locations_;
+	int maxCount_;
+};
+
+void JoystickHistoryView::Draw(UIContext &dc) {
+	if (xAxis_ > -1 && yAxis_ > -1) {
+		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_CROSS];
+		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image.w;
+
+		int a = maxCount_ - (int)locations_.size();
+		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
+			float x = bounds_.centerX() + minRadius * iter->x;
+			float y = bounds_.centerY() - minRadius * iter->y;
+			float alpha = (float)a / maxCount_;
+			if (alpha < 0.0f) alpha = 0.0f;
+			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
+			a++;
+		}
+		dc.End();
+		dc.BeginNoTex();
+		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2, minRadius * 2, 0x80FFFFFF);
+		dc.End();
+		dc.Begin();
+	} else {
+		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
+	}
+}
+
+void JoystickHistoryView::Update(const InputState &input_state) {
+	locations_.push_back(Location(curX_, curY_));
+	if (locations_.size() > maxCount_) {
+		locations_.pop_front();
+	}
+}
+
+void AnalogTestScreen::CreateViews() {
+	root_ = new UI::LinearLayout(UI::ORIENT_VERTICAL);
+
+	UI::LinearLayout *theTwo = new UI::LinearLayout(UI::ORIENT_HORIZONTAL, new UI::LinearLayoutParams(1.0f));
+
+	int axis1, device1, dir1;
+	int axis2, device2, dir2;
+
+	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
+	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
+
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+
+	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
+	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
+
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+
+	root_->Add(theTwo);
+
+	root_->Add(new UI::Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

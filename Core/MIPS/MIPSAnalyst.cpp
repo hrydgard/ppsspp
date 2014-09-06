@@ -260,6 +260,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x79faa339fff5a80c, 28, "finitef", },
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
+	{ 0x8126a59ffa504614, 540, "brandish_download_frame", },//Zero no Kiseki and Ao no Kiseki
 	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
 	{ 0x83ac39971df4b966, 336, "sqrtf", },
 	{ 0x84c6cd47834f4c79, 1284, "powf", },
@@ -319,6 +320,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xafb2c7e56c04c8e9, 48, "vtfm_q", },
 	{ 0xafc9968e7d246a5e, 1588, "atan", },
 	{ 0xafcb7dfbc4d72588, 44, "vector_transform_3x4", },
+	{ 0xb07f9d82d79deea9, 536, "brandish_download_frame", },  // Brandish
 	{ 0xb0db731f27d3aa1b, 40, "vmax_s", },
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },
