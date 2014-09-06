@@ -1,3 +1,4 @@
+#include <string.h>
 #include <thin3d/thin3d.h>
 
 #include "base/logging.h"
