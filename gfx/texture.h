@@ -3,6 +3,8 @@
 // Load and manage OpenGL textures easily. Supports ETC1 compressed texture with mipmaps
 // in the custom ZIM format.
 
+// This is deprecated - start using Thin3D instead.
+
 #include <string>
 
 #include "base/basictypes.h"

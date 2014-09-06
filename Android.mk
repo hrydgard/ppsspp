@@ -12,6 +12,7 @@ LOCAL_SRC_FILES :=\
     audio/mixer.cpp.arm \
     base/backtrace.cpp \
     base/buffer.cpp \
+    base/compat.cpp \
     base/display.cpp \
     base/timeutil.cpp \
     base/colorutil.cpp \

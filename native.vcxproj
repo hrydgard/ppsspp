@@ -193,6 +193,7 @@
     <ClInclude Include="base\buffer.h" />
     <ClInclude Include="base\color.h" />
     <ClInclude Include="base\colorutil.h" />
+    <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\error_context.h" />
     <ClInclude Include="base\fastlist.h" />
@@ -323,6 +324,7 @@
     </ClCompile>
     <ClCompile Include="base\buffer.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
+    <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="base\error_context.cpp" />
     <ClCompile Include="base\PCMain.cpp">

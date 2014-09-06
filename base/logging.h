@@ -2,18 +2,14 @@
 
 #include "base/arch.h"
 #include "base/backtrace.h"
+#include "base/compat.h"
 
 // Simple wrapper around Android's logging interface that also allows other
 // implementations, and also some misc utilities.
 
-
-// Disable annoying warnings in VS
 #ifdef _MSC_VER
-#pragma warning (disable:4996)   //strcpy may be dangerous
-
-#if !defined(snprintf)
-#define snprintf _snprintf
-#endif
+// Disable annoying warnings in VS
+#pragma warning (disable:4996)   //strcpy may be dangerous, etc.
 #endif
 
 #undef Crash

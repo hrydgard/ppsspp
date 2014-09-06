@@ -350,6 +350,7 @@
     <ClInclude Include="thin3d\d3dx9_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="base\compat.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -820,6 +821,7 @@
     <ClCompile Include="thin3d\d3dx9_loader.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
+    <ClCompile Include="base\compat.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
