@@ -61,6 +61,47 @@
 #define COMMON_LITTLE_ENDIAN 1
 #endif
 
+#ifdef _MSC_VER
+#ifndef _XBOX
+inline unsigned long long bswap64(unsigned long long x) { return _byteswap_uint64(x); }
+inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
+inline unsigned short bswap16(unsigned short x) { return _byteswap_ushort(x); }
+#else
+inline unsigned long long bswap64(unsigned long long x) { return __loaddoublewordbytereverse(0, &x); }
+inline unsigned int bswap32(unsigned int x) { return __loadwordbytereverse(0, &x); }
+inline unsigned short bswap16(unsigned short x) { return __loadshortbytereverse(0, &x); }
+#endif
+#else
+// TODO: speedup
+inline unsigned short bswap16(unsigned short x) { return (x << 8) | (x >> 8); }
+inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000) >> 8) | ((x & 0xFF00) << 8) | (x << 24); }
+inline unsigned long long bswap64(unsigned long long x) { return ((unsigned long long)bswap32(x) << 32) | bswap32(x >> 32); }
+#endif
+
+inline float bswapf(float f) {
+	union {
+		float f;
+		unsigned int u32;
+	} dat1, dat2;
+
+	dat1.f = f;
+	dat2.u32 = bswap32(dat1.u32);
+
+	return dat2.f;
+}
+
+inline double bswapd(double f) {
+	union {
+		double f;
+		unsigned long long u64;
+	} dat1, dat2;
+
+	dat1.f = f;
+	dat2.u64 = bswap64(dat1.u64);
+
+	return dat2.f;
+}
+
 template <typename T, typename F>
 struct swap_struct_t {
 	typedef swap_struct_t<T, F> swapped_t;

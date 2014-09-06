@@ -70,6 +70,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/base/backtrace.cpp \
 	$$P/native/base/buffer.cpp \
 	$$P/native/base/colorutil.cpp \
+	$$P/native/base/compat.cpp \
 	$$P/native/base/display.cpp \
 	$$P/native/base/error_context.cpp \
 	$$P/native/base/fastlist_test.cpp \

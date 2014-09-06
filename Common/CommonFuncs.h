@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "base/compat.h"
 
 #if defined(IOS) || defined(MIPS)
 #include <signal.h>
@@ -30,17 +31,13 @@ template<> struct CompileTimeAssert<true> {};
 #include <unistd.h>
 #include <errno.h>
 
-// go to debugger mode
-#ifdef GEKKO
-	#define Crash()
-#else
 // Assume !ARM && !MIPS = x86
 #if !defined(ARM) && !defined(MIPS)
 	#define Crash() {asm ("int $3");}
 #else
-  #define Crash() {kill( getpid(), SIGINT ) ; }
+  #define Crash() {kill(getpid(), SIGINT);}
 #endif
-#endif
+
 #define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
 inline u32 __rotl(u32 x, int shift) {
@@ -66,12 +63,11 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 }
 
 #else // WIN32
+
 // Function Cross-Compatibility
 	#define strcasecmp _stricmp
 	#define strncasecmp _strnicmp
 	#define unlink _unlink
-	#define snprintf _snprintf
-	#define vscprintf _vscprintf
 	#define __rotl _rotl
 	#define __rotl64 _rotl64
 	#define __rotr _rotr

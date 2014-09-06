@@ -21,6 +21,7 @@
 #include "ABI.h"
 #include "CPUDetect.h"
 #include "MemoryUtil.h"
+#include "MsgHandler.h"
 
 namespace Gen
 {

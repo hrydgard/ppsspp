@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "MsgHandler.h"
+
 #ifdef __arm__
 #if !defined(ARM)
 #define ARM
