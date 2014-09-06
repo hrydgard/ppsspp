@@ -907,53 +907,57 @@ void GenerateFragmentShader(char *buffer) {
 		}
 	}
 
-	switch (stencilToAlpha) {
-	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  fragColor0 = vec4(v.rgb, 0.0);\n");
-		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");	
-		break;
-
-	case REPLACE_ALPHA_YES:
-		WRITE(p, "  %s = vec4(v.rgb, 0.0);\n", fragColor0);
-		break;
-
-	case REPLACE_ALPHA_NO:
-		WRITE(p, "  %s = v;\n", fragColor0);
-		break;
-	}
-
+	std::string replacedAlpha = "0.0";
+	char replacedAlphaTemp[64] = "";
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
-			WRITE(p, "  %s.a = u_stencilReplaceValue;\n", fragColor0);
+			replacedAlpha = "u_stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:
-			WRITE(p, "  %s.a = 0.0;\n", fragColor0);
+			replacedAlpha = "0.0";
 			break;
 
 		case STENCIL_VALUE_ONE:
 		case STENCIL_VALUE_INVERT:
 			// In invert, we subtract by one, but we want to output one here.
-			WRITE(p, "  %s.a = 1.0;\n", fragColor0);
+			replacedAlpha = "1.0";
 			break;
 
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_DECR_4:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
-			WRITE(p, "  %s.a = %f;\n", fragColor0, 1.0 / 15.0);
+			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 15.0);
+			replacedAlpha = replacedAlphaTemp;
 			break;
 
 		case STENCIL_VALUE_INCR_8:
 		case STENCIL_VALUE_DECR_8:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
-			WRITE(p, "  %s.a = %f;\n", fragColor0, 1.0 / 255.0);
+			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 255.0);
+			replacedAlpha = replacedAlphaTemp;
 			break;
 
 		case STENCIL_VALUE_KEEP:
 			// Do nothing. We'll mask out the alpha using color mask.
 			break;
 		}
+	}
+
+	switch (stencilToAlpha) {
+	case REPLACE_ALPHA_DUALSOURCE:
+		WRITE(p, "  fragColor0 = vec4(v.rgb, %s);\n", replacedAlpha.c_str());
+		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
+		break;
+
+	case REPLACE_ALPHA_YES:
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
+		break;
+
+	case REPLACE_ALPHA_NO:
+		WRITE(p, "  %s = v;\n", fragColor0);
+		break;
 	}
 
 #ifdef DEBUG_SHADER
