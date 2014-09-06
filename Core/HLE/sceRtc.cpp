@@ -54,6 +54,14 @@ const u64 rtcFiletimeOffset = 50491123200000000ULL;
 // 400 years is in other words 20871 full weeks.
 const u64 rtc400YearTicks = (u64)20871 * 7 * 24 * 3600 * 1000000ULL;
 
+// This is the last moment the clock was adjusted.
+// It's possible games may not like the clock being adjusted in the past hour (cheating?)
+// So this returns a static time.
+const u64 rtcLastAdjustedTicks = rtcMagicOffset + 41 * 365 * 24 * 3600 * 1000000ULL;
+// The reincarnated time seems related to the battery or manufacturing date.
+// On a test PSP, it was over 3 years in the past, so we again pick a fixed date.
+const u64 rtcLastReincarnatedTicks = rtcMagicOffset + 40 * 365 * 24 * 3600 * 1000000ULL;
+
 const int PSP_TIME_INVALID_YEAR = -1;
 const int PSP_TIME_INVALID_MONTH = -2;
 const int PSP_TIME_INVALID_DAY = -3;
@@ -149,7 +157,7 @@ void __RtcTimeOfDay(PSPTimeval *tv)
 	tv->tv_usec = adjustedUs % 1000000UL;
 }
 
-void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
+void __RtcTmToPspTime(ScePspDateTime &t, const tm *val)
 {
 	t.year = val->tm_year + 1900;
 	t.month = val->tm_mon + 1;
@@ -158,6 +166,19 @@ void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
 	t.minute = val->tm_min;
 	t.second = val->tm_sec;
 	t.microsecond = 0;
+}
+
+void __RtcPspTimeToTm(tm &val, const ScePspDateTime &pt)
+{
+	val.tm_year = pt.year - 1900;
+	val.tm_mon = pt.month - 1;
+	val.tm_mday = pt.day;
+	val.tm_wday = -1;
+	val.tm_yday = -1;
+	val.tm_hour = pt.hour;
+	val.tm_min = pt.minute;
+	val.tm_sec = pt.second;
+	val.tm_isdst = 0;
 }
 
 void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
@@ -209,15 +230,7 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 u64 __RtcPspTimeToTicks(const ScePspDateTime &pt)
 {
 	tm local;
-	local.tm_year = pt.year - 1900;
-	local.tm_mon = pt.month - 1;
-	local.tm_mday = pt.day;
-	local.tm_wday = -1;
-	local.tm_yday = -1;
-	local.tm_hour = pt.hour;
-	local.tm_min = pt.minute;
-	local.tm_sec = pt.second;
-	local.tm_isdst = 0;
+	__RtcPspTimeToTm(local, pt);
 
 	s64 tickOffset = 0;
 	while (local.tm_year < 70)
@@ -377,6 +390,11 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 		day += t[restMonth-1];
 		month = 12;
 	}
+
+	while (year < 1900)
+		year += 400;
+	while (year > 2300)
+		year -= 400;
 
 	tm local;
 	local.tm_year = year - 1900;
@@ -890,18 +908,158 @@ int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 
 int sceRtcGetLastAdjustedTime(u32 tickPtr)
 {
-	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(curTick, tickPtr);
+		Memory::Write_U64(rtcLastAdjustedTicks, tickPtr);
 	DEBUG_LOG(SCERTC, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
+	return 0;
+}
+
+int sceRtcGetLastReincarnatedTime(u32 tickPtr)
+{
+	if (Memory::IsValidAddress(tickPtr))
+		Memory::Write_U64(rtcLastReincarnatedTicks, tickPtr);
+	DEBUG_LOG(SCERTC, "sceRtcGetLastReincarnatedTime(%d)", tickPtr);
 	return 0;
 }
 
 //Returns 0 on success, according to Project Diva 2nd jpcsptrace log
 int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
 {
-	ERROR_LOG(SCERTC, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
+	ERROR_LOG_REPORT(SCERTC, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
 	return 0; 
+}
+
+int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
+{
+	u64 srcTick = Memory::Read_U64(srcTickPtr);
+
+	ScePspDateTime pt;
+	memset(&pt, 0, sizeof(pt));
+
+	__RtcTicksToPspTime(pt, srcTick);
+
+	tm local;
+	__RtcPspTimeToTm(local, pt);
+	while (local.tm_year < 70)
+		local.tm_year += 400;
+	while (local.tm_year >= 470)
+		local.tm_year -= 400;
+	local.tm_min += tz;
+	rtc_timegm(&local);
+
+	char *out = (char *)Memory::GetPointer(outPtr);
+	char *end = out + 32;
+	out += strftime(out, end - out, "%a, %d %b ", &local);
+	out += snprintf(out, end - out, "%04d", pt.year);
+	out += strftime(out, end - out, " %H:%M:%S ", &local);
+	if (tz < 0)
+		out += snprintf(out, end - out, "-%02d%02d", -tz / 60, -tz % 60);
+	else
+		out += snprintf(out, end - out, "+%02d%02d", tz / 60, tz % 60);
+
+	return 0;
+}
+
+int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
+{
+	u64 srcTick = Memory::Read_U64(srcTickPtr);
+
+	ScePspDateTime pt;
+	memset(&pt, 0, sizeof(pt));
+
+	__RtcTicksToPspTime(pt, srcTick);
+
+	tm local;
+	__RtcPspTimeToTm(local, pt);
+	while (local.tm_year < 70)
+		local.tm_year += 400;
+	while (local.tm_year >= 470)
+		local.tm_year -= 400;
+	local.tm_min += tz;
+	rtc_timegm(&local);
+
+	char *out = (char *)Memory::GetPointer(outPtr);
+	char *end = out + 32;
+	out += snprintf(out, end - out, "%04d", pt.year);
+	out += strftime(out, end - out, "-%m-%dT%H:%M:%S.00", &local);
+	if (tz == 0)
+		out += snprintf(out, end - out, "Z");
+	else if (tz < 0)
+		out += snprintf(out, end - out, "-%02d:%02d", -tz / 60, -tz % 60);
+	else
+		out += snprintf(out, end - out, "+%02d:%02d", tz / 60, tz % 60);
+
+	return 0;
+}
+
+int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
+{
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	{
+		// TODO: Not well tested.
+		ERROR_LOG(SCERTC, "sceRtcFormatRFC2822(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
+		return -1;
+	}
+
+	DEBUG_LOG(SCERTC, "sceRtcFormatRFC2822(%08x, %08x, %d)", outPtr, srcTickPtr, tz);
+	return __RtcFormatRFC2822(outPtr, srcTickPtr, tz);
+}
+
+int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
+{
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	{
+		// TODO: Not well tested.
+		ERROR_LOG(SCERTC, "sceRtcFormatRFC2822LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
+		return -1;
+	}
+
+	int tz_seconds;
+#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+		time_t timezone = 0;
+		tm *time = localtime(&timezone);
+		tz_seconds = time->tm_gmtoff;
+#else
+		tz_seconds = -timezone;
+#endif
+
+	DEBUG_LOG(SCERTC, "sceRtcFormatRFC2822LocalTime(%08x, %08x)", outPtr, srcTickPtr);
+	return __RtcFormatRFC2822(outPtr, srcTickPtr, tz_seconds / 60);
+}
+
+int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
+{
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	{
+		// TODO: Not well tested.
+		ERROR_LOG(SCERTC, "sceRtcFormatRFC3339(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
+		return -1;
+	}
+
+	DEBUG_LOG(SCERTC, "sceRtcFormatRFC3339(%08x, %08x, %d)", outPtr, srcTickPtr, tz);
+	return __RtcFormatRFC3339(outPtr, srcTickPtr, tz);
+}
+
+int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
+{
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	{
+		// TODO: Not well tested.
+		ERROR_LOG(SCERTC, "sceRtcFormatRFC3339LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
+		return -1;
+	}
+
+	int tz_seconds;
+#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+		time_t timezone = 0;
+		tm *time = localtime(&timezone);
+		tz_seconds = time->tm_gmtoff;
+#else
+		tz_seconds = -timezone;
+#endif
+
+	DEBUG_LOG(SCERTC, "sceRtcFormatRFC3339LocalTime(%08x, %08x)", outPtr, srcTickPtr);
+	return __RtcFormatRFC3339(outPtr, srcTickPtr, tz_seconds / 60);
 }
 
 const HLEFunction sceRtc[] =
@@ -936,16 +1094,16 @@ const HLEFunction sceRtc[] =
 	{0xCF3A2CA8, &WrapI_UUI<sceRtcTickAddWeeks>, "sceRtcTickAddWeeks"},
 	{0xDBF74F1B, &WrapI_UUI<sceRtcTickAddMonths>, "sceRtcTickAddMonths"},
 	{0x42842C77, &WrapI_UUI<sceRtcTickAddYears>, "sceRtcTickAddYears"},
-	{0xC663B3B9, 0, "sceRtcFormatRFC2822"},
-	{0x7DE6711B, 0, "sceRtcFormatRFC2822LocalTime"},
-	{0x0498FB3C, 0, "sceRtcFormatRFC3339"},
-	{0x27F98543, 0, "sceRtcFormatRFC3339LocalTime"},
+	{0xC663B3B9, &WrapI_UUI<sceRtcFormatRFC2822>, "sceRtcFormatRFC2822"},
+	{0x7DE6711B, &WrapI_UU<sceRtcFormatRFC2822LocalTime>, "sceRtcFormatRFC2822LocalTime"},
+	{0x0498FB3C, &WrapI_UUI<sceRtcFormatRFC3339>, "sceRtcFormatRFC3339"},
+	{0x27F98543, &WrapI_UU<sceRtcFormatRFC3339LocalTime>, "sceRtcFormatRFC3339LocalTime"},
 	{0xDFBC5F16, &WrapI_UU<sceRtcParseDateTime>, "sceRtcParseDateTime"},
 	{0x28E1E988, 0, "sceRtcParseRFC3339"},
 	{0xe1c93e47, &WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
-	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
+	{0x203ceb0d, &WrapI_U<sceRtcGetLastReincarnatedTime>, "sceRtcGetLastReincarnatedTime"},
 	{0x7d1fbed3, &WrapI_UU<sceRtcSetAlarmTick>, "sceRtcSetAlarmTick"},
 	{0xf5fcc995, 0, "sceRtcGetCurrentNetworkTick"},
 	{0x81fcda34, 0, "sceRtcIsAlarmed"},
