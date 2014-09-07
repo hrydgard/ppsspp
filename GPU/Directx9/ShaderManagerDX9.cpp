@@ -34,9 +34,6 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "UI/OnScreenDisplay.h"
 
-// For matrices convertions
-#include <xnamath.h>
-
 namespace DX9 {
 
 PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
