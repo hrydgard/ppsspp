@@ -177,6 +177,10 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
+	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
+		decl->second->Release();
+	}
+
 	delete [] quadIndices_;
 	
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
@@ -229,10 +233,6 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-static IDirect3DVertexDeclaration9* pHardwareVertexDecl = NULL;
-static std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap;
-static D3DVERTEXELEMENT9 VertexElements[8];
-
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 	// Vertices Elements orders
@@ -269,12 +269,12 @@ static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
 
-static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt) {
-	auto vertexDeclCached = vertexDeclMap.find(pspFmt);
+IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt) {
+	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
-	if (vertexDeclCached==vertexDeclMap.end()) {
-		D3DVERTEXELEMENT9 * VertexElement = &VertexElements[0];
-		int offset = 0;
+	if (vertexDeclCached == vertexDeclMap_.end()) {
+		D3DVERTEXELEMENT9 VertexElements[8];
+		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
 
 		// Vertices Elements orders
 		// WEIGHT
@@ -320,7 +320,8 @@ static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &dec
 		D3DVERTEXELEMENT9 end = D3DDECL_END();
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
 	
-		// Create declaration	
+		// Create declaration
+		IDirect3DVertexDeclaration9 *pHardwareVertexDecl;
 		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
 			// Log
@@ -329,10 +330,11 @@ static void SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &dec
 		}
 
 		// Add it to map
-		vertexDeclMap[pspFmt] = pHardwareVertexDecl;
+		vertexDeclMap_[pspFmt] = pHardwareVertexDecl;
+		return pHardwareVertexDecl;
 	} else {
 		// Set it from map
-		pHardwareVertexDecl = vertexDeclCached->second;
+		return vertexDeclCached->second;
 	}
 }
 
@@ -1218,7 +1220,7 @@ rotateVBO:
 
 			DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
-			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
+			IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 			if (pHardwareVertexDecl) {
 				pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
