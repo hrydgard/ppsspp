@@ -29,7 +29,6 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelMutex.h"
-#include "sceNet.h"
 #include "sceUtility.h"
 
 #include "Core/HLE/proAdhoc.h"

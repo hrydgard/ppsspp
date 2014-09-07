@@ -1456,7 +1456,6 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		return iResult;
 	}
 
-
 	// Prepare Login Packet
 	SceNetAdhocctlLoginPacketC2S packet;
 	packet.base.opcode = OPCODE_LOGIN;
@@ -1563,7 +1562,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
 
 bool validNetworkName(const SceNetAdhocctlGroupName * group_name) {
 	// Result
-	int valid = true;
+	bool valid = true;
 
 	// Name given
 	if (group_name != NULL) {

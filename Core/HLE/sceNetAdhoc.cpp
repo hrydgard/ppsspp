@@ -243,8 +243,8 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 			friendFinderThread = std::thread(friendFinder);
 		}
 
-		netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	}
+	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	return 0;
 }
 
@@ -297,7 +297,8 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 				//return ERROR_NET_ADHOC_PORT_IN_USE;
 
 				// Create Internet UDP Socket
-				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				int usocket = (int)INVALID_SOCKET;
+				usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if (usocket != INVALID_SOCKET) {
 					// Change socket buffer size when necessary
@@ -1679,7 +1680,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 				// Valid Arguments
 				if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket
-					int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+					int tcpsocket = (int)INVALID_SOCKET;
+					tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 					
 					// Valid Socket produced
 					if (tcpsocket > 0) {
