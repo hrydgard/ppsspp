@@ -121,5 +121,7 @@ void D3D9_Shutdown() {
 	device->EndScene();
 	device->Release();
 	d3d->Release();
+	DX9::pD3Ddevice = NULL;
+	DX9::pD3Ddevice = NULL;
 	hWnd = NULL;
 }
