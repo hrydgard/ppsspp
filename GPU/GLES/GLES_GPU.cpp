@@ -397,6 +397,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	transformDraw_.SetFragmentTestCache(&fragmentTestCache_);
 	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
@@ -404,6 +405,7 @@ GLES_GPU::GLES_GPU()
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
+	fragmentTestCache_.SetTextureCache(&textureCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -447,6 +449,7 @@ GLES_GPU::~GLES_GPU() {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
+	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	glstate.SetVSyncInterval(0);
 }
@@ -484,6 +487,7 @@ void GLES_GPU::DeviceLost() {
 	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
 	framebufferManager_.DeviceLost();
 
@@ -585,6 +589,7 @@ void GLES_GPU::BeginFrameInternal() {
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
+	fragmentTestCache_.Decimate();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");

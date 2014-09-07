@@ -29,6 +29,7 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class FragmentTestCache;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -115,6 +116,9 @@ public:
 	}
 	void SetFramebufferManager(FramebufferManager *fbManager) {
 		framebufferManager_ = fbManager;
+	}
+	void SetFragmentTestCache(FragmentTestCache *testCache) {
+		fragmentTestCache_ = testCache;
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -236,6 +240,7 @@ private:
 	ShaderManager *shaderManager_;
 	TextureCache *textureCache_;
 	FramebufferManager *framebufferManager_;
+	FragmentTestCache *fragmentTestCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];

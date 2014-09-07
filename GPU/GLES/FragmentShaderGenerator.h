@@ -72,6 +72,7 @@ enum ReplaceBlendType {
 	REPLACE_BLEND_COPY_FBO,
 };
 
+bool IsAlphaTestAgainstZero();
 bool IsAlphaTestTriviallyTrue();
 bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();

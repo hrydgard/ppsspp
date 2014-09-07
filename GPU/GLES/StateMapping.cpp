@@ -639,6 +639,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		} else {
 			glstate.stencilTest.disable();
 		}
+
+		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
+			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+		}
 	}
 
 	bool throughmode = gstate.isModeThrough();

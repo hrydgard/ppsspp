@@ -192,6 +192,7 @@
     <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GLES\DepalettizeShader.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
+    <ClInclude Include="GLES\FragmentTestCache.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
     <ClInclude Include="GLES\GLES_GPU.h" />
     <ClInclude Include="GLES\ShaderManager.h" />
@@ -245,6 +246,7 @@
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\DepalettizeShader.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="GLES\FragmentTestCache.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\GLES_GPU.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
