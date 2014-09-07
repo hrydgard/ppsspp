@@ -889,6 +889,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	gstate_c.cutRTOffsetX = 0;
 	bool vfbFormatChanged = false;
+	GEBufferFormat vfbOldFormat = GE_FORMAT_INVALID;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -899,9 +900,10 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			if (vfb->fb_stride != fb_stride || vfb->format != fmt) {
+				vfbOldFormat = vfb->format;
+				vfbFormatChanged = true;
 				vfb->fb_stride = fb_stride;
 				vfb->format = fmt;
-				vfbFormatChanged = true;
 			}
 			// In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
 			if (gstate.isModeThrough() && (int)vfb->width < fb_stride) {
@@ -1107,9 +1109,16 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			BlitFramebufferDepth(currentRenderVfb_, vfb);
 		}
 		currentRenderVfb_ = vfb;
+		if (vfbFormatChanged && vfbOldFormat != vfb->format) {
+			// TODO: Might ultimately combine this with the resize step above.
+			ReformatFramebufferFrom(vfb, vfbOldFormat);
+		}
 	} else {
 		if (vfbFormatChanged) {
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+			if (vfbOldFormat != vfb->format) {
+				ReformatFramebufferFrom(vfb, vfbOldFormat);
+			}
 		}
 
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -1139,6 +1148,36 @@ void FramebufferManager::SetLineWidth() {
 		glPointSize((float)g_Config.iInternalResolution);
 	}
 #endif
+}
+
+void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_bind_as_render_target(vfb->fbo);
+
+	// Technically, we should at this point re-interpret the bytes of the old format to the new.
+	// That might get tricky, and could cause unnecessary slowness in some games.
+	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
+	// (it uses 565 to write zeros to the buffer, than 4444 to actually render the shadow.)
+	//
+	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
+	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
+	// to exactly reproduce in 4444 and 8888 formats.
+
+	if (old == GE_FORMAT_565) {
+		glstate.scissorTest.disable();
+		glstate.depthWrite.set(GL_FALSE);
+		glstate.colorMask.set(false, false, false, true);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.set(0xFF);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClearStencil(0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+
+	RebindFramebuffer();
 }
 
 void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {

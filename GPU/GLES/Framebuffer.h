@@ -162,6 +162,7 @@ public:
 	}
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
 
