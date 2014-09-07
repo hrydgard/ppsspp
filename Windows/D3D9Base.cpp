@@ -116,6 +116,8 @@ void D3D9_Resize(HWND window) {
 }
 
 void D3D9_Shutdown() { 
+	DX9::DestroyShaders();
+	DX9::fbo_shutdown();
 	device->EndScene();
 	device->Release();
 	d3d->Release();

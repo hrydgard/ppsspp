@@ -214,6 +214,20 @@ void CompileShaders() {
 	pD3Ddevice->CreateVertexDeclaration( SoftTransVertexElements, &pSoftVertexDecl );
 }
 
+void DestroyShaders() {
+	if (pFramebufferVertexShader) {
+		pFramebufferVertexShader->Release();
+	}
+	if (pFramebufferPixelShader) {
+		pFramebufferPixelShader->Release();
+	}
+	if (pFramebufferVertexDecl) {
+		pFramebufferVertexDecl->Release();
+	}
+	if (pSoftVertexDecl) {
+		pSoftVertexDecl->Release();
+	}
+}
 
 bool useVsync = false;
 
