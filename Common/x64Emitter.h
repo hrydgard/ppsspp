@@ -217,11 +217,11 @@ inline OpArg Imm16(u16 imm) {return OpArg(imm, SCALE_IMM16);} //rarely used
 inline OpArg Imm32(u32 imm) {return OpArg(imm, SCALE_IMM32);}
 inline OpArg Imm64(u64 imm) {return OpArg(imm, SCALE_IMM64);}
 #ifdef _M_X64
-inline OpArg ImmPtr(void* imm) {return Imm64((u64)imm);}
+inline OpArg ImmPtr(const void *imm) {return Imm64((u64)imm);}
 #else
-inline OpArg ImmPtr(void* imm) {return Imm32((u32)imm);}
+inline OpArg ImmPtr(const void *imm) {return Imm32((u32)imm);}
 #endif
-inline u32 PtrOffset(void* ptr, void* base) {
+inline u32 PtrOffset(const void *ptr, const void *base) {
 #ifdef _M_X64
 	s64 distance = (s64)ptr-(s64)base;
 	if (distance >= 0x80000000LL ||
@@ -708,6 +708,8 @@ public:
 	void ABI_CallFunctionCCP(const void *func, u32 param1, u32 param2, void *param3);
 	void ABI_CallFunctionCCCP(const void *func, u32 param1, u32 param2, u32 param3, void *param4);
 	void ABI_CallFunctionP(const void *func, void *param1);
+	void ABI_CallFunctionPA(const void *func, void *param1, const Gen::OpArg &arg2);
+	void ABI_CallFunctionPAA(const void *func, void *param1, const Gen::OpArg &arg2, const Gen::OpArg &arg3);
 	void ABI_CallFunctionPPC(const void *func, void *param1, void *param2, u32 param3);
 	void ABI_CallFunctionAC(const void *func, const Gen::OpArg &arg1, u32 param2);
 	void ABI_CallFunctionACC(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3);

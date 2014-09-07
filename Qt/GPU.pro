@@ -27,6 +27,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Math3D.cpp \
 	$$P/GPU/Null/NullGpu.cpp \
 	$$P/GPU/GLES/DepalettizeShader.cpp \
+	$$P/GPU/GLES/DisplayListCache.cpp \
 	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLES_GPU.cpp \
@@ -54,6 +55,9 @@ armv7: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 
 arm: SOURCES += $$P/GPU/GLES/VertexDecoderArm.cpp
 else: SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
+
+arm: SOURCES += $$P/GPU/GLES/DisplayListCacheArm.cpp
+else: SOURCES += $$P/GPU/GLES/DisplayListCacheX86.cpp
 
 HEADERS += $$P/GPU/GLES/*.h \
 	$$P/GPU/Software/*.h \

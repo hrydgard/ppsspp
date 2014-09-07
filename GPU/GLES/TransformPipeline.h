@@ -29,6 +29,7 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class DisplayListCache;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -249,4 +250,6 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
+
+	friend class DisplayListCache;
 };

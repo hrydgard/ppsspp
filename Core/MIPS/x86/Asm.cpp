@@ -72,8 +72,8 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
-	MOV(64, R(RBX), Imm64((u64)Memory::base));
-	MOV(64, R(R15), Imm64((u64)jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(RBX), ImmPtr(Memory::base));
+	MOV(64, R(R15), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
 #endif
 
 	outerLoop = GetCodePtr();
