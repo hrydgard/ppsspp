@@ -72,7 +72,7 @@ public:
 
 private:
 
-	GLuint CreateCache(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
+	GLuint CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
 	FragmentTestID GenerateTestID() const;
 
 	TextureCache *textureCache_;

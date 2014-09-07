@@ -73,7 +73,7 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 
 	glActiveTexture(unit);
 	// This will necessarily bind the texture.
-	const GLuint tex = CreateCache(funcs, refs, masks, valid);
+	const GLuint tex = CreateTestTexture(funcs, refs, masks, valid);
 	// Always return to the default.
 	glActiveTexture(GL_TEXTURE0);
 	lastTexture_ = tex;
@@ -98,7 +98,7 @@ FragmentTestID FragmentTestCache::GenerateTestID() const {
 	return id;
 }
 
-GLuint FragmentTestCache::CreateCache(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
+GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
 	// TODO: Might it be better to use GL_ALPHA for simple textures?
 	// TODO: Experiment with 4-bit/etc. textures.
 
