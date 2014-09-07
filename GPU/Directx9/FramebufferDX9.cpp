@@ -127,6 +127,7 @@ namespace DX9 {
 		// And an initial clear. We don't clear per frame as the games are supposed to handle that
 		// by themselves.
 		ClearBuffer();
+		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
 		pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), D3DPOOL_MANAGED, &drawPixelsTex_, NULL);
 		useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	}
@@ -156,7 +157,7 @@ namespace DX9 {
 		u8 * convBuf = NULL;
 		D3DLOCKED_RECT rect;
 
-		drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_NOOVERWRITE);
+		drawPixelsTex_->LockRect(0, &rect, NULL, 0);
 
 		convBuf = (u8*)rect.pBits;
 

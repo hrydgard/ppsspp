@@ -323,6 +323,9 @@ private:
 	class CullMode {
 		DWORD cull;
 	public:
+		CullMode() : cull (D3DCULL_NONE) {
+		}
+
 		inline void set(int wantcull, int cullmode) {
 			DWORD newcull;
 			if (!wantcull) {
