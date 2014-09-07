@@ -17,7 +17,8 @@ enum T3DBlendEquation : int {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
-  // MIN, MAX,
+	MIN,
+	MAX,
 };
 
 enum T3DComparison : int {
@@ -122,6 +123,7 @@ enum T3DTextureType : uint8_t {
 };
 
 enum T3DImageFormat : uint8_t {
+	IMG_UNKNOWN,
 	LUMINANCE,
 	RGBA8888,
 	RGBA4444,
@@ -260,7 +262,7 @@ public:
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
-	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) = 0;
+	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
 
 	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
 	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;

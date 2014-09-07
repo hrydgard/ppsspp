@@ -52,7 +52,7 @@ static const char *glsl_fragment_prelude =
 "precision mediump float;\n"
 "#endif\n";
 
-inline void Uint32ToFloat4(uint32_t u, float f[4]) {
+static inline void Uint32ToFloat4(uint32_t u, float f[4]) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
 	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
@@ -264,7 +264,7 @@ public:
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
+	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
@@ -336,7 +336,7 @@ Thin3DGLContext::Thin3DGLContext() {
 Thin3DGLContext::~Thin3DGLContext() {
 }
 
-Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) {
+Thin3DVertexFormat *Thin3DGLContext::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) {
 	Thin3DGLVertexFormat *fmt = new Thin3DGLVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;

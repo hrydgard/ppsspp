@@ -30,6 +30,9 @@ static const D3DCMPFUNC compareToD3D9[] = {
 static const D3DBLENDOP blendEqToD3D9[] = {
 	D3DBLENDOP_ADD,
 	D3DBLENDOP_SUBTRACT,
+	D3DBLENDOP_REVSUBTRACT,
+	D3DBLENDOP_MIN,
+	D3DBLENDOP_MAX,
 };
 
 // Could be declared as u8
@@ -357,7 +360,7 @@ public:
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
-	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) override;
+	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DTexture *CreateTexture() override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 
@@ -458,7 +461,7 @@ Thin3DDepthStencilState *Thin3DDX9Context::CreateDepthStencilState(bool depthTes
 	return ds;
 }
 
-Thin3DVertexFormat *Thin3DDX9Context::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride) {
+Thin3DVertexFormat *Thin3DDX9Context::CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) {
 	Thin3DDX9VertexFormat *fmt = new Thin3DDX9VertexFormat(device_, components, stride);
 	return fmt;
 }
@@ -548,6 +551,7 @@ Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std
 	if (FAILED(hr)) {
 		ELOG("Error creating vertex decl");
 	}
+	delete[] elements;
 	stride_ = stride;
 }
 
