@@ -99,6 +99,15 @@ public:
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
 		}
 	}
+	virtual ~Thin3DDX9Buffer() override {
+		if (ibuffer_) {
+			ibuffer_->Release();
+		}
+		if (vbuffer_) {
+			vbuffer_->Release();
+		}
+	}
+
 	void SetData(const uint8_t *data, size_t size) override {
 		if (!size)
 			return;
@@ -220,6 +229,7 @@ public:
 	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device) : device_(device), type_(T3DTextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	}
 	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
+	~Thin3DDX9Texture();
 	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
@@ -248,6 +258,18 @@ D3DFORMAT FormatToD3D(T3DImageFormat fmt) {
 Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
 	: device_(device), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	Create(type, format, width, height, depth, mipLevels);
+}
+
+Thin3DDX9Texture::~Thin3DDX9Texture() {
+	if (tex_) {
+		tex_->Release();
+	}
+	if (volTex_) {
+		volTex_->Release();
+	}
+	if (cubeTex_) {
+		cubeTex_->Release();
+	}
 }
 
 bool Thin3DDX9Texture::Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
