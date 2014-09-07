@@ -21,6 +21,7 @@
 
 #include <map>
 #include "helper/global.h"
+#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "util/text/utf8.h"
 
@@ -42,8 +43,22 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
 	bool success;
+	std::string errorMessage;
 
-	success = CompilePixelShader(code, &shader, &constant);
+	success = CompilePixelShader(code, &shader, &constant, errorMessage);
+
+	if (!errorMessage.empty()) {
+		if (success) {
+			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		} else {
+			ERROR_LOG(G3D, "Error in shader compilation!");
+		}
+		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		OutputDebugStringUTF8("Messages:\n");
+		OutputDebugStringUTF8(errorMessage.c_str());
+		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	}
 
 	if (!success) {
 		failed_ = true;
@@ -69,8 +84,22 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
 	bool success;
+	std::string errorMessage;
 
-	success = CompileVertexShader(code, &shader, &constant);
+	success = CompileVertexShader(code, &shader, &constant, errorMessage);
+
+	if (!errorMessage.empty()) {
+		if (success) {
+			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		} else {
+			ERROR_LOG(G3D, "Error in shader compilation!");
+		}
+		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		OutputDebugStringUTF8("Messages:\n");
+		OutputDebugStringUTF8(errorMessage.c_str());
+		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	}
 
 	if (!success) {
 		failed_ = true;

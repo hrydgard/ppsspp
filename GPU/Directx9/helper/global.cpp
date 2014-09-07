@@ -65,7 +65,7 @@ static const D3DVERTEXELEMENT9  SoftTransVertexElements[] =
 LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader = NULL; // Vertex Shader
 LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = NULL;  // Pixel Shader
 
-bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
+bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
@@ -84,12 +84,15 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 		pShaderTable);
 
 	if (pErrorMsg) {
-		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
 		pErrorMsg->Release();
+	} else {
+		errorMessage = "";
 	}
 
 	if (FAILED(hr)) {
-		DebugBreak();
+		if (pShaderCode)
+			pShaderCode->Release();
 		return false;
 	}
 
@@ -102,7 +105,7 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 	return true;
 }
 
-bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
+bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
@@ -121,12 +124,15 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 		pShaderTable);
 
 	if (pErrorMsg) {
-		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
 		pErrorMsg->Release();
+	} else {
+		errorMessage = "";
 	}
 
 	if (FAILED(hr)) {
-		DebugBreak();
+		if (pShaderCode)
+			pShaderCode->Release();
 		return false;
 	}
 
