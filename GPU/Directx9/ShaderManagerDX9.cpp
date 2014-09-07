@@ -47,6 +47,8 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 	if (!success) {
 		failed_ = true;
+		if (shader)
+			shader->Release();
 		shader = NULL;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
@@ -55,6 +57,8 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 PSShader::~PSShader() {
 	pD3Ddevice->SetPixelShader(NULL);
+	if (constant)
+		constant->Release();
 	if (shader)
 		shader->Release();
 }
@@ -70,6 +74,8 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 	if (!success) {
 		failed_ = true;
+		if (shader)
+			shader->Release();
 		shader = NULL;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
@@ -78,6 +84,8 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 VSShader::~VSShader() {
 	pD3Ddevice->SetVertexShader(NULL);
+	if (constant)
+		constant->Release();
 	if (shader)
 		shader->Release();
 }

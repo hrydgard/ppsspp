@@ -66,8 +66,6 @@ LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader = NULL; // Vertex Shader
 LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = NULL;  // Pixel Shader
 
 bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
-	LPD3DXCONSTANTTABLE shaderTable = *pShaderTable;
-
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
@@ -85,9 +83,12 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 		&pErrorMsg,
 		pShaderTable);
 
-	if( FAILED(hr) )
-	{
+	if (pErrorMsg) {
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		pErrorMsg->Release();
+	}
+
+	if (FAILED(hr)) {
 		DebugBreak();
 		return false;
 	}
@@ -102,8 +103,6 @@ bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD
 }
 
 bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable) {
-	LPD3DXCONSTANTTABLE shaderTable = *pShaderTable;
-
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
@@ -121,9 +120,12 @@ bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, L
 		&pErrorMsg,
 		pShaderTable);
 
-	if( FAILED(hr) )
-	{
+	if (pErrorMsg) {
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		pErrorMsg->Release();
+	}
+
+	if (FAILED(hr)) {
 		DebugBreak();
 		return false;
 	}
@@ -154,9 +156,12 @@ void CompileShaders() {
 		&pErrorMsg,
 		NULL);
 
-	if( FAILED(hr) )
-	{
+	if (pErrorMsg) {
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		pErrorMsg->Release();
+	}
+
+	if (FAILED(hr)) {
 		DebugBreak();
 	}
 
@@ -165,6 +170,10 @@ void CompileShaders() {
 		&pFramebufferVertexShader );
 
 	pShaderCode->Release();
+	if (pErrorMsg) {
+		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		pErrorMsg->Release();
+	}
 
 	// Compile pixel shader.
 	hr = dyn_D3DXCompileShader(pscode,
@@ -178,9 +187,12 @@ void CompileShaders() {
 		&pErrorMsg,
 		NULL);
 
-	if( FAILED(hr) )
-	{
+	if (pErrorMsg) {
 		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
+		pErrorMsg->Release();
+	}
+
+	if (FAILED(hr)) {
 		DebugBreak();
 	}
 
