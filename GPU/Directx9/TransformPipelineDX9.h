@@ -142,6 +142,7 @@ private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
+	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
@@ -184,6 +185,7 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	std::map<u32, VertexArrayInfoDX9 *> vai_;
+	std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
