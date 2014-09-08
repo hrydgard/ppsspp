@@ -593,7 +593,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 	}
 
-	WRITE(p, "Out.gl_Position.z = (Out.gl_Position.z + Out.gl_Position.w) * 0.5f;");
+	// WRITE(p, "Out.gl_Position.z = (Out.gl_Position.z + Out.gl_Position.w) * 0.5f;");
 	WRITE(p, "	return Out;             ");
 	WRITE(p, "}\n");
 }

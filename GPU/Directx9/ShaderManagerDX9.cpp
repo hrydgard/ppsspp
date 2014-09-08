@@ -292,19 +292,13 @@ void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 	m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
 }
 
-// Depth in ogl is between -1;1 we need between 0;1
-// Pretty sure this is wrong, our Z buffer is screwed up anyhow..
-void ConvertProjMatrixToD3D(Matrix4x4 & in) {
-	/*
-	in.zz *= 0.5f;
-	in.wz += 1.f;
-	*/
+// Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
+void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 	Matrix4x4 s;
 	Matrix4x4 t;
-	s.setScaling(Vec3(1, 1, 0.5f));
+	s.setScaling(Vec3(1, 1, invert ? -0.5 : 0.5f));
 	t.setTranslation(Vec3(0, 0, 0.5f));
-	in = in * s;
-	in = in * t;
+	in = in * s * t;
 }
 
 void LinkedShaderDX9::use() {
@@ -334,8 +328,14 @@ void LinkedShaderDX9::updateUniforms() {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
+		bool invert = false;
+		if (gstate_c.vpDepth < 0) {
+			invert = true;
+			//flippedMatrix[9] = -flippedMatrix[9];
+			//flippedMatrix[14] = -flippedMatrix[14];
+		}
 		// Convert matrices !
-		ConvertProjMatrixToD3D(flippedMatrix);
+		ConvertProjMatrixToD3D(flippedMatrix, invert);
 
 		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
@@ -345,7 +345,7 @@ void LinkedShaderDX9::updateUniforms() {
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
 		// Convert matrices !
-		ConvertProjMatrixToD3D(proj_through);
+		ConvertProjMatrixToD3D(proj_through, false);
 
 		SetMatrix(u_proj_through, proj_through.getReadPtr());
 	}
