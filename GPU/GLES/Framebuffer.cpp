@@ -986,6 +986,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->bufferWidth = drawing_width;
 		vfb->bufferHeight = drawing_height;
 		vfb->format = fmt;
+		vfb->drawnWidth = 0;
+		vfb->drawnHeight = 0;
+		vfb->drawnFormat = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb);
 		vfb->depthUpdated = false;
@@ -1268,7 +1271,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
+			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
 
 			RebindFramebuffer();
 			fbo_bind_color_as_texture(renderCopy, 0);
@@ -1487,6 +1490,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->bufferWidth = vfb->bufferWidth;
 			nvfb->bufferHeight = vfb->bufferHeight;
 			nvfb->format = vfb->format;
+			nvfb->drawnWidth = vfb->drawnWidth;
+			nvfb->drawnHeight = vfb->drawnHeight;
+			nvfb->drawnFormat = vfb->format;
 			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
 			nvfb->dirtyAfterDisplay = true;
 
