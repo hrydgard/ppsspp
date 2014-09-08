@@ -661,8 +661,13 @@ void TransformDrawEngine::DoFlush() {
 						vai->numFrames++;
 					}
 					if (vai->drawsUntilNextFullHash == 0) {
-						u32 newHash = ComputeHash();
-						if (newHash != vai->hash) {
+						// Let's try to skip a full hash if mini would fail.
+						const u32 newMiniHash = ComputeMiniHash();
+						u32 newHash = vai->hash;
+						if (newMiniHash == vai->minihash) {
+							newHash = ComputeHash();
+						}
+						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
 							DecodeVerts();
 							goto rotateVBO;
