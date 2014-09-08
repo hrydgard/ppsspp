@@ -115,7 +115,7 @@ enum {
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
 #define VERTEXCACHE_NAME_CACHE_FULL_SIZE 80
 
-enum { VAI_KILL_AGE = 120 };
+enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 
 TransformDrawEngine::TransformDrawEngine()
@@ -492,8 +492,17 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 	}
 
 	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
+	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame < threshold) {
+		bool kill;
+		if (iter->second->status == VertexArrayInfo::VAI_UNRELIABLE) {
+			// We limit killing unreliable so we don't rehash too often.
+			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+		} else {
+			kill = iter->second->lastFrame < threshold;
+		}
+		if (kill) {
 			delete iter->second;
 			vai_.erase(iter++);
 		} else {
