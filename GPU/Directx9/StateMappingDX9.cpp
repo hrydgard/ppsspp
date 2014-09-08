@@ -381,7 +381,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXa * 2.0f;
 		gstate_c.vpHeight = -vpYa * 2.0f;
-
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
@@ -399,8 +398,13 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRangeMin = zOff - zScale;
-		float depthRangeMax = zOff + zScale;
+
+		float depthRangeMin = zOff - fabsf(zScale);
+		float depthRangeMax = zOff + fabsf(zScale);
+
+		gstate_c.vpDepth = zScale * 2;
+
+		// D3D does not like viewports outside the screen. Let's clamp for now.
 
 		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
 	}
