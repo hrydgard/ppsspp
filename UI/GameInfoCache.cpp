@@ -612,9 +612,6 @@ void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Thin3
 			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::PNG);
 			if (tex) {
 				loadTime = time_now_d();
-			} else {
-				tex->Release();
-				tex = 0;
 			}
 		}
 		textureData.clear();
