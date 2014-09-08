@@ -438,6 +438,50 @@ void TransformDrawEngine::DecodeVertsStep() {
 	}
 }
 
+inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
+	// Switch to u32 units.
+	const u32 *p = (const u32 *)ptr;
+	sz >>= 2;
+
+	if (sz > 100) {
+		size_t step = sz / 4;
+		u32 hash = 0;
+		for (size_t i = 0; i < sz; i += step) {
+			hash += DoReliableHash(p + i, 100, 0x3A44B9C4);
+		}
+		return hash;
+	} else {
+		return p[0] + p[sz - 1];
+	}
+}
+
+u32 TransformDrawEngine::ComputeMiniHash() {
+	u32 fullhash = 0;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+
+	int step;
+	if (numDrawCalls < 3) {
+		step = 1;
+	} else if (numDrawCalls < 8) {
+		step = 4;
+	} else {
+		step = numDrawCalls / 8;
+	}
+	for (int i = 0; i < numDrawCalls; i += step) {
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
+		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
+			fullhash += ComputeMiniHashRange(dc.inds, indexSize * dc.vertexCount);
+		}
+	}
+
+	return fullhash;
+}
+
 void TransformDrawEngine::MarkUnreliable(VertexArrayInfo *vai) {
 	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 	if (vai->vbo) {
@@ -596,6 +640,7 @@ void TransformDrawEngine::DoFlush() {
 					// Haven't seen this one before.
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
+					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
@@ -635,7 +680,12 @@ void TransformDrawEngine::DoFlush() {
 						//}
 					} else {
 						vai->drawsUntilNextFullHash--;
-						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
+						u32 newMiniHash = ComputeMiniHash();
+						if (newMiniHash != vai->minihash) {
+							MarkUnreliable(vai);
+							DecodeVerts();
+							goto rotateVBO;
+						}
 					}
 
 					if (vai->vbo == 0) {
