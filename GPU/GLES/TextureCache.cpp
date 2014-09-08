@@ -1015,7 +1015,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	if (useBufferedRendering) {
 		GLuint program = 0;
 		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-			program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
+			program = depalShaderCache_->GetDepalettizeShader(framebuffer->drawnFormat);
 		}
 		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
@@ -1088,7 +1088,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 			framebufferManager_->BindFramebufferColor(framebuffer);
 
-			gstate_c.textureFullAlpha = framebuffer->format == GE_FORMAT_565;
+			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 
