@@ -404,8 +404,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 		gstate_c.vpDepth = zScale * 2;
 
-		// D3D does not like viewports outside the screen. Let's clamp for now.
-
 		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
 	}
 }
