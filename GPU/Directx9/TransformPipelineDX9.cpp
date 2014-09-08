@@ -152,8 +152,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 
+	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
 		quadIndices_[i * 6 + 0] = i * 4;
 		quadIndices_[i * 6 + 1] = i * 4 + 2;
@@ -178,7 +178,9 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
-		decl->second->Release();
+		if (decl->second) {
+			decl->second->Release();
+		}
 	}
 
 	delete [] quadIndices_;
@@ -321,7 +323,7 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(LinkedSh
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
 	
 		// Create declaration
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl;
+		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
 		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
 			// Log

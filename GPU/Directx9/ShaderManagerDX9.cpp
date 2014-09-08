@@ -328,13 +328,8 @@ void LinkedShaderDX9::updateUniforms() {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
-		bool invert = false;
-		if (gstate_c.vpDepth < 0) {
-			invert = true;
-			//flippedMatrix[9] = -flippedMatrix[9];
-			//flippedMatrix[14] = -flippedMatrix[14];
-		}
-		// Convert matrices !
+
+		bool invert = gstate_c.vpDepth < 0;
 		ConvertProjMatrixToD3D(flippedMatrix, invert);
 
 		SetMatrix(u_proj, flippedMatrix.getReadPtr());
@@ -344,7 +339,6 @@ void LinkedShaderDX9::updateUniforms() {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
-		// Convert matrices !
 		ConvertProjMatrixToD3D(proj_through, false);
 
 		SetMatrix(u_proj_through, proj_through.getReadPtr());

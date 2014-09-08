@@ -393,7 +393,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
 		
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
@@ -404,7 +403,14 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 		gstate_c.vpDepth = zScale * 2;
 
-		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
+		// D3D doesn't like viewports partially outside the target. Clamp the viewport for now. Should also adjust
+		// the projection matrix to compensate, really.
+		float left = std::max(0.0f, vpX0 + renderX);
+		float top = std::max(0.0f, vpY0 + renderY);
+		float right = std::min(left + vpWidth, renderWidth);
+		float bottom = std::min(top + vpHeight, renderHeight);
+
+		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
 	}
 }
 
