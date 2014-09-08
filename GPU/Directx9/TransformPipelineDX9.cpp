@@ -292,7 +292,7 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(LinkedSh
 
 		// TC
 		if (decFmt.uvfmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD);
+			VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD, 0);
 			VertexElement++;
 		}
 

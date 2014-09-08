@@ -148,82 +148,58 @@ void VertexDecoderDX9::Step_WeightsFloat() const
 
 void VertexDecoderDX9::Step_TcU8() const
 {
-#ifndef USE_TC_HACK
-	u8 *uv = (u8 *)(decoded_ + decFmt.uvoff);
-	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-#else
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-	uv[0] *= (1.0f/255.f);
-	uv[1] *= (1.0f/255.f);
-#endif
+	uv[0] = uvdata[0] * (1.0f / 256.f);
+	uv[1] = uvdata[1] * (1.0f / 256.f);
 }
 
 void VertexDecoderDX9::Step_TcU16() const
 {
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * (1.0f / 65536.f);
+	uv[1] = uvdata[1] * (1.0f / 65536.f);
 }
 
 void VertexDecoderDX9::Step_TcU16Double() const
 {
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
-	*uv = *uvdata;
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * (1.0f / 32768.f);
+	uv[1] = uvdata[1] * (1.0f / 32768.f);
 }
 
 void VertexDecoderDX9::Step_TcU16Through() const
 {
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 }
 
 void VertexDecoderDX9::Step_TcU16ThroughDouble() const
 {
-	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16_le *uvdata = (const u16_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 2;
-	uv[1] = uvdata[1] * 2;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * 2.0f;
+	uv[1] = uvdata[1] * 2.0f;
 }
 
 void VertexDecoderDX9::Step_TcFloat() const
 {
-#if 0 // Swapping float is more heavy as swapping u32
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const float_le *uvdata = (const float_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-#else
 	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
 	const u32_le *uvdata = (const u32_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
-#endif
 }
 
 void VertexDecoderDX9::Step_TcFloatThrough() const
 {
-#if 0 // Swapping float is more heavy as swapping u32
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const float_le *uvdata = (const float_le*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
-#else
 	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
 	const u32_le *uvdata = (const u32_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
-#endif
 }
 
 void VertexDecoderDX9::Step_TcU8Prescale() const {
@@ -361,22 +337,11 @@ void VertexDecoderDX9::Step_Color8888Morph() const
 
 void VertexDecoderDX9::Step_NormalS8() const
 {
-#if 0
-	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
-	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
-		xorval = 0xFF;  // Using xor instead of - to handle -128
-	const s8 *sv = (const s8*)(ptr_ + nrmoff);
-	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
-	normal[3] = 0;
-#else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = (float)(sv[j]) * (1.0f/127.f);
 	normal[3] = 0;
-#endif
 }
 
 void VertexDecoderDX9::Step_NormalS16() const
@@ -391,15 +356,6 @@ void VertexDecoderDX9::Step_NormalS16() const
 
 void VertexDecoderDX9::Step_NormalFloat() const
 {
-#if 0 // Swapping float is more heavy as swapping u32
-	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1)
-		multiplier = -multiplier;
-	const float_le *fv = (const float_le*)(ptr_ + nrmoff);
-	for (int j = 0; j < 3; j++)
-		normal[j] = fv[j] * multiplier;
-#else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	const float *fv = (const float*)(ptr_ + nrmoff);
 
@@ -408,7 +364,6 @@ void VertexDecoderDX9::Step_NormalFloat() const
 
 	for (int j = 0; j < 3; j++) 
 		v[j] = sv[j];
-#endif
 }
 
 void VertexDecoderDX9::Step_NormalS8Morph() const
@@ -447,20 +402,6 @@ void VertexDecoderDX9::Step_NormalS16Morph() const
 
 void VertexDecoderDX9::Step_NormalFloatMorph() const
 {
-#if 0 // Swapping float is more heavy as swapping u32
-	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	memset(normal, 0, sizeof(float)*3);
-	for (int n = 0; n < morphcount; n++)
-	{
-		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 1) {
-			multiplier = -multiplier;
-		}
-		const float_le *fv = (const float_le*)(ptr_ + onesize_*n + nrmoff);
-		for (int j = 0; j < 3; j++)
-			normal[j] += fv[j] * multiplier;
-	}
-#else
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	u32 *v = (u32 *)normal;
 	memset(normal, 0, sizeof(float)*3);
@@ -478,25 +419,15 @@ void VertexDecoderDX9::Step_NormalFloatMorph() const
 			normal[j] += normal[j] * multiplier;
 		}
 	}
-
-#endif
 }
 
 void VertexDecoderDX9::Step_PosS8() const
 {
-#if 0
-	s8 *v = (s8 *)(decoded_ + decFmt.posoff);
-	const s8 *sv = (const s8*)(ptr_ + posoff);
-	for (int j = 0; j < 3; j++)
-		v[j] = sv[j];
-	v[3] = 0;
-#else
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		v[j] = (float)sv[j] * (1.0f / 128.0f);
 	v[3] = 0;
-#endif
 }
 
 void VertexDecoderDX9::Step_PosS16() const
@@ -510,19 +441,11 @@ void VertexDecoderDX9::Step_PosS16() const
 
 void VertexDecoderDX9::Step_PosFloat() const
 {
-#if 0 // Swapping float is more heavy as swapping u32
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	const float_le *sv = (const float_le*)(ptr_ + posoff);
-	v[0] = sv[0];
-	v[1] = sv[1];
-	v[2] = sv[2];
-#else
 	u32 *v = (u32 *)(decoded_ + decFmt.posoff);
 	const u32_le *sv = (const u32_le*)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = sv[2];
-#endif
 }
 
 void VertexDecoderDX9::Step_PosS8Through() const
@@ -547,21 +470,12 @@ void VertexDecoderDX9::Step_PosS16Through() const
 
 void VertexDecoderDX9::Step_PosFloatThrough() const
 {
-#if 0// Swapping float is more heavy as swapping u32
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	const float_le *fv = (const float_le*)(ptr_ + posoff);
-	v[0] = fv[0];
-	v[1] = fv[1];
-	v[2] = fv[2];
-	v[3] = 0;
-#else
 	u32 *v = (u32 *)(decoded_ + decFmt.posoff);
 	const u32_le *fv = (const u32_le*)(ptr_ + posoff);
 	v[0] = fv[0];
 	v[1] = fv[1];
 	v[2] = fv[2];
 	v[3] = 0;
-#endif
 }
 
 void VertexDecoderDX9::Step_PosS8Morph() const
@@ -782,30 +696,14 @@ void VertexDecoderDX9::SetVertexType(u32 fmt) {
 
 		if (g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0) {
 			steps_[numSteps_++] = tcstep_prescale[tc];
-			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
 			if (g_DoubleTextureCoordinates)
 				steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
 			else
-		steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
-
-		switch (tc) {
-		case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
-#ifdef USE_TC_HACK			
-			decFmt.uvfmt = DEC_FLOAT_2;
-#else
-			decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
-#endif
-			break;
-		case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
-			decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
-			break;
-		case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
-			decFmt.uvfmt = DEC_FLOAT_2;
-			break;
-		}
+				steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 		}
 
+		decFmt.uvfmt = DEC_FLOAT_2;
 		decFmt.uvoff = decOff;
 		decOff += DecFmtSize(decFmt.uvfmt);
 	}
