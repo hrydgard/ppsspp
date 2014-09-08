@@ -438,9 +438,22 @@ void TransformDrawEngine::DecodeVertsStep() {
 	}
 }
 
+void TransformDrawEngine::MarkUnreliable(VertexArrayInfo *vai) {
+	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+	if (vai->vbo) {
+		FreeBuffer(vai->vbo);
+		vai->vbo = 0;
+	}
+	if (vai->ebo) {
+		FreeBuffer(vai->ebo);
+		vai->ebo = 0;
+	}
+}
+
 u32 TransformDrawEngine::ComputeHash() {
 	u32 fullhash = 0;
-	int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
@@ -464,7 +477,6 @@ u32 TransformDrawEngine::ComputeHash() {
 			// we do when drawing.
 			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
-			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
 			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
@@ -606,15 +618,7 @@ void TransformDrawEngine::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						u32 newHash = ComputeHash();
 						if (newHash != vai->hash) {
-							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-							if (vai->vbo) {
-								FreeBuffer(vai->vbo);
-								vai->vbo = 0;
-							}
-							if (vai->ebo) {
-								FreeBuffer(vai->ebo);
-								vai->ebo = 0;
-							}
+							MarkUnreliable(vai);
 							DecodeVerts();
 							goto rotateVBO;
 						}
