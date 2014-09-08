@@ -509,6 +509,10 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	if (useBufferedRendering_ && vfb->fbo) {
+		fbo_bind_as_render_target(vfb->fbo);
+	}
+	glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
 	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -2147,8 +2151,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
-					fbo_bind_as_render_target(vfb->fbo);
-					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					GEBufferFormat fmt = vfb->format;
 					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
 						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
@@ -2245,10 +2247,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		if (g_Config.bBlockTransferGPU) {
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
-			if (useBufferedRendering_ && dstBuffer->fbo) {
-				fbo_bind_as_render_target(dstBuffer->fbo);
-			}
-			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
 			SetColorUpdated(dstBuffer);
 			RebindFramebuffer();
@@ -2466,12 +2464,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 			if (g_Config.bBlockTransferGPU) {
 				FlushBeforeCopy();
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				if (useBufferedRendering_ && dstBuffer->fbo) {
-					fbo_bind_as_render_target(dstBuffer->fbo);
-				}
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
-				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
 				SetColorUpdated(dstBuffer);
 				RebindFramebuffer();
