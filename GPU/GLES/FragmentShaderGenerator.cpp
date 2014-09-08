@@ -801,7 +801,14 @@ void GenerateFragmentShader(char *buffer) {
 				WRITE(p, "  float rResult = %s(testtex, vec2(v.r, 0)).r;\n", texture);
 				WRITE(p, "  float gResult = %s(testtex, vec2(v.g, 0)).g;\n", texture);
 				WRITE(p, "  float bResult = %s(testtex, vec2(v.b, 0)).b;\n", texture);
-				WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n", texture);
+				GEComparison colorTestFunc = gstate.getColorTestFunction();
+				if (colorTestFunc == GE_COMP_EQUAL) {
+					// Equal means all parts must be equal.
+					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n", texture);
+				} else {
+					// Not equal means any part must be not equal.
+					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) discard;\n", texture);
+				}
 			} else {
 				GEComparison colorTestFunc = gstate.getColorTestFunction();
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
