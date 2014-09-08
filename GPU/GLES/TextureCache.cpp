@@ -1107,8 +1107,10 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		}
 		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	} else {
-		if (framebuffer->fbo)
+		if (framebuffer->fbo) {
+			fbo_destroy(framebuffer->fbo);
 			framebuffer->fbo = 0;
+		}
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
 	}
