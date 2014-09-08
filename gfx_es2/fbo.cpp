@@ -293,7 +293,13 @@ static void fbo_bind_fb_target(bool read, GLuint name) {
 	GLenum target = fbo_get_fb_target(read, &cached);
 
 	if (*cached != name) {
-		glBindFramebuffer(target, name);
+		if (gl_extensions.FBO_ARB) {
+			glBindFramebuffer(target, name);
+		} else {
+#ifndef USING_GLES2
+			glBindFramebufferEXT(target, name);
+#endif
+		}
 		*cached = name;
 	}
 }
