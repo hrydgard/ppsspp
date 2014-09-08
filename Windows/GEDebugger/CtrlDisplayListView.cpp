@@ -152,7 +152,8 @@ void CtrlDisplayListView::redraw()
 
 void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	if (!validDisplayList) return;
+	if (!validDisplayList || !gpuDebug)
+		return;
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);
