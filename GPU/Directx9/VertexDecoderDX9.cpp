@@ -231,6 +231,7 @@ void VertexDecoderDX9::Step_Color565() const
 	c[1] = Convert6To8((cdata>>5) & 0x3f);
 	c[2] = Convert5To8((cdata>>11) & 0x1f);
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoderDX9::Step_Color5551() const
@@ -241,6 +242,7 @@ void VertexDecoderDX9::Step_Color5551() const
 	c[1] = Convert5To8((cdata>>5) & 0x1f);
 	c[2] = Convert5To8((cdata>>10) & 0x1f);
 	c[3] = (cdata >> 15) ? 255 : 0;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] != 0;
 }
 
 void VertexDecoderDX9::Step_Color4444() const
@@ -251,6 +253,7 @@ void VertexDecoderDX9::Step_Color4444() const
 	c[1] =  Convert4To8((cdata >> (4)) & 0xF);
 	c[2] =  Convert4To8((cdata >> (8)) & 0xF);
 	c[3] =  Convert4To8((cdata >> (12)) & 0xF);
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoderDX9::Step_Color8888() const
@@ -261,6 +264,7 @@ void VertexDecoderDX9::Step_Color8888() const
 	c[1] = cdata[1];
 	c[2] = cdata[2];
 	c[3] = cdata[3];
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoderDX9::Step_Color565Morph() const
@@ -270,16 +274,16 @@ void VertexDecoderDX9::Step_Color565Morph() const
 	{
 		float w = gstate_c.morphWeights[n];		
 		u16 cdata = (u16)(*(u16_le*)(ptr_ + onesize_*n + coloff));
-
 		col[0] += w * (cdata & 0x1f) * (255.0f / 31.0f);
 		col[1] += w * ((cdata>>5) & 0x3f) * (255.0f / 63.0f);
 		col[2] += w * ((cdata>>11) & 0x1f) * (255.0f / 31.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	c[0] = (u8)col[0];
-	c[1] = (u8)col[1];
-	c[2] = (u8)col[2];
+	for (int i = 0; i < 3; i++) {
+		c[i] = clamp_u8((int)col[i]);
+	}
 	c[3] = 255;
+	// Always full alpha.
 }
 
 void VertexDecoderDX9::Step_Color5551Morph() const
@@ -295,10 +299,10 @@ void VertexDecoderDX9::Step_Color5551Morph() const
 		col[3] += w * ((cdata>>15) ? 255.0f : 0.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	c[0] = (u8)col[0];
-	c[1] = (u8)col[1];
-	c[2] = (u8)col[2];
-	c[3] = (u8)col[3];
+	for (int i = 0; i < 4; i++) {
+		c[i] = clamp_u8((int)col[i]);
+	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoderDX9::Step_Color4444Morph() const
@@ -312,10 +316,10 @@ void VertexDecoderDX9::Step_Color4444Morph() const
 			col[j] += w * ((cdata >> (j * 4)) & 0xF) * (255.0f / 15.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	c[0] = (u8)col[0];
-	c[1] = (u8)col[1];
-	c[2] = (u8)col[2];
-	c[3] = (u8)col[3];
+	for (int i = 0; i < 4; i++) {
+		c[i] = clamp_u8((int)col[i]);
+	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoderDX9::Step_Color8888Morph() const
@@ -329,10 +333,10 @@ void VertexDecoderDX9::Step_Color8888Morph() const
 			col[j] += w * cdata[j];
 	}
 	u8 *c = decoded_ + decFmt.c0off;
-	c[0] = (u8)col[0];
-	c[1] = (u8)col[1];
-	c[2] = (u8)col[2];
-	c[3] = (u8)col[3];
+	for (int i = 0; i < 4; i++) {
+		c[i] = clamp_u8((int)col[i]);
+	}
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
 void VertexDecoderDX9::Step_NormalS8() const

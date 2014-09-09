@@ -44,6 +44,10 @@ class FramebufferManagerDX9;
 // DRAWN_ONCE -> death
 // DRAWN_RELIABLE -> death
 
+enum {
+	VAI_FLAG_VERTEXFULLALPHA = 1,
+};
+
 
 // Don't bother storing information about draws smaller than this.
 enum {
@@ -64,8 +68,10 @@ public:
 		lastFrame = gpuStats.numFlips;
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
+		flags = 0;
 	}
 	~VertexArrayInfoDX9();
+
 	enum Status {
 		VAI_NEW,
 		VAI_HASHING,
@@ -80,7 +86,6 @@ public:
 	LPDIRECT3DVERTEXBUFFER9 vbo;
 	LPDIRECT3DINDEXBUFFER9 ebo;
 
-	
 	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
 	u16 maxIndex;
@@ -92,8 +97,8 @@ public:
 	int numFrames;
 	int lastFrame;  // So that we can forget.
 	u16 drawsUntilNextFullHash;
+	u8 flags;
 };
-
 
 // Handles transform, lighting and drawing.
 class TransformDrawEngineDX9 {
