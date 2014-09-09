@@ -61,10 +61,10 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				u32 val = data[y*width + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
+				u32 r = ((val>> 0) & 0xF) * 17;
+				u32 g = ((val>> 4) & 0xF) * 17;
+				u32 b = ((val>> 8) & 0xF) * 17;
+				u32 a = ((val>>12) & 0xF) * 17;
 				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
 			}
 		}
@@ -75,9 +75,9 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
+				u32 r = Convert5To8((val    ) & 0x1F);
 				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
+				u32 b = Convert5To8((val>>11) & 0x1F);
 				out[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
 			}
 		}
@@ -88,10 +88,10 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
+				u32 r = Convert5To8((val>> 0) & 0x1F);
+				u32 g = Convert5To8((val>> 5) & 0x1F);
+				u32 b = Convert5To8((val>>10) & 0x1F);
+				u32 a = ((val >> 15) & 0x1) * 255;
 				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
 			}
 		}
