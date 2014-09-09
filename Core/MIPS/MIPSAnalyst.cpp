@@ -345,6 +345,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbf791954ebef4afb, 396, "expf", },
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
+	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", },
 	{ 0xc319f0d107dd2f45, 888, "__muldf3", },
 	{ 0xc35c10300b6b6091, 620, "floor", },
 	{ 0xc3dbf3e6c80a0a51, 164, "dl_write_bone_matrix", },
