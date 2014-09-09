@@ -339,14 +339,6 @@ void FramebufferManager::DestroyDraw2DProgram() {
 }
 
 FramebufferManager::FramebufferManager() :
-	displayFramebufPtr_(0),
-	displayStride_(0),
-	displayFormat_(GE_FORMAT_565),
-	displayFramebuf_(0),
-	prevDisplayFramebuf_(0),
-	prevPrevDisplayFramebuf_(0),
-	frameLastFramebufUsed(0),
-	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf_(0),
@@ -360,8 +352,7 @@ FramebufferManager::FramebufferManager() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
-	gameUsesSequentialCopies_(false),
-	framebufRangeEnd_(0)
+	gameUsesSequentialCopies_(false)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
@@ -669,81 +660,6 @@ VirtualFramebuffer *FramebufferManager::GetVFBAt(u32 addr) {
 	return 0;
 }
 
-// Heuristics to figure out the size of FBO to create.
-void FramebufferManager::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
-	static const int MAX_FRAMEBUF_HEIGHT = 512;
-	const int viewport_width = (int) gstate.getViewportX1();
-	const int viewport_height = (int) gstate.getViewportY1();
-	const int region_width = gstate.getRegionX2() + 1;
-	const int region_height = gstate.getRegionY2() + 1;
-	const int scissor_width = gstate.getScissorX2() + 1;
-	const int scissor_height = gstate.getScissorY2() + 1;
-	const int fb_stride = std::max(gstate.FrameBufStride(), 4);
-
-	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
-	if (viewport_width > 4 && viewport_width <= fb_stride) {
-		drawing_width = viewport_width;
-		drawing_height = viewport_height;
-		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
-		if (viewport_width == 481 && region_width == 480 && viewport_height == 273 && region_height == 272) {
-			drawing_width = 480;
-			drawing_height = 272;
-		}
-		// Sometimes region is set larger than the VRAM for the framebuffer.
-		if (region_width <= fb_stride && region_width > drawing_width && region_height <= MAX_FRAMEBUF_HEIGHT) {
-			drawing_width = region_width;
-			drawing_height = std::max(drawing_height, region_height);
-		}
-		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
-		if (scissor_width <= fb_stride && scissor_width > drawing_width && scissor_height <= MAX_FRAMEBUF_HEIGHT) {
-			drawing_width = scissor_width;
-			drawing_height = std::max(drawing_height, scissor_height);
-		}
-	} else {
-		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
-		drawing_width = std::min(std::max(region_width, scissor_width), fb_stride);
-		drawing_height = std::max(region_height, scissor_height);
-	}
-
-	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
-	if (drawing_height >= MAX_FRAMEBUF_HEIGHT) {
-		if (region_height < MAX_FRAMEBUF_HEIGHT) {
-			drawing_height = region_height;
-		} else if (scissor_height < MAX_FRAMEBUF_HEIGHT) {
-			drawing_height = scissor_height;
-		}
-	}
-
-	if (viewport_width != region_width) {
-		// The majority of the time, these are equal.  If not, let's check what we know.
-		const u32 fb_address = gstate.getFrameBufAddress();
-		u32 nearest_address = 0xFFFFFFFF;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			const u32 other_address = vfbs_[i]->fb_address | 0x44000000;
-			if (other_address > fb_address && other_address < nearest_address) {
-				nearest_address = other_address;
-			}
-		}
-
-		// Unless the game is using overlapping buffers, the next buffer should be far enough away.
-		// This catches some cases where we can know this.
-		// Hmm.  The problem is that we could only catch it for the first of two buffers...
-		const u32 bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
-		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
-		if (avail_height < drawing_height && avail_height == region_height) {
-			drawing_width = std::min(region_width, fb_stride);
-			drawing_height = avail_height;
-		}
-
-		// Some games draw buffers interleaved, with a high stride/region/scissor but default viewport.
-		if (fb_stride == 1024 && region_width == 1024 && scissor_width == 1024) {
-			drawing_width = 1024;
-		}
-	}
-
-	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", gstate.getFrameBufAddress(), viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
-}
-
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 	if (v->fbo) {
@@ -829,7 +745,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		return;
 	}
 
-	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
@@ -1008,7 +924,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->last_frame_render = gpuStats.numFlips;
 		vfb->last_frame_used = 0;
 		vfb->last_frame_attached = 0;
-		frameLastFramebufUsed = gpuStats.numFlips;
+		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		glDisable(GL_DITHER);  // why?
 		currentRenderVfb_ = vfb;
@@ -1071,7 +987,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		textureCache_->ForgetLastTexture();
 		vfb->last_frame_render = gpuStats.numFlips;
-		frameLastFramebufUsed = gpuStats.numFlips;
+		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
@@ -1129,7 +1045,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		}
 
 		vfb->last_frame_render = gpuStats.numFlips;
-		frameLastFramebufUsed = gpuStats.numFlips;
+		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
@@ -1267,7 +1183,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 	}
 	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, framebuffer->colorDepth);
+		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
@@ -1517,7 +1433,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			}
 
 			textureCache_->ForgetLastTexture();
-			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, nvfb->colorDepth);
+			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 				return;
@@ -2036,12 +1952,6 @@ void FramebufferManager::BeginFrame() {
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 }
 
-void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	displayFramebufPtr_ = framebuf;
-	displayStride_ = stride;
-	displayFormat_ = format;
-}
-
 std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
@@ -2067,7 +1977,7 @@ void FramebufferManager::DecimateFBOs() {
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
+		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
 #ifdef USING_GLES2
@@ -2090,7 +2000,7 @@ void FramebufferManager::DecimateFBOs() {
 	}
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
-		int age = frameLastFramebufUsed - it->second.last_frame_used;
+		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 		if (age > FBO_OLD_AGE) {
 			fbo_destroy(it->second.fbo);
 			tempFBOs_.erase(it++);
@@ -2102,7 +2012,7 @@ void FramebufferManager::DecimateFBOs() {
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_render;
+		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 			DestroyFramebuf(vfb);

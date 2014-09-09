@@ -31,6 +31,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
@@ -511,7 +512,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -528,7 +529,7 @@ bool DIRECTX9_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;

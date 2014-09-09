@@ -6,13 +6,6 @@
 #include "fbo.h"
 #include "dx_state.h"
 
-namespace DX9 {
-
-static LPDIRECT3DSURFACE9 deviceRTsurf;
-static LPDIRECT3DSURFACE9 deviceDSsurf;
-
-#define FB_DIV 1
-
 struct FBO {
 	uint32_t id;
 	LPDIRECT3DSURFACE9 surf;
@@ -21,8 +14,15 @@ struct FBO {
 
 	int width;
 	int height;
-	FBOColorDepth colorDepth;
+	DX9::FBOColorDepth colorDepth;
 };
+
+namespace DX9 {
+
+static LPDIRECT3DSURFACE9 deviceRTsurf;
+static LPDIRECT3DSURFACE9 deviceDSsurf;
+
+#define FB_DIV 1
 
 void fbo_init() {
 	pD3Ddevice->GetRenderTarget(0, &deviceRTsurf);
