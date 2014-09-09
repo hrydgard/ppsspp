@@ -112,6 +112,7 @@ void TextureCache::Clear(bool delete_them) {
 		cache.clear();
 		secondCache.clear();
 	}
+	fbTexInfo_.clear();
 }
 
 void TextureCache::DeleteTexture(TexCache::iterator it) {
@@ -890,7 +891,7 @@ void TextureCache::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
 	if (Memory::IsValidAddress(clutAddr)) {
 #ifdef _M_SSE
-		int numBlocks = gstate.getClutLoadBlocks(); 
+		int numBlocks = gstate.getClutLoadBlocks();
 		clutTotalBytes_ = numBlocks * 32;
 		const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
 		__m128i *dest = (__m128i *)clutBufRaw_;
@@ -936,7 +937,7 @@ void TextureCache::UpdateCurrentClut() {
 	clutAlphaLinear_ = false;
 	clutAlphaLinearColor_ = 0;
 	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
-		const u16 *clut = GetCurrentClut<u16>();
+		const u16_le *clut = GetCurrentClut<u16_le>();
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
@@ -1725,8 +1726,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 				finalBuf = tmpTexBuf32.data();
 				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
 			}
-		}
-		else {
+		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texptr, bufw, 4, level);
 			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);

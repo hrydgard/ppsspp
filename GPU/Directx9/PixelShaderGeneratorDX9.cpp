@@ -43,12 +43,8 @@ static const bool safeDestFactors[16] = {
 	true, //GE_DSTBLEND_FIXB,
 };
 
-static bool IsAlphaTestTriviallyTrue() {
-	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-	int alphaTestRef = gstate.getAlphaTestRef();
-	int alphaTestMask = gstate.getAlphaTestMask();
-
-	switch (alphaTestFunc) {
+bool IsAlphaTestTriviallyTrue() {
+	switch (gstate.getAlphaTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -56,36 +52,60 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
-		return alphaTestRef == 0;
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;  // If alpha is full, it doesn't matter what the ref value is.
+		return gstate.getAlphaTestRef() == 0;
 
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
+		if (gstate.getAlphaTestRef() == 255) {
+			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
+			// complicated code to discard the draw or whatnot.
+			return false;
+		}
+		// Fallthrough on purpose
+
 	case GE_COMP_GREATER:
 		{
-			bool depthTest = gstate.isDepthTestEnabled();
+#if 0
+			// Easy way to check the values in the debugger without ruining && early-out
+			bool doTextureAlpha = gstate.isTextureAlphaUsed();
 			bool stencilTest = gstate.isStencilTestEnabled();
-			GEBlendSrcFactor src = gstate.getBlendFuncA();
-			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
-				return true;
-			return false;
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEComparison depthTestFunc = gstate.getDepthTestFunction();
+			int alphaRef = gstate.getAlphaTestRef();
+			int blendA = gstate.getBlendFuncA();
+			bool blendEnabled = gstate.isAlphaBlendEnabled();
+			int blendB = gstate.getBlendFuncA();
+#endif
+			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
+					(!gstate.isStencilTestEnabled() &&
+					!gstate.isDepthTestEnabled() &&
+					gstate.getAlphaTestRef() == 0 &&
+					gstate.isAlphaBlendEnabled() &&
+					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
+					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
 	case GE_COMP_LEQUAL:
-		return alphaTestRef == 255;
+		return gstate.getAlphaTestRef() == 255;
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_LESS:
 		return false;
+
 	default:
 		return false;
 	}
 }
 
-static bool IsColorTestTriviallyTrue() {
-	GEComparison colorTestFunc = gstate.getColorTestFunction();
-	switch (colorTestFunc) {
+bool IsAlphaTestAgainstZero() {
+	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
+}
+
+bool IsColorTestTriviallyTrue() {
+	switch (gstate.getColorTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 

@@ -51,6 +51,7 @@ enum {
 
 struct VirtualFramebufferDX9 {
 	int last_frame_used;
+	int last_frame_attached;
 	int last_frame_render;
 	bool memoryUpdated; 
 
