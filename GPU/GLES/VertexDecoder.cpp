@@ -446,7 +446,7 @@ void VertexDecoder::Step_PosS8Skin() const
 void VertexDecoder::Step_PosS16Skin() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
-	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const s16_le *sv = (const s16_le *)(ptr_ + posoff);
 	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Vec3ByMatrix43(pos, fn, skinMatrix);
 }
@@ -470,8 +470,8 @@ void VertexDecoder::Step_PosS8Through() const
 void VertexDecoder::Step_PosS16Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
-	const s16 *sv = (const s16*)(ptr_ + posoff);
-	const u16 *uv = (const u16*)(ptr_ + posoff);
+	const s16_le *sv = (const s16_le *)(ptr_ + posoff);
+	const u16_le *uv = (const u16_le *)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = uv[2];
@@ -480,7 +480,7 @@ void VertexDecoder::Step_PosS16Through() const
 void VertexDecoder::Step_PosFloatThrough() const
 {
 	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
-	const u8 *fv = (const u8*)(ptr_ + posoff);
+	const u8 *fv = (const u8 *)(ptr_ + posoff);
 	memcpy(v, fv, 12);
 }
 

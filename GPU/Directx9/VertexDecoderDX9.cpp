@@ -455,27 +455,25 @@ void VertexDecoderDX9::Step_PosS8Through() const
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = sv[2];
-	v[3] = 0;
 }
 
 void VertexDecoderDX9::Step_PosS16Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
-	const s16_le *sv = (const s16_le*)(ptr_ + posoff);
+	const s16_le *sv = (const s16_le *)(ptr_ + posoff);
+	const u16_le *uv = (const u16_le *)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
-	v[2] = sv[2];
-	v[3] = 0;
+	v[2] = uv[2];
 }
 
 void VertexDecoderDX9::Step_PosFloatThrough() const
 {
 	u32 *v = (u32 *)(decoded_ + decFmt.posoff);
-	const u32_le *fv = (const u32_le*)(ptr_ + posoff);
+	const u32_le *fv = (const u32_le *)(ptr_ + posoff);
 	v[0] = fv[0];
 	v[1] = fv[1];
 	v[2] = fv[2];
-	v[3] = 0;
 }
 
 void VertexDecoderDX9::Step_PosS8Morph() const
