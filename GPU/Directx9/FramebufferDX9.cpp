@@ -498,6 +498,8 @@ namespace DX9 {
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 			vfb->last_frame_render = gpuStats.numFlips;
+			vfb->last_frame_used = 0;
+			vfb->last_frame_attached = 0;
 			frameLastFramebufUsed = gpuStats.numFlips;
 			vfbs_.push_back(vfb);
 			ClearBuffer();
@@ -1104,8 +1106,8 @@ namespace DX9 {
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
 				// TODO: Handle the other formats?  We don't currently create them, I think.
-				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GPU_DBG_FORMAT_8888_BGRA, false);
-				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * vfb->renderHeight);
+				buffer.Allocate(locked.Pitch / 4, desc.Height, GPU_DBG_FORMAT_8888_BGRA, false);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				offscreen->UnlockRect();
 				success = true;
 			}

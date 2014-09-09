@@ -1092,6 +1092,8 @@ void TransformDrawEngineDX9::DoFlush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
+						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
+
 						goto rotateVBO;
 					}
 
@@ -1167,6 +1169,7 @@ void TransformDrawEngineDX9::DoFlush() {
 							gpuStats.numCachedDrawCalls++;
 							useElements = vai->ebo ? true : false;
 							gpuStats.numCachedVertsDrawn += vai->numVerts;
+							gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 						}
 						vb_ = vai->vbo;
 						ib_ = vai->ebo;
@@ -1192,6 +1195,8 @@ void TransformDrawEngineDX9::DoFlush() {
 						
 						maxIndex = vai->maxIndex;
 						prim = static_cast<GEPrimitiveType>(vai->prim);
+
+						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 						break;
 					}
 
@@ -1221,6 +1226,12 @@ rotateVBO:
 			}
 
 			DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+			bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+			if (gstate.isModeThrough()) {
+				gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			} else {
+				gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			}
 
 			IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
 
@@ -1246,6 +1257,13 @@ rotateVBO:
 			}
 		} else {
 			DecodeVerts();
+			bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+			if (gstate.isModeThrough()) {
+				gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
+			} else {
+				gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+			}
+
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			prim = indexGen.Prim();
 			// Undo the strip optimization, not supported by the SW code yet.
@@ -1264,6 +1282,7 @@ rotateVBO:
 		numDrawCalls = 0;
 		vertexCountInDrawCalls = 0;
 		prevPrim_ = GE_PRIM_INVALID;
+		gstate_c.vertexFullAlpha = true;
 
 		host->GPUNotifyDraw();
 }

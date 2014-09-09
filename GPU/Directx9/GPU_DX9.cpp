@@ -388,6 +388,8 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
+	textureCache_.SetFramebufferManager(&framebufferManager_);
+	textureCache_.SetShaderManager(shaderManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -1582,6 +1584,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 
 	LPDIRECT3DBASETEXTURE9 baseTex;
 	LPDIRECT3DTEXTURE9 tex;
+	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr;
 
 	bool success;
@@ -1594,6 +1597,22 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 			tex->GetLevelDesc(level, &desc);
 			RECT rect = {0, 0, desc.Width, desc.Height};
 			hr = tex->LockRect(level, &locked, &rect, D3DLOCK_READONLY);
+
+			// If it fails, this means it's a render-to-texture, so we have to get creative.
+			if (FAILED(hr)) {
+				LPDIRECT3DSURFACE9 renderTarget;
+				hr = tex->GetSurfaceLevel(level, &renderTarget);
+				if (SUCCEEDED(hr)) {
+					hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+					if (SUCCEEDED(hr)) {
+						hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+						if (SUCCEEDED(hr)) {
+							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+						}
+					}
+				}
+			}
+
 			if (SUCCEEDED(hr)) {
 				GPUDebugBufferFormat fmt;
 				int pixelSize;
@@ -1626,7 +1645,12 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 				} else {
 					success = false;
 				}
-				tex->UnlockRect(level);
+				if (offscreen) {
+					offscreen->UnlockRect();
+					offscreen->Release();
+				} else {
+					tex->UnlockRect(level);
+				}
 			}
 			tex->Release();
 		}

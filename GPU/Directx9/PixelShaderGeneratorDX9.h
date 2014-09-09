@@ -24,15 +24,12 @@
 
 namespace DX9 {
 
-struct FragmentShaderIDDX9
-{
-	FragmentShaderIDDX9() {d[0] = 0xFFFFFFFF;}
-	void clear() {d[0] = 0xFFFFFFFF;}
-	u32 d[1];
-	bool operator < (const FragmentShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+struct FragmentShaderIDDX9 {
+	FragmentShaderIDDX9() {clear();}
+	void clear() {d[0] = 0xFFFFFFFF; d[1] = 0xFFFFFFFF;}
+	u32 d[2];
+	bool operator < (const FragmentShaderIDDX9 &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -40,10 +37,8 @@ struct FragmentShaderIDDX9
 		}
 		return false;
 	}
-	bool operator == (const FragmentShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+	bool operator == (const FragmentShaderIDDX9 &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}
@@ -51,9 +46,11 @@ struct FragmentShaderIDDX9
 	}
 };
 
-
 void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
-
 void GenerateFragmentShaderDX9(char *buffer);
+
+bool IsAlphaTestAgainstZero();
+bool IsAlphaTestTriviallyTrue();
+bool IsColorTestTriviallyTrue();
 
 };

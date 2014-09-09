@@ -90,10 +90,10 @@ bool IsAlphaTestTriviallyTrue() {
 #endif
 			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
 					(!gstate.isStencilTestEnabled() &&
-				  !gstate.isDepthTestEnabled() && 
+					!gstate.isDepthTestEnabled() &&
 					gstate.getAlphaTestRef() == 0 &&
 					gstate.isAlphaBlendEnabled() &&
-					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && 
+					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
 					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
