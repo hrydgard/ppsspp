@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "base/logging.h"
 #include "fbo.h"
+#include "dx_state.h"
 
 namespace DX9 {
 
@@ -87,6 +88,8 @@ void fbo_resolve(FBO *fbo) {
 void fbo_bind_as_render_target(FBO *fbo) {
 	pD3Ddevice->SetRenderTarget(0, fbo->surf);
 	pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
+	dxstate.scissorRect.restore();
+	dxstate.viewport.restore();
 }
 
 

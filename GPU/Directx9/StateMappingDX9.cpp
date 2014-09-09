@@ -338,7 +338,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.scissorRect.set(
 			renderX + scissorX1 * renderWidthFactor,
 			renderY + scissorY1 * renderHeightFactor,
-			renderY + scissorX2 * renderWidthFactor,
+			renderX + scissorX2 * renderWidthFactor,
 			renderY + scissorY2 * renderHeightFactor);
 	}
 
