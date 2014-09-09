@@ -409,6 +409,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		float top = std::max(0.0f, vpY0 + renderY);
 		float right = std::min(left + vpWidth, renderWidth);
 		float bottom = std::min(top + vpHeight, renderHeight);
+		depthRangeMin = std::max(0.0f, depthRangeMin);
+		depthRangeMax = std::min(1.0f, depthRangeMax);
 
 		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
 	}
