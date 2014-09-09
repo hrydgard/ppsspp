@@ -233,9 +233,9 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 		if (doTexture && hasTexcoord) {
 			if (doTextureProjection)
-				WRITE(p, "		float2 texcoord:  TEXCOORD0;             \n");
-			else
 				WRITE(p, "		float3 texcoord:  TEXCOORD0;             \n");
+			else
+				WRITE(p, "		float2 texcoord:  TEXCOORD0;             \n");
 		}
 		if (hasColor)  {
 			WRITE(p, "		float4 color0: COLOR0;                 \n");
@@ -283,8 +283,13 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	WRITE(p, "		VS_OUT Out = (VS_OUT)0;							   \n");  
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
-		if (doTexture)
-			WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+		if (doTexture) {
+			if (doTextureProjection) {
+				WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+			} else {
+				WRITE(p, "  Out.v_texcoord = In.texcoord.xy;\n");
+			}
+		}
 		if (hasColor) {
 			WRITE(p, "  Out.v_color0 = In.color0;\n");
 			if (lmode)
