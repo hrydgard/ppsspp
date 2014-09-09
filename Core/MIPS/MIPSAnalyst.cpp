@@ -229,6 +229,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x68b22c2aa4b8b915, 400, "sqrt", },
 	{ 0x6962da85a6dad937, 60, "strrchr", },
 	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
+	{ 0x6ab54910104ef000, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation World
 	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
 	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
 	{ 0x6b4148322c569cb3, 240, "wmemchr", },
@@ -260,7 +261,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x79faa339fff5a80c, 28, "finitef", },
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
-	{ 0x8126a59ffa504614, 540, "brandish_download_frame", },//Zero no Kiseki and Ao no Kiseki
+	{ 0x8126a59ffa504614, 540, "brandish_download_frame", }, // Brandish, Zero no Kiseki, and Ao no Kiseki
 	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
 	{ 0x83ac39971df4b966, 336, "sqrtf", },
 	{ 0x84c6cd47834f4c79, 1284, "powf", },
@@ -345,7 +346,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbf791954ebef4afb, 396, "expf", },
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
-	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", },
+	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", }, // Growlanswer IV
 	{ 0xc319f0d107dd2f45, 888, "__muldf3", },
 	{ 0xc35c10300b6b6091, 620, "floor", },
 	{ 0xc3dbf3e6c80a0a51, 164, "dl_write_bone_matrix", },
@@ -395,6 +396,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xeabb9c1b4f83d2b4, 52, "memset", }, // Crisis Core
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
+	{ 0xed8918f378e9a563, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation Overworld
 	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },
 	{ 0xedc3f476221f96e6, 148, "tanf", },
 	{ 0xf1f660fdf349eac2, 1588, "_malloc_r", },
