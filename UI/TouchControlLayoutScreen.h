@@ -37,9 +37,7 @@ public:
 protected:
 	virtual UI::EventReturn OnReset(UI::EventParams &e);
 	virtual UI::EventReturn OnVisibility(UI::EventParams &e);
-	virtual UI::EventReturn OnCombo_key(UI::EventParams &e);
-	virtual UI::EventReturn OnCombo_key1(UI::EventParams &e);
-	virtual UI::EventReturn OnCombo_key2(UI::EventParams &e);
+
 private:
 	DragDropButton *pickedControl_;
 	std::vector<DragDropButton *> controls_;
