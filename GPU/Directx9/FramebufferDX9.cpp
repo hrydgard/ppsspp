@@ -1106,8 +1106,8 @@ namespace DX9 {
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
 				// TODO: Handle the other formats?  We don't currently create them, I think.
-				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GPU_DBG_FORMAT_8888_BGRA, false);
-				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * vfb->renderHeight);
+				buffer.Allocate(locked.Pitch / 4, desc.Height, GPU_DBG_FORMAT_8888_BGRA, false);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				offscreen->UnlockRect();
 				success = true;
 			}
