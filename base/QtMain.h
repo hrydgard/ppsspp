@@ -242,6 +242,7 @@ static MainUI* emugl = NULL;
 #define AUDIO_CHANNELS 2
 #define AUDIO_SAMPLES 2048
 #define AUDIO_SAMPLESIZE 16
+#define AUDIO_BUFFERS 5
 class MainAudio: public QObject
 {
 	Q_OBJECT
@@ -269,7 +270,7 @@ public slots:
 		fmt.setSampleSize(AUDIO_SAMPLESIZE);
 		fmt.setByteOrder(QAudioFormat::LittleEndian);
 		fmt.setSampleType(QAudioFormat::SignedInt);
-		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		mixlen = sizeof(short)*AUDIO_BUFFERS*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
 		output->setBufferSize(mixlen);
@@ -281,9 +282,9 @@ public slots:
 protected:
 	void timerEvent(QTimerEvent *) {
 		memset(mixbuf, 0, mixlen);
-		size_t frames = NativeMix((short *)mixbuf, AUDIO_SAMPLES);
+		size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES);
 		if (frames > 0)
-			feed->write(mixbuf, sizeof(short) * 2 * frames);
+			feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
 	}
 private:
 	QIODevice* feed;
