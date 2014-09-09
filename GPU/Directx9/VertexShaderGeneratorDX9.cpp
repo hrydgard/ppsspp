@@ -553,9 +553,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							if (hasTexcoord) {
-								static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-								const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-								temp_tc = StringFromFormat("float4(In.texcoord.xy %s, 0.0, 1.0)", factor);
+								temp_tc = StringFromFormat("float4(In.texcoord.xy, 0.0, 1.0)");
 							} else {
 								temp_tc = "float4(0.0, 0.0, 0.0, 1.0)";
 							}

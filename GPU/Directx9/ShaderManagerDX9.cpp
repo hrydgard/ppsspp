@@ -369,10 +369,8 @@ void LinkedShaderDX9::updateUniforms() {
 			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
+				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
 				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
 				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			} else {
