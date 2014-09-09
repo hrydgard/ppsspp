@@ -90,6 +90,10 @@ struct VirtualFramebuffer {
 	FBOColorDepth colorDepth;
 	FBO *fbo;
 
+	u16 drawnWidth;
+	u16 drawnHeight;
+	GEBufferFormat drawnFormat;
+
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 };
@@ -162,6 +166,7 @@ public:
 	}
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
 
@@ -260,6 +265,9 @@ private:
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->dirtyAfterDisplay = true;
+		dstBuffer->drawnWidth = dstBuffer->width;
+		dstBuffer->drawnHeight = dstBuffer->height;
+		dstBuffer->drawnFormat = dstBuffer->format;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}

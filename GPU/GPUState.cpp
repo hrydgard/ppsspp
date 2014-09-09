@@ -266,7 +266,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 3);
+	auto s = p.Section("GPUStateCache", 0, 4);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -328,6 +328,11 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	p.Do(vpWidth);
 	p.Do(vpHeight);
+	if (s >= 4) {
+		p.Do(vpDepth);
+	} else {
+		vpDepth = 1.0f;  // any positive value should be fine
+	}
 
 	p.Do(curRTWidth);
 	p.Do(curRTHeight);

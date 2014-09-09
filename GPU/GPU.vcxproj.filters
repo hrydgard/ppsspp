@@ -168,6 +168,9 @@
     <ClInclude Include="GLES\DepalettizeShader.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\FragmentTestCache.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -315,6 +318,9 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\StencilBuffer.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FragmentTestCache.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>

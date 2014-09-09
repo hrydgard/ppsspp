@@ -21,6 +21,7 @@
 
 #include <map>
 #include "helper/global.h"
+#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "util/text/utf8.h"
 
@@ -34,9 +35,6 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "UI/OnScreenDisplay.h"
 
-// For matrices convertions
-#include <xnamath.h>
-
 namespace DX9 {
 
 PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
@@ -45,11 +43,27 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
 	bool success;
+	std::string errorMessage;
 
-	success = CompilePixelShader(code, &shader, &constant);
+	success = CompilePixelShader(code, &shader, &constant, errorMessage);
+
+	if (!errorMessage.empty()) {
+		if (success) {
+			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		} else {
+			ERROR_LOG(G3D, "Error in shader compilation!");
+		}
+		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		OutputDebugStringUTF8("Messages:\n");
+		OutputDebugStringUTF8(errorMessage.c_str());
+		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	}
 
 	if (!success) {
 		failed_ = true;
+		if (shader)
+			shader->Release();
 		shader = NULL;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
@@ -58,6 +72,8 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 PSShader::~PSShader() {
 	pD3Ddevice->SetPixelShader(NULL);
+	if (constant)
+		constant->Release();
 	if (shader)
 		shader->Release();
 }
@@ -68,11 +84,27 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
 	bool success;
+	std::string errorMessage;
 
-	success = CompileVertexShader(code, &shader, &constant);
+	success = CompileVertexShader(code, &shader, &constant, errorMessage);
+
+	if (!errorMessage.empty()) {
+		if (success) {
+			ERROR_LOG(G3D, "Warnings in shader compilation!");
+		} else {
+			ERROR_LOG(G3D, "Error in shader compilation!");
+		}
+		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
+		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		OutputDebugStringUTF8("Messages:\n");
+		OutputDebugStringUTF8(errorMessage.c_str());
+		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	}
 
 	if (!success) {
 		failed_ = true;
+		if (shader)
+			shader->Release();
 		shader = NULL;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
@@ -81,6 +113,8 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 VSShader::~VSShader() {
 	pD3Ddevice->SetVertexShader(NULL);
+	if (constant)
+		constant->Release();
 	if (shader)
 		shader->Release();
 }
@@ -216,25 +250,14 @@ void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 al
 }
 
 void LinkedShaderDX9::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
-	if (1) {
-		const float col[4] = {
-			(float)((color & 0xFF)) * (1.0f / 255.0f),
-			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-			(float)alpha * (1.0f / 255.0f)
-		};
-		SetFloatArray(uniform, col, 4);
-	} else {
-		const float col[4] = {
-			(float)((color & 0xFF)) ,
-			(float)((color & 0xFF00) >> 8) ,
-			(float)((color & 0xFF0000) >> 16) ,
-			(float)alpha 
-		};
-		SetFloatArray(uniform, col, 4);
-	}
+	const float col[4] = {
+		(float)((color & 0xFF)),
+		(float)((color & 0xFF00) >> 8),
+		(float)((color & 0xFF0000) >> 16),
+		(float)alpha,
+	};
+	SetFloatArray(uniform, col, 4);
 }
-
 
 void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
 	const float col[4] = {
@@ -258,19 +281,13 @@ void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 	m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
 }
 
-// Depth in ogl is between -1;1 we need between 0;1
-// Pretty sure this is wrong, our Z buffer is screwed up anyhow..
-void ConvertProjMatrixToD3D(Matrix4x4 & in) {
-	/*
-	in.zz *= 0.5f;
-	in.wz += 1.f;
-	*/
+// Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
+void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 	Matrix4x4 s;
 	Matrix4x4 t;
-	s.setScaling(Vec3(1, 1, 0.5f));
+	s.setScaling(Vec3(1, 1, invert ? -0.5 : 0.5f));
 	t.setTranslation(Vec3(0, 0, 0.5f));
-	in = in * s;
-	in = in * t;
+	in = in * s * t;
 }
 
 void LinkedShaderDX9::use() {
@@ -300,8 +317,9 @@ void LinkedShaderDX9::updateUniforms() {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
-		// Convert matrices !
-		ConvertProjMatrixToD3D(flippedMatrix);
+
+		bool invert = gstate_c.vpDepth < 0;
+		ConvertProjMatrixToD3D(flippedMatrix, invert);
 
 		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
@@ -310,8 +328,7 @@ void LinkedShaderDX9::updateUniforms() {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
-		// Convert matrices !
-		ConvertProjMatrixToD3D(proj_through);
+		ConvertProjMatrixToD3D(proj_through, false);
 
 		SetMatrix(u_proj_through, proj_through.getReadPtr());
 	}

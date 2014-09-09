@@ -43,12 +43,8 @@ static const bool safeDestFactors[16] = {
 	true, //GE_DSTBLEND_FIXB,
 };
 
-static bool IsAlphaTestTriviallyTrue() {
-	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
-	int alphaTestRef = gstate.getAlphaTestRef();
-	int alphaTestMask = gstate.getAlphaTestMask();
-
-	switch (alphaTestFunc) {
+bool IsAlphaTestTriviallyTrue() {
+	switch (gstate.getAlphaTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -56,36 +52,60 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 
 	case GE_COMP_GEQUAL:
-		return alphaTestRef == 0;
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;  // If alpha is full, it doesn't matter what the ref value is.
+		return gstate.getAlphaTestRef() == 0;
 
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
 	case GE_COMP_NOTEQUAL:
+		if (gstate.getAlphaTestRef() == 255) {
+			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
+			// complicated code to discard the draw or whatnot.
+			return false;
+		}
+		// Fallthrough on purpose
+
 	case GE_COMP_GREATER:
 		{
-			bool depthTest = gstate.isDepthTestEnabled();
+#if 0
+			// Easy way to check the values in the debugger without ruining && early-out
+			bool doTextureAlpha = gstate.isTextureAlphaUsed();
 			bool stencilTest = gstate.isStencilTestEnabled();
-			GEBlendSrcFactor src = gstate.getBlendFuncA();
-			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
-				return true;
-			return false;
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEComparison depthTestFunc = gstate.getDepthTestFunction();
+			int alphaRef = gstate.getAlphaTestRef();
+			int blendA = gstate.getBlendFuncA();
+			bool blendEnabled = gstate.isAlphaBlendEnabled();
+			int blendB = gstate.getBlendFuncA();
+#endif
+			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
+					(!gstate.isStencilTestEnabled() &&
+					!gstate.isDepthTestEnabled() &&
+					gstate.getAlphaTestRef() == 0 &&
+					gstate.isAlphaBlendEnabled() &&
+					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
+					safeDestFactors[(int)gstate.getBlendFuncB()]));
 		}
 
 	case GE_COMP_LEQUAL:
-		return alphaTestRef == 255;
+		return gstate.getAlphaTestRef() == 255;
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_LESS:
 		return false;
+
 	default:
 		return false;
 	}
 }
 
-static bool IsColorTestTriviallyTrue() {
-	GEComparison colorTestFunc = gstate.getColorTestFunction();
-	switch (colorTestFunc) {
+bool IsAlphaTestAgainstZero() {
+	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
+}
+
+bool IsColorTestTriviallyTrue() {
+	switch (gstate.getColorTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
@@ -211,11 +231,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	if (enableAlphaTest) {
 		WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
-		WRITE(p, "float roundTo255th(float x) { float y = x + (0.5/255.0); return y - frac(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 	if (enableColorTest) {
 		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
-		WRITE(p, "float3 roundTo255thv(float3 x) { float3 y = x + (0.5/255.0); return y - frac(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 
 	WRITE(p, " struct PS_IN                               \n");
@@ -232,7 +250,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "		float3 v_color1: COLOR1;              \n");    
 	}
 	if (enableFog) {
-		WRITE(p, "float v_fogdepth:FOG;\n");
+		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
 	}
 	WRITE(p, " };                                         \n"); 
 	WRITE(p, "                                            \n");
@@ -303,7 +321,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
-				WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
 #endif
@@ -322,13 +340,13 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				const char * test = colorTestFuncs[colorTestFunc];
-				WRITE(p, "float3 colortest = roundTo255thv(v.rgb);\n");
+				WRITE(p, "float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 				WRITE(p, "if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
 			}
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth.x, 0.0, 1.0);\n");
 			WRITE(p, "  return lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
 		} else {
 			WRITE(p, "  return v;\n");

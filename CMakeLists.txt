@@ -1329,6 +1329,8 @@ add_library(GPU OBJECT
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
+	GPU/GLES/FragmentTestCache.cpp
+	GPU/GLES/FragmentTestCache.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
 	GPU/GLES/ShaderManager.cpp

@@ -112,6 +112,7 @@ void TextureCache::Clear(bool delete_them) {
 		cache.clear();
 		secondCache.clear();
 	}
+	fbTexInfo_.clear();
 }
 
 void TextureCache::DeleteTexture(TexCache::iterator it) {
@@ -890,7 +891,7 @@ void TextureCache::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
 	if (Memory::IsValidAddress(clutAddr)) {
 #ifdef _M_SSE
-		int numBlocks = gstate.getClutLoadBlocks(); 
+		int numBlocks = gstate.getClutLoadBlocks();
 		clutTotalBytes_ = numBlocks * 32;
 		const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
 		__m128i *dest = (__m128i *)clutBufRaw_;
@@ -936,7 +937,7 @@ void TextureCache::UpdateCurrentClut() {
 	clutAlphaLinear_ = false;
 	clutAlphaLinearColor_ = 0;
 	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
-		const u16 *clut = GetCurrentClut<u16>();
+		const u16_le *clut = GetCurrentClut<u16_le>();
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
@@ -1015,7 +1016,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	if (useBufferedRendering) {
 		GLuint program = 0;
 		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-			program = depalShaderCache_->GetDepalettizeShader(framebuffer->format);
+			program = depalShaderCache_->GetDepalettizeShader(framebuffer->drawnFormat);
 		}
 		if (program) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
@@ -1088,7 +1089,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 			framebufferManager_->BindFramebufferColor(framebuffer);
 
-			gstate_c.textureFullAlpha = framebuffer->format == GE_FORMAT_565;
+			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 
@@ -1107,8 +1108,10 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		}
 		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 	} else {
-		if (framebuffer->fbo)
+		if (framebuffer->fbo) {
+			fbo_destroy(framebuffer->fbo);
 			framebuffer->fbo = 0;
+		}
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
 	}
@@ -1723,8 +1726,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 				finalBuf = tmpTexBuf32.data();
 				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
 			}
-		}
-		else {
+		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texptr, bufw, 4, level);
 			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
@@ -1836,7 +1838,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;

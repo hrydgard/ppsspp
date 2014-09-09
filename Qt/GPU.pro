@@ -28,6 +28,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Null/NullGpu.cpp \
 	$$P/GPU/GLES/DepalettizeShader.cpp \
 	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
+	$$P/GPU/GLES/FragmentTestCache.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLES_GPU.cpp \
 	$$P/GPU/GLES/ShaderManager.cpp \

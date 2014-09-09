@@ -44,6 +44,10 @@ class FramebufferManagerDX9;
 // DRAWN_ONCE -> death
 // DRAWN_RELIABLE -> death
 
+enum {
+	VAI_FLAG_VERTEXFULLALPHA = 1,
+};
+
 
 // Don't bother storing information about draws smaller than this.
 enum {
@@ -64,8 +68,10 @@ public:
 		lastFrame = gpuStats.numFlips;
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
+		flags = 0;
 	}
 	~VertexArrayInfoDX9();
+
 	enum Status {
 		VAI_NEW,
 		VAI_HASHING,
@@ -80,7 +86,6 @@ public:
 	LPDIRECT3DVERTEXBUFFER9 vbo;
 	LPDIRECT3DINDEXBUFFER9 ebo;
 
-	
 	// Precalculated parameter for drawRangeElements
 	u16 numVerts;
 	u16 maxIndex;
@@ -92,8 +97,8 @@ public:
 	int numFrames;
 	int lastFrame;  // So that we can forget.
 	u16 drawsUntilNextFullHash;
+	u8 flags;
 };
-
 
 // Handles transform, lighting and drawing.
 class TransformDrawEngineDX9 {
@@ -142,6 +147,7 @@ private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
+	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
@@ -184,6 +190,7 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	std::map<u32, VertexArrayInfoDX9 *> vai_;
+	std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;

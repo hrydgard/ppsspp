@@ -441,6 +441,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
 	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false),
+	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true),
 
 	ConfigSetting(false),
 };

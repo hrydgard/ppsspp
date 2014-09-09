@@ -509,6 +509,10 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	if (useBufferedRendering_ && vfb->fbo) {
+		fbo_bind_as_render_target(vfb->fbo);
+	}
+	glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
 	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -889,6 +893,7 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 
 	gstate_c.cutRTOffsetX = 0;
 	bool vfbFormatChanged = false;
+	GEBufferFormat vfbOldFormat = GE_FORMAT_INVALID;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -899,9 +904,10 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			vfb = v;
 			// Update fb stride in case it changed
 			if (vfb->fb_stride != fb_stride || vfb->format != fmt) {
+				vfbOldFormat = vfb->format;
+				vfbFormatChanged = true;
 				vfb->fb_stride = fb_stride;
 				vfb->format = fmt;
-				vfbFormatChanged = true;
 			}
 			// In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
 			if (gstate.isModeThrough() && (int)vfb->width < fb_stride) {
@@ -980,6 +986,9 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 		vfb->bufferWidth = drawing_width;
 		vfb->bufferHeight = drawing_height;
 		vfb->format = fmt;
+		vfb->drawnWidth = 0;
+		vfb->drawnHeight = 0;
+		vfb->drawnFormat = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb);
 		vfb->depthUpdated = false;
@@ -1107,9 +1116,16 @@ void FramebufferManager::DoSetRenderFrameBuffer() {
 			BlitFramebufferDepth(currentRenderVfb_, vfb);
 		}
 		currentRenderVfb_ = vfb;
+		if (vfbFormatChanged && vfbOldFormat != vfb->format) {
+			// TODO: Might ultimately combine this with the resize step above.
+			ReformatFramebufferFrom(vfb, vfbOldFormat);
+		}
 	} else {
 		if (vfbFormatChanged) {
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
+			if (vfbOldFormat != vfb->format) {
+				ReformatFramebufferFrom(vfb, vfbOldFormat);
+			}
 		}
 
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -1139,6 +1155,36 @@ void FramebufferManager::SetLineWidth() {
 		glPointSize((float)g_Config.iInternalResolution);
 	}
 #endif
+}
+
+void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_bind_as_render_target(vfb->fbo);
+
+	// Technically, we should at this point re-interpret the bytes of the old format to the new.
+	// That might get tricky, and could cause unnecessary slowness in some games.
+	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
+	// (it uses 565 to write zeros to the buffer, than 4444 to actually render the shadow.)
+	//
+	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
+	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
+	// to exactly reproduce in 4444 and 8888 formats.
+
+	if (old == GE_FORMAT_565) {
+		glstate.scissorTest.disable();
+		glstate.depthWrite.set(GL_FALSE);
+		glstate.colorMask.set(false, false, false, true);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.set(0xFF);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClearStencil(0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+
+	RebindFramebuffer();
 }
 
 void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
@@ -1225,7 +1271,7 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->width, framebuffer->height, 0, false);
+			BlitFramebuffer_(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
 
 			RebindFramebuffer();
 			fbo_bind_color_as_texture(renderCopy, 0);
@@ -1444,6 +1490,9 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->bufferWidth = vfb->bufferWidth;
 			nvfb->bufferHeight = vfb->bufferHeight;
 			nvfb->format = vfb->format;
+			nvfb->drawnWidth = vfb->drawnWidth;
+			nvfb->drawnHeight = vfb->drawnHeight;
+			nvfb->drawnFormat = vfb->format;
 			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
 			nvfb->dirtyAfterDisplay = true;
 
@@ -2108,8 +2157,6 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 				if (useBufferedRendering_ && vfb->fbo) {
 					DisableState();
-					fbo_bind_as_render_target(vfb->fbo);
-					glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 					GEBufferFormat fmt = vfb->format;
 					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
 						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
@@ -2206,10 +2253,6 @@ bool FramebufferManager::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool 
 		if (g_Config.bBlockTransferGPU) {
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
-			if (useBufferedRendering_ && dstBuffer->fbo) {
-				fbo_bind_as_render_target(dstBuffer->fbo);
-			}
-			glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
 			SetColorUpdated(dstBuffer);
 			RebindFramebuffer();
@@ -2427,12 +2470,8 @@ void FramebufferManager::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride,
 			if (g_Config.bBlockTransferGPU) {
 				FlushBeforeCopy();
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-				if (useBufferedRendering_ && dstBuffer->fbo) {
-					fbo_bind_as_render_target(dstBuffer->fbo);
-				}
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
-				glViewport(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
 				SetColorUpdated(dstBuffer);
 				RebindFramebuffer();

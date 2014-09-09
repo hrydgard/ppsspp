@@ -27,6 +27,8 @@
 namespace DX9 {
 
 struct VirtualFramebufferDX9;
+class FramebufferManagerDX9;
+class ShaderManagerDX9;
 
 enum TextureFiltering {
 	AUTO = 1,
@@ -41,13 +43,13 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
-class TextureCacheDX9 
-{
+class TextureCacheDX9 {
 public:
 	TextureCacheDX9();
 	~TextureCacheDX9();
 
-	void SetTexture(bool t = false);
+	void SetTexture(bool force = false);
+	bool SetOffsetTexture(u32 offset);
 
 	void Clear(bool delete_them);
 	void StartFrame();
@@ -60,6 +62,13 @@ public:
 	// are being rendered to. This is barebones so far.
 	void NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg);
 
+	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
+		framebufferManager_ = fbManager;
+	}
+	void SetShaderManager(ShaderManagerDX9 *sm) {
+		shaderManager_ = sm;
+	}
+
 	size_t NumLoadedTextures() const {
 		return cache.size();
 	}
@@ -67,7 +76,8 @@ public:
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, GPUgstate state);
 
-private:
+	void ForgetLastTexture();
+
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
 	// Must stay a POD.
 	struct TexCacheEntry {
@@ -76,14 +86,19 @@ private:
 
 		enum Status {
 			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,  // cache, don't hash
-			STATUS_UNRELIABLE = 0x02,  // never cache
+			STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
+			STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
 			STATUS_MASK = 0x03,
 
 			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,  // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,  // Like above, but also has 0 alpha (e.g. 5551.)
+			STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
+			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
 			STATUS_ALPHA_MASK = 0x0c,
+
+			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
+			STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
+			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
 		};
 
 		// Status, but int so we can zero initialize.
@@ -99,12 +114,33 @@ private:
 		u8 format;
 		u16 dim;
 		u16 bufw;
-		LPDIRECT3DTEXTURE9 texture;  //GLuint
+		LPDIRECT3DTEXTURE9 texture;
 		int invalidHint;
 		u32 fullhash;
 		u32 cluthash;
 		int maxLevel;
+		float lodBias;
 
+		Status GetHashStatus() {
+			return Status(status & STATUS_MASK);
+		}
+		void SetHashStatus(Status newStatus) {
+			status = (status & ~STATUS_MASK) | newStatus;
+		}
+		Status GetAlphaStatus() {
+			return Status(status & STATUS_ALPHA_MASK);
+		}
+		void SetAlphaStatus(Status newStatus) {
+			status = (status & ~STATUS_ALPHA_MASK) | newStatus;
+		}
+		void SetAlphaStatus(Status newStatus, int level) {
+			// For non-level zero, only set more restrictive.
+			if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
+				SetAlphaStatus(newStatus);
+			} else if (newStatus == STATUS_ALPHA_SIMPLE && GetAlphaStatus() == STATUS_ALPHA_FULL) {
+				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
+			}
+		}
 		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 		void ReleaseTexture() {
 			if (texture) {
@@ -113,27 +149,43 @@ private:
 		}
 	};
 
+	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
+
+private:
+	typedef std::map<u64, TexCacheEntry> TexCache;
+
 	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
-	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw);
+	void DeleteTexture(TexCache::iterator it);
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
+	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt);
-	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, u32 dstFmt);
+	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt, int *bufw = 0);
+	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
-	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, bool exactMatch);
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, u32 texaddrOffset = 0);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer);
-	void SetTextureFramebuffer(TexCacheEntry *entry);
+	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
-	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
 	TexCache secondCache;
 	std::vector<VirtualFramebufferDX9 *> fbCache_;
+
+	// Separate to keep main texture cache size down.
+	struct AttachedFramebufferInfo {
+		u32 xOffset;
+		u32 yOffset;
+	};
+	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo);
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
@@ -150,6 +202,7 @@ private:
 	u32 *clutBuf_;
 	u32 clutHash_;
 	u32 clutTotalBytes_;
+	u32 clutMaxBytes_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
@@ -158,6 +211,13 @@ private:
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
+	int texelsScaledThisFrame_;
+	int timesInvalidatedAllThisFrame_;
+
+	FramebufferManagerDX9 *framebufferManager_;
+	ShaderManagerDX9 *shaderManager_;
 };
+
+D3DFORMAT getClutDestFormat(GEPaletteFormat format);
 
 };

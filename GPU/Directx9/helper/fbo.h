@@ -41,5 +41,6 @@ void * fbo_get_rtt(FBO *fbo);
 
 // To get default depth and rt surface
 void fbo_init();
+void fbo_shutdown();
 
 };

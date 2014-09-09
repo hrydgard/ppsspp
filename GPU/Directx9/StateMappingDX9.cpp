@@ -338,7 +338,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.scissorRect.set(
 			renderX + scissorX1 * renderWidthFactor,
 			renderY + scissorY1 * renderHeightFactor,
-			renderY + scissorX2 * renderWidthFactor,
+			renderX + scissorX2 * renderWidthFactor,
 			renderY + scissorY2 * renderHeightFactor);
 	}
 
@@ -381,7 +381,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXa * 2.0f;
 		gstate_c.vpHeight = -vpYa * 2.0f;
-
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
@@ -394,15 +393,26 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
 		
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRangeMin = zOff - zScale;
-		float depthRangeMax = zOff + zScale;
 
-		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
+		float depthRangeMin = zOff - fabsf(zScale);
+		float depthRangeMax = zOff + fabsf(zScale);
+
+		gstate_c.vpDepth = zScale * 2;
+
+		// D3D doesn't like viewports partially outside the target. Clamp the viewport for now. Should also adjust
+		// the projection matrix to compensate, really.
+		float left = std::max(0.0f, vpX0 + renderX);
+		float top = std::max(0.0f, vpY0 + renderY);
+		float right = std::min(left + vpWidth, renderWidth);
+		float bottom = std::min(top + vpHeight, renderHeight);
+		depthRangeMin = std::max(0.0f, depthRangeMin);
+		depthRangeMax = std::min(1.0f, depthRangeMax);
+
+		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
 	}
 }
 

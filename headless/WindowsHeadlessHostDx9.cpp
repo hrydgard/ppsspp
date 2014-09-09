@@ -25,6 +25,7 @@
 #include "base/logging.h"
 #include "thin3d/d3dx9_loader.h"
 #include "GPU/Directx9/helper/global.h"
+#include "GPU/Directx9/helper/fbo.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -80,6 +81,12 @@ bool WindowsHeadlessHostDx9::InitGL(std::string *error_message)
 
 void WindowsHeadlessHostDx9::ShutdownGL()
 {
+	DX9::DestroyShaders();
+	DX9::fbo_shutdown();
+	DX9::pD3Ddevice->EndScene();
+	DX9::pD3Ddevice->Release();
+	DX9::pD3Ddevice = NULL;
+	hWnd = NULL;
 }
 
 bool WindowsHeadlessHostDx9::ResizeGL()

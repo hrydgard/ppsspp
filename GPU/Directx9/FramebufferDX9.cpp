@@ -127,6 +127,7 @@ namespace DX9 {
 		// And an initial clear. We don't clear per frame as the games are supposed to handle that
 		// by themselves.
 		ClearBuffer();
+		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
 		pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), D3DPOOL_MANAGED, &drawPixelsTex_, NULL);
 		useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	}
@@ -156,7 +157,7 @@ namespace DX9 {
 		u8 * convBuf = NULL;
 		D3DLOCKED_RECT rect;
 
-		drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_NOOVERWRITE);
+		drawPixelsTex_->LockRect(0, &rect, NULL, 0);
 
 		convBuf = (u8*)rect.pBits;
 
@@ -497,6 +498,8 @@ namespace DX9 {
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 			vfb->last_frame_render = gpuStats.numFlips;
+			vfb->last_frame_used = 0;
+			vfb->last_frame_attached = 0;
 			frameLastFramebufUsed = gpuStats.numFlips;
 			vfbs_.push_back(vfb);
 			ClearBuffer();
@@ -1103,8 +1106,8 @@ namespace DX9 {
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
 				// TODO: Handle the other formats?  We don't currently create them, I think.
-				buffer.Allocate(locked.Pitch / 4, vfb->renderHeight, GPU_DBG_FORMAT_8888_BGRA, false);
-				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * vfb->renderHeight);
+				buffer.Allocate(locked.Pitch / 4, desc.Height, GPU_DBG_FORMAT_8888_BGRA, false);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				offscreen->UnlockRect();
 				success = true;
 			}

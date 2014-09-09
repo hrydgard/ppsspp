@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2014- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,18 +17,23 @@
 
 #pragma once
 
-#include "Globals.h"
+#include <map>
+#include "Common/CommonTypes.h"
+#include "gfx_es2/gl_state.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GLES/TextureCache.h"
 
-// TODO: Bench both ways. Result may be different on old vs new hardware though..
-// #define DX9_USE_HW_ALPHA_TEST 1
+struct FragmentTestID {
+	union {
+		struct {
+			u32 alpha;
+			u32 colorRefFunc;
+			u32 colorMask;
+		};
+		u32 d[3];
+	};
 
-namespace DX9 {
-
-struct FragmentShaderIDDX9 {
-	FragmentShaderIDDX9() {clear();}
-	void clear() {d[0] = 0xFFFFFFFF; d[1] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const FragmentShaderIDDX9 &other) const {
+	bool operator < (const FragmentTestID &other) const {
 		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] < other.d[i])
 				return true;
@@ -37,7 +42,7 @@ struct FragmentShaderIDDX9 {
 		}
 		return false;
 	}
-	bool operator == (const FragmentShaderIDDX9 &other) const {
+	bool operator == (const FragmentTestID &other) const {
 		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] != other.d[i])
 				return false;
@@ -46,11 +51,33 @@ struct FragmentShaderIDDX9 {
 	}
 };
 
-void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
-void GenerateFragmentShaderDX9(char *buffer);
+struct FragmentTestTexture {
+	GLuint texture;
+	int lastFrame;
+};
 
-bool IsAlphaTestAgainstZero();
-bool IsAlphaTestTriviallyTrue();
-bool IsColorTestTriviallyTrue();
+class FragmentTestCache {
+public:
+	FragmentTestCache();
+	~FragmentTestCache();
 
+	void SetTextureCache(TextureCache *tc) {
+		textureCache_ = tc;
+	}
+
+	void BindTestTexture(GLenum unit);
+
+	void Clear(bool deleteThem = true);
+	void Decimate();
+
+private:
+
+	GLuint CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
+	FragmentTestID GenerateTestID() const;
+
+	TextureCache *textureCache_;
+
+	std::map<FragmentTestID, FragmentTestTexture> cache_;
+	u8 *scratchpad_;
+	GLuint lastTexture_;
 };

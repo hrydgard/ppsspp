@@ -27,6 +27,7 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/DepalettizeShader.h"
+#include "GPU/GLES/FragmentTestCache.h"
 
 class ShaderManager;
 class LinkedShader;
@@ -173,6 +174,7 @@ private:
 	TextureCache textureCache_;
 	DepalShaderCache depalShaderCache_;
 	TransformDrawEngine transformDraw_;
+	FragmentTestCache fragmentTestCache_;
 	ShaderManager *shaderManager_;
 
 	bool resized_;
