@@ -88,7 +88,14 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 	}
 	
 	dc.GetThin3DContext()->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xff224477, 0.0, 0);
-	int img = I_BG;
+	//int img = I_BG;
+	int img;
+	for (int j = 0; j <= (ui_atlas.num_images - 38); j++)
+	{
+		if (j == g_Config.iBackGroundChange)
+			img = I_BG1 + j;
+			
+	}
 #ifdef GOLD
 	img = I_BG_GOLD;
 #endif
