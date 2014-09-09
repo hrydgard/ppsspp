@@ -1255,7 +1255,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	int bufw;
-	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt);
+	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
 	if (finalBuf == NULL) {
 		return;
 	}
