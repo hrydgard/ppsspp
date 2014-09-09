@@ -150,24 +150,24 @@ void VertexDecoderDX9::Step_TcU8() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * (1.0f / 256.f);
-	uv[1] = uvdata[1] * (1.0f / 256.f);
+	uv[0] = uvdata[0] * (1.0f / 128.f);
+	uv[1] = uvdata[1] * (1.0f / 128.f);
 }
 
 void VertexDecoderDX9::Step_TcU16() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * (1.0f / 65536.f);
-	uv[1] = uvdata[1] * (1.0f / 65536.f);
+	uv[0] = uvdata[0] * (1.0f / 32768.f);
+	uv[1] = uvdata[1] * (1.0f / 32768.f);
 }
 
 void VertexDecoderDX9::Step_TcU16Double() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * (1.0f / 32768.f);
-	uv[1] = uvdata[1] * (1.0f / 32768.f);
+	uv[0] = uvdata[0] * (1.0f / 16384.f);
+	uv[1] = uvdata[1] * (1.0f / 16384.f);
 }
 
 void VertexDecoderDX9::Step_TcU16Through() const
