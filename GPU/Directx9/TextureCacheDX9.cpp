@@ -27,6 +27,7 @@
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/helper/dx_state.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -212,7 +213,7 @@ void TextureCacheDX9::ClearNextFrame() {
 }
 
 
-void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	bool hasFartherFramebuffer = false;
@@ -235,7 +236,7 @@ void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFrameb
 	}
 }
 
-void TextureCacheDX9::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+void TextureCacheDX9::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
@@ -245,7 +246,7 @@ void TextureCacheDX9::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFram
 	}
 }
 
-bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, u32 texaddrOffset) {
+bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = {0};
@@ -352,14 +353,14 @@ bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, Virtu
 	return false;
 }
 
-inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer) {
+inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
 		entry->framebuffer = 0;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
-void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg) {
+void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
 	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
 	// These checks are mainly to reduce scanning all textures.
 	const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
@@ -812,7 +813,7 @@ inline u32 TextureCacheDX9::GetCurrentClutHash() {
 	return clutHash_;
 }
 
-void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer) {
+void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;

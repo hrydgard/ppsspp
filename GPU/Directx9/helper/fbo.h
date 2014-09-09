@@ -4,9 +4,9 @@
 // Very C-ish API because that's what I felt like, and it's cool to completely
 // hide the data from callers...
 
-namespace DX9 {
-
 struct FBO;
+
+namespace DX9 {
 
 enum FBOColorDepth {
 	FBO_8888,
@@ -14,7 +14,6 @@ enum FBOColorDepth {
 	FBO_4444,
 	FBO_5551,
 };
-
 
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.

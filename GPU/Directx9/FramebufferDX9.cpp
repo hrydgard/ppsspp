@@ -27,6 +27,7 @@
 #include "helper/dx_state.h"
 #include "helper/fbo.h"
 
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -91,7 +92,7 @@ namespace DX9 {
 		}
 	}
 
-	static void ClearBuffer() {
+	void FramebufferManagerDX9::ClearBuffer() {
 		dxstate.scissorTest.disable();
 		dxstate.depthWrite.set(TRUE);
 		dxstate.colorMask.set(true, true, true, true);
@@ -100,7 +101,15 @@ namespace DX9 {
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
 	}
 
-	static void DisableState() {
+	void FramebufferManagerDX9::ClearDepthBuffer() {
+		dxstate.scissorTest.disable();
+		dxstate.depthWrite.set(TRUE);
+		dxstate.colorMask.set(false, false, false, false);
+		dxstate.stencilFunc.set(D3DCMP_NEVER, 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
+	}
+
+	void FramebufferManagerDX9::DisableState() {
 		dxstate.blend.disable();
 		dxstate.cullMode.set(false, false);
 		dxstate.depthTest.disable();
@@ -112,14 +121,6 @@ namespace DX9 {
 
 
 	FramebufferManagerDX9::FramebufferManagerDX9() :
-	displayFramebufPtr_(0),
-		displayStride_(0),
-		displayFormat_(GE_FORMAT_565),
-		displayFramebuf_(0),
-		prevDisplayFramebuf_(0),
-		prevPrevDisplayFramebuf_(0),
-		frameLastFramebufUsed(0),
-		currentRenderVfb_(0),
 		drawPixelsTex_(0),
 		drawPixelsTexFormat_(GE_FORMAT_INVALID),
 		convBuf(0)
@@ -280,10 +281,10 @@ namespace DX9 {
 	}
 
 
-	VirtualFramebufferDX9 *FramebufferManagerDX9::GetVFBAt(u32 addr) {
-		VirtualFramebufferDX9 *match = NULL;
+	VirtualFramebuffer *FramebufferManagerDX9::GetVFBAt(u32 addr) {
+		VirtualFramebuffer *match = NULL;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *v = vfbs_[i];
+			VirtualFramebuffer *v = vfbs_[i];
 			if (MaskedEqual(v->fb_address, addr) && v->format == displayFormat_ && v->width >= 480) {
 				// Could check w too but whatever
 				if (match == NULL || match->last_frame_render < v->last_frame_render) {
@@ -299,53 +300,7 @@ namespace DX9 {
 		return 0;
 	}
 
-
-
-	// Heuristics to figure out the size of FBO to create.
-	static void EstimateDrawingSize(int &drawing_width, int &drawing_height) {
-		int default_width = 480; 
-		int default_height = 272;
-		int viewport_width = (int) gstate.getViewportX1(); 
-		int viewport_height = (int) gstate.getViewportY1(); 
-		int region_width = gstate.getRegionX2() + 1;
-		int region_height = gstate.getRegionY2() + 1;
-		int scissor_width = gstate.getScissorX2() + 1;
-		int scissor_height = gstate.getScissorY2() + 1;
-		int fb_stride = gstate.fbwidth & 0x3C0;
-
-		DEBUG_LOG(SCEGE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough());
-
-		// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
-		if (viewport_width <= 1 && viewport_height <=1) {
-			viewport_width = default_width;
-			viewport_height = default_height;
-		}
-
-		if (fb_stride > 0 && fb_stride < 512) {
-			// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
-			if (fb_stride == scissor_width && region_width != scissor_width) { 
-				drawing_width = scissor_width;
-				drawing_height = scissor_height;
-			} else {
-				drawing_width = viewport_width;
-				drawing_height = viewport_height;
-			}
-		} else {
-			// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
-			if (fb_stride == region_width && region_width == viewport_width) { 
-				drawing_width = region_width;
-				drawing_height = region_height;
-			} else if (fb_stride == viewport_width) { 
-				drawing_width = viewport_width;
-				drawing_height = viewport_height;
-			} else {
-				drawing_width = default_width;
-				drawing_height = default_height;
-			}
-		}
-	}
-
-	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebufferDX9 *v) {
+	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
 		textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 		if (v->fbo) {
 			fbo_destroy(v->fbo);
@@ -365,14 +320,7 @@ namespace DX9 {
 		delete v;
 	}
 
-	void FramebufferManagerDX9::SetRenderFrameBuffer() {
-		if (!gstate_c.framebufChanged && currentRenderVfb_) {
-			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
-			currentRenderVfb_->dirtyAfterDisplay = true;
-			if (!gstate_c.skipDrawReason)
-				currentRenderVfb_->reallyDirtyAfterDisplay = true;
-			return;
-		}
+	void FramebufferManagerDX9::DoSetRenderFrameBuffer() {
 #if 0
 		if (g_Config.iRenderingMode != 0 && g_Config.bWipeFramebufferAlpha && currentRenderVfb_) {
 			// Hack is enabled, and there was a previous framebuffer.
@@ -422,9 +370,9 @@ namespace DX9 {
 		int buffer_height = drawing_height;
 
 		// Find a matching framebuffer
-		VirtualFramebufferDX9 *vfb = 0;
+		VirtualFramebuffer *vfb = 0;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *v = vfbs_[i];
+			VirtualFramebuffer *v = vfbs_[i];
 			if (MaskedEqual(v->fb_address, fb_address) && v->width >= drawing_width && v->height >= drawing_height) {
 				// Let's not be so picky for now. Let's say this is the one.
 				vfb = v;
@@ -441,7 +389,7 @@ namespace DX9 {
 		// None found? Create one.
 		if (!vfb) {
 			gstate_c.textureChanged = true;
-			vfb = new VirtualFramebufferDX9();
+			vfb = new VirtualFramebuffer();
 			vfb->fbo = 0;
 			vfb->fb_address = fb_address;
 			vfb->fb_stride = fb_stride;
@@ -483,7 +431,7 @@ namespace DX9 {
 			}
 
 			if (useBufferedRendering_) {
-				vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+				vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
 				if (vfb->fbo) {
 					fbo_bind_as_render_target(vfb->fbo);
 				} else {
@@ -500,7 +448,7 @@ namespace DX9 {
 			vfb->last_frame_render = gpuStats.numFlips;
 			vfb->last_frame_used = 0;
 			vfb->last_frame_attached = 0;
-			frameLastFramebufUsed = gpuStats.numFlips;
+			frameLastFramebufUsed_ = gpuStats.numFlips;
 			vfbs_.push_back(vfb);
 			ClearBuffer();
 
@@ -533,7 +481,7 @@ namespace DX9 {
 			vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			gstate_c.textureChanged = true;
 			vfb->last_frame_render = gpuStats.numFlips;
-			frameLastFramebufUsed = gpuStats.numFlips;
+			frameLastFramebufUsed_ = gpuStats.numFlips;
 			vfb->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				vfb->reallyDirtyAfterDisplay = true;
@@ -576,7 +524,7 @@ namespace DX9 {
 			currentRenderVfb_ = vfb;
 		} else {
 			vfb->last_frame_render = gpuStats.numFlips;
-			frameLastFramebufUsed = gpuStats.numFlips;
+			frameLastFramebufUsed_ = gpuStats.numFlips;
 			vfb->dirtyAfterDisplay = true;
 			if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 				vfb->reallyDirtyAfterDisplay = true;
@@ -596,7 +544,7 @@ namespace DX9 {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		currentRenderVfb_ = 0;
 
-		VirtualFramebufferDX9 *vfb = GetVFBAt(displayFramebufPtr_);
+		VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
 		if (!vfb) {
 			if (Memory::IsValidAddress(displayFramebufPtr_)) {
 				// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -695,7 +643,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebufferDX9 *vfb, bool sync) {
+	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 #if 0
 		if (sync) {
 			PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
@@ -706,11 +654,11 @@ namespace DX9 {
 			// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 			// For now we'll keep these on the same struct as the ones that can get displayed
 			// (and blatantly copy work already done above while at it).
-			VirtualFramebufferDX9 *nvfb = 0;
+			VirtualFramebuffer *nvfb = 0;
 
 			// We maintain a separate vector of framebuffer objects for blitting.
 			for (size_t i = 0; i < bvfbs_.size(); ++i) {
-				VirtualFramebufferDX9 *v = bvfbs_[i];
+				VirtualFramebuffer *v = bvfbs_[i];
 				if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
 					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 						nvfb = v;
@@ -724,7 +672,7 @@ namespace DX9 {
 
 			// Create a new fbo if none was found for the size
 			if(!nvfb) {
-				nvfb = new VirtualFramebufferDX9();
+				nvfb = new VirtualFramebuffer();
 				nvfb->fbo = 0;
 				nvfb->fb_address = vfb->fb_address;
 				nvfb->fb_stride = vfb->fb_stride;
@@ -757,7 +705,7 @@ namespace DX9 {
 					break;
 				}
 
-				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
+				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
 				if (!(nvfb->fbo)) {
 					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 					return;
@@ -807,7 +755,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebufferDX9 *src, VirtualFramebufferDX9 *dst, bool flip, float upscale, float vscale) {
+	void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 		if (dst->fbo) {
 			fbo_bind_as_render_target(dst->fbo);
 		} else {
@@ -883,7 +831,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebufferDX9 *vfb) {
+	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
 		if (vfb->fbo) {
 			fbo_bind_for_read(vfb->fbo);
 		} else {
@@ -940,18 +888,11 @@ namespace DX9 {
 		useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	}
 
-	void FramebufferManagerDX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-
-		displayFramebufPtr_ = framebuf;
-		displayStride_ = stride;
-		displayFormat_ = format;
-	}
-
 	std::vector<FramebufferInfo> FramebufferManagerDX9::GetFramebufferList() {
 		std::vector<FramebufferInfo> list;
 
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *vfb = vfbs_[i];
+			VirtualFramebuffer *vfb = vfbs_[i];
 
 			FramebufferInfo info;
 			info.fb_address = vfb->fb_address;
@@ -983,8 +924,8 @@ namespace DX9 {
 		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *vfb = vfbs_[i];
-			int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
+			VirtualFramebuffer *vfb = vfbs_[i];
+			int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 			if (updateVram && age == 0 && !vfb->memoryUpdated && vfb == displayFramebuf_) 
 				ReadFramebufferToMemory(vfb);
@@ -1002,8 +943,8 @@ namespace DX9 {
 
 		// Do the same for ReadFramebuffersToMemory's VFBs
 		for (size_t i = 0; i < bvfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *vfb = bvfbs_[i];
-			int age = frameLastFramebufUsed - vfb->last_frame_render;
+			VirtualFramebuffer *vfb = bvfbs_[i];
+			int age = frameLastFramebufUsed_ - vfb->last_frame_render;
 			if (age > FBO_OLD_AGE) {
 				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 				DestroyFramebuf(vfb);
@@ -1020,7 +961,7 @@ namespace DX9 {
 		prevPrevDisplayFramebuf_ = 0;
 
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebufferDX9 *vfb = vfbs_[i];
+			VirtualFramebuffer *vfb = vfbs_[i];
 			INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 			DestroyFramebuf(vfb);
 		}
@@ -1041,7 +982,7 @@ namespace DX9 {
 
 			bool needUnbind = false;
 			for (size_t i = 0; i < vfbs_.size(); ++i) {
-				VirtualFramebufferDX9 *vfb = vfbs_[i];
+				VirtualFramebuffer *vfb = vfbs_[i];
 				if (MaskedEqual(vfb->fb_address, addr)) {
 					vfb->dirtyAfterDisplay = true;
 					vfb->reallyDirtyAfterDisplay = true;
@@ -1073,7 +1014,7 @@ namespace DX9 {
 		u32 fb_address = gstate.getFrameBufRawAddress();
 		int fb_stride = gstate.FrameBufStride();
 
-		VirtualFramebufferDX9 *vfb = currentRenderVfb_;
+		VirtualFramebuffer *vfb = currentRenderVfb_;
 		if (!vfb) {
 			vfb = GetVFBAt(fb_address);
 		}

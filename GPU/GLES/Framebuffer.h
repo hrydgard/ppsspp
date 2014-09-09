@@ -30,73 +30,12 @@
 
 #include "../Globals.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 struct GLSLProgram;
 class TextureCache;
 class TransformDrawEngine;
 class ShaderManager;
-
-enum {
-	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
-	FB_USAGE_RENDERTARGET = 2,
-	FB_USAGE_TEXTURE = 4,
-};
-
-enum {
-	FB_NON_BUFFERED_MODE = 0,
-	FB_BUFFERED_MODE = 1,
-
-	// Hm, it's unfortunate that GPU has ended up as two separate values in GL and GLES.
-#ifndef USING_GLES2
-	FB_READFBOMEMORY_CPU = 2,
-	FB_READFBOMEMORY_GPU = 3,
-#else
-	FB_READFBOMEMORY_GPU = 2,
-#endif
-	FBO_READFBOMEMORY_MIN = 2
-};
-
-struct VirtualFramebuffer {
-	int last_frame_used;
-	int last_frame_attached;
-	int last_frame_render;
-	bool memoryUpdated;
-	bool depthUpdated;
-
-	u32 fb_address;
-	u32 z_address;
-	int fb_stride;
-	int z_stride;
-
-	// There's also a top left of the drawing region, but meh...
-
-	// width/height: The detected size of the current framebuffer.
-	u16 width;
-	u16 height;
-	// renderWidth/renderHeight: The actual size we render at. May be scaled to render at higher resolutions.
-	u16 renderWidth;
-	u16 renderHeight;
-	// bufferWidth/bufferHeight: The actual (but non scaled) size of the buffer we render to. May only be bigger than width/height.
-	u16 bufferWidth;
-	u16 bufferHeight;
-
-	u16 usageFlags;
-
-	u16 newWidth;
-	u16 newHeight;
-	int lastFrameNewSize;
-
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
-	FBOColorDepth colorDepth;
-	FBO *fbo;
-
-	u16 drawnWidth;
-	u16 drawnHeight;
-	GEBufferFormat drawnFormat;
-
-	bool dirtyAfterDisplay;
-	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
-};
 
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
@@ -117,7 +56,7 @@ struct AsyncPBO {
 
 #endif
 
-class FramebufferManager {
+class FramebufferManager : public FramebufferManagerCommon {
 public:
 	FramebufferManager();
 	~FramebufferManager();
@@ -152,18 +91,7 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void DoSetRenderFrameBuffer();  // Uses parameters computed from gstate
-	void SetRenderFrameBuffer() {
-		// Inlining this part since it's so frequent.
-		if (!gstate_c.framebufChanged && currentRenderVfb_) {
-			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
-			currentRenderVfb_->dirtyAfterDisplay = true;
-			if (!gstate_c.skipDrawReason)
-				currentRenderVfb_->reallyDirtyAfterDisplay = true;
-			return;
-		}
-		DoSetRenderFrameBuffer();
-	}
+	virtual void DoSetRenderFrameBuffer() override;  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
@@ -187,47 +115,8 @@ public:
 	VirtualFramebuffer *GetDisplayVFB() {
 		return GetVFBAt(displayFramebufPtr_);
 	}
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
-	size_t NumVFBs() const { return vfbs_.size(); }
 
 	std::vector<FramebufferInfo> GetFramebufferList();
-
-	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
-	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }
-	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
-	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
-	int GetTargetBufferWidth() const { return currentRenderVfb_ ? currentRenderVfb_->bufferWidth : 480; }
-	int GetTargetBufferHeight() const { return currentRenderVfb_ ? currentRenderVfb_->bufferHeight : 272; }
-	int GetTargetStride() const { return currentRenderVfb_ ? currentRenderVfb_->fb_stride : 512; }
-	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
-
-	u32 PrevDisplayFramebufAddr() {
-		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
-	}
-	u32 DisplayFramebufAddr() {
-		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
-	}
-
-	void SetDepthUpdated() {
-		if (currentRenderVfb_) {
-			currentRenderVfb_->depthUpdated = true;
-		}
-	}
-	void SetColorUpdated() {
-		if (currentRenderVfb_) {
-			SetColorUpdated(currentRenderVfb_);
-		}
-	}
-
-	bool MayIntersectFramebuffer(u32 start) {
-		// Clear the cache/kernel bits.
-		start = start & 0x3FFFFFFF;
-		// Most games only have two framebuffers at the start.
-		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
-			return false;
-		}
-		return true;
-	}
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
@@ -243,6 +132,11 @@ public:
 
 	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 
+protected:
+	virtual void DisableState() override;
+	virtual void ClearBuffer() override;
+	virtual void ClearDepthBuffer() override;
+
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
@@ -253,37 +147,10 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
-	static void DisableState();
-	static void ClearBuffer();
-	static void ClearDepthBuffer();
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
-
-	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
-		dstBuffer->memoryUpdated = false;
-		dstBuffer->dirtyAfterDisplay = true;
-		dstBuffer->drawnWidth = dstBuffer->width;
-		dstBuffer->drawnHeight = dstBuffer->height;
-		dstBuffer->drawnFormat = dstBuffer->format;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
-			dstBuffer->reallyDirtyAfterDisplay = true;
-	}
-
-	u32 displayFramebufPtr_;
-	u32 displayStride_;
-	GEBufferFormat displayFormat_;
-
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
-	int frameLastFramebufUsed;
-
-	std::vector<VirtualFramebuffer *> vfbs_;
-
-	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
@@ -322,9 +189,6 @@ private:
 	bool gameUsesSequentialCopies_;
 
 	bool hackForce04154000Download_;
-
-	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
-	u32 framebufRangeEnd_;
 
 	struct TempFBO {
 		FBO *fbo;
