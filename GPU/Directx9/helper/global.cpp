@@ -5,6 +5,7 @@
 namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
+LPDIRECT3DDEVICE9EX pD3DdeviceEx = NULL;
 LPDIRECT3D9 pD3D = NULL;
 
 static const char * vscode =

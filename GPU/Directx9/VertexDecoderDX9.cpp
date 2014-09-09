@@ -107,7 +107,7 @@ void VertexDecoderDX9::Step_WeightsU16() const
 		wt[j] *= (1.0f/65535.f);
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
+		wt[j++] = 0.0f;
 #else
 	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
 	const u16_le *wdata = (const u16_le*)(ptr_);
@@ -124,26 +124,14 @@ void VertexDecoderDX9::Step_WeightsU16() const
 // (PSP uses 0.0-2.0 fixed point numbers for weights)
 void VertexDecoderDX9::Step_WeightsFloat() const
 {
-#if 0
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	const float_le *wdata = (const float_le*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = wdata[j];
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0.0f;
-#else
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	u32 *st = (u32 *)wt;
+	u32 *st = (u32 *)(decoded_ + decFmt.w0off);
 	const u32_le *wdata = (const u32_le*)(ptr_);
 	int j;
 	for (j = 0; j < nweights; j++) {
 		st[j] = wdata[j];
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0.0f;
-#endif
+		st[j++] = 0;
 }
 
 void VertexDecoderDX9::Step_TcU8() const

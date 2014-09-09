@@ -129,7 +129,17 @@ namespace DX9 {
 		// by themselves.
 		ClearBuffer();
 		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
-		pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), D3DPOOL_MANAGED, &drawPixelsTex_, NULL);
+		int usage = 0;
+		D3DPOOL pool = D3DPOOL_MANAGED;
+		if (pD3DdeviceEx) {
+			pool = D3DPOOL_DEFAULT;
+			usage = D3DUSAGE_DYNAMIC;
+		}
+		HRESULT hr = pD3Ddevice->CreateTexture(512, 272, 1, usage, D3DFMT(D3DFMT_A8R8G8B8), pool, &drawPixelsTex_, NULL);
+		if (!hr) {
+			drawPixelsTex_ = nullptr;
+			ERROR_LOG(G3D, "Failed to create drawpixels texture");
+		}
 		useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	}
 
@@ -157,6 +167,10 @@ namespace DX9 {
 	void FramebufferManagerDX9::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
 		u8 * convBuf = NULL;
 		D3DLOCKED_RECT rect;
+
+		if (!drawPixelsTex_) {
+			return;
+		}
 
 		drawPixelsTex_->LockRect(0, &rect, NULL, 0);
 

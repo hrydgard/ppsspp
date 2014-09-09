@@ -1632,7 +1632,13 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 			pD3Ddevice->SetTexture(0, entry.texture);
 		} else {
 			// Create texture
-			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), D3DPOOL_MANAGED, &entry.texture, NULL);
+			D3DPOOL pool = D3DPOOL_MANAGED;
+			int usage = 0;
+			if (pD3DdeviceEx) {
+				pool = D3DPOOL_DEFAULT;
+				usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
+			}
+			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &entry.texture, NULL);
 			if (FAILED(hr)) {
 				INFO_LOG(G3D, "Failed to create D3D texture");
 			} else {
