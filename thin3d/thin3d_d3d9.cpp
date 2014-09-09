@@ -226,9 +226,9 @@ private:
 
 class Thin3DDX9Texture : public Thin3DTexture {
 public:
-	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device) : device_(device), type_(T3DTextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
+	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(T3DTextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	}
-	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
+	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
 	~Thin3DDX9Texture();
 	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
@@ -238,6 +238,7 @@ public:
 
 private:
 	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
 	T3DTextureType type_;
 	D3DFORMAT fmt_;
 	LPDIRECT3DTEXTURE9 tex_;
@@ -255,8 +256,8 @@ D3DFORMAT FormatToD3D(T3DImageFormat fmt) {
 	}
 }
 
-Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
-	: device_(device), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
+Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
+	: device_(device), deviceEx_(deviceEx), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	Create(type, format, width, height, depth, mipLevels);
 }
 
@@ -280,16 +281,23 @@ bool Thin3DDX9Texture::Create(T3DTextureType type, T3DImageFormat format, int wi
 	tex_ = NULL;
 	fmt_ = FormatToD3D(format);
 	HRESULT hr = E_FAIL;
+
+	D3DPOOL pool = D3DPOOL_MANAGED;
+	int usage = 0;
+	if (deviceEx_ != nullptr) {
+		pool = D3DPOOL_DEFAULT;
+		usage = D3DUSAGE_DYNAMIC;
+	}
 	switch (type) {
 	case LINEAR1D:
 	case LINEAR2D:
-		hr = device_->CreateTexture(width, height, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &tex_, NULL);
+		hr = device_->CreateTexture(width, height, mipLevels, usage, fmt_, pool, &tex_, NULL);
 		break;
 	case LINEAR3D:
-		hr = device_->CreateVolumeTexture(width, height, depth, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &volTex_, NULL);
+		hr = device_->CreateVolumeTexture(width, height, depth, mipLevels, usage, fmt_, pool, &volTex_, NULL);
 		break;
 	case CUBE:
-		hr = device_->CreateCubeTexture(width, mipLevels, 0, fmt_, D3DPOOL_MANAGED, &cubeTex_, NULL);
+		hr = device_->CreateCubeTexture(width, mipLevels, usage, fmt_, pool, &cubeTex_, NULL);
 		break;
 	}
 	if (FAILED(hr)) {
@@ -375,7 +383,7 @@ void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 
 class Thin3DDX9Context : public Thin3DContext {
 public:
-	Thin3DDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device);
+	Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 	~Thin3DDX9Context();
 
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare);
@@ -424,14 +432,16 @@ public:
 
 private:
 	LPDIRECT3D9 d3d_;
+	LPDIRECT3D9EX d3dEx_;
 	LPDIRECT3DDEVICE9 device_;
+	LPDIRECT3DDEVICE9EX deviceEx_;
 	int adapterId_;
 	D3DADAPTER_IDENTIFIER9 identifier_;
 	D3DCAPS9 caps_;
 	char shadeLangVersion_[64];
 };
 
-Thin3DDX9Context::Thin3DDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device) : d3d_(d3d), adapterId_(adapterId), device_(device) {
+Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) : d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx) {
 	CreatePresets();
 	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
 	if (!FAILED(device->GetDeviceCaps(&caps_))) {
@@ -501,12 +511,12 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 }
 
 Thin3DTexture *Thin3DDX9Context::CreateTexture() {
-	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_);
+	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_);
 	return tex;
 }
 
 Thin3DTexture *Thin3DDX9Context::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
-	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, type, format, width, height, depth, mipLevels);
+	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
 	return tex;
 }
 
@@ -722,11 +732,11 @@ void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, c
 	}
 }
 
-Thin3DContext *T3DCreateDX9Context(LPDIRECT3D9 d3d, int adapterId, LPDIRECT3DDEVICE9 device) {
+Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
 	int d3dx_ver = LoadD3DX9Dynamic();
 	if (!d3dx_ver) {
 		ELOG("Failed to load D3DX9!");
 		return NULL;
 	}
-	return new Thin3DDX9Context(d3d, adapterId, device);
+	return new Thin3DDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
