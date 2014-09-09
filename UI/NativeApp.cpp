@@ -466,6 +466,7 @@ void NativeInit(int argc, const char *argv[],
 
 void NativeInitGraphics() {
 	FPU_SetFastMode();
+	int theme = g_Config.iR + g_Config.iG * 16 * 16 + g_Config.iB * 16 * 16 * 16 * 16 + g_Config.iTransparent * 16 * 16 * 16 * 16 * 16 * 16;
 
 #ifndef _WIN32
 	// Force backend to GL
@@ -505,7 +506,7 @@ void NativeInitGraphics() {
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFFedc24c);
-	ui_theme.itemDownStyle.background = UI::Drawable(0xFFbd9939);
+	ui_theme.itemDownStyle.background = UI::Drawable(theme);
 	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
 	ui_theme.itemDisabledStyle.fgColor = 0x80EEEEEE;
