@@ -385,6 +385,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe1724e6e29209d97, 24, "vector_length_t_2", },
 	{ 0xe1a5d939cc308195, 68, "wcscmp", },
 	{ 0xe2d9106e5b9e39e6, 80, "strnlen", },
+	{ 0xe3154c81a76515fa, 208, "narisokonai_download_frame", }, // Narisokonai Eiyuutan
 	{ 0xe32cb5c062d1a1c4, 700, "_strtoull_r", },
 	{ 0xe3835fb2c9c04e59, 44, "vmmul_q", },
 	{ 0xe527c62d8613f297, 136, "strcpy", },
