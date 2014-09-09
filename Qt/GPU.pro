@@ -48,6 +48,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
 	$$P/GPU/Common/TransformCommon.cpp \
 	$$P/GPU/Common/PostShader.cpp \
+	$$P/GPU/Common/FramebufferCommon.cpp \
 	$$P/ext/xxhash.c \ # xxHash
 	$$P/ext/xbrz/*.cpp # XBRZ
 
