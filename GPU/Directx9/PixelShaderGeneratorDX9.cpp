@@ -211,11 +211,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	if (enableAlphaTest) {
 		WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
-		WRITE(p, "float roundTo255th(float x) { float y = x + (0.5/255.0); return y - frac(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 	if (enableColorTest) {
 		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
-		WRITE(p, "float3 roundTo255thv(float3 x) { float3 y = x + (0.5/255.0); return y - frac(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 
 	WRITE(p, " struct PS_IN                               \n");
@@ -303,7 +301,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
-				WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
 #endif
@@ -322,7 +320,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				const char * test = colorTestFuncs[colorTestFunc];
-				WRITE(p, "float3 colortest = roundTo255thv(v.rgb);\n");
+				WRITE(p, "float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 				WRITE(p, "if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
 			}
 		}

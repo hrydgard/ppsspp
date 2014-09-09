@@ -250,25 +250,14 @@ void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 al
 }
 
 void LinkedShaderDX9::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
-	if (1) {
-		const float col[4] = {
-			(float)((color & 0xFF)) * (1.0f / 255.0f),
-			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-			(float)alpha * (1.0f / 255.0f)
-		};
-		SetFloatArray(uniform, col, 4);
-	} else {
-		const float col[4] = {
-			(float)((color & 0xFF)) ,
-			(float)((color & 0xFF00) >> 8) ,
-			(float)((color & 0xFF0000) >> 16) ,
-			(float)alpha 
-		};
-		SetFloatArray(uniform, col, 4);
-	}
+	const float col[4] = {
+		(float)((color & 0xFF)),
+		(float)((color & 0xFF00) >> 8),
+		(float)((color & 0xFF0000) >> 16),
+		(float)alpha,
+	};
+	SetFloatArray(uniform, col, 4);
 }
-
 
 void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
 	const float col[4] = {
