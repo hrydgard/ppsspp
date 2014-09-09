@@ -1838,7 +1838,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	return finalBuf;
 }
 
-TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;

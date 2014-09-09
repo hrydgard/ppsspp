@@ -278,7 +278,7 @@ void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *fram
 	}
 }
 
-void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
+void *TextureCacheDX9::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
@@ -290,9 +290,9 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 	if (rowWidth >= 16) {
 		u32 *ydestp = tmpTexBuf32.data();
 		// The most common one, so it gets an optimized implementation.
-		DoUnswizzleTex16(Memory::GetPointer(texaddr), ydestp, bxc, byc, pitch, rowWidth);
+		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
 	} else if (rowWidth == 8) {
-		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
+		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest += 2) {
 				tmpTexBuf32[ydest + 0] = *src++;
@@ -301,7 +301,7 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 			}
 		}
 	} else if (rowWidth == 4) {
-		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
+		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest++) {
 				tmpTexBuf32[ydest] = *src++;
@@ -309,7 +309,7 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 			}
 		}
 	} else if (rowWidth == 2) {
-		const u16 *src = (u16 *) Memory::GetPointer(texaddr);
+		const u16 *src = (const u16 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 4; n++, ydest++) {
 				u16 n1 = src[0];
@@ -319,7 +319,7 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 			}
 		}
 	} else if (rowWidth == 1) {
-		const u8 *src = (u8 *) Memory::GetPointer(texaddr);
+		const u8 *src = (const u8 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 2; n++, ydest++) {
 				u8 n1 = src[ 0];
@@ -334,7 +334,7 @@ void *TextureCacheDX9::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel
 	return tmpTexBuf32.data();
 }
 
-void *TextureCacheDX9::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw) {
+void *TextureCacheDX9::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
@@ -350,20 +350,20 @@ void *TextureCacheDX9::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex,
 		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (const u8 *)texptr, length, clut);
 				break;
 
 			case 2:
-				DeIndexTexture<u16_le>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (const u16_le *)texptr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32_le>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (const u32_le *)texptr, length, clut);
 				break;
 			}
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
+			UnswizzleFromMem(texptr, bufw, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
@@ -390,20 +390,20 @@ void *TextureCacheDX9::ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex,
 		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf32.data(), (const u8 *)texptr, length, clut);
 				break;
 
 			case 2:
-				DeIndexTexture<u16_le>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf32.data(), (const u16_le *)texptr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32_le>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture(tmpTexBuf32.data(), (const u32_le *)texptr, length, clut);
 				break;
 			}
 			buf = tmpTexBuf32.data();
 		} else {
-			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
+			UnswizzleFromMem(texptr, bufw, bytesPerIndex, level);
 			// Since we had to unswizzle to tmpTexBuf32, let's output to tmpTexBuf16.
 			tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
 			u32 *dest32 = (u32 *) tmpTexBuf16.data();
@@ -646,6 +646,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	if (force) {
 		lastBoundTexture = INVALID_TEX;
 	}
+
 	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
@@ -653,6 +654,9 @@ void TextureCacheDX9::SetTexture(bool force) {
 		lastBoundTexture = INVALID_TEX;
 		return;
 	}
+
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
@@ -662,7 +666,8 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 	bool hasClut = gstate.isTextureFormatIndexed();
 
-	u64 cachekey = (u64)texaddr << 32;
+	// Ignore uncached/kernel when caching.
+	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -676,8 +681,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 	
 	int bufw = GetTextureBufw(0, texaddr, format);
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
 	int maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
@@ -913,13 +916,14 @@ void TextureCacheDX9::SetTexture(bool force) {
 	gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
-void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt) {
+void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt, int *bufwout) {
 	void *finalBuf = NULL;
 
 	u32 texaddr = gstate.getTextureAddress(level);
 
 	int bufw = GetTextureBufw(level, texaddr, format);
-
+	if (bufwout)
+		*bufwout = bufw;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
@@ -943,17 +947,17 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			texByteAlign = 2;
 			if (!gstate.isTextureSwizzled()) {
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
 				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut);
+					DeIndexTexture4(tmpTexBuf16.data(), texptr, bufw * h, clut);
 				}
 			} else {
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				UnswizzleFromMem(texaddr, bufw, 0, level);
+				UnswizzleFromMem(texptr, bufw, 0, level);
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
 				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
+					DeIndexTexture4(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				}
 			}
 			finalBuf = tmpTexBuf16.data();
@@ -966,10 +970,10 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
 			if (!gstate.isTextureSwizzled()) {
-				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut);
+				DeIndexTexture4(tmpTexBuf32.data(), texptr, bufw * h, clut);
 				finalBuf = tmpTexBuf32.data();
 			} else {
-				UnswizzleFromMem(texaddr, bufw, 0, level);
+				UnswizzleFromMem(texptr, bufw, 0, level);
 				// Let's reuse tmpTexBuf16, just need double the space.
 				tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
 				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
@@ -988,19 +992,19 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 	case GE_TFMT_CLUT8:
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texaddr, 1, dstFmt, bufw);
+		finalBuf = ReadIndexedTex(level, texptr, 1, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_CLUT16:
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texaddr, 2, dstFmt, bufw);
+		finalBuf = ReadIndexedTex(level, texptr, 2, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_CLUT32:
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texaddr, 4, dstFmt, bufw);
+		finalBuf = ReadIndexedTex(level, texptr, 4, dstFmt, bufw);
 		break;
 
 	case GE_TFMT_4444:
@@ -1023,7 +1027,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		}
 		else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
+			finalBuf = UnswizzleFromMem(texptr, bufw, 2, level);
 		}
 		break;
 
@@ -1044,7 +1048,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		}
 		else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
+			finalBuf = UnswizzleFromMem(texptr, bufw, 4, level);
 		}
 		break;
 
@@ -1153,7 +1157,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 	return finalBuf;
 }
 
-void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h) {
+TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
 	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
@@ -1162,22 +1166,28 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 	case D3DFMT_A4R4G4B4:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0xF000F000;
-				hitZeroAlpha |= a ^ 0xF000F000;
-				if (a != 0xF000F000 && a != 0x0000F000 && a != 0xF0000000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x000F000F;
+					hitZeroAlpha |= a ^ 0x000F000F;
+					if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride/2;
 			}
 		}
 		break;
 	case D3DFMT_A1R5G5B5:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < (w * h + 1) / 2; ++i) {
-				u32 a = p[i] & 0x80008000;
-				hitZeroAlpha |= a ^ 0x80008000;
+			for (int y = 0; y < h; ++y) {
+				for (int i = 0; i < (w + 1) / 2; ++i) {
+					u32 a = p[i] & 0x00010001;
+					hitZeroAlpha |= a ^ 0x00010001;
+				}
+				p += stride/2;
 			}
 		}
 		break;
@@ -1189,24 +1199,27 @@ void TextureCacheDX9::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFm
 	default:
 		{
 			const u32 *p = pixelData;
-			for (int i = 0; i < w * h; ++i) {
-				u32 a = p[i] & 0xFF000000;
-				hitZeroAlpha |= a ^ 0xFF000000;
-				if (a != 0xFF000000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
+			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
+				for (int i = 0; i < w; ++i) {
+					u32 a = p[i] & 0xFF000000;
+					hitZeroAlpha |= a ^ 0xFF000000;
+					if (a != 0xFF000000 && a != 0) {
+						hitSomeAlpha = 1;
+						break;
+					}
 				}
+				p += stride;
 			}
 		}
 		break;
 	}
 
 	if (hitSomeAlpha != 0)
-		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+		return TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 	else if (hitZeroAlpha != 0)
-		entry.status |= TexCacheEntry::STATUS_ALPHA_SIMPLE;
+		return TexCacheEntry::STATUS_ALPHA_SIMPLE;
 	else
-		entry.status |= TexCacheEntry::STATUS_ALPHA_FULL;
+		return TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
 static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch, int srcfmt, int fmt, void * pSrc, void * pDst) {
@@ -1241,6 +1254,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 	u32 dstFmt = 0;
 
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+	int bufw;
 	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt);
 	if (finalBuf == NULL) {
 		return;
@@ -1262,10 +1276,12 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 	if (scaleFactor > 1 && entry.numInvalidated == 0) 
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 	// Or always?
-	if (entry.numInvalidated == 0)
-		CheckAlpha(entry, pixelData, dstFmt, w, h);
-	else
+	if (entry.numInvalidated == 0) {
+		TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, bufw, w, h);
+		entry.status = ((entry.status & ~TexCacheEntry::STATUS_ALPHA_MASK) | alphaStatus);
+	} else {
 		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+	}
 
 	// Ignore mip map atm
 	if (level == 0) { 

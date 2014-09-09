@@ -114,12 +114,12 @@ private:
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
-	void *ReadIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt, int bufw);
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
+	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt);
-	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, int w, int h);
+	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt, int *bufw = 0);
+	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
