@@ -242,8 +242,8 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 			friendFinderThread = std::thread(friendFinder);
 		}
 
-		netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	}
+	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	return 0;
 }
 
