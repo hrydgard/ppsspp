@@ -293,11 +293,11 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		if (hasColor) {
 			WRITE(p, "  Out.v_color0 = In.color0;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = In.color1;\n");
+				WRITE(p, "  Out.v_color1 = In.color1.rgb;\n");
 		} else {
 			WRITE(p, "  Out.v_color0 = In.u_matambientalpha;\n");
 			if (lmode)
-				WRITE(p, "  Out.v_color1 = In.vec3(0.0);\n");
+				WRITE(p, "  Out.v_color1 = float3(0.0);\n");
 		}
 		if (enableFog) {
 			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
