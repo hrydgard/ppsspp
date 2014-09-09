@@ -757,6 +757,20 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
+		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
+		// So we have to scale to account for the difference.
+		std::string alphaTestXCoord = "0";
+		if (g_Config.bFragmentTestCache) {
+			if (enableColorTest) {
+				WRITE(p, "  vec4 vScale256 = v * %f + %f;\n", 255.0 / 256.0, 0.5 / 256.0);
+				alphaTestXCoord = "vScale256.a";
+			} else if (enableAlphaTest && !alphaTestAgainstZero) {
+				char temp[64];
+				snprintf(temp, sizeof(temp), "v.a * %f + %f", 255.0 / 256.0, 0.5 / 256.0);
+				alphaTestXCoord = temp;
+			}
+		}
+
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
@@ -773,8 +787,8 @@ void GenerateFragmentShader(char *buffer) {
 					WRITE(p, "  discard;\n");
 				}
 			} else if (g_Config.bFragmentTestCache) {
-				WRITE(p, "  float aResult = %s(testtex, vec2(v.a, 0)).a;\n", texture);
-				WRITE(p, "  if (aResult < 0.5) discard;\n", texture);
+				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", texture, alphaTestXCoord.c_str());
+				WRITE(p, "  if (aResult < 0.5) discard;\n");
 			} else {
 				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
@@ -798,16 +812,16 @@ void GenerateFragmentShader(char *buffer) {
 
 		if (enableColorTest) {
 			if (g_Config.bFragmentTestCache) {
-				WRITE(p, "  float rResult = %s(testtex, vec2(v.r, 0)).r;\n", texture);
-				WRITE(p, "  float gResult = %s(testtex, vec2(v.g, 0)).g;\n", texture);
-				WRITE(p, "  float bResult = %s(testtex, vec2(v.b, 0)).b;\n", texture);
+				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", texture);
+				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", texture);
+				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);
 				GEComparison colorTestFunc = gstate.getColorTestFunction();
 				if (colorTestFunc == GE_COMP_EQUAL) {
 					// Equal means all parts must be equal.
-					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n", texture);
+					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n");
 				} else {
 					// Not equal means any part must be not equal.
-					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) discard;\n", texture);
+					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) discard;\n");
 				}
 			} else {
 				GEComparison colorTestFunc = gstate.getColorTestFunction();
