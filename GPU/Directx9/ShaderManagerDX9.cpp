@@ -65,9 +65,16 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 		if (shader)
 			shader->Release();
 		shader = NULL;
+		return;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
+
+	u_tex = GetConstantByName("tex");
+	u_texenv = GetConstantByName("u_texenv");
+	u_fogcolor = GetConstantByName("u_fogcolor");
+	u_alphacolorref = GetConstantByName("u_alphacolorref");
+	u_alphacolormask = GetConstantByName("u_alphacolormask");
 }
 
 PSShader::~PSShader() {
@@ -78,7 +85,7 @@ PSShader::~PSShader() {
 		shader->Release();
 }
 
-VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -106,49 +113,19 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 		if (shader)
 			shader->Release();
 		shader = NULL;
+		return;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
-}
 
-VSShader::~VSShader() {
-	pD3Ddevice->SetVertexShader(NULL);
-	if (constant)
-		constant->Release();
-	if (shader)
-		shader->Release();
-}
-
-
-// Helper
-D3DXHANDLE LinkedShaderDX9::GetConstantByName(LPCSTR pName) {
-	D3DXHANDLE ret = NULL;
-	if ((ret = m_fs->constant->GetConstantByName(NULL, pName)) != NULL)  {
-	} else if ((ret = m_vs->constant->GetConstantByName(NULL, pName)) != NULL)  {}
-	return ret;
-}
-
-LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform)
-		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
-	
-	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
-
-	m_vs = vs;
-	m_fs = fs;
-
-	u_tex = 			GetConstantByName("tex");
-	u_proj = 			GetConstantByName("u_proj");
-	u_proj_through = 	GetConstantByName("u_proj_through");
-	u_texenv = 			GetConstantByName("u_texenv");
-	u_fogcolor = 		GetConstantByName("u_fogcolor");
-	u_fogcoef = 		GetConstantByName("u_fogcoef");
-	u_alphacolorref = 	GetConstantByName("u_alphacolorref");
-	u_alphacolormask = 	GetConstantByName("u_alphacolormask");
+	u_proj = GetConstantByName("u_proj");
+	u_proj_through = GetConstantByName("u_proj_through");
 
 	// Transform
-	u_view = 	GetConstantByName("u_view");
-	u_world = 	GetConstantByName("u_world");
-	u_texmtx = 	GetConstantByName("u_texmtx");
+	u_view = GetConstantByName("u_view");
+	u_world = GetConstantByName("u_world");
+	u_texmtx = GetConstantByName("u_texmtx");
+	u_fogcoef = GetConstantByName("u_fogcoef");
 
 	if (vertTypeGetWeightMask(vertType) != 0)
 		numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
@@ -166,12 +143,12 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 #endif
 
 	// Lighting, texturing
-	u_ambient =			GetConstantByName("u_ambient");
+	u_ambient = GetConstantByName("u_ambient");
 	u_matambientalpha = GetConstantByName("u_matambientalpha");
-	u_matdiffuse =		GetConstantByName("u_matdiffuse");
-	u_matspecular =		GetConstantByName("u_matspecular");
-	u_matemissive =		GetConstantByName("u_matemissive");
-	u_uvscaleoffset =	GetConstantByName("u_uvscaleoffset");
+	u_matdiffuse = GetConstantByName("u_matdiffuse");
+	u_matspecular = GetConstantByName("u_matspecular");
+	u_matemissive = GetConstantByName("u_matemissive");
+	u_uvscaleoffset = GetConstantByName("u_uvscaleoffset");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -192,6 +169,34 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 		sprintf(temp, "u_lightspecular%i", i);
 		u_lightspecular[i] = GetConstantByName(temp);
 	}
+}
+
+VSShader::~VSShader() {
+	pD3Ddevice->SetVertexShader(NULL);
+	if (constant)
+		constant->Release();
+	if (shader)
+		shader->Release();
+}
+
+
+// Helper
+D3DXHANDLE PSShader::GetConstantByName(LPCSTR pName) {
+	return constant->GetConstantByName(NULL, pName);
+}
+
+// Helper
+D3DXHANDLE VSShader::GetConstantByName(LPCSTR pName) {
+	return constant->GetConstantByName(NULL, pName);
+}
+
+LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform)
+		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
+	
+	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
+
+	m_vs = vs;
+	m_fs = fs;
 
 	//glUseProgram(program);
 
@@ -209,21 +214,21 @@ LinkedShaderDX9::~LinkedShaderDX9() {
 //	glDeleteProgram(program);
 }
 
-void LinkedShaderDX9::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
-	if (m_fs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len) == D3D_OK); 
-	else
-		m_vs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
+void VSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
+	constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
 }
 
-void LinkedShaderDX9::SetFloat(D3DXHANDLE uniform, float value) {
-	if (m_fs->constant->SetFloat(pD3Ddevice, uniform, value) == D3D_OK); 
-	else
-		m_vs->constant->SetFloat(pD3Ddevice, uniform, value);
+void PSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
+	constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
+}
+
+void VSShader::SetFloat(D3DXHANDLE uniform, float value) {
+	constant->SetFloat(pD3Ddevice, uniform, value);
 }
 
 
 // Utility
-void LinkedShaderDX9::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
+void VSShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -232,14 +237,23 @@ void LinkedShaderDX9::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 	SetFloatArray(uniform, col, 4);
 }
 
-void LinkedShaderDX9::SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]) {
+void PSShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f
+	};
+	SetFloatArray(uniform, col, 4);
+}
+
+void VSShader::SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] >> 8, data[1] >> 8, data[2] >> 8,
 	};
 	SetFloatArray(uniform, (const float *)&col[0], 4);
 }
 
-void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
+void VSShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -249,7 +263,7 @@ void LinkedShaderDX9::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 al
 	SetFloatArray(uniform, col, 4);
 }
 
-void LinkedShaderDX9::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
+void PSShader::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
 	const float col[4] = {
 		(float)((color & 0xFF)),
 		(float)((color & 0xFF00) >> 8),
@@ -259,7 +273,7 @@ void LinkedShaderDX9::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8
 	SetFloatArray(uniform, col, 4);
 }
 
-void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
+void VSShader::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -270,15 +284,15 @@ void LinkedShaderDX9::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, 
 }
 
 // Utility
-void LinkedShaderDX9::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
+void VSShader::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
-	m_vs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
+	constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
 }
 
-void LinkedShaderDX9::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
+void VSShader::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
 	D3DXMATRIX * pDxMat = (D3DXMATRIX*)pMatrix;
-	m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
+	constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
@@ -290,6 +304,14 @@ void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 	in = in * s * t;
 }
 
+void LinkedShaderDX9::updateUniforms() {
+	if (dirtyUniforms) {
+		m_fs->updateUniforms(dirtyUniforms);
+		m_vs->updateUniforms(dirtyUniforms);
+		dirtyUniforms = 0;
+	}
+}
+
 void LinkedShaderDX9::use() {
 	updateUniforms();
 
@@ -297,14 +319,22 @@ void LinkedShaderDX9::use() {
 	pD3Ddevice->SetVertexShader(m_vs->shader);
 }
 
-void LinkedShaderDX9::stop() {
-
+void PSShader::updateUniforms(int dirtyUniforms) {
+	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
+		SetColorUniform3(u_texenv, gstate.texenvcolor);
+	}
+	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+	}
+	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
+		SetColorUniform3(u_alphacolormask, gstate.colortestmask);
+	}
+	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
+		SetColorUniform3(u_fogcolor, gstate.fogcolor);
+	}
 }
 
-void LinkedShaderDX9::updateUniforms() {
-	if (!dirtyUniforms)
-		return;
-
+void VSShader::updateUniforms(int dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (u_proj != 0 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
 		Matrix4x4 flippedMatrix;
@@ -323,8 +353,7 @@ void LinkedShaderDX9::updateUniforms() {
 
 		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
-	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
-	{
+	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX)) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
@@ -332,57 +361,6 @@ void LinkedShaderDX9::updateUniforms() {
 
 		SetMatrix(u_proj_through, proj_through.getReadPtr());
 	}
-	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
-		SetColorUniform3(u_texenv, gstate.texenvcolor);
-	}
-	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
-	}
-	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
-		SetColorUniform3(u_alphacolormask, gstate.colortestmask);
-	}
-	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
-		SetColorUniform3(u_fogcolor, gstate.fogcolor);
-	}
-	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
-		const float fogcoef[2] = {
-			getFloat24(gstate.fog1),
-			getFloat24(gstate.fog2),
-		};
-		SetFloatArray(u_fogcoef, fogcoef, 2);
-	}
-
-	// Texturing
-	if (u_uvscaleoffset != 0 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
-		float uvscaleoff[4];
-		if (gstate.isModeThrough()) {
-			// We never get here because we don't use HW transform with through mode.
-			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
-		} else {
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
-			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			} else {
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
-				uvscaleoff[2] = 0.0f;
-				uvscaleoff[3] = 0.0f;
-			}
-		}		
-		SetFloatArray(u_uvscaleoffset, uvscaleoff, 4);
-	}
-
 	// Transform
 	if (u_world != 0 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
@@ -393,7 +371,13 @@ void LinkedShaderDX9::updateUniforms() {
 	if (u_texmtx != 0 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
-
+	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
+		const float fogcoef[2] = {
+			getFloat24(gstate.fog1),
+			getFloat24(gstate.fog2),
+		};
+		SetFloatArray(u_fogcoef, fogcoef, 2);
+	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
 	if (u_bone != 0) {
@@ -430,6 +414,37 @@ void LinkedShaderDX9::updateUniforms() {
 		}
 	}
 #endif
+
+	// Texturing
+	if (u_uvscaleoffset != 0 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
+		float uvscaleoff[4];
+		if (gstate.isModeThrough()) {
+			// We never get here because we don't use HW transform with through mode.
+			// Although - why don't we?
+			uvscaleoff[0] = gstate_c.uv.uScale / gstate_c.curTextureWidth;
+			uvscaleoff[1] = gstate_c.uv.vScale / gstate_c.curTextureHeight;
+			uvscaleoff[2] = gstate_c.uv.uOff / gstate_c.curTextureWidth;
+			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
+		} else {
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
+			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
+			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
+			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
+			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
+				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
+			} else {
+				uvscaleoff[0] = widthFactor;
+				uvscaleoff[1] = heightFactor;
+				uvscaleoff[2] = 0.0f;
+				uvscaleoff[3] = 0.0f;
+			}
+		}
+		SetFloatArray(u_uvscaleoffset, uvscaleoff, 4);
+	}
 
 	// Lighting
 	if (u_ambient != 0 && (dirtyUniforms & DIRTY_AMBIENT)) {
@@ -475,8 +490,6 @@ void LinkedShaderDX9::updateUniforms() {
 			if (u_lightspecular[i] != 0) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
-
-	dirtyUniforms = 0;
 }
 
 ShaderManagerDX9::ShaderManagerDX9() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
@@ -521,8 +534,6 @@ void ShaderManagerDX9::DirtyShader() {
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
-	if (lastShader_)
-		lastShader_->stop();
 	lastShader_ = 0;
 }
 
@@ -548,11 +559,6 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		return lastShader_;	// Already all set.
 	}
 
-	if (lastShader_ != 0) {
-		// There was a previous shader and we're switching.
-		lastShader_->stop();
-	}
-
 	lastVSID_ = VSID;
 	lastFSID_ = FSID;
 
@@ -561,7 +567,7 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShaderDX9(prim, codeBuffer_, useHWTransform);
-		vs = new VSShader(codeBuffer_, useHWTransform);
+		vs = new VSShader(codeBuffer_, vertType, useHWTransform);
 
 		if (vs->Failed()) {
 			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
@@ -574,7 +580,7 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 			// Can still work with software transform.
 			GenerateVertexShaderDX9(prim, codeBuffer_, false);
-			vs = new VSShader(codeBuffer_, false);
+			vs = new VSShader(codeBuffer_, vertType, false);
 		}
 
 		vsCache_[VSID] = vs;

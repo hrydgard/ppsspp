@@ -46,26 +46,12 @@ enum {
 
 class LinkedShaderDX9
 {
-protected:		
-	// Helper
-	D3DXHANDLE GetConstantByName(LPCSTR pName);
-	void SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3);
-	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
-	void SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra);
-	void SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha);
-	void SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha);
-	void SetMatrix(D3DXHANDLE uniform, const float* pMatrix);
-	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
-	void SetFloat(D3DXHANDLE uniform, float value);
-	void SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]);
-
 public:
 	LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShaderDX9();
 
-	void use();
-	void stop();
 	void updateUniforms();
+	void use();
 
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
@@ -86,44 +72,6 @@ public:
 	D3DXHANDLE a_normal;
 	D3DXHANDLE a_weight0123;
 	D3DXHANDLE a_weight4567;
-
-	D3DXHANDLE u_tex;
-	D3DXHANDLE u_proj;
-	D3DXHANDLE u_proj_through;
-	D3DXHANDLE u_texenv;
-	D3DXHANDLE u_view;
-	D3DXHANDLE u_texmtx;
-	D3DXHANDLE u_world;
-#ifdef USE_BONE_ARRAY
-	D3DXHANDLE u_bone;  // array, size is numBones
-#else
-	D3DXHANDLE u_bone[8];
-#endif
-	int numBones;
-	
-	// Fragment processing inputs
-	D3DXHANDLE u_alphacolorref;
-	D3DXHANDLE u_alphacolormask;
-	D3DXHANDLE u_fogcolor;
-	D3DXHANDLE u_fogcoef;
-
-	// Texturing
-	D3DXHANDLE u_uvscaleoffset;
-
-	// Lighting
-	D3DXHANDLE u_ambient;
-	D3DXHANDLE u_matambientalpha;
-	D3DXHANDLE u_matdiffuse;
-	D3DXHANDLE u_matspecular;
-	D3DXHANDLE u_matemissive;
-	D3DXHANDLE u_lightpos[4];
-	D3DXHANDLE u_lightdir[4];
-	D3DXHANDLE u_lightatt[4];  // attenuation
-	D3DXHANDLE u_lightangle[4]; // spotlight cone angle (cosine)
-	D3DXHANDLE u_lightspotCoef[4]; // spotlight dropoff
-	D3DXHANDLE u_lightdiffuse[4];  // each light consist of vec4[3]
-	D3DXHANDLE u_lightspecular[4];  // attenuation
-	D3DXHANDLE u_lightambient[4];  // attenuation
 };
 
 // Will reach 32 bits soon :P
@@ -177,17 +125,33 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
+	void updateUniforms(int dirtyUniforms);
+
+	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
+	void SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha);
+	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
+
+	D3DXHANDLE GetConstantByName(LPCSTR pName);
+
 	LPDIRECT3DPIXELSHADER9 shader;
 	LPD3DXCONSTANTTABLE constant;
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+
+	D3DXHANDLE u_tex;
+	D3DXHANDLE u_texenv;
+
+	// Fragment processing inputs
+	D3DXHANDLE u_alphacolorref;
+	D3DXHANDLE u_alphacolormask;
+	D3DXHANDLE u_fogcolor;
 };
 
 class VSShader {
 public:
-	VSShader(const char *code, bool useHWTransform);
+	VSShader(const char *code, int vertType, bool useHWTransform);
 	~VSShader();
 
 	const std::string &source() const { return source_; }
@@ -195,12 +159,57 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
+	void updateUniforms(int dirtyUniforms);
+
+	void SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3);
+	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
+	void SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra);
+	void SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha);
+	void SetMatrix(D3DXHANDLE uniform, const float* pMatrix);
+	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
+	void SetFloat(D3DXHANDLE uniform, float value);
+	void SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]);
+	D3DXHANDLE GetConstantByName(LPCSTR pName);
+
 	LPDIRECT3DVERTEXSHADER9 shader;
 	LPD3DXCONSTANTTABLE constant;
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+
+	// Transform
+	D3DXHANDLE u_view;
+	D3DXHANDLE u_texmtx;
+	D3DXHANDLE u_world;
+	D3DXHANDLE u_proj;
+	D3DXHANDLE u_proj_through;
+#ifdef USE_BONE_ARRAY
+	D3DXHANDLE u_bone;  // array, size is numBones
+#else
+	D3DXHANDLE u_bone[8];
+#endif
+	int numBones;
+
+	D3DXHANDLE u_fogcoef;
+
+	// Texturing
+	D3DXHANDLE u_uvscaleoffset;
+
+	// Lighting
+	D3DXHANDLE u_ambient;
+	D3DXHANDLE u_matambientalpha;
+	D3DXHANDLE u_matdiffuse;
+	D3DXHANDLE u_matspecular;
+	D3DXHANDLE u_matemissive;
+	D3DXHANDLE u_lightpos[4];
+	D3DXHANDLE u_lightdir[4];
+	D3DXHANDLE u_lightatt[4];  // attenuation
+	D3DXHANDLE u_lightangle[4]; // spotlight cone angle (cosine)
+	D3DXHANDLE u_lightspotCoef[4]; // spotlight dropoff
+	D3DXHANDLE u_lightdiffuse[4];  // each light consist of vec4[3]
+	D3DXHANDLE u_lightspecular[4];  // attenuation
+	D3DXHANDLE u_lightambient[4];  // attenuation
 };
 
 class ShaderManagerDX9
