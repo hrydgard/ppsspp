@@ -51,6 +51,7 @@ static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
 
 
 static const float by128 = 1.0f / 128.0f;
+static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;
