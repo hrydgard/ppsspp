@@ -60,23 +60,22 @@ public:
 	void DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f);
 
 	void DestroyAllFBOs();
-	void DecimateFBOs();
 
-	void BeginFrame();
 	void EndFrame();
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	virtual void DoSetRenderFrameBuffer() override;  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
+	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
+	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
@@ -86,6 +85,12 @@ protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
+
+	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+
+	virtual void DecimateFBOs() override;
 
 private:
 	void CompileDraw2DProgram();
@@ -114,7 +119,6 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool useBufferedRendering_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 

@@ -83,15 +83,12 @@ public:
 	void DrawPlainColor(u32 color);
 
 	void DestroyAllFBOs();
-	void DecimateFBOs();
 
 	void Init();
-	void BeginFrame();
 	void EndFrame();
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	virtual void DoSetRenderFrameBuffer() override;  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
@@ -131,17 +128,21 @@ protected:
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
 
+	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+
+	virtual void DecimateFBOs() override;
+
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 	void FlushBeforeCopy();
 
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
-	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
 
-	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
@@ -176,11 +177,7 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool useBufferedRendering_;
-	bool updateVRAM_;
 	bool gameUsesSequentialCopies_;
-
-	bool hackForce04154000Download_;
 
 	struct TempFBO {
 		FBO *fbo;

@@ -93,7 +93,12 @@ public:
 	FramebufferManagerCommon();
 	virtual ~FramebufferManagerCommon();
 
-	virtual void DoSetRenderFrameBuffer() = 0;
+	void BeginFrame();
+
+	virtual bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false) = 0;
+	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
+
+	void DoSetRenderFrameBuffer();
 	void SetRenderFrameBuffer() {
 		// Inlining this part since it's so frequent.
 		if (!gstate_c.framebufChanged && currentRenderVfb_) {
@@ -155,7 +160,17 @@ public:
 
 protected:
 	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
+	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
+
+	virtual void DecimateFBOs() = 0;
+	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
+	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false) = 0;
+	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) = 0;
+	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) = 0;
+
+	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
 		dstBuffer->memoryUpdated = false;
@@ -185,5 +200,10 @@ protected:
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufRangeEnd_;
 
+	bool useBufferedRendering_;
+	bool updateVRAM_;
+
 	std::vector<VirtualFramebuffer *> vfbs_;
+
+	bool hackForce04154000Download_;
 };
