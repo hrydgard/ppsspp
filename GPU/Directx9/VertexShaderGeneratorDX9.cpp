@@ -158,6 +158,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 	
+	WRITE(p, "#pragma warning( disable : 3571 )\n");
 
 	if (gstate.isModeThrough())	{
 		WRITE(p, "float4x4 u_proj_through;\n");
