@@ -62,8 +62,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	has9Ex = (g_pfnCreate9ex != NULL);
 	FreeLibrary(hD3D9);
 
-	// For some reason, can't quite get Ex to work right..
-	// has9Ex = false;
+	has9Ex = false;
 
 	if (has9Ex) {
 		HRESULT result = Direct3DCreate9Ex(D3D_SDK_VERSION, &d3dEx);
