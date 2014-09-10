@@ -281,12 +281,12 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		// Vertices Elements orders
 		// WEIGHT
 		if (decFmt.w0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_BLENDWEIGHT, 0);
+			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_TEXCOORD, 1);
 			VertexElement++;
 		}
 
 		if (decFmt.w1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_BLENDWEIGHT, 1);
+			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_TEXCOORD, 2);
 			VertexElement++;
 		}
 

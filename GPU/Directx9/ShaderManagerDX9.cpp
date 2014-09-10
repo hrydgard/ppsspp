@@ -37,7 +37,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+PSShader::PSShader(const char *code, bool useHWTransform) : shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -77,7 +77,7 @@ PSShader::~PSShader() {
 		shader->Release();
 }
 
-VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -86,7 +86,6 @@ VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed
 	std::string errorMessage;
 
 	success = CompileVertexShader(code, &shader, NULL, errorMessage);
-
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -120,9 +119,9 @@ VSShader::~VSShader() {
 
 void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
+		((color & 0xFF)) * (1.0f / 255.0f),
+		((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+		((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 		0.0f
 	};
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
@@ -296,11 +295,9 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		}
 	}
 #else
-	float bonetemp[16];
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
-			VSSetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
+			VSSetMatrix4x3(CONST_VS_BONE0 + 4 * i, gstate.boneMatrix + 12 * i);
 		}
 	}
 #endif
@@ -412,38 +409,34 @@ void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
-	lastVShader_ = 0;
-	lastPShader_ = 0;
+	lastVShader_ = nullptr;
+	lastPShader_ = nullptr;
 	globalDirty_ = 0xFFFFFFFF;
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
-	lastVShader_ = 0;
-	lastPShader_ = 0;
+	lastVShader_ = nullptr;
+	lastPShader_ = nullptr;
 }
 
 
 VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
-	if (globalDirty_) {
-		PSUpdateUniforms(globalDirty_);
-		VSUpdateUniforms(globalDirty_);
-		globalDirty_ = 0;
-	}
-
 	bool useHWTransform = CanUseHardwareTransformDX9(prim);
 
 	VertexShaderIDDX9 VSID;
-	FragmentShaderIDDX9 FSID;
 	ComputeVertexShaderIDDX9(&VSID, vertType, prim, useHWTransform);
+	FragmentShaderIDDX9 FSID;
 	ComputeFragmentShaderIDDX9(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
+		if (globalDirty_) {
+			PSUpdateUniforms(globalDirty_);
+			VSUpdateUniforms(globalDirty_);
+			globalDirty_ = 0;
+		}
 		return lastVShader_;	// Already all set.
 	}
-
-	lastVSID_ = VSID;
-	lastFSID_ = FSID;
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
 	VSShader *vs;
@@ -470,6 +463,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	} else {
 		vs = vsIter->second;
 	}
+	lastVSID_ = VSID;
 
 	FSCache::iterator fsIter = fsCache_.find(FSID);
 	PSShader *fs;
@@ -480,6 +474,14 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
+	}
+
+	lastFSID_ = FSID;
+
+	if (globalDirty_) {
+		PSUpdateUniforms(globalDirty_);
+		VSUpdateUniforms(globalDirty_);
+		globalDirty_ = 0;
 	}
 
 	pD3Ddevice->SetPixelShader(fs->shader);

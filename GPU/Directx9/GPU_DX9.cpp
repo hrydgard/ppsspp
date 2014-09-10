@@ -493,9 +493,6 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 	}
 	shaderManager_->DirtyShader();
 
-	// Not sure if this is really needed.
-	shaderManager_->DirtyUniform(DIRTY_ALL);
-
 	framebufferManager_.BeginFrame();
 }
 

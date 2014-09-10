@@ -112,14 +112,14 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, boo
 
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
-	"float a_w1 :BLENDWEIGHT0;\n",
-	"float2 a_w1:BLENDWEIGHT0;\n",
-	"float3 a_w1:BLENDWEIGHT0;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2 :BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float2 a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float3 a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float4 a_w2:BLENDWEIGHT1;\n",
+	"float  a_w1:TEXCOORD1;\n",
+	"float2 a_w1:TEXCOORD1;\n",
+	"float3 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n float  a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float2 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float3 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float4 a_w2:TEXCOORD2;\n",
 };
 
 enum DoLightComputation {
@@ -171,7 +171,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 	}
 	if (useHWTransform || !hasColor)
-		WRITE(p, "float4 u_matambientalpha;\n");  // matambient + matalpha
+		WRITE(p, "float4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
@@ -179,10 +179,10 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "float4x4 u_view : register(c%i);\n", CONST_VS_VIEW);
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "float4x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
-		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+		if (vertTypeIsSkinningEnabled(vertType)) {
 			int numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
-			WRITE(p, "float4x4 u_bone[%i];\n", numBones);
+			WRITE(p, "float4x4 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
 #else
 			for (int i = 0; i < numBones; i++) {
 				WRITE(p, "float4x4 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 4);
@@ -226,58 +226,54 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	if (useHWTransform) {
-		WRITE(p, " struct VS_IN {                              \n");
-		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+		WRITE(p, "struct VS_IN {                              \n");
+		if (vertTypeIsSkinningEnabled(vertType)) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture && hasTexcoord) {
 			if (doTextureProjection)
-				WRITE(p, "		float3 texcoord:  TEXCOORD0;             \n");
+				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
 			else
-				WRITE(p, "		float2 texcoord:  TEXCOORD0;             \n");
+				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
 		}
 		if (hasColor)  {
-			WRITE(p, "		float4 color0: COLOR0;                 \n");
+			WRITE(p, "  float4 color0 : COLOR0;\n");
 		}
 		if (hasNormal) {
-			WRITE(p, "		float3 normal: NORMAL;                \n");
+			WRITE(p, "  float3 normal : NORMAL;\n");
 		}
-		WRITE(p, "		float3 position: POSITION;			   \n");
-		WRITE(p, " };                                          \n");
-		WRITE(p, "                                             \n");	
+		WRITE(p, "  float3 position : POSITION;\n");
+		WRITE(p, "};\n");
 		
 	} else {
-		WRITE(p, " struct VS_IN {                              \n");
-		WRITE(p, "		float4 position   : POSITION;            \n");
-		WRITE(p, "		float3 texcoord   : TEXCOORD0;               \n");
-		WRITE(p, "		float4 color0    : COLOR0;             \n");
+		WRITE(p, "struct VS_IN {\n");
+		WRITE(p, "  float4 position : POSITION;\n");
+		WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
+		WRITE(p, "  float4 color0 : COLOR0;\n");
 		// only software transform supplies color1 as vertex data
-		WRITE(p, "		float4 color1    : COLOR1;             \n");
-		WRITE(p, " };                                          \n");
+		WRITE(p, "  float4 color1 : COLOR1;\n");
+		WRITE(p, "};\n");
 	}
 
-	WRITE(p, " struct VS_OUT                               \n");
-	WRITE(p, " {                                           \n");
-	WRITE(p, "		float4 gl_Position   : POSITION;            \n");
+	WRITE(p, "struct VS_OUT {\n");
+	WRITE(p, "  float4 gl_Position   : POSITION;\n");
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "		float3 v_texcoord: TEXCOORD0;               \n");
+			WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
 		else
-			WRITE(p, "		float2 v_texcoord: TEXCOORD0;               \n");
+			WRITE(p, "  float2 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "		float4 v_color0    : COLOR0;                 \n");
+	WRITE(p, "  float4 v_color0    : COLOR0;\n");
 	if (lmode) 
-		WRITE(p, "		float3 v_color1    : COLOR1;                 \n");
+		WRITE(p, "  float3 v_color1    : COLOR1;\n");
 
 	if (enableFog) {
-		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
 	}
-	WRITE(p, " };                                          \n");
-	WRITE(p, "                                             \n");
+	WRITE(p, "};\n");
 
-	WRITE(p, " VS_OUT main( VS_IN In )                     \n");
-	WRITE(p, " {                                           \n");	
-	WRITE(p, "		VS_OUT Out = (VS_OUT)0;							   \n");  
+	WRITE(p, "VS_OUT main(VS_IN In) {\n");
+	WRITE(p, "  VS_OUT Out = (VS_OUT)0;							   \n");  
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -306,7 +302,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 	}  else {
 		// Step 1: World Transform / Skinning
-		if (vertTypeGetWeightMask(vertType) == GE_VTYPE_WEIGHT_NONE) {
+		if (!vertTypeIsSkinningEnabled(vertType)) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world).xyz;\n");
 			if (hasNormal)
@@ -594,7 +590,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	// WRITE(p, "Out.gl_Position.z = (Out.gl_Position.z + Out.gl_Position.w) * 0.5f;");
-	WRITE(p, "	return Out;             ");
+	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
 }
 

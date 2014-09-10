@@ -237,23 +237,23 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 	}
 
-	WRITE(p, " struct PS_IN {\n");
+	WRITE(p, "struct PS_IN {\n");
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "		float3 v_texcoord: TEXCOORD0;\n");
+			WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
 		else
-			WRITE(p, "		float2 v_texcoord: TEXCOORD0;\n");
+			WRITE(p, "  float2 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "		float4 v_color0: COLOR0;\n");
+	WRITE(p, "  float4 v_color0: COLOR0;\n");
 	if (lmode) {
-		WRITE(p, "		float3 v_color1: COLOR1;\n");
+		WRITE(p, "  float3 v_color1: COLOR1;\n");
 	}
 	if (enableFog) {
-		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
 	}
-	WRITE(p, " };\n\n");
-	WRITE(p, " float4 main( PS_IN In ) : COLOR\n");
-	WRITE(p, " {\n");
+	WRITE(p, "};\n");
+	WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
+	WRITE(p, "{\n");
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
