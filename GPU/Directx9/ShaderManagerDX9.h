@@ -60,18 +60,6 @@ public:
 	PSShader *m_fs;
 
 	u32 dirtyUniforms;
-
-	// Present attributes in the shader.
-	int attrMask;  // 1 << ATTR_ ... or-ed together.
-
-	// Pre-fetched attrs and uniforms
-	D3DXHANDLE a_position;
-	D3DXHANDLE a_color0;
-	D3DXHANDLE a_color1;
-	D3DXHANDLE a_texcoord;
-	D3DXHANDLE a_normal;
-	D3DXHANDLE a_weight0123;
-	D3DXHANDLE a_weight4567;
 };
 
 // Will reach 32 bits soon :P
@@ -79,12 +67,12 @@ enum
 {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR	 = (1 << 2),
-	DIRTY_FOGCOEF    = (1 << 3),
-	DIRTY_TEXENV		 = (1 << 4),
-	DIRTY_ALPHACOLORREF	 = (1 << 5),
-	DIRTY_COLORREF	 = (1 << 6),
-	DIRTY_ALPHACOLORMASK	 = (1 << 7),
+	DIRTY_FOGCOLOR = (1 << 2),
+	DIRTY_FOGCOEF = (1 << 3),
+	DIRTY_TEXENV = (1 << 4),
+	DIRTY_ALPHACOLORREF = (1 << 5),
+	DIRTY_COLORREF = (1 << 6),
+	DIRTY_ALPHACOLORMASK = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
 	DIRTY_LIGHT2 = (1 << 10),
@@ -110,6 +98,13 @@ enum
 	DIRTY_BONEMATRIX6 = (1 << 30),
 	DIRTY_BONEMATRIX7 = (1 << 31),
 
+	DIRTY_VSHADER_UNIFORMS = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_FOGCOEF | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
+	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATERIAL | DIRTY_UVSCALEOFFSET |
+	DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
+	DIRTY_BONEMATRIX0 | DIRTY_BONEMATRIX1 | DIRTY_BONEMATRIX2 | DIRTY_BONEMATRIX3 | DIRTY_BONEMATRIX4 | DIRTY_BONEMATRIX5 | DIRTY_BONEMATRIX6 | DIRTY_BONEMATRIX7,
+
+	DIRTY_PSHADER_UNIFORMS = DIRTY_FOGCOLOR | DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK,
+
 	DIRTY_ALL = 0xFFFFFFFF
 };
 
@@ -127,23 +122,21 @@ public:
 	
 	void updateUniforms(int dirtyUniforms);
 
-	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
-	void SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha);
-	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
+	void SetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
+	void SetColorUniform3(int creg, u32 color);
 
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
 	LPDIRECT3DPIXELSHADER9 shader;
 	LPD3DXCONSTANTTABLE constant;
+
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
 
-	D3DXHANDLE u_tex;
-	D3DXHANDLE u_texenv;
-
 	// Fragment processing inputs
+	D3DXHANDLE u_texenv;
 	D3DXHANDLE u_alphacolorref;
 	D3DXHANDLE u_alphacolormask;
 	D3DXHANDLE u_fogcolor;

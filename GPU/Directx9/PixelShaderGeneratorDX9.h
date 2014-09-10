@@ -53,4 +53,9 @@ bool IsAlphaTestAgainstZero();
 bool IsAlphaTestTriviallyTrue();
 bool IsColorTestTriviallyTrue();
 
+#define CONST_PS_TEXENV 0
+#define CONST_PS_ALPHACOLORREF 1
+#define CONST_PS_ALPHACOLORMASK 2
+#define CONST_PS_FOGCOLOR 3
+
 };

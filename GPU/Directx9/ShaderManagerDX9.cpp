@@ -70,7 +70,6 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
 
-	u_tex = GetConstantByName("tex");
 	u_texenv = GetConstantByName("u_texenv");
 	u_fogcolor = GetConstantByName("u_fogcolor");
 	u_alphacolorref = GetConstantByName("u_alphacolorref");
@@ -198,13 +197,9 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 	m_vs = vs;
 	m_fs = fs;
 
-	//glUseProgram(program);
-
 	pD3Ddevice->SetPixelShader(fs->shader);
 	pD3Ddevice->SetVertexShader(vs->shader);
 
-	// Default uniform values
-	//glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 	use();
@@ -214,11 +209,27 @@ LinkedShaderDX9::~LinkedShaderDX9() {
 //	glDeleteProgram(program);
 }
 
-void VSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
-	constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
+void PSShader::SetColorUniform3(int creg, u32 color) {
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f,
+		0.0f
+	};
+	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void PSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
+void PSShader::SetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
+	const float col[4] = {
+		(float)((color & 0xFF)),
+		(float)((color & 0xFF00) >> 8),
+		(float)((color & 0xFF0000) >> 16),
+		(float)alpha,
+	};
+	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
+}
+
+void VSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
 	constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
 }
 
@@ -226,18 +237,8 @@ void VSShader::SetFloat(D3DXHANDLE uniform, float value) {
 	constant->SetFloat(pD3Ddevice, uniform, value);
 }
 
-
 // Utility
 void VSShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f
-	};
-	SetFloatArray(uniform, col, 4);
-}
-
-void PSShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -259,16 +260,6 @@ void VSShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
 		((color & 0xFF00) >> 8) / 255.0f,
 		((color & 0xFF0000) >> 16) / 255.0f,
 		alpha/255.0f
-	};
-	SetFloatArray(uniform, col, 4);
-}
-
-void PSShader::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
-	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha,
 	};
 	SetFloatArray(uniform, col, 4);
 }
@@ -321,16 +312,16 @@ void LinkedShaderDX9::use() {
 
 void PSShader::updateUniforms(int dirtyUniforms) {
 	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
-		SetColorUniform3(u_texenv, gstate.texenvcolor);
+		SetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		SetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
 	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
-		SetColorUniform3(u_alphacolormask, gstate.colortestmask);
+		SetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
 	}
 	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
-		SetColorUniform3(u_fogcolor, gstate.fogcolor);
+		SetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
 	}
 }
 
@@ -629,4 +620,4 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	return ls;
 }
 
-};
+}  // namespace
