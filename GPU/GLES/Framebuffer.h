@@ -110,12 +110,6 @@ public:
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
 
-	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetVFBAt(u32 addr);
-	VirtualFramebuffer *GetDisplayVFB() {
-		return GetVFBAt(displayFramebufPtr_);
-	}
-
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
@@ -146,8 +140,6 @@ private:
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void SetNumExtraFBOs(int num);
-
-	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	inline bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;

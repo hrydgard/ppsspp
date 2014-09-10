@@ -72,12 +72,6 @@ public:
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 
-	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetVFBAt(u32 addr);
-	VirtualFramebuffer *GetDisplayVFB() {
-		return GetVFBAt(displayFramebufPtr_);
-	}
-
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	void NotifyFramebufferCopy(u32 src, u32 dest, int size);

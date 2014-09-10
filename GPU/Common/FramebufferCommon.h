@@ -138,6 +138,12 @@ public:
 		return true;
 	}
 
+	// TODO: Break out into some form of FBO manager
+	VirtualFramebuffer *GetVFBAt(u32 addr);
+	VirtualFramebuffer *GetDisplayVFB() {
+		return GetVFBAt(displayFramebufPtr_);
+	}
+
 	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
 	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }
 	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
@@ -149,6 +155,7 @@ public:
 
 protected:
 	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
+	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
 		dstBuffer->memoryUpdated = false;

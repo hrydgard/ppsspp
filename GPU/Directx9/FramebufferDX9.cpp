@@ -41,10 +41,6 @@ namespace DX9 {
 		FBO_OLD_AGE = 5,
 	};
 
-	static bool MaskedEqual(u32 addr1, u32 addr2) {
-		return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
-	}
-
 	inline u16 RGBA8888toRGB565(u32 px) {
 		return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 	}
@@ -292,26 +288,6 @@ namespace DX9 {
 			pD3Ddevice->SetTexture(0, tex);
 		}
 		pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
-	}
-
-
-	VirtualFramebuffer *FramebufferManagerDX9::GetVFBAt(u32 addr) {
-		VirtualFramebuffer *match = NULL;
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *v = vfbs_[i];
-			if (MaskedEqual(v->fb_address, addr) && v->format == displayFormat_ && v->width >= 480) {
-				// Could check w too but whatever
-				if (match == NULL || match->last_frame_render < v->last_frame_render) {
-					match = v;
-				}
-			}
-		}
-		if (match != NULL) {
-			return match;
-		}
-
-		DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", addr);
-		return 0;
 	}
 
 	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {

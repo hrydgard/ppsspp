@@ -41,6 +41,29 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 	displayFormat_ = format;
 }
 
+VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
+	VirtualFramebuffer *match = NULL;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *v = vfbs_[i];
+		if (MaskedEqual(v->fb_address, addr)) {
+			// Could check w too but whatever
+			if (match == NULL || match->last_frame_render < v->last_frame_render) {
+				match = v;
+			}
+		}
+	}
+	if (match != NULL) {
+		return match;
+	}
+
+	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", addr);
+	return 0;
+}
+
+bool FramebufferManagerCommon::MaskedEqual(u32 addr1, u32 addr2) {
+	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
+}
+
 // Heuristics to figure out the size of FBO to create.
 void FramebufferManagerCommon::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
