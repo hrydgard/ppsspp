@@ -154,14 +154,14 @@ public:
 	
 	void updateUniforms(int dirtyUniforms);
 
-	void SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3);
-	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
-	void SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra);
-	void SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha);
-	void SetMatrix(D3DXHANDLE uniform, const float* pMatrix);
-	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
-	void SetFloat(D3DXHANDLE uniform, float value);
-	void SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]);
+	void SetMatrix4x3(int creg, const float *m4x3);
+	void SetColorUniform3(int creg, u32 color);
+	void SetColorUniform3ExtraFloat(int creg, u32 color, float extra);
+	void SetColorUniform3Alpha(int creg, u32 color, u8 alpha);
+	void SetMatrix(int creg, const float* pMatrix);
+	void SetFloat(int creg, float value);
+	void SetFloatArray(int creg, const float *value, int count);
+	void SetFloat24Uniform3(int creg, const u32 data[3]);
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
 	LPDIRECT3DVERTEXSHADER9 shader;

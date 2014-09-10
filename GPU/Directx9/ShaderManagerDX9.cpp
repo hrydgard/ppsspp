@@ -229,61 +229,68 @@ void PSShader::SetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
-	constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
+void VSShader::SetFloat(int creg, float value) {
+	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
+	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void VSShader::SetFloat(D3DXHANDLE uniform, float value) {
-	constant->SetFloat(pD3Ddevice, uniform, value);
+void VSShader::SetFloatArray(int creg, const float *value, int count) {
+	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	for (int i = 0; i < count; i++) {
+		f[i] = value[i];
+	}
+	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
 }
 
 // Utility
-void VSShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
+void VSShader::SetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f
+		((color & 0xFF0000) >> 16) / 255.0f,
+		0.0f
 	};
-	SetFloatArray(uniform, col, 4);
+	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetFloat24Uniform3(D3DXHANDLE uniform, const u32 data[3]) {
+void VSShader::SetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
-		data[0] >> 8, data[1] >> 8, data[2] >> 8,
+		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
 	};
-	SetFloatArray(uniform, (const float *)&col[0], 4);
+	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
 }
 
-void VSShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
+void VSShader::SetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
 		((color & 0xFF0000) >> 16) / 255.0f,
 		alpha/255.0f
 	};
-	SetFloatArray(uniform, col, 4);
+	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
+void VSShader::SetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
 		((color & 0xFF0000) >> 16) / 255.0f,
 		extra
 	};
-	SetFloatArray(uniform, col, 4);
+	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
 // Utility
-void VSShader::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
+void VSShader::SetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
-	ConvertMatrix4x3To4x4(m4x4, m4x3);
-	constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
+	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
+	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
-void VSShader::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
-	D3DXMATRIX * pDxMat = (D3DXMATRIX*)pMatrix;
-	constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
+void VSShader::SetMatrix(int creg, const float* pMatrix) {
+	float transp[16];
+	Transpose4x4(transp, pMatrix);
+	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
@@ -342,7 +349,7 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 		bool invert = gstate_c.vpDepth < 0;
 		ConvertProjMatrixToD3D(flippedMatrix, invert);
 
-		SetMatrix(u_proj, flippedMatrix.getReadPtr());
+		SetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}
 	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX)) {
 		Matrix4x4 proj_through;
@@ -350,24 +357,24 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 
 		ConvertProjMatrixToD3D(proj_through, false);
 
-		SetMatrix(u_proj_through, proj_through.getReadPtr());
+		SetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
 	}
 	// Transform
 	if (u_world != 0 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
-		SetMatrix4x3(u_world, gstate.worldMatrix);
+		SetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
 	}
 	if (u_view != 0 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
-		SetMatrix4x3(u_view, gstate.viewMatrix);
+		SetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
 	}
 	if (u_texmtx != 0 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
-		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
+		SetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
 	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
 		const float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
-		SetFloatArray(u_fogcoef, fogcoef, 2);
+		SetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -399,9 +406,8 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 	for (int i = 0; i < numBones; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
-
 			if (u_bone[i] != 0)
-				SetMatrix(u_bone[i], bonetemp);
+				SetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
 		}
 	}
 #endif
@@ -434,24 +440,24 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 				uvscaleoff[3] = 0.0f;
 			}
 		}
-		SetFloatArray(u_uvscaleoffset, uvscaleoff, 4);
+		SetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
 	// Lighting
 	if (u_ambient != 0 && (dirtyUniforms & DIRTY_AMBIENT)) {
-		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
+		SetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (u_matambientalpha != 0 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
-		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
+		SetColorUniform3Alpha(CONST_VS_MATAMBIENTALPHA, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (u_matdiffuse != 0 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
-		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
+		SetColorUniform3(CONST_VS_MATDIFFUSE, gstate.materialdiffuse);
 	}
 	if (u_matemissive != 0 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
-		SetColorUniform3(u_matemissive, gstate.materialemissive);
+		SetColorUniform3(CONST_VS_MATEMISSIVE, gstate.materialemissive);
 	}
 	if (u_matspecular != 0 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
-		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		SetColorUniform3ExtraFloat(CONST_VS_MATSPECULAR, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
@@ -467,18 +473,18 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 					else
 						len = 1.0f / len;
 					float vec[3] = { x * len, y * len, z * len };
-					SetFloatArray(u_lightpos[i], vec, 3);
+					SetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
 				} else {
-					SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
+					SetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 				}
 			}
-			if (u_lightdir[i] != 0) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
-			if (u_lightatt[i] != 0) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
-			if (u_lightangle[i] != 0) SetFloat(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
-			if (u_lightspotCoef[i] != 0) SetFloat(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
-			if (u_lightambient[i] != 0) SetColorUniform3(u_lightambient[i], gstate.lcolor[i * 3]);
-			if (u_lightdiffuse[i] != 0) SetColorUniform3(u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
-			if (u_lightspecular[i] != 0) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
+			if (u_lightdir[i] != 0) SetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != 0) SetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
+			if (u_lightangle[i] != 0) SetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != 0) SetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
+			if (u_lightambient[i] != 0) SetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != 0) SetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != 0) SetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }
