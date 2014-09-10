@@ -209,7 +209,7 @@ LinkedShaderDX9::~LinkedShaderDX9() {
 //	glDeleteProgram(program);
 }
 
-void PSShader::SetColorUniform3(int creg, u32 color) {
+void PSShader::PSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -219,7 +219,7 @@ void PSShader::SetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void PSShader::SetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
+void PSShader::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
 	const float col[4] = {
 		(float)((color & 0xFF)),
 		(float)((color & 0xFF00) >> 8),
@@ -229,12 +229,12 @@ void PSShader::SetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetFloat(int creg, float value) {
+void VSShader::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
 	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void VSShader::SetFloatArray(int creg, const float *value, int count) {
+void VSShader::VSSetFloatArray(int creg, const float *value, int count) {
 	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
@@ -243,7 +243,7 @@ void VSShader::SetFloatArray(int creg, const float *value, int count) {
 }
 
 // Utility
-void VSShader::SetColorUniform3(int creg, u32 color) {
+void VSShader::VSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -253,14 +253,14 @@ void VSShader::SetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetFloat24Uniform3(int creg, const u32 data[3]) {
+void VSShader::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
 	};
 	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
 }
 
-void VSShader::SetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
+void VSShader::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -270,7 +270,7 @@ void VSShader::SetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::SetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
+void VSShader::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -281,13 +281,13 @@ void VSShader::SetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 }
 
 // Utility
-void VSShader::SetMatrix4x3(int creg, const float *m4x3) {
+void VSShader::VSSetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
-void VSShader::SetMatrix(int creg, const float* pMatrix) {
+void VSShader::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
 	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
@@ -304,8 +304,8 @@ void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 
 void LinkedShaderDX9::updateUniforms() {
 	if (dirtyUniforms) {
-		m_fs->updateUniforms(dirtyUniforms);
-		m_vs->updateUniforms(dirtyUniforms);
+		m_fs->PSUpdateUniforms(dirtyUniforms);
+		m_vs->VSUpdateUniforms(dirtyUniforms);
 		dirtyUniforms = 0;
 	}
 }
@@ -317,22 +317,22 @@ void LinkedShaderDX9::use() {
 	pD3Ddevice->SetVertexShader(m_vs->shader);
 }
 
-void PSShader::updateUniforms(int dirtyUniforms) {
+void PSShader::PSUpdateUniforms(int dirtyUniforms) {
 	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
-		SetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
+		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
 	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
-		SetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
+		PSSetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
 	}
 	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
-		SetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
+		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
 	}
 }
 
-void VSShader::updateUniforms(int dirtyUniforms) {
+void VSShader::VSUpdateUniforms(int dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (u_proj != 0 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
 		Matrix4x4 flippedMatrix;
@@ -349,7 +349,7 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 		bool invert = gstate_c.vpDepth < 0;
 		ConvertProjMatrixToD3D(flippedMatrix, invert);
 
-		SetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
+		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}
 	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX)) {
 		Matrix4x4 proj_through;
@@ -357,24 +357,24 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 
 		ConvertProjMatrixToD3D(proj_through, false);
 
-		SetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
+		VSSetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
 	}
 	// Transform
 	if (u_world != 0 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
-		SetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
+		VSSetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
 	}
 	if (u_view != 0 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
-		SetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
+		VSSetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
 	}
 	if (u_texmtx != 0 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
-		SetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
+		VSSetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
 	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
 		const float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
-		SetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
+		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -407,7 +407,7 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
 			if (u_bone[i] != 0)
-				SetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
+				VSSetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
 		}
 	}
 #endif
@@ -440,24 +440,24 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 				uvscaleoff[3] = 0.0f;
 			}
 		}
-		SetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
+		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
 	// Lighting
 	if (u_ambient != 0 && (dirtyUniforms & DIRTY_AMBIENT)) {
-		SetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
+		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (u_matambientalpha != 0 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
-		SetColorUniform3Alpha(CONST_VS_MATAMBIENTALPHA, gstate.materialambient, gstate.getMaterialAmbientA());
+		VSSetColorUniform3Alpha(CONST_VS_MATAMBIENTALPHA, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (u_matdiffuse != 0 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
-		SetColorUniform3(CONST_VS_MATDIFFUSE, gstate.materialdiffuse);
+		VSSetColorUniform3(CONST_VS_MATDIFFUSE, gstate.materialdiffuse);
 	}
 	if (u_matemissive != 0 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
-		SetColorUniform3(CONST_VS_MATEMISSIVE, gstate.materialemissive);
+		VSSetColorUniform3(CONST_VS_MATEMISSIVE, gstate.materialemissive);
 	}
 	if (u_matspecular != 0 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
-		SetColorUniform3ExtraFloat(CONST_VS_MATSPECULAR, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		VSSetColorUniform3ExtraFloat(CONST_VS_MATSPECULAR, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
@@ -473,18 +473,18 @@ void VSShader::updateUniforms(int dirtyUniforms) {
 					else
 						len = 1.0f / len;
 					float vec[3] = { x * len, y * len, z * len };
-					SetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
+					VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
 				} else {
-					SetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
+					VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 				}
 			}
-			if (u_lightdir[i] != 0) SetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
-			if (u_lightatt[i] != 0) SetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
-			if (u_lightangle[i] != 0) SetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
-			if (u_lightspotCoef[i] != 0) SetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
-			if (u_lightambient[i] != 0) SetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
-			if (u_lightdiffuse[i] != 0) SetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
-			if (u_lightspecular[i] != 0) SetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
+			if (u_lightdir[i] != 0) VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != 0) VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
+			if (u_lightangle[i] != 0) VSSetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != 0) VSSetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
+			if (u_lightambient[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }

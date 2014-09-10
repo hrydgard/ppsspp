@@ -120,10 +120,10 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	void updateUniforms(int dirtyUniforms);
+	void PSUpdateUniforms(int dirtyUniforms);
 
-	void SetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
-	void SetColorUniform3(int creg, u32 color);
+	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
+	void PSSetColorUniform3(int creg, u32 color);
 
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
@@ -152,16 +152,16 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	void updateUniforms(int dirtyUniforms);
+	void VSUpdateUniforms(int dirtyUniforms);
 
-	void SetMatrix4x3(int creg, const float *m4x3);
-	void SetColorUniform3(int creg, u32 color);
-	void SetColorUniform3ExtraFloat(int creg, u32 color, float extra);
-	void SetColorUniform3Alpha(int creg, u32 color, u8 alpha);
-	void SetMatrix(int creg, const float* pMatrix);
-	void SetFloat(int creg, float value);
-	void SetFloatArray(int creg, const float *value, int count);
-	void SetFloat24Uniform3(int creg, const u32 data[3]);
+	void VSSetMatrix4x3(int creg, const float *m4x3);
+	void VSSetColorUniform3(int creg, u32 color);
+	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
+	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
+	void VSSetMatrix(int creg, const float* pMatrix);
+	void VSSetFloat(int creg, float value);
+	void VSSetFloatArray(int creg, const float *value, int count);
+	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
 	LPDIRECT3DVERTEXSHADER9 shader;
