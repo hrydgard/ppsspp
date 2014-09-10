@@ -393,7 +393,7 @@ public:
 	std::string upgradeVersion;
 	std::string dismissedVersion;
 
-	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
+	void Load(const char *iniFileName = "ppsspp3.ini", const char *controllerIniFilename = "controls3.ini");
 	void Save();
 	void RestoreDefaults();
 
