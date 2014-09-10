@@ -206,4 +206,9 @@ protected:
 	std::vector<VirtualFramebuffer *> vfbs_;
 
 	bool hackForce04154000Download_;
+
+	// Aggressively delete unused FBOs to save gpu memory.
+	enum {
+		FBO_OLD_AGE = 5,
+	};
 };

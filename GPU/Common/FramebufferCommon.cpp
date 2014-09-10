@@ -25,11 +25,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-// Aggressively delete unused FBO:s to save gpu memory.
-enum {
-	FBO_OLD_AGE = 5,
-};
-
 FramebufferManagerCommon::FramebufferManagerCommon() :
 	displayFramebufPtr_(0),
 	displayStride_(0),

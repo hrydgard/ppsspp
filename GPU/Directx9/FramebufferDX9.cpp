@@ -35,12 +35,6 @@
 #include <algorithm>
 
 namespace DX9 {
-
-	// Aggressively delete unused FBO:s to save gpu memory.
-	enum {
-		FBO_OLD_AGE = 5,
-	};
-
 	inline u16 RGBA8888toRGB565(u32 px) {
 		return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 	}
