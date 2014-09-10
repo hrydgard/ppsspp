@@ -255,4 +255,5 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
+	VertexDecoderOptions decOptions_;
 };

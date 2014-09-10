@@ -144,6 +144,15 @@ void VertexDecoder::Step_TcU8() const
 	*uv = *uvdata;
 }
 
+void VertexDecoder::Step_TcU8ToFloat() const
+{
+	// u32 to write two bytes of zeroes for free.
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * (1.0f / 128.0f);
+	uv[1] = uvdata[1] * (1.0f / 128.0f);
+}
+
 void VertexDecoder::Step_TcU16() const
 {
 	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
@@ -151,11 +160,18 @@ void VertexDecoder::Step_TcU16() const
 	*uv = *uvdata;
 }
 
+void VertexDecoder::Step_TcU16ToFloat() const
+{
+	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * (1.0f / 32768.0f);
+	uv[1] = uvdata[1] * (1.0f / 32768.0f);
+}
+
 void VertexDecoder::Step_TcU16Double() const
 {
 	u16 *uv = (u16*)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	*uv = *uvdata;
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
 }
@@ -171,6 +187,30 @@ void VertexDecoder::Step_TcU16Through() const
 void VertexDecoder::Step_TcU16ThroughDouble() const
 {
 	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * 2;
+	uv[1] = uvdata[1] * 2;
+}
+
+void VertexDecoder::Step_TcU16DoubleToFloat() const
+{
+	float *uv = (float*)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * (1.0f / 16384.0f);
+	uv[1] = uvdata[1] * (1.0f / 16384.0f);
+}
+
+void VertexDecoder::Step_TcU16ThroughToFloat() const
+{
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
+}
+
+void VertexDecoder::Step_TcU16ThroughDoubleToFloat() const
+{
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
@@ -540,6 +580,13 @@ static const StepFunction tcstep[4] = {
 	&VertexDecoder::Step_TcFloat,
 };
 
+static const StepFunction tcstepToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8ToFloat,
+	&VertexDecoder::Step_TcU16ToFloat,
+	&VertexDecoder::Step_TcFloat,
+};
+
 static const StepFunction tcstep_prescale[4] = {
 	0,
 	&VertexDecoder::Step_TcU8Prescale,
@@ -554,11 +601,25 @@ static const StepFunction tcstep_through[4] = {
 	&VertexDecoder::Step_TcFloatThrough,
 };
 
+static const StepFunction tcstep_throughToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8ToFloat,
+	&VertexDecoder::Step_TcU16ThroughToFloat,
+	&VertexDecoder::Step_TcFloatThrough,
+};
+
 // Some HD Remaster games double the u16 texture coordinates.
 static const StepFunction tcstep_Remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16Double,
+	&VertexDecoder::Step_TcFloat,
+};
+
+static const StepFunction tcstep_RemasterToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8ToFloat,
+	&VertexDecoder::Step_TcU16DoubleToFloat,
 	&VertexDecoder::Step_TcFloat,
 };
 
@@ -568,6 +629,14 @@ static const StepFunction tcstep_through_Remaster[4] = {
 	&VertexDecoder::Step_TcU16ThroughDouble,
 	&VertexDecoder::Step_TcFloatThrough,
 };
+
+static const StepFunction tcstep_through_RemasterToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8ToFloat,
+	&VertexDecoder::Step_TcU16ThroughDoubleToFloat,
+	&VertexDecoder::Step_TcFloatThrough,
+};
+
 
 // TODO: Tc Morph
 
@@ -636,7 +705,7 @@ static const StepFunction posstep_through[4] = {
 	&VertexDecoder::Step_PosFloatThrough,
 };
 
-void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
+void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
 	numSteps_ = 0;
@@ -715,21 +784,29 @@ void VertexDecoder::SetVertexType(u32 fmt, VertexDecoderJitCache *jitCache) {
 			steps_[numSteps_++] = tcstep_prescale[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
-			if (g_DoubleTextureCoordinates)
-				steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
-			else
-				steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
-
-			switch (tc) {
-			case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
-				decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
-				break;
-			case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
-				decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
-				break;
-			case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
+			if (options.expandAllUVtoFloat) {
+				if (g_DoubleTextureCoordinates)
+					steps_[numSteps_++] = throughmode ? tcstep_through_RemasterToFloat[tc] : tcstep_RemasterToFloat[tc];
+				else
+					steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
 				decFmt.uvfmt = DEC_FLOAT_2;
-				break;
+			} else {
+				if (g_DoubleTextureCoordinates)
+					steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
+				else
+					steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
+
+				switch (tc) {
+				case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
+					decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
+					break;
+				case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
+					decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
+					break;
+				case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
+					decFmt.uvfmt = DEC_FLOAT_2;
+					break;
+				}
 			}
 		}
 

@@ -27,7 +27,6 @@
 
 namespace DX9 {
 
-
 // Always use float for decoding data
 #define USE_WEIGHT_HACK
 #define USE_TC_HACK

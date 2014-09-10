@@ -41,17 +41,17 @@ struct JitLookup {
 
 typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
-// Right now
-//   - compiles into list of called functions
-// Future TODO
-//   - will compile into lighting fast specialized x86 and ARM
+struct VertexDecoderOptions {
+	bool expandAllUVtoFloat;
+};
+
 class VertexDecoder
 {
 public:
 	VertexDecoder();
 
 	// A jit cache is not mandatory, we don't use it in the sw renderer
-	void SetVertexType(u32 vtype, VertexDecoderJitCache *jitCache = 0);
+	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = 0);
 
 	u32 VertexType() const { return fmt_; }
 
@@ -73,6 +73,8 @@ public:
 
 	void Step_TcU8() const;
 	void Step_TcU16() const;
+	void Step_TcU8ToFloat() const;
+	void Step_TcU16ToFloat() const;
 	void Step_TcFloat() const;
 
 	void Step_TcU8Prescale() const;
@@ -82,6 +84,9 @@ public:
 	void Step_TcU16Double() const;
 	void Step_TcU16Through() const;
 	void Step_TcU16ThroughDouble() const;
+	void Step_TcU16DoubleToFloat() const;
+	void Step_TcU16ThroughToFloat() const;
+	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
 	void Step_Color4444() const;
