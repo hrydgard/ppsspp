@@ -269,6 +269,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x87fe3f7e621ddebb, 212, "memcpy", },
 	{ 0x891ca854e1c664e9, 2392, "qsort", },
 	{ 0x8965d4b004adad28, 420, "log10f", },
+	{ 0x8986c3bffe0def77, 88, "kirameki_download_frame", }, // Kirameki School Life SP
 	{ 0x89e1858ba11b84e4, 52, "memset", },
 	{ 0x8a00e7207e7dbc81, 232, "_exit", },
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
