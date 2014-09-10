@@ -19,8 +19,8 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/TransformPipeline.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
 
 #include "GPU/Software/TransformUnit.h"

@@ -20,7 +20,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 extern void DisassembleArm(const u8 *data, int size);
 

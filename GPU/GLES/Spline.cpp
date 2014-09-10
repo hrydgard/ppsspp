@@ -16,11 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "GPU/GLES/TransformPipeline.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // Here's how to evaluate them fast:
 // http://and-what-happened.blogspot.se/2012/07/evaluating-b-splines-aka-basis-splines.html

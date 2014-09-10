@@ -20,9 +20,10 @@
 #include <map>
 
 #include <d3d9.h>
+
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 struct DecVtxFormat;
 

@@ -25,7 +25,7 @@
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/helper/fbo.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
 
