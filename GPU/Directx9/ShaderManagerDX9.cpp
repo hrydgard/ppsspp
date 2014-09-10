@@ -45,7 +45,7 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	bool success;
 	std::string errorMessage;
 
-	success = CompilePixelShader(code, &shader, &constant, errorMessage);
+	success = CompilePixelShader(code, &shader, NULL, errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -73,8 +73,6 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 
 PSShader::~PSShader() {
 	pD3Ddevice->SetPixelShader(NULL);
-	if (constant)
-		constant->Release();
 	if (shader)
 		shader->Release();
 }
@@ -87,7 +85,7 @@ VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed
 	bool success;
 	std::string errorMessage;
 
-	success = CompileVertexShader(code, &shader, &constant, errorMessage);
+	success = CompileVertexShader(code, &shader, NULL, errorMessage);
 
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -115,40 +113,10 @@ VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed
 
 VSShader::~VSShader() {
 	pD3Ddevice->SetVertexShader(NULL);
-	if (constant)
-		constant->Release();
 	if (shader)
 		shader->Release();
 }
 
-
-// Helper
-D3DXHANDLE PSShader::GetConstantByName(LPCSTR pName) {
-	return constant->GetConstantByName(NULL, pName);
-}
-
-// Helper
-D3DXHANDLE VSShader::GetConstantByName(LPCSTR pName) {
-	return constant->GetConstantByName(NULL, pName);
-}
-
-LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform)
-		: useHWTransform_(useHWTransform) {
-	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
-
-	m_vs = vs;
-	m_fs = fs;
-
-	pD3Ddevice->SetPixelShader(fs->shader);
-	pD3Ddevice->SetVertexShader(vs->shader);
-
-	// The rest, use the "dirty" mechanism.
-	use();
-}
-
-LinkedShaderDX9::~LinkedShaderDX9() {
-//	glDeleteProgram(program);
-}
 
 void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
@@ -241,11 +209,6 @@ void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 	s.setScaling(Vec3(1, 1, invert ? -0.5 : 0.5f));
 	t.setTranslation(Vec3(0, 0, 0.5f));
 	in = in * s * t;
-}
-
-void LinkedShaderDX9::use() {
-	pD3Ddevice->SetPixelShader(m_fs->shader);
-	pD3Ddevice->SetVertexShader(m_vs->shader);
 }
 
 void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
@@ -417,7 +380,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastShader_(NULL), globalDirty_(0xFFFFFFFF) {
+ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -426,16 +389,12 @@ ShaderManagerDX9::~ShaderManagerDX9() {
 }
 
 void ShaderManagerDX9::Clear() {
-	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		delete iter->ls;
-	}
 	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
 		delete iter->second;
 	}
 	for (auto iter = vsCache_.begin(); iter != vsCache_.end(); ++iter)	{
 		delete iter->second;
 	}
-	linkedShaderCache_.clear();
 	fsCache_.clear();
 	vsCache_.clear();
 	globalDirty_ = 0xFFFFFFFF;
@@ -453,16 +412,18 @@ void ShaderManagerDX9::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
-	lastShader_ = 0;
+	lastVShader_ = 0;
+	lastPShader_ = 0;
 	globalDirty_ = 0xFFFFFFFF;
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
-	lastShader_ = 0;
+	lastVShader_ = 0;
+	lastPShader_ = 0;
 }
 
 
-LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
+VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (globalDirty_) {
 		PSUpdateUniforms(globalDirty_);
 		VSUpdateUniforms(globalDirty_);
@@ -477,8 +438,8 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	ComputeFragmentShaderIDDX9(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
-		return lastShader_;	// Already all set.
+	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
+		return lastVShader_;	// Already all set.
 	}
 
 	lastVSID_ = VSID;
@@ -521,25 +482,12 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		fs = fsIter->second;
 	}
 
-	// Okay, we have both shaders. Let's see if there's a linked one.
-	LinkedShaderDX9 *ls = NULL;
+	pD3Ddevice->SetPixelShader(fs->shader);
+	pD3Ddevice->SetVertexShader(vs->shader);
 
-	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		if (iter->vs == vs && iter->fs == fs) {
-			ls = iter->ls;
-		}
-	}
-
-	if (ls == NULL) {
-		ls = new LinkedShaderDX9(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
-		const LinkedShaderCacheEntry entry(vs, fs, ls);
-		linkedShaderCache_.push_back(entry);
-	} else {
-		ls->use();
-	}
-
-	lastShader_ = ls;
-	return ls;
+	lastPShader_ = fs;
+	lastVShader_ = vs;
+	return vs;
 }
 
 }  // namespace

@@ -29,38 +29,11 @@ namespace DX9 {
 
 class PSShader;
 class VSShader;
+
 void ConvertProjMatrixToD3D(Matrix4x4 & in);
 
-// Pre-fetched attrs and uniforms
+// Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
-	ATTR_POSITION = 0,
-	ATTR_TEXCOORD = 1,
-	ATTR_NORMAL = 2,
-	ATTR_W1 = 3,
-	ATTR_W2 = 4,
-	ATTR_COLOR0 = 5,
-	ATTR_COLOR1 = 6,
-
-	ATTR_COUNT,
-};
-
-class LinkedShaderDX9 {
-public:
-	LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform);
-	~LinkedShaderDX9();
-
-	void use();
-
-	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
-	bool useHWTransform_;
-
-	VSShader *m_vs;
-	PSShader *m_fs;
-};
-
-// Will reach 32 bits soon :P
-enum
-{
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR = (1 << 2),
@@ -94,13 +67,6 @@ enum
 	DIRTY_BONEMATRIX6 = (1 << 30),
 	DIRTY_BONEMATRIX7 = (1 << 31),
 
-	DIRTY_VSHADER_UNIFORMS = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_FOGCOEF | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
-	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATERIAL | DIRTY_UVSCALEOFFSET |
-	DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
-	DIRTY_BONEMATRIX0 | DIRTY_BONEMATRIX1 | DIRTY_BONEMATRIX2 | DIRTY_BONEMATRIX3 | DIRTY_BONEMATRIX4 | DIRTY_BONEMATRIX5 | DIRTY_BONEMATRIX6 | DIRTY_BONEMATRIX7,
-
-	DIRTY_PSHADER_UNIFORMS = DIRTY_FOGCOLOR | DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK,
-
 	DIRTY_ALL = 0xFFFFFFFF
 };
 
@@ -116,10 +82,7 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	D3DXHANDLE GetConstantByName(LPCSTR pName);
-
 	LPDIRECT3DPIXELSHADER9 shader;
-	LPD3DXCONSTANTTABLE constant;
 
 protected:	
 	std::string source_;
@@ -137,10 +100,7 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	D3DXHANDLE GetConstantByName(LPCSTR pName);
-
 	LPDIRECT3DVERTEXSHADER9 shader;
-	LPD3DXCONSTANTTABLE constant;
 
 protected:	
 	std::string source_;
@@ -155,7 +115,7 @@ public:
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShaderDX9 *ApplyShader(int prim, u32 vertType);
+	VSShader *ApplyShader(int prim, u32 vertType);
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
@@ -164,7 +124,6 @@ public:
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }
-	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
 
 private:
 	void PSUpdateUniforms(int dirtyUniforms);
@@ -183,24 +142,14 @@ private:
 
 	void Clear();
 
-	struct LinkedShaderCacheEntry {
-		LinkedShaderCacheEntry(VSShader *vs_, PSShader *fs_, LinkedShaderDX9 *ls_)
-			: vs(vs_), fs(fs_), ls(ls_) { }
-
-		VSShader *vs;
-		PSShader *fs;
-		LinkedShaderDX9 *ls;
-
-	};
-	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
-
-	LinkedShaderCache linkedShaderCache_;
 	FragmentShaderIDDX9 lastFSID_;
 	VertexShaderIDDX9 lastVSID_;
 
-	LinkedShaderDX9 *lastShader_;
 	u32 globalDirty_;
 	char *codeBuffer_;
+
+	VSShader *lastVShader_;
+	PSShader *lastPShader_;
 
 	typedef std::map<FragmentShaderIDDX9, PSShader *> FSCache;
 	FSCache fsCache_;

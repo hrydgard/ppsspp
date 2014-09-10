@@ -28,7 +28,7 @@ struct DecVtxFormat;
 
 namespace DX9 {
 
-class LinkedShaderDX9;
+class VSShader;
 class ShaderManagerDX9;
 class TextureCacheDX9;
 class FramebufferManagerDX9;
@@ -144,10 +144,10 @@ public:
 
 private:
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void SoftwareTransformAndDraw(int prim, u8 *decoded, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
-	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt);
+	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);

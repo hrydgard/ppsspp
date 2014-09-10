@@ -1413,7 +1413,7 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 void DIRECTX9_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
-	gpuStats.numShaders = shaderManager_->NumPrograms();
+	gpuStats.numShaders = -1;
 	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
 	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 }
