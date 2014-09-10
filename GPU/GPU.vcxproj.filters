@@ -96,9 +96,6 @@
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
-    <ClInclude Include="Directx9\VertexDecoderDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
     <ClInclude Include="Directx9\TransformPipelineDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
@@ -237,9 +234,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\VertexDecoderDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\TransformPipelineDX9.cpp">

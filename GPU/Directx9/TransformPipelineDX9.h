@@ -22,7 +22,7 @@
 #include <d3d9.h>
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/GLES/VertexDecoder.h"
 
 struct DecVtxFormat;
 
@@ -150,14 +150,14 @@ private:
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 	
 	// drawcall ID
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
 
-	VertexDecoderDX9 *GetVertexDecoder(u32 vtype);
+	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
@@ -178,8 +178,8 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoderDX9 *> decoderMap_;
-	VertexDecoderDX9 *dec_;
+	std::map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -208,6 +208,8 @@ private:
 	int decimationCounter_;
 
 	UVScale *uvScale;
+
+	VertexDecoderOptions decOptions_;
 };
 
 // Only used by SW transform

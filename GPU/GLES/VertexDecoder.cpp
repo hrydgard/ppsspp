@@ -44,6 +44,13 @@ inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
 
+int TranslateNumBones(int bones) {
+	if (!bones) return 0;
+	if (bones < 4) return 4;
+	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
+	return bones;
+}
+
 VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
 	memset(stats_, 0, sizeof(stats_));
 }
@@ -162,7 +169,7 @@ void VertexDecoder::Step_TcU16() const
 
 void VertexDecoder::Step_TcU16ToFloat() const
 {
-	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 32768.0f);
 	uv[1] = uvdata[1] * (1.0f / 32768.0f);

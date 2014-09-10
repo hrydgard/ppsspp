@@ -86,7 +86,7 @@
 #include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/GLES/VertexDecoder.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 
@@ -144,6 +144,10 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
 	uvScale(0) {
+
+	memset(&decOptions_, 0, sizeof(decOptions_));
+	decOptions_.expandAllUVtoFloat = true;
+
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
@@ -775,12 +779,12 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 		}
 }
 
-VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
+VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
-	VertexDecoderDX9 *dec = new VertexDecoderDX9(); 
-	dec->SetVertexType(vtype);
+	VertexDecoder*dec = new VertexDecoder(); 
+	dec->SetVertexType(vtype, decOptions_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }

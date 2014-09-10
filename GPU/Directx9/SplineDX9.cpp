@@ -27,7 +27,7 @@ namespace DX9 {
 // The rest of the transform pipeline like lighting will go as normal, either hardware or software.
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
-u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType) {
+u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
 	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
@@ -128,7 +128,7 @@ u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *
 
 u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-	VertexDecoderDX9 *dec = GetVertexDecoder(vertTypeID);
+	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	return NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
@@ -167,7 +167,7 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 	}
 
 	// We're not actually going to decode, only reshuffle.
-	VertexDecoderDX9 *vdecoder = GetVertexDecoder(vertex_type);
+	VertexDecoder *vdecoder = GetVertexDecoder(vertex_type);
 
 	int undecodedVertexSize = vdecoder->VertexSize();
 
@@ -250,8 +250,8 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 	}
 
 	// We're not actually going to decode, only reshuffle.
-	VertexDecoderDX9 vdecoder;
-	vdecoder.SetVertexType(vertex_type);
+	//VertexDecoder vdecoder;
+	//vdecoder.SetVertexType(vertex_type);
 
 	Flush();
 }
