@@ -69,11 +69,6 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
-
-	u_texenv = GetConstantByName("u_texenv");
-	u_fogcolor = GetConstantByName("u_fogcolor");
-	u_alphacolorref = GetConstantByName("u_alphacolorref");
-	u_alphacolormask = GetConstantByName("u_alphacolormask");
 }
 
 PSShader::~PSShader() {
@@ -116,58 +111,6 @@ VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : failed
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
-
-	u_proj = GetConstantByName("u_proj");
-	u_proj_through = GetConstantByName("u_proj_through");
-
-	// Transform
-	u_view = GetConstantByName("u_view");
-	u_world = GetConstantByName("u_world");
-	u_texmtx = GetConstantByName("u_texmtx");
-	u_fogcoef = GetConstantByName("u_fogcoef");
-
-	if (vertTypeGetWeightMask(vertType) != 0)
-		numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
-	else
-		numBones = 0;
-
-#ifdef USE_BONE_ARRAY
-	u_bone = glGetUniformLocation(program, "u_bone");
-#else
-	for (int i = 0; i < 8; i++) {
-		char name[10];
-		sprintf(name, "u_bone%i", i);
-		u_bone[i] = GetConstantByName(name);
-	}
-#endif
-
-	// Lighting, texturing
-	u_ambient = GetConstantByName("u_ambient");
-	u_matambientalpha = GetConstantByName("u_matambientalpha");
-	u_matdiffuse = GetConstantByName("u_matdiffuse");
-	u_matspecular = GetConstantByName("u_matspecular");
-	u_matemissive = GetConstantByName("u_matemissive");
-	u_uvscaleoffset = GetConstantByName("u_uvscaleoffset");
-
-	for (int i = 0; i < 4; i++) {
-		char temp[64];
-		sprintf(temp, "u_lightpos%i", i);
-		u_lightpos[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightdir%i", i);
-		u_lightdir[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightatt%i", i);
-		u_lightatt[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightangle%i", i);
-		u_lightangle[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightspotCoef%i", i);
-		u_lightspotCoef[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightambient%i", i);
-		u_lightambient[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightdiffuse%i", i);
-		u_lightdiffuse[i] = GetConstantByName(temp);
-		sprintf(temp, "u_lightspecular%i", i);
-		u_lightspecular[i] = GetConstantByName(temp);
-	}
 }
 
 VSShader::~VSShader() {
@@ -190,8 +133,7 @@ D3DXHANDLE VSShader::GetConstantByName(LPCSTR pName) {
 }
 
 LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform)
-		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
-	
+		: useHWTransform_(useHWTransform) {
 	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
 
 	m_vs = vs;
@@ -201,7 +143,6 @@ LinkedShaderDX9::LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool 
 	pD3Ddevice->SetVertexShader(vs->shader);
 
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_ALL;
 	use();
 }
 
@@ -209,7 +150,7 @@ LinkedShaderDX9::~LinkedShaderDX9() {
 //	glDeleteProgram(program);
 }
 
-void PSShader::PSSetColorUniform3(int creg, u32 color) {
+void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -219,7 +160,7 @@ void PSShader::PSSetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void PSShader::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
+void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
 	const float col[4] = {
 		(float)((color & 0xFF)),
 		(float)((color & 0xFF00) >> 8),
@@ -229,12 +170,12 @@ void PSShader::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
-void VSShader::VSSetFloat(int creg, float value) {
+void ShaderManagerDX9::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
 	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
 }
 
-void VSShader::VSSetFloatArray(int creg, const float *value, int count) {
+void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) {
 	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	for (int i = 0; i < count; i++) {
 		f[i] = value[i];
@@ -243,7 +184,7 @@ void VSShader::VSSetFloatArray(int creg, const float *value, int count) {
 }
 
 // Utility
-void VSShader::VSSetColorUniform3(int creg, u32 color) {
+void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -253,14 +194,14 @@ void VSShader::VSSetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
+void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
 	};
 	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
 }
 
-void VSShader::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
+void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -270,7 +211,7 @@ void VSShader::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
-void VSShader::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
+void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -281,13 +222,13 @@ void VSShader::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
 }
 
 // Utility
-void VSShader::VSSetMatrix4x3(int creg, const float *m4x3) {
+void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
-void VSShader::VSSetMatrix(int creg, const float* pMatrix) {
+void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
 	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
@@ -302,39 +243,29 @@ void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
 	in = in * s * t;
 }
 
-void LinkedShaderDX9::updateUniforms() {
-	if (dirtyUniforms) {
-		m_fs->PSUpdateUniforms(dirtyUniforms);
-		m_vs->VSUpdateUniforms(dirtyUniforms);
-		dirtyUniforms = 0;
-	}
-}
-
 void LinkedShaderDX9::use() {
-	updateUniforms();
-
 	pD3Ddevice->SetPixelShader(m_fs->shader);
 	pD3Ddevice->SetVertexShader(m_vs->shader);
 }
 
-void PSShader::PSUpdateUniforms(int dirtyUniforms) {
-	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
+void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
+	if (dirtyUniforms & DIRTY_TEXENV) {
 		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
-	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
+	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
 		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
-	if (u_alphacolormask != 0 && (dirtyUniforms & DIRTY_ALPHACOLORMASK)) {
+	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
 		PSSetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
 	}
-	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
+	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
 	}
 }
 
-void VSShader::VSUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	// Update any dirty uniforms before we draw
-	if (u_proj != 0 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
+	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		if (gstate_c.vpHeight < 0) {
@@ -351,7 +282,7 @@ void VSShader::VSUpdateUniforms(int dirtyUniforms) {
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}
-	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX)) {
+	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
@@ -360,16 +291,16 @@ void VSShader::VSUpdateUniforms(int dirtyUniforms) {
 		VSSetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
 	}
 	// Transform
-	if (u_world != 0 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
+	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
 		VSSetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
 	}
-	if (u_view != 0 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
+	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
 		VSSetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
 	}
-	if (u_texmtx != 0 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
+	if (dirtyUniforms & DIRTY_TEXMATRIX) {
 		VSSetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
-	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
+	if (dirtyUniforms & DIRTY_FOGCOEF) {
 		const float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
@@ -403,17 +334,16 @@ void VSShader::VSUpdateUniforms(int dirtyUniforms) {
 	}
 #else
 	float bonetemp[16];
-	for (int i = 0; i < numBones; i++) {
+	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
-			if (u_bone[i] != 0)
-				VSSetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
+			VSSetMatrix(CONST_VS_BONE0 + 4 * i, bonetemp);
 		}
 	}
 #endif
 
 	// Texturing
-	if (u_uvscaleoffset != 0 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
+	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
 		float uvscaleoff[4];
 		if (gstate.isModeThrough()) {
 			// We never get here because we don't use HW transform with through mode.
@@ -444,52 +374,50 @@ void VSShader::VSUpdateUniforms(int dirtyUniforms) {
 	}
 
 	// Lighting
-	if (u_ambient != 0 && (dirtyUniforms & DIRTY_AMBIENT)) {
+	if (dirtyUniforms & DIRTY_AMBIENT) {
 		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
 	}
-	if (u_matambientalpha != 0 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
+	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
 		VSSetColorUniform3Alpha(CONST_VS_MATAMBIENTALPHA, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
-	if (u_matdiffuse != 0 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
 		VSSetColorUniform3(CONST_VS_MATDIFFUSE, gstate.materialdiffuse);
 	}
-	if (u_matemissive != 0 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
+	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		VSSetColorUniform3(CONST_VS_MATEMISSIVE, gstate.materialemissive);
 	}
-	if (u_matspecular != 0 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
+	if (dirtyUniforms & DIRTY_MATSPECULAR) {
 		VSSetColorUniform3ExtraFloat(CONST_VS_MATSPECULAR, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
-			if (u_lightpos[i] != 0) {
-				if (gstate.isDirectionalLight(i)) {
-					// Prenormalize
-					float x = getFloat24(gstate.lpos[i * 3 + 0]);
-					float y = getFloat24(gstate.lpos[i * 3 + 1]);
-					float z = getFloat24(gstate.lpos[i * 3 + 2]);
-					float len = sqrtf(x*x + y*y + z*z);
-					if (len == 0.0f)
-						len = 1.0f;
-					else
-						len = 1.0f / len;
-					float vec[3] = { x * len, y * len, z * len };
-					VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
-				} else {
-					VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
-				}
+			if (gstate.isDirectionalLight(i)) {
+				// Prenormalize
+				float x = getFloat24(gstate.lpos[i * 3 + 0]);
+				float y = getFloat24(gstate.lpos[i * 3 + 1]);
+				float z = getFloat24(gstate.lpos[i * 3 + 2]);
+				float len = sqrtf(x*x + y*y + z*z);
+				if (len == 0.0f)
+					len = 1.0f;
+				else
+					len = 1.0f / len;
+				float vec[3] = { x * len, y * len, z * len };
+				VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
+			} else {
+				VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != 0) VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
-			if (u_lightatt[i] != 0) VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
-			if (u_lightangle[i] != 0) VSSetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
-			if (u_lightspotCoef[i] != 0) VSSetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
-			if (u_lightambient[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
-			if (u_lightdiffuse[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
-			if (u_lightspecular[i] != 0) VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
+			VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
+			VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
+			VSSetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
+			VSSetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
+			VSSetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
+			VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
+			VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
+ShaderManagerDX9::ShaderManagerDX9() : lastShader_(NULL), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -527,7 +455,6 @@ void ShaderManagerDX9::DirtyShader() {
 	lastVSID_.clear();
 	lastShader_ = 0;
 	globalDirty_ = 0xFFFFFFFF;
-	shaderSwitchDirty_ = 0;
 }
 
 void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
@@ -537,9 +464,8 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 
 LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (globalDirty_) {
-		if (lastShader_)
-			lastShader_->dirtyUniforms |= globalDirty_;
-		shaderSwitchDirty_ |= globalDirty_;
+		PSUpdateUniforms(globalDirty_);
+		VSUpdateUniforms(globalDirty_);
 		globalDirty_ = 0;
 	}
 
@@ -552,7 +478,6 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
-		lastShader_->updateUniforms();
 		return lastShader_;	// Already all set.
 	}
 
@@ -600,25 +525,16 @@ LinkedShaderDX9 *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	LinkedShaderDX9 *ls = NULL;
 
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		// Deferred dirtying! Let's see if we can make this even more clever later.
-		iter->ls->dirtyUniforms |= shaderSwitchDirty_;
-
 		if (iter->vs == vs && iter->fs == fs) {
 			ls = iter->ls;
 		}
 	}
-	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
 		ls = new LinkedShaderDX9(vs, fs, vertType, vs->UseHWTransform());	// This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		// If shader changed we need to update all uniforms
-		if (lastShader_ != ls) {
-			ls->dirtyUniforms = DIRTY_ALL;
-		}
-
 		ls->use();
 	}
 

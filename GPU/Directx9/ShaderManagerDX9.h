@@ -44,13 +44,11 @@ enum {
 	ATTR_COUNT,
 };
 
-class LinkedShaderDX9
-{
+class LinkedShaderDX9 {
 public:
 	LinkedShaderDX9(VSShader *vs, PSShader *fs, u32 vertType, bool useHWTransform);
 	~LinkedShaderDX9();
 
-	void updateUniforms();
 	void use();
 
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
@@ -58,8 +56,6 @@ public:
 
 	VSShader *m_vs;
 	PSShader *m_fs;
-
-	u32 dirtyUniforms;
 };
 
 // Will reach 32 bits soon :P
@@ -120,11 +116,6 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	void PSUpdateUniforms(int dirtyUniforms);
-
-	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
-	void PSSetColorUniform3(int creg, u32 color);
-
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
 	LPDIRECT3DPIXELSHADER9 shader;
@@ -134,12 +125,6 @@ protected:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
-
-	// Fragment processing inputs
-	D3DXHANDLE u_texenv;
-	D3DXHANDLE u_alphacolorref;
-	D3DXHANDLE u_alphacolormask;
-	D3DXHANDLE u_fogcolor;
 };
 
 class VSShader {
@@ -152,57 +137,15 @@ public:
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	
-	void VSUpdateUniforms(int dirtyUniforms);
-
-	void VSSetMatrix4x3(int creg, const float *m4x3);
-	void VSSetColorUniform3(int creg, u32 color);
-	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
-	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
-	void VSSetMatrix(int creg, const float* pMatrix);
-	void VSSetFloat(int creg, float value);
-	void VSSetFloatArray(int creg, const float *value, int count);
-	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
 	D3DXHANDLE GetConstantByName(LPCSTR pName);
 
 	LPDIRECT3DVERTEXSHADER9 shader;
 	LPD3DXCONSTANTTABLE constant;
+
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
-
-	// Transform
-	D3DXHANDLE u_view;
-	D3DXHANDLE u_texmtx;
-	D3DXHANDLE u_world;
-	D3DXHANDLE u_proj;
-	D3DXHANDLE u_proj_through;
-#ifdef USE_BONE_ARRAY
-	D3DXHANDLE u_bone;  // array, size is numBones
-#else
-	D3DXHANDLE u_bone[8];
-#endif
-	int numBones;
-
-	D3DXHANDLE u_fogcoef;
-
-	// Texturing
-	D3DXHANDLE u_uvscaleoffset;
-
-	// Lighting
-	D3DXHANDLE u_ambient;
-	D3DXHANDLE u_matambientalpha;
-	D3DXHANDLE u_matdiffuse;
-	D3DXHANDLE u_matspecular;
-	D3DXHANDLE u_matemissive;
-	D3DXHANDLE u_lightpos[4];
-	D3DXHANDLE u_lightdir[4];
-	D3DXHANDLE u_lightatt[4];  // attenuation
-	D3DXHANDLE u_lightangle[4]; // spotlight cone angle (cosine)
-	D3DXHANDLE u_lightspotCoef[4]; // spotlight dropoff
-	D3DXHANDLE u_lightdiffuse[4];  // each light consist of vec4[3]
-	D3DXHANDLE u_lightspecular[4];  // attenuation
-	D3DXHANDLE u_lightambient[4];  // attenuation
 };
 
 class ShaderManagerDX9
@@ -224,6 +167,20 @@ public:
 	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
 
 private:
+	void PSUpdateUniforms(int dirtyUniforms);
+	void VSUpdateUniforms(int dirtyUniforms);
+	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
+	void PSSetColorUniform3(int creg, u32 color);
+
+	void VSSetMatrix4x3(int creg, const float *m4x3);
+	void VSSetColorUniform3(int creg, u32 color);
+	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
+	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);
+	void VSSetMatrix(int creg, const float* pMatrix);
+	void VSSetFloat(int creg, float value);
+	void VSSetFloatArray(int creg, const float *value, int count);
+	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
+
 	void Clear();
 
 	struct LinkedShaderCacheEntry {
@@ -243,7 +200,6 @@ private:
 
 	LinkedShaderDX9 *lastShader_;
 	u32 globalDirty_;
-	u32 shaderSwitchDirty_;
 	char *codeBuffer_;
 
 	typedef std::map<FragmentShaderIDDX9, PSShader *> FSCache;
@@ -251,7 +207,6 @@ private:
 
 	typedef std::map<VertexShaderIDDX9, VSShader *> VSCache;
 	VSCache vsCache_;
-
 };
 
 };
