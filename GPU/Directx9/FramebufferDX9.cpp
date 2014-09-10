@@ -126,7 +126,7 @@ namespace DX9 {
 			usage = D3DUSAGE_DYNAMIC;
 		}
 		HRESULT hr = pD3Ddevice->CreateTexture(512, 272, 1, usage, D3DFMT(D3DFMT_A8R8G8B8), pool, &drawPixelsTex_, NULL);
-		if (!hr) {
+		if (FAILED(hr)) {
 			drawPixelsTex_ = nullptr;
 			ERROR_LOG(G3D, "Failed to create drawpixels texture");
 		}
