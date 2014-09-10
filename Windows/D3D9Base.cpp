@@ -60,12 +60,11 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
 	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9, "Direct3DCreate9Ex");
 	has9Ex = (g_pfnCreate9ex != NULL);
-	FreeLibrary(hD3D9);
 
 	has9Ex = false;
 
 	if (has9Ex) {
-		HRESULT result = Direct3DCreate9Ex(D3D_SDK_VERSION, &d3dEx);
+		HRESULT result = g_pfnCreate9ex(D3D_SDK_VERSION, &d3dEx);
 		d3d = d3dEx;
 		if (FAILED(result)) {
 			ELOG("Failed to create D3D9Ex context");
@@ -78,6 +77,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 			return false;
 		}
 	}
+	FreeLibrary(hD3D9);
 
 	D3DCAPS9 d3dCaps;
 
