@@ -204,6 +204,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
+	{ 0x5642a63f3802a792, 456, "orenoimouto_download_frame", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
 	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
 	{ 0x580200b840b47c58, 1856, "_realloc_r", },
