@@ -985,23 +985,24 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT:
 					if (options.expand8BitNormalsToFloat) {
 						decFmt.nrmfmt = DEC_FLOAT_3;
-						steps_[numSteps_++] = morphcount == 1 ? nrmstep8BitToFloat[nrm] : nrmstep_morph[nrm];
+						steps_[numSteps_++] = nrmstep8BitToFloat[nrm];
 					} else {
 						decFmt.nrmfmt = DEC_S8_3;
-						steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+						steps_[numSteps_++] = nrmstep[nrm];
 					}
 					break;
 				case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT:
 					decFmt.nrmfmt = DEC_S16_3;
-					steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+					steps_[numSteps_++] = nrmstep[nrm];
 					break;
 				case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT:
 					decFmt.nrmfmt = DEC_FLOAT_3;
-					steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+					steps_[numSteps_++] = nrmstep[nrm];
 					break;
 				}
 			} else {
 				decFmt.nrmfmt = DEC_FLOAT_3;
+				steps_[numSteps_++] = nrmstep_morph[nrm];
 			}
 		}
 		decFmt.nrmoff = decOff;
