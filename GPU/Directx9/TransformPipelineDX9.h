@@ -128,11 +128,14 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() {};
 
+	void Resized();  // TODO: Call
+
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
 
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost();
 
@@ -200,6 +203,8 @@ private:
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;
 	FramebufferManagerDX9 *framebufferManager_;
+	VertexDecoderJitCache *decJitCache_;
+
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];

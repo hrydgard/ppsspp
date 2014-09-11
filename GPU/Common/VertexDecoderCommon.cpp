@@ -521,7 +521,7 @@ void VertexDecoder::Step_NormalS8Skin() const
 void VertexDecoder::Step_NormalS16Skin() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	const s16 *sv = (const u16_le*)(ptr_ + nrmoff);
+	const s16 *sv = (const s16_le*)(ptr_ + nrmoff);
 	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Norm3ByMatrix43(normal, fn, skinMatrix);
 }

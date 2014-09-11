@@ -173,6 +173,9 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
 	indexGen.Setup(decIndex);
+
+	decJitCache_ = new VertexDecoderJitCache();
+
 	InitDeviceObjects();
 }
 
@@ -195,6 +198,9 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 		delete iter->second;
 	}
 	delete [] uvScale;
+
+	delete decJitCache_;
+
 }
 
 void TransformDrawEngineDX9::InitDeviceObjects() {
@@ -786,7 +792,7 @@ VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	if (iter != decoderMap_.end())
 		return iter->second;
 	VertexDecoder*dec = new VertexDecoder(); 
-	dec->SetVertexType(vtype, decOptions_);
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
@@ -1293,6 +1299,12 @@ rotateVBO:
 		host->GPUNotifyDraw();
 }
 
+void TransformDrawEngineDX9::Resized() {
+	decJitCache_->Clear();
+
+	// ...
+}
+
 bool TransformDrawEngineDX9::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	// Simplify away bones and morph before proceeding
 
@@ -1365,6 +1377,10 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
+}
+
+bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: This probably is not the best interface.
