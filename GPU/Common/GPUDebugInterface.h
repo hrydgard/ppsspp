@@ -138,7 +138,7 @@ struct GPUDebugBuffer {
 		flipped_ = flipped;
 
 		u32 pixelSize = 2;
-		if (fmt == GPU_DBG_FORMAT_8888 || GPU_DBG_FORMAT_8888_BGRA || fmt == GPU_DBG_FORMAT_FLOAT) {
+		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_8888_BGRA || fmt == GPU_DBG_FORMAT_FLOAT) {
 			pixelSize = 4;
 		} else if (fmt == GPU_DBG_FORMAT_8BIT) {
 			pixelSize = 1;
