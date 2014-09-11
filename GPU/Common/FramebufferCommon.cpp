@@ -310,14 +310,6 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		ResizeFramebufFBO(vfb, drawing_width, drawing_height, true);
 		NotifyRenderFramebufferCreated(vfb);
 
-		if (useBufferedRendering_ && !updateVRAM_ && !g_Config.bDisableSlowFramebufEffects) {
-			u32 byteSize = FramebufferByteSize(vfb);
-			u32 fb_address_mem = (vfb->fb_address & 0x3FFFFFFF) | 0x04000000;
-			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
-			NotifyStencilUpload(fb_address_mem, byteSize, true);
-			// TODO: Is it worth trying to upload the depth buffer?
-		}
-
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		vfb->last_frame_render = gpuStats.numFlips;
@@ -326,6 +318,12 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
+
+		if (useBufferedRendering_ && !updateVRAM_ && !g_Config.bDisableSlowFramebufEffects) {
+			gpu->PerformMemoryUpload(fb_address_mem, byteSize);
+			NotifyStencilUpload(fb_address_mem, byteSize, true);
+			// TODO: Is it worth trying to upload the depth buffer?
+		}
 
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;

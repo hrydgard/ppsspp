@@ -393,15 +393,6 @@ namespace DX9 {
 
 		ClearBuffer();
 
-		// TODO (in Common)
-		//if (useBufferedRendering_ && !updateVRAM_ && !g_Config.bDisableSlowFramebufEffects) {
-		//	u32 byteSize = FramebufferByteSize(vfb);
-		//	u32 fb_address_mem = (vfb->fb_address & 0x3FFFFFFF) | 0x04000000;
-		//	gpu->PerformMemoryUpload(fb_address_mem, byteSize);
-		//	NotifyStencilUpload(fb_address_mem, byteSize, true);
-		//	// TODO: Is it worth trying to upload the depth buffer?
-		//}
-
 		// ugly...
 		if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
