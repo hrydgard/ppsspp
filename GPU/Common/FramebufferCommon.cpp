@@ -170,7 +170,7 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		glstate.depthTest.disable();
 		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
 		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_KEEP, GL_KEEP, GL_KEEP);  // don't modify stencil§
+		glstate.stencilOp.set(GL_KEEP, GL_KEEP, GL_KEEP);  // don't modify stencilÂ§
 		glstate.stencilFunc.set(GL_GEQUAL, 0xFE, 0xFF);
 		DrawPlainColor(0x00000000);
 		//glstate.stencilFunc.set(GL_LESS, 0x80, 0xFF);
@@ -257,7 +257,7 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 				// But only if we really need to, to avoid blinking.
 				bool needsRecreate = vfb->bufferWidth > fb_stride;
 				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
-				needsRecreate = needsRecreate || vfb->newHeight > vfb->newHeight || vfb->newHeight * 2 < vfb->newHeight;
+				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 				}
