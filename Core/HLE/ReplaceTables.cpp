@@ -684,7 +684,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "growlanser_create_saveicon", &Hook_growlanser_create_saveicon, 0, REPFLAG_HOOKENTER, 0x7C },
 	{ "sd_gundam_g_generation_download_frame", &Hook_sd_gundam_g_generation_download_frame, 0, REPFLAG_HOOKENTER, 0x48},
 	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
-	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER, 0x304 },
 	{}
 };
 

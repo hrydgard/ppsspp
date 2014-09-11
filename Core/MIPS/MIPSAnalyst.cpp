@@ -269,7 +269,6 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x87fe3f7e621ddebb, 212, "memcpy", },
 	{ 0x891ca854e1c664e9, 2392, "qsort", },
 	{ 0x8965d4b004adad28, 420, "log10f", },
-	{ 0x8986c3bffe0def77, 88, "kirameki_school_life_download_frame", }, // Kirameki School Life SP
 	{ 0x89e1858ba11b84e4, 52, "memset", },
 	{ 0x8a00e7207e7dbc81, 232, "_exit", },
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
@@ -345,6 +344,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
+	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
 	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", }, // Growlanswer IV
