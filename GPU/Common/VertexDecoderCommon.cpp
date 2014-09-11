@@ -270,6 +270,7 @@ void VertexDecoder::Step_TcU8ToFloat() const
 void VertexDecoder::Step_TcU16() const
 {
 	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
+	// TODO: Fix big-endian without losing the optimization
 	const u32 *uvdata = (const u32*)(ptr_ + tcoff);
 	*uv = *uvdata;
 }
@@ -277,7 +278,7 @@ void VertexDecoder::Step_TcU16() const
 void VertexDecoder::Step_TcU16ToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 32768.0f);
 	uv[1] = uvdata[1] * (1.0f / 32768.0f);
 }
@@ -285,7 +286,7 @@ void VertexDecoder::Step_TcU16ToFloat() const
 void VertexDecoder::Step_TcU16Double() const
 {
 	u16 *uv = (u16*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
 }
@@ -293,7 +294,7 @@ void VertexDecoder::Step_TcU16Double() const
 void VertexDecoder::Step_TcU16Through() const
 {
 	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 }
@@ -301,7 +302,7 @@ void VertexDecoder::Step_TcU16Through() const
 void VertexDecoder::Step_TcU16ThroughDouble() const
 {
 	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
 }
@@ -309,7 +310,7 @@ void VertexDecoder::Step_TcU16ThroughDouble() const
 void VertexDecoder::Step_TcU16DoubleToFloat() const
 {
 	float *uv = (float*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 16384.0f);
 	uv[1] = uvdata[1] * (1.0f / 16384.0f);
 }
@@ -317,7 +318,7 @@ void VertexDecoder::Step_TcU16DoubleToFloat() const
 void VertexDecoder::Step_TcU16ThroughToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 }
@@ -325,7 +326,7 @@ void VertexDecoder::Step_TcU16ThroughToFloat() const
 void VertexDecoder::Step_TcU16ThroughDoubleToFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * 2;
 	uv[1] = uvdata[1] * 2;
 }
@@ -355,7 +356,7 @@ void VertexDecoder::Step_TcU8Prescale() const {
 
 void VertexDecoder::Step_TcU16Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16 *)(ptr_ + tcoff);
+	const u16 *uvdata = (const u16_le *)(ptr_ + tcoff);
 	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
 	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
@@ -370,7 +371,7 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 void VertexDecoder::Step_Color565() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
-	u16 cdata = *(u16*)(ptr_ + coloff);
+	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert6To8((cdata >> 5) & 0x3f);
 	c[2] = Convert5To8((cdata >> 11) & 0x1f);
@@ -381,7 +382,7 @@ void VertexDecoder::Step_Color565() const
 void VertexDecoder::Step_Color5551() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
-	u16 cdata = *(u16*)(ptr_ + coloff);
+	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert5To8((cdata >> 5) & 0x1f);
 	c[2] = Convert5To8((cdata >> 10) & 0x1f);
@@ -392,7 +393,7 @@ void VertexDecoder::Step_Color5551() const
 void VertexDecoder::Step_Color4444() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
-	u16 cdata = *(u16*)(ptr_ + coloff);
+	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	for (int j = 0; j < 4; j++)
 		c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
@@ -411,7 +412,7 @@ void VertexDecoder::Step_Color565Morph() const
 	float col[3] = { 0 };
 	for (int n = 0; n < morphcount; n++) {
 		float w = gstate_c.morphWeights[n];
-		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		u16 cdata = *(u16_le *)(ptr_ + onesize_*n + coloff);
 		col[0] += w * (cdata & 0x1f) * (255.0f / 31.0f);
 		col[1] += w * ((cdata >> 5) & 0x3f) * (255.0f / 63.0f);
 		col[2] += w * ((cdata >> 11) & 0x1f) * (255.0f / 31.0f);
@@ -429,7 +430,7 @@ void VertexDecoder::Step_Color5551Morph() const
 	float col[4] = { 0 };
 	for (int n = 0; n < morphcount; n++) {
 		float w = gstate_c.morphWeights[n];
-		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		u16 cdata = *(u16_le *)(ptr_ + onesize_*n + coloff);
 		col[0] += w * (cdata & 0x1f) * (255.0f / 31.0f);
 		col[1] += w * ((cdata >> 5) & 0x1f) * (255.0f / 31.0f);
 		col[2] += w * ((cdata >> 10) & 0x1f) * (255.0f / 31.0f);
@@ -447,7 +448,7 @@ void VertexDecoder::Step_Color4444Morph() const
 	float col[4] = { 0 };
 	for (int n = 0; n < morphcount; n++) {
 		float w = gstate_c.morphWeights[n];
-		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		u16 cdata = *(u16_le *)(ptr_ + onesize_*n + coloff);
 		for (int j = 0; j < 4; j++)
 			col[j] += w * ((cdata >> (j * 4)) & 0xF) * (255.0f / 15.0f);
 	}
@@ -495,7 +496,7 @@ void VertexDecoder::Step_NormalS8ToFloat() const
 void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
-	const s16 *sv = (const s16*)(ptr_ + nrmoff);
+	const s16 *sv = (const s16_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = sv[j];
 	normal[3] = 0;
@@ -504,7 +505,7 @@ void VertexDecoder::Step_NormalS16() const
 void VertexDecoder::Step_NormalFloat() const
 {
 	u32 *normal = (u32 *)(decoded_ + decFmt.nrmoff);
-	const u32 *fv = (const u32*)(ptr_ + nrmoff);
+	const u32 *fv = (const u32_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = fv[j];
 }
@@ -520,7 +521,7 @@ void VertexDecoder::Step_NormalS8Skin() const
 void VertexDecoder::Step_NormalS16Skin() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	const s16 *sv = (const s16*)(ptr_ + nrmoff);
+	const s16 *sv = (const u16_le*)(ptr_ + nrmoff);
 	const float fn[3] = { sv[0] * (1.0f / 32768.0f), sv[1] * (1.0f / 32768.0f), sv[2] * (1.0f / 32768.0f) };
 	Norm3ByMatrix43(normal, fn, skinMatrix);
 }
@@ -549,7 +550,7 @@ void VertexDecoder::Step_NormalS16Morph() const
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	memset(normal, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
-		const s16 *sv = (const s16 *)(ptr_ + onesize_*n + nrmoff);
+		const s16 *sv = (const s16_le *)(ptr_ + onesize_*n + nrmoff);
 		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
 		for (int j = 0; j < 3; j++)
 			normal[j] += sv[j] * multiplier;
@@ -579,7 +580,7 @@ void VertexDecoder::Step_PosS8() const
 void VertexDecoder::Step_PosS16() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
-	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const s16 *sv = (const s16_le *)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		pos[j] = sv[j] * (1.0f / 32768.0f);
 }
