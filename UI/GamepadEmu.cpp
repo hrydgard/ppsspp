@@ -645,7 +645,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 				root->Add(new PSPButton1(CTRL_CIRCLE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
 			if (g_Config.cComboCross1)
 				root->Add(new PSPButton1(CTRL_CROSS, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
-			if (g_Config.cComboTriangle)
+			if (g_Config.cComboTriangle1)
 				root->Add(new PSPButton1(CTRL_TRIANGLE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
 			if (g_Config.cComboSquare1)
 				root->Add(new PSPButton1(CTRL_SQUARE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
