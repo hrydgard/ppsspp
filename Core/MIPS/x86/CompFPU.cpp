@@ -379,6 +379,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
 		if (fs == 31) {
+			// Must clear before setting, since SetRoundingMode() assumes it was cleared.
 			ClearRoundingMode();
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
