@@ -160,6 +160,30 @@ void VertexDecoder::Step_WeightsU16() const
 		wt[j++] = 0;
 }
 
+void VertexDecoder::Step_WeightsU8ToFloat() const
+{
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = (float)wdata[j] * (1.0f / 128.0f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
+void VertexDecoder::Step_WeightsU16ToFloat() const
+{
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const u16 *wdata = (const u16*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = (float)wdata[j] * (1.0f / 32768.0f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
 // Float weights should be uncommon, we can live with having to multiply these by 2.0
 // to avoid special checks in the vertex shader generator.
 // (PSP uses 0.0-2.0 fixed point numbers for weights)
@@ -459,6 +483,15 @@ void VertexDecoder::Step_NormalS8() const
 	normal[3] = 0;
 }
 
+void VertexDecoder::Step_NormalS8ToFloat() const
+{
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const s8 *sv = (const s8*)(ptr_ + nrmoff);
+	normal[0] = sv[0] * (1.0f / 128.0f);
+	normal[1] = sv[1] * (1.0f / 128.0f);
+	normal[2] = sv[2] * (1.0f / 128.0f);
+}
+
 void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
@@ -649,6 +682,13 @@ static const StepFunction wtstep[4] = {
 	&VertexDecoder::Step_WeightsFloat,
 };
 
+static const StepFunction wtstepToFloat[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8ToFloat,
+	&VertexDecoder::Step_WeightsU16ToFloat,
+	&VertexDecoder::Step_WeightsFloat,
+};
+
 static const StepFunction wtstep_skin[4] = {
 	0,
 	&VertexDecoder::Step_WeightsU8Skin,
@@ -746,6 +786,13 @@ static const StepFunction nrmstep[4] = {
 	&VertexDecoder::Step_NormalFloat,
 };
 
+static const StepFunction nrmstep8BitToFloat[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8ToFloat,
+	&VertexDecoder::Step_NormalS16,
+	&VertexDecoder::Step_NormalFloat,
+};
+
 static const StepFunction nrmstep_skin[4] = {
 	0,
 	&VertexDecoder::Step_NormalS8Skin,
@@ -825,17 +872,21 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 		if (skinInDecode) {
 			steps_[numSteps_++] = wtstep_skin[weighttype];
-			// No visible output
+			// No visible output, passed in register/external memory to the "pos" step.
 		} else {
-			steps_[numSteps_++] = wtstep[weighttype];
-
 			int fmtBase = DEC_FLOAT_1;
-			if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-				fmtBase = DEC_U8_1;
-			} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-				fmtBase = DEC_U16_1;
-			} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+			if (options.expandAllWeightsToFloat) {
+				steps_[numSteps_++] = wtstepToFloat[weighttype];
 				fmtBase = DEC_FLOAT_1;
+			} else {
+				steps_[numSteps_++] = wtstep[weighttype];
+				if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U8_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U16_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_FLOAT_1;
+				}
 			}
 
 			int numWeights = TranslateNumBones(nweights);
@@ -927,14 +978,26 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
 		} else {
-			steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
-
 			if (morphcount == 1) {
-				// The normal formats match the gl formats perfectly, let's use 'em.
+				// The 8-bit and 16-bit normal formats match GL formats nicely, and the 16-bit normal format matches a D3D format so let's use them where possible.
 				switch (nrm) {
-				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-				case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
-				case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT:
+					if (options.expand8BitNormalsToFloat) {
+						decFmt.nrmfmt = DEC_FLOAT_3;
+						steps_[numSteps_++] = morphcount == 1 ? nrmstep8BitToFloat[nrm] : nrmstep_morph[nrm];
+					} else {
+						decFmt.nrmfmt = DEC_S8_3;
+						steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+					}
+					break;
+				case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT:
+					decFmt.nrmfmt = DEC_S16_3;
+					steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+					break;
+				case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT:
+					decFmt.nrmfmt = DEC_FLOAT_3;
+					steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+					break;
 				}
 			} else {
 				decFmt.nrmfmt = DEC_FLOAT_3;

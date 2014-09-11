@@ -109,6 +109,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
+	{&VertexDecoder::Step_NormalS8ToFloat, &VertexDecoderJitCache::Jit_NormalS8ToFloat},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
@@ -954,6 +955,11 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
 	AND(32, R(tempReg1), Imm32(0x00FFFFFF));
 	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_NormalS8ToFloat() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM3);
 }
 
 // Copy 6 bytes and then 2 zeroes.

@@ -435,6 +435,8 @@ typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 struct VertexDecoderOptions {
 	bool expandAllUVtoFloat;
+	bool expandAllWeightsToFloat;
+	bool expand8BitNormalsToFloat;
 };
 
 class VertexDecoder
@@ -457,6 +459,8 @@ public:
 
 	void Step_WeightsU8() const;
 	void Step_WeightsU16() const;
+	void Step_WeightsU8ToFloat() const;
+	void Step_WeightsU16ToFloat() const;
 	void Step_WeightsFloat() const;
 
 	void Step_WeightsU8Skin() const;
@@ -492,6 +496,7 @@ public:
 	void Step_Color8888Morph() const;
 
 	void Step_NormalS8() const;
+	void Step_NormalS8ToFloat() const;
 	void Step_NormalS16() const;
 	void Step_NormalFloat() const;
 
@@ -627,6 +632,7 @@ public:
 	void Jit_Color5551();
 
 	void Jit_NormalS8();
+	void Jit_NormalS8ToFloat();
 	void Jit_NormalS16();
 	void Jit_NormalFloat();
 
@@ -635,6 +641,7 @@ public:
 	void Jit_NormalFloatSkin();
 
 	void Jit_PosS8();
+	void Jit_PosS8ToFloat();
 	void Jit_PosS16();
 	void Jit_PosFloat();
 	void Jit_PosS8Through();

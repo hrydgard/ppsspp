@@ -147,6 +147,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = true;
+	decOptions_.expandAllWeightsToFloat = true;
+	decOptions_.expand8BitNormalsToFloat = true;
 
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will

@@ -312,9 +312,6 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		} else {
 			int numWeights = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 
-			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT];
-
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
 				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
@@ -377,11 +374,11 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  float3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix).xyz %s;\n", factor);
+			WRITE(p, "  float3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix).xyz;\n");
 			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix).xyz %s;\n", flipNormal ? "-" : "", factor);
+				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
 				WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world).xyz);\n");
 			} else {
 				WRITE(p, "  float3 worldnormal = mul( mul( float4(0.0, 0.0, 1.0, 0.0), skinMatrix), u_world).xyz;\n");
