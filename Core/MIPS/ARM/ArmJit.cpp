@@ -508,8 +508,7 @@ void Jit::RestoreDowncount() {
 		LDR(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
 
-void Jit::WriteDownCount(int offset)
-{
+void Jit::WriteDownCount(int offset) {
 	if (jo.downcountInRegister) {
 		int theDowncount = js.downcountAmount + offset;
 		Operand2 op2;
@@ -538,8 +537,7 @@ void Jit::WriteDownCount(int offset)
 }
 
 // Abuses R2
-void Jit::WriteDownCountR(ARMReg reg)
-{
+void Jit::WriteDownCountR(ARMReg reg) {
 	if (jo.downcountInRegister) {
 		SUBS(DOWNCOUNTREG, DOWNCOUNTREG, reg);
 	} else {
@@ -549,42 +547,64 @@ void Jit::WriteDownCountR(ARMReg reg)
 	}
 }
 
-void Jit::ClearRoundingMode()
-{
-	if (g_Config.bSetRoundingMode)
-	{
+void Jit::ClearRoundingMode() {
+	if (g_Config.bSetRoundingMode) {
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand.
+		// Also on ARM, we're always in flush-to-zero in C++, so stay that way.
+		if (!g_Config.bForceFlushToZero) {
+			ORR(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2(4 << 22));
+		}
 		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
 		VMSR(SCRATCHREG2);
 	}
 }
 
-void Jit::SetRoundingMode()
-{
+void Jit::SetRoundingMode() {
 	// NOTE: Must not destory R0.
-	if (g_Config.bSetRoundingMode)
-	{
+	if (g_Config.bSetRoundingMode) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
-		AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+		if (!g_Config.bForceFlushToZero) {
+			TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
+			AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+			SetCC(CC_NEQ);
+			ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
+			SetCC(CC_AL);
+			// We can only skip if the rounding mode is zero and flush is set.
+			CMP(SCRATCHREG2, Operand2(4));
+		} else {
+			ANDS(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+		}
+		// At this point, if it was zero, we can skip the rest.
+		FixupBranch skip = B_CC(CC_EQ);
+		PUSH(1, SCRATCHREG1);
+
 		// MIPS Rounding Mode:       ARM Rounding Mode
 		//   0: Round nearest        0
 		//   1: Round to zero        3
 		//   2: Round up (ceil)      1
 		//   3: Round down (floor)   2
-		CMP(SCRATCHREG2, Operand2(1));
-		FixupBranch skip = B_CC(CC_LT);
+		if (!g_Config.bForceFlushToZero) {
+			AND(SCRATCHREG1, SCRATCHREG2, Operand2(3));
+			CMP(SCRATCHREG1, Operand2(1));
+		} else {
+			CMP(SCRATCHREG2, Operand2(1));
+		}
+
 		SetCC(CC_EQ); ADD(SCRATCHREG2, SCRATCHREG2, Operand2(2));
 		SetCC(CC_GT); SUB(SCRATCHREG2, SCRATCHREG2, Operand2(1));
 		SetCC(CC_AL);
 
-		PUSH(1, SCRATCHREG1);
 		VMRS(SCRATCHREG1);
 		// Assume we're always in round-to-nearest mode beforehand.
-		ORR(SCRATCHREG2, SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 22));
-		VMSR(SCRATCHREG2);
-		POP(1, SCRATCHREG1);
+		if (!g_Config.bForceFlushToZero) {
+			// But we need to clear flush to zero in this case anyway.
+			BIC(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(7 << 22));
+		}
+		ORR(SCRATCHREG1, SCRATCHREG1, Operand2(SCRATCHREG2, ST_LSL, 22));
+		VMSR(SCRATCHREG1);
 
+		POP(1, SCRATCHREG1);
 		SetJumpTarget(skip);
 	}
 }

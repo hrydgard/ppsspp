@@ -399,6 +399,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 6: //ctc1
 		if (fs == 31) {
+			// Must clear before setting, since SetRoundingMode() assumes it was cleared.
+			ClearRoundingMode();
 			bool wasImm = gpr.IsImm(rt);
 			if (wasImm) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
@@ -417,15 +419,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
 				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
-				SetRoundingMode();
-			} else {
-				if ((gpr.GetImm(rt) & 3) == 0) {
-					// Default nearest mode, let's do this the fast way.
-					ClearRoundingMode();
-				} else {
-					SetRoundingMode();
-				}
 			}
+			SetRoundingMode();
 		} else {
 			Comp_Generic(op);
 		}

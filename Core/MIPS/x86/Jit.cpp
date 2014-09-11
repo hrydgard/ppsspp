@@ -250,10 +250,14 @@ void Jit::SetRoundingMode(XEmitter *emitter)
 		emitter->SHL(32, R(EAX), Imm8(13));
 		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
 
-		emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
-		FixupBranch skip3 = emitter->J_CC(CC_Z);
-		emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
-		emitter->SetJumpTarget(skip3);
+		if (g_Config.bForceFlushToZero) {
+			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+		} else {
+			emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
+			FixupBranch skip3 = emitter->J_CC(CC_Z);
+			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+			emitter->SetJumpTarget(skip3);
+		}
 
 		emitter->LDMXCSR(M(&currentMIPS->temp));
 
