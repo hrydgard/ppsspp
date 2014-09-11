@@ -42,7 +42,7 @@ namespace oclscale {
 
 	private:
 		cl_int SetupCtx();
-		cl_int SetupInteropCtx(cl_uint numPlatforms, const cl_platform_id platformIDs[]);
+		cl_int SetupOGLInteropCtx(cl_uint numPlatforms, const cl_platform_id platformIDs[]);
 		cl_int SetupRegularCtx(cl_uint numPlatforms, const cl_platform_id platformIDs[]);
 
 		static cl_int PlatformSupportsExtension(const cl_platform_id& curPlatformID, const char* extension);

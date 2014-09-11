@@ -187,7 +187,11 @@ namespace oclscale {
 	}
 
 	//This tries to setup the OpenCL context on the same GPU as the OpenGL context
-	//In cases where that doesn't work it will try to find another OpenCL device
+	//In cases where that doesn't work (such as when D3D is being used) it will try to find another OpenCL device
+	//Trying to setup on the same GPU as the D3D9 context would require 
+	//checking different extensions for AMD, Intel, and Nvidia
+	//It doesn't seem worth coding since the D3D9 backend is mostly for compatibility 
+	//with low-end systems that aren't even likely to have multiple GPUs
 	cl_int OclScaler::SetupCtx() {
 		cl_int status = CL_SUCCESS;
 		cl_platform_id* platformIDs = NULL;
@@ -198,7 +202,7 @@ namespace oclscale {
 		platformIDs = new cl_platform_id[numPlatforms];
 		OCL_CHECK(clGetPlatformIDs, numPlatforms, platformIDs, NULL);
 
-		if (SetupInteropCtx(numPlatforms, platformIDs) != CL_SUCCESS) {
+		if (SetupOGLInteropCtx(numPlatforms, platformIDs) != CL_SUCCESS) {
 			//Since the above didn't work/didn't apply we try the more generic fallback approach
 			OCL_SILENT_CHECK(SetupRegularCtx, numPlatforms, platformIDs);
 		}
@@ -219,7 +223,7 @@ namespace oclscale {
 	//Try to setup on the same GPU as the OpenGL context
 	//This requires platform specific code, and any non-Windows code has not been tested
 	//For now non-Windows platforms will be forced into the fallback approach
-	cl_int OclScaler::SetupInteropCtx(cl_uint numPlatforms, const cl_platform_id platformIDs[]) {
+	cl_int OclScaler::SetupOGLInteropCtx(cl_uint numPlatforms, const cl_platform_id platformIDs[]) {
 		cl_int status = CL_SUCCESS;
 
 		#if defined(_WIN32)
@@ -284,7 +288,7 @@ namespace oclscale {
 				}
 			}
 		}
-		WARN_LOG(G3D, "Could not setup OpenCL/OpenGL Interop context on any suitable device.");
+		WARN_LOG(G3D, "Could not setup OpenCL/OpenGL Interop context on any suitable device. If Direct3D is in use this is to be expected.");
 		#endif
 		status = GENERAL_ERROR;
 
@@ -568,7 +572,7 @@ namespace oclscale {
 
 		FILE* source = fopen(srcFileName, "r");
 		if (source == NULL) {
-			ERROR_LOG(G3D, "Failed to open program file from %s!\n", srcFileName);
+			ERROR_LOG(G3D, "Failed to open program file from %s!", srcFileName);
 			status = GENERAL_ERROR;
 			goto clean_up;
 		} else {
@@ -592,7 +596,7 @@ namespace oclscale {
 			buildLog = new char[retValSize + 1];
 			OCL_CHECK(clGetProgramBuildInfo, program, deviceID, CL_PROGRAM_BUILD_LOG, retValSize, buildLog, (size_t*)NULL);
 
-			ERROR_LOG(G3D, "Failed to build the OpenCL program from %s!\nThe build log is:\n%s", srcFileName, buildLog);
+			ERROR_LOG(G3D, "Failed to build the OpenCL program from %s! The build log is:\n%s", srcFileName, buildLog);
 		}
 
 	clean_up:
@@ -616,7 +620,7 @@ namespace oclscale {
 
 		FILE* weightFile = fopen(cWeightFileName, "rb");
 		if (weightFile == NULL) {
-			ERROR_LOG(G3D, "Failed to open NNEDI3 weights file from %s!\n", cWeightFileName);
+			ERROR_LOG(G3D, "Failed to open NNEDI3 weights file from %s!", cWeightFileName);
 			status = GENERAL_ERROR;
 			goto clean_up;
 		} else {

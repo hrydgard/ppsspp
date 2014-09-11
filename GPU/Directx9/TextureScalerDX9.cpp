@@ -574,6 +574,15 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 		inputBuf = bufDeposter.data();
 	}
 	
+#ifndef MOBILE_DEVICE
+	//Dispose of the OpenCL context if it is not being used
+	if (g_Config.iTexScalingType != NNEDI3 && g_Config.iTexScalingType != SPLINE36) {
+		if (oclCtx.IsActive()) {
+			oclCtx.Release();
+		}
+	}
+#endif
+
 	// scale 
 	switch(g_Config.iTexScalingType) {
 	case XBRZ:
@@ -588,6 +597,14 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 	case HYBRID_BICUBIC:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height, true);
 		break;
+#ifndef MOBILE_DEVICE
+	case NNEDI3:
+		ScaleNNEDI3(factor, inputBuf, outputBuf, width, height, dstFmt);
+		break;
+	case SPLINE36:
+		ScaleSpline36(factor, inputBuf, outputBuf, width, height, dstFmt);
+		break;
+#endif
 	default:
 		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
@@ -656,6 +673,18 @@ void TextureScalerDX9::ScaleHybrid(int factor, u32* source, u32* dest, int width
 	// The factor 8192 was found through practical testing on a variety of textures
 	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, placeholder::_1, placeholder::_2), 0, height*factor);
 }
+
+#ifndef MOBILE_DEVICE
+void TextureScalerDX9::ScaleNNEDI3(int factor, u32* source, u32* dest, int width, int height, GLenum format) {
+	u32 neurons[3] = { static_cast<u32>(g_Config.iNNEDI3NeuronsY), static_cast<u32>(g_Config.iNNEDI3NeuronsUV), static_cast<u32>(g_Config.iNNEDI3NeuronsA) };
+
+	oclCtx.NNEDI3Scale(factor, source, dest, width, height, neurons, format);
+}
+
+void TextureScalerDX9::ScaleSpline36(int factor, u32* source, u32* dest, int width, int height, GLenum format) {
+	oclCtx.Spline36Scale(factor, source, dest, width, height, format);
+}
+#endif
 
 void TextureScalerDX9::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
