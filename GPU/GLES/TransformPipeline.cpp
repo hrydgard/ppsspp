@@ -723,6 +723,7 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		ApplyDrawStateLate();
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
@@ -748,6 +749,7 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		ApplyDrawStateLate();
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();

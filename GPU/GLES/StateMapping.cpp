@@ -639,10 +639,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		} else {
 			glstate.stencilTest.disable();
 		}
-
-		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
-			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
-		}
 	}
 
 	bool throughmode = gstate.isModeThrough();
@@ -753,5 +749,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
+	}
+}
+
+void TransformDrawEngine::ApplyDrawStateLate() {
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
+			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+		}
 	}
 }
