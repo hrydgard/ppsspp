@@ -383,6 +383,12 @@ static int DefaultAndroidHwScale() {
 }
 
 static ConfigSetting graphicsSettings[] = {
+	ConfigSetting("Background", &g_Config.iBackGroundChange, 0),
+	ConfigSetting("Theme_botton", &g_Config.iTheme_botton, true),
+	ConfigSetting("RGB-R", &g_Config.iR, 57),
+	ConfigSetting("RGB-G", &g_Config.iG, 153),
+	ConfigSetting("RGB-B", &g_Config.iB, 189),
+	ConfigSetting("Transparent", &g_Config.iTransparent, 255),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
 	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
@@ -482,6 +488,39 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
+	ConfigSetting("ShowComboKey", &g_Config.bShowComboKey, true),
+	ConfigSetting("ShowComboKey1", &g_Config.bShowComboKey1, true),
+	ConfigSetting("ShowComboKey2", &g_Config.bShowComboKey2, true),
+	ConfigSetting("ComboCircle", &g_Config.cComboCircle, false),
+	ConfigSetting("ComboCross", &g_Config.cComboCross, false),
+	ConfigSetting("ComboTriangle", &g_Config.cComboTriangle, false),
+	ConfigSetting("ComboSquare", &g_Config.cComboSquare, false),
+	ConfigSetting("ComboLTrigger", &g_Config.cComboLTrigger, false),
+	ConfigSetting("ComboRTrigger", &g_Config.cComboRTrigger, false),
+	ConfigSetting("ComboLeft", &g_Config.cComboLeft, false),
+	ConfigSetting("ComboUp", &g_Config.cComboUp, false),
+	ConfigSetting("ComboRight", &g_Config.cComboRight, false),
+	ConfigSetting("ComboDown", &g_Config.cComboDown, false),
+	ConfigSetting("ComboCircle1", &g_Config.cComboCircle1, false),
+	ConfigSetting("ComboCross1", &g_Config.cComboCross1, false),
+	ConfigSetting("ComboTriangle1", &g_Config.cComboTriangle1, false),
+	ConfigSetting("ComboSquare1", &g_Config.cComboSquare1, false),
+	ConfigSetting("ComboLTrigger1", &g_Config.cComboLTrigger1, false),
+	ConfigSetting("ComboRTrigger1", &g_Config.cComboRTrigger1, false),
+	ConfigSetting("ComboLeft1", &g_Config.cComboLeft1, false),
+	ConfigSetting("ComboUp1", &g_Config.cComboUp1, false),
+	ConfigSetting("ComboRight1", &g_Config.cComboRight1, false),
+	ConfigSetting("ComboDown1", &g_Config.cComboDown1, false),
+	ConfigSetting("ComboCircle2", &g_Config.cComboCircle2, false),
+	ConfigSetting("ComboCross2", &g_Config.cComboCross2, false),
+	ConfigSetting("ComboTriangle2", &g_Config.cComboTriangle2, false),
+	ConfigSetting("ComboSquare2", &g_Config.cComboSquare2, false),
+	ConfigSetting("ComboLTrigger2", &g_Config.cComboLTrigger2, false),
+	ConfigSetting("ComboRTrigger2", &g_Config.cComboRTrigger2, false),
+	ConfigSetting("ComboLeft2", &g_Config.cComboLeft2, false),
+	ConfigSetting("ComboUp2", &g_Config.cComboUp2, false),
+	ConfigSetting("ComboRight2", &g_Config.cComboRight2, false),
+	ConfigSetting("ComboDown2", &g_Config.cComboDown2, false),
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -510,6 +549,7 @@ static ConfigSetting controlSettings[] = {
 
 	ConfigSetting("DisableDpadDiagonals", &g_Config.bDisableDpadDiagonals, false),
 	ConfigSetting("TouchButtonStyle", &g_Config.iTouchButtonStyle, 1),
+	ConfigSetting("ComboButtonStyle", &g_Config.iComboButtonStyle, 1),
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65),
 
 	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
@@ -542,13 +582,22 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale),
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f),
+	ConfigSetting("fcomboX", &g_Config.fcomboX, 0.7),
+	ConfigSetting("fcomboY", &g_Config.fcomboY, 0.5),
+	ConfigSetting("comboKeyScale", &g_Config.fcomboScale, defaultControlScale),
+	ConfigSetting("fcombo1X", &g_Config.fcombo1X, 0.8),
+	ConfigSetting("fcombo1Y", &g_Config.fcombo1Y, 0.5),
+	ConfigSetting("comboKeyScale1", &g_Config.fcomboScale1, defaultControlScale),
+	ConfigSetting("fcombo2X", &g_Config.fcombo2X, 0.9),
+	ConfigSetting("fcombo2Y", &g_Config.fcombo2Y, 0.5),
+	ConfigSetting("comboKeyScale2", &g_Config.fcomboScale2, defaultControlScale),
 
 	ConfigSetting(false),
 };
 
 static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false),
-
+	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false),
 	ConfigSetting(false),
 };
 
@@ -696,10 +745,10 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp3.ini");
 
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls3.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -782,6 +831,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		fRKeyY /= screen_height;
 		fAnalogStickX /= screen_width;
 		fAnalogStickY /= screen_height;
+		fcomboX /= screen_width;
+		fcomboY /= screen_height;
+		fcombo1X /= screen_width;
+		fcombo1Y /= screen_height;
+		fcombo2X /= screen_width;
+		fcombo2Y /= screen_height;
 	}
 	
 	const char *gitVer = PPSSPP_GIT_VERSION;
@@ -1053,6 +1108,15 @@ void Config::ResetControlLayout() {
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
 	g_Config.fAnalogStickScale = defaultControlScale;
+	g_Config.fcomboX = 0.7;
+	g_Config.fcomboY = 0.5;
+	g_Config.fcomboScale = defaultControlScale;
+	g_Config.fcombo1X = 0.8;
+	g_Config.fcombo1Y = 0.5;
+	g_Config.fcomboScale1 = defaultControlScale;
+	g_Config.fcombo2X = 0.9;
+	g_Config.fcombo2Y = 0.5;
+	g_Config.fcomboScale2 = defaultControlScale;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

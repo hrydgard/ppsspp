@@ -30,10 +30,19 @@
 #include <algorithm>
 
 static u32 GetButtonColor() {
-	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
+	int theme_botton = g_Config.iR + g_Config.iG * 16 * 16 + g_Config.iB * 16 * 16 * 16 * 16;
+	if (!g_Config.iTheme_botton)
+		return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
+	else return theme_botton;
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const AtlasImage &image = dc.Draw()->GetAtlas()->images[bgImg_];
+	w = image.w * scale_;
+	h = image.h * scale_;
+}
+
+void MultiTouchButton1::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	const AtlasImage &image = dc.Draw()->GetAtlas()->images[bgImg_];
 	w = image.w * scale_;
 	h = image.h * scale_;
@@ -54,6 +63,22 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 	}
 }
 
+void MultiTouchButton1::Touch(const TouchInput &input) {
+	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
+		pointerDownMask_ |= 1 << input.id;
+	}
+	if (input.flags & TOUCH_MOVE) {
+		if (bounds_.Contains(input.x, input.y))
+			pointerDownMask_ |= 1 << input.id;
+		else
+			pointerDownMask_ &= ~(1 << input.id);
+	}
+	if (input.flags & TOUCH_UP) {
+		pointerDownMask_ &= ~(1 << input.id);
+	}
+}
+
+
 void MultiTouchButton::Draw(UIContext &dc) {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
@@ -63,7 +88,28 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		opacity *= 1.15f;
 	}
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-	uint32_t color = colorAlpha(0xFFFFFF, opacity);
+	uint32_t color = colorAlpha(GetButtonColor(), opacity);
+
+	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
+
+	int y = bounds_.centerY();
+	// Hack round the fact that the center of the rectangular picture the triangle is contained in
+	// is not at the "weight center" of the triangle.
+	if (img_ == I_TRIANGLE)
+		y -= 2.8f * scale;
+	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), y, scale, angle_ * (M_PI * 2 / 360.0f), color);
+}
+
+void MultiTouchButton1::Draw(UIContext &dc) {
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+
+	float scale = scale_;
+	if (IsDown()) {
+		scale *= 2.0f;
+		opacity *= 1.15f;
+	}
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+	uint32_t color = colorAlpha(GetButtonColor(), opacity);
 
 	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
 
@@ -99,7 +145,26 @@ void PSPButton::Touch(const TouchInput &input) {
 	}
 }
 
+void PSPButton1::Touch(const TouchInput &input) {
+	bool lastDown = pointerDownMask_ != 0;
+	MultiTouchButton::Touch(input);
+	bool down = pointerDownMask_ != 0;
+	if (down && !lastDown) {
+		if (g_Config.bHapticFeedback) {
+			Vibrate(HAPTIC_VIRTUAL_KEY);
+		}
+		__CtrlButtonDown(pspButtonBit_);
+	}
+	else if (lastDown && !down) {
+		__CtrlButtonUp(pspButtonBit_);
+	}
+}
+
 bool PSPButton::IsDown() {
+	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
+}
+
+bool PSPButton1::IsDown1() {
 	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
 }
 
@@ -197,7 +262,7 @@ void PSPDpad::Draw(UIContext &dc) {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
-	uint32_t color = colorAlpha(0xFFFFFF, opacity);
+	uint32_t color = colorAlpha(GetButtonColor(), opacity);
 
 	static const float xoff[4] = {1, 0, -1, 0};
 	static const float yoff[4] = {0, 1, 0, -1};
@@ -390,6 +455,34 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 		g_Config.fRKeyY = (float)r_key_Y / yres;
 		g_Config.fRKeyScale = scale;
 	}
+	
+	int combo_key_X = xres / 2 + (bottom_key_spacing)* scale;
+	int combo_key_Y = yres - 60 * scale;
+
+	if (g_Config.fcomboX == -1.0 || g_Config.fcomboY == -1.0) {
+		g_Config.fcomboX = (float)combo_key_X / xres;
+		g_Config.fcomboY = (float)combo_key_Y / yres;
+		g_Config.fcomboScale = scale;
+	}
+
+	int combo1_key_X = xres / 2 + (bottom_key_spacing)* scale;
+	int combo1_key_Y = yres - 60 * scale;
+
+	if (g_Config.fcombo1X == -1.0 || g_Config.fcombo1Y == -1.0) {
+		g_Config.fcombo1X = (float)combo1_key_X / xres;
+		g_Config.fcombo1Y = (float)combo1_key_Y / yres;
+		g_Config.fcomboScale1 = scale;
+	}
+
+	int combo2_key_X = xres / 2 + (bottom_key_spacing)* scale;
+	int combo2_key_Y = yres - 60 * scale;
+
+	if (g_Config.fcombo2X == -1.0 || g_Config.fcombo2Y == -1.0) {
+		g_Config.fcombo2X = (float)combo2_key_X / xres;
+		g_Config.fcombo2Y = (float)combo2_key_Y / yres;
+		g_Config.fcomboScale2 = scale;
+	}
+
 };
 
 UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
@@ -455,6 +548,18 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	float analog_stick_Y = g_Config.fAnalogStickY * yres;
 	float analog_stick_scale = g_Config.fAnalogStickScale;
 
+	//combo key 
+
+	float combo_key_X = g_Config.fcomboX * xres;
+	float combo_key_Y = g_Config.fcomboY * yres;
+	float combo_key_scale = g_Config.fcomboScale;
+	float combo1_key_X = g_Config.fcombo1X * xres;
+	float combo1_key_Y = g_Config.fcombo1Y * yres;
+	float combo1_key_scale = g_Config.fcomboScale1;
+	float combo2_key_X = g_Config.fcombo2X * xres;
+	float combo2_key_Y = g_Config.fcombo2Y * yres;
+	float combo2_key_scale = g_Config.fcomboScale2;
+
 	const int halfW = xres / 2;
 
 	if (g_Config.bShowTouchControls) {
@@ -464,7 +569,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
 		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
-
+		int CombintionButton1 = g_Config.iComboButtonStyle ? I_SQUARE1 : I_STAR;
+		int CombintionButton2 = g_Config.iComboButtonStyle ? I_TRIANGLE1 : I_EYE;
+		int CombintionButton3 = g_Config.iComboButtonStyle ? I_CROSS1 : I_GC;
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 		if (g_Config.bShowTouchPause)
 #endif
@@ -502,6 +609,90 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 
 		if (g_Config.bShowTouchAnalogStick)
 			root->Add(new PSPStick(stickBg, stickImage, 0, analog_stick_scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
+		
+		if (g_Config.bShowComboKey)
+		{
+			if (g_Config.cComboCircle + g_Config.cComboCross + g_Config.cComboTriangle + g_Config.cComboSquare + g_Config.cComboLTrigger + g_Config.cComboRTrigger + g_Config.cComboLeft + g_Config.cComboUp + g_Config.cComboRight + g_Config.cComboDown == 0)
+				root->Add(new PSPButton1(NULL, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCircle)
+				root->Add(new PSPButton1(CTRL_CIRCLE, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCross)
+				root->Add(new PSPButton1(CTRL_CROSS, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboTriangle)
+				root->Add(new PSPButton1(CTRL_TRIANGLE, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboSquare)
+				root->Add(new PSPButton1(CTRL_SQUARE, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLTrigger)
+				root->Add(new PSPButton1(CTRL_LTRIGGER, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRTrigger)
+				root->Add(new PSPButton1(CTRL_RTRIGGER, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLeft)
+				root->Add(new PSPButton1(CTRL_LEFT, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboUp)
+				root->Add(new PSPButton1(CTRL_UP, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRight)
+				root->Add(new PSPButton1(CTRL_RIGHT, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboDown)
+				root->Add(new PSPButton1(CTRL_DOWN, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+
+		}
+		
+		if (g_Config.bShowComboKey1)
+		{
+			if (g_Config.cComboCircle1 + g_Config.cComboCross1 + g_Config.cComboTriangle1 + g_Config.cComboSquare1 + g_Config.cComboLTrigger1 + g_Config.cComboRTrigger1 + g_Config.cComboLeft1 + g_Config.cComboUp1 + g_Config.cComboRight1 + g_Config.cComboDown1 == 0)
+				root->Add(new PSPButton1(NULL, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCircle1)
+				root->Add(new PSPButton1(CTRL_CIRCLE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCross1)
+				root->Add(new PSPButton1(CTRL_CROSS, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboTriangle)
+				root->Add(new PSPButton1(CTRL_TRIANGLE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboSquare1)
+				root->Add(new PSPButton1(CTRL_SQUARE, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLTrigger1)
+				root->Add(new PSPButton1(CTRL_LTRIGGER, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRTrigger1)
+				root->Add(new PSPButton1(CTRL_RTRIGGER, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLeft1)
+				root->Add(new PSPButton1(CTRL_LEFT, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboUp1)
+				root->Add(new PSPButton1(CTRL_UP, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRight1)
+				root->Add(new PSPButton1(CTRL_RIGHT, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboDown1)
+				root->Add(new PSPButton1(CTRL_DOWN, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+
+		}
+	
+		if (g_Config.bShowComboKey2)
+		{
+			if (g_Config.cComboCircle2 + g_Config.cComboCross2 + g_Config.cComboTriangle2 + g_Config.cComboSquare2 + g_Config.cComboLTrigger2 + g_Config.cComboRTrigger2 + g_Config.cComboLeft2 + g_Config.cComboUp2 + g_Config.cComboRight2 + g_Config.cComboDown2 == 0)
+				root->Add(new PSPButton1(NULL, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCircle2)
+				root->Add(new PSPButton1(CTRL_CIRCLE, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboCross2)
+				root->Add(new PSPButton1(CTRL_CROSS, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboTriangle2)
+				root->Add(new PSPButton1(CTRL_TRIANGLE, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboSquare2)
+				root->Add(new PSPButton1(CTRL_SQUARE, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLTrigger2)
+				root->Add(new PSPButton1(CTRL_LTRIGGER, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRTrigger2)
+				root->Add(new PSPButton1(CTRL_RTRIGGER, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboLeft2)
+				root->Add(new PSPButton1(CTRL_LEFT, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboUp2)
+				root->Add(new PSPButton1(CTRL_UP, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboRight2)
+				root->Add(new PSPButton1(CTRL_RIGHT, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			if (g_Config.cComboDown2)
+				root->Add(new PSPButton1(CTRL_DOWN, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+
+		}
+	
+	
+	
 	}
 
 	return root;

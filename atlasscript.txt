@@ -1,14 +1,23 @@
-2048
-font UBUNTU24 C:/Windows/Fonts/RobotoCondensed-Regular.ttf UWER 34 -2
-font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVTe 30 0
+4096
+font UBUNTU24 Roboto-Condensed.ttf UWER 34 -2
+font UBUNTU24 ARIALUNI.ttf UWEhkcRGHKVTe 30 0
 image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
 image I_SQUARE source_assets/image/square.png copy
 image I_TRIANGLE source_assets/image/triangle.png copy
+image I_CROSS1 source_assets/image/cross1.png copy
+image I_SQUARE1 source_assets/image/square1.png copy
+image I_TRIANGLE1 source_assets/image/triangle1.png copy
+image I_STAR source_assets/image/star.png copy
+image I_GC source_assets/image/GC.png copy
+image I_EYE source_assets/image/eye.png copy
 image I_SELECT source_assets/image/select.png copy
 image I_START source_assets/image/start.png copy
 image I_ARROW source_assets/image/arrow.png copy
+image I_ARROW1 source_assets/image/arrow1.png copy
+image I_ARROW2 source_assets/image/arrow2.png copy
+image I_ARROW3 source_assets/image/arrow3.png copy
 image I_DIR source_assets/image/dir.png copy
 image I_ROUND source_assets/image/round.png copy
 image I_RECT source_assets/image/rect.png copy
@@ -22,7 +31,10 @@ image I_SHOULDER_LINE source_assets/image/shoulder_line.png copy
 image I_STICK_LINE source_assets/image/stick_line.png copy
 image I_STICK_BG_LINE source_assets/image/stick_bg_line.png copy
 image I_CHECKEDBOX source_assets/image/checkedbox.png copy
-image I_BG source_assets/image/background2.png copy
+image I_BG1 source_assets/image/I_BG11.png copy
+image I_BG2 source_assets/image/I_BG22.png copy
+image I_BG3 source_assets/image/I_BG33.png copy
+//image I_BG source_assets/image/background2.png copy
 image I_BG_GOLD source_assets/image/background_gold.png copy
 image I_L source_assets/image/L.png copy
 image I_R source_assets/image/R.png copy
