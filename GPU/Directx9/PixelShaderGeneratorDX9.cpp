@@ -219,15 +219,16 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "sampler tex: register(s0);\n");
 
 	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "float4 u_alphacolorref;\n");
-		WRITE(p, "float4 u_alphacolormask;\n");
+		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
+		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
 	}
-	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) 
-		WRITE(p, "float3 u_texenv;\n");
+
+	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) {
+		WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
+	}
 	if (enableFog) {
-		WRITE(p, "float3 u_fogcolor;\n");
+		WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
 	}
-	
 
 	if (enableAlphaTest) {
 		WRITE(p, "float roundAndScaleTo255f(float x) { return floor(x * 255.0f + 0.5f); }\n");
@@ -236,26 +237,23 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "float3 roundAndScaleTo255v(float3 x) { return floor(x * 255.0f + 0.5f); }\n");
 	}
 
-	WRITE(p, " struct PS_IN                               \n");
-	WRITE(p, " {                                          \n");
-	if (doTexture)
-	{
+	WRITE(p, "struct PS_IN {\n");
+	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "		float3 v_texcoord: TEXCOORD0;         \n");
+			WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
 		else
-			WRITE(p, "		float2 v_texcoord: TEXCOORD0;         \n");
+			WRITE(p, "  float2 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "		float4 v_color0: COLOR0;              \n"); 
+	WRITE(p, "  float4 v_color0: COLOR0;\n");
 	if (lmode) {
-		WRITE(p, "		float3 v_color1: COLOR1;              \n");    
+		WRITE(p, "  float3 v_color1: COLOR1;\n");
 	}
 	if (enableFog) {
-		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
 	}
-	WRITE(p, " };                                         \n"); 
-	WRITE(p, "                                            \n");
-	WRITE(p, " float4 main( PS_IN In ) : COLOR            \n");
-	WRITE(p, " {									      \n");
+	WRITE(p, "};\n");
+	WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
+	WRITE(p, "{\n");
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
