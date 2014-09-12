@@ -403,8 +403,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 
-	for (size_t i = 1; i < wideArgs.size(); ++i)
-	{
+	for (size_t i = 1; i < wideArgs.size(); ++i) {
 		if (wideArgs[i][0] == L'\0')
 			continue;
 		if (wideArgs[i][0] == L'-') {
@@ -435,9 +434,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	bool debugLogLevel = false;
 
+	const std::wstring gpuBackend = L"--gfx=";
+
 	// The rest is handled in NativeInit().
-	for (size_t i = 1; i < wideArgs.size(); ++i)
-	{
+	for (size_t i = 1; i < wideArgs.size(); ++i) {
 		if (wideArgs[i][0] == L'\0')
 			continue;
 
@@ -461,6 +461,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 			if (wideArgs[i] == L"--windowed")
 				g_Config.bFullScreen = false;
+
+			if (wideArgs[i].find(gpuBackend) != std::wstring::npos && wideArgs[i].size() > gpuBackend.size()) {
+				const std::wstring restOfOption = wideArgs[i].substr(gpuBackend.size());
+
+				if (restOfOption == L"d3d")
+					g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+				else if (restOfOption == L"ogl")
+					g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			}
 		}
 	}
 #ifdef _DEBUG
