@@ -1080,7 +1080,12 @@ void TransformDrawEngineDX9::DoFlush() {
 			bool useElements = true;
 
 			// Cannot cache vertex data with morph enabled.
-			if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
+			bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
+			// Also avoid caching when software skinning.
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+				useCache = false;
+
+			if (useCache) {
 				u32 id = ComputeFastDCID();
 				auto iter = vai_.find(id);
 				VertexArrayInfoDX9 *vai;
