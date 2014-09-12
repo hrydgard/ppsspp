@@ -78,9 +78,6 @@
     <ClInclude Include="GLES\TransformPipeline.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\VertexDecoder.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\FragmentShaderGenerator.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -94,9 +91,6 @@
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\VertexDecoderDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\TransformPipelineDX9.h">
@@ -215,9 +209,6 @@
     <ClCompile Include="GLES\SoftwareTransform.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\VertexDecoder.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
@@ -237,9 +228,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\VertexDecoderDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\TransformPipelineDX9.cpp">
@@ -308,12 +296,6 @@
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\VertexDecoderArm.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexDecoderX86.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -327,6 +309,12 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Common\FramebufferCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderX86.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderArm.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

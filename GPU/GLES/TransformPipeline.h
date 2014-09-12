@@ -21,7 +21,7 @@
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -255,4 +255,5 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
+	VertexDecoderOptions decOptions_;
 };

@@ -20,7 +20,7 @@
 #include "Windows/resource.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabVertices.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -288,7 +288,10 @@ int CtrlVertexList::GetRowCount() {
 	if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}
-	decoder->SetVertexType(state.vertType);
+	VertexDecoderOptions options;
+	memset(&options, 0, sizeof(options));
+	options.expandAllUVtoFloat = false;
+	decoder->SetVertexType(state.vertType, options);
 	return rowCount_;
 }
 

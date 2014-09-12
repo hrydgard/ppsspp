@@ -20,9 +20,10 @@
 #include <map>
 
 #include <d3d9.h>
+
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 struct DecVtxFormat;
 
@@ -127,11 +128,14 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() {};
 
+	void Resized();  // TODO: Call
+
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
 
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost();
 
@@ -150,14 +154,14 @@ private:
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 	
 	// drawcall ID
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
 
-	VertexDecoderDX9 *GetVertexDecoder(u32 vtype);
+	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
@@ -178,8 +182,8 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoderDX9 *> decoderMap_;
-	VertexDecoderDX9 *dec_;
+	std::map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -199,6 +203,8 @@ private:
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;
 	FramebufferManagerDX9 *framebufferManager_;
+	VertexDecoderJitCache *decJitCache_;
+
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
@@ -208,6 +214,8 @@ private:
 	int decimationCounter_;
 
 	UVScale *uvScale;
+
+	VertexDecoderOptions decOptions_;
 };
 
 // Only used by SW transform

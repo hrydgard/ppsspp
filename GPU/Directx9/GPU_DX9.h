@@ -22,10 +22,10 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Directx9/FramebufferDX9.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
 

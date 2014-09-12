@@ -1536,10 +1536,13 @@ void DIRECTX9_GPU::ClearCacheNextFrame() {
 
 void DIRECTX9_GPU::Resized() {
 	framebufferManager_.Resized();
+	transformDraw_.Resized();
 }
+
 void DIRECTX9_GPU::ClearShaderCache() {
 	shaderManager_->ClearCache(true);
 }
+
 std::vector<FramebufferInfo> DIRECTX9_GPU::GetFramebufferList() {
 	return framebufferManager_.GetFramebufferList();
 }

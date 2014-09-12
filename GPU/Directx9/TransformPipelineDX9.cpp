@@ -83,10 +83,10 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 
@@ -144,6 +144,12 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
 	uvScale(0) {
+
+	memset(&decOptions_, 0, sizeof(decOptions_));
+	decOptions_.expandAllUVtoFloat = true;
+	decOptions_.expandAllWeightsToFloat = true;
+	decOptions_.expand8BitNormalsToFloat = true;
+
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
@@ -167,6 +173,9 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
 	indexGen.Setup(decIndex);
+
+	decJitCache_ = new VertexDecoderJitCache();
+
 	InitDeviceObjects();
 }
 
@@ -189,6 +198,9 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 		delete iter->second;
 	}
 	delete [] uvScale;
+
+	delete decJitCache_;
+
 }
 
 void TransformDrawEngineDX9::InitDeviceObjects() {
@@ -775,12 +787,12 @@ void TransformDrawEngineDX9::SoftwareTransformAndDraw(
 		}
 }
 
-VertexDecoderDX9 *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
+VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
-	VertexDecoderDX9 *dec = new VertexDecoderDX9(); 
-	dec->SetVertexType(vtype);
+	VertexDecoder*dec = new VertexDecoder(); 
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
@@ -1068,7 +1080,12 @@ void TransformDrawEngineDX9::DoFlush() {
 			bool useElements = true;
 
 			// Cannot cache vertex data with morph enabled.
-			if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
+			bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
+			// Also avoid caching when software skinning.
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+				useCache = false;
+
+			if (useCache) {
 				u32 id = ComputeFastDCID();
 				auto iter = vai_.find(id);
 				VertexArrayInfoDX9 *vai;
@@ -1287,6 +1304,18 @@ rotateVBO:
 		host->GPUNotifyDraw();
 }
 
+void TransformDrawEngineDX9::Resized() {
+	decJitCache_->Clear();
+	lastVType_ = -1;
+	dec_ = NULL;
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+		delete iter->second;
+	}
+	decoderMap_.clear();
+
+	// ...
+}
+
 bool TransformDrawEngineDX9::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
 	// Simplify away bones and morph before proceeding
 
@@ -1359,6 +1388,10 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
+}
+
+bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: This probably is not the best interface.
