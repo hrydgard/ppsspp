@@ -136,6 +136,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
+  $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TransformCommon.cpp.arm \

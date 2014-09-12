@@ -5,47 +5,42 @@
 namespace DX9 {
 
 LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
+LPDIRECT3DDEVICE9EX pD3DdeviceEx = NULL;
 LPDIRECT3D9 pD3D = NULL;
 
 static const char * vscode =
-  " float4x4 matWVP : register(c0);              "
-  "                                              "
-	" struct VS_IN {                               "
-  "		float4 ObjPos   : POSITION;              "                 
-	"		float2 Uv    : TEXCOORD0;                 "  // Vertex color
-  " };                                           "
-  "                                              "
-	" struct VS_OUT {                              "
-  "		float4 ProjPos  : POSITION;              " 
-	"		float2 Uv    : TEXCOORD0;                 "  // Vertex color
-  " };                                           "
-  "                                              "
-	" VS_OUT main( VS_IN In ) {                    "
-  "		VS_OUT Out;                              "
-	"		Out.ProjPos = In.ObjPos;  "  // Transform vertex into
-	"		Out.Uv = In.Uv;			"
-  "		return Out;                              "  // Transfer color
-  " }                                            ";
+  "struct VS_IN {\n"
+  "  float4 ObjPos   : POSITION;\n"
+  "  float2 Uv    : TEXCOORD0;\n"
+  "};"
+  "struct VS_OUT {\n"
+  "  float4 ProjPos  : POSITION;\n"
+  "  float2 Uv    : TEXCOORD0;\n"
+  "};\n"
+  "VS_OUT main( VS_IN In ) {\n"
+  "  VS_OUT Out;\n"
+  "  Out.ProjPos = In.ObjPos;\n"
+  "  Out.Uv = In.Uv;\n"
+  "  return Out;\n"
+  "}\n";
 
 //--------------------------------------------------------------------------------------
 // Pixel shader
 //--------------------------------------------------------------------------------------
 static const char * pscode =
-	" sampler s: register(s0);					   "
-	" struct PS_IN {                                "
-	"     float2 Uv : TEXCOORD0;                   "
-	" };                                           "
-	"                                              "
-	" float4 main( PS_IN In ) : COLOR {            "
-	"   float4 c =  tex2D(s, In.Uv)  ;           "
-	"   c.a = 1.0f;"
-	"   return c;								   "
-	" }                                            ";
+  "sampler s: register(s0);\n"
+  "struct PS_IN {\n"
+  "  float2 Uv : TEXCOORD0;\n"
+  "};\n"
+  "float4 main( PS_IN In ) : COLOR {\n"
+  "  float4 c =  tex2D(s, In.Uv);\n"
+  "  c.a = 1.0f;\n"
+  "  return c;\n"
+  "}\n";
 
 IDirect3DVertexDeclaration9* pFramebufferVertexDecl = NULL;
 
-static const D3DVERTEXELEMENT9  VertexElements[] =
-{
+static const D3DVERTEXELEMENT9 VertexElements[] = {
 	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	{ 0, 12, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
 	D3DDECL_END()
@@ -53,8 +48,7 @@ static const D3DVERTEXELEMENT9  VertexElements[] =
 
 IDirect3DVertexDeclaration9* pSoftVertexDecl = NULL;
 
-static const D3DVERTEXELEMENT9  SoftTransVertexElements[] =
-{
+static const D3DVERTEXELEMENT9 SoftTransVertexElements[] = {
 	{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
 	{ 0, 28, D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
@@ -262,7 +256,6 @@ void DirectxInit(HWND window) {
 		// TODO
 	}
 
-	
 #ifdef _XBOX
 	pD3Ddevice->SetRingBufferParameters( &d3dr );
 #endif

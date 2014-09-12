@@ -271,7 +271,7 @@ static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
 
-IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(LinkedShaderDX9 *program, const DecVtxFormat &decFmt, u32 pspFmt) {
+IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
 	if (vertexDeclCached == vertexDeclMap_.end()) {
@@ -281,12 +281,12 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(LinkedSh
 		// Vertices Elements orders
 		// WEIGHT
 		if (decFmt.w0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_BLENDWEIGHT, 0);
+			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_TEXCOORD, 1);
 			VertexElement++;
 		}
 
 		if (decFmt.w1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_BLENDWEIGHT, 1);
+			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_TEXCOORD, 2);
 			VertexElement++;
 		}
 
@@ -437,7 +437,7 @@ bool TransformDrawEngineDX9::IsReallyAClear(int numVerts) const {
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 void TransformDrawEngineDX9::SoftwareTransformAndDraw(
-	int prim, u8 *decoded, LinkedShaderDX9 *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
+	int prim, u8 *decoded, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 		
 		bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -1057,9 +1057,9 @@ void TransformDrawEngineDX9::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	LinkedShaderDX9 *program = shaderManager_->ApplyShader(prim, lastVType_);
+	VSShader *vshader = shaderManager_->ApplyShader(prim, lastVType_);
 
-		if (program->useHWTransform_) {
+	if (vshader->UseHWTransform()) {
 			LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
 			LPDIRECT3DINDEXBUFFER9 ib_ = NULL;
 
@@ -1233,7 +1233,7 @@ rotateVBO:
 				gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 			}
 
-			IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
+			IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 			if (pHardwareVertexDecl) {
 				pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
@@ -1272,7 +1272,7 @@ rotateVBO:
 			DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
 			SoftwareTransformAndDraw(
-				prim, decoded, program, indexGen.VertexCount(), 
+				prim, decoded, indexGen.VertexCount(), 
 				dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 				indexGen.MaxIndex());
 		}

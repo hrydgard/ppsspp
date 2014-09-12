@@ -24,9 +24,10 @@
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
 
+struct VirtualFramebuffer;
+
 namespace DX9 {
 
-struct VirtualFramebufferDX9;
 class FramebufferManagerDX9;
 class ShaderManagerDX9;
 
@@ -60,7 +61,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, VirtualFramebufferDX9 *framebuffer, FramebufferNotification msg);
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 		framebufferManager_ = fbManager;
@@ -105,7 +106,7 @@ public:
 		int status;
 		u32 addr;
 		u32 hash;
-		VirtualFramebufferDX9 *framebuffer;  // if null, not sourced from an FBO.
+		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
@@ -168,15 +169,15 @@ private:
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer, u32 texaddrOffset = 0);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebufferDX9 *framebuffer);
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer);
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
 	TexCache cache;
 	TexCache secondCache;
-	std::vector<VirtualFramebufferDX9 *> fbCache_;
+	std::vector<VirtualFramebuffer *> fbCache_;
 
 	// Separate to keep main texture cache size down.
 	struct AttachedFramebufferInfo {
@@ -184,8 +185,8 @@ private:
 		u32 yOffset;
 	};
 	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebufferDX9 *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

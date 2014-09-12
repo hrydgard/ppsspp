@@ -204,6 +204,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
+	{ 0x5642a63f3802a792, 456, "orenoimouto_download_frame", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
 	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
 	{ 0x580200b840b47c58, 1856, "_realloc_r", },
@@ -344,6 +345,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
+	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
 	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", }, // Growlanswer IV

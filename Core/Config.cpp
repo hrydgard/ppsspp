@@ -313,6 +313,14 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting(false),
 };
 
+static bool DefaultForceFlushToZero() {
+#ifdef ARM
+	return true;
+#else
+	return false;
+#endif
+}
+
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit),
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false),
@@ -323,6 +331,7 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
 	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true),
+	ReportedConfigSetting("ForceFlushToZero", &g_Config.bForceFlushToZero, &DefaultForceFlushToZero),
 
 	ConfigSetting(false),
 };

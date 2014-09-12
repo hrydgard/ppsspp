@@ -13,9 +13,12 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
 
+static bool has9Ex = false;
 static LPDIRECT3D9 d3d;
+static LPDIRECT3D9EX d3dEx;
 static int adapterId;
 static LPDIRECT3DDEVICE9 device;
+static LPDIRECT3DDEVICE9EX deviceEx;
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
@@ -26,27 +29,56 @@ static int xres, yres;
 static bool enableGLDebug = true;
 
 void D3D9_SwapBuffers() {
-	device->EndScene();
-	device->Present(NULL, NULL, NULL, NULL);
-	device->BeginScene();
+	if (has9Ex) {
+		deviceEx->EndScene();
+		deviceEx->PresentEx(NULL, NULL, NULL, NULL, 0);
+		deviceEx->BeginScene();
+	} else {
+		device->EndScene();
+		device->Present(NULL, NULL, NULL, NULL);
+		device->BeginScene();
+	}
 }
 
 Thin3DContext *D3D9_CreateThin3DContext() {
-	return T3DCreateDX9Context(d3d, adapterId, device);
+	return T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
+}
+
+typedef HRESULT (*DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
+
+bool IsWin7OrLater() {
+	DWORD version = GetVersion();
+	DWORD major = (DWORD)(LOBYTE(LOWORD(version)));
+	DWORD minor = (DWORD)(HIBYTE(LOWORD(version)));
+
+	return (major > 6) || ((major == 6) && (minor >= 1));
 }
 
 bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
-	d3d = Direct3DCreate9(D3D_SDK_VERSION);
-	if (!d3d) {
-		ELOG("Failed to create D3D context");
-		return false;
-	}
+	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	int xres = rc.right - rc.left;
-	int yres = rc.bottom - rc.top;
-	
+	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
+	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9, "Direct3DCreate9Ex");
+	has9Ex = (g_pfnCreate9ex != NULL);
+
+	has9Ex = false;
+
+	if (has9Ex) {
+		HRESULT result = g_pfnCreate9ex(D3D_SDK_VERSION, &d3dEx);
+		d3d = d3dEx;
+		if (FAILED(result)) {
+			ELOG("Failed to create D3D9Ex context");
+			return false;
+		}
+	} else {
+		d3d = Direct3DCreate9(D3D_SDK_VERSION);
+		if (!d3d) {
+			ELOG("Failed to create D3D context");
+			return false;
+		}
+	}
+	FreeLibrary(hD3D9);
+
 	D3DCAPS9 d3dCaps;
 
 	D3DDISPLAYMODE d3ddm;
@@ -80,6 +112,11 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	else
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
+	RECT rc;
+	GetClientRect(hWnd, &rc);
+	int xres = rc.right - rc.left;
+	int yres = rc.bottom - rc.top;
+
 	D3DPRESENT_PARAMETERS pp;
 	memset(&pp, 0, sizeof(pp));
 	pp.BackBufferWidth = xres;
@@ -93,20 +130,40 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
 	pp.PresentationInterval = (g_Config.bVSync) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 
-	hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
+	if (has9Ex) {
+		if (windowed && IsWin7OrLater()) {
+			// This new flip mode gives higher performance.
+			pp.BackBufferCount = 2;
+			pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
+		}
+		hr = d3dEx->CreateDeviceEx(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, NULL, &deviceEx);
+		device = deviceEx;
+	} else {
+		hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
+	}
+
 	if (FAILED(hr)) {
 		ELOG("Failed to create D3D device");
-		d3d->Release();
+		if (has9Ex) {
+			d3dEx->Release();
+		} else {
+			d3d->Release();
+		}
 		return false;
 	}
 
 	device->BeginScene();
 	DX9::pD3Ddevice = device;
+	DX9::pD3DdeviceEx = deviceEx;
 
 	LoadD3DX9Dynamic();
 
 	DX9::CompileShaders();
 	DX9::fbo_init();
+
+	if (deviceEx && IsWin7OrLater()) {
+		deviceEx->SetMaximumFrameLatency(1);
+	}
 
 	return true;
 }

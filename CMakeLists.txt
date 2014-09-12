@@ -1306,6 +1306,8 @@ if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
+	GPU/Common/FramebufferCommon.cpp
+	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h

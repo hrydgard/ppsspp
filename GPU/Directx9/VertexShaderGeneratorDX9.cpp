@@ -112,14 +112,14 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, boo
 
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
-	"float a_w1 :BLENDWEIGHT0;\n",
-	"float2 a_w1:BLENDWEIGHT0;\n",
-	"float3 a_w1:BLENDWEIGHT0;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2 :BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float2 a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float3 a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float4 a_w2:BLENDWEIGHT1;\n",
+	"float  a_w1:TEXCOORD1;\n",
+	"float2 a_w1:TEXCOORD1;\n",
+	"float3 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n float  a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float2 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float3 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n float4 a_w2:TEXCOORD2;\n",
 };
 
 enum DoLightComputation {
@@ -158,129 +158,122 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 	
+	WRITE(p, "#pragma warning( disable : 3571 )\n");
 
 	if (gstate.isModeThrough())	{
-		WRITE(p, "float4x4 u_proj_through;\n");
+		WRITE(p, "float4x4 u_proj_through : register(c%i);\n", CONST_VS_PROJ_THROUGH);
 	} else {
-		WRITE(p, "float4x4 u_proj;\n");
+		WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
 		// Add all the uniforms we'll need to transform properly.
 	}
 
 	if (enableFog) {
-		WRITE(p, "float2 u_fogcoef;\n");
+		WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
 	}
 	if (useHWTransform || !hasColor)
-		WRITE(p, "float4 u_matambientalpha;\n");  // matambient + matalpha
+		WRITE(p, "float4 u_matambientalpha : register(c%i);\n", CONST_VS_MATAMBIENTALPHA);  // matambient + matalpha
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
-		WRITE(p, "float4x4 u_world;\n");
-		WRITE(p, "float4x4 u_view;\n");
+		WRITE(p, "float4x4 u_world : register(c%i);\n", CONST_VS_WORLD);
+		WRITE(p, "float4x4 u_view : register(c%i);\n", CONST_VS_VIEW);
 		if (gstate.getUVGenMode() == 1)
-			WRITE(p, "float4x4 u_texmtx;\n");
-		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+			WRITE(p, "float4x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
+		if (vertTypeIsSkinningEnabled(vertType)) {
 			int numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
-			WRITE(p, "float4x4 u_bone[%i];\n", numBones);
+			WRITE(p, "float4x4 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
 #else
 			for (int i = 0; i < numBones; i++) {
-				WRITE(p, "float4x4 u_bone%i;\n", i);
+				WRITE(p, "float4x4 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 4);
 			}
 #endif
 		}
 		if (doTexture) {
-			WRITE(p, "float4 u_uvscaleoffset;\n");
+			WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
-				WRITE(p, "float3 u_lightpos%i;\n", i);
+				WRITE(p, "float3 u_lightpos%i : register(c%i);\n", i, CONST_VS_LIGHTPOS + i);
 			}
 			if (doLight[i] == LIGHT_FULL) {
 				GELightType type = gstate.getLightType(i);
 
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					WRITE(p, "float3 u_lightatt%i;\n", i);
+					WRITE(p, "float3 u_lightatt%i : register(c%i);\n", i, CONST_VS_LIGHTATT + i);
 
 				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) { 
-					WRITE(p, "float3 u_lightdir%i;\n", i);
-					WRITE(p, "float u_lightangle%i;\n", i);
-					WRITE(p, "float u_lightspotCoef%i;\n", i);
+					WRITE(p, "float3 u_lightdir%i : register(c%i);\n", i, CONST_VS_LIGHTDIR + i);
+					WRITE(p, "float u_lightangle%i : register(c%i);\n", i, CONST_VS_LIGHTANGLE + i);
+					WRITE(p, "float u_lightspotCoef%i : register(c%i);\n", i, CONST_VS_LIGHTSPOTCOEF + i);
 				}
-				WRITE(p, "float3 u_lightambient%i;\n", i);
-				WRITE(p, "float3 u_lightdiffuse%i;\n", i);
+				WRITE(p, "float3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
+				WRITE(p, "float3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
 
 				if (gstate.isUsingSpecularLight(i))
-					WRITE(p, "float3 u_lightspecular%i;\n", i);
+					WRITE(p, "float3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
 			}
 		}
 		if (gstate.isLightingEnabled()) {
-			WRITE(p, "float4 u_ambient;\n");
+			WRITE(p, "float4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
 			if ((gstate.materialupdate & 2) == 0 || !hasColor)
-				WRITE(p, "float3 u_matdiffuse;\n");
+				WRITE(p, "float3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
 			// if ((gstate.materialupdate & 4) == 0)
-			WRITE(p, "float4 u_matspecular;\n");  // Specular coef is contained in alpha
-			WRITE(p, "float3 u_matemissive;\n");
+			WRITE(p, "float4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
+			WRITE(p, "float3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
 		}
 	}
 
 	if (useHWTransform) {
-		WRITE(p, " struct VS_IN                                \n");
-		WRITE(p, "                                             \n");
-		WRITE(p,  " {                                          \n");
-		if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE) {
+		WRITE(p, "struct VS_IN {                              \n");
+		if (vertTypeIsSkinningEnabled(vertType)) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture && hasTexcoord) {
 			if (doTextureProjection)
-				WRITE(p, "		float3 texcoord:  TEXCOORD0;             \n");
+				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
 			else
-				WRITE(p, "		float2 texcoord:  TEXCOORD0;             \n");
+				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
 		}
 		if (hasColor)  {
-			WRITE(p, "		float4 color0: COLOR0;                 \n");
+			WRITE(p, "  float4 color0 : COLOR0;\n");
 		}
 		if (hasNormal) {
-			WRITE(p, "		float3 normal: NORMAL;                \n");
+			WRITE(p, "  float3 normal : NORMAL;\n");
 		}
-		WRITE(p, "		float3 position: POSITION;			   \n");
-		WRITE(p, " };                                          \n");
-		WRITE(p, "                                             \n");	
+		WRITE(p, "  float3 position : POSITION;\n");
+		WRITE(p, "};\n");
 		
 	} else {
-		WRITE(p, " struct VS_IN                                \n");
-		WRITE(p, "                                             \n");
-		WRITE(p,  " {                                          \n");
-		WRITE(p, "		float4 position   : POSITION;            \n");
-		WRITE(p, "		float3 texcoord   : TEXCOORD0;               \n");
-		WRITE(p, "		float4 color0    : COLOR0;             \n");
+		WRITE(p, "struct VS_IN {\n");
+		WRITE(p, "  float4 position : POSITION;\n");
+		WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
+		WRITE(p, "  float4 color0 : COLOR0;\n");
 		// only software transform supplies color1 as vertex data
-		WRITE(p, "		float4 color1    : COLOR1;             \n");
-		WRITE(p, " };                                          \n");
+		WRITE(p, "  float4 color1 : COLOR1;\n");
+		WRITE(p, "};\n");
 	}
 
-	WRITE(p, " struct VS_OUT                               \n");
-	WRITE(p, " {                                           \n");
-	WRITE(p, "		float4 gl_Position   : POSITION;            \n");
+	WRITE(p, "struct VS_OUT {\n");
+	WRITE(p, "  float4 gl_Position   : POSITION;\n");
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "		float3 v_texcoord: TEXCOORD0;               \n");
+			WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
 		else
-			WRITE(p, "		float2 v_texcoord: TEXCOORD0;               \n");
+			WRITE(p, "  float2 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "		float4 v_color0    : COLOR0;                 \n");
+	WRITE(p, "  float4 v_color0    : COLOR0;\n");
 	if (lmode) 
-		WRITE(p, "		float3 v_color1    : COLOR1;                 \n");
+		WRITE(p, "  float3 v_color1    : COLOR1;\n");
 
 	if (enableFog) {
-		WRITE(p, "float2 v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  float2 v_fogdepth: TEXCOORD1;\n");
 	}
-	WRITE(p, " };                                          \n");
-	WRITE(p, "                                             \n");
+	WRITE(p, "};\n");
 
-	WRITE(p, " VS_OUT main( VS_IN In )                     \n");
-	WRITE(p, " {                                           \n");	
-	WRITE(p, "		VS_OUT Out = (VS_OUT)0;							   \n");  
+	WRITE(p, "VS_OUT main(VS_IN In) {\n");
+	WRITE(p, "  VS_OUT Out = (VS_OUT)0;							   \n");  
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -309,7 +302,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 	}  else {
 		// Step 1: World Transform / Skinning
-		if (vertTypeGetWeightMask(vertType) == GE_VTYPE_WEIGHT_NONE) {
+		if (!vertTypeIsSkinningEnabled(vertType)) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world).xyz;\n");
 			if (hasNormal)
@@ -553,9 +546,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							if (hasTexcoord) {
-								static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-								const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-								temp_tc = StringFromFormat("float4(In.texcoord.xy %s, 0.0, 1.0)", factor);
+								temp_tc = StringFromFormat("float4(In.texcoord.xy, 0.0, 1.0)");
 							} else {
 								temp_tc = "float4(0.0, 0.0, 0.0, 1.0)";
 							}
@@ -599,7 +590,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	// WRITE(p, "Out.gl_Position.z = (Out.gl_Position.z + Out.gl_Position.w) * 0.5f;");
-	WRITE(p, "	return Out;             ");
+	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
 }
 

@@ -2104,7 +2104,7 @@ bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
 	// Cheat a bit to force a download of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return gpu->PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
 	}
 	return false;
 }
@@ -2113,7 +2113,7 @@ bool GLES_GPU::PerformMemoryUpload(u32 dest, int size) {
 	// Cheat a bit to force an upload of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return gpu->PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
 	}
 	return false;
 }

@@ -31,6 +31,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
@@ -492,9 +493,6 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 	}
 	shaderManager_->DirtyShader();
 
-	// Not sure if this is really needed.
-	shaderManager_->DirtyUniform(DIRTY_ALL);
-
 	framebufferManager_.BeginFrame();
 }
 
@@ -511,7 +509,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -528,7 +526,7 @@ bool DIRECTX9_GPU::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebufferDX9 *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -1412,7 +1410,7 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 void DIRECTX9_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
-	gpuStats.numShaders = shaderManager_->NumPrograms();
+	gpuStats.numShaders = -1;
 	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
 	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 }
@@ -1600,9 +1598,9 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.
 			if (FAILED(hr)) {
-				LPDIRECT3DSURFACE9 renderTarget;
+				LPDIRECT3DSURFACE9 renderTarget = nullptr;
 				hr = tex->GetSurfaceLevel(level, &renderTarget);
-				if (SUCCEEDED(hr)) {
+				if (renderTarget && SUCCEEDED(hr)) {
 					hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 					if (SUCCEEDED(hr)) {
 						hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
@@ -1610,6 +1608,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 						}
 					}
+					renderTarget->Release();
 				}
 			}
 
