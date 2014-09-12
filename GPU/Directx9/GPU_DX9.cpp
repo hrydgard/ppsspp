@@ -1598,9 +1598,9 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.
 			if (FAILED(hr)) {
-				LPDIRECT3DSURFACE9 renderTarget;
+				LPDIRECT3DSURFACE9 renderTarget = nullptr;
 				hr = tex->GetSurfaceLevel(level, &renderTarget);
-				if (SUCCEEDED(hr)) {
+				if (renderTarget && SUCCEEDED(hr)) {
 					hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 					if (SUCCEEDED(hr)) {
 						hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
@@ -1608,6 +1608,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 							hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 						}
 					}
+					renderTarget->Release();
 				}
 			}
 

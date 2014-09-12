@@ -951,7 +951,7 @@ namespace DX9 {
 			return true;
 		}
 
-		LPDIRECT3DSURFACE9 renderTarget;
+		LPDIRECT3DSURFACE9 renderTarget = nullptr;
 		HRESULT hr;
 		hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
 		if (!renderTarget || !SUCCEEDED(hr))
@@ -960,10 +960,12 @@ namespace DX9 {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen;
+		LPDIRECT3DSURFACE9 offscreen = nullptr;
 		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
-		if (!SUCCEEDED(hr))
+		if (!offscreen || !SUCCEEDED(hr)) {
+			renderTarget->Release();
 			return false;
+		}
 
 		bool success = false;
 		hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
@@ -981,6 +983,7 @@ namespace DX9 {
 		}
 
 		offscreen->Release();
+		renderTarget->Release();
 
 		return success;
 	}
