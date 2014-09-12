@@ -1510,9 +1510,9 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 			const u32 *p = pixelData;
 			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
 				for (int i = 0; i < (w + 1) / 2; ++i) {
-					u32 a = p[i] & 0x000F000F;
-					hitZeroAlpha |= a ^ 0x000F000F;
-					if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
+					u32 a = p[i] & 0xF000F000;
+					hitZeroAlpha |= a ^ 0xF000F000;
+					if (a != 0xF000F000 && a != 0xF0000000 && a != 0x0000F000 && a != 0) {
 						hitSomeAlpha = 1;
 						break;
 					}
@@ -1526,8 +1526,8 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 			const u32 *p = pixelData;
 			for (int y = 0; y < h; ++y) {
 				for (int i = 0; i < (w + 1) / 2; ++i) {
-					u32 a = p[i] & 0x00010001;
-					hitZeroAlpha |= a ^ 0x00010001;
+					u32 a = p[i] & 0x10001000;
+					hitZeroAlpha |= a ^ 0x10001000;
 				}
 				p += stride/2;
 			}
