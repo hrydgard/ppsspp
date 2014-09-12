@@ -838,7 +838,7 @@ void FramebufferManager::SetLineWidth() {
 }
 
 void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
-	if (!useBufferedRendering_) {
+	if (!useBufferedRendering_ || !vfb->fbo) {
 		return;
 	}
 
