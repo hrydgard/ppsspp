@@ -146,8 +146,11 @@ public:
 	bool bTrueColor;
 	bool bMipMap;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
-	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
+	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid, 2 = Bicubic, 3 = Hybrid + Bicubic, 4 = NNEDI3, 5 = Spline36
 	bool bTexDeposterize;
+	int iNNEDI3NeuronsY; // 0 = 16, 1 = 32, 2 = 64, 3 = 128, 4 = 256
+	int iNNEDI3NeuronsUV; // 0 = 16, 1 = 32, 2 = 64, 3 = 128, 4 = 256, 5 = Spline36
+	int iNNEDI3NeuronsA; // 0 = 16, 1 = 32, 2 = 64, 3 = 128, 4 = 256, 5 = Spline36
 	int iFpsLimit;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;

@@ -673,6 +673,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_TEXTURESCALING_HYBRID);
 		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC);
 		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC);
+		TranslateMenuItem(ID_TEXTURESCALING_NNEDI3);
+		TranslateMenuItem(ID_TEXTURESCALING_SPLINE36);
 		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE);
 		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, L"\tF6");
 		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE);	
@@ -1350,6 +1352,8 @@ namespace MainWindow
 				case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScaler::HYBRID); break;
 				case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScaler::BICUBIC); break;
 				case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScaler::HYBRID_BICUBIC); break;
+				case ID_TEXTURESCALING_NNEDI3:          setTexScalingType(TextureScaler::NNEDI3); break;
+				case ID_TEXTURESCALING_SPLINE36:        setTexScalingType(TextureScaler::SPLINE36); break;
 
 				case ID_TEXTURESCALING_DEPOSTERIZE:
 					g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
@@ -1829,12 +1833,14 @@ namespace MainWindow
 			ID_TEXTURESCALING_HYBRID,
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
+			ID_TEXTURESCALING_NNEDI3,
+			ID_TEXTURESCALING_SPLINE36,
 		};
 		if(g_Config.iTexScalingType < TextureScaler::XBRZ)
 			g_Config.iTexScalingType = TextureScaler::XBRZ;
 
-		else if(g_Config.iTexScalingType > TextureScaler::HYBRID_BICUBIC)
-			g_Config.iTexScalingType = TextureScaler::HYBRID_BICUBIC;
+		else if(g_Config.iTexScalingType > TextureScaler::SPLINE36)
+			g_Config.iTexScalingType = TextureScaler::SPLINE36;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));

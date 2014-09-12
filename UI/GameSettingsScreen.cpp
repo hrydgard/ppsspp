@@ -229,12 +229,32 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gs, screenManager()));
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
+	static const char *texScaleAlgosOpenCL[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "NNEDI3", "Spline36"};
+	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
+
+#ifndef MOBILE_DEVICE
+	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgosOpenCL, 0, ARRAY_SIZE(texScaleAlgosOpenCL), gs, screenManager()));
+#else
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gs, screenManager()));
+#endif
 	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
 	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+#ifndef MOBILE_DEVICE
+	graphicsSettings->Add(new ItemHeader(gs->T("NNEDI3 Settings")));
+	static const char *nnedi3YLevels[] = { "16", "32", "64", "128", "256" };
+	PopupMultiChoice *nnedi3NeuronsY = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iNNEDI3NeuronsY, gs->T("Number of Luma Neurons"), nnedi3YLevels, 0, ARRAY_SIZE(nnedi3YLevels), gs, screenManager()));
+	nnedi3NeuronsY->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	static const char *nnedi3UVALevels[] = { "16", "32", "64", "128", "256", "None (Spline36)" };
+	PopupMultiChoice *nnedi3NeuronsUV = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iNNEDI3NeuronsUV, gs->T("Number of Chroma Neurons"), nnedi3UVALevels, 0, ARRAY_SIZE(nnedi3UVALevels), gs, screenManager()));
+	nnedi3NeuronsUV->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	PopupMultiChoice *nnedi3NeuronsA = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iNNEDI3NeuronsA, gs->T("Number of Alpha Neurons"), nnedi3UVALevels, 0, ARRAY_SIZE(nnedi3UVALevels), gs, screenManager()));
+	nnedi3NeuronsA->SetDisabledPtr(&g_Config.bSoftwareRendering);
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };

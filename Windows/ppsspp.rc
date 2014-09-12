@@ -515,6 +515,8 @@ BEGIN
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
             MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
+            MENUITEM "NNEDI3",                          ID_TEXTURESCALING_NNEDI3
+            MENUITEM "Spline36",                        ID_TEXTURESCALING_SPLINE36
             MENUITEM SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
         END

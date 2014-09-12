@@ -22,6 +22,12 @@
     <Filter Include="Debugger">
       <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Common\OclScale">
+      <UniqueIdentifier>{71540a8c-b862-4b23-b9e4-4d8cd7834a7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common\OclScale\CL">
+      <UniqueIdentifier>{265fa3f3-e0ac-4174-9f3e-7604caf389e7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -173,6 +179,27 @@
     </ClInclude>
     <ClInclude Include="Common\FramebufferCommon.h">
       <Filter>Common</Filter>
+	</ClInclude>
+    <ClInclude Include="..\ext\OclScale\OclScale.h">
+      <Filter>Common\OclScale</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\opencl.h">
+      <Filter>Common\OclScale</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\CL\cl_ext.h">
+      <Filter>Common\OclScale\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\CL\cl_gl.h">
+      <Filter>Common\OclScale\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\CL\cl_gl_ext.h">
+      <Filter>Common\OclScale\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\CL\cl_platform.h">
+      <Filter>Common\OclScale\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\OclScale\CL\cl.h">
+      <Filter>Common\OclScale\CL</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -184,9 +211,6 @@
     </ClCompile>
     <ClCompile Include="Null\NullGpu.cpp">
       <Filter>Null</Filter>
-    </ClCompile>
-    <ClCompile Include="GPUCommon.cpp">
-      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Software\Clipper.cpp">
       <Filter>Software</Filter>
@@ -329,8 +353,32 @@
     <ClCompile Include="Common\FramebufferCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="GPUCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\OclScale\OclScale.cpp">
+      <Filter>Common\OclScale</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
+    <None Include="..\assets\opencl\nnedi3ocl_mad.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
+    <None Include="..\assets\opencl\spline36SingleChan.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
+    <None Include="..\assets\opencl\spline36.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
+    <None Include="..\assets\opencl\YUVAtoBGRAwithMerge.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
+    <None Include="..\assets\opencl\BGRAtoYUVA.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
+    <None Include="..\assets\opencl\mergeIntoRGBA.cl">
+      <Filter>Common\OclScale</Filter>
+    </None>
   </ItemGroup>
 </Project>
