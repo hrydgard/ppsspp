@@ -1526,8 +1526,8 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 			const u32 *p = pixelData;
 			for (int y = 0; y < h; ++y) {
 				for (int i = 0; i < (w + 1) / 2; ++i) {
-					u32 a = p[i] & 0x10001000;
-					hitZeroAlpha |= a ^ 0x10001000;
+					u32 a = p[i] & 0x80008000;
+					hitZeroAlpha |= a ^ 0x80008000;
 				}
 				p += stride/2;
 			}
