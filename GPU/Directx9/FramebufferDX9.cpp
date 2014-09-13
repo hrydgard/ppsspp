@@ -176,14 +176,14 @@ namespace DX9 {
 
 		// TODO: We can just change the texture format and flip some bits around instead of this.
 		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
-			for (int y = 0; y < 272; y++) {
+			for (int y = 0; y < height; y++) {
 				switch (srcPixelFormat) {
 					// not tested
 				case GE_FORMAT_565:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < 480; x++) {
+						for (int x = 0; x < width; x++) {
 							u16_le col0 = src[x+0];
 							ARGB8From565(col0, &dst[x + 0]);
 						}
@@ -194,7 +194,7 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < 480; x++) {
+						for (int x = 0; x < width; x++) {
 							u16_le col0 = src[x+0];
 							ARGB8From5551(col0, &dst[x + 0]);
 						}
@@ -205,7 +205,7 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < 480; x++)
+						for (int x = 0; x < width; x++)
 						{
 							u16_le col = src[x];
 							dst[x * 4 + 0] = (col >> 12) << 4;
@@ -220,7 +220,7 @@ namespace DX9 {
 					{
 						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < 480; x++)
+						for (int x = 0; x < width; x++)
 						{
 							dst[x] = RGBA2BGRA(src[x]);
 						}
@@ -229,10 +229,10 @@ namespace DX9 {
 				}
 			}
 		} else {
-			for (int y = 0; y < 272; y++) {
+			for (int y = 0; y < height; y++) {
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-				for (int x = 0; x < 512; x++)
+				for (int x = 0; x < width; x++)
 				{
 					dst[x] = RGBA2BGRA(src[x]);
 				}
