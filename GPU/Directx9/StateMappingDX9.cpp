@@ -397,7 +397,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 		vpX0 = (vpXb - offsetX - fabsf(vpXa)) * renderWidthFactor;
 		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
+		vpY0 = (framebufferManager_->GetTargetHeight() - (vpYb - offsetY + fabsf(vpYa))) * renderHeightFactor;
 		
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 

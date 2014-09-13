@@ -154,8 +154,9 @@ namespace DX9 {
 		return (src >> 8) | (src << 24); 
 	}
 
-	void FramebufferManagerDX9::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
-		u8 * convBuf = NULL;
+	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+
+		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
 
 		if (!drawPixelsTex_) {
@@ -169,13 +170,13 @@ namespace DX9 {
 		// Final format is ARGB(directx)
 
 		// TODO: We can just change the texture format and flip some bits around instead of this.
-		if (pixelFormat != GE_FORMAT_8888 || linesize != 512) {
+		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 			for (int y = 0; y < 272; y++) {
-				switch (pixelFormat) {
+				switch (srcPixelFormat) {
 					// not tested
 				case GE_FORMAT_565:
 					{
-						const u16 *src = (const u16 *)framebuf + linesize * y;
+						const u16 *src = (const u16 *)srcPixels + srcStride * y;
 						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++) {
 							u16_le col0 = src[x+0];
@@ -186,7 +187,7 @@ namespace DX9 {
 					// faster
 				case GE_FORMAT_5551:
 					{
-						const u16 *src = (const u16 *)framebuf + linesize * y;
+						const u16 *src = (const u16 *)srcPixels + srcStride * y;
 						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++) {
 							u16_le col0 = src[x+0];
@@ -197,7 +198,7 @@ namespace DX9 {
 					// not tested
 				case GE_FORMAT_4444:
 					{
-						const u16 *src = (const u16 *)framebuf + linesize * y;
+						const u16 *src = (const u16 *)srcPixels + srcStride * y;
 						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++)
 						{
@@ -212,7 +213,7 @@ namespace DX9 {
 
 				case GE_FORMAT_8888:
 					{
-						const u32 *src = (const u32 *)framebuf + linesize * y;
+						const u32 *src = (const u32 *)srcPixels + srcStride * y;
 						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++)
 						{
@@ -224,7 +225,7 @@ namespace DX9 {
 			}
 		} else {
 			for (int y = 0; y < 272; y++) {
-				const u32 *src = (const u32 *)framebuf + linesize * y;
+				const u32 *src = (const u32 *)srcPixels + srcStride * y;
 				u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 				for (int x = 0; x < 512; x++)
 				{
@@ -235,10 +236,29 @@ namespace DX9 {
 
 		drawPixelsTex_->UnlockRect(0);
 		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
+	}
 
+	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+		if (useBufferedRendering_ && vfb->fbo) {
+			fbo_bind_as_render_target(vfb->fbo);
+		}
+		dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+		DisableState();
+		DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
+	}
+
+	void FramebufferManagerDX9::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+
+		DisableState();
+
+		// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
+		// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
+		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, false, 480.0f / 512.0f);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
 	}
 
 	// Depth in ogl is between -1;1 we need between 0;1
@@ -255,22 +275,28 @@ namespace DX9 {
 		in = in * t;
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale) {
-		float u2 = uscale;
-		// Since we're flipping, 0 is down.  That's where the scale goes.
-		float v1 = flip ? 1.0f : 1.0f - vscale;
-		float v2 = flip ? 1.0f - vscale : 1.0f;
+	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1) {
+		if (flip) {
+			std::swap(v0, v1);
+		}
 
-		float coord[] = { 
-			x,	 y,	  0,	0,	v1,
-			x+w, y,	  0,	u2, v1,
-			x+w, y+h, 0,	u2, v2,
-			x,	 y+h, 0,	0,	v2
-		}; 
+		// TODO: StretchRect instead?
+		if (tex) {
+			pD3Ddevice->SetTexture(0, tex);
+		}
 
+		float coord[20] = {
+			x,y,0, u0,v0,
+			x+w,y,0, u1,v0,
+			x+w,y+h,0, u1,v1,
+			x,y+h,0, u0,v1,
+		};
+
+		float invDestW = 1.0f / (destW * 0.5f);
+		float invDestH = 1.0f / (destH * 0.5f);
 		for (int i = 0; i < 4; i++) {
-			coord[i * 5] = coord[i * 5] / (destW * 0.5) - 1.0f;
-			coord[i * 5 + 1] = -(coord[i * 5 + 1] / (destH * 0.5) - 1.0f);
+			coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
+			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
 		}
 
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
@@ -367,8 +393,7 @@ namespace DX9 {
 			if (vfb->fbo) {
 				ClearBuffer();
 				if (!g_Config.bDisableSlowFramebufEffects) {
-					// TODO
-					//BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+					BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 				}
 			}
 			fbo_destroy(old.fbo);
@@ -469,7 +494,49 @@ namespace DX9 {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		currentRenderVfb_ = 0;
 
+		u32 offsetX = 0;
+		u32 offsetY = 0;
+
 		VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
+		if (!vfb) {
+			// Let's search for a framebuf within this range.
+			const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
+			for (size_t i = 0; i < vfbs_.size(); ++i) {
+				VirtualFramebuffer *v = vfbs_[i];
+				const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
+				const u32 v_size = FramebufferByteSize(v);
+				if (addr >= v_addr && addr < v_addr + v_size) {
+					const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+					const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
+					const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
+					// We have enough space there for the display, right?
+					if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
+						continue;
+					}
+					// Check for the closest one.
+					if (offsetY == 0 || offsetY > v_offsetY) {
+						offsetX = v_offsetX;
+						offsetY = v_offsetY;
+						vfb = v;
+					}
+				}
+			}
+
+			if (vfb) {
+				// Okay, we found one above.
+				INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			}
+		}
+
+		if (vfb && vfb->format != displayFormat_) {
+			if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
+				// The game probably switched formats on us.
+				vfb->format = displayFormat_;
+			} else {
+				vfb = 0;
+			}
+		}
+
 		if (!vfb) {
 			if (Memory::IsValidAddress(displayFramebufPtr_)) {
 				// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -483,7 +550,7 @@ namespace DX9 {
 
 				if (!vfb) {
 					// Just a pointer to plain memory to draw. Draw it.
-					DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+					DrawFramebuffer(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 					return;
 				}
 			} else {
@@ -522,6 +589,11 @@ namespace DX9 {
 			// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 			// and to discard extraFBOs_ after using them.
 
+			const float u0 = offsetX / (float)vfb->bufferWidth;
+			const float v0 = offsetY / (float)vfb->bufferHeight;
+			const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
+			const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+
 			if (1) {
 				dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 				// These are in the output display coordinates
@@ -534,7 +606,7 @@ namespace DX9 {
 				}
 				dxstate.texMipFilter.set(D3DTEXF_NONE);
 				dxstate.texMipLodBias.set(0);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1);
 			}
 			/* 
 			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
@@ -662,7 +734,7 @@ namespace DX9 {
 			}
 
 			vfb->memoryUpdated = true;
-			BlitFramebuffer_(vfb, nvfb, false);
+			BlitFramebuffer_(nvfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0, false);
 
 #if 0
 #ifdef USING_GLES2
@@ -680,40 +752,47 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
-		if (dst->fbo) {
-			fbo_bind_as_render_target(dst->fbo);
-		} else {
-			ERROR_LOG_REPORT_ONCE(dstfbozero, SCEGE, "BlitFramebuffer_: dst->fbo == 0");
+	void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
+		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
+			// This can happen if they recently switched from non-buffered.
 			fbo_unbind();
 			return;
 		}
 
-		/*
-		if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		ERROR_LOG(HLE, "Incomplete target framebuffer, aborting blit");
-		fbo_unbind();
-		return;
-		}
-		*/
-
-		dxstate.viewport.set(0, 0, dst->width, dst->height);
+		fbo_bind_as_render_target(dst->fbo);
+		dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);
 		DisableState();
 
-		if (src->fbo) {
-			fbo_bind_color_as_texture(src->fbo, 0);
-		} else {
-			ERROR_LOG_REPORT_ONCE(srcfbozero, SCEGE, "BlitFramebuffer_: src->fbo == 0");
-			fbo_unbind();
-			return;
+		fbo_bind_color_as_texture(src->fbo, 0);
+
+		float srcXFactor = 1.0f;
+		float srcYFactor = 1.0f;
+		const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
+		if (srcBpp != bpp && bpp != 0) {
+			srcXFactor = (srcXFactor * bpp) / srcBpp;
 		}
+		int srcX1 = srcX * srcXFactor;
+		int srcX2 = (srcX + w) * srcXFactor;
+		int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
+		int srcY1 = srcY2 + h * srcYFactor;
 
-		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+		float dstXFactor = 1.0f;
+		float dstYFactor = 1.0f;
+		const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
+		if (dstBpp != bpp && bpp != 0) {
+			dstXFactor = (dstXFactor * bpp) / dstBpp;
+		}
+		int dstX1 = dstX * dstXFactor;
+		int dstX2 = (dstX + w) * dstXFactor;
+		int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
+		int dstY1 = dstY2 + h * dstYFactor;
 
-		DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, flip, upscale, vscale);
-
+		float srcW = src->bufferWidth;
+		float srcH = src->bufferHeight;
+		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH);
 		pD3Ddevice->SetTexture(0, NULL);
+		textureCache_->ForgetLastTexture();
+		dxstate.viewport.restore();
 
 		fbo_unbind();
 	}
@@ -898,26 +977,27 @@ namespace DX9 {
 		addr &= ~0x40000000;
 		// TODO: Could go through all FBOs, but probably not important?
 		// TODO: Could also check for inner changes, but video is most important.
-		if (addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr() || safe) {
+		bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
+		if (isDisplayBuf || safe) {
 			// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
 			if (!Memory::IsValidAddress(displayFramebufPtr_))
 				return;
 
-			fbo_unbind();
-			currentRenderVfb_ = 0;
-
-			bool needUnbind = false;
 			for (size_t i = 0; i < vfbs_.size(); ++i) {
 				VirtualFramebuffer *vfb = vfbs_[i];
 				if (MaskedEqual(vfb->fb_address, addr)) {
-					vfb->dirtyAfterDisplay = true;
-					vfb->reallyDirtyAfterDisplay = true;
-					// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
-					// However, it doesn't seem to work for Star Ocean, at least
+					// TODO
+					//FlushBeforeCopy();
+
 					if (useBufferedRendering_ && vfb->fbo) {
-						fbo_bind_as_render_target(vfb->fbo);
-						needUnbind = true;
-						DrawPixels(Memory::GetPointer(addr | 0x04000000), vfb->format, vfb->fb_stride);
+						DisableState();
+						GEBufferFormat fmt = vfb->format;
+						if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
+							// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
+							fmt = displayFormat_;
+						}
+						DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
+						SetColorUpdated(vfb);
 					} else {
 						INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 						DestroyFramebuf(vfb);
@@ -926,8 +1006,9 @@ namespace DX9 {
 				}
 			}
 
-			if (needUnbind)
-				fbo_unbind();
+			// TODO: RebindFramebuffer();
+			fbo_unbind();
+			currentRenderVfb_ = 0;
 		}
 	}
 
