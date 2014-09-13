@@ -744,7 +744,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			 char keyName[64];
 			 std::string fileName;
 
-			 sprintf(keyName, "FileName%d", i);
+			 snprintf(keyName, sizeof(keyName), "FileName%d", i);
 			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
 				 recentIsos.push_back(fileName);
 			 }
@@ -853,7 +853,7 @@ void Config::Save() {
 
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
-			sprintf(keyName,"FileName%d",i);
+			snprintf(keyName, sizeof(keyName), "FileName%d", i);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {

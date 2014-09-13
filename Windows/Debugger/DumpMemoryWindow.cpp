@@ -74,10 +74,9 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 					break;
 
 				FILE* output = fopen(bp->fileName,"wb");
-				if (output == NULL)
-				{
-					char errorMessage[256];
-					sprintf(errorMessage,"Could not open file \"%s\".",bp->fileName);
+				if (output == NULL) {
+					char errorMessage[2048];
+					snprintf(errorMessage, sizeof(errorMessage), "Could not open file \"%s\".",bp->fileName);
 					MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 					break;
 				}

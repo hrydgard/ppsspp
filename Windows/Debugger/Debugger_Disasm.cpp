@@ -721,11 +721,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 void CDisasm::updateThreadLabel(bool clear)
 {
 	char label[512];
-	if (clear)
-	{
-		sprintf(label,"Thread: -");
+	if (clear) {
+		snprintf(label, sizeof(label), "Thread: -");
 	} else {
-		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
+		snprintf(label, sizeof(label), "Thread: %s", threadList->getCurrentThreadName());
 	}
 
 	SetDlgItemText(m_hDlg, IDC_THREADNAME, ConvertUTF8ToWString(label).c_str());

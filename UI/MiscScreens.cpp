@@ -415,7 +415,7 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
@@ -626,7 +626,7 @@ void CreditsScreen::render() {
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
 	credits[0] = (const char *)temp;
 
 	UIContext &dc = *screenManager()->getUIContext();
