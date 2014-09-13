@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "math/math_util.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -23,7 +24,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/GLES/TextureCache.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GLES/TransformPipeline.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
@@ -82,7 +83,7 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
-bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
+static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
@@ -119,10 +120,9 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 	return true;
 }
 
-
 void TransformDrawEngine::SoftwareTransform(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType,
-		const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
+		const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -388,7 +388,7 @@ void TransformDrawEngine::SoftwareTransform(
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
 	// Experiment: Disable on PowerVR (see issue #6290)
-	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
 		result->color = transformed[0].color0_32;
 		result->depth = transformed[0].z;
 		result->action = SW_CLEAR;
@@ -409,7 +409,7 @@ void TransformDrawEngine::SoftwareTransform(
 			const u32 fb_size = bpp * fbman->GetTargetStride() * gstate_c.curTextureHeight;
 			const u32 prevH = gstate_c.curTextureHeight;
 			const u32 prevYOffset = gstate_c.curTextureYOffset;
-			if (textureCache_->SetOffsetTexture(fb_size)) {
+			if (texCache->SetOffsetTexture(fb_size)) {
 				const float oldWidthFactor = widthFactor;
 				const float oldHeightFactor = heightFactor;
 				widthFactor = (float) w / (float) gstate_c.curTextureWidth;

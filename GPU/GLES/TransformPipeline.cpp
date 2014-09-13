@@ -769,7 +769,7 @@ rotateVBO:
 		SoftwareTransform(
 			prim, decoded, program, indexGen.VertexCount(),
 			dec_->VertexType(), (void *)inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex(), framebufferManager_, drawBuffer, numTrans, drawIndexed, &result);
+			indexGen.MaxIndex(), framebufferManager_, textureCache_, drawBuffer, numTrans, drawIndexed, &result);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {

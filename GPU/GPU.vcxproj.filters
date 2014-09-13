@@ -156,6 +156,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureCacheCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -294,6 +297,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureCacheCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
