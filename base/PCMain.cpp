@@ -542,7 +542,7 @@ int main(int argc, char *argv[]) {
 	PathAppend(path, (app_name + "\\").c_str());
 #else
 	// Mac / Linux
-	char path[512];
+	char path[2048];
 	const char *the_path = getenv("HOME");
 	if (!the_path) {
 		struct passwd* pwd = getpwuid(getuid());
