@@ -107,14 +107,13 @@ public:
 	TransformDrawEngineDX9();
 	virtual ~TransformDrawEngineDX9();
 	
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	void DecodeVerts();
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -134,6 +133,7 @@ public:
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	void SetupVertexDecoderInternal(u32 vertType);
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 	// This requires a SetupVertexDecoder call first.
@@ -147,9 +147,13 @@ public:
 	}
 
 private:
+	void DecodeVerts();
+	void DecodeVertsStep();
 	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
+	void ApplyDrawStateLate();
+
 	bool IsReallyAClear(int numVerts) const;
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -178,12 +182,13 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int collectedVerts;
+	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
 	std::map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
+	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -203,7 +208,6 @@ private:
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;
 	FramebufferManagerDX9 *framebufferManager_;
-	VertexDecoderJitCache *decJitCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 
@@ -212,6 +216,8 @@ private:
 	int vertexCountInDrawCalls;
 
 	int decimationCounter_;
+	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
 

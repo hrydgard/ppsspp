@@ -926,10 +926,10 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 
 			if (gstate.isAntiAliasEnabled()) {
 				// Discard AA lines in DOA
-					if (prim == GE_PRIM_LINE_STRIP)
+				if (prim == GE_PRIM_LINE_STRIP)
 					break;
 				// Discard AA lines in Summon Night 5
-					if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
+				if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
 					break;
 			}
 
@@ -959,7 +959,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 			}
 
 			int bytesRead;
-			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
+			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
 			gpuStats.vertexGPUCycles += vertexCost * count;

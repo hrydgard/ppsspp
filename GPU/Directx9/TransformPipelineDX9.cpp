@@ -15,54 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-
-// Ideas for speeding things up on mobile OpenGL ES implementations
-//
-// Use superbuffers! Yes I just invented that name.
-//
-// The idea is to avoid respecifying the vertex format between every draw call (multiple glVertexAttribPointer ...)
-// by combining the contents of multiple draw calls into one buffer, as long as
-// they have exactly the same output vertex format. (different input formats is fine! This way
-// we can combine the data for multiple draws with different numbers of bones, as we consider numbones < 4 to be = 4)
-// into one VBO.
-//
-// This will likely be a win because I believe that between every change of VBO + glVertexAttribPointer*N, the driver will
-// perform a lot of validation, probably at draw call time, while all the validation can be skipped if the only thing
-// that changes between two draw calls is simple state or texture or a matrix etc, not anything vertex related.
-// Also the driver will have to manage hundreds instead of thousands of VBOs in games like GTA.
-//
-// * Every 10 frames or something, do the following:
-//   - Frame 1:
-//		 + Mark all drawn buffers with in-frame sequence numbers (alternatively,
-//		   just log them in an array)
-//	 - Frame 2 (beginning?):
-//	   + Take adjacent buffers that have the same output vertex format, and add them
-//	     to a list of buffers to combine. Create said buffers with appropriate sizes
-//	     and precompute the offsets that the draws should be written into.
-//	 - Frame 2 (end):
-//	   + Actually do the work of combining the buffers. This probably means re-decoding
-//	     the vertices into a new one. Will also have to apply index offsets.
-//
-// Also need to change the drawing code so that we don't glBindBuffer and respecify glVAP if
-// two subsequent drawcalls come from the same superbuffer.
-//
-// Or we ignore all of this including vertex caching and simply find a way to do highly optimized vertex streaming,
-// like Dolphin is trying to. That will likely never be able to reach the same speed as perfectly optimized
-// superbuffers though. For this we will have to JIT the vertex decoder but that's not too hard.
-//
-// Now, when do we delete superbuffers? Maybe when half the buffers within have been killed?
-//
-// Another idea for GTA which switches textures a lot while not changing much other state is to use ES 3 Array
-// textures, if they are the same size (even if they aren't, might be okay to simply resize the textures to match
-// if they're just a multiple of 2 away) or something. Then we'd have to add a W texture coordinate to choose the
-// texture within the bound texture array to the vertex data when merging into superbuffers.
-//
-// There are even more things to try. For games that do matrix palette skinning by quickly switching bones and
-// just drawing a few triangles per call (NBA, FF:CC, Tekken 6 etc) we could even collect matrices, upload them
-// all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
-// draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
-
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -134,7 +86,7 @@ inline float clamp(float in, float min, float max) {
 }
 
 TransformDrawEngineDX9::TransformDrawEngineDX9()
-	: collectedVerts(0),
+	:
 	prevPrim_(GE_PRIM_INVALID),
 	dec_(0),
 	lastVType_(-1),
@@ -143,6 +95,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	framebufferManager_(0),
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
+	decodeCounter_(0),
+	dcid_(0),
 	uvScale(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
@@ -247,42 +201,6 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
-	// Vertices Elements orders
-	// WEIGHT
-	if (decFmt.w0fmt != 0) {
-		printf("decFmt.w0fmt -> %s (%d)\n", VComp[decFmt.w0fmt].name, decFmt.w0off);
-	}
-
-	if (decFmt.w1fmt != 0) {
-		printf("decFmt.w1fmt -> %s (%d)\n", VComp[decFmt.w1fmt].name, decFmt.w1off);
-	}
-
-	// TC
-	if (decFmt.uvfmt != 0) {
-		printf("decFmt.uvfmt -> %s (%d)\n", VComp[decFmt.uvfmt].name, decFmt.uvoff);
-	}
-
-	// COLOR
-	if (decFmt.c0fmt != 0) {
-		printf("decFmt.c0fmt -> %s (%d)\n", VComp[decFmt.c0fmt].name, decFmt.c0off);
-	}
-
-	// NORMAL
-	if (decFmt.nrmfmt != 0) {
-		printf("decFmt.nrmfmt -> %s (%d)\n", VComp[decFmt.nrmfmt].name, decFmt.nrmoff);
-	}
-
-	// POSITION
-	// Always
-	printf("decFmt.posfmt -> %s (%d)\n", VComp[decFmt.posfmt].name, decFmt.posoff);
-
-	printf("decFmt.stride => %d\n", decFmt.stride);
-
-	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-}
-
 IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
@@ -338,9 +256,8 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
 		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
-			// Log
-			LogDecFmtForDraw(decFmt);
-			// DebugBreak();
+			ERROR_LOG(G3D, "Failed to create vertex declaration!");
+			pHardwareVertexDecl = nullptr;
 		}
 
 		// Add it to map
@@ -351,7 +268,6 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		return vertexDeclCached->second;
 	}
 }
-
 
 // The verts are in the order:  BR BL TL TR
 static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
@@ -797,12 +713,20 @@ VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
+
 void TransformDrawEngineDX9::SetupVertexDecoder(u32 vertType) {
+	SetupVertexDecoderInternal(vertType);
+}
+
+inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+
 	// If vtype has changed, setup the vertex decoder.
-	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType_) {
-		dec_ = GetVertexDecoder(vertType);
-		lastVType_ = vertType;
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
 	}
 }
 
@@ -834,20 +758,20 @@ int TransformDrawEngineDX9::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
-		
+
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
 		prim = prevPrim_;
 	}
 	prevPrim_ = prim;
-	
-	SetupVertexDecoder(vertType);
+
+	SetupVertexDecoderInternal(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
 
@@ -861,9 +785,22 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
-	dc.indexType = ((forceIndexType == -1) ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
+
+	u32 dhash = dcid_;
+	dhash ^= (u32)(uintptr_t)verts;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)(uintptr_t)inds;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertType;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertexCount;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)prim;
+	dcid_ = dhash;
+
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
@@ -874,13 +811,13 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	if (uvScale) {
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
+
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
 
 	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
-		// TODO
-		// DecodeVertsStep();
-		// decodeCounter_++;
+		DecodeVertsStep();
+		decodeCounter_++;
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
@@ -891,82 +828,100 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 }
 
-void TransformDrawEngineDX9::DecodeVerts() {
-	UVScale origUV;
-	if (uvScale)
-		origUV = gstate_c.uv;
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
+void TransformDrawEngineDX9::DecodeVertsStep() {
+	const int i = decodeCounter_;
 
-		indexGen.SetIndex(collectedVerts);
-		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+	const DeferredDrawCall &dc = drawCalls[i];
 
-		u32 indexType = dc.indexType;
-		void *inds = dc.inds;
-		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-			// Decode the verts and apply morphing. Simple.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += indexUpperBound - indexLowerBound + 1;
-			indexGen.AddPrim(dc.prim, dc.vertexCount);
-		} else {
-			// It's fairly common that games issue long sequences of PRIM calls, with differing
-			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-			// these as much as possible, so we make sure here to combine as many as possible
-			// into one nice big drawcall, sharing data.
+	indexGen.SetIndex(decodedVerts_);
+	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
-			// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-			//    Expand the lower and upper bounds as we go.
-			int j = i + 1;
-			int lastMatch = i;
-			while (j < numDrawCalls) {
+	u32 indexType = dc.indexType;
+	void *inds = dc.inds;
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+		// Decode the verts and apply morphing. Simple.
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
+		indexGen.AddPrim(dc.prim, dc.vertexCount);
+	} else {
+		// It's fairly common that games issue long sequences of PRIM calls, with differing
+		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+		// these as much as possible, so we make sure here to combine as many as possible
+		// into one nice big drawcall, sharing data.
+
+		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+		//    Expand the lower and upper bounds as we go.
+		int lastMatch = i;
+		const int total = numDrawCalls;
+		if (uvScale) {
+			for (int j = i + 1; j < total; ++j) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
 					break;
 
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
 				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
 				lastMatch = j;
-				j++;
 			}
+		} else {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
 
-			// 2. Loop through the drawcalls, translating indices as we go.
-			for (j = i; j <= lastMatch; j++) {
-				switch (indexType) {
-				case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				}
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
 			}
+		}
 
-			int vertexCount = indexUpperBound - indexLowerBound + 1;
-			// 3. Decode that range of vertex data.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += vertexCount;
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		}
 
-			// 4. Advance indexgen vertex counter.
-			indexGen.Advance(vertexCount);
-			i = lastMatch;
+		const int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 3. Decode that range of vertex data.
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts_ += vertexCount;
+
+		// 4. Advance indexgen vertex counter.
+		indexGen.Advance(vertexCount);
+		decodeCounter_ = lastMatch;
+	}
+}
+
+
+void TransformDrawEngineDX9::DecodeVerts() {
+	if (uvScale) {
+		const UVScale origUV = gstate_c.uv;
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			gstate_c.uv = uvScale[decodeCounter_];
+			DecodeVertsStep();
+		}
+		gstate_c.uv = origUV;
+	} else {
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			DecodeVertsStep();
 		}
 	}
-
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
-	if (uvScale)
-		gstate_c.uv = origUV;
 }
 
 u32 TransformDrawEngineDX9::ComputeHash() {
@@ -1308,11 +1263,14 @@ rotateVBO:
 		}
 
 		indexGen.Reset();
-		collectedVerts = 0;
+		decodedVerts_ = 0;
 		numDrawCalls = 0;
 		vertexCountInDrawCalls = 0;
+		decodeCounter_ = 0;
+		dcid_ = 0;
 		prevPrim_ = GE_PRIM_INVALID;
 		gstate_c.vertexFullAlpha = true;
+		framebufferManager_->SetColorUpdated();
 
 		host->GPUNotifyDraw();
 }
