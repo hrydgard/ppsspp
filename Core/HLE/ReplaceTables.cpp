@@ -644,10 +644,10 @@ static int Hook_orenoimouto_download_frame() {
 }
 
 static int Hook_sakurasou_download_frame() {
-	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -704,7 +704,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
 	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER, 0x304 },
 	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
-	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOKENTER, 0x17c },
+	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOKENTER, 0xF8 },
 	{}
 };
 
