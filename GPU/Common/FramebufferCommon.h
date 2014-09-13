@@ -94,6 +94,7 @@ public:
 	FramebufferManagerCommon();
 	virtual ~FramebufferManagerCommon();
 
+	virtual void Init();
 	void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 

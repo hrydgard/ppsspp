@@ -126,9 +126,6 @@ namespace DX9 {
 		convBuf(0),
 		gameUsesSequentialCopies_(false)
 	{
-		// And an initial clear. We don't clear per frame as the games are supposed to handle that
-		// by themselves.
-		ClearBuffer();
 		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
 		int usage = 0;
 		D3DPOOL pool = D3DPOOL_MANAGED;
@@ -141,7 +138,6 @@ namespace DX9 {
 			drawPixelsTex_ = nullptr;
 			ERROR_LOG(G3D, "Failed to create drawpixels texture");
 		}
-		BeginFrame();
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {

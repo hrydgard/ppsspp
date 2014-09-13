@@ -396,6 +396,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
 	framebufferManager_.SetTransformDrawEngine(&transformDraw_);

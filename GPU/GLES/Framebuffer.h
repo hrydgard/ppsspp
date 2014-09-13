@@ -83,7 +83,7 @@ public:
 
 	void DestroyAllFBOs();
 
-	void Init();
+	virtual void Init() override;
 	void EndFrame();
 	void Resized();
 	void DeviceLost();

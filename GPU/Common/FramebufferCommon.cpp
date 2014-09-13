@@ -20,6 +20,7 @@
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/Reporting.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
@@ -39,6 +40,21 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
+}
+
+void FramebufferManagerCommon::Init() {
+
+	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
+	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
+	// We force this framebuffer to 1x and force download it automatically.
+	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
+
+	// And an initial clear. We don't clear per frame as the games are supposed to handle that
+	// by themselves.
+	ClearBuffer();
+
+	BeginFrame();
 }
 
 void FramebufferManagerCommon::BeginFrame() {
@@ -664,7 +680,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			if (srcHeight <= 0 || srcY + srcHeight > srcBuffer->bufferHeight) {
 				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 			} else {
-				ReadFramebufferToMemory(srcBuffer, true, srcX * srcXFactor, srcY, srcWidth * srcXFactor, srcHeight);
+				ReadFramebufferToMemory(srcBuffer, true, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
 			}
 		}
 		return false;  // Let the bit copy happen
@@ -708,7 +724,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
-				DrawPixels(dstBuffer, dstX * dstXFactor, dstY, srcBase, dstBuffer->format, srcStride * dstXFactor, dstWidth * dstXFactor, dstHeight);
+				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 				SetColorUpdated(dstBuffer);
 				RebindFramebuffer();
 			}

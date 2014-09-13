@@ -30,7 +30,6 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -353,20 +352,9 @@ FramebufferManager::FramebufferManager() :
 }
 
 void FramebufferManager::Init() {
+	FramebufferManagerCommon::Init();
 	CompileDraw2DProgram();
-
-	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
-	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
-	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
-	// We force this framebuffer to 1x and force download it automatically.
-	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
-
-	// And an initial clear. We don't clear per frame as the games are supposed to handle that
-	// by themselves.
-	ClearBuffer();
-
 	SetLineWidth();
-	BeginFrame();
 }
 
 FramebufferManager::~FramebufferManager() {
