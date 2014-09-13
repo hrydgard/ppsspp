@@ -63,9 +63,9 @@ struct CommandTableEntry {
 
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
+	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
+	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
 	{GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE},
 
@@ -79,56 +79,56 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexMapMode },
+	{ GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexOffsetV },
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
-	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
-	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_TexSize0},
+	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexFormat},
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTE, &DIRECTX9_GPU::Execute_TexLevel},
+	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddr0},
+	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufw0},
+	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
 	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ClutFormat},
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexParamType},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ColorTestMask},
 
 	// These change the vertex shader so need flushing.
 	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},  // TODO: This one is actually processed during vertex decoding which is wrong.
@@ -145,13 +145,13 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexParamType},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexParamType},
 
 	// Uniform changes
-	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_AlphaTest},
+	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ColorRef},
+	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexEnvColor},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
 	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
@@ -160,7 +160,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_StencilTest},
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -204,12 +204,12 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 
 	// Region
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Scissor},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Scissor},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
@@ -222,67 +222,67 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These precompute a value. not sure if worth it. Also dirty uniforms, which could be table-ized to avoid execute.
-	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LX3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LY3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LZ3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LX3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LY3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LZ3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
-	{GE_CMD_LDX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDX2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDY2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDZ2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDX3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDY3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDZ3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LDY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LDZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LDX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LDY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LDZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LDX2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LDY2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LDZ2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LDX3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LDY3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LDZ3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
-	{GE_CMD_LKA0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKB0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKA1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKB1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKA2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKB2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKA3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKB3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKA0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LKB0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LKC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LKA1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LKB1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LKC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LKA2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LKB2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LKC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LKA3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LKB3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LKC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
-	{GE_CMD_LKS0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKS1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKS2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKS3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKS0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LKS1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LKS2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LKS3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
-	{GE_CMD_LKO0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKO1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKO2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LKO3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKO0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LKO1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LKO2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LKO3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
-	{GE_CMD_LAC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LSC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LAC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LSC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LAC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LSC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LAC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LDC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LAC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LDC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LSC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light0Param},
+	{GE_CMD_LAC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LDC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LSC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light1Param},
+	{GE_CMD_LAC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LDC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LSC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light2Param},
+	{GE_CMD_LAC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LDC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
+	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
 	// Ignored commands
 	{GE_CMD_CLIPENABLE, 0},
@@ -317,15 +317,15 @@ static const CommandTableEntry commandTable[] = {
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_VertexType},
 
-	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
-	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
+	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_Bezier},
+	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_Spline},
 
 	// These two are actually processed in CMD_END.
 	{GE_CMD_SIGNAL, FLAG_FLUSHBEFORE},
 	{GE_CMD_FINISH, FLAG_FLUSHBEFORE},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_LoadClut},
 	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
 
 	// We don't use the dither table.
@@ -684,6 +684,163 @@ void DIRECTX9_GPU::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	}
 }
 
+void DIRECTX9_GPU::Execute_Prim(u32 op, u32 diff) {
+	// This drives all drawing. All other state we just buffer up, then we apply it only
+	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
+
+	u32 data = op & 0xFFFFFF;
+	u32 count = data & 0xFFFF;
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
+
+	if (count == 0)
+		return;
+
+	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
+
+	if (gstate.isAntiAliasEnabled()) {
+		// Discard AA lines in DOA
+		if (prim == GE_PRIM_LINE_STRIP)
+			return;
+		// Discard AA lines in Summon Night 5
+		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+			return;
+	}
+
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		transformDraw_.SetupVertexDecoder(gstate.vertType);
+		// Rough estimate, not sure what's correct.
+		int vertexCost = transformDraw_.EstimatePerVertexCost();
+		cyclesExecuted += vertexCost * count;
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *inds = 0;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+#ifndef MOBILE_DEVICE
+	if (prim > GE_PRIM_RECTANGLES) {
+		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
+	}
+#endif
+
+	int bytesRead = 0;
+	transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
+
+	int vertexCost = transformDraw_.EstimatePerVertexCost();
+	gpuStats.vertexGPUCycles += vertexCost * count;
+	cyclesExecuted += vertexCost * count;
+
+	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+	// Some games rely on this, they don't bother reloading VADDR and IADDR.
+	// The VADDR/IADDR registers are NOT updated.
+	if (inds) {
+		int indexSize = 1;
+		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+			indexSize = 2;
+		gstate_c.indexAddr += count * indexSize;
+	} else {
+		gstate_c.vertexAddr += bytesRead;
+	}
+}
+
+void DIRECTX9_GPU::Execute_Bezier(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	int bz_ucount = op & 0xFF;
+	int bz_vcount = (op >> 8) & 0xFF;
+	transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
+}
+
+void DIRECTX9_GPU::Execute_Spline(u32 op, u32 diff) {
+	// This also make skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer();
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *indices = NULL;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+		return;
+	}
+
+	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
+		DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
+	}
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
+	int sp_ucount = op & 0xFF;
+	int sp_vcount = (op >> 8) & 0xFF;
+	int sp_utype = (op >> 16) & 0x3;
+	int sp_vtype = (op >> 18) & 0x3;
+	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
+}
+
 void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
@@ -693,6 +850,175 @@ void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		break;
 	}
+}
+
+void DIRECTX9_GPU::Execute_Region(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_Scissor(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_FramebufType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexScaleU(u32 op, u32 diff) {
+	gstate_c.uv.uScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexScaleV(u32 op, u32 diff) {
+	gstate_c.uv.vScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexOffsetU(u32 op, u32 diff) {
+	gstate_c.uv.uOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexOffsetV(u32 op, u32 diff) {
+	gstate_c.uv.vOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexAddr0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexAddrN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexBufw0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void DIRECTX9_GPU::Execute_TexBufwN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexSize0(u32 op, u32 diff) {
+	// Render to texture may have overridden the width/height.
+	// Don't reset it unless the size is different / the texture has changed.
+	if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
+		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		// We will need to reset the texture now.
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	}
+}
+
+void DIRECTX9_GPU::Execute_TexSizeN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void DIRECTX9_GPU::Execute_TexMapMode(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexParamType(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_TEXENV);
+}
+
+void DIRECTX9_GPU::Execute_TexLevel(u32 op, u32 diff) {
+	// I had hoped that this would let us avoid excessively flushing in Gran Turismo, but not so,
+	// as the game switches rapidly between modes 0 and 1.
+	/*
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) {
+		gstate.texlevel ^= diff;
+		Flush();
+		gstate.texlevel ^= diff;
+	}
+	*/
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
+}
+
+void DIRECTX9_GPU::Execute_ClutFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	// This could be used to "dirty" textures with clut.
+}
+
+void DIRECTX9_GPU::Execute_Ambient(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_AMBIENT);
+}
+
+void DIRECTX9_GPU::Execute_MaterialDiffuse(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
+}
+
+void DIRECTX9_GPU::Execute_MaterialEmissive(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
+}
+
+void DIRECTX9_GPU::Execute_MaterialAmbient(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
+}
+
+void DIRECTX9_GPU::Execute_MaterialSpecular(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
+}
+
+void DIRECTX9_GPU::Execute_Light0Param(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_LIGHT0);
+}
+
+void DIRECTX9_GPU::Execute_Light1Param(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_LIGHT1);
+}
+
+void DIRECTX9_GPU::Execute_Light2Param(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_LIGHT2);
+}
+
+void DIRECTX9_GPU::Execute_Light3Param(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_LIGHT3);
+}
+
+void DIRECTX9_GPU::Execute_FogColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
+}
+
+void DIRECTX9_GPU::Execute_FogCoef(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+}
+
+void DIRECTX9_GPU::Execute_ColorTestMask(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
+}
+
+void DIRECTX9_GPU::Execute_AlphaTest(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORMASK);
+}
+
+void DIRECTX9_GPU::Execute_StencilTest(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_STENCILREPLACEVALUE);
+}
+
+void DIRECTX9_GPU::Execute_ColorRef(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 }
 
 void DIRECTX9_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
@@ -921,162 +1247,25 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_BASE:
 		break;
 
-	case GE_CMD_PRIM:
-		{
-			// This drives all drawing. All other state we just buffer up, then we apply it only
-			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
-
-			u32 count = data & 0xFFFF;
-			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
-
-			if (count == 0)
-				break;
-				
-			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-			
-
-			if (gstate.isAntiAliasEnabled()) {
-				// Discard AA lines in DOA
-				if (prim == GE_PRIM_LINE_STRIP)
-					break;
-				// Discard AA lines in Summon Night 5
-				if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
-					break;
-			}
-
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				transformDraw_.SetupVertexDecoder(gstate.vertType);
-				// Rough estimate, not sure what's correct.
-				int vertexCost = transformDraw_.EstimatePerVertexCost();
-				cyclesExecuted += vertexCost * count;
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
-			void *inds = 0;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				inds = Memory::GetPointer(gstate_c.indexAddr);
-			}
-
-			int bytesRead;
-			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
-
-			int vertexCost = transformDraw_.EstimatePerVertexCost();
-			gpuStats.vertexGPUCycles += vertexCost * count;
-			cyclesExecuted += vertexCost * count;
-
-			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
-			// Some games rely on this, they don't bother reloading VADDR and IADDR.
-			// The VADDR/IADDR registers are NOT updated.
-			if (inds) {
-				int indexSize = 1;
-				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
-					indexSize = 2;
-				gstate_c.indexAddr += count * indexSize;
-			} else {
-				gstate_c.vertexAddr += bytesRead;
-			}
-		}
+	case GE_CMD_VADDR:
+		Execute_Vaddr(op, diff);
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
+	case GE_CMD_IADDR:
+		Execute_Iaddr(op, diff);
+		break;
+
+	case GE_CMD_PRIM:
+		Execute_Prim(op, diff);
+		break;
+
+		// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Bezier + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			int bz_ucount = data & 0xFF;
-			int bz_vcount = (data >> 8) & 0xFF;
-			transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
-		}
+		Execute_Bezier(op, diff);
 		break;
 
 	case GE_CMD_SPLINE:
-		{
-			// This also make skipping drawing very effective.
-			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-				// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
-				return;
-			}
-
-			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-				break;
-			}
-
-			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = NULL;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
-					break;
-				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
-			}
-
-			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-				break;
-			}
-			
-			if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
-				DEBUG_LOG_REPORT(G3D, "Spline + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
-			}
-			if (vertTypeIsSkinningEnabled(gstate.vertType)) {
-				DEBUG_LOG_REPORT(G3D, "Spline + skinning: %i", vertTypeGetNumBoneWeights(gstate.vertType));
-			}
-
-			int sp_ucount = data & 0xFF;
-			int sp_vcount = (data >> 8) & 0xFF;
-			int sp_utype = (data >> 16) & 0x3;
-			int sp_vtype = (data >> 18) & 0x3;
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
-		}
+		Execute_Spline(op, diff);
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
@@ -1106,10 +1295,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_Region(op, diff);
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -1155,38 +1341,14 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_OFFSETY:
 		break;
 
-	case GE_CMD_TEXSCALEU:
-		if (diff) {
-			gstate_c.uv.uScale = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXSCALEV:
-		if (diff) {
-			gstate_c.uv.vScale = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXOFFSETU:
-		if (diff) {
-			gstate_c.uv.uOff = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXOFFSETV:
-		if (diff) {
-			gstate_c.uv.vOff = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
+	case GE_CMD_TEXSCALEU: Execute_TexScaleU(op, diff); break;
+	case GE_CMD_TEXSCALEV: Execute_TexScaleV(op, diff); break;
+	case GE_CMD_TEXOFFSETU: Execute_TexOffsetU(op, diff); break;
+	case GE_CMD_TEXOFFSETV: Execute_TexOffsetV(op, diff); break;
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		if (diff)
-			gstate_c.framebufChanged = true;
+		Execute_Scissor(op, diff);
 		break;
 
 		///
@@ -1197,13 +1359,13 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_FramebufType(op, diff);
 		break;
 
 	case GE_CMD_TEXADDR0:
+		Execute_TexAddr0(op, diff);
+		break;
+
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -1211,13 +1373,13 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		Execute_TexAddrN(op, diff);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
+		Execute_TexAddr0(op, diff);
+		break;
+
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -1225,30 +1387,24 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_TexBufwN(op, diff);
+		break;
+
+	case GE_CMD_CLUTFORMAT:
+		Execute_ClutFormat(op, diff);
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
-	case GE_CMD_CLUTFORMAT:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
-		// This could be used to "dirty" textures with clut.
+		// Hm, LOADCLUT actually changes the CLUT so no need to dirty here.
 		break;
 
 	case GE_CMD_LOADCLUT:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		textureCache_.LoadClut();
-		// This could be used to "dirty" textures with clut.
+		Execute_LoadClut(op, diff);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		if (diff) {
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		Execute_TexMapMode(op, diff);
 		break;
 
 	case GE_CMD_TEXSHADELS:
@@ -1278,10 +1434,9 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		//fall thru - ignoring the mipmap sizes for now
+		Execute_TexSize0(op, diff);
+		break;
+
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
 	case GE_CMD_TEXSIZE3:
@@ -1289,7 +1444,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		Execute_TexSizeN(op, diff);
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1377,10 +1532,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_ViewportType(op, diff);
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -1445,12 +1597,14 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXFLUSH:
 		break;
 
-	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFORMAT:
+		Execute_TexFormat(op, diff);
+		break;
+
+	case GE_CMD_TEXMODE:
 	case GE_CMD_TEXFILTER:
 	case GE_CMD_TEXWRAP:
-		if (diff)
-			gstate_c.textureChanged = true;
+		Execute_TexParamType(op, diff);
 		break;
 
 	//////////////////////////////////////////////////////////////////
@@ -1501,12 +1655,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXLEVEL:
-		if (data == 1)
-			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data);
-		else if (data != 0)
-			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
-		if (diff)
-			gstate_c.textureChanged = true;
+		Execute_TexLevel(op, diff);
 		break;
 
 	case GE_CMD_VSCX:

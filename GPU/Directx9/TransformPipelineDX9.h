@@ -24,6 +24,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 struct DecVtxFormat;
 
@@ -102,7 +103,7 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngineDX9 {
+class TransformDrawEngineDX9 : public DrawEngineCommon {
 public:
 	TransformDrawEngineDX9();
 	virtual ~TransformDrawEngineDX9();

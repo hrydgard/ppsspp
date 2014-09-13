@@ -22,6 +22,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -98,7 +99,7 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine : public GfxResourceHolder {
+class TransformDrawEngine : public DrawEngineCommon, public GfxResourceHolder {
 public:
 	TransformDrawEngine();
 	virtual ~TransformDrawEngine();
