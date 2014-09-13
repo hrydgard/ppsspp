@@ -151,8 +151,12 @@ namespace DX9 {
 		*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
 	}
 
-	static inline u32 ABGR2RGBA(u32 src) {
-		return (src >> 8) | (src << 24); 
+	// TODO: Swizzle the texture access instead.
+	static inline u32 RGBA2BGRA(u32 src) {
+		const u32 r = (src & 0x000000FF) << 16;
+		const u32 ga = src & 0xFF00FF00;
+		const u32 b = (src & 0x00FF0000) >> 16;
+		return r | ga | b;
 	}
 
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -168,7 +172,7 @@ namespace DX9 {
 
 		convBuf = (u8*)rect.pBits;
 
-		// Final format is ARGB(directx)
+		// Final format is BGRA(directx)
 
 		// TODO: We can just change the texture format and flip some bits around instead of this.
 		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
@@ -177,8 +181,8 @@ namespace DX9 {
 					// not tested
 				case GE_FORMAT_565:
 					{
-						const u16 *src = (const u16 *)srcPixels + srcStride * y;
-						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
+						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++) {
 							u16_le col0 = src[x+0];
 							ARGB8From565(col0, &dst[x + 0]);
@@ -188,8 +192,8 @@ namespace DX9 {
 					// faster
 				case GE_FORMAT_5551:
 					{
-						const u16 *src = (const u16 *)srcPixels + srcStride * y;
-						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
+						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++) {
 							u16_le col0 = src[x+0];
 							ARGB8From5551(col0, &dst[x + 0]);
@@ -199,8 +203,8 @@ namespace DX9 {
 					// not tested
 				case GE_FORMAT_4444:
 					{
-						const u16 *src = (const u16 *)srcPixels + srcStride * y;
-						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
+						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++)
 						{
 							u16_le col = src[x];
@@ -214,11 +218,11 @@ namespace DX9 {
 
 				case GE_FORMAT_8888:
 					{
-						const u32 *src = (const u32 *)srcPixels + srcStride * y;
-						u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
+						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < 480; x++)
 						{
-							dst[x] = ABGR2RGBA(src[x]);
+							dst[x] = RGBA2BGRA(src[x]);
 						}
 					}
 					break;
@@ -226,11 +230,11 @@ namespace DX9 {
 			}
 		} else {
 			for (int y = 0; y < 272; y++) {
-				const u32 *src = (const u32 *)srcPixels + srcStride * y;
-				u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
+				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
 				for (int x = 0; x < 512; x++)
 				{
-					dst[x] = ABGR2RGBA(src[x]);
+					dst[x] = RGBA2BGRA(src[x]);
 				}
 			}
 		}
