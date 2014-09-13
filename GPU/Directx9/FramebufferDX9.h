@@ -34,14 +34,13 @@
 
 namespace DX9 {
 
-struct GLSLProgram;
 class TextureCacheDX9;
+class TransformDrawEngineDX9;
+class ShaderManagerDX9;
 
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
-
-class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
@@ -53,6 +52,9 @@ public:
 	}
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
+	}
+	void SetTransformDrawEngine(TransformDrawEngineDX9 *td) {
+		transformDraw_ = td;
 	}
 
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -88,12 +90,12 @@ protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
+	virtual void FlushBeforeCopy() override;
+	virtual void DecimateFBOs() override;
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
-
-	virtual void DecimateFBOs() override;
 
 private:
 	void CompileDraw2DProgram();
@@ -115,6 +117,7 @@ private:
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
+	TransformDrawEngineDX9 *transformDraw_;
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
 	

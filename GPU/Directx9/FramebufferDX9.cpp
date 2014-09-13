@@ -29,8 +29,9 @@
 
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Directx9/FramebufferDX9.h"
-#include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/TransformPipelineDX9.h"
 
 #include <algorithm>
 
@@ -986,8 +987,7 @@ namespace DX9 {
 			for (size_t i = 0; i < vfbs_.size(); ++i) {
 				VirtualFramebuffer *vfb = vfbs_[i];
 				if (MaskedEqual(vfb->fb_address, addr)) {
-					// TODO
-					//FlushBeforeCopy();
+					FlushBeforeCopy();
 
 					if (useBufferedRendering_ && vfb->fbo) {
 						DisableState();
@@ -1010,6 +1010,13 @@ namespace DX9 {
 			fbo_unbind();
 			currentRenderVfb_ = 0;
 		}
+	}
+
+	void FramebufferManagerDX9::FlushBeforeCopy() {
+		// Flush anything not yet drawn before blitting, downloading, or uploading.
+		// This might be a stalled list, or unflushed before a block transfer, etc.
+		SetRenderFrameBuffer();
+		transformDraw_->Flush();
 	}
 
 	void FramebufferManagerDX9::Resized() {

@@ -159,11 +159,16 @@ public:
 	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
 
 protected:
+	virtual void DisableState() = 0;
+	virtual void ClearBuffer() = 0;
+	virtual void ClearDepthBuffer() = 0;
+	virtual void FlushBeforeCopy() = 0;
+	virtual void DecimateFBOs() = 0;
+
 	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
-	virtual void DecimateFBOs() = 0;
 	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false) = 0;
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
@@ -181,10 +186,6 @@ protected:
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
-
-	virtual void DisableState() = 0;
-	virtual void ClearBuffer() = 0;
-	virtual void ClearDepthBuffer() = 0;
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

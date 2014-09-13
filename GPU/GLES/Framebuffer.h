@@ -127,17 +127,16 @@ protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
+	virtual void FlushBeforeCopy() override;
+	virtual void DecimateFBOs() override;
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 
-	virtual void DecimateFBOs() override;
-
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
-	void FlushBeforeCopy();
 
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 
