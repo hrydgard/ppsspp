@@ -93,6 +93,9 @@ protected:
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
 
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) override;
+
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
@@ -103,8 +106,6 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb);
 	
 	// Used by DrawPixels

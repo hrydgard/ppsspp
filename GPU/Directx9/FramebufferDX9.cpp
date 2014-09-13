@@ -404,7 +404,7 @@ namespace DX9 {
 			if (vfb->fbo) {
 				ClearBuffer();
 				if (!g_Config.bDisableSlowFramebufEffects) {
-					BlitFramebuffer_(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+					BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 				}
 			}
 			fbo_destroy(old.fbo);
@@ -769,7 +769,7 @@ namespace DX9 {
 					gameUsesSequentialCopies_ = true;
 				}
 			}
-			BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0, false);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, false);
 
 			// TODO: Actually do it.
 #if 0
@@ -789,12 +789,14 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
+	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 			// This can happen if they recently switched from non-buffered.
 			fbo_unbind();
 			return;
 		}
+
+		// TODO: StretchRect?
 
 		fbo_bind_as_render_target(dst->fbo);
 		dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);

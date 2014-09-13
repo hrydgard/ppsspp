@@ -171,6 +171,9 @@ protected:
 	virtual void FlushBeforeCopy() = 0;
 	virtual void DecimateFBOs() = 0;
 
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) = 0;
+
 	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
