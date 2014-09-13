@@ -23,6 +23,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 
@@ -44,7 +45,7 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
-class TextureCacheDX9 {
+class TextureCacheDX9 : public TextureCacheCommon {
 public:
 	TextureCacheDX9();
 	~TextureCacheDX9();

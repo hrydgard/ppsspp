@@ -149,9 +149,8 @@ public:
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
-	void 
-		DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void DoFlush();
+
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 
