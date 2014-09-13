@@ -786,7 +786,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
 		const u16_le *clut = GetCurrentClut<u16_le>();
 		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
+		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
 		for (int i = 0; i < 16; ++i) {
 			if ((clut[i] >> 12) != i) {
 				clutAlphaLinear_ = false;
