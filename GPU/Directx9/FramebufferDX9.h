@@ -70,7 +70,7 @@ public:
 	void DeviceLost();
 	void CopyDisplayToOutput();
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
@@ -125,6 +125,7 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
+	bool gameUsesSequentialCopies_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 

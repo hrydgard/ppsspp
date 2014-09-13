@@ -114,7 +114,8 @@ namespace DX9 {
 	FramebufferManagerDX9::FramebufferManagerDX9() :
 		drawPixelsTex_(0),
 		drawPixelsTexFormat_(GE_FORMAT_INVALID),
-		convBuf(0)
+		convBuf(0),
+		gameUsesSequentialCopies_(false)
 	{
 		// And an initial clear. We don't clear per frame as the games are supposed to handle that
 		// by themselves.
@@ -436,8 +437,7 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) {
 		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
-			// TODO
-			//ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		}
 		textureCache_->ForgetLastTexture();
 
@@ -650,14 +650,14 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
+	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 #if 0
 		if (sync) {
 			PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
 		}
 #endif
 
-		if(vfb) {
+		if (vfb) {
 			// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 			// For now we'll keep these on the same struct as the ones that can get displayed
 			// (and blatantly copy work already done above while at it).
@@ -692,6 +692,9 @@ namespace DX9 {
 				nvfb->bufferWidth = vfb->bufferWidth;
 				nvfb->bufferHeight = vfb->bufferHeight;
 				nvfb->format = vfb->format;
+				nvfb->drawnWidth = vfb->drawnWidth;
+				nvfb->drawnHeight = vfb->drawnHeight;
+				nvfb->drawnFormat = vfb->format;
 				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
 				nvfb->dirtyAfterDisplay = true;
 
@@ -712,6 +715,7 @@ namespace DX9 {
 					break;
 				}
 
+				textureCache_->ForgetLastTexture();
 				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
 				if (!(nvfb->fbo)) {
 					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
@@ -720,7 +724,6 @@ namespace DX9 {
 
 				nvfb->last_frame_render = gpuStats.numFlips;
 				bvfbs_.push_back(nvfb);
-				fbo_bind_as_render_target(nvfb->fbo); 
 				ClearBuffer();
 			} else {
 				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -743,9 +746,32 @@ namespace DX9 {
 #endif
 			}
 
-			vfb->memoryUpdated = true;
-			BlitFramebuffer_(nvfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0, false);
+			if (gameUsesSequentialCopies_) {
+				// Ignore the x/y/etc., read the entire thing.
+				x = 0;
+				y = 0;
+				w = vfb->width;
+				h = vfb->height;
+			}
+			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+				vfb->memoryUpdated = true;
+			} else {
+				const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+				static int frameLastCopy = 0;
+				static u32 bufferLastCopy = 0;
+				static int copiesThisFrame = 0;
+				if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+					frameLastCopy = gpuStats.numFlips;
+					bufferLastCopy = vfb->fb_address;
+					copiesThisFrame = 0;
+				}
+				if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+					gameUsesSequentialCopies_ = true;
+				}
+			}
+			BlitFramebuffer_(nvfb, x, y, vfb, x, y, w, h, 0, false);
 
+			// TODO: Actually do it.
 #if 0
 #ifdef USING_GLES2
 			PackFramebufferSync_(nvfb); // synchronous glReadPixels
@@ -943,8 +969,9 @@ namespace DX9 {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
-			if (updateVram && age == 0 && !vfb->memoryUpdated && vfb == displayFramebuf_) 
-				ReadFramebufferToMemory(vfb);
+			if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
+				ReadFramebufferToMemory(vfb, false, 0, 0, vfb->width, vfb->height);
+			}
 
 			if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 				continue;
