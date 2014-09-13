@@ -119,6 +119,13 @@ public:
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 
+	int iBackGroundChange; //0=background1 1=background2
+	int iR;
+	int iG;
+	int iB;
+	int iTransparent;
+	bool iTheme_botton;
+
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	int iBufFilter; // 1 = linear, 2 = nearest
@@ -203,6 +210,8 @@ public:
 	bool bDisableDpadDiagonals;
 	// Control Style
 	int iTouchButtonStyle;
+	//	Combo Button Style;
+	int iComboButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
 	//space between PSP buttons
@@ -222,6 +231,16 @@ public:
 	//the select key position;
 	float fSelectKeyX, fSelectKeyY;
 	float fSelectKeyScale;
+
+	//the faction key position;
+	float fcomboX, fcomboY;
+	float fcomboScale;
+
+	float fcombo1X, fcombo1Y;
+	float fcomboScale1;
+
+	float fcombo2X, fcombo2Y;
+	float fcomboScale2;
 
 	float fUnthrottleKeyX, fUnthrottleKeyY;
 	float fUnthrottleKeyScale;
@@ -244,6 +263,10 @@ public:
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
 
+	bool bShowComboKey;
+	bool bShowComboKey1;
+	bool bShowComboKey2;
+
 	bool bShowTouchStart;
 	bool bShowTouchSelect;
 	bool bShowTouchUnthrottle;
@@ -253,6 +276,42 @@ public:
 
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
+
+	//Combo_key mapping
+	bool cComboCircle;
+	bool cComboCross;
+	bool cComboTriangle;
+	bool cComboSquare;
+	bool cComboLTrigger;
+	bool cComboRTrigger;
+	bool cComboLeft;
+	bool cComboUp;
+	bool cComboRight;
+	bool cComboDown;
+
+	//Combo_key1 mapping
+	bool cComboCircle1;
+	bool cComboCross1;
+	bool cComboTriangle1;
+	bool cComboSquare1;
+	bool cComboLTrigger1;
+	bool cComboRTrigger1;
+	bool cComboLeft1;
+	bool cComboUp1;
+	bool cComboRight1;
+	bool cComboDown1;
+
+	//Combo_key2 mapping
+	bool cComboCircle2;
+	bool cComboCross2;
+	bool cComboTriangle2;
+	bool cComboSquare2;
+	bool cComboLTrigger2;
+	bool cComboRTrigger2;
+	bool cComboLeft2;
+	bool cComboUp2;
+	bool cComboRight2;
+	bool cComboDown2;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;
@@ -336,7 +395,7 @@ public:
 	std::string upgradeVersion;
 	std::string dismissedVersion;
 
-	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
+	void Load(const char *iniFileName = "ppsspp3.ini", const char *controllerIniFilename = "controls3.ini");
 	void Save();
 	void RestoreDefaults();
 
