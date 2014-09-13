@@ -345,6 +345,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
+	{ 0xbfa8c16038b7753d, 868, "sakurasou_download_frame", }, // Sakurasou No Pet Na Kanojo
 	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
