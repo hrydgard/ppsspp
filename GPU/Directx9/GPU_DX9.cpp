@@ -63,9 +63,9 @@ struct CommandTableEntry {
 
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
+	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
+	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_FramebufType},
 	{GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE},
 
@@ -79,43 +79,43 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexMapMode },
+	{ GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexOffsetV },
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
-	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
-	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_TexSize0},
+	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexSizeN},
+	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexFormat},
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTE, &DIRECTX9_GPU::Execute_TexLevel},
+	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddr0},
+	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexAddrN},
+	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufw0},
+	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
+	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_TexBufwN},
 	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ClutFormat},
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -204,12 +204,12 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 
 	// Region
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Scissor},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Scissor},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
 	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
@@ -325,7 +325,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_FINISH, FLAG_FLUSHBEFORE},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, &DIRECTX9_GPU::Execute_LoadClut},
 	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
 
 	// We don't use the dither table.
@@ -852,6 +852,114 @@ void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	}
 }
 
+void DIRECTX9_GPU::Execute_Region(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_Scissor(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_FramebufType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexScaleU(u32 op, u32 diff) {
+	gstate_c.uv.uScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexScaleV(u32 op, u32 diff) {
+	gstate_c.uv.vScale = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexOffsetU(u32 op, u32 diff) {
+	gstate_c.uv.uOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexOffsetV(u32 op, u32 diff) {
+	gstate_c.uv.vOff = getFloat24(op);
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexAddr0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexAddrN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexBufw0(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void DIRECTX9_GPU::Execute_TexBufwN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexSize0(u32 op, u32 diff) {
+	// Render to texture may have overridden the width/height.
+	// Don't reset it unless the size is different / the texture has changed.
+	if (diff || gstate_c.textureChanged != TEXCHANGE_UNCHANGED) {
+		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		// We will need to reset the texture now.
+		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	}
+}
+
+void DIRECTX9_GPU::Execute_TexSizeN(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
+}
+
+void DIRECTX9_GPU::Execute_TexMapMode(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+}
+
+void DIRECTX9_GPU::Execute_TexParamType(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_TexEnvColor(u32 op, u32 diff) {
+	shaderManager_->DirtyUniform(DIRTY_TEXENV);
+}
+
+void DIRECTX9_GPU::Execute_TexLevel(u32 op, u32 diff) {
+	// I had hoped that this would let us avoid excessively flushing in Gran Turismo, but not so,
+	// as the game switches rapidly between modes 0 and 1.
+	/*
+	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST) {
+		gstate.texlevel ^= diff;
+		Flush();
+		gstate.texlevel ^= diff;
+	}
+	*/
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void DIRECTX9_GPU::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	textureCache_.LoadClut();
+	// This could be used to "dirty" textures with clut.
+}
+
+void DIRECTX9_GPU::Execute_ClutFormat(u32 op, u32 diff) {
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	// This could be used to "dirty" textures with clut.
+}
+
 void DIRECTX9_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
 	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
@@ -1126,10 +1234,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 
 	case GE_CMD_REGION1:
 	case GE_CMD_REGION2:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_Region(op, diff);
 		break;
 
 	case GE_CMD_CLIPENABLE:
@@ -1175,38 +1280,14 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_OFFSETY:
 		break;
 
-	case GE_CMD_TEXSCALEU:
-		if (diff) {
-			gstate_c.uv.uScale = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXSCALEV:
-		if (diff) {
-			gstate_c.uv.vScale = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXOFFSETU:
-		if (diff) {
-			gstate_c.uv.uOff = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
-
-	case GE_CMD_TEXOFFSETV:
-		if (diff) {
-			gstate_c.uv.vOff = getFloat24(data);
-				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
-		break;
+	case GE_CMD_TEXSCALEU: Execute_TexScaleU(op, diff); break;
+	case GE_CMD_TEXSCALEV: Execute_TexScaleV(op, diff); break;
+	case GE_CMD_TEXOFFSETU: Execute_TexOffsetU(op, diff); break;
+	case GE_CMD_TEXOFFSETV: Execute_TexOffsetV(op, diff); break;
 
 	case GE_CMD_SCISSOR1:
 	case GE_CMD_SCISSOR2:
-		if (diff)
-			gstate_c.framebufChanged = true;
+		Execute_Scissor(op, diff);
 		break;
 
 		///
@@ -1217,13 +1298,13 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		if (diff) {
-			gstate_c.framebufChanged = true;
-			gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_FramebufType(op, diff);
 		break;
 
 	case GE_CMD_TEXADDR0:
+		Execute_TexAddr0(op, diff);
+		break;
+
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -1231,13 +1312,13 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		Execute_TexAddrN(op, diff);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
+		Execute_TexAddr0(op, diff);
+		break;
+
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -1245,30 +1326,24 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
+		Execute_TexBufwN(op, diff);
+		break;
+
+	case GE_CMD_CLUTFORMAT:
+		Execute_ClutFormat(op, diff);
 		break;
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
-	case GE_CMD_CLUTFORMAT:
-		if (diff) {
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		}
-		// This could be used to "dirty" textures with clut.
+		// Hm, LOADCLUT actually changes the CLUT so no need to dirty here.
 		break;
 
 	case GE_CMD_LOADCLUT:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		textureCache_.LoadClut();
-		// This could be used to "dirty" textures with clut.
+		Execute_LoadClut(op, diff);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		if (diff) {
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		}
+		Execute_TexMapMode(op, diff);
 		break;
 
 	case GE_CMD_TEXSHADELS:
@@ -1298,10 +1373,9 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
-		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		//fall thru - ignoring the mipmap sizes for now
+		Execute_TexSize0(op, diff);
+		break;
+
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
 	case GE_CMD_TEXSIZE3:
@@ -1309,7 +1383,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		Execute_TexSizeN(op, diff);
 		break;
 
 	case GE_CMD_ZBUFPTR:
