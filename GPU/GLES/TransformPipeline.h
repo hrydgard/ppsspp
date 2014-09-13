@@ -78,6 +78,7 @@ public:
 	};
 
 	u32 hash;
+	u32 minihash;
 
 	Status status;
 
@@ -192,7 +193,9 @@ private:
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
+	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
+	void MarkUnreliable(VertexArrayInfo *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
