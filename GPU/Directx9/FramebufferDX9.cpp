@@ -552,7 +552,7 @@ namespace DX9 {
 				// The game is displaying something directly from RAM. In GTA, it's decoded video.
 
 				// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
-				for (auto iter = knownFramebufferCopies_.begin(); iter != knownFramebufferCopies_.end(); ++iter) {
+				for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
 					if (iter->second == displayFramebufPtr_) {
 						vfb = GetVFBAt(iter->first);
 					}
@@ -942,19 +942,6 @@ namespace DX9 {
 		}
 
 		return list;
-	}
-
-	// MotoGP workaround
-	bool FramebufferManagerDX9::NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset) {
-		for (size_t i = 0; i < vfbs_.size(); i++) {
-			// This size fits for MotoGP. Might want to make this more flexible for other games if they do the same.
-			if ((vfbs_[i]->fb_address | 0x04000000) == src && size == 512 * 272 * 2) {
-				// A framebuffer matched!
-				knownFramebufferCopies_.insert(std::pair<u32, u32>(src, dest));
-			}
-		}
-		// TODO
-		return false;
 	}
 
 	bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {

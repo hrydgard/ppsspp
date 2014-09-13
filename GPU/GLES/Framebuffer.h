@@ -96,18 +96,11 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);
 
-	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
-	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
-	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
-	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
-
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
@@ -138,8 +131,6 @@ protected:
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
-
-	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 
 	void SetNumExtraFBOs(int num);
 
@@ -184,8 +175,6 @@ private:
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
-
-	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large

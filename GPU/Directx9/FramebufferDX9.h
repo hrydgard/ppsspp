@@ -74,7 +74,6 @@ public:
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
@@ -129,8 +128,6 @@ private:
 	bool gameUsesSequentialCopies_;
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
 
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large
