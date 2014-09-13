@@ -309,8 +309,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
@@ -319,6 +319,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
+
+	renderX += gstate_c.cutRTOffsetX * renderWidthFactor;
 
 	bool throughmode = gstate.isModeThrough();
 
@@ -353,14 +355,14 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	int regionX2 = gstate_c.curRTWidth;
 	int regionY2 = gstate_c.curRTHeight;
 
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+	float offsetX = gstate.getOffsetX();
+	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		dxstate.viewport.set(
 			renderX + (0 + regionX1) * renderWidthFactor, 
-			renderY + (0 - regionY1) * renderHeightFactor,
+			renderY + (0 + regionY1) * renderHeightFactor,
 			(regionX2 - regionX1) * renderWidthFactor,
 			(regionY2 - regionY1) * renderHeightFactor,
 			0.f, 1.f);
@@ -381,6 +383,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXa * 2.0f;
 		gstate_c.vpHeight = -vpYa * 2.0f;
+
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
