@@ -3,6 +3,7 @@
 #include "native/gfx/gl_common.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
+#include "Core/Config.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
@@ -140,8 +141,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	if (glRenderer == "GDI Generic" || glVersion.substr(0, openGL_1.size()) == openGL_1) {
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
-			"Your GPU reports that it does not support OpenGL 2.0, which is currently required for PPSSPP to run.\n\n"
-			"Please check that your GPU is compatible with OpenGL 2.0.If it is, you need to find and install new graphics drivers from your GPU vendor's website.\n\n"
+			"Your GPU reports that it does not support OpenGL 2.0. Would you like to try using DirectX 9 instead?\n\n"
+			"DirectX is currently compatible with less games, but on your GPU it may be the only choice.\n\n"
 			"Visit the forums at http://forums.ppsspp.org for more information.\n\n";
 
 		std::wstring versionDetected = ConvertUTF8ToWString(glVersion + "\n\n");
@@ -149,7 +150,19 @@ bool GL_Init(HWND window, std::string *error_message) {
 		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
 		std::wstring combined = versionDetected + error;
 
-		MessageBox(hWnd, combined.c_str(), title.c_str(), MB_ICONERROR);
+		bool yes = IDYES == MessageBox(hWnd, combined.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
+
+		if (yes) {
+			// Change the config to D3D and restart.
+			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+			g_Config.Save();
+
+			wchar_t moduleFilename[MAX_PATH];
+			GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
+			ShellExecute(NULL, NULL, moduleFilename, NULL, NULL, SW_SHOW);
+
+			ExitProcess(0);
+		}
 
 		// Avoid further error messages. Let's just bail, it's safe, and we can't continue.
 		ExitProcess(0);
