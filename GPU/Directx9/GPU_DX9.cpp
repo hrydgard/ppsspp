@@ -1945,9 +1945,9 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr;
 
-	bool success;
+	bool success = false;
 	hr = pD3Ddevice->GetTexture(0, &baseTex);
-	if (SUCCEEDED(hr)) {
+	if (SUCCEEDED(hr) && baseTex != NULL) {
 		hr = baseTex->QueryInterface(IID_IDirect3DTexture9, (void **)&tex);
 		if (SUCCEEDED(hr)) {
 			D3DSURFACE_DESC desc;
