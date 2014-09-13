@@ -107,14 +107,13 @@ public:
 	TransformDrawEngineDX9();
 	virtual ~TransformDrawEngineDX9();
 	
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	void DecodeVerts();
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -134,6 +133,7 @@ public:
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	void SetupVertexDecoderInternal(u32 vertType);
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 	// This requires a SetupVertexDecoder call first.
@@ -147,9 +147,13 @@ public:
 	}
 
 private:
+	void DecodeVerts();
+	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+
 	void ApplyDrawState(int prim);
+	void ApplyDrawStateLate();
+
 	bool IsReallyAClear(int numVerts) const;
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -178,12 +182,13 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int collectedVerts;
+	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
 	std::map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
+	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -203,57 +208,20 @@ private:
 	ShaderManagerDX9 *shaderManager_;
 	TextureCacheDX9 *textureCache_;
 	FramebufferManagerDX9 *framebufferManager_;
-	VertexDecoderJitCache *decJitCache_;
-
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
 
 	int decimationCounter_;
+	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
 
 	VertexDecoderOptions decOptions_;
-};
-
-// Only used by SW transform
-struct Color4 {
-	float a, r, g, b;
-
-	Color4() : r(0), g(0), b(0), a(0) { }
-	Color4(float _r, float _g, float _b, float _a=1.0f)
-		: r(_r), g(_g), b(_b), a(_a) {
-	}
-	Color4(const float in[4]) {a=in[0];r=in[1];g=in[2];b=in[3];}
-	Color4(const float in[3], float alpha) {r=in[0];g=in[1];b=in[2];a=alpha;}
-
-	const float &operator [](int i) const {return *(&a + i);}
-
-	Color4 operator *(float f) const {
-		return Color4(f*r,f*g,f*b,f*a);
-	}
-	Color4 operator *(const Color4 &c) const {
-		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
-	}
-	Color4 operator +(const Color4 &c) const {
-		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
-	}
-	void operator +=(const Color4 &c) {
-		r+=c.r;
-		g+=c.g;
-		b+=c.b;
-		a+=c.a;
-	}
-	void GetFromRGB(u32 col) {
-		b = ((col>>16) & 0xff)/255.0f;
-		g = ((col>>8) & 0xff)/255.0f;
-		r = ((col>>0) & 0xff)/255.0f;
-	}
-	void GetFromA(u32 col) {
-		a = (col&0xff)/255.0f;
-	}
 };
 
 };

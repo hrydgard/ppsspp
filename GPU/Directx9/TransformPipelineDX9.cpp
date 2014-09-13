@@ -15,54 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-
-// Ideas for speeding things up on mobile OpenGL ES implementations
-//
-// Use superbuffers! Yes I just invented that name.
-//
-// The idea is to avoid respecifying the vertex format between every draw call (multiple glVertexAttribPointer ...)
-// by combining the contents of multiple draw calls into one buffer, as long as
-// they have exactly the same output vertex format. (different input formats is fine! This way
-// we can combine the data for multiple draws with different numbers of bones, as we consider numbones < 4 to be = 4)
-// into one VBO.
-//
-// This will likely be a win because I believe that between every change of VBO + glVertexAttribPointer*N, the driver will
-// perform a lot of validation, probably at draw call time, while all the validation can be skipped if the only thing
-// that changes between two draw calls is simple state or texture or a matrix etc, not anything vertex related.
-// Also the driver will have to manage hundreds instead of thousands of VBOs in games like GTA.
-//
-// * Every 10 frames or something, do the following:
-//   - Frame 1:
-//		 + Mark all drawn buffers with in-frame sequence numbers (alternatively,
-//		   just log them in an array)
-//	 - Frame 2 (beginning?):
-//	   + Take adjacent buffers that have the same output vertex format, and add them
-//	     to a list of buffers to combine. Create said buffers with appropriate sizes
-//	     and precompute the offsets that the draws should be written into.
-//	 - Frame 2 (end):
-//	   + Actually do the work of combining the buffers. This probably means re-decoding
-//	     the vertices into a new one. Will also have to apply index offsets.
-//
-// Also need to change the drawing code so that we don't glBindBuffer and respecify glVAP if
-// two subsequent drawcalls come from the same superbuffer.
-//
-// Or we ignore all of this including vertex caching and simply find a way to do highly optimized vertex streaming,
-// like Dolphin is trying to. That will likely never be able to reach the same speed as perfectly optimized
-// superbuffers though. For this we will have to JIT the vertex decoder but that's not too hard.
-//
-// Now, when do we delete superbuffers? Maybe when half the buffers within have been killed?
-//
-// Another idea for GTA which switches textures a lot while not changing much other state is to use ES 3 Array
-// textures, if they are the same size (even if they aren't, might be okay to simply resize the textures to match
-// if they're just a multiple of 2 away) or something. Then we'd have to add a W texture coordinate to choose the
-// texture within the bound texture array to the vertex data when merging into superbuffers.
-//
-// There are even more things to try. For games that do matrix palette skinning by quickly switching bones and
-// just drawing a few triangles per call (NBA, FF:CC, Tekken 6 etc) we could even collect matrices, upload them
-// all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
-// draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
-
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -84,6 +36,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Directx9/StateMappingDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
@@ -134,7 +87,8 @@ inline float clamp(float in, float min, float max) {
 }
 
 TransformDrawEngineDX9::TransformDrawEngineDX9()
-	: collectedVerts(0),
+	:
+	decodedVerts_(0),
 	prevPrim_(GE_PRIM_INVALID),
 	dec_(0),
 	lastVType_(-1),
@@ -143,6 +97,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	framebufferManager_(0),
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
+	decodeCounter_(0),
+	dcid_(0),
 	uvScale(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
@@ -247,42 +203,6 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
-	// Vertices Elements orders
-	// WEIGHT
-	if (decFmt.w0fmt != 0) {
-		printf("decFmt.w0fmt -> %s (%d)\n", VComp[decFmt.w0fmt].name, decFmt.w0off);
-	}
-
-	if (decFmt.w1fmt != 0) {
-		printf("decFmt.w1fmt -> %s (%d)\n", VComp[decFmt.w1fmt].name, decFmt.w1off);
-	}
-
-	// TC
-	if (decFmt.uvfmt != 0) {
-		printf("decFmt.uvfmt -> %s (%d)\n", VComp[decFmt.uvfmt].name, decFmt.uvoff);
-	}
-
-	// COLOR
-	if (decFmt.c0fmt != 0) {
-		printf("decFmt.c0fmt -> %s (%d)\n", VComp[decFmt.c0fmt].name, decFmt.c0off);
-	}
-
-	// NORMAL
-	if (decFmt.nrmfmt != 0) {
-		printf("decFmt.nrmfmt -> %s (%d)\n", VComp[decFmt.nrmfmt].name, decFmt.nrmoff);
-	}
-
-	// POSITION
-	// Always
-	printf("decFmt.posfmt -> %s (%d)\n", VComp[decFmt.posfmt].name, decFmt.posoff);
-
-	printf("decFmt.stride => %d\n", decFmt.stride);
-
-	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-}
-
 IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
@@ -338,9 +258,8 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
 		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
 		if (FAILED(hr)) {
-			// Log
-			LogDecFmtForDraw(decFmt);
-			// DebugBreak();
+			ERROR_LOG(G3D, "Failed to create vertex declaration!");
+			pHardwareVertexDecl = nullptr;
 		}
 
 		// Add it to map
@@ -350,441 +269,6 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		// Set it from map
 		return vertexDeclCached->second;
 	}
-}
-
-
-// The verts are in the order:  BR BL TL TR
-static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
-	float tempu = a.u;
-	float tempv = a.v;
-	a.u = b.u;
-	a.v = b.v;
-	b.u = tempu;
-	b.v = tempv;
-}
-
-// 2   3       3   2        0   3          2   1
-//        to           to            or
-// 1   0       0   1        1   2          3   0
-
-
-// See comment below where this was called before.
-/*
-static void RotateUV(TransformedVertex v[4]) {
-float x1 = v[2].x;
-float x2 = v[0].x;
-float y1 = v[2].y;
-float y2 = v[0].y;
-
-if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
-SwapUVs(v[1], v[3]);
-}*/
-
-static void RotateUVThrough(TransformedVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 > y2) || (x1 > x2 && y1 < y2))
-		SwapUVs(v[1], v[3]);
-}
-
-
-// Clears on the PSP are best done by drawing a series of vertical strips
-// in clear mode. This tries to detect that.
-bool TransformDrawEngineDX9::IsReallyAClear(int numVerts) const {
-	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
-		return false;
-
-	u32 matchcolor;
-	memcpy(&matchcolor, transformed[0].color0, 4);
-	float matchz = transformed[0].z;
-
-	int bufW = gstate_c.curRTWidth;
-	int bufH = gstate_c.curRTHeight;
-
-	float prevX = 0.0f;
-	for (int i = 1; i < numVerts; i++) {
-		u32 vcolor;
-		memcpy(&vcolor, transformed[i].color0, 4);
-		if (vcolor != matchcolor || transformed[i].z != matchz)
-			return false;
-
-		if ((i & 1) == 0) {
-			// Top left of a rectangle
-			if (transformed[i].y != 0)
-				return false;
-			if (i > 0 && transformed[i].x != transformed[i - 1].x)
-				return false;
-		} else {
-			// Bottom right
-			if (transformed[i].y != bufH)
-				return false;
-			if (transformed[i].x <= transformed[i - 1].x)
-				return false;
-		}
-	}
-
-	// The last vertical strip often extends outside the drawing area.
-	if (transformed[numVerts - 1].x < bufW)
-		return false;
-
-	return true;
-}
-
-// This is the software transform pipeline, which is necessary for supporting RECT
-// primitives correctly, and may be easier to use for debugging than the hardware
-// transform pipeline.
-
-// There's code here that simply expands transformed RECTANGLES into plain triangles.
-
-// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
-// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
-// this code.
-
-// Actually, if we find the camera-relative right and down vectors, it might even be possible to add the extra points in pre-transformed
-// space and thus make decent use of hardware transform.
-
-// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
-// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-void TransformDrawEngineDX9::SoftwareTransformAndDraw(
-	int prim, u8 *decoded, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
-		
-		bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
-
-		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
-		float uscale = 1.0f;
-		float vscale = 1.0f;
-		if (throughmode) {
-			uscale /= gstate_c.curTextureWidth;
-			vscale /= gstate_c.curTextureHeight;
-		}
-
-		int w = gstate.getTextureWidth(0);
-		int h = gstate.getTextureHeight(0);
-		float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
-		float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
-
-		Lighter lighter(vertType);
-		float fog_end = getFloat24(gstate.fog1);
-		float fog_slope = getFloat24(gstate.fog2);
-
-		VertexReader reader(decoded, decVtxFormat, vertType);
-		for (int index = 0; index < maxIndex; index++) {
-			reader.Goto(index);
-
-			float v[3] = {0, 0, 0};
-			float c0[4] = {1, 1, 1, 1};
-			float c1[4] = {0, 0, 0, 0};
-			float uv[3] = {0, 0, 1};
-			float fogCoef = 1.0f;
-
-			if (throughmode) {
-				// Do not touch the coordinates or the colors. No lighting.
-				reader.ReadPos(v);
-				if (reader.hasColor0()) {
-					reader.ReadColor0(c0);
-					for (int j = 0; j < 4; j++) {
-						c1[j] = 0.0f;
-					}
-				} else {
-					c0[0] = gstate.getMaterialAmbientR() / 255.f;
-					c0[1] = gstate.getMaterialAmbientG() / 255.f;
-					c0[2] = gstate.getMaterialAmbientB() / 255.f;
-					c0[3] = gstate.getMaterialAmbientA() / 255.f;
-				}
-
-				if (reader.hasUV()) {
-					reader.ReadUV(uv);
-
-					uv[0] *= uscale;
-					uv[1] *= vscale;
-				}
-				fogCoef = 1.0f;
-				// Scale UV?
-			} else {
-				// We do software T&L for now
-				float out[3];
-				float pos[3];
-				Vec3f normal(0, 0, 1);
-				Vec3f worldnormal(0, 0, 1);
-				reader.ReadPos(pos);
-
-				if (!vertTypeIsSkinningEnabled(vertType)) {
-					Vec3ByMatrix43(out, pos, gstate.worldMatrix);
-					if (reader.hasNormal()) {
-						reader.ReadNrm(normal.AsArray());
-						if (gstate.areNormalsReversed()) {
-							normal = -normal;
-						}
-						Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-						worldnormal = worldnormal.Normalized();
-					}
-				} else {
-					float weights[8];
-					reader.ReadWeights(weights);
-					if (reader.hasNormal())
-						reader.ReadNrm(normal.AsArray());
-
-					// Skinning
-					Vec3f psum(0,0,0);
-					Vec3f nsum(0,0,0);
-					for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-						if (weights[i] != 0.0f) {
-							Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-							Vec3f tpos(out);
-							psum += tpos * weights[i];
-							if (reader.hasNormal()) {
-								Vec3f norm;
-								Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
-								nsum += norm * weights[i];
-							}
-						}
-					}
-
-					// Yes, we really must multiply by the world matrix too.
-					Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
-					if (reader.hasNormal()) {
-						normal = nsum;
-						if (gstate.areNormalsReversed()) {
-							normal = -normal;
-						}
-						Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-						worldnormal = worldnormal.Normalized();
-					}
-				}
-
-				// Perform lighting here if enabled. don't need to check through, it's checked above.
-				float unlitColor[4] = {1, 1, 1, 1};
-				if (reader.hasColor0()) {
-					reader.ReadColor0(unlitColor);
-				} else {
-					unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
-					unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
-					unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
-					unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
-				}
-
-				if (gstate.isLightingEnabled()) {
-					float litColor0[4];
-					float litColor1[4];
-					lighter.Light(litColor0, litColor1, unlitColor, out, worldnormal);
-
-					// Don't ignore gstate.lmode - we should send two colors in that case
-					for (int j = 0; j < 4; j++) {
-						c0[j] = litColor0[j];
-					}
-					if (lmode) {
-						// Separate colors
-						for (int j = 0; j < 4; j++) {
-							c1[j] = litColor1[j];
-						}
-					} else {
-						// Summed color into c0
-						for (int j = 0; j < 4; j++) {
-							c0[j] = ((c0[j] + litColor1[j]) > 1.0f) ? 1.0f : (c0[j] + litColor1[j]);
-						}
-					}
-				} else {
-					if (reader.hasColor0()) {
-						for (int j = 0; j < 4; j++) {
-							c0[j] = unlitColor[j];
-						}
-					} else {
-						c0[0] = gstate.getMaterialAmbientR() / 255.f;
-						c0[1] = gstate.getMaterialAmbientG() / 255.f;
-						c0[2] = gstate.getMaterialAmbientB() / 255.f;
-						c0[3] = gstate.getMaterialAmbientA() / 255.f;
-					}
-					if (lmode) {
-						for (int j = 0; j < 4; j++) {
-							c1[j] = 0.0f;
-						}
-					}
-				}
-
-				float ruv[2] = {0.0f, 0.0f};
-				if (reader.hasUV())
-					reader.ReadUV(ruv);
-
-				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
-			switch (gstate.getUVGenMode()) {
-				case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
-				case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
-					// Texture scale/offset is only performed in this mode.
-					uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
-					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
-					uv[2] = 1.0f;
-					break;
-				
-					case GE_TEXMAP_TEXTURE_MATRIX:
-					{
-						// Projection mapping
-						Vec3f source;
-					switch (gstate.getUVProjMode())	{
-						case GE_PROJMAP_POSITION: // Use model space XYZ as source
-							source = pos;
-							break;
-						
-						case GE_PROJMAP_UV: // Use unscaled UV as source
-							source = Vec3f(ruv[0], ruv[1], 0.0f);
-							break;
-						
-						case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
-							source = normal.Normalized();
-							if (!reader.hasNormal()) {
-								ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							}
-							break;
-						
-						case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
-							source = normal;
-							if (!reader.hasNormal()) {
-								ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							}
-							break;
-						}
-
-						float uvw[3];
-						Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
-						uv[0] = uvw[0];
-						uv[1] = uvw[1];
-						uv[2] = uvw[2];
-					}
-					break;
-				
-				case GE_TEXMAP_ENVIRONMENT_MAP:
-					// Shade mapping - use two light sources to generate U and V.
-					{
-						Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0() * 3]).Normalized();
-						Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1() * 3]).Normalized();
-
-						uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
-						uv[1] = (1.0f - Dot(lightpos1, worldnormal))/2.0f;
-						uv[2] = 1.0f;
-					}
-					break;
-				
-				default:
-					// Illegal
-				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
-					break;
-				}
-
-				uv[0] = uv[0] * widthFactor;
-				uv[1] = uv[1] * heightFactor;
-
-				// Transform the coord by the view matrix.
-				Vec3ByMatrix43(v, out, gstate.viewMatrix);
-				fogCoef = (v[2] + fog_end) * fog_slope;
-			}
-
-			// TODO: Write to a flexible buffer, we don't always need all four components.
-			memcpy(&transformed[index].x, v, 3 * sizeof(float));
-			transformed[index].fog = fogCoef;
-			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-			if (gstate_c.flipTexture) {
-				transformed[index].v = 1.0f - transformed[index].v;
-			}
-			for (int i = 0; i < 4; i++) {
-				transformed[index].color0[i] = c0[i] * 255.0f;
-			}
-			for (int i = 0; i < 3; i++) {
-				transformed[index].color1[i] = c1[i] * 255.0f;
-			}
-		}
-
-		// Step 2: expand rectangles.
-		const TransformedVertex *drawBuffer = transformed;
-		int numTrans = 0;
-
-		bool drawIndexed = false;
-
-		if (prim != GE_PRIM_RECTANGLES) {
-			// We can simply draw the unexpanded buffer.
-			numTrans = vertexCount;
-			drawIndexed = true;
-		} else {
-			numTrans = 0;
-			drawBuffer = transformedExpanded;
-			TransformedVertex *trans = &transformedExpanded[0];
-			TransformedVertex saved;
-			u32 stencilValue;
-			for (int i = 0; i < vertexCount; i += 2) {
-				int index = ((const u16*)inds)[i];
-				saved = transformed[index];
-				int index2 = ((const u16*)inds)[i + 1];
-				TransformedVertex &transVtx = transformed[index2];
-				if (i == 0)
-					stencilValue = transVtx.color0[3];
-				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
-
-				// bottom right
-				trans[0] = transVtx;
-
-				// bottom left
-				trans[1] = transVtx;
-				trans[1].y = saved.y;
-				trans[1].v = saved.v;
-
-				// top left
-				trans[2] = transVtx;
-				trans[2].x = saved.x;
-				trans[2].y = saved.y;
-				trans[2].u = saved.u;
-				trans[2].v = saved.v;
-
-				// top right
-				trans[3] = transVtx;
-				trans[3].x = saved.x;
-				trans[3].u = saved.u;
-
-				// That's the four corners. Now process UV rotation.
-				if (throughmode)
-					RotateUVThrough(trans);
-
-				// Apparently, non-through RotateUV just breaks things.
-				// If we find a game where it helps, we'll just have to figure out how they differ.
-				// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
-				// One game might be one of the Metal Gear ones, can't find the issue right now though.
-				// else
-				//	RotateUV(trans);
-
-				// bottom right
-				trans[4] = trans[0];
-
-				// top left
-				trans[5] = trans[2];
-				trans += 6;
-
-				numTrans += 6;
-			}
-
-			// We don't know the color until here, so we have to do it now, instead of in StateMapping.
-			// Might want to reconsider the order of things later...
-			if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
-				dxstate.stencilFunc.set(D3DCMP_ALWAYS, stencilValue, 255);
-			}
-		}
-
-
-		// TODO: Add a post-transform cache here for multi-RECTANGLES only.
-		// Might help for text drawing.
-
-		// these spam the gDebugger log.
-		const int vertexSize = sizeof(transformed[0]);
-
-		pD3Ddevice->SetVertexDeclaration( pSoftVertexDecl );
-
-		/// Debug !!
-		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-		if (drawIndexed) {
-			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
-		} else {
-			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
-		}
 }
 
 VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
@@ -797,12 +281,20 @@ VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
+
 void TransformDrawEngineDX9::SetupVertexDecoder(u32 vertType) {
+	SetupVertexDecoderInternal(vertType);
+}
+
+inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+
 	// If vtype has changed, setup the vertex decoder.
-	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType_) {
-		dec_ = GetVertexDecoder(vertType);
-		lastVType_ = vertType;
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
 	}
 }
 
@@ -834,20 +326,20 @@ int TransformDrawEngineDX9::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
-		
+
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
 		prim = prevPrim_;
 	}
 	prevPrim_ = prim;
-	
-	SetupVertexDecoder(vertType);
+
+	SetupVertexDecoderInternal(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
 
@@ -861,9 +353,22 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
-	dc.indexType = ((forceIndexType == -1) ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
+
+	u32 dhash = dcid_;
+	dhash ^= (u32)(uintptr_t)verts;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)(uintptr_t)inds;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertType;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)vertexCount;
+	dhash = __rotl(dhash, 13);
+	dhash ^= (u32)prim;
+	dcid_ = dhash;
+
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
@@ -874,86 +379,117 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	if (uvScale) {
 		uvScale[numDrawCalls] = gstate_c.uv;
 	}
+
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep();
+		decodeCounter_++;
+	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			Flush();
+		}
+	}
 }
 
-void TransformDrawEngineDX9::DecodeVerts() {
-	UVScale origUV;
-	if (uvScale)
-		origUV = gstate_c.uv;
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
+void TransformDrawEngineDX9::DecodeVertsStep() {
+	const int i = decodeCounter_;
 
-		indexGen.SetIndex(collectedVerts);
-		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+	const DeferredDrawCall &dc = drawCalls[i];
 
-		u32 indexType = dc.indexType;
-		void *inds = dc.inds;
-		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-			// Decode the verts and apply morphing. Simple.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += indexUpperBound - indexLowerBound + 1;
-			indexGen.AddPrim(dc.prim, dc.vertexCount);
-		} else {
-			// It's fairly common that games issue long sequences of PRIM calls, with differing
-			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-			// these as much as possible, so we make sure here to combine as many as possible
-			// into one nice big drawcall, sharing data.
+	indexGen.SetIndex(decodedVerts_);
+	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
-			// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-			//    Expand the lower and upper bounds as we go.
-			int j = i + 1;
-			int lastMatch = i;
-			while (j < numDrawCalls) {
+	u32 indexType = dc.indexType;
+	void *inds = dc.inds;
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+		// Decode the verts and apply morphing. Simple.
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
+		indexGen.AddPrim(dc.prim, dc.vertexCount);
+	} else {
+		// It's fairly common that games issue long sequences of PRIM calls, with differing
+		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+		// these as much as possible, so we make sure here to combine as many as possible
+		// into one nice big drawcall, sharing data.
+
+		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+		//    Expand the lower and upper bounds as we go.
+		int lastMatch = i;
+		const int total = numDrawCalls;
+		if (uvScale) {
+			for (int j = i + 1; j < total; ++j) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
-				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
 					break;
 
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
 				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
 				lastMatch = j;
-				j++;
 			}
+		} else {
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
 
-			// 2. Loop through the drawcalls, translating indices as we go.
-			for (j = i; j <= lastMatch; j++) {
-				switch (indexType) {
-				case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-					break;
-				}
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
 			}
+		}
 
-			int vertexCount = indexUpperBound - indexLowerBound + 1;
-			// 3. Decode that range of vertex data.
-			if (uvScale)
-				gstate_c.uv = uvScale[i];
-			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
-				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += vertexCount;
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		}
 
-			// 4. Advance indexgen vertex counter.
-			indexGen.Advance(vertexCount);
-			i = lastMatch;
+		const int vertexCount = indexUpperBound - indexLowerBound + 1;
+		// 3. Decode that range of vertex data.
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
+		decodedVerts_ += vertexCount;
+
+		// 4. Advance indexgen vertex counter.
+		indexGen.Advance(vertexCount);
+		decodeCounter_ = lastMatch;
+	}
+}
+
+
+void TransformDrawEngineDX9::DecodeVerts() {
+	if (uvScale) {
+		const UVScale origUV = gstate_c.uv;
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			gstate_c.uv = uvScale[decodeCounter_];
+			DecodeVertsStep();
+		}
+		gstate_c.uv = origUV;
+	} else {
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			DecodeVertsStep();
 		}
 	}
-
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
-	if (uvScale)
-		gstate_c.uv = origUV;
 }
 
 u32 TransformDrawEngineDX9::ComputeHash() {
@@ -1288,18 +824,63 @@ rotateVBO:
 				prim = GE_PRIM_TRIANGLES;
 			DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-			SoftwareTransformAndDraw(
-				prim, decoded, indexGen.VertexCount(), 
-				dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-				indexGen.MaxIndex());
+			int numTrans = 0;
+			bool drawIndexed = false;
+			u16 *inds = decIndex;
+			TransformedVertex *drawBuffer = NULL;
+			SoftwareTransformResult result;
+			memset(&result, 0, sizeof(result));
+
+			SoftwareTransform(
+				prim, decoded, indexGen.VertexCount(),
+				dec_->VertexType(), (void *)inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
+				indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
+
+			if (result.action == SW_DRAW_PRIMITIVES) {
+				if (result.setStencil) {
+					dxstate.stencilFunc.set(D3DCMP_ALWAYS, result.stencilValue, 255);
+				}
+
+				// TODO: Add a post-transform cache here for multi-RECTANGLES only.
+				// Might help for text drawing.
+
+				// these spam the gDebugger log.
+				const int vertexSize = sizeof(transformed[0]);
+
+				pD3Ddevice->SetVertexDeclaration(pSoftVertexDecl);
+				if (drawIndexed) {
+					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, indexGen.MaxIndex(), D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+				} else {
+					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+				}
+			} else if (result.action == SW_CLEAR) {
+				u32 clearColor = result.color;
+				float clearDepth = result.depth;
+
+				int mask = gstate.isClearModeColorMask() ? D3DCLEAR_TARGET : 0;
+				if (gstate.isClearModeAlphaMask()) mask |= D3DCLEAR_STENCIL;
+				if (gstate.isClearModeDepthMask()) mask |= D3DCLEAR_ZBUFFER;
+
+				if (mask & D3DCLEAR_ZBUFFER) {
+					framebufferManager_->SetDepthUpdated();
+				}
+				if (mask & D3DCLEAR_TARGET) {
+					framebufferManager_->SetColorUpdated();
+				}
+
+				pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
+			}
 		}
 
 		indexGen.Reset();
-		collectedVerts = 0;
+		decodedVerts_ = 0;
 		numDrawCalls = 0;
 		vertexCountInDrawCalls = 0;
+		decodeCounter_ = 0;
+		dcid_ = 0;
 		prevPrim_ = GE_PRIM_INVALID;
 		gstate_c.vertexFullAlpha = true;
+		framebufferManager_->SetColorUpdated();
 
 		host->GPUNotifyDraw();
 }

@@ -29,6 +29,8 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class FramebufferManagerCommon;
+class TextureCacheCommon;
 class FragmentTestCache;
 struct TransformedVertex;
 
@@ -177,22 +179,18 @@ private:
 	void DecodeVerts();
 	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 	void ApplyBlendState();
 	void ApplyStencilReplaceOnly();
 	bool ApplyShaderBlending();
 	inline void ResetShaderBlending();
-	bool IsReallyAClear(int numVerts) const;
 	GLuint AllocateBuffer();
 	void FreeBuffer(GLuint buf);
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
-	// drawcall ID
-	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);

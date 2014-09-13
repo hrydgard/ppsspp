@@ -238,7 +238,7 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 
 	u32 vertTypeWithoutIndex = vertex_type & ~GE_VTYPE_IDX_MASK;
 
-	SubmitPrim(decoded2, 0, GE_PRIM_TRIANGLES, count, vertTypeWithoutIndex, GE_VTYPE_IDX_NONE, 0);
+	SubmitPrim(decoded2, 0, GE_PRIM_TRIANGLES, count, vertTypeWithoutIndex, 0);
 	Flush();
 }
 

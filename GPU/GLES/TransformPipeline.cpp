@@ -81,6 +81,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -759,10 +760,78 @@ rotateVBO:
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		SoftwareTransformAndDraw(
-			prim, decoded, program, indexGen.VertexCount(),
-			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex());
+		TransformedVertex *drawBuffer = NULL;
+		int numTrans;
+		bool drawIndexed = false;
+		u16 *inds = decIndex;
+		SoftwareTransformResult result;
+		memset(&result, 0, sizeof(result));
+
+		SoftwareTransform(
+			prim, decoded, indexGen.VertexCount(),
+			dec_->VertexType(), (void *)inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
+			indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
+
+		if (result.action == SW_DRAW_PRIMITIVES) {
+			if (result.setStencil) {
+				glstate.stencilFunc.set(GL_ALWAYS, result.stencilValue, 255);
+			}
+			const int vertexSize = sizeof(transformed[0]);
+
+			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+			int attrMask = program->attrMask;
+			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));
+			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
+			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
+			if (drawIndexed) {
+#if 1  // USING_GLES2
+				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+#else
+				glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+#endif
+			} else {
+				glDrawArrays(glprim[prim], 0, numTrans);
+			}
+		} else if (result.action == SW_CLEAR) {
+			u32 clearColor = result.color;
+			float clearDepth = result.depth;
+			const float col[4] = {
+				((clearColor & 0xFF)) / 255.0f,
+				((clearColor & 0xFF00) >> 8) / 255.0f,
+				((clearColor & 0xFF0000) >> 16) / 255.0f,
+				((clearColor & 0xFF000000) >> 24) / 255.0f,
+			};
+
+			bool colorMask = gstate.isClearModeColorMask();
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			bool depthMask = gstate.isClearModeDepthMask();
+			if (depthMask) {
+				framebufferManager_->SetDepthUpdated();
+			}
+
+			// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
+			glstate.stencilTest.disable();
+			glstate.stencilMask.set(0xFF);
+			glstate.depthTest.disable();
+
+			GLbitfield target = 0;
+			if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
+			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
+			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
+
+			glClearColor(col[0], col[1], col[2], col[3]);
+#ifdef USING_GLES2
+			glClearDepthf(clearDepth);
+#else
+			glClearDepth(clearDepth);
+#endif
+			// Stencil takes alpha.
+			glClearStencil(clearColor >> 24);
+			glClear(target);
+			framebufferManager_->SetColorUpdated();
+		}
 	}
 
 	indexGen.Reset();

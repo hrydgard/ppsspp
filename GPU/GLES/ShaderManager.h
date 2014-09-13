@@ -107,9 +107,7 @@ public:
 	int u_lightambient[4];  // attenuation
 };
 
-// Will reach 32 bits soon :P
-enum
-{
+enum {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR	 = (1 << 2),

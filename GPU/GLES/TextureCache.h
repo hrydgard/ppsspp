@@ -24,6 +24,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScaler.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 class FramebufferManager;
@@ -51,13 +52,13 @@ inline bool UseBGRA8888() {
 	return false;
 }
 
-class TextureCache {
+class TextureCache : public TextureCacheCommon {
 public:
 	TextureCache();
 	~TextureCache();
 
 	void SetTexture(bool force = false);
-	bool SetOffsetTexture(u32 offset);
+	bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();

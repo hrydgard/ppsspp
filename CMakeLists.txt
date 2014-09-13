@@ -1305,6 +1305,8 @@ add_library(GPU OBJECT
 	GPU/Common/FramebufferCommon.cpp
 	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.h
+	GPU/Common/SoftwareTransformCommon.cpp
+	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
 	GPU/Common/TransformCommon.cpp
@@ -1313,6 +1315,8 @@ add_library(GPU OBJECT
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp
 	GPU/Common/TextureDecoder.h
+	GPU/Common/TextureCacheCommon.cpp
+	GPU/Common/TextureCacheCommon.h
 	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
@@ -1343,7 +1347,6 @@ add_library(GPU OBJECT
 	GPU/GLES/TextureScaler.h
 	GPU/GLES/TransformPipeline.cpp
 	GPU/GLES/TransformPipeline.h
-	GPU/GLES/SoftwareTransform.cpp
 	GPU/GLES/VertexShaderGenerator.cpp
 	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h

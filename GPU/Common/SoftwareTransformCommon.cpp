@@ -15,18 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "gfx_es2/gl_state.h"
 #include "math/math_util.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/TransformCommon.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly without geometry shaders, and may be easier to use for
@@ -34,7 +33,7 @@
 
 // There's code here that simply expands transformed RECTANGLES into plain triangles.
 
-// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
+// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0 or DX9.
 // Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
 // this code.
 
@@ -44,8 +43,6 @@
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 //
-
-extern const GLuint glprim[8];
 
 // The verts are in the order:  BR BL TL TR
 static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
@@ -86,7 +83,7 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
-bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
+static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
@@ -123,10 +120,9 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 	return true;
 }
 
-
-void TransformDrawEngine::SoftwareTransformAndDraw(
-		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
-
+void SoftwareTransform(
+	int prim, u8 *decoded, int vertexCount, u32 vertType, void *inds, int indexType,
+	const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -387,48 +383,15 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
-	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
+	// replace them with real clears. This can provide a speedup on certain mobile chips.
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.
 	// Experiment: Disable on PowerVR (see issue #6290)
-	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
-		u32 clearColor = transformed[0].color0_32;
-		float clearDepth = transformed[0].z;
-		const float col[4] = {
-			((clearColor & 0xFF)) / 255.0f,
-			((clearColor & 0xFF00) >> 8) / 255.0f,
-			((clearColor & 0xFF0000) >> 16) / 255.0f,
-			((clearColor & 0xFF000000) >> 24) / 255.0f,
-		};
-
-		bool colorMask = gstate.isClearModeColorMask();
-		bool alphaMask = gstate.isClearModeAlphaMask();
-		bool depthMask = gstate.isClearModeDepthMask();
-		if (depthMask) {
-			framebufferManager_->SetDepthUpdated();
-		}
-
-		// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
-		glstate.stencilTest.disable();
-		glstate.stencilMask.set(0xFF);
-		glstate.depthTest.disable();
-
-		GLbitfield target = 0;
-		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
-		if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
-		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
-
-		glClearColor(col[0], col[1], col[2], col[3]);
-#ifdef USING_GLES2
-		glClearDepthf(clearDepth);
-#else
-		glClearDepth(clearDepth);
-#endif
-		// Stencil takes alpha.
-		glClearStencil(clearColor >> 24);
-		glClear(target);
-		framebufferManager_->SetColorUpdated();
+	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {
+		result->color = transformed[0].color0_32;
+		result->depth = transformed[0].z;
+		result->action = SW_CLEAR;
 		return;
 	}
 
@@ -442,11 +405,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		if (tlOutside || brOutside) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
-			const u32 bpp = framebufferManager_->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
-			const u32 fb_size = bpp * framebufferManager_->GetTargetStride() * gstate_c.curTextureHeight;
+			const u32 bpp = fbman->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
+			const u32 fb_size = bpp * fbman->GetTargetStride() * gstate_c.curTextureHeight;
 			const u32 prevH = gstate_c.curTextureHeight;
 			const u32 prevYOffset = gstate_c.curTextureYOffset;
-			if (textureCache_->SetOffsetTexture(fb_size)) {
+			if (texCache->SetOffsetTexture(fb_size)) {
 				const float oldWidthFactor = widthFactor;
 				const float oldHeightFactor = heightFactor;
 				widthFactor = (float) w / (float) gstate_c.curTextureWidth;
@@ -466,10 +429,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 
 	// Step 2: expand rectangles.
-	const TransformedVertex *drawBuffer = transformed;
-	int numTrans = 0;
-
-	bool drawIndexed = false;
+	drawBuffer = transformed;
+	numTrans = 0;
+	drawIndexed = false;
 
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
@@ -534,30 +496,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
 		// Might want to reconsider the order of things later...
 		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
-			glstate.stencilFunc.set(GL_ALWAYS, stencilValue, 255);
+			result->setStencil = true;
+			result->stencilValue = stencilValue;
 		}
 	}
 
-	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
-	// Might help for text drawing.
-
-	// these spam the gDebugger log.
-	const int vertexSize = sizeof(transformed[0]);
-
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	int attrMask = program->attrMask;
-	if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));
-	if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
-	if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
-	if (drawIndexed) {
-#if 1  // USING_GLES2
-		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-#else
-		glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
-#endif
-	} else {
-		glDrawArrays(glprim[prim], 0, numTrans);
-	}
+	result->action = SW_DRAW_PRIMITIVES;
 }

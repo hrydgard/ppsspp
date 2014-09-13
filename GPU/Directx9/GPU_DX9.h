@@ -39,7 +39,6 @@ public:
 	~DIRECTX9_GPU();
 	virtual void InitClear();
 	virtual void PreExecuteOp(u32 op, u32 diff);	
-	void ExecuteOpInternal(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
@@ -79,11 +78,37 @@ public:
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
+	typedef void (DIRECTX9_GPU::*CmdFunc)(u32 op, u32 diff);
+	struct CommandInfo {
+		u8 flags;
+		DIRECTX9_GPU::CmdFunc func;
+	};
+
+	void Execute_Generic(u32 op, u32 diff);
+	void Execute_Vaddr(u32 op, u32 diff);
+	void Execute_Iaddr(u32 op, u32 diff);
+	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
+	void Execute_ViewportType(u32 op, u32 diff);
+	void Execute_WorldMtxNum(u32 op, u32 diff);
+	void Execute_WorldMtxData(u32 op, u32 diff);
+	void Execute_ViewMtxNum(u32 op, u32 diff);
+	void Execute_ViewMtxData(u32 op, u32 diff);
+	void Execute_ProjMtxNum(u32 op, u32 diff);
+	void Execute_ProjMtxData(u32 op, u32 diff);
+	void Execute_TgenMtxNum(u32 op, u32 diff);
+	void Execute_TgenMtxData(u32 op, u32 diff);
+	void Execute_BoneMtxNum(u32 op, u32 diff);
+	void Execute_BoneMtxData(u32 op, u32 diff);
+
 protected:
 	virtual void FastRunLoop(DisplayList &list);
 	virtual void ProcessEvent(GPUEvent ev);
+	virtual void FastLoadBoneMatrix(u32 target);
 
 private:
+	void UpdateCmdInfo();
+
 	void Flush() {
 		transformDraw_.Flush();
 	}
@@ -101,7 +126,7 @@ private:
 	TransformDrawEngineDX9 transformDraw_;
 	ShaderManagerDX9 *shaderManager_;
 
-	u8 *commandFlags_;
+	static CommandInfo cmdInfo_[256];
 
 	bool resized_;
 	int lastVsync_;
@@ -110,6 +135,6 @@ private:
 	std::string reportingFullInfo_;
 };
 
-};
+}  // namespace DX9
 
 typedef DX9::DIRECTX9_GPU DIRECTX9_GPU;

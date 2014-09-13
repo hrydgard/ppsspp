@@ -165,6 +165,7 @@
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -172,6 +173,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="Common\TextureCacheCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
@@ -225,7 +227,9 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Common\TextureCacheCommon.cpp" />
     <ClCompile Include="Common\TransformCommon.cpp" />
+    <ClCompile Include="Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderArm.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -261,7 +265,6 @@
     <ClCompile Include="GLES\StencilBuffer.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp" />
-    <ClCompile Include="GLES\SoftwareTransform.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GPUCommon.cpp" />

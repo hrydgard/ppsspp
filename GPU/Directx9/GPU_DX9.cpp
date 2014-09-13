@@ -49,81 +49,86 @@ enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
 	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
-	FLAG_EXECUTEONCHANGE = 8,  // unused for now. not sure if checking for this will be more expensive than doing it.
+	FLAG_EXECUTEONCHANGE = 8,
+	FLAG_ANY_EXECUTE = 4 | 8,
+	FLAG_READS_PC = 16,
+	FLAG_WRITES_PC = 32,
 };
 
 struct CommandTableEntry {
 	u8 cmd;
 	u8 flags;
+	DIRECTX9_GPU::CmdFunc func;
 };
 
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_FRAMEBUFPTR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FRAMEBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FRAMEBUFPIXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_ZBUFPTR, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZBUFWIDTH, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty uniforms
-	{GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_FOGCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FOG1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Should these maybe flush?
 	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
 	{GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXSIZE7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
+	{GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXADDR7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXBUFWIDTH7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These affect the fragment shader so need flushing.
 	{GE_CMD_CLEARMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXTUREMAPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These change the vertex shader so need flushing.
 	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},  // TODO: This one is actually processed during vertex decoding which is wrong.
@@ -140,13 +145,13 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_TEXFILTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Uniform changes
-	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
 	{GE_CMD_OFFSETX, FLAG_FLUSHBEFOREONCHANGE},
@@ -155,7 +160,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 	{GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE},
@@ -166,6 +171,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE},
+
+	// These can't be emulated in D3D (except a few special cases)
 	{GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
@@ -173,14 +180,14 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	
 	// Morph weights. TODO: Remove precomputation?
-	{GE_CMD_MORPHWEIGHT0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MORPHWEIGHT7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_MORPHWEIGHT0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT4, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT5, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT6, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MORPHWEIGHT7, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Control spline/bezier patches. Don't really require flushing as such, but meh.
 	{GE_CMD_PATCHDIVISION, FLAG_FLUSHBEFOREONCHANGE},
@@ -189,99 +196,98 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_PATCHCULLENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Viewport.
-	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 
 	// Region
-	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_REGION2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_SCISSOR1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_SCISSOR2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These dirty various vertex shader uniforms. Could embed information about that in this table and call dirtyuniform directly, hm...
-	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_AMBIENTALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALDIFFUSE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALEMISSIVE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALAMBIENT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALSPECULAR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_AMBIENTCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_AMBIENTALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALDIFFUSE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALEMISSIVE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALAMBIENT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALALPHA, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALSPECULAR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_MATERIALSPECULARCOEF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// These precompute a value. not sure if worth it. Also dirty uniforms, which could be table-ized to avoid execute.
-	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LX3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LY3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LZ3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LX3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LY3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LZ3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
-	{GE_CMD_LDX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDX2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDY2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDZ2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDX3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDY3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDZ3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LDX0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDY0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDZ0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDX2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDY2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDZ2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDX3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDY3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDZ3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
-	{GE_CMD_LKA0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKB0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKA1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKB1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKA2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKB2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKA3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKB3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LKA0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKB0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKA1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKB1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKA2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKB2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKA3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKB3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
-	{GE_CMD_LKS0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKS1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKS2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKS3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LKS0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKS1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKS2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKS3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
-	{GE_CMD_LKO0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKO1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKO2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LKO3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LKO0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKO1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKO2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LKO3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
-	{GE_CMD_LAC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LSC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LAC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LSC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LAC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LSC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LAC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LDC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_LAC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LSC0,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LAC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LSC1,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LAC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LSC2,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LAC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LDC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
+	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE},
 
 	// Ignored commands
 	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
-	{GE_CMD_TEXLEVEL, FLAG_EXECUTE},  // we don't support this anyway, no need to flush.
 	{GE_CMD_TEXSYNC, 0},
 
 	// These are just nop or part of other later commands.
@@ -297,19 +303,19 @@ static const CommandTableEntry commandTable[] = {
 
 	// From Common. No flushing but definitely need execute.
 	{GE_CMD_OFFSETADDR, FLAG_EXECUTE},
-	{GE_CMD_ORIGIN, FLAG_EXECUTE},  // Really?
+	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC},  // Really?
 	{GE_CMD_PRIM, FLAG_EXECUTE},
-	{GE_CMD_JUMP, FLAG_EXECUTE},
-	{GE_CMD_CALL, FLAG_EXECUTE},
-	{GE_CMD_RET, FLAG_EXECUTE},
-	{GE_CMD_END, FLAG_EXECUTE},  // Flush?
-	{GE_CMD_VADDR, FLAG_EXECUTE},
-	{GE_CMD_IADDR, FLAG_EXECUTE},
-	{GE_CMD_BJUMP, FLAG_EXECUTE},  // EXECUTE
+	{GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
+	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
+	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},
+	{GE_CMD_END, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},  // Flush?
+	{GE_CMD_VADDR, FLAG_EXECUTE, &DIRECTX9_GPU::Execute_Vaddr},
+	{GE_CMD_IADDR, FLAG_EXECUTE, &DIRECTX9_GPU::Execute_Iaddr},
+	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC},  // EXECUTE
 	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE}, // + FLUSHBEFORE when we implement
 
 	// Changing the vertex type requires us to flush.
-	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
+	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_VertexType},
 
 	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
 	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
@@ -320,7 +326,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
-	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
+	{GE_CMD_TRANSFERSTART, FLAG_FLUSHBEFORE | FLAG_EXECUTE | FLAG_READS_PC},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -329,16 +335,16 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITH3},
 
 	// These handle their own flushing.
-	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE},
-	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE},
-	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE},
-	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE},
-	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE},
-	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE},
-	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE},
-	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE},
+	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &DIRECTX9_GPU::Execute_WorldMtxNum},
+	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, &DIRECTX9_GPU::Execute_WorldMtxData},
+	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &DIRECTX9_GPU::Execute_ViewMtxNum},
+	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, &DIRECTX9_GPU::Execute_ViewMtxData},
+	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &DIRECTX9_GPU::Execute_ProjMtxNum},
+	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, &DIRECTX9_GPU::Execute_ProjMtxData},
+	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &DIRECTX9_GPU::Execute_TgenMtxNum},
+	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, &DIRECTX9_GPU::Execute_TgenMtxData},
+	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, &DIRECTX9_GPU::Execute_BoneMtxNum},
+	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, &DIRECTX9_GPU::Execute_BoneMtxData},
 
 	// Vertex Screen/Texture/Color
 	{ GE_CMD_VSCX, FLAG_EXECUTE },
@@ -375,8 +381,11 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
 	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FF, FLAG_EXECUTE},
+	// Appears to be debugging related or something?  Hit a lot in GoW.
+	{ GE_CMD_UNKNOWN_FF, 0 },
 };
+
+DIRECTX9_GPU::CommandInfo DIRECTX9_GPU::cmdInfo_[256];
 
 DIRECTX9_GPU::DIRECTX9_GPU()
 : resized_(false) {
@@ -397,18 +406,21 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	// Sanity check commandFlags table - no dupes please
+	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
-	commandFlags_ = new u8[256];
-	memset(commandFlags_, 0, 256 * sizeof(bool));
+	memset(cmdInfo_, 0, sizeof(cmdInfo_));
 	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		u8 cmd = commandTable[i].cmd;
+		const u8 cmd = commandTable[i].cmd;
 		if (dupeCheck.find(cmd) != dupeCheck.end()) {
 			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		commandFlags_[cmd] |= commandTable[i].flags;
+		cmdInfo_[cmd].flags |= commandTable[i].flags;
+		cmdInfo_[cmd].func = commandTable[i].func;
+		if (!cmdInfo_[cmd].func) {
+			cmdInfo_[cmd].func = &DIRECTX9_GPU::Execute_Generic;
+		}
 	}
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
@@ -419,22 +431,37 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
-
-	if (g_Config.bPrescaleUV) {
-		commandFlags_[GE_CMD_TEXSCALEU] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXSCALEV] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXOFFSETU] &= ~FLAG_FLUSHBEFOREONCHANGE;
-		commandFlags_[GE_CMD_TEXOFFSETV] &= ~FLAG_FLUSHBEFOREONCHANGE;
-	}
+	UpdateCmdInfo();
 
 	BuildReportingInfo();
+}
+
+void DIRECTX9_GPU::UpdateCmdInfo() {
+	if (g_Config.bPrescaleUV) {
+		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+	} else {
+		cmdInfo_[GE_CMD_TEXSCALEU].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXSCALEV].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETU].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_TEXOFFSETV].flags |= FLAG_FLUSHBEFOREONCHANGE;
+	}
+
+	if (g_Config.bSoftwareSkinning) {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexTypeSkinning;
+	} else {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
+	}
 }
 
 DIRECTX9_GPU::~DIRECTX9_GPU() {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 	delete shaderManager_;
-	delete [] commandFlags_;
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -453,6 +480,7 @@ void DIRECTX9_GPU::DeviceLost() {
 void DIRECTX9_GPU::InitClear() {
 	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }
+
 void DIRECTX9_GPU::InitClearInternal() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
@@ -472,6 +500,12 @@ void DIRECTX9_GPU::BeginFrame() {
 }
 
 void DIRECTX9_GPU::BeginFrameInternal() {
+	if (resized_) {
+		UpdateCmdInfo();
+		transformDraw_.Resized();
+		resized_ = false;
+	}
+
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -483,6 +517,8 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
+	// depalShaderCache_.Decimate();
+	// fragmentTestCache_.Decimate();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -556,19 +592,22 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
+	const CommandInfo *cmdInfo = cmdInfo_;
 	for (; downcount > 0; --downcount) {
-    const u32 op = Memory::ReadUnchecked_U32(list.pc);
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
-		const u8 cmdFlags = commandFlags_[cmd];
+		const CommandInfo info = cmdInfo[cmd];
+		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 			transformDraw_.Flush();
 		}
-		gstate.cmdmem[cmd] = op;
-		if (cmdFlags & FLAG_EXECUTE)
-			ExecuteOpInternal(op, diff);
-
+		gstate.cmdmem[cmd] = op;  // TODO: no need to write if diff==0...
+		if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+			(this->*info.func)(op, diff);
+		}
 		list.pc += 4;
 	}
 }
@@ -597,7 +636,7 @@ void DIRECTX9_GPU::ProcessEvent(GPUEvent ev) {
 }
 
 inline void DIRECTX9_GPU::CheckFlushOp(int cmd, u32 diff) {
-	u8 cmdFlags = commandFlags_[cmd];
+	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
@@ -611,24 +650,275 @@ void DIRECTX9_GPU::PreExecuteOp(u32 op, u32 diff) {
 }
 
 void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
-	return ExecuteOpInternal(op, diff);
+	const u8 cmd = op >> 24;
+	const CommandInfo info = cmdInfo_[cmd];
+	const u8 cmdFlags = info.flags;
+	if ((cmdFlags & FLAG_EXECUTE) || (diff && (cmdFlags & FLAG_EXECUTEONCHANGE))) {
+		(this->*info.func)(op, diff);
+	}
 }
 
-void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
+void DIRECTX9_GPU::Execute_Vaddr(u32 op, u32 diff) {
+	gstate_c.vertexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+}
+
+void DIRECTX9_GPU::Execute_Iaddr(u32 op, u32 diff) {
+	gstate_c.indexAddr = gstate_c.getRelativeAddress(op & 0x00FFFFFF);
+}
+
+void DIRECTX9_GPU::Execute_VertexType(u32 op, u32 diff) {
+	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+	}
+}
+
+void DIRECTX9_GPU::Execute_VertexTypeSkinning(u32 op, u32 diff) {
+	// Don't flush when weight count changes, unless morph is enabled.
+	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		// Restore and flush
+		gstate.vertType ^= diff;
+		Flush();
+		gstate.vertType ^= diff;
+		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+	}
+}
+
+void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	switch (op >> 24) {
+	case GE_CMD_VIEWPORTZ1:
+	case GE_CMD_VIEWPORTZ2:
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		break;
+	}
+}
+
+void DIRECTX9_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void DIRECTX9_GPU::Execute_WorldMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.worldmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.worldMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+	}
+	num++;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void DIRECTX9_GPU::Execute_ViewMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void DIRECTX9_GPU::Execute_ViewMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.viewmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.viewMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+	}
+	num++;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void DIRECTX9_GPU::Execute_ProjMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
+	const int end = 16 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void DIRECTX9_GPU::Execute_ProjMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.projmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.projMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+	num++;
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void DIRECTX9_GPU::Execute_TgenMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			Flush();
+			dst[i] = newVal;
+			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+		}
+		if (++i >= end) {
+			break;
+		}
+	}
+
+	const int count = i;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void DIRECTX9_GPU::Execute_TgenMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.texmtxnum & 0xF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.tgenMatrix)[num] = newVal;
+		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+	}
+	num++;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
+}
+
+void DIRECTX9_GPU::Execute_BoneMtxNum(u32 op, u32 diff) {
+	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
+	const int end = 12 * 8 - (op & 0x7F);
+	int i = 0;
+
+	// If we can't use software skinning, we have to flush and dirty.
+	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+
+		const int numPlusCount = (op & 0x7F) + i;
+		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		}
+	} else {
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
+
+	// Skip over the loaded data, it's done now.
+	UpdatePC(currentList->pc, currentList->pc + count * 4);
+	currentList->pc += count * 4;
+}
+
+void DIRECTX9_GPU::Execute_BoneMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.boneMatrixNumber & 0x7F;
+	u32 newVal = op << 8;
+	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		// Bone matrices should NOT flush when software skinning is enabled!
+		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			Flush();
+			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+		}
+		((u32 *)gstate.boneMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
+}
+
+void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd) {
 	case GE_CMD_BASE:
-		break;
-
-	case GE_CMD_VADDR:
-		gstate_c.vertexAddr = gstate_c.getRelativeAddress(data);
-		break;
-
-	case GE_CMD_IADDR:
-		gstate_c.indexAddr	= gstate_c.getRelativeAddress(data);
 		break;
 
 	case GE_CMD_PRIM:
@@ -647,10 +937,10 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 
 			if (gstate.isAntiAliasEnabled()) {
 				// Discard AA lines in DOA
-					if (prim == GE_PRIM_LINE_STRIP)
+				if (prim == GE_PRIM_LINE_STRIP)
 					break;
 				// Discard AA lines in Summon Night 5
-					if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
+				if ((prim == GE_PRIM_LINES) && vertTypeIsSkinningEnabled(gstate.vertType))
 					break;
 			}
 
@@ -669,8 +959,6 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 				break;
 			}
 
-			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
-			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -682,7 +970,7 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			}
 
 			int bytesRead;
-			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
+			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
 			gpuStats.vertexGPUCycles += vertexCost * count;
@@ -814,11 +1102,6 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 			// Data seems invalid. Let's assume the box test passed.
 			currentList->bboxResult = true;
 		}
-		break;
-
-	case GE_CMD_VERTEXTYPE:
-		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_REGION1:
@@ -1145,11 +1428,9 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ALPHATEST:
-#ifndef MOBILE_DEVICE
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 		// Intentional fallthrough.
-#endif
 	case GE_CMD_COLORREF:
 		if (diff)
 			shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
@@ -1199,97 +1480,6 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 	case GE_CMD_DITH3:
 		break;
 
-	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum &= 0xFF00000F;
-		break;
-
-	case GE_CMD_WORLDMATRIXDATA:
-		{
-			int num = gstate.worldmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.worldMatrix[num]) {
-				Flush();
-				gstate.worldMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
-			}
-			num++;
-			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
-		}
-		break;
-
-	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum &= 0xFF00000F;
-		break;
-
-	case GE_CMD_VIEWMATRIXDATA:
-		{
-			int num = gstate.viewmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.viewMatrix[num]) {
-				Flush();
-				gstate.viewMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
-			}
-			num++;
-			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
-		}
-		break;
-
-	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum &= 0xFF00000F;
-		break;
-
-	case GE_CMD_PROJMATRIXDATA:
-		{
-			int num = gstate.projmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (newVal != gstate.projMatrix[num]) {
-				Flush();
-				gstate.projMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-			}
-			num++;
-			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
-		}
-		break;
-
-	case GE_CMD_TGENMATRIXNUMBER:
-		gstate.texmtxnum &= 0xFF00000F;
-		break;
-
-	case GE_CMD_TGENMATRIXDATA:
-		{
-			int num = gstate.texmtxnum & 0xF;
-			float newVal = getFloat24(data);
-			if (num < 12 && newVal != gstate.tgenMatrix[num]) {
-				Flush();
-				gstate.tgenMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
-			}
-			num++;
-			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
-		}
-		break;
-
-	case GE_CMD_BONEMATRIXNUMBER:
-		gstate.boneMatrixNumber &= 0xFF00007F;
-		break;
-
-	case GE_CMD_BONEMATRIXDATA:
-		{
-			int num = gstate.boneMatrixNumber & 0x7F;
-			float newVal = getFloat24(data);
-			if (num < 96 && newVal != gstate.boneMatrix[num]) {
-				Flush();
-				gstate.boneMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-			}
-			num++;
-			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
-		}
-		break;
-
-#ifndef MOBILE_DEVICE
 	case GE_CMD_LOGICOPENABLE:
 		if (data != 0)
 			ERROR_LOG_REPORT_ONCE(logicOpEnable, G3D, "Unsupported logic op enabled: %x", data);
@@ -1318,7 +1508,6 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		if (diff)
 			gstate_c.textureChanged = true;
 		break;
-#endif
 
 	case GE_CMD_VSCX:
 		if (data != 0)
@@ -1405,6 +1594,20 @@ void DIRECTX9_GPU::ExecuteOpInternal(u32 op, u32 diff) {
 		GPUCommon::ExecuteOp(op, diff);
 		break;
 	}
+}
+
+void DIRECTX9_GPU::FastLoadBoneMatrix(u32 target) {
+	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		Flush();
+		const int num = gstate.boneMatrixNumber & 0x7F;
+		int mtxNum = num / 12;
+		uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+		if ((num - 12 * mtxNum) != 0) {
+			uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
+		}
+		shaderManager_->DirtyUniform(uniformsToDirty);
+	}
+	gstate.FastLoadBoneMatrix(target);
 }
 
 void DIRECTX9_GPU::UpdateStats() {
@@ -1497,8 +1700,13 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 	else
 		textureCache_.InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL)
-		framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
+		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
+		// Vempire invalidates (with writeback) after drawing, but before blitting.
+		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
+			framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+		}
+	}
 }
 
 bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
@@ -1535,8 +1743,8 @@ void DIRECTX9_GPU::ClearCacheNextFrame() {
 }
 
 void DIRECTX9_GPU::Resized() {
+	resized_ = true;
 	framebufferManager_.Resized();
-	transformDraw_.Resized();
 }
 
 void DIRECTX9_GPU::ClearShaderCache() {
@@ -1666,4 +1874,4 @@ bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVerte
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
-};
+}  // namespace DX9

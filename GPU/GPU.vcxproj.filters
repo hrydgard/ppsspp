@@ -156,6 +156,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureCacheCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -166,6 +169,9 @@
       <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="Common\FramebufferCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\SoftwareTransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -204,9 +210,6 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\TransformPipeline.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\SoftwareTransform.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp">
@@ -296,6 +299,9 @@
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Common\TextureCacheCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -315,6 +321,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderArm.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\SoftwareTransformCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
