@@ -138,7 +138,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
+  $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TransformCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
@@ -150,7 +152,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
-  $(SRC)/GPU/GLES/SoftwareTransform.cpp.arm \
   $(SRC)/GPU/GLES/StateMapping.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManager.cpp.arm \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp.arm \

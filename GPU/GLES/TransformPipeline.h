@@ -97,21 +97,6 @@ public:
 	u8 flags;
 };
 
-
-enum SoftwareTransformAction {
-	SW_DRAW_PRIMITIVES,
-	SW_CLEAR,
-};
-
-struct SoftwareTransformResult {
-	SoftwareTransformAction action;
-	u32 color;
-	float depth;
-
-	bool setStencil;
-	u8 stencilValue;
-};
-
 // Handles transform, lighting and drawing.
 class TransformDrawEngine : public GfxResourceHolder {
 public:
@@ -194,7 +179,6 @@ private:
 	void DecodeVerts();
 	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransform(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result);
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 	void ApplyBlendState();

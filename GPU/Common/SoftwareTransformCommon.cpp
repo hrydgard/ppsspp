@@ -25,7 +25,7 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly without geometry shaders, and may be easier to use for
@@ -120,9 +120,9 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	return true;
 }
 
-void TransformDrawEngine::SoftwareTransform(
-		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType,
-		const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
+void SoftwareTransform(
+	int prim, u8 *decoded, int vertexCount, u32 vertType, void *inds, int indexType,
+	const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 

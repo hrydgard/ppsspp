@@ -81,6 +81,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -767,9 +768,9 @@ rotateVBO:
 		memset(&result, 0, sizeof(result));
 
 		SoftwareTransform(
-			prim, decoded, program, indexGen.VertexCount(),
+			prim, decoded, indexGen.VertexCount(),
 			dec_->VertexType(), (void *)inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex(), framebufferManager_, textureCache_, drawBuffer, numTrans, drawIndexed, &result);
+			indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
