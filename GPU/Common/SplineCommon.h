@@ -28,7 +28,6 @@ struct SimpleVertex {
 	Vec3Packedf pos;
 };
 
-
 inline float lerp(float a, float b, float x) {
 	return a + x * (b - a);
 }

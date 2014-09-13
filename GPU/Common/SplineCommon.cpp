@@ -91,7 +91,7 @@ void spline_n_4(int i, float t, float *knot, float *splineVal) {
 void spline_knot(int n, int type, float *knot) {
 	memset(knot, 0, sizeof(float) * (n + 5));
 	for (int i = 0; i < n - 1; ++i)
-		knot[i + 3] = i;
+		knot[i + 3] = (float)i;
 
 	if ((type & 1) == 0) {
 		knot[0] = -3;
@@ -99,15 +99,16 @@ void spline_knot(int n, int type, float *knot) {
 		knot[2] = -1;
 	}
 	if ((type & 2) == 0) {
-		knot[n + 2] = n - 1;
-		knot[n + 3] = n;
-		knot[n + 4] = n + 1;
+		knot[n + 2] = (float)(n - 1);
+		knot[n + 3] = (float)(n);
+		knot[n + 4] = (float)(n + 1);
 	} else {
-		knot[n + 2] = n - 2;
-		knot[n + 3] = n - 2;
-		knot[n + 4] = n - 2;
+		knot[n + 2] = (float)(n - 2);
+		knot[n + 3] = (float)(n - 2);
+		knot[n + 4] = (float)(n - 2);
 	}
 }
+
 void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
@@ -253,6 +254,7 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 							vert->uv[1] += a->uv[1] * f;
 						}
 						if (origVertType & GE_VTYPE_COL_MASK) {
+							// TODO: Accumulating values in u8s is crazy. We need floats or something.
 							vert->color[0] += a->color[0] * f;
 							vert->color[1] += a->color[1] * f;
 							vert->color[2] += a->color[2] * f;
