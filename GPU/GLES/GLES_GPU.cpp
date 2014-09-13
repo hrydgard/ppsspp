@@ -425,7 +425,7 @@ GLES_GPU::GLES_GPU()
 		cmdInfo_[cmd].flags |= commandTable[i].flags;
 		cmdInfo_[cmd].func = commandTable[i].func;
 		if (!cmdInfo_[cmd].func) {
-			cmdInfo_[cmd].func = &GLES_GPU::ExecuteOpInternal;
+			cmdInfo_[cmd].func = &GLES_GPU::Execute_Generic;
 		}
 	}
 	// Find commands missing from the table.
@@ -800,8 +800,6 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
-	// on platforms where draw calls are expensive like mobile and D3D
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	void *inds = 0;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -1367,7 +1365,7 @@ void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
-void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
+void GLES_GPU::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
@@ -2168,6 +2166,7 @@ void GLES_GPU::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManager_.DestroyAllFBOs();
+		shaderManager_->ClearCache(true);
 	}
 }
 

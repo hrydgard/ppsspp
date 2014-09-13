@@ -205,8 +205,8 @@ private:
 	FramebufferManagerDX9 *framebufferManager_;
 	VertexDecoderJitCache *decJitCache_;
 
-
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;

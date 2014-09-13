@@ -40,7 +40,8 @@ enum {
 	DIRTY_FOGCOEF = (1 << 3),
 	DIRTY_TEXENV = (1 << 4),
 	DIRTY_ALPHACOLORREF = (1 << 5),
-	DIRTY_COLORREF = (1 << 6),
+	DIRTY_STENCILREPLACEVALUE = (1 << 6),
+
 	DIRTY_ALPHACOLORMASK = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
@@ -54,6 +55,7 @@ enum {
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
 	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+	DIRTY_TEXCLAMP = (1 << 19),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
@@ -108,8 +110,7 @@ protected:
 	bool useHWTransform_;
 };
 
-class ShaderManagerDX9
-{
+class ShaderManagerDX9 {
 public:
 	ShaderManagerDX9();
 	~ShaderManagerDX9();

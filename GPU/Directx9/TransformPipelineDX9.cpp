@@ -876,6 +876,19 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		// TODO
+		// DecodeVertsStep();
+		// decodeCounter_++;
+	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+			Flush();
+		}
+	}
 }
 
 void TransformDrawEngineDX9::DecodeVerts() {
