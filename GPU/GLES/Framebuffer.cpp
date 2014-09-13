@@ -113,7 +113,7 @@ inline u16 BGRA8888toRGBA4444(u32 px) {
 	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 height, GEBufferFormat format);
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
@@ -1357,7 +1357,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 
 // TODO: SSE/NEON
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 height, GEBufferFormat format) {
+void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const u32 *src32 = (const u32 *)src;
 
@@ -1368,20 +1368,19 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 heig
 		} else if (UseBGRA8888()) {
 			for (u32 y = 0; y < height; ++y) {
 				ConvertBGRA8888ToRGBA8888(dst32, src32, width);
-				src32 += stride;
-				dst32 += stride;
+				src32 += srcStride;
+				dst32 += dstStride;
 			}
 		} else {
 			// Here let's assume they don't intersect
 			for (u32 y = 0; y < height; ++y) {
 				memcpy(dst32, src32, width * 4);
-				src32 += stride;
-				dst32 += stride;
+				src32 += srcStride;
+				dst32 += dstStride;
 			}
 		}
 	} else {
 		// But here it shouldn't matter if they do intersect
-		int size = height * stride;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
 			case GE_FORMAT_565: // BGR 565
@@ -1390,16 +1389,16 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 heig
 						for (u32 x = 0; x < width; ++x) {
 							dst16[x] = BGRA8888toRGB565(src32[x]);
 						}
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
 						for (u32 x = 0; x < width; ++x) {
 							dst16[x] = RGBA8888toRGB565(src32[x]);
 						}
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				}
 				break;
@@ -1407,14 +1406,14 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 heig
 				if (UseBGRA8888()) {
 					for (u32 y = 0; y < height; ++y) {
 						ConvertBGRA8888ToRGBA5551(dst16, src32, width);
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
 						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				}
 				break;
@@ -1424,16 +1423,16 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 stride, u32 width, u32 heig
 						for (u32 x = 0; x < width; ++x) {
 							dst16[x] = BGRA8888toRGBA4444(src32[x]);
 						}
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
 						for (u32 x = 0; x < width; ++x) {
 							dst16[x] = RGBA8888toRGBA4444(src32[x]);
 						}
-						src32 += stride;
-						dst16 += stride;
+						src32 += srcStride;
+						dst16 += dstStride;
 					}
 				}
 				break;
@@ -1508,7 +1507,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 			if (useCPU || (UseBGRA8888() && pbo.format == GE_FORMAT_8888)) {
 				u8 *dst = Memory::GetPointer(pbo.fb_address);
-				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.height, pbo.format);
+				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.stride, pbo.height, pbo.format);
 			} else {
 				// We don't need to convert, GPU already did (or should have)
 				Memory::Memcpy(pbo.fb_address, packed, pbo.size);
@@ -1672,7 +1671,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->width, h, vfb->format);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->fb_stride, vfb->width, h, vfb->format);
 		}
 	}
 

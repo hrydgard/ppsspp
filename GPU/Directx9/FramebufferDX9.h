@@ -105,7 +105,7 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb);
+	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;

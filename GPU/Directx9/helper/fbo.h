@@ -28,7 +28,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 void fbo_bind_as_render_target(FBO *fbo);
 // color must be 0, for now.
 void fbo_bind_color_as_texture(FBO *fbo, int color);
-void fbo_bind_for_read(FBO *fbo);
+LPDIRECT3DSURFACE9 fbo_get_for_read(FBO *fbo);
 void fbo_unbind();
 void fbo_destroy(FBO *fbo);
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);

@@ -28,6 +28,7 @@
 #include "helper/fbo.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
@@ -48,7 +49,15 @@ namespace DX9 {
 		return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 	}
 
-	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
+	inline u16 BGRA8888toRGB565(u32 px) {
+		return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
+	}
+
+	inline u16 BGRA8888toRGBA4444(u32 px) {
+		return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+	}
+
+	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 	void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
@@ -771,20 +780,7 @@ namespace DX9 {
 			}
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, false);
 
-			// TODO: Actually do it.
-#if 0
-#ifdef USING_GLES2
-			PackFramebufferSync_(nvfb); // synchronous glReadPixels
-#else
-			if (gl_extensions.PBO_ARB || !gl_extensions.ATIClampBug) {
-				if (!sync) {
-					PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
-				} else {
-					PackFramebufferSync_(nvfb); // synchronous glReadPixels
-				}
-			}
-#endif
-#endif
+			PackFramebufferDirectx9_(nvfb, x, y, w, h);
 			RebindFramebuffer();
 		}
 	}
@@ -838,75 +834,96 @@ namespace DX9 {
 
 	// TODO: SSE/NEON
 	// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-	void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
-		if(format == GE_FORMAT_8888) {
-			if(src == dst) {
+	void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
+		// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
+		const u32 *src32 = (const u32 *)src;
+
+		if (format == GE_FORMAT_8888) {
+			u32 *dst32 = (u32 *)dst;
+			if (src == dst) {
 				return;
-			} else { // Here lets assume they don't intersect
-				memcpy(dst, src, stride * height * 4);
+			} else {
+				for (u32 y = 0; y < height; ++y) {
+					ConvertBGRA8888ToRGBA8888(dst32, src32, width);
+					src32 += srcStride;
+					dst32 += dstStride;
+				}
 			}
-		} else { // But here it shouldn't matter if they do
-			int size = height * stride;
-			const u32 *src32 = (const u32 *)src;
+		} else {
+			// But here it shouldn't matter if they do intersect
 			u16 *dst16 = (u16 *)dst;
 			switch (format) {
 			case GE_FORMAT_565: // BGR 565
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGB565(src32[i]);
+				for (u32 y = 0; y < height; ++y) {
+					for (u32 x = 0; x < width; ++x) {
+						dst16[x] = BGRA8888toRGB565(src32[x]);
+					}
+					src32 += srcStride;
+					dst16 += dstStride;
 				}
 				break;
 			case GE_FORMAT_5551: // ABGR 1555
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA5551(src32[i]);
+				for (u32 y = 0; y < height; ++y) {
+					ConvertBGRA8888ToRGBA5551(dst16, src32, width);
+					src32 += srcStride;
+					dst16 += dstStride;
 				}
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA4444(src32[i]);
+				for (u32 y = 0; y < height; ++y) {
+					for (u32 x = 0; x < width; ++x) {
+						dst16[x] = BGRA8888toRGBA4444(src32[x]);
+					}
+					src32 += srcStride;
+					dst16 += dstStride;
 				}
 				break;
 			case GE_FORMAT_8888:
+			case GE_FORMAT_INVALID:
 				// Not possible.
-				break;
-			default:
 				break;
 			}
 		}
 	}
 
-	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
-		if (vfb->fbo) {
-			fbo_bind_for_read(vfb->fbo);
-		} else {
-			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferSync_: vfb->fbo == 0");
+	void FramebufferManagerDX9::PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+		if (!vfb->fbo) {
+			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackFramebufferDirectx9_: vfb->fbo == 0");
 			fbo_unbind();
 			return;
 		}
 
-		// Pixel size always 4 here because we always request RGBA8888
-		size_t bufSize = vfb->fb_stride * vfb->height * 4;
-		u32 fb_address = (0x04000000) | vfb->fb_address;
+		const u32 fb_address = (0x04000000) | vfb->fb_address;
+		const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 
-		u8 *packed = 0;
-		if(vfb->format == GE_FORMAT_8888) {
-			packed = (u8 *)Memory::GetPointer(fb_address);
-		} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-			packed = (u8 *)malloc(bufSize * sizeof(u8));
-		}
+		// We always need to convert from the framebuffer native format.
+		// Right now that's always 8888.
+		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-		if(packed) {
-			DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
-				(u32)bufSize, packed, fb_address);
+		LPDIRECT3DSURFACE9 renderTarget = fbo_get_for_read(vfb->fbo);
+		D3DSURFACE_DESC desc;
+		renderTarget->GetDesc(&desc);
 
-			// Resolve(packed, vfb);
-
-			if(vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
-				ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
-				free(packed);
+		LPDIRECT3DSURFACE9 offscreen = nullptr;
+		// TODO: Cache these?
+		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		if (offscreen && SUCCEEDED(hr)) {
+			hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+			if (SUCCEEDED(hr)) {
+				D3DLOCKED_RECT locked;
+				RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
+				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
+				if (SUCCEEDED(hr)) {
+					// TODO: Handle the other formats?  We don't currently create them, I think.
+					const int dstByteOffset = y * vfb->fb_stride * dstBpp;
+					const int srcByteOffset = y * locked.Pitch;
+					// Pixel size always 4 here because we always request BGRA8888.
+					ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits + srcByteOffset, vfb->fb_stride, locked.Pitch / 4, vfb->width, h, vfb->format);
+					offscreen->UnlockRect();
+				}
 			}
+			offscreen->Release();
 		}
-
-		fbo_unbind();
 	}
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
