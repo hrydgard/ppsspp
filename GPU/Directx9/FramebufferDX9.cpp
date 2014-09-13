@@ -250,7 +250,8 @@ namespace DX9 {
 		dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
-		DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
+		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
+		textureCache_->ForgetLastTexture();
 	}
 
 	void FramebufferManagerDX9::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -286,10 +287,6 @@ namespace DX9 {
 		}
 
 		// TODO: StretchRect instead?
-		if (tex) {
-			pD3Ddevice->SetTexture(0, tex);
-		}
-
 		float coord[20] = {
 			x,y,0, u0,v0,
 			x+w,y,0, u1,v0,
