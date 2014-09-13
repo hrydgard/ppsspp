@@ -147,6 +147,7 @@ public:
 		void ReleaseTexture() {
 			if (texture) {
 				texture->Release();
+				texture = NULL;
 			}
 		}
 	};
