@@ -257,9 +257,8 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float uscale, float vscale) {
 		float u2 = uscale;
-		// Since we're flipping, 0 is down.  That's where the scale goes.
-		float v1 = flip ? 1.0f : 1.0f - vscale;
-		float v2 = flip ? 1.0f - vscale : 1.0f;
+		float v1 = flip ? vscale : 0.0f;
+		float v2 = flip ? 0.0f : vscale;
 
 		float coord[] = { 
 			x,	 y,	  0,	0,	v1,
