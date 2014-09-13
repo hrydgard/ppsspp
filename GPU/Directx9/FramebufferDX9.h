@@ -57,10 +57,9 @@ public:
 		transformDraw_ = td;
 	}
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 	
 	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
 
@@ -70,7 +69,6 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void UpdateFromMemory(u32 addr, int size, bool safe);
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 

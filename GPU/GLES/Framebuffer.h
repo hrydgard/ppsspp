@@ -71,10 +71,9 @@ public:
 		transformDraw_ = td;
 	}
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -89,7 +88,6 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 

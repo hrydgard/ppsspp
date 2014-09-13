@@ -94,9 +94,7 @@ public:
 	virtual ~FramebufferManagerCommon();
 
 	void BeginFrame();
-
-	virtual bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false) = 0;
-	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 
 	void DoSetRenderFrameBuffer();
 	void SetRenderFrameBuffer() {
@@ -112,26 +110,21 @@ public:
 	}
 	virtual void RebindFramebuffer() = 0;
 
-	size_t NumVFBs() const { return vfbs_.size(); }
+	void UpdateFromMemory(u32 addr, int size, bool safe);
+	virtual bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false) = 0;
+	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
 
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
+
+	size_t NumVFBs() const { return vfbs_.size(); }
 
 	u32 PrevDisplayFramebufAddr() {
 		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
 	}
 	u32 DisplayFramebufAddr() {
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
-	}
-
-	void SetDepthUpdated() {
-		if (currentRenderVfb_) {
-			currentRenderVfb_->depthUpdated = true;
-		}
-	}
-	void SetColorUpdated() {
-		if (currentRenderVfb_) {
-			SetColorUpdated(currentRenderVfb_);
-		}
 	}
 
 	bool MayIntersectFramebuffer(u32 start) {
@@ -158,6 +151,17 @@ public:
 	int GetTargetBufferHeight() const { return currentRenderVfb_ ? currentRenderVfb_->bufferHeight : 272; }
 	int GetTargetStride() const { return currentRenderVfb_ ? currentRenderVfb_->fb_stride : 512; }
 	GEBufferFormat GetTargetFormat() const { return currentRenderVfb_ ? currentRenderVfb_->format : displayFormat_; }
+
+	void SetDepthUpdated() {
+		if (currentRenderVfb_) {
+			currentRenderVfb_->depthUpdated = true;
+		}
+	}
+	void SetColorUpdated() {
+		if (currentRenderVfb_) {
+			SetColorUpdated(currentRenderVfb_);
+		}
+	}
 
 protected:
 	virtual void DisableState() = 0;

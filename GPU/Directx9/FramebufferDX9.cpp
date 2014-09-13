@@ -983,42 +983,6 @@ namespace DX9 {
 		vfbs_.clear();
 	}
 
-	void FramebufferManagerDX9::UpdateFromMemory(u32 addr, int size, bool safe) {
-		addr &= ~0x40000000;
-		// TODO: Could go through all FBOs, but probably not important?
-		// TODO: Could also check for inner changes, but video is most important.
-		bool isDisplayBuf = addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr();
-		if (isDisplayBuf || safe) {
-			// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
-			if (!Memory::IsValidAddress(displayFramebufPtr_))
-				return;
-
-			for (size_t i = 0; i < vfbs_.size(); ++i) {
-				VirtualFramebuffer *vfb = vfbs_[i];
-				if (MaskedEqual(vfb->fb_address, addr)) {
-					FlushBeforeCopy();
-
-					if (useBufferedRendering_ && vfb->fbo) {
-						DisableState();
-						GEBufferFormat fmt = vfb->format;
-						if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
-							// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
-							fmt = displayFormat_;
-						}
-						DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
-						SetColorUpdated(vfb);
-					} else {
-						INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-						DestroyFramebuf(vfb);
-						vfbs_.erase(vfbs_.begin() + i--);
-					}
-				}
-			}
-
-			RebindFramebuffer();
-		}
-	}
-
 	void FramebufferManagerDX9::FlushBeforeCopy() {
 		// Flush anything not yet drawn before blitting, downloading, or uploading.
 		// This might be a stalled list, or unflushed before a block transfer, etc.
