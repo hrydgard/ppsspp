@@ -469,7 +469,49 @@ namespace DX9 {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		currentRenderVfb_ = 0;
 
+		u32 offsetX = 0;
+		u32 offsetY = 0;
+
 		VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
+		if (!vfb) {
+			// Let's search for a framebuf within this range.
+			const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
+			for (size_t i = 0; i < vfbs_.size(); ++i) {
+				VirtualFramebuffer *v = vfbs_[i];
+				const u32 v_addr = (v->fb_address & 0x03FFFFFF) | 0x04000000;
+				const u32 v_size = FramebufferByteSize(v);
+				if (addr >= v_addr && addr < v_addr + v_size) {
+					const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
+					const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
+					const u32 v_offsetY = ((addr - v_addr) / dstBpp) / v->fb_stride;
+					// We have enough space there for the display, right?
+					if (v_offsetX + 480 > (u32)v->fb_stride || v->bufferHeight < v_offsetY + 272) {
+						continue;
+					}
+					// Check for the closest one.
+					if (offsetY == 0 || offsetY > v_offsetY) {
+						offsetX = v_offsetX;
+						offsetY = v_offsetY;
+						vfb = v;
+					}
+				}
+			}
+
+			if (vfb) {
+				// Okay, we found one above.
+				INFO_LOG_REPORT_ONCE(displayoffset, HLE, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			}
+		}
+
+		if (vfb && vfb->format != displayFormat_) {
+			if (vfb->last_frame_render + FBO_OLD_AGE < gpuStats.numFlips) {
+				// The game probably switched formats on us.
+				vfb->format = displayFormat_;
+			} else {
+				vfb = 0;
+			}
+		}
+
 		if (!vfb) {
 			if (Memory::IsValidAddress(displayFramebufPtr_)) {
 				// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -522,6 +564,11 @@ namespace DX9 {
 			// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 			// and to discard extraFBOs_ after using them.
 
+			const float u0 = offsetX / (float)vfb->bufferWidth;
+			const float v0 = offsetY / (float)vfb->bufferHeight;
+			const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
+			const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+
 			if (1) {
 				dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 				// These are in the output display coordinates
@@ -534,7 +581,7 @@ namespace DX9 {
 				}
 				dxstate.texMipFilter.set(D3DTEXF_NONE);
 				dxstate.texMipLodBias.set(0);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u1, v1);
 			}
 			/* 
 			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
@@ -697,7 +744,7 @@ namespace DX9 {
 		}
 		*/
 
-		dxstate.viewport.set(0, 0, dst->width, dst->height);
+		dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);
 		DisableState();
 
 		if (src->fbo) {
