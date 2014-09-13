@@ -86,6 +86,8 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
+	virtual void RebindFramebuffer() override;
+
 protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;

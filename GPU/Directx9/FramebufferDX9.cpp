@@ -331,6 +331,14 @@ namespace DX9 {
 		delete v;
 	}
 
+	void FramebufferManagerDX9::RebindFramebuffer() {
+		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
+			fbo_bind_as_render_target(currentRenderVfb_->fbo);
+		} else {
+			fbo_unbind();
+		}
+	}
+
 	void FramebufferManagerDX9::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
 		float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
 		float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
@@ -750,6 +758,7 @@ namespace DX9 {
 			}
 #endif
 #endif
+			RebindFramebuffer();
 		}
 	}
 
@@ -1006,9 +1015,7 @@ namespace DX9 {
 				}
 			}
 
-			// TODO: RebindFramebuffer();
-			fbo_unbind();
-			currentRenderVfb_ = 0;
+			RebindFramebuffer();
 		}
 	}
 

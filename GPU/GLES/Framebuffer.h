@@ -119,7 +119,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
-	void RebindFramebuffer();
+	virtual void RebindFramebuffer() override;
 
 	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 

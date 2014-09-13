@@ -110,6 +110,7 @@ public:
 		}
 		DoSetRenderFrameBuffer();
 	}
+	virtual void RebindFramebuffer() = 0;
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
