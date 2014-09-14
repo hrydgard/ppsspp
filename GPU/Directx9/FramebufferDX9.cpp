@@ -173,6 +173,8 @@ namespace DX9 {
 				drawPixelsTex_ = nullptr;
 				ERROR_LOG(G3D, "Failed to create drawpixels texture");
 			}
+			drawPixelsTexW_ = width;
+			drawPixelsTexH_ = height;
 		}
 
 		if (!drawPixelsTex_) {
