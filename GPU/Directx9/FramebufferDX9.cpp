@@ -703,22 +703,7 @@ namespace DX9 {
 				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
 				nvfb->dirtyAfterDisplay = true;
 
-				// When updating VRAM, it need to be exact format.
-				switch (vfb->format) {
-				case GE_FORMAT_4444:
-					nvfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					nvfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					nvfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					nvfb->colorDepth = FBO_8888;
-					break;
-				}
+				nvfb->colorDepth = FBO_8888;
 
 				textureCache_->ForgetLastTexture();
 				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
