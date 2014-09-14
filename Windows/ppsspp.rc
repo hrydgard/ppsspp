@@ -469,39 +469,47 @@ BEGIN
             MENUITEM "&3x",                                 ID_OPTIONS_WINDOW3X
             MENUITEM "&4x",                                 ID_OPTIONS_WINDOW4X
         END
-				POPUP "Rendering Mode"
-				BEGIN
-					MENUITEM "Non-Buffered Rendering",				ID_OPTIONS_NONBUFFEREDRENDERING
-					MENUITEM "Buffered Rendering",					ID_OPTIONS_BUFFEREDRENDERING
-					MENUITEM "Read Framebuffers To Memory (CPU)",	ID_OPTIONS_READFBOTOMEMORYCPU
-					MENUITEM "Read Framebuffers To Memory (GPU)",	ID_OPTIONS_READFBOTOMEMORYGPU
-				END
-				POPUP "Frame Skipping"
-				BEGIN
-					MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
-					MENUITEM SEPARATOR
-					MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
-					MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
-					MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
-					MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
-					MENUITEM "&4",									ID_OPTIONS_FRAMESKIP_4
-					MENUITEM "&5",									ID_OPTIONS_FRAMESKIP_5
-					MENUITEM "&6",									ID_OPTIONS_FRAMESKIP_6
-					MENUITEM "&7",									ID_OPTIONS_FRAMESKIP_7
-					MENUITEM "&8",									ID_OPTIONS_FRAMESKIP_8
-				END
-				POPUP "Texture Filtering"
-						BEGIN
-								MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
-								MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
-								MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
-								MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
-				END
-				POPUP "Screen Scaling Filter"
-						BEGIN
-								MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
-								MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
-				END
+
+		POPUP "Backend"
+		BEGIN
+			MENUITEM "Direct3D9" ID_OPTIONS_DIRECTX
+			MENUITEM "OpenGL" ID_OPTIONS_OPENGL
+		END
+
+		POPUP "Rendering Mode"
+		BEGIN
+			MENUITEM "Non-Buffered Rendering",				ID_OPTIONS_NONBUFFEREDRENDERING
+			MENUITEM "Buffered Rendering",					ID_OPTIONS_BUFFEREDRENDERING
+			MENUITEM "Read Framebuffers To Memory (CPU)",	ID_OPTIONS_READFBOTOMEMORYCPU
+			MENUITEM "Read Framebuffers To Memory (GPU)",	ID_OPTIONS_READFBOTOMEMORYGPU
+		END
+		POPUP "Frame Skipping"
+		BEGIN
+			MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
+			MENUITEM SEPARATOR
+			MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
+			MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
+			MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
+			MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
+			MENUITEM "&4",									ID_OPTIONS_FRAMESKIP_4
+			MENUITEM "&5",									ID_OPTIONS_FRAMESKIP_5
+			MENUITEM "&6",									ID_OPTIONS_FRAMESKIP_6
+			MENUITEM "&7",									ID_OPTIONS_FRAMESKIP_7
+			MENUITEM "&8",									ID_OPTIONS_FRAMESKIP_8
+		END
+		POPUP "Texture Filtering"
+		BEGIN
+			MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
+			MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
+			MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
+			MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
+		END
+		POPUP "Screen Scaling Filter"
+		BEGIN
+			MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
+			MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
+		END
+
         POPUP "Texture Scaling"
         BEGIN
             MENUITEM "Off",                             ID_TEXTURESCALING_OFF

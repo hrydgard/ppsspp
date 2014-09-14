@@ -117,7 +117,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 #if defined(_WIN32)
-	static const char *renderingBackend[] = { "OpenGL", "DirectX" };
+	static const char *renderingBackend[] = { "OpenGL", "Direct3D9" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTempGPUBackend, gs->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gs, screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #endif
