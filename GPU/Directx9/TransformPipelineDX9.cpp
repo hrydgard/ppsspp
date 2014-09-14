@@ -945,54 +945,16 @@ void TransformDrawEngineDX9::Resized() {
 	}
 	decoderMap_.clear();
 
-	// ...
+	if (g_Config.bPrescaleUV && !uvScale) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	} else if (!g_Config.bPrescaleUV && uvScale) {
+		delete uvScale;
+		uvScale = 0;
+	}
 }
 
-bool TransformDrawEngineDX9::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
-	// Simplify away bones and morph before proceeding
-
-	/*
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
-
-	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
-
-	for (int cube = 0; cube < vertexCount / 8; cube++) {
-		// For each cube...
-		
-		for (int i = 0; i < 8; i++) {
-			const SimpleVertex &vert = corners[cube * 8 + i];
-
-			// To world space...
-			float worldPos[3];
-			Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
-
-			// To view space...
-			float viewPos[3];
-			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
-
-			// And finally to screen space.
-			float frustumPos[4];
-			Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
-
-			// Project to 2D
-			float x = frustumPos[0] / frustumPos[3];
-			float y = frustumPos[1] / frustumPos[3];
-
-			// Rescale 2d position
-			// ...
-		}
-	}
-	*/
-
-	
-	// Let's think. A better approach might be to take the edges of the drawing region and the projection
-	// matrix to build a frustum pyramid, and then clip the cube against those planes. If all vertices fail the same test,
-	// the cube is out. Otherwise it's in.
-	// TODO....
-	
-	return true;
+bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: Probably move this to common code (with normalization?)
@@ -1020,10 +982,6 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
-}
-
-bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
-	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: This probably is not the best interface.

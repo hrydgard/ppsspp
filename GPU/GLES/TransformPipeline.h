@@ -108,7 +108,6 @@ public:
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
-	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
@@ -177,6 +176,10 @@ public:
 	// Really just for convenience to share with softgpu.
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
+protected:
+	// Preprocessing for spline/bezier
+	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
@@ -189,9 +192,6 @@ private:
 	inline void ResetShaderBlending();
 	GLuint AllocateBuffer();
 	void FreeBuffer(GLuint buf);
-
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 
 	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
@@ -222,10 +222,6 @@ private:
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
-	
-	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
