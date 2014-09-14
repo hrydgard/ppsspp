@@ -588,7 +588,20 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
 	delete host;
+
+	// Is there a safer place to do this?
+	// Doing this in Config::Save requires knowing if the UI state is UISTATE_EXIT,
+	// but that causes UnitTest to fail linking with 400 errors if System.h is included..
+	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend)
+		g_Config.iGPUBackend = g_Config.iTempGPUBackend;
+
 	g_Config.Save();
 	LogManager::Shutdown();
+
+	if (g_Config.bRestartRequired) {
+		wchar_t moduleFilename[MAX_PATH];
+		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
+		ShellExecute(NULL, NULL, moduleFilename, NULL, NULL, SW_SHOW);
+	}
 	return 0;
 }

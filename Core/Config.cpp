@@ -407,6 +407,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false),
+	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
+	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
@@ -828,6 +830,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
+
+#ifdef _WIN32
+	iTempGPUBackend = iGPUBackend;
+#endif
 }
 
 void Config::Save() {

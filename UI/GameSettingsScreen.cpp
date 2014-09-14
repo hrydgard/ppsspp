@@ -49,6 +49,10 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/Framebuffer.h"
 
+#if defined(_WIN32)
+#include "Windows/WndMainWindow.h"
+#endif
+
 #ifdef IOS
 extern bool iosCanUseJit;
 #endif
@@ -112,6 +116,11 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
+#if defined(_WIN32)
+	static const char *renderingBackend[] = { "OpenGL", "DirectX" };
+	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTempGPUBackend, gs->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gs, screenManager()));
+	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+#endif
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
@@ -602,6 +611,32 @@ void GlobalSettingsScreen::CreateViews() {
 
 	enableReports_ = Reporting::IsEnabled();
 }*/
+
+void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
+#if defined(_WIN32)
+	// If the user ends up deciding not to restart, set the temporary variable back to the current backend
+	// so it doesn't get switched by accident.
+	if (yes) {
+		g_Config.bRestartRequired = true;
+		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+	} else {
+		g_Config.iTempGPUBackend = g_Config.iGPUBackend;
+	}
+#endif
+}
+
+UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
+#if defined(_WIN32)
+	I18NCategory *d = GetI18NCategory("Dialog");
+
+	// It only makes sense to show the restart prompt if the backend was actually changed.
+	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend) {
+		screenManager()->push(new PromptScreen(d->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), d->T("Yes"), d->T("No"),
+			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, placeholder::_1)));
+	}
+#endif
+	return UI::EVENT_DONE;
+}
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if defined(_WIN32) || defined(USING_QT_UI)
