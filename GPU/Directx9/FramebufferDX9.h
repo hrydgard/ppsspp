@@ -19,6 +19,7 @@
 
 #include <list>
 #include <set>
+#include <map>
 
 #include "d3d9.h"
 
