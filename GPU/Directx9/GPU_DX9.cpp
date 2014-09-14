@@ -634,6 +634,18 @@ void DIRECTX9_GPU::ProcessEvent(GPUEvent ev) {
 		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
 		break;
 
+	case GPU_EVENT_FB_MEMCPY:
+		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		break;
+
+	case GPU_EVENT_FB_MEMSET:
+		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
+		break;
+
+	case GPU_EVENT_FB_STENCIL_UPLOAD:
+		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
+		break;
+
 	default:
 		GPUCommon::ProcessEvent(ev);
 	}
@@ -1881,32 +1893,103 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 	}
 }
 
+void DIRECTX9_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+		// We use a little hack for Download/Upload using a VRAM mirror.
+		// Since they're identical we don't need to copy.
+		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		}
+	}
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+}
+
+void DIRECTX9_GPU::PerformMemorySetInternal(u32 dest, u8 v, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true)) {
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	}
+}
+
+void DIRECTX9_GPU::PerformStencilUploadInternal(u32 dest, int size) {
+	framebufferManager_.NotifyStencilUpload(dest, size);
+}
+
 bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+			ev.fb_memcpy.dst = dest;
+			ev.fb_memcpy.src = src;
+			ev.fb_memcpy.size = size;
+			ScheduleEvent(ev);
+
+			// This is a memcpy, so we need to wait for it to complete.
+			SyncThread();
+		} else {
+			PerformMemoryCopyInternal(dest, src, size);
+		}
+		return true;
+	}
+
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// This may indicate a memset, usually to 0, of a framebuffer.
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		Memory::Memset(dest, v, size);
+
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMSET);
+			ev.fb_memset.dst = dest;
+			ev.fb_memset.v = v;
+			ev.fb_memset.size = size;
+			ScheduleEvent(ev);
+
+			// We don't need to wait for the framebuffer to be updated.
+		} else {
+			PerformMemorySetInternal(dest, v, size);
+		}
+		return true;
+	}
+
+	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (Memory::IsRAMAddress(dest)) {
-//		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
+	// Cheat a bit to force a download of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
 	}
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemoryUpload(u32 dest, int size) {
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	// Cheat a bit to force an upload of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+	}
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformStencilUpload(u32 dest, int size) {
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
+			ev.fb_stencil_upload.dst = dest;
+			ev.fb_stencil_upload.size = size;
+			ScheduleEvent(ev);
+		} else {
+			PerformStencilUploadInternal(dest, size);
+		}
+		return true;
+	}
 	return false;
 }
 
