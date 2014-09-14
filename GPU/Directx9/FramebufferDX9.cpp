@@ -902,7 +902,7 @@ namespace DX9 {
 				D3DLOCKED_RECT locked;
 				u32 widthFactor = vfb->renderWidth / vfb->bufferWidth;
 				u32 heightFactor = vfb->renderHeight / vfb->bufferHeight;
-				RECT rect = {x * widthFactor, y * heightFactor, w * widthFactor, h * heightFactor};
+				RECT rect = {x * widthFactor, y * heightFactor, (x + w) * widthFactor, (y + h) * heightFactor};
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 				if (SUCCEEDED(hr)) {
 					// TODO: Handle the other formats?  We don't currently create them, I think.
