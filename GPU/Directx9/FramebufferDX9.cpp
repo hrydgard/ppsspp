@@ -317,6 +317,7 @@ namespace DX9 {
 		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
 		pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
+		shaderManager_->DirtyLastShader();
 		if (tex != NULL) {
 			pD3Ddevice->SetTexture(0, tex);
 		}
