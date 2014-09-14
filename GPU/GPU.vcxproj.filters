@@ -335,6 +335,9 @@
     <ClCompile Include="Common\SplineCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Directx9\StencilBufferDX9.cpp">
+      <Filter>DirectX9</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
