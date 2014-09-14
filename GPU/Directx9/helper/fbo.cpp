@@ -101,6 +101,10 @@ LPDIRECT3DSURFACE9 fbo_get_for_read(FBO *fbo) {
 	return fbo->surf;
 }
 
+LPDIRECT3DSURFACE9 fbo_get_for_write(FBO *fbo) {
+	return fbo->surf;
+}
+
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
 	pD3Ddevice->SetTexture(0, fbo->tex);
 }

@@ -784,16 +784,8 @@ namespace DX9 {
 			return;
 		}
 
-		// TODO: StretchRect?
-
-		fbo_bind_as_render_target(dst->fbo);
-		dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);
-		DisableState();
-
-		fbo_bind_color_as_texture(src->fbo, 0);
-
-		float srcXFactor = 1.0f;
-		float srcYFactor = 1.0f;
+		float srcXFactor = flip ? 1.0f : (float)src->renderWidth / (float)src->bufferWidth;
+		float srcYFactor = flip ? 1.0f : (float)src->renderHeight / (float)src->bufferHeight;
 		const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 		if (srcBpp != bpp && bpp != 0) {
 			srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -803,8 +795,8 @@ namespace DX9 {
 		int srcY1 = srcY * srcYFactor;
 		int srcY2 = (srcY + h) * srcYFactor;
 
-		float dstXFactor = 1.0f;
-		float dstYFactor = 1.0f;
+		float dstXFactor = flip ? 1.0f : (float)dst->renderWidth / (float)dst->bufferWidth;
+		float dstYFactor = flip ? 1.0f : (float)dst->renderHeight / (float)dst->bufferHeight;
 		const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 		if (dstBpp != bpp && bpp != 0) {
 			dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -814,12 +806,41 @@ namespace DX9 {
 		int dstY1 = dstY * dstYFactor;
 		int dstY2 = (dstY + h) * dstYFactor;
 
-		float srcW = src->bufferWidth;
-		float srcH = src->bufferHeight;
-		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH);
-		pD3Ddevice->SetTexture(0, NULL);
-		textureCache_->ForgetLastTexture();
-		dxstate.viewport.restore();
+		if (flip) {
+			fbo_bind_as_render_target(dst->fbo);
+			dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);
+			DisableState();
+
+			fbo_bind_color_as_texture(src->fbo, 0);
+
+			float srcW = src->bufferWidth;
+			float srcH = src->bufferHeight;
+			DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH);
+			pD3Ddevice->SetTexture(0, NULL);
+			textureCache_->ForgetLastTexture();
+			dxstate.viewport.restore();
+
+			RebindFramebuffer();
+		} else {
+			LPDIRECT3DSURFACE9 srcSurf = fbo_get_for_read(src->fbo);
+			LPDIRECT3DSURFACE9 dstSurf = fbo_get_for_write(dst->fbo);
+			RECT srcRect = {srcX1, srcY1, srcX2, srcY2};
+			RECT dstRect = {dstX1, dstY1, dstX2, dstY2};
+
+			D3DSURFACE_DESC desc;
+			srcSurf->GetDesc(&desc);
+			srcRect.right = std::min(srcRect.right, (LONG)desc.Width);
+			srcRect.bottom = std::min(srcRect.bottom, (LONG)desc.Height);
+
+			dstSurf->GetDesc(&desc);
+			dstRect.right = std::min(dstRect.right, (LONG)desc.Width);
+			dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
+
+			HRESULT hr = pD3Ddevice->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, D3DTEXF_POINT);
+			if (FAILED(hr)) {
+				ERROR_LOG_REPORT(G3D, "StretchRect failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
+			}
+		}
 	}
 
 	// TODO: SSE/NEON
