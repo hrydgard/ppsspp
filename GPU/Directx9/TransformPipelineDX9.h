@@ -82,6 +82,7 @@ public:
 	};
 
 	u32 hash;
+	u32 minihash;
 
 	Status status;
 
@@ -162,9 +163,9 @@ private:
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
 	
-	// drawcall ID
-	u32 ComputeFastDCID();
+	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
+	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 

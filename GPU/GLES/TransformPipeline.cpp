@@ -547,8 +547,8 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		return;
 	}
 
-	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-	int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
+	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		bool kill;
