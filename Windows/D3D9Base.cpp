@@ -159,7 +159,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	LoadD3DX9Dynamic();
 
 	DX9::CompileShaders();
-	DX9::fbo_init();
+	DX9::fbo_init(d3d);
 
 	if (deviceEx && IsWin7OrLater()) {
 		deviceEx->SetMaximumFrameLatency(1);

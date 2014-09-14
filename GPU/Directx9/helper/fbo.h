@@ -41,7 +41,7 @@ LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo);
 LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO *fbo);
 
 // To get default depth and rt surface
-void fbo_init();
+void fbo_init(LPDIRECT3D9 d3d);
 void fbo_shutdown();
 
 };
