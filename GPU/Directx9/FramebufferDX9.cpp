@@ -213,11 +213,10 @@ namespace DX9 {
 						}
 					}
 					break;
-					// not tested
 				case GE_FORMAT_4444:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
+						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
 						for (int x = 0; x < width; x++)
 						{
 							u16_le col = src[x];
