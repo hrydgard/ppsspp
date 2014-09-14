@@ -868,7 +868,7 @@ rotateVBO:
 					framebufferManager_->SetColorUpdated();
 				}
 
-				dxstate.colorMask.set(mask & D3DCLEAR_TARGET, mask & D3DCLEAR_TARGET, mask & D3DCLEAR_TARGET, mask & D3DCLEAR_STENCIL);
+				dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
 				pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
 			}
 		}
