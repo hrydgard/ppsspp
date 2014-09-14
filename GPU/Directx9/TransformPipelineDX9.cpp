@@ -694,6 +694,7 @@ void TransformDrawEngineDX9::DoFlush() {
 							vai->numVerts = indexGen.VertexCount();
 							vai->prim = indexGen.Prim();
 							vai->maxIndex = indexGen.MaxIndex();
+							vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 							useElements = !indexGen.SeenOnlyPurePrims();
 							if (!useElements && indexGen.PureCount()) {
 								vai->numVerts = indexGen.PureCount();
