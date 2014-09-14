@@ -35,7 +35,7 @@ protected:
 	virtual void CreateViews();
 	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
-
+	void CallbackRenderingBackend(bool yes);
 	bool UseVerticalLayout() const;
 
 private:
@@ -75,6 +75,7 @@ private:
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
 	UI::EventReturn OnHardwareTransform(UI::EventParams &e);

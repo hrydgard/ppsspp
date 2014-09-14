@@ -82,6 +82,12 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
+
+	// Used for switching the GPU backend in GameSettingsScreen.
+	// Without this, PPSSPP instantly crashes if we edit iGPUBackend directly...
+	int iTempGPUBackend;
+
+	bool bRestartRequired;
 #endif
 
 	bool bPauseWhenMinimized;

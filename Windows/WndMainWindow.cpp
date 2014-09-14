@@ -465,11 +465,12 @@ namespace MainWindow
 		SUBMENU_CUSTOM_SHADERS = 10,
 		SUBMENU_RENDERING_RESOLUTION = 11,
 		SUBMENU_WINDOW_SIZE = 12,
-		SUBMENU_RENDERING_MODE = 13,
-		SUBMENU_FRAME_SKIPPING = 14,
-		SUBMENU_TEXTURE_FILTERING = 15,
-		SUBMENU_BUFFER_FILTER = 16,
-		SUBMENU_TEXTURE_SCALING = 17,
+		SUBMENU_RENDERING_BACKEND = 13,
+		SUBMENU_RENDERING_MODE = 14,
+		SUBMENU_FRAME_SKIPPING = 15,
+		SUBMENU_TEXTURE_FILTERING = 16,
+		SUBMENU_BUFFER_FILTER = 17,
+		SUBMENU_TEXTURE_SCALING = 18,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -649,6 +650,9 @@ namespace MainWindow
 		// Skip rendering resolution 2x-5x..
 		TranslateSubMenu("Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		// Skip window size 1x-4x..
+		TranslateSubMenu("Backend", MENU_OPTIONS, SUBMENU_RENDERING_BACKEND);
+		TranslateMenuItem(ID_OPTIONS_DIRECTX);
+		TranslateMenuItem(ID_OPTIONS_OPENGL);
 		TranslateSubMenu("Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING);
 		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING);
@@ -1356,6 +1360,18 @@ namespace MainWindow
 					NativeMessageReceived("gpu clear cache", "");
 					break;
 
+				case ID_OPTIONS_DIRECTX:
+					g_Config.iTempGPUBackend = GPU_BACKEND_DIRECT3D9;
+					g_Config.bRestartRequired = true;
+					PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+					break;
+
+				case ID_OPTIONS_OPENGL:
+					g_Config.iTempGPUBackend = GPU_BACKEND_OPENGL;
+					g_Config.bRestartRequired = true;
+					PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+					break;
+
 				case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
 				case ID_OPTIONS_BUFFEREDRENDERING:      setRenderingMode(FB_BUFFERED_MODE); break;
 				case ID_OPTIONS_READFBOTOMEMORYCPU:     setRenderingMode(FB_READFBOMEMORY_CPU); break;
@@ -1924,6 +1940,17 @@ namespace MainWindow
 		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
+
+		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_GRAYED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECTX, MF_CHECKED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+		} else {
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
+			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_ENABLED);
+		}
+
 
 		UpdateDynamicMenuCheckmarks();
 		UpdateCommands();
