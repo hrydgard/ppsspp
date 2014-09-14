@@ -130,6 +130,9 @@ namespace DX9 {
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
+		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
+			fbo_destroy(it->second.fbo);
+		}
 		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
 			it->second.surface->Release();
 		}
@@ -529,6 +532,25 @@ namespace DX9 {
 		}
 	}
 
+	FBO *FramebufferManagerDX9::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
+		u64 key = ((u64)depth << 32) | (w << 16) | h;
+		auto it = tempFBOs_.find(key);
+		if (it != tempFBOs_.end()) {
+			it->second.last_frame_used = gpuStats.numFlips;
+			return it->second.fbo;
+		}
+
+		textureCache_->ForgetLastTexture();
+		FBO *fbo = fbo_create(w, h, 1, false, depth);
+		if (!fbo)
+			return fbo;
+		fbo_bind_as_render_target(fbo);
+		ClearBuffer();
+		const TempFBO info = {fbo, gpuStats.numFlips};
+		tempFBOs_[key] = info;
+		return fbo;
+	}
+
 	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface) {
 		D3DSURFACE_DESC desc;
 		similarSurface->GetDesc(&desc);
@@ -881,7 +903,17 @@ namespace DX9 {
 			dstRect.right = std::min(dstRect.right, (LONG)desc.Width);
 			dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
 
-			HRESULT hr = fbo_blit_color(src->fbo, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
+			// Direct3D 9 doesn't support rect -> self.
+			FBO *srcFBO = src->fbo;
+			if (src == dst) {
+				FBO *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (FBOColorDepth)src->colorDepth);
+				HRESULT hr = fbo_blit_color(src->fbo, &srcRect, tempFBO, &srcRect, D3DTEXF_POINT);
+				if (SUCCEEDED(hr)) {
+					srcFBO = tempFBO;
+				}
+			}
+
+			HRESULT hr = fbo_blit_color(srcFBO, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
 			if (FAILED(hr)) {
 				ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
 			}
@@ -1049,6 +1081,16 @@ namespace DX9 {
 			}
 		}
 
+		for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
+			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
+			if (age > FBO_OLD_AGE) {
+				fbo_destroy(it->second.fbo);
+				tempFBOs_.erase(it++);
+			} else {
+				++it;
+			}
+		}
+
 		for (auto it = offscreenSurfaces_.begin(); it != offscreenSurfaces_.end(); ) {
 			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 			if (age > FBO_OLD_AGE) {
@@ -1090,6 +1132,11 @@ namespace DX9 {
 			DestroyFramebuf(vfb);
 		}
 		bvfbs_.clear();
+
+		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
+			fbo_destroy(it->second.fbo);
+		}
+		tempFBOs_.clear();
 
 		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
 			it->second.surface->Release();

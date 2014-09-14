@@ -85,6 +85,7 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
+	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface);
 
 protected:
@@ -130,12 +131,17 @@ private:
 	bool resized_;
 	bool gameUsesSequentialCopies_;
 
+	struct TempFBO {
+		FBO *fbo;
+		int last_frame_used;
+	};
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;
 		int last_frame_used;
 	};
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	std::map<u64, TempFBO> tempFBOs_;
 	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 
 #if 0
