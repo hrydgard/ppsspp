@@ -1214,13 +1214,85 @@ namespace DX9 {
 	}
 
 	bool FramebufferManagerDX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-		// TODO: Is this possible?
-		return false;
+		u32 fb_address = gstate.getFrameBufRawAddress();
+		int fb_stride = gstate.FrameBufStride();
+
+		u32 z_address = gstate.getDepthBufRawAddress();
+		int z_stride = gstate.DepthBufStride();
+
+		VirtualFramebuffer *vfb = currentRenderVfb_;
+		if (!vfb) {
+			vfb = GetVFBAt(fb_address);
+		}
+
+		if (!vfb) {
+			// If there's no vfb and we're drawing there, must be memory?
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			return true;
+		}
+
+		bool success = false;
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, desc.Width, desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
+				int pixelSize = 4;
+
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+				success = true;
+				tex->UnlockRect(0);
+			}
+		}
+
+		return success;
 	}
 
 	bool FramebufferManagerDX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-		// TODO: Is this possible?
-		return false;
+		u32 fb_address = gstate.getFrameBufRawAddress();
+		int fb_stride = gstate.FrameBufStride();
+
+		u32 z_address = gstate.getDepthBufRawAddress();
+		int z_stride = gstate.DepthBufStride();
+
+		VirtualFramebuffer *vfb = currentRenderVfb_;
+		if (!vfb) {
+			vfb = GetVFBAt(fb_address);
+		}
+
+		if (!vfb) {
+			// If there's no vfb and we're drawing there, must be memory?
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			return true;
+		}
+
+		bool success = false;
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, desc.Width, desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24X_8BIT;
+				int pixelSize = 4;
+
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+				success = true;
+				tex->UnlockRect(0);
+			}
+		}
+
+		return success;
 	}
 
 }  // namespace DX9
