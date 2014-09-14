@@ -660,28 +660,24 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
 
 	if (entry.maxLevel != 0) {
-		if (force || entry.lodBias != lodBias) {
-#ifndef USING_GLES2
-			GETexLevelMode mode = gstate.getTexLevelMode();
-			switch (mode) {
-			case GE_TEXLEVEL_MODE_AUTO:
-				// TODO
-				break;
-			case GE_TEXLEVEL_MODE_CONST:
-				// TODO
-				break;
-			case GE_TEXLEVEL_MODE_SLOPE:
-				// TODO
-				break;
-			}
-#endif
-			entry.lodBias = lodBias;
+		GETexLevelMode mode = gstate.getTexLevelMode();
+		switch (mode) {
+		case GE_TEXLEVEL_MODE_AUTO:
+			// TODO
+			break;
+		case GE_TEXLEVEL_MODE_CONST:
+			dxstate.texMipLodBias.set(lodBias);
+			// TODO
+			break;
+		case GE_TEXLEVEL_MODE_SLOPE:
+			// TODO
+			break;
 		}
+		entry.lodBias = lodBias;
 	}
 
 	dxstate.texMinFilter.set(MinFilt[minFilt]);
 	dxstate.texMipFilter.set(MipFilt[minFilt]);
-	dxstate.texMipLodBias.set(lodBias);
 	dxstate.texMagFilter.set(MagFilt[magFilt]);
 	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
@@ -1234,12 +1230,31 @@ void TextureCacheDX9::SetTexture(bool force) {
 		}
 	}
 
-	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
+	if (replaceImages) {
+		// Make sure it's not currently set.
+		pD3Ddevice->SetTexture(0, NULL);
+	}
+	// Seems to cause problems in Tactics Ogre.
+	if (badMipSizes) {
+		maxLevel = 0;
+	}
+
+	LoadTextureLevel(*entry, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	if (!entry->texture) {
+		return;
+	}
+
+	// Mipmapping is only enabled when texture scaling is disabled.
+	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
+		for (int i = 1; i <= maxLevel; i++) {
+			LoadTextureLevel(*entry, i, maxLevel, replaceImages, scaleFactor, dstFmt);
+		}
+	}
+
 	pD3Ddevice->SetTexture(0, entry->texture);
 	lastBoundTexture = entry->texture;
 
 	DWORD anisotropyLevel = (DWORD) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : g_Config.iAnisotropyLevel;
-	//glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 	pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel); 
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
@@ -1588,7 +1603,7 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 	}
 }
 
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, u32 dstFmt) {
+void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -1615,42 +1630,29 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, bool rep
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 
-	// Ignore mip map atm
-	if (level == 0) { 
-		if (replaceImages) {
-			// Unset texture
-			pD3Ddevice->SetTexture(0, NULL);
-
-			D3DLOCKED_RECT rect;
-			entry.texture->LockRect(level, &rect, NULL, 0);
-
-			copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
-
-			entry.texture->UnlockRect(level);
-
-			// Rebind texture
-			pD3Ddevice->SetTexture(0, entry.texture);
-		} else {
-			// Create texture
-			D3DPOOL pool = D3DPOOL_MANAGED;
-			int usage = 0;
-			if (pD3DdeviceEx) {
-				pool = D3DPOOL_DEFAULT;
-				usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
-			}
-			HRESULT hr = pD3Ddevice->CreateTexture(w, h, 1, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &entry.texture, NULL);
-			if (FAILED(hr)) {
-				INFO_LOG(G3D, "Failed to create D3D texture");
-			} else {
-				D3DLOCKED_RECT rect;
-				entry.texture->LockRect(level, &rect, NULL, 0);
-
-				copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
-
-				entry.texture->UnlockRect(level);
-			}
+	if (level == 0 && !replaceImages) {
+		// Create texture
+		D3DPOOL pool = D3DPOOL_MANAGED;
+		int usage = 0;
+		if (pD3DdeviceEx) {
+			pool = D3DPOOL_DEFAULT;
+			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
+		}
+		int levels = g_Config.iTexScalingLevel == 1 ? maxLevel + 1 : 1;
+		HRESULT hr = pD3Ddevice->CreateTexture(w, h, levels, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &entry.texture, NULL);
+		if (FAILED(hr)) {
+			INFO_LOG(G3D, "Failed to create D3D texture");
+			entry.ReleaseTexture();
+			return;
 		}
 	}
+
+	D3DLOCKED_RECT rect;
+	entry.texture->LockRect(level, &rect, NULL, 0);
+
+	copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
+
+	entry.texture->UnlockRect(level);
 }
 
 bool TextureCacheDX9::DecodeTexture(u8* output, GPUgstate state)
