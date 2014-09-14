@@ -75,7 +75,7 @@ public:
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
+	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
@@ -119,6 +119,9 @@ private:
 	u8 *convBuf;
 
 	int plainColorLoc_;
+	LPDIRECT3DPIXELSHADER9 stencilUploadPS_;
+	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_;
+	bool stencilUploadFailed_;
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;

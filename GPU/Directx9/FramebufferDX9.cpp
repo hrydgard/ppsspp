@@ -123,6 +123,9 @@ namespace DX9 {
 	FramebufferManagerDX9::FramebufferManagerDX9() :
 		drawPixelsTex_(0),
 		convBuf(0),
+		stencilUploadPS_(nullptr),
+		stencilUploadVS_(nullptr),
+		stencilUploadFailed_(false),
 		gameUsesSequentialCopies_(false) {
 	}
 
@@ -137,6 +140,12 @@ namespace DX9 {
 			it->second.surface->Release();
 		}
 		delete [] convBuf;
+		if (stencilUploadPS_) {
+			stencilUploadPS_->Release();
+		}
+		if (stencilUploadVS_) {
+			stencilUploadVS_->Release();
+		}
 	}
 
 	static inline void ARGB8From4444(u16 c, u32 * dst) {
@@ -1052,11 +1061,6 @@ namespace DX9 {
 		}
 
 		return list;
-	}
-
-	bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
-		// TODO
-		return false;
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {
