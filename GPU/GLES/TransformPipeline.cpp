@@ -889,6 +889,7 @@ rotateVBO:
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
+			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 			glClearColor(col[0], col[1], col[2], col[3]);
 #ifdef USING_GLES2
 			glClearDepthf(clearDepth);
