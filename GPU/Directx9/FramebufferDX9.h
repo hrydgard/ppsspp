@@ -109,7 +109,8 @@ private:
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
-	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
 	u8 *convBuf;
 

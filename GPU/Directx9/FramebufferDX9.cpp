@@ -122,26 +122,12 @@ namespace DX9 {
 
 	FramebufferManagerDX9::FramebufferManagerDX9() :
 		drawPixelsTex_(0),
-		drawPixelsTexFormat_(GE_FORMAT_INVALID),
 		convBuf(0),
-		gameUsesSequentialCopies_(false)
-	{
-		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
-		int usage = 0;
-		D3DPOOL pool = D3DPOOL_MANAGED;
-		if (pD3DdeviceEx) {
-			pool = D3DPOOL_DEFAULT;
-			usage = D3DUSAGE_DYNAMIC;
-		}
-		HRESULT hr = pD3Ddevice->CreateTexture(512, 272, 1, usage, D3DFMT(D3DFMT_A8R8G8B8), pool, &drawPixelsTex_, NULL);
-		if (FAILED(hr)) {
-			drawPixelsTex_ = nullptr;
-			ERROR_LOG(G3D, "Failed to create drawpixels texture");
-		}
+		gameUsesSequentialCopies_(false) {
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
-		if(drawPixelsTex_) {
+		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
 		delete [] convBuf;
@@ -166,9 +152,28 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
+
+		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
+		if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
+			drawPixelsTex_->Release();
+			drawPixelsTex_ = nullptr;
+		}
+
+		if (!drawPixelsTex_) {
+			int usage = 0;
+			D3DPOOL pool = D3DPOOL_MANAGED;
+			if (pD3DdeviceEx) {
+				pool = D3DPOOL_DEFAULT;
+				usage = D3DUSAGE_DYNAMIC;
+			}
+			HRESULT hr = pD3Ddevice->CreateTexture(width, height, 1, usage, D3DFMT(D3DFMT_A8R8G8B8), pool, &drawPixelsTex_, NULL);
+			if (FAILED(hr)) {
+				drawPixelsTex_ = nullptr;
+				ERROR_LOG(G3D, "Failed to create drawpixels texture");
+			}
+		}
 
 		if (!drawPixelsTex_) {
 			return;
