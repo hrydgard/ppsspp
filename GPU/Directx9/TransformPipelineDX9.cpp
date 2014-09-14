@@ -702,8 +702,8 @@ void TransformDrawEngineDX9::DoFlush() {
 							if (1) {
 								void * pVb;
 								u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-								pD3Ddevice->CreateVertexBuffer(size, NULL, NULL, D3DPOOL_DEFAULT, &vai->vbo, NULL);
-								vai->vbo->Lock(0, size, &pVb, D3DLOCK_NOOVERWRITE );
+								pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
+								vai->vbo->Lock(0, size, &pVb, 0);
 								memcpy(pVb, decoded, size);
 								vai->vbo->Unlock();
 							}
@@ -711,8 +711,8 @@ void TransformDrawEngineDX9::DoFlush() {
 							if (useElements) {
 								void * pIb;
 								u32 size =  sizeof(short) * indexGen.VertexCount();
-								pD3Ddevice->CreateIndexBuffer(size, NULL, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
-								vai->ebo->Lock(0, size, &pIb, D3DLOCK_NOOVERWRITE );
+								pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
+								vai->ebo->Lock(0, size, &pIb, 0);
 								memcpy(pIb, decIndex, size);
 								vai->ebo->Unlock();
 							} else {
@@ -802,7 +802,7 @@ rotateVBO:
 					if (useElements) {
 						pD3Ddevice->SetIndices(ib_);
 
-						pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
+						pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, vertexCount, 0, D3DPrimCount(glprim[prim], vertexCount));
 					} else {
 						pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 					}
