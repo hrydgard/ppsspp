@@ -899,20 +899,21 @@ namespace DX9 {
 		renderTarget->GetDesc(&desc);
 
 		LPDIRECT3DSURFACE9 offscreen = nullptr;
-		// TODO: Cache these?
+		// TODO: Cache these?  Also, StretchRect to resample from 1x?
 		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (offscreen && SUCCEEDED(hr)) {
 			hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
 			if (SUCCEEDED(hr)) {
 				D3DLOCKED_RECT locked;
-				RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
+				u32 widthFactor = vfb->renderWidth / vfb->bufferWidth;
+				u32 heightFactor = vfb->renderHeight / vfb->bufferHeight;
+				RECT rect = {x * widthFactor, y * heightFactor, w * widthFactor, h * heightFactor};
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 				if (SUCCEEDED(hr)) {
 					// TODO: Handle the other formats?  We don't currently create them, I think.
-					const int dstByteOffset = y * vfb->fb_stride * dstBpp;
-					const int srcByteOffset = y * locked.Pitch;
+					const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 					// Pixel size always 4 here because we always request BGRA8888.
-					ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits + srcByteOffset, vfb->fb_stride, locked.Pitch / 4, vfb->width, h, vfb->format);
+					ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
 					offscreen->UnlockRect();
 				}
 			}
