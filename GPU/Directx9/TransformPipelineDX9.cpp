@@ -81,6 +81,8 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
+enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
+
 // Check for max first as clamping to max is more common than min when lighting.
 inline float clamp(float in, float min, float max) { 
 	return in > max ? max : (in < min ? min : in);
@@ -275,12 +277,11 @@ VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
-	VertexDecoder*dec = new VertexDecoder(); 
+	VertexDecoder *dec = new VertexDecoder();
 	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
-
 
 void TransformDrawEngineDX9::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
@@ -396,6 +397,27 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 }
 
+void TransformDrawEngineDX9::DecodeVerts() {
+	if (uvScale) {
+		const UVScale origUV = gstate_c.uv;
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			gstate_c.uv = uvScale[decodeCounter_];
+			DecodeVertsStep();
+		}
+		gstate_c.uv = origUV;
+	} else {
+		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+			DecodeVertsStep();
+		}
+	}
+	// Sanity check
+	if (indexGen.Prim() < 0) {
+		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
+		// Force to points (0)
+		indexGen.AddPrim(GE_PRIM_POINTS, 0);
+	}
+}
+
 void TransformDrawEngineDX9::DecodeVertsStep() {
 	const int i = decodeCounter_;
 
@@ -470,31 +492,66 @@ void TransformDrawEngineDX9::DecodeVertsStep() {
 	}
 }
 
+inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
+	// Switch to u32 units.
+	const u32 *p = (const u32 *)ptr;
+	sz >>= 2;
 
-void TransformDrawEngineDX9::DecodeVerts() {
-	if (uvScale) {
-		const UVScale origUV = gstate_c.uv;
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			gstate_c.uv = uvScale[decodeCounter_];
-			DecodeVertsStep();
+	if (sz > 100) {
+		size_t step = sz / 4;
+		u32 hash = 0;
+		for (size_t i = 0; i < sz; i += step) {
+			hash += DoReliableHash(p + i, 100, 0x3A44B9C4);
 		}
-		gstate_c.uv = origUV;
+		return hash;
 	} else {
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			DecodeVertsStep();
+		return p[0] + p[sz - 1];
+	}
+}
+
+u32 TransformDrawEngineDX9::ComputeMiniHash() {
+	u32 fullhash = 0;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+
+	int step;
+	if (numDrawCalls < 3) {
+		step = 1;
+	} else if (numDrawCalls < 8) {
+		step = 4;
+	} else {
+		step = numDrawCalls / 8;
+	}
+	for (int i = 0; i < numDrawCalls; i += step) {
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
+		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
+			fullhash += ComputeMiniHashRange(dc.inds, indexSize * dc.vertexCount);
 		}
 	}
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0);
+
+	return fullhash;
+}
+
+void TransformDrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
+	vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
+	if (vai->vbo) {
+		vai->vbo->Release();
+		vai->vbo = nullptr;
+	}
+	if (vai->ebo) {
+		vai->ebo->Release();
+		vai->ebo = nullptr;
 	}
 }
 
 u32 TransformDrawEngineDX9::ComputeHash() {
 	u32 fullhash = 0;
-	int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
@@ -518,7 +575,6 @@ u32 TransformDrawEngineDX9::ComputeHash() {
 			// we do when drawing.
 			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
-			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
 			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
@@ -530,24 +586,6 @@ u32 TransformDrawEngineDX9::ComputeHash() {
 
 	return fullhash;
 }
-
-u32 TransformDrawEngineDX9::ComputeFastDCID() {
-	u32 hash = 0;
-	for (int i = 0; i < numDrawCalls; i++) {
-		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)(uintptr_t)drawCalls[i].inds;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertType;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].vertexCount;
-		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].prim;
-	}
-	return hash;
-}
-
-enum { VAI_KILL_AGE = 120 };
 
 void TransformDrawEngineDX9::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
@@ -563,14 +601,23 @@ void TransformDrawEngineDX9::DecimateTrackedVertexArrays() {
 		return;
 	}
 
-	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
+	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame < threshold) {
+		bool kill;
+		if (iter->second->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
+			// We limit killing unreliable so we don't rehash too often.
+			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+		} else {
+			kill = iter->second->lastFrame < threshold;
+		}
+		if (kill) {
 			delete iter->second;
 			vai_.erase(iter++);
-		}
-		else
+		} else {
 			++iter;
+		}
 	}
 
 	// Enable if you want to see vertex decoders in the log output. Need a better way.
@@ -596,7 +643,6 @@ VertexArrayInfoDX9::~VertexArrayInfoDX9() {
 
 void TransformDrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
-
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// This is not done on every drawcall, we should collect vertex data
@@ -622,7 +668,7 @@ void TransformDrawEngineDX9::DoFlush() {
 				useCache = false;
 
 			if (useCache) {
-				u32 id = ComputeFastDCID();
+				u32 id = dcid_;
 				auto iter = vai_.find(id);
 				VertexArrayInfoDX9 *vai;
 				if (iter != vai_.end()) {
@@ -639,6 +685,7 @@ void TransformDrawEngineDX9::DoFlush() {
 						// Haven't seen this one before.
 						u32 dataHash = ComputeHash();
 						vai->hash = dataHash;
+						vai->minihash = ComputeMiniHash();
 						vai->status = VertexArrayInfoDX9::VAI_HASHING;
 						vai->drawsUntilNextFullHash = 0;
 						DecodeVerts(); // writes to indexGen
@@ -659,21 +706,18 @@ void TransformDrawEngineDX9::DoFlush() {
 							vai->numFrames++;
 						}
 						if (vai->drawsUntilNextFullHash == 0) {
-							u32 newHash = ComputeHash();
-							if (newHash != vai->hash) {
-								vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
-								if (vai->vbo) {
-									vai->vbo->Release();
-									vai->vbo = NULL;
-								}
-								if (vai->ebo) {
-									vai->ebo->Release();
-									vai->ebo = NULL;
-								}
+							// Let's try to skip a full hash if mini would fail.
+							const u32 newMiniHash = ComputeMiniHash();
+							u32 newHash = vai->hash;
+							if (newMiniHash == vai->minihash) {
+								newHash = ComputeHash();
+							}
+							if (newMiniHash != vai->minihash || newHash != vai->hash) {
+								MarkUnreliable(vai);
 								DecodeVerts();
 								goto rotateVBO;
 							}
-							if (vai->numVerts > 100) {
+							if (vai->numVerts > 64) {
 								// exponential backoff up to 16 draws, then every 24
 								vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
 							} else {
@@ -686,7 +730,12 @@ void TransformDrawEngineDX9::DoFlush() {
 							//}
 						} else {
 							vai->drawsUntilNextFullHash--;
-							// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
+							u32 newMiniHash = ComputeMiniHash();
+							if (newMiniHash != vai->minihash) {
+								MarkUnreliable(vai);
+								DecodeVerts();
+								goto rotateVBO;
+							}
 						}
 
 						if (vai->vbo == 0) {
@@ -694,6 +743,7 @@ void TransformDrawEngineDX9::DoFlush() {
 							vai->numVerts = indexGen.VertexCount();
 							vai->prim = indexGen.Prim();
 							vai->maxIndex = indexGen.MaxIndex();
+							vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 							useElements = !indexGen.SeenOnlyPurePrims();
 							if (!useElements && indexGen.PureCount()) {
 								vai->numVerts = indexGen.PureCount();
@@ -702,8 +752,8 @@ void TransformDrawEngineDX9::DoFlush() {
 							if (1) {
 								void * pVb;
 								u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-								pD3Ddevice->CreateVertexBuffer(size, NULL, NULL, D3DPOOL_DEFAULT, &vai->vbo, NULL);
-								vai->vbo->Lock(0, size, &pVb, D3DLOCK_NOOVERWRITE );
+								pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
+								vai->vbo->Lock(0, size, &pVb, 0);
 								memcpy(pVb, decoded, size);
 								vai->vbo->Unlock();
 							}
@@ -711,8 +761,8 @@ void TransformDrawEngineDX9::DoFlush() {
 							if (useElements) {
 								void * pIb;
 								u32 size =  sizeof(short) * indexGen.VertexCount();
-								pD3Ddevice->CreateIndexBuffer(size, NULL, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
-								vai->ebo->Lock(0, size, &pIb, D3DLOCK_NOOVERWRITE );
+								pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
+								vai->ebo->Lock(0, size, &pIb, 0);
 								memcpy(pIb, decIndex, size);
 								vai->ebo->Unlock();
 							} else {
@@ -802,7 +852,7 @@ rotateVBO:
 					if (useElements) {
 						pD3Ddevice->SetIndices(ib_);
 
-						pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], vertexCount));
+						pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, vertexCount, 0, D3DPrimCount(glprim[prim], vertexCount));
 					} else {
 						pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 					}
@@ -895,54 +945,16 @@ void TransformDrawEngineDX9::Resized() {
 	}
 	decoderMap_.clear();
 
-	// ...
+	if (g_Config.bPrescaleUV && !uvScale) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	} else if (!g_Config.bPrescaleUV && uvScale) {
+		delete uvScale;
+		uvScale = 0;
+	}
 }
 
-bool TransformDrawEngineDX9::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
-	// Simplify away bones and morph before proceeding
-
-	/*
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
-
-	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
-
-	for (int cube = 0; cube < vertexCount / 8; cube++) {
-		// For each cube...
-		
-		for (int i = 0; i < 8; i++) {
-			const SimpleVertex &vert = corners[cube * 8 + i];
-
-			// To world space...
-			float worldPos[3];
-			Vec3ByMatrix43(worldPos, (float *)&vert.pos.x, gstate.worldMatrix);
-
-			// To view space...
-			float viewPos[3];
-			Vec3ByMatrix43(viewPos, worldPos, gstate.viewMatrix);
-
-			// And finally to screen space.
-			float frustumPos[4];
-			Vec3ByMatrix44(frustumPos, viewPos, gstate.projMatrix);
-
-			// Project to 2D
-			float x = frustumPos[0] / frustumPos[3];
-			float y = frustumPos[1] / frustumPos[3];
-
-			// Rescale 2d position
-			// ...
-		}
-	}
-	*/
-
-	
-	// Let's think. A better approach might be to take the edges of the drawing region and the projection
-	// matrix to build a frustum pyramid, and then clip the cube against those planes. If all vertices fail the same test,
-	// the cube is out. Otherwise it's in.
-	// TODO....
-	
-	return true;
+bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
+	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: Probably move this to common code (with normalization?)
@@ -970,10 +982,6 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
 	ret.z = coords.z;
 	return ret;
-}
-
-bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
-	return decJitCache_->IsInSpace(ptr);
 }
 
 // TODO: This probably is not the best interface.

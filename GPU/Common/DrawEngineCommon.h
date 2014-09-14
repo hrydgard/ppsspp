@@ -15,10 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #pragma once
+
+#include "Common/CommonTypes.h"
 
 class DrawEngineCommon {
 public:
 	virtual ~DrawEngineCommon();
+
+	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
+
+	// TODO: This can be shared once the decoder cache / etc. are.
+	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) = 0;
+
+protected:
+	// Vertex collector buffers
+	u8 *decoded;
+	u16 *decIndex;
 };
