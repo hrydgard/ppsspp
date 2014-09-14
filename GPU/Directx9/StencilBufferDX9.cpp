@@ -227,7 +227,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	float fw = dstBuffer->width;
 	float fh = dstBuffer->height;
 	float coord[20] = {
-		0.0f,0.0f,0.0f, 0.0f,1.0f,
+		0.0f,0.0f,0.0f, 0.0f,0.0f,
 		fw,0.0f,0.0f, 1.0f,0.0f,
 		fw,fh,0.0f, 1.0f,1.0f,
 		0.0f,fh,0.0f, 0.0f,1.0f,
