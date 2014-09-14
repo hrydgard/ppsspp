@@ -804,8 +804,8 @@ namespace DX9 {
 		}
 		int srcX1 = srcX * srcXFactor;
 		int srcX2 = (srcX + w) * srcXFactor;
-		int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
-		int srcY1 = srcY2 + h * srcYFactor;
+		int srcY1 = srcY * srcYFactor;
+		int srcY2 = (srcY + h) * srcYFactor;
 
 		float dstXFactor = 1.0f;
 		float dstYFactor = 1.0f;
@@ -815,8 +815,8 @@ namespace DX9 {
 		}
 		int dstX1 = dstX * dstXFactor;
 		int dstX2 = (dstX + w) * dstXFactor;
-		int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
-		int dstY1 = dstY2 + h * dstYFactor;
+		int dstY1 = dstY * dstYFactor;
+		int dstY2 = (dstY + h) * dstYFactor;
 
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
@@ -824,8 +824,6 @@ namespace DX9 {
 		pD3Ddevice->SetTexture(0, NULL);
 		textureCache_->ForgetLastTexture();
 		dxstate.viewport.restore();
-
-		fbo_unbind();
 	}
 
 	// TODO: SSE/NEON
