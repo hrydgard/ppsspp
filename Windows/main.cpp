@@ -603,9 +603,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	LogManager::Shutdown();
 
 	if (g_Config.bRestartRequired) {
-		wchar_t moduleFilename[MAX_PATH];
-		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
-		ShellExecute(NULL, NULL, moduleFilename, NULL, NULL, SW_SHOW);
+		W32Util::ExitAndRestart();
 	}
 	return 0;
 }

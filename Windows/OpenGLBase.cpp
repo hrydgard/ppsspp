@@ -7,6 +7,7 @@
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
+#include "Windows/W32Util/Misc.h"
 #include "Windows/OpenGLBase.h"
 
 static HDC hDC;     // Private GDI Device Context
@@ -157,11 +158,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
 			g_Config.Save();
 
-			wchar_t moduleFilename[MAX_PATH];
-			GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
-			ShellExecute(NULL, NULL, moduleFilename, NULL, NULL, SW_SHOW);
-
-			ExitProcess(0);
+			W32Util::ExitAndRestart();
 		}
 
 		// Avoid further error messages. Let's just bail, it's safe, and we can't continue.
