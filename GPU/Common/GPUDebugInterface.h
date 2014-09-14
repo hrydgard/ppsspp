@@ -55,6 +55,8 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_FLOAT = 0x10,
 	GPU_DBG_FORMAT_16BIT = 0x11,
 	GPU_DBG_FORMAT_8BIT = 0x12,
+	GPU_DBG_FORMAT_24BIT_8X = 0x13,
+	GPU_DBG_FORMAT_24X_8BIT = 0x14,
 };
 
 inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
@@ -137,11 +139,23 @@ struct GPUDebugBuffer {
 		fmt_ = fmt;
 		flipped_ = flipped;
 
-		u32 pixelSize = 2;
-		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_8888_BGRA || fmt == GPU_DBG_FORMAT_FLOAT) {
+		u32 pixelSize;
+		switch (fmt) {
+		case GPU_DBG_FORMAT_8888:
+		case GPU_DBG_FORMAT_8888_BGRA:
+		case GPU_DBG_FORMAT_FLOAT:
+		case GPU_DBG_FORMAT_24BIT_8X:
+		case GPU_DBG_FORMAT_24X_8BIT:
 			pixelSize = 4;
-		} else if (fmt == GPU_DBG_FORMAT_8BIT) {
+			break;
+
+		case GPU_DBG_FORMAT_8BIT:
 			pixelSize = 1;
+			break;
+
+		default:
+			pixelSize = 2;
+			break;
 		}
 
 		data_ = new u8[pixelSize * stride * height];
@@ -154,7 +168,11 @@ struct GPUDebugBuffer {
 		data_ = NULL;
 	}
 
-	u8 *GetData() const {
+	u8 *GetData() {
+		return data_;
+	}
+
+	const u8 *GetData() const {
 		return data_;
 	}
 
