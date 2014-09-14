@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <WinUser.h>
+#include <shellapi.h>
 #include "Misc.h"
 #include "util/text/utf8.h"
 #include <commctrl.h>
@@ -90,6 +91,24 @@ namespace W32Util
 		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
+	void ExitAndRestart() {
+		// This preserves arguments (for example, config file) and working directory.
+
+		wchar_t moduleFilename[MAX_PATH];
+		wchar_t workingDirectory[MAX_PATH];
+		GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+		wchar_t *cmdline = GetCommandLineW();
+		if (cmdline) {
+			cmdline = wcschr(cmdline, ' ');
+			if (cmdline) {
+				++cmdline;
+			}
+		}
+		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
+		ShellExecute(NULL, NULL, moduleFilename, cmdline, workingDirectory, SW_SHOW);
+
+		ExitProcess(0);
+	}
 }
 
 
