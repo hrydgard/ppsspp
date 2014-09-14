@@ -28,6 +28,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 void fbo_bind_as_render_target(FBO *fbo);
 // color must be 0, for now.
 void fbo_bind_color_as_texture(FBO *fbo, int color);
+void fbo_bind_depth_as_texture(FBO *fbo);
 LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO *fbo);
 LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO *fbo);
 void fbo_unbind();
@@ -37,11 +38,10 @@ void fbo_resolve(FBO *fbo);
 HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
 
 LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo);
-
-void * fbo_get_rtt(FBO *fbo);
+LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO *fbo);
 
 // To get default depth and rt surface
-void fbo_init();
+void fbo_init(LPDIRECT3D9 d3d);
 void fbo_shutdown();
 
 };

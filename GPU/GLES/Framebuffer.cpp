@@ -858,22 +858,21 @@ void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBuff
 	RebindFramebuffer();
 }
 
-void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer) {
-	if (!sourceframebuffer->fbo || !targetframebuffer->fbo || !useBufferedRendering_) {
+void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+	if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
 		return;
 	}
 
 	// If depth wasn't updated, then we're at least "two degrees" away from the data.
 	// This is an optimization: it probably doesn't need to be copied in this case.
-	if (!sourceframebuffer->depthUpdated) {
+	if (!src->depthUpdated) {
 		return;
 	}
 
-	if (sourceframebuffer->z_address == targetframebuffer->z_address &&
-		sourceframebuffer->z_stride != 0 &&
-		targetframebuffer->z_stride != 0 &&
-		sourceframebuffer->renderWidth == targetframebuffer->renderWidth &&
-		sourceframebuffer->renderHeight == targetframebuffer->renderHeight) {
+	if (src->z_address == dst->z_address &&
+		src->z_stride != 0 && dst->z_stride != 0 &&
+		src->renderWidth == dst->renderWidth &&
+		src->renderHeight == dst->renderHeight) {
 
 #ifndef USING_GLES2
 		if (gl_extensions.FBO_ARB) {
@@ -885,16 +884,16 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuf
 
 			// Let's only do this if not clearing.
 			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				fbo_bind_for_read(sourceframebuffer->fbo);
+				fbo_bind_for_read(src->fbo);
 				glDisable(GL_SCISSOR_TEST);
 
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 				if (useNV) {
-					glBlitFramebufferNV(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+					glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 				} else 
 #endif // defined(USING_GLES2) && defined(ANDROID)
-					glBlitFramebuffer(0, 0, sourceframebuffer->renderWidth, sourceframebuffer->renderHeight, 0, 0, targetframebuffer->renderWidth, targetframebuffer->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				// If we set targetframebuffer->depthUpdated here, our optimization above would be pointless.
+					glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				// If we set dst->depthUpdated here, our optimization above would be pointless.
 
 				glstate.scissorTest.restore();
 			}

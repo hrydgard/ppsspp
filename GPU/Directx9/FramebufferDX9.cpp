@@ -503,8 +503,7 @@ namespace DX9 {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-			// TODO
-			//BlitFramebufferDepth(prevVfb, vfb);
+			BlitFramebufferDepth(prevVfb, vfb);
 		}
 		if (vfb->drawnFormat != vfb->format) {
 			// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
@@ -538,6 +537,64 @@ namespace DX9 {
 		if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+		}
+	}
+
+	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
+		if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
+			return;
+		}
+
+		// If depth wasn't updated, then we're at least "two degrees" away from the data.
+		// This is an optimization: it probably doesn't need to be copied in this case.
+		if (!src->depthUpdated) {
+			return;
+		}
+
+		if (src->z_address == dst->z_address &&
+			src->z_stride != 0 && dst->z_stride != 0 &&
+			src->renderWidth == dst->renderWidth &&
+			src->renderHeight == dst->renderHeight) {
+
+			// Let's only do this if not clearing.
+			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
+				// Doesn't work.  Use a shader maybe?
+				/*fbo_unbind();
+
+				LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
+				LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
+
+				if (srcTex && dstTex) {
+					D3DSURFACE_DESC srcDesc;
+					srcTex->GetLevelDesc(0, &srcDesc);
+					D3DSURFACE_DESC dstDesc;
+					dstTex->GetLevelDesc(0, &dstDesc);
+
+					D3DLOCKED_RECT srcLock;
+					D3DLOCKED_RECT dstLock;
+					HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
+					HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
+					if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
+						int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+						u32 h = std::min(srcDesc.Height, dstDesc.Height);
+						const u8 *srcp = (const u8 *)srcLock.pBits;
+						u8 *dstp = (u8 *)dstLock.pBits;
+						for (u32 y = 0; y < h; ++y) {
+							memcpy(dstp, srcp, pitch);
+							dstp += dstLock.Pitch;
+							srcp += srcLock.Pitch;
+						}
+					}
+					if (SUCCEEDED(srcLockRes)) {
+						srcTex->UnlockRect(0);
+					}
+					if (SUCCEEDED(dstLockRes)) {
+						dstTex->UnlockRect(0);
+					}
+				}
+
+				RebindFramebuffer();*/
+			}
 		}
 	}
 
@@ -1214,13 +1271,85 @@ namespace DX9 {
 	}
 
 	bool FramebufferManagerDX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-		// TODO: Is this possible?
-		return false;
+		u32 fb_address = gstate.getFrameBufRawAddress();
+		int fb_stride = gstate.FrameBufStride();
+
+		u32 z_address = gstate.getDepthBufRawAddress();
+		int z_stride = gstate.DepthBufStride();
+
+		VirtualFramebuffer *vfb = currentRenderVfb_;
+		if (!vfb) {
+			vfb = GetVFBAt(fb_address);
+		}
+
+		if (!vfb) {
+			// If there's no vfb and we're drawing there, must be memory?
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			return true;
+		}
+
+		bool success = false;
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, desc.Width, desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
+				int pixelSize = 4;
+
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+				success = true;
+				tex->UnlockRect(0);
+			}
+		}
+
+		return success;
 	}
 
 	bool FramebufferManagerDX9::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-		// TODO: Is this possible?
-		return false;
+		u32 fb_address = gstate.getFrameBufRawAddress();
+		int fb_stride = gstate.FrameBufStride();
+
+		u32 z_address = gstate.getDepthBufRawAddress();
+		int z_stride = gstate.DepthBufStride();
+
+		VirtualFramebuffer *vfb = currentRenderVfb_;
+		if (!vfb) {
+			vfb = GetVFBAt(fb_address);
+		}
+
+		if (!vfb) {
+			// If there's no vfb and we're drawing there, must be memory?
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			return true;
+		}
+
+		bool success = false;
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, desc.Width, desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24X_8BIT;
+				int pixelSize = 4;
+
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
+				success = true;
+				tex->UnlockRect(0);
+			}
+		}
+
+		return success;
 	}
 
 }  // namespace DX9

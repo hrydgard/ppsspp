@@ -210,7 +210,7 @@ void DirectxInit(HWND window) {
 
 	CompileShaders();
 
-	fbo_init();
+	fbo_init(pD3D);
 }
 
 };
