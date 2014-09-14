@@ -130,6 +130,9 @@ namespace DX9 {
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
+		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
+			it->second.surface->Release();
+		}
 		delete [] convBuf;
 	}
 
@@ -524,6 +527,29 @@ namespace DX9 {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 		}
+	}
+
+	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface) {
+		D3DSURFACE_DESC desc;
+		similarSurface->GetDesc(&desc);
+
+		u64 key = ((u64)desc.Format << 32) | (desc.Width << 16) | desc.Height;
+		auto it = offscreenSurfaces_.find(key);
+		if (it != offscreenSurfaces_.end()) {
+			it->second.last_frame_used = gpuStats.numFlips;
+			return it->second.surface;
+		}
+
+		textureCache_->ForgetLastTexture();
+		LPDIRECT3DSURFACE9 offscreen = nullptr;
+		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		if (FAILED(hr) || !offscreen) {
+			ERROR_LOG_REPORT(G3D, "Unable to create offscreen surface %dx%d @%d", desc.Width, desc.Height, desc.Format);
+			return nullptr;
+		}
+		const OffscreenSurface info = {offscreen, gpuStats.numFlips};
+		offscreenSurfaces_[key] = info;
+		return offscreen;
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
@@ -934,11 +960,9 @@ namespace DX9 {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen = nullptr;
-		// TODO: Cache these?  Also, StretchRect to resample from 1x?
-		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
-		if (offscreen && SUCCEEDED(hr)) {
-			hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+		if (offscreen) {
+			HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
 			if (SUCCEEDED(hr)) {
 				D3DLOCKED_RECT locked;
 				u32 widthFactor = vfb->renderWidth / vfb->bufferWidth;
@@ -957,11 +981,9 @@ namespace DX9 {
 			} else {
 				ERROR_LOG_REPORT(G3D, "Unable to download render target data from %08x", fb_address);
 			}
-			offscreen->Release();
-		} else {
-			ERROR_LOG_REPORT(G3D, "Unable to create offscreen surface for %08x %dx%d", fb_address, desc.Width, desc.Height);
 		}
 	}
+
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();
@@ -1027,6 +1049,16 @@ namespace DX9 {
 			}
 		}
 
+		for (auto it = offscreenSurfaces_.begin(); it != offscreenSurfaces_.end(); ) {
+			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
+			if (age > FBO_OLD_AGE) {
+				it->second.surface->Release();
+				offscreenSurfaces_.erase(it++);
+			} else {
+				++it;
+			}
+		}
+
 		// Do the same for ReadFramebuffersToMemory's VFBs
 		for (size_t i = 0; i < bvfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = bvfbs_[i];
@@ -1052,6 +1084,18 @@ namespace DX9 {
 			DestroyFramebuf(vfb);
 		}
 		vfbs_.clear();
+
+		for (size_t i = 0; i < bvfbs_.size(); ++i) {
+			VirtualFramebuffer *vfb = bvfbs_[i];
+			DestroyFramebuf(vfb);
+		}
+		bvfbs_.clear();
+
+		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
+			it->second.surface->Release();
+		}
+		offscreenSurfaces_.clear();
+		DisableState();
 	}
 
 	void FramebufferManagerDX9::FlushBeforeCopy() {
@@ -1090,9 +1134,8 @@ namespace DX9 {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen = nullptr;
-		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
-		if (!offscreen || !SUCCEEDED(hr)) {
+		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+		if (!offscreen) {
 			renderTarget->Release();
 			return false;
 		}
@@ -1112,7 +1155,6 @@ namespace DX9 {
 			}
 		}
 
-		offscreen->Release();
 		renderTarget->Release();
 
 		return success;

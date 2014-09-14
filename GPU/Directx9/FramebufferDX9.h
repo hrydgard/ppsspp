@@ -85,6 +85,8 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
+	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface);
+
 protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
@@ -128,7 +130,13 @@ private:
 	bool resized_;
 	bool gameUsesSequentialCopies_;
 
+	struct OffscreenSurface {
+		LPDIRECT3DSURFACE9 surface;
+		int last_frame_used;
+	};
+
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large

@@ -903,7 +903,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *sourceframebuf
 }
 
 FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
-	u32 key = ((u64)depth << 32) | (w << 16) | h;
+	u64 key = ((u64)depth << 32) | (w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
 		it->second.last_frame_used = gpuStats.numFlips;
