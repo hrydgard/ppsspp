@@ -34,7 +34,7 @@ void fbo_unbind();
 void fbo_destroy(FBO *fbo);
 void fbo_get_dimensions(FBO *fbo, int *w, int *h);
 void fbo_resolve(FBO *fbo);
-HRESULT fbo_blit_color(FBO *src, RECT *srcRect, FBO *dst, RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
+HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
 
 LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo);
 

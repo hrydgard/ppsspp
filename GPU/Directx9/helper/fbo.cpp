@@ -114,7 +114,7 @@ void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
 	*h = fbo->height;
 }
 
-HRESULT fbo_blit_color(FBO *src, RECT *srcRect, FBO *dst, RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
+HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
 	return pD3Ddevice->StretchRect(srcSurf, srcRect, dstSurf, dstRect, filter);

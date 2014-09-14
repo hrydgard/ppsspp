@@ -681,8 +681,10 @@ namespace DX9 {
 			const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 			if (1) {
-				RECT srcRect = {offsetX, offsetY, offsetX + 480, offsetY + 272};
-				RECT dstRect = {x, y, x + w, y + h};
+				const u32 rw = PSP_CoreParameter().pixelWidth;
+				const u32 rh = PSP_CoreParameter().pixelHeight;
+				const RECT srcRect = {(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight)};
+				const RECT dstRect = {x * rw / w, y * rh / h, (x + w) * rw / w, (y + h) * rh / h};
 				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
 					ERROR_LOG_REPORT(G3D, "fbo_blit_color failed on display: %08x", hr);
