@@ -404,11 +404,11 @@ void SoftwareTransform(
 		bool tlOutside;
 		bool brOutside;
 		if (gstate_c.flipTexture) {
-			tlOutside = transformed[0].v < -invTexH && transformed[0].v > 1.0f - heightFactor;
-			brOutside = transformed[1].v < -invTexH && transformed[1].v > 1.0f - heightFactor;
+			tlOutside = transformed[0].v < -invTexH && transformed[0].v >= 1.0f - heightFactor;
+			brOutside = transformed[1].v < -invTexH && transformed[1].v >= 1.0f - heightFactor;
 		} else {
-			tlOutside = transformed[0].v > invTexH && transformed[0].v > heightFactor - 1.0f;
-			brOutside = transformed[1].v > invTexH && transformed[1].v > heightFactor - 1.0f;
+			tlOutside = transformed[0].v <= heightFactor && transformed[0].v > 1.0f + invTexH;
+			brOutside = transformed[1].v <= heightFactor && transformed[1].v > 1.0f + invTexH;
 		}
 		if (tlOutside || brOutside) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
