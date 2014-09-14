@@ -407,6 +407,7 @@ namespace DX9 {
 		if (old.fbo) {
 			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 			if (vfb->fbo) {
+				fbo_bind_as_render_target(vfb->fbo);
 				ClearBuffer();
 				if (!g_Config.bDisableSlowFramebufEffects) {
 					BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
@@ -714,6 +715,7 @@ namespace DX9 {
 
 				nvfb->last_frame_render = gpuStats.numFlips;
 				bvfbs_.push_back(nvfb);
+				fbo_bind_as_render_target(nvfb->fbo);
 				ClearBuffer();
 			} else {
 				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;

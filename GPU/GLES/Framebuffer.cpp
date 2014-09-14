@@ -211,7 +211,8 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 		FBO *fbo = fbo_create(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight, 1, false, FBO_8888);
 		extraFBOs_.push_back(fbo);
 
-		// The new FBO is still bound after creation.
+		// The new FBO is still bound after creation, but let's bind it anyway.
+		fbo_bind_as_render_target(fbo);
 		ClearBuffer();
 	}
 
@@ -709,6 +710,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 	if (old.fbo) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
+			fbo_bind_as_render_target(vfb->fbo);
 			ClearBuffer();
 			if (!g_Config.bDisableSlowFramebufEffects) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
@@ -912,6 +914,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	FBO *fbo = fbo_create(w, h, 1, false, depth);
 	if (!fbo)
 		return fbo;
+	fbo_bind_as_render_target(fbo);
 	ClearBuffer();
 	const TempFBO info = {fbo, gpuStats.numFlips};
 	tempFBOs_[key] = info;
@@ -1190,6 +1193,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
+			fbo_bind_as_render_target(nvfb->fbo);
 			ClearBuffer();
 			glDisable(GL_DITHER);
 		} else {
