@@ -315,7 +315,10 @@ namespace DX9 {
 		if (tex != NULL) {
 			pD3Ddevice->SetTexture(0, tex);
 		}
-		pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
+		}
 	}
 
 	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -902,9 +905,15 @@ namespace DX9 {
 					// Pixel size always 4 here because we always request BGRA8888.
 					ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
 					offscreen->UnlockRect();
+				} else {
+					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);
 				}
+			} else {
+				ERROR_LOG_REPORT(G3D, "Unable to download render target data from %08x", fb_address);
 			}
 			offscreen->Release();
+		} else {
+			ERROR_LOG_REPORT(G3D, "Unable to create offscreen surface for %08x %dx%d", fb_address, desc.Width, desc.Height);
 		}
 	}
 	void FramebufferManagerDX9::EndFrame() {
