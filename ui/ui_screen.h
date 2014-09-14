@@ -110,8 +110,9 @@ private:
 
 class MessagePopupScreen : public PopupScreen {
 public:
-	MessagePopupScreen(std::string title, std::string message, std::string button1, std::string button2, std::function<void(int)> callback) : PopupScreen(title) {}
-	UI::Event OnChoice;
+	MessagePopupScreen(std::string title, std::string message, std::string button1, std::string button2, std::function<void(bool)> callback) 
+		: PopupScreen(title, button1, button2), message_(message), callback_(callback) {}
+	UI::Event OnChange;
 
 protected:
 	virtual bool FillVertical() const override { return false; }
@@ -119,8 +120,9 @@ protected:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
 
 private:
+	void OnCompleted(DialogResult result) override;
 	std::string message_;
-	std::function<void(int)> callback_;
+	std::function<void(bool)> callback_;
 };
 
 // TODO: Need a way to translate OK and Cancel
