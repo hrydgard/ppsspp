@@ -58,7 +58,7 @@ public:
 	~TextureCache();
 
 	void SetTexture(bool force = false);
-	bool SetOffsetTexture(u32 offset) override;
+	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();

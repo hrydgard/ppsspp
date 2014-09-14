@@ -202,11 +202,13 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
-void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invert) {
+static void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invertedX, bool invertedY, bool invertedZ) {
 	Matrix4x4 s;
 	Matrix4x4 t;
-	s.setScaling(Vec3(1, 1, invert ? -0.5 : 0.5f));
-	t.setTranslation(Vec3(0, 0, 0.5f));
+	s.setScaling(Vec3(1, 1, invertedZ ? -0.5 : 0.5f));
+	float xoff = 0.5f / gstate_c.curRTRenderWidth;
+	float yoff = 0.5f / gstate_c.curRTRenderHeight;
+	t.setTranslation(Vec3(invertedX ? xoff : -xoff, invertedY ? -yoff : yoff, 0.5f));
 	in = in * s * t;
 }
 
@@ -230,17 +232,20 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-		if (gstate_c.vpHeight < 0) {
+
+		const bool invertedY = gstate_c.vpHeight < 0;
+		if (invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
-		if (gstate_c.vpWidth < 0) {
+		const bool invertedX = gstate_c.vpWidth < 0;
+		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
-		bool invert = gstate_c.vpDepth < 0;
-		ConvertProjMatrixToD3D(flippedMatrix, invert);
+		const bool invertedZ = gstate_c.vpDepth < 0;
+		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY, invertedZ);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}
@@ -248,7 +253,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
-		ConvertProjMatrixToD3D(proj_through, false);
+		ConvertProjMatrixToD3D(proj_through, false, false, false);
 
 		VSSetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
 	}

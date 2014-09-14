@@ -395,13 +395,21 @@ void SoftwareTransform(
 		return;
 	}
 
-	if (gstate_c.flipTexture && maxIndex >= 2) {
+	// This means we're using a framebuffer (and one that isn't big enough.)
+	if (gstate_c.curTextureHeight < (u32)gstate.getTextureHeight(0) && maxIndex >= 2) {
 		// Even if not rectangles, this will detect if either of the first two are outside the framebuffer.
 		// HACK: Adding one pixel margin to this detection fixes issues in Assassin's Creed : Bloodlines,
 		// while still keeping BOF working (see below).
 		const float invTexH = 1.0f / gstate_c.curTextureHeight; // size of one texel.
-		const bool tlOutside = transformed[0].v < -invTexH && transformed[0].v > 1.0f - heightFactor;
-		const bool brOutside = transformed[1].v < -invTexH && transformed[1].v > 1.0f - heightFactor;
+		bool tlOutside;
+		bool brOutside;
+		if (gstate_c.flipTexture) {
+			tlOutside = transformed[0].v < -invTexH && transformed[0].v > 1.0f - heightFactor;
+			brOutside = transformed[1].v < -invTexH && transformed[1].v > 1.0f - heightFactor;
+		} else {
+			tlOutside = transformed[0].v > invTexH && transformed[0].v > heightFactor - 1.0f;
+			brOutside = transformed[1].v > invTexH && transformed[1].v > heightFactor - 1.0f;
+		}
 		if (tlOutside || brOutside) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
@@ -420,9 +428,13 @@ void SoftwareTransform(
 				for (int index = 0; index < maxIndex; ++index) {
 					transformed[index].u *= widthFactor / oldWidthFactor;
 					// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
-					transformed[index].v = (1.0f - transformed[index].v) / oldHeightFactor;
-					transformed[index].v -= yDiff;
-					transformed[index].v = 1.0f - (transformed[index].v * heightFactor);
+					if (gstate_c.flipTexture) {
+						transformed[index].v = (1.0f - transformed[index].v) / oldHeightFactor;
+						transformed[index].v -= yDiff;
+						transformed[index].v = 1.0f - (transformed[index].v * heightFactor);
+					} else {
+						transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
+					}
 				}
 			}
 		}

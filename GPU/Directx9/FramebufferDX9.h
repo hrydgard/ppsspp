@@ -19,6 +19,7 @@
 
 #include <list>
 #include <set>
+#include <map>
 
 #include "d3d9.h"
 
@@ -34,14 +35,13 @@
 
 namespace DX9 {
 
-struct GLSLProgram;
 class TextureCacheDX9;
+class TransformDrawEngineDX9;
+class ShaderManagerDX9;
 
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
-
-class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
@@ -54,11 +54,13 @@ public:
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
 	}
+	void SetTransformDrawEngine(TransformDrawEngineDX9 *td) {
+		transformDraw_ = td;
+	}
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 	
 	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
 
@@ -68,13 +70,11 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void UpdateFromMemory(u32 addr, int size, bool safe);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
@@ -84,16 +84,24 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
+	virtual void RebindFramebuffer() override;
+
+	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface);
+
 protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
+	virtual void FlushBeforeCopy() override;
+	virtual void DecimateFBOs() override;
+
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) override;
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
-
-	virtual void DecimateFBOs() override;
 
 private:
 	void CompileDraw2DProgram();
@@ -101,13 +109,12 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
-	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb);
+	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;
-	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
 	u8 *convBuf;
 
@@ -115,6 +122,7 @@ private:
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
+	TransformDrawEngineDX9 *transformDraw_;
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
 	
@@ -122,10 +130,20 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
+	bool gameUsesSequentialCopies_;
+
+	struct TempFBO {
+		FBO *fbo;
+		int last_frame_used;
+	};
+	struct OffscreenSurface {
+		LPDIRECT3DSURFACE9 surface;
+		int last_frame_used;
+	};
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+	std::map<u64, TempFBO> tempFBOs_;
+	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 
 #if 0
 	AsyncPBO *pixelBufObj_; //this isn't that large

@@ -19,7 +19,9 @@
 
 #include "Common/ChunkFile.h"
 #include "base/logging.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -396,8 +398,10 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
+	framebufferManager_.SetTransformDrawEngine(&transformDraw_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetShaderManager(shaderManager_);
 
@@ -628,6 +632,18 @@ void DIRECTX9_GPU::ProcessEvent(GPUEvent ev) {
 
 	case GPU_EVENT_INVALIDATE_CACHE:
 		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
+		break;
+
+	case GPU_EVENT_FB_MEMCPY:
+		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
+		break;
+
+	case GPU_EVENT_FB_MEMSET:
+		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
+		break;
+
+	case GPU_EVENT_FB_STENCIL_UPLOAD:
+		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
 		break;
 
 	default:
@@ -1806,30 +1822,49 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 		return;
 	}
 
-	// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-	// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-	// entirely by walking a couple of pointers...
-	for (int y = 0; y < height; y++) {
-		const u8 *src = Memory::GetPointerUnchecked(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointerUnchecked(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
-		memcpy(dst, src, width * bpp);
+	// Check that the last address of both source and dest are valid addresses
+
+	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
+	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
+
+	if (!Memory::IsValidAddress(srcLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
+	}
+	if (!Memory::IsValidAddress(dstLastAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
+		return;
 	}
 
-	// TODO: Notify all overlapping FBOs that they need to reload.
+	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
+	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
+		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
+		// entirely by walking a couple of pointers...
+		if (srcStride == dstStride && (u32)width == srcStride) {
+			// Common case in God of War, let's do it all in one chunk.
+			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
+			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
+			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
+			memcpy(dst, src, width * height * bpp);
+		} else {
+			for (int y = 0; y < height; y++) {
+				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
+				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
+				memcpy(dst, src, width * bpp);
+			}
+		}
 
-	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
-	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
-
-	u32 backBuffer = framebufferManager_.PrevDisplayFramebufAddr();
-	u32 displayBuffer = framebufferManager_.DisplayFramebufAddr();
-
-	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
-		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
-			dstStride == 512 && height == 272) {
-		framebufferManager_.DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), GE_FORMAT_8888, 512, false);
+		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
+		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp);
 	}
+
+	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
@@ -1858,32 +1893,103 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 	}
 }
 
+void DIRECTX9_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+		// We use a little hack for Download/Upload using a VRAM mirror.
+		// Since they're identical we don't need to copy.
+		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			Memory::Memcpy(dest, Memory::GetPointer(src), size);
+		}
+	}
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+}
+
+void DIRECTX9_GPU::PerformMemorySetInternal(u32 dest, u8 v, int size) {
+	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true)) {
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	}
+}
+
+void DIRECTX9_GPU::PerformStencilUploadInternal(u32 dest, int size) {
+	framebufferManager_.NotifyStencilUpload(dest, size);
+}
+
 bool DIRECTX9_GPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+			ev.fb_memcpy.dst = dest;
+			ev.fb_memcpy.src = src;
+			ev.fb_memcpy.size = size;
+			ScheduleEvent(ev);
+
+			// This is a memcpy, so we need to wait for it to complete.
+			SyncThread();
+		} else {
+			PerformMemoryCopyInternal(dest, src, size);
+		}
+		return true;
+	}
+
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// This may indicate a memset, usually to 0, of a framebuffer.
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		Memory::Memset(dest, v, size);
+
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMSET);
+			ev.fb_memset.dst = dest;
+			ev.fb_memset.v = v;
+			ev.fb_memset.size = size;
+			ScheduleEvent(ev);
+
+			// We don't need to wait for the framebuffer to be updated.
+		} else {
+			PerformMemorySetInternal(dest, v, size);
+		}
+		return true;
+	}
+
+	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemoryDownload(u32 dest, int size) {
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (Memory::IsRAMAddress(dest)) {
-//		framebufferManager_.NotifyFramebufferCopy(src, dest, size);
+	// Cheat a bit to force a download of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
 	}
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformMemoryUpload(u32 dest, int size) {
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	// Cheat a bit to force an upload of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+	}
 	return false;
 }
 
 bool DIRECTX9_GPU::PerformStencilUpload(u32 dest, int size) {
+	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
+			ev.fb_stencil_upload.dst = dest;
+			ev.fb_stencil_upload.size = size;
+			ScheduleEvent(ev);
+		} else {
+			PerformStencilUploadInternal(dest, size);
+		}
+		return true;
+	}
 	return false;
 }
 

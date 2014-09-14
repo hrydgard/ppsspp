@@ -158,6 +158,9 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
+	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	FramebufferManagerDX9 framebufferManager_;

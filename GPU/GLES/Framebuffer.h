@@ -71,10 +71,9 @@ public:
 		transformDraw_ = td;
 	}
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-
-	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
-	void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
@@ -84,12 +83,11 @@ public:
 
 	void DestroyAllFBOs();
 
-	void Init();
+	virtual void Init() override;
 	void EndFrame();
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
@@ -98,18 +96,11 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);
 
-	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
-	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
-	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
-	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
-
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
@@ -119,7 +110,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 
-	void RebindFramebuffer();
+	virtual void RebindFramebuffer() override;
 
 	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 
@@ -127,26 +118,24 @@ protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer() override;
 	virtual void ClearDepthBuffer() override;
+	virtual void FlushBeforeCopy() override;
+	virtual void DecimateFBOs() override;
+
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) override;
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 
-	virtual void DecimateFBOs() override;
-
 private:
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
-	void FlushBeforeCopy();
-
-	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 
 	void SetNumExtraFBOs(int num);
 
 	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
 
-	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	void BlitFramebuffer_(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
@@ -186,8 +175,6 @@ private:
 
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
-
-	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large

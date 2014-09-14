@@ -97,8 +97,12 @@ LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo) {
 	return fbo->tex;
 }
 
-void fbo_bind_for_read(FBO *fbo) {
-	// pD3Ddevice->SetRenderTarget(0, fbo->surf);
+LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO *fbo) {
+	return fbo->surf;
+}
+
+LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO *fbo) {
+	return fbo->surf;
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
@@ -108,6 +112,12 @@ void fbo_bind_color_as_texture(FBO *fbo, int color) {
 void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
 	*w = fbo->width;
 	*h = fbo->height;
+}
+
+HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
+	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
+	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
+	return pD3Ddevice->StretchRect(srcSurf, srcRect, dstSurf, dstRect, filter);
 }
 
 }
