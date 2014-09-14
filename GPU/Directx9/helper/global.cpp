@@ -140,72 +140,22 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 }
 
 void CompileShaders() {
-	ID3DXBuffer* pShaderCode = NULL;
-	ID3DXBuffer* pErrorMsg = NULL;
+	std::string errorMsg;
 	HRESULT hr = -1;
 
-	// Compile vertex shader.
-	hr = dyn_D3DXCompileShader(vscode,
-		(UINT)strlen(vscode),
-		NULL,
-		NULL,
-		"main",
-		"vs_2_0",
-		0,
-		&pShaderCode,
-		&pErrorMsg,
-		NULL);
-
-	if (pErrorMsg) {
-		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
-		pErrorMsg->Release();
-	}
-
-	if (FAILED(hr)) {
+	if (!CompileVertexShader(vscode, &pFramebufferVertexShader, NULL, errorMsg)) {
+		OutputDebugStringA(errorMsg.c_str());
 		DebugBreak();
 	}
 
-	// Create pixel shader.
-	pD3Ddevice->CreateVertexShader( (DWORD*)pShaderCode->GetBufferPointer(), 
-		&pFramebufferVertexShader );
-
-	pShaderCode->Release();
-	if (pErrorMsg) {
-		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
-		pErrorMsg->Release();
-	}
-
-	// Compile pixel shader.
-	hr = dyn_D3DXCompileShader(pscode,
-		(UINT)strlen(pscode),
-		NULL,
-		NULL,
-		"main",
-		"ps_2_0",
-		0,
-		&pShaderCode,
-		&pErrorMsg,
-		NULL);
-
-	if (pErrorMsg) {
-		OutputDebugStringA((CHAR*)pErrorMsg->GetBufferPointer());
-		pErrorMsg->Release();
-	}
-
-	if (FAILED(hr)) {
+	if (!CompilePixelShader(pscode, &pFramebufferPixelShader, NULL, errorMsg)) {
+		OutputDebugStringA(errorMsg.c_str());
 		DebugBreak();
 	}
 
-	// Create pixel shader.
-	pD3Ddevice->CreatePixelShader( (DWORD*)pShaderCode->GetBufferPointer(), 
-		&pFramebufferPixelShader );
-
-	pShaderCode->Release();
-
-	pD3Ddevice->CreateVertexDeclaration( VertexElements, &pFramebufferVertexDecl );
-	pD3Ddevice->SetVertexDeclaration( pFramebufferVertexDecl );
-
-	pD3Ddevice->CreateVertexDeclaration( SoftTransVertexElements, &pSoftVertexDecl );
+	pD3Ddevice->CreateVertexDeclaration(VertexElements, &pFramebufferVertexDecl);
+	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+	pD3Ddevice->CreateVertexDeclaration(SoftTransVertexElements, &pSoftVertexDecl);
 }
 
 void DestroyShaders() {
@@ -222,8 +172,6 @@ void DestroyShaders() {
 		pSoftVertexDecl->Release();
 	}
 }
-
-bool useVsync = false;
 
 // Only used by Headless! TODO: Remove
 void DirectxInit(HWND window) {
@@ -263,17 +211,6 @@ void DirectxInit(HWND window) {
 	CompileShaders();
 
 	fbo_init();
-}
-
-void BeginFrame() {
-	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 1.f, 0);	
-}
-
-void EndFrame() {
-}
-
-void SwapBuffers() {
-	pD3Ddevice->Present(NULL, NULL, NULL, NULL);
 }
 
 };
