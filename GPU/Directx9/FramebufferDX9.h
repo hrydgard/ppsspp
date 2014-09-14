@@ -71,6 +71,8 @@ public:
 	void DeviceLost();
 	void CopyDisplayToOutput();
 
+	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
+
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();

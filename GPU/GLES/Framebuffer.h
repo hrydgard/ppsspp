@@ -91,7 +91,7 @@ public:
 	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
-	void BlitFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
+	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);
