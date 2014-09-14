@@ -620,18 +620,24 @@ namespace DX9 {
 			const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 			if (1) {
-				dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				// These are in the output display coordinates
-				if (g_Config.iBufFilter == SCALE_LINEAR) {
-					dxstate.texMagFilter.set(D3DTEXF_LINEAR);
-					dxstate.texMinFilter.set(D3DTEXF_LINEAR);
-				} else {
-					dxstate.texMagFilter.set(D3DTEXF_POINT);
-					dxstate.texMinFilter.set(D3DTEXF_POINT);
+				RECT srcRect = {offsetX, offsetY, offsetX + 480, offsetY + 272};
+				RECT dstRect = {x, y, x + w, y + h};
+				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+				if (FAILED(hr)) {
+					ERROR_LOG_REPORT(G3D, "fbo_blit_color failed on display: %08x", hr);
+					dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+					// These are in the output display coordinates
+					if (g_Config.iBufFilter == SCALE_LINEAR) {
+						dxstate.texMagFilter.set(D3DTEXF_LINEAR);
+						dxstate.texMinFilter.set(D3DTEXF_LINEAR);
+					} else {
+						dxstate.texMagFilter.set(D3DTEXF_POINT);
+						dxstate.texMinFilter.set(D3DTEXF_POINT);
+					}
+					dxstate.texMipFilter.set(D3DTEXF_NONE);
+					dxstate.texMipLodBias.set(0);
+					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1);
 				}
-				dxstate.texMipFilter.set(D3DTEXF_NONE);
-				dxstate.texMipLodBias.set(0);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1);
 			}
 			/* 
 			else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
@@ -822,8 +828,8 @@ namespace DX9 {
 
 			RebindFramebuffer();
 		} else {
-			LPDIRECT3DSURFACE9 srcSurf = fbo_get_for_read(src->fbo);
-			LPDIRECT3DSURFACE9 dstSurf = fbo_get_for_write(dst->fbo);
+			LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo);
+			LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo);
 			RECT srcRect = {srcX1, srcY1, srcX2, srcY2};
 			RECT dstRect = {dstX1, dstY1, dstX2, dstY2};
 
@@ -836,9 +842,9 @@ namespace DX9 {
 			dstRect.right = std::min(dstRect.right, (LONG)desc.Width);
 			dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
 
-			HRESULT hr = pD3Ddevice->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, D3DTEXF_POINT);
+			HRESULT hr = fbo_blit_color(src->fbo, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
 			if (FAILED(hr)) {
-				ERROR_LOG_REPORT(G3D, "StretchRect failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
+				ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
 			}
 		}
 	}
@@ -911,7 +917,7 @@ namespace DX9 {
 		// Right now that's always 8888.
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-		LPDIRECT3DSURFACE9 renderTarget = fbo_get_for_read(vfb->fbo);
+		LPDIRECT3DSURFACE9 renderTarget = fbo_get_color_for_read(vfb->fbo);
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
