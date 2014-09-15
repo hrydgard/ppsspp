@@ -129,6 +129,7 @@ TransformDrawEngine::TransformDrawEngine()
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
+		dcid_(0),
 		uvScale(0),
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;

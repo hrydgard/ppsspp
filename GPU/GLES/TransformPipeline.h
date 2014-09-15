@@ -59,7 +59,6 @@ public:
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
-		numDCs = 0;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
@@ -91,7 +90,6 @@ public:
 	s8 prim;
 
 	// ID information
-	u8 numDCs;
 	int numDraws;
 	int numFrames;
 	int lastFrame;  // So that we can forget.
