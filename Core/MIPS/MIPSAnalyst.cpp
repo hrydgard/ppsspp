@@ -123,6 +123,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
+	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
 	{ 0x1f53eac122f96b37, 224, "cosf", },
@@ -422,6 +423,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xfa156c48461eeeb9, 24, "vf2id_q", },
 	{ 0xfb4253a1d9d9df9f, 20, "isnanf", },
 	{ 0xfd34a9ad94fa6241, 76, "__extendsfdf2", },
+	{ 0xfe2566ad957054b7, 232, "suikoden1_and_2_download_frame_2", }, // Gensou Suikoden 1&2
 	{ 0xfe4f0280240008e9, 28, "vavg_q", },
 	{ 0xfe5dd338ab862291, 216, "memset", }, // Metal Gear Solid: Peace Walker demo
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
