@@ -177,6 +177,9 @@
     <ClInclude Include="Common\DrawEngineCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\DepalettizeShaderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -337,6 +340,9 @@
     </ClCompile>
     <ClCompile Include="Directx9\StencilBufferDX9.cpp">
       <Filter>DirectX9</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DepalettizeShaderCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
