@@ -185,9 +185,6 @@ private:
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
-
 	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);

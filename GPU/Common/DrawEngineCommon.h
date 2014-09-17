@@ -23,6 +23,8 @@
 
 #include "GPU/Common/GPUDebugInterface.h"
 
+class VertexDecoder;
+
 class DrawEngineCommon {
 public:
 	virtual ~DrawEngineCommon();
@@ -33,6 +35,8 @@ public:
 	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) = 0;
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+
+	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
 protected:
 	// Vertex collector buffers
