@@ -24,6 +24,7 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Directx9/helper/fbo.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
@@ -166,6 +167,7 @@ private:
 
 	FramebufferManagerDX9 framebufferManager_;
 	TextureCacheDX9 textureCache_;
+	DepalShaderCacheDX9 depalShaderCache_;
 	TransformDrawEngineDX9 transformDraw_;
 	ShaderManagerDX9 *shaderManager_;
 

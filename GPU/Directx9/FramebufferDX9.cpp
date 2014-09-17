@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Stepping.h"
 
 #include "helper/dx_state.h"
 #include "helper/fbo.h"
@@ -640,6 +641,40 @@ namespace DX9 {
 		const OffscreenSurface info = {offscreen, gpuStats.numFlips};
 		offscreenSurfaces_[key] = info;
 		return offscreen;
+	}
+
+	void FramebufferManagerDX9::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
+		if (framebuffer == NULL) {
+			framebuffer = currentRenderVfb_;
+		}
+
+		if (!framebuffer->fbo || !useBufferedRendering_) {
+			pD3Ddevice->SetTexture(0, nullptr);
+			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+			return;
+		}
+
+		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
+		// Let's just not bother with the copy in that case.
+		if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+			skipCopy = true;
+		}
+		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+			FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
+			if (renderCopy) {
+				VirtualFramebuffer copyInfo = *framebuffer;
+				copyInfo.fbo = renderCopy;
+				BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
+
+				RebindFramebuffer();
+				fbo_bind_color_as_texture(renderCopy, 0);
+			} else {
+				fbo_bind_color_as_texture(framebuffer->fbo, 0);
+			}
+		} else {
+			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+		}
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {

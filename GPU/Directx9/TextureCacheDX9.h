@@ -30,6 +30,7 @@ struct VirtualFramebuffer;
 namespace DX9 {
 
 class FramebufferManagerDX9;
+class DepalShaderCacheDX9;
 class ShaderManagerDX9;
 
 enum TextureFiltering {
@@ -66,6 +67,9 @@ public:
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 		framebufferManager_ = fbManager;
+	}
+	void SetDepalShaderCache(DepalShaderCacheDX9 *dpCache) {
+		depalShaderCache_ = dpCache;
 	}
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
@@ -218,6 +222,7 @@ private:
 	int timesInvalidatedAllThisFrame_;
 
 	FramebufferManagerDX9 *framebufferManager_;
+	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
 };
 
