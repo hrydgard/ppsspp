@@ -41,6 +41,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
 	$$P/GPU/Debugger/*.cpp \
+	$$P/GPU/Common/DepalettizeShaderCommon.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
