@@ -17,7 +17,11 @@
 
 #pragma once
 
+#include <vector>
+
 #include "Common/CommonTypes.h"
+
+#include "GPU/Common/GPUDebugInterface.h"
 
 class DrawEngineCommon {
 public:
@@ -27,6 +31,8 @@ public:
 
 	// TODO: This can be shared once the decoder cache / etc. are.
 	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) = 0;
+
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 protected:
 	// Vertex collector buffers

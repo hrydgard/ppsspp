@@ -111,8 +111,6 @@ public:
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -157,7 +155,6 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 
-	bool IsReallyAClear(int numVerts) const;
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
@@ -222,4 +219,4 @@ private:
 	VertexDecoderOptions decOptions_;
 };
 
-};
+}  // namespace
