@@ -83,25 +83,19 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-// Check for max first as clamping to max is more common than min when lighting.
-inline float clamp(float in, float min, float max) { 
-	return in > max ? max : (in < min ? min : in);
-}
-
 TransformDrawEngineDX9::TransformDrawEngineDX9()
-	:
-	decodedVerts_(0),
-	prevPrim_(GE_PRIM_INVALID),
-	dec_(0),
-	lastVType_(-1),
-	shaderManager_(0),
-	textureCache_(0),
-	framebufferManager_(0),
-	numDrawCalls(0),
-	vertexCountInDrawCalls(0),
-	decodeCounter_(0),
-	dcid_(0),
-	uvScale(0) {
+	:	decodedVerts_(0),
+		prevPrim_(GE_PRIM_INVALID),
+		dec_(0),
+		lastVType_(-1),
+		shaderManager_(0),
+		textureCache_(0),
+		framebufferManager_(0),
+		numDrawCalls(0),
+		vertexCountInDrawCalls(0),
+		decodeCounter_(0),
+		dcid_(0),
+		uvScale(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = true;
@@ -126,7 +120,7 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		quadIndices_[i * 6 + 4] = i * 4 + 2;
 		quadIndices_[i * 6 + 5] = i * 4 + 3;
 	}
-	
+
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
@@ -143,6 +137,9 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	delete[] quadIndices_;
+
+	delete decJitCache_;
 
 	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
 		if (decl->second) {
@@ -150,15 +147,10 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 		}
 	}
 
-	delete [] quadIndices_;
-	
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
 	delete [] uvScale;
-
-	delete decJitCache_;
-
 }
 
 void TransformDrawEngineDX9::InitDeviceObjects() {
@@ -255,7 +247,7 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 		// End
 		D3DVERTEXELEMENT9 end = D3DDECL_END();
 		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
-	
+
 		// Create declaration
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
 		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
@@ -297,34 +289,6 @@ inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
-}
-
-int TransformDrawEngineDX9::EstimatePerVertexCost() {
-	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
-	// runs in parallel with transform.
-
-	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
-
-	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
-	// went too fast and starts doing all the work over again).
-
-	int cost = 20;
-	if (gstate.isLightingEnabled()) {
-		cost += 10;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		if (gstate.isLightChanEnabled(i))
-			cost += 10;
-	}
-	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
-		cost += 20;
-	}
-	if (dec_ && dec_->morphcount > 1) {
-		cost += 5 * dec_->morphcount;
-	}
-
-	return cost;
 }
 
 void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
@@ -748,16 +712,12 @@ void TransformDrawEngineDX9::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
-						// Always
-						if (1) {
-							void * pVb;
-							u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-							pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
-							vai->vbo->Lock(0, size, &pVb, 0);
-							memcpy(pVb, decoded, size);
-							vai->vbo->Unlock();
-						}
-						// Ib
+						void * pVb;
+						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
+						vai->vbo->Lock(0, size, &pVb, 0);
+						memcpy(pVb, decoded, size);
+						vai->vbo->Unlock();
 						if (useElements) {
 							void * pIb;
 							u32 size =  sizeof(short) * indexGen.VertexCount();

@@ -142,8 +142,8 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 
+	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
 		quadIndices_[i * 6 + 0] = i * 4;
 		quadIndices_[i * 6 + 1] = i * 4 + 2;
@@ -609,12 +609,10 @@ void TransformDrawEngine::DoFlush() {
 
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
 
-	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
-	int maxIndex = 0;
-
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
+		int maxIndex = 0;  // Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
