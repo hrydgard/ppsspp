@@ -852,7 +852,7 @@ rotateVBO:
 				if (useElements) {
 					pD3Ddevice->SetIndices(ib_);
 
-					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, maxIndex + 1, vertexCount, 0, D3DPrimCount(glprim[prim], vertexCount));
+					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
 				} else {
 					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 				}
