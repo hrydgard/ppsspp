@@ -415,7 +415,7 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
@@ -432,7 +432,9 @@ void LogoScreen::render() {
 		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
 
+#ifdef _WIN32
 	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#endif
 
 	dc.End();
 	dc.Flush();
@@ -624,7 +626,7 @@ void CreditsScreen::render() {
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
 	credits[0] = (const char *)temp;
 
 	UIContext &dc = *screenManager()->getUIContext();

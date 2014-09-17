@@ -524,7 +524,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				wcscpy(dest,L"-");
 			} else {
 				char temp[256];
-				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp);
+				disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp, sizeof(temp));
 				std::wstring s = ConvertUTF8ToWString(temp);
 				wcscpy(dest,s.c_str());
 			}
@@ -694,7 +694,7 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 	case SF_CUROPCODE:
 		{
 			char temp[512];
-			disasm->getOpcodeText(frames[row].pc,temp);
+			disasm->getOpcodeText(frames[row].pc, temp, sizeof(temp));
 			wcscpy(dest, ConvertUTF8ToWString(temp).c_str());
 		}
 		break;

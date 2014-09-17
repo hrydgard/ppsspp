@@ -21,7 +21,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
 // using SSE / NEON and store them here.
@@ -38,6 +38,10 @@ static const float MEMORY_ALIGNED16( by32768[4] ) = {
 
 static const u32 MEMORY_ALIGNED16( threeMasks[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0};
 static const u32 MEMORY_ALIGNED16( aOne[4] ) = {0, 0, 0, 0x3F800000};
+
+static const float MEMORY_ALIGNED16(by16384[4]) = {
+	1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f,
+};
 
 #ifdef _M_X64
 #ifdef _WIN32
@@ -90,6 +94,8 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
+	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
+	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
@@ -98,10 +104,12 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
+	{&VertexDecoder::Step_NormalS8ToFloat, &VertexDecoderJitCache::Jit_NormalS8ToFloat},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
@@ -464,6 +472,26 @@ void VertexDecoderJitCache::Jit_TcU16() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
+void VertexDecoderJitCache::Jit_TcU8ToFloat() {
+	// TODO: The first five instructions could be done in 1 or 2 in SSE4
+	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
+	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
+	CVTSI2SS(fpScratchReg, R(tempReg1));
+	CVTSI2SS(fpScratchReg2, R(tempReg2));
+	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	MULPS(fpScratchReg, M(&by128));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ToFloat() {
+	PXOR(fpScratchReg2, R(fpScratchReg2));
+	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
+	MULPS(fpScratchReg, M(&by32768));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
 void VertexDecoderJitCache::Jit_TcU16Double() {
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
@@ -523,6 +551,14 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 void VertexDecoderJitCache::Jit_TcU16Through() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
+	PXOR(fpScratchReg2, R(fpScratchReg2));
+	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
@@ -919,6 +955,11 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
 	AND(32, R(tempReg1), Imm32(0x00FFFFFF));
 	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_NormalS8ToFloat() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM3);
 }
 
 // Copy 6 bytes and then 2 zeroes.

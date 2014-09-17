@@ -626,19 +626,46 @@ static int Hook_narisokonai_download_frame() {
 }
 
 static int Hook_kirameki_school_life_download_frame() {
-	const u32 fb_address = currentMIPS->r[MIPS_REG_S0];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
 
 static int Hook_orenoimouto_download_frame() {
-	const u32 fb_address = currentMIPS->r[MIPS_REG_V1];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A4];
 	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformMemoryDownload(fb_address, 0x00044000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_sakurasou_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_suikoden1_and_2_download_frame_1() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S4];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_suikoden1_and_2_download_frame_2() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -693,8 +720,11 @@ static const ReplacementTableEntry entries[] = {
 	{ "growlanser_create_saveicon", &Hook_growlanser_create_saveicon, 0, REPFLAG_HOOKENTER, 0x7C },
 	{ "sd_gundam_g_generation_download_frame", &Hook_sd_gundam_g_generation_download_frame, 0, REPFLAG_HOOKENTER, 0x48},
 	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
-	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER, 0x304 },
-	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
+	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOKENTER, 0xF8 },
+	{ "suikoden1_and_2_download_frame_1", &Hook_suikoden1_and_2_download_frame_1, 0, REPFLAG_HOOKENTER, 0x9C },
+	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x48 },
 	{}
 };
 

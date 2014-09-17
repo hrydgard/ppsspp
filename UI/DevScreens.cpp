@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/compat.h"
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -447,7 +448,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 				continue;
 			}
 		}
-		ArmDis((u32)(intptr_t)codePtr, inst, temp, false);
+		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
 		std::string buf = temp;
 		lines.push_back(buf);
 	}
@@ -471,7 +472,7 @@ void JitCompareScreen::UpdateDisasm() {
 	JitBlock *block = blockCache->GetBlock(currentBlock_);
 
 	char temp[256];
-	sprintf(temp, "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
+	snprintf(temp, sizeof(temp), "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
 	blockName_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.

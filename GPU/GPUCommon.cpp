@@ -569,7 +569,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 			} else {
 				prev = 0;
 			}
-			GeDisassembleOp(list.pc, op, prev, temp);
+			GeDisassembleOp(list.pc, op, prev, temp, 256);
 			NOTICE_LOG(G3D, "%s", temp);
 		}
 		gstate.cmdmem[cmd] = op;
@@ -1189,7 +1189,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
-	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer);
+	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer, sizeof(buffer));
 
 	GPUDebugOp info;
 	info.pc = pc;
@@ -1208,7 +1208,7 @@ std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
 	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
 		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
-		GeDisassembleOp(pc, op, prev, buffer);
+		GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 		prev = op;
 
 		info.pc = pc;

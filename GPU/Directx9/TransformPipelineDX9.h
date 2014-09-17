@@ -20,9 +20,11 @@
 #include <map>
 
 #include <d3d9.h>
+
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/Directx9/VertexDecoderDX9.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 struct DecVtxFormat;
 
@@ -61,7 +63,6 @@ public:
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
-		numDCs = 0;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
@@ -80,6 +81,7 @@ public:
 	};
 
 	u32 hash;
+	u32 minihash;
 
 	Status status;
 
@@ -92,7 +94,6 @@ public:
 	s8 prim;
 
 	// ID information
-	u8 numDCs;
 	int numDraws;
 	int numFrames;
 	int lastFrame;  // So that we can forget.
@@ -101,19 +102,17 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngineDX9 {
+class TransformDrawEngineDX9 : public DrawEngineCommon {
 public:
 	TransformDrawEngineDX9();
 	virtual ~TransformDrawEngineDX9();
 	
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
-	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	void DecodeVerts();
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -127,11 +126,15 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost() {};
 
+	void Resized();  // TODO: Call
+
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	void SetupVertexDecoderInternal(u32 vertType);
 
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost();
 
@@ -142,22 +145,29 @@ public:
 		DoFlush();
 	}
 
+protected:
+	// Preprocessing for spline/bezier
+	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
+
 private:
+	void DecodeVerts();
+	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+
 	void ApplyDrawState(int prim);
+	void ApplyDrawStateLate();
+
 	bool IsReallyAClear(int numVerts) const;
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoderDX9 *dec, int lowerBound, int upperBound, u32 vertType);
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 	
-	// drawcall ID
-	u32 ComputeFastDCID();
+	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
+	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
-	VertexDecoderDX9 *GetVertexDecoder(u32 vtype);
+	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
@@ -174,12 +184,13 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int collectedVerts;
+	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoderDX9 *> decoderMap_;
-	VertexDecoderDX9 *dec_;
+	std::map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
+	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	// Vertex collector buffers
@@ -201,51 +212,18 @@ private:
 	FramebufferManagerDX9 *framebufferManager_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
 
 	int decimationCounter_;
+	int decodeCounter_;
+	u32 dcid_;
 
 	UVScale *uvScale;
-};
 
-// Only used by SW transform
-struct Color4 {
-	float a, r, g, b;
-
-	Color4() : r(0), g(0), b(0), a(0) { }
-	Color4(float _r, float _g, float _b, float _a=1.0f)
-		: r(_r), g(_g), b(_b), a(_a) {
-	}
-	Color4(const float in[4]) {a=in[0];r=in[1];g=in[2];b=in[3];}
-	Color4(const float in[3], float alpha) {r=in[0];g=in[1];b=in[2];a=alpha;}
-
-	const float &operator [](int i) const {return *(&a + i);}
-
-	Color4 operator *(float f) const {
-		return Color4(f*r,f*g,f*b,f*a);
-	}
-	Color4 operator *(const Color4 &c) const {
-		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
-	}
-	Color4 operator +(const Color4 &c) const {
-		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
-	}
-	void operator +=(const Color4 &c) {
-		r+=c.r;
-		g+=c.g;
-		b+=c.b;
-		a+=c.a;
-	}
-	void GetFromRGB(u32 col) {
-		b = ((col>>16) & 0xff)/255.0f;
-		g = ((col>>8) & 0xff)/255.0f;
-		r = ((col>>0) & 0xff)/255.0f;
-	}
-	void GetFromA(u32 col) {
-		a = (col&0xff)/255.0f;
-	}
+	VertexDecoderOptions decOptions_;
 };
 
 };

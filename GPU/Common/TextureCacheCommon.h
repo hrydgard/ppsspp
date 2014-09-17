@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include "Common/CommonTypes.h"
 
-void GeDescribeVertexType(u32 op, char *buffer, int len = 256);
-void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize);
+class TextureCacheCommon {
+public:
+	virtual ~TextureCacheCommon();
+
+	virtual bool SetOffsetTexture(u32 offset);
+};

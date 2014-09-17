@@ -33,6 +33,7 @@ public:
 	void registerTouchWindow(HWND wnd);
 	bool hasTouch();
 private:
+	void disablePressAndHold(HWND hWnd);
 	void touchUp(int id, float x, float y);
 	void touchDown(int id, float x, float y);
 	void touchMove(int id, float x, float y);

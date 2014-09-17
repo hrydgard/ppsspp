@@ -58,4 +58,7 @@ bool IsColorTestTriviallyTrue();
 #define CONST_PS_ALPHACOLORMASK 2
 #define CONST_PS_FOGCOLOR 3
 
+// For stencil upload
+#define CONST_PS_STENCILVALUE 4
+
 };

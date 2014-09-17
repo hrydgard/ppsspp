@@ -53,7 +53,7 @@ void DisassembleArm(const u8 *data, int size) {
 				continue;
 			}
 		}
-		ArmDis((u32)codePtr, inst, temp);
+		ArmDis((u32)codePtr, inst, temp, sizeof(temp), true);
 		ILOG("A:   %s", temp);
 	}
 }

@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCache.h"
 
 static const char *stencil_fs =
 #ifdef USING_GLES2
@@ -195,6 +196,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	glViewport(0, 0, w, h);
 
 	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	textureCache_->ForgetLastTexture();
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);

@@ -103,7 +103,7 @@ public:
 	void scanFunctions();
 	void clearFunctions() { manager.clear(); };
 
-	void getOpcodeText(u32 address, char* dest);
+	void getOpcodeText(u32 address, char* dest, int bufsize);
 	int getRowHeight() { return rowHeight; };
 	u32 yToAddress(int y);
 

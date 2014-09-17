@@ -19,8 +19,8 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/TransformPipeline.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
 
 #include "GPU/Software/TransformUnit.h"
@@ -209,7 +209,10 @@ int TransformUnit::patchBufferSize_ = 0;
 void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
 {
 	VertexDecoder vdecoder;
-	vdecoder.SetVertexType(vertex_type);
+	VertexDecoderOptions options;
+	memset(&options, 0, sizeof(options));
+	options.expandAllUVtoFloat = false;
+	vdecoder.SetVertexType(vertex_type, options);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
 
 	static u8 buf[65536 * 48]; // yolo
@@ -290,7 +293,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 {
 	// TODO: Cache VertexDecoder objects
 	VertexDecoder vdecoder;
-	vdecoder.SetVertexType(vertex_type);
+	VertexDecoderOptions options;
+	memset(&options, 0, sizeof(options));
+	options.expandAllUVtoFloat = false;
+	vdecoder.SetVertexType(vertex_type, options);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
 
 	if (bytesRead)
@@ -528,7 +534,10 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	simpleVertices.resize(indexUpperBound + 1);
 
 	VertexDecoder vdecoder;
-	vdecoder.SetVertexType(gstate.vertType);
+	VertexDecoderOptions options;
+	memset(&options, 0, sizeof(options));
+	options.expandAllUVtoFloat = false;  // TODO: True should be fine here
+	vdecoder.SetVertexType(gstate.vertType, options);
 	TransformDrawEngine::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), &vdecoder, indexLowerBound, indexUpperBound, gstate.vertType);
 
 	float world[16];

@@ -78,9 +78,6 @@
     <ClInclude Include="GLES\TransformPipeline.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\VertexDecoder.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\FragmentShaderGenerator.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -94,9 +91,6 @@
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\VertexDecoderDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\TransformPipelineDX9.h">
@@ -162,6 +156,9 @@
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureCacheCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="Common\TransformCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -172,6 +169,12 @@
       <Filter>GLES</Filter>
     </ClInclude>
     <ClInclude Include="Common\FramebufferCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\SoftwareTransformCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DrawEngineCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -212,12 +215,6 @@
     <ClCompile Include="GLES\TransformPipeline.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\SoftwareTransform.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexDecoder.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
@@ -237,9 +234,6 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="Directx9\VertexDecoderDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Directx9\TransformPipelineDX9.cpp">
@@ -278,9 +272,6 @@
     <ClCompile Include="GeDisasm.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\Spline.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -308,11 +299,8 @@
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="GLES\VertexDecoderArm.cpp">
-      <Filter>GLES</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexDecoderX86.cpp">
-      <Filter>GLES</Filter>
+    <ClCompile Include="Common\TextureCacheCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TransformCommon.cpp">
       <Filter>Common</Filter>
@@ -328,6 +316,27 @@
     </ClCompile>
     <ClCompile Include="Common\FramebufferCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderX86.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderArm.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\SoftwareTransformCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\DrawEngineCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\Spline.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\SplineCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Directx9\StencilBufferDX9.cpp">
+      <Filter>DirectX9</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

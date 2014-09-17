@@ -720,9 +720,9 @@ void EmuScreen::render() {
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
-	glstate.viewport.restore();
-
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetScissorEnabled(false);
+
 	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
 	if (root_) {
@@ -736,10 +736,7 @@ void EmuScreen::render() {
 
 	if (g_Config.bShowDebugStats) {
 		char statbuf[4096] = {0};
-		__DisplayGetDebugStats(statbuf);
-		if (statbuf[4095]) {
-			ELOG("Statbuf too small! :(");
-		}
+		__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 		ui_draw2d.SetFontScale(.7f, .7f);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
@@ -752,11 +749,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
 		case 2:
-			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
 		default:
 			return;
 		}

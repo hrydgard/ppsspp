@@ -23,6 +23,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 
@@ -44,13 +45,13 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
-class TextureCacheDX9 {
+class TextureCacheDX9 : public TextureCacheCommon {
 public:
 	TextureCacheDX9();
 	~TextureCacheDX9();
 
 	void SetTexture(bool force = false);
-	bool SetOffsetTexture(u32 offset);
+	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();
@@ -146,6 +147,7 @@ public:
 		void ReleaseTexture() {
 			if (texture) {
 				texture->Release();
+				texture = NULL;
 			}
 		}
 	};
@@ -161,7 +163,7 @@ private:
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw);
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, u32 dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);

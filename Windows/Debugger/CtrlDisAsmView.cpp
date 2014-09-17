@@ -1106,15 +1106,15 @@ void CtrlDisAsmView::updateStatusBarText()
 		{
 			if (!Memory::IsValidAddress(line.info.dataAddress))
 			{
-				sprintf(text,"Invalid address %08X",line.info.dataAddress);
+				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
 			} else {
 				switch (line.info.dataSize)
 				{
 				case 1:
-					sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 					break;
 				case 2:
-					sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 					break;
 				case 4:
 					// TODO: Could also be a float...
@@ -1123,9 +1123,9 @@ void CtrlDisAsmView::updateStatusBarText()
 						const std::string addressSymbol = symbolMap.GetLabelString(data);
 						if (!addressSymbol.empty())
 						{
-							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
+							snprintf(text, sizeof(text), "[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
 						} else {
-							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+							snprintf(text, sizeof(text), "[%08X] = %08X",line.info.dataAddress,data);
 						}
 						break;
 					}
@@ -1141,13 +1141,12 @@ void CtrlDisAsmView::updateStatusBarText()
 			const std::string addressSymbol = symbolMap.GetLabelString(line.info.branchTarget);
 			if (addressSymbol.empty())
 			{
-				sprintf(text,"%08X",line.info.branchTarget);
+				snprintf(text, sizeof(text), "%08X", line.info.branchTarget);
 			} else {
-				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol.c_str());
+				snprintf(text, sizeof(text), "%08X = %s",line.info.branchTarget,addressSymbol.c_str());
 			}
 		}
-	} else if (line.type == DISTYPE_DATA)
-	{
+	} else if (line.type == DISTYPE_DATA) {
 		u32 start = symbolMap.GetDataStart(curAddress);
 		if (start == -1)
 			start = curAddress;
@@ -1155,25 +1154,23 @@ void CtrlDisAsmView::updateStatusBarText()
 		u32 diff = curAddress-start;
 		const std::string label = symbolMap.GetLabelString(start);
 
-		if (!label.empty())
-		{
+		if (!label.empty()) {
 			if (diff != 0)
-				sprintf(text,"%08X (%s) + %08X",start,label.c_str(),diff);
+				snprintf(text, sizeof(text), "%08X (%s) + %08X",start,label.c_str(),diff);
 			else
-				sprintf(text,"%08X (%s)",start,label.c_str());
+				snprintf(text, sizeof(text), "%08X (%s)",start,label.c_str());
 		} else {
 			if (diff != 0)
-				sprintf(text,"%08X + %08X",start,diff);
+				snprintf(text, sizeof(text), "%08X + %08X",start,diff);
 			else
-				sprintf(text,"%08X",start);
+				snprintf(text, sizeof(text), "%08X",start);
 		}
 	}
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
 
 	const std::string label = symbolMap.GetLabelString(line.info.opcodeAddress);
-	if (!label.empty())
-	{
+	if (!label.empty()) {
 		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
 	}
 }
@@ -1373,12 +1370,12 @@ void CtrlDisAsmView::disassembleToFile()
 	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
 }
 
-void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
+void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
 	manager.getLine(address,displaySymbols,line);
-	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
+	snprintf(dest, bufsize, "%s  %s",line.name.c_str(),line.params.c_str());
 }
 
 void CtrlDisAsmView::scrollStepping(u32 newPc)

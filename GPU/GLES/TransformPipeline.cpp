@@ -80,11 +80,12 @@
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
-#include "GPU/GLES/VertexDecoder.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 
@@ -114,7 +115,7 @@ enum {
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
 #define VERTEXCACHE_NAME_CACHE_FULL_SIZE 80
 
-enum { VAI_KILL_AGE = 120 };
+enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 
 TransformDrawEngine::TransformDrawEngine()
@@ -128,9 +129,12 @@ TransformDrawEngine::TransformDrawEngine()
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
+		dcid_(0),
 		uvScale(0),
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
+	memset(&decOptions_, 0, sizeof(decOptions_));
+	decOptions_.expandAllUVtoFloat = false;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -249,7 +253,7 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	if (iter != decoderMap_.end())
 		return iter->second;
 	VertexDecoder *dec = new VertexDecoder();
-	dec->SetVertexType(vtype, decJitCache_);
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_[vtype] = dec;
 	return dec;
 }
@@ -435,9 +439,66 @@ void TransformDrawEngine::DecodeVertsStep() {
 	}
 }
 
+inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
+	// Switch to u32 units.
+	const u32 *p = (const u32 *)ptr;
+	sz >>= 2;
+
+	if (sz > 100) {
+		size_t step = sz / 4;
+		u32 hash = 0;
+		for (size_t i = 0; i < sz; i += step) {
+			hash += DoReliableHash(p + i, 100, 0x3A44B9C4);
+		}
+		return hash;
+	} else {
+		return p[0] + p[sz - 1];
+	}
+}
+
+u32 TransformDrawEngine::ComputeMiniHash() {
+	u32 fullhash = 0;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+
+	int step;
+	if (numDrawCalls < 3) {
+		step = 1;
+	} else if (numDrawCalls < 8) {
+		step = 4;
+	} else {
+		step = numDrawCalls / 8;
+	}
+	for (int i = 0; i < numDrawCalls; i += step) {
+		const DeferredDrawCall &dc = drawCalls[i];
+		if (!dc.inds) {
+			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
+		} else {
+			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+			fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
+			fullhash += ComputeMiniHashRange(dc.inds, indexSize * dc.vertexCount);
+		}
+	}
+
+	return fullhash;
+}
+
+void TransformDrawEngine::MarkUnreliable(VertexArrayInfo *vai) {
+	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+	if (vai->vbo) {
+		FreeBuffer(vai->vbo);
+		vai->vbo = 0;
+	}
+	if (vai->ebo) {
+		FreeBuffer(vai->ebo);
+		vai->ebo = 0;
+	}
+}
+
 u32 TransformDrawEngine::ComputeHash() {
 	u32 fullhash = 0;
-	int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int vertexSize = dec_->GetDecVtxFmt().stride;
+	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
@@ -461,7 +522,6 @@ u32 TransformDrawEngine::ComputeHash() {
 			// we do when drawing.
 			fullhash += DoReliableHash((const char *)dc.verts + vertexSize * indexLowerBound,
 				vertexSize * (indexUpperBound - indexLowerBound), 0x029F3EE1);
-			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 			// Hm, we will miss some indices when combining above, but meh, it should be fine.
 			fullhash += DoReliableHash((const char *)dc.inds, indexSize * dc.vertexCount, 0x955FD1CA);
 			i = lastMatch;
@@ -488,9 +548,18 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		return;
 	}
 
-	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
+	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
+	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame < threshold) {
+		bool kill;
+		if (iter->second->status == VertexArrayInfo::VAI_UNRELIABLE) {
+			// We limit killing unreliable so we don't rehash too often.
+			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
+		} else {
+			kill = iter->second->lastFrame < threshold;
+		}
+		if (kill) {
 			delete iter->second;
 			vai_.erase(iter++);
 		} else {
@@ -572,6 +641,7 @@ void TransformDrawEngine::DoFlush() {
 					// Haven't seen this one before.
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
+					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
@@ -592,23 +662,20 @@ void TransformDrawEngine::DoFlush() {
 						vai->numFrames++;
 					}
 					if (vai->drawsUntilNextFullHash == 0) {
-						u32 newHash = ComputeHash();
-						if (newHash != vai->hash) {
-							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-							if (vai->vbo) {
-								FreeBuffer(vai->vbo);
-								vai->vbo = 0;
-							}
-							if (vai->ebo) {
-								FreeBuffer(vai->ebo);
-								vai->ebo = 0;
-							}
+						// Let's try to skip a full hash if mini would fail.
+						const u32 newMiniHash = ComputeMiniHash();
+						u32 newHash = vai->hash;
+						if (newMiniHash == vai->minihash) {
+							newHash = ComputeHash();
+						}
+						if (newMiniHash != vai->minihash || newHash != vai->hash) {
+							MarkUnreliable(vai);
 							DecodeVerts();
 							goto rotateVBO;
 						}
-						if (vai->numVerts > 100) {
-							// exponential backoff up to 16 draws, then every 24
-							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
+						if (vai->numVerts > 64) {
+							// exponential backoff up to 16 draws, then every 32
+							vai->drawsUntilNextFullHash = std::min(32, vai->numFrames);
 						} else {
 							// Lower numbers seem much more likely to change.
 							vai->drawsUntilNextFullHash = 0;
@@ -619,7 +686,12 @@ void TransformDrawEngine::DoFlush() {
 						//}
 					} else {
 						vai->drawsUntilNextFullHash--;
-						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
+						u32 newMiniHash = ComputeMiniHash();
+						if (newMiniHash != vai->minihash) {
+							MarkUnreliable(vai);
+							DecodeVerts();
+							goto rotateVBO;
+						}
 					}
 
 					if (vai->vbo == 0) {
@@ -757,10 +829,79 @@ rotateVBO:
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		SoftwareTransformAndDraw(
-			prim, decoded, program, indexGen.VertexCount(),
-			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex());
+		TransformedVertex *drawBuffer = NULL;
+		int numTrans;
+		bool drawIndexed = false;
+		u16 *inds = decIndex;
+		SoftwareTransformResult result;
+		memset(&result, 0, sizeof(result));
+
+		SoftwareTransform(
+			prim, decoded, indexGen.VertexCount(),
+			dec_->VertexType(), (void *)inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
+			indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
+
+		if (result.action == SW_DRAW_PRIMITIVES) {
+			if (result.setStencil) {
+				glstate.stencilFunc.set(GL_ALWAYS, result.stencilValue, 255);
+			}
+			const int vertexSize = sizeof(transformed[0]);
+
+			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+			int attrMask = program->attrMask;
+			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));
+			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
+			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
+			if (drawIndexed) {
+#if 1  // USING_GLES2
+				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+#else
+				glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+#endif
+			} else {
+				glDrawArrays(glprim[prim], 0, numTrans);
+			}
+		} else if (result.action == SW_CLEAR) {
+			u32 clearColor = result.color;
+			float clearDepth = result.depth;
+			const float col[4] = {
+				((clearColor & 0xFF)) / 255.0f,
+				((clearColor & 0xFF00) >> 8) / 255.0f,
+				((clearColor & 0xFF0000) >> 16) / 255.0f,
+				((clearColor & 0xFF000000) >> 24) / 255.0f,
+			};
+
+			bool colorMask = gstate.isClearModeColorMask();
+			bool alphaMask = gstate.isClearModeAlphaMask();
+			bool depthMask = gstate.isClearModeDepthMask();
+			if (depthMask) {
+				framebufferManager_->SetDepthUpdated();
+			}
+
+			// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
+			glstate.stencilTest.disable();
+			glstate.stencilMask.set(0xFF);
+			glstate.depthTest.disable();
+
+			GLbitfield target = 0;
+			if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
+			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
+			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
+
+			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+			glClearColor(col[0], col[1], col[2], col[3]);
+#ifdef USING_GLES2
+			glClearDepthf(clearDepth);
+#else
+			glClearDepth(clearDepth);
+#endif
+			// Stencil takes alpha.
+			glClearStencil(clearColor >> 24);
+			glClear(target);
+			framebufferManager_->SetColorUpdated();
+		}
 	}
 
 	indexGen.Reset();
@@ -793,92 +934,6 @@ void TransformDrawEngine::Resized() {
 		delete uvScale;
 		uvScale = 0;
 	}
-}
-
-struct Plane {
-	float x, y, z, w;
-	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
-};
-
-static void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
-	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
-	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
-	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
-	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);  // Top
-	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near
-	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]); // Far
-}
-
-// This code is HIGHLY unoptimized!
-//
-// It does the simplest and safest test possible: If all points of a bbox is outside a single of
-// our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool TransformDrawEngine::TestBoundingBox(void* control_points, int vertexCount, u32 vertType) {
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	float *verts = (float *)(decoded + 65536 * 18);
-
-	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
-	// and a large vertex format.
-	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
-		// memcpy(verts, control_points, 12 * vertexCount);
-		verts = (float *)control_points;
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
-		const s8 *vtx = (const s8 *)control_points;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 128.0f);
-		}
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
-		const s16 *vtx = (const s16*)control_points;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 32768.0f);
-		}
-	} else {
-		// Simplify away bones and morph before proceeding
-		u8 *temp_buffer = decoded + 65536 * 24;
-		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
-		// Special case for float positions only.
-		const float *ctrl = (const float *)control_points;
-		for (int i = 0; i < vertexCount; i++) {
-			verts[i * 3] = corners[i].pos.x;
-			verts[i * 3 + 1] = corners[i].pos.y;
-			verts[i * 3 + 2] = corners[i].pos.z;
-		}
-	}
-
-	Plane planes[6];
-
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-	PlanesFromMatrix(worldviewproj, planes);
-	for (int plane = 0; plane < 6; plane++) {
-		int inside = 0;
-		int out = 0;
-		for (int i = 0; i < vertexCount; i++) {
-			// Here we can test against the frustum planes!
-			float value = planes[plane].Test(verts + i * 3);
-			if (value < 0)
-				out++;
-			else
-				inside++;
-		}
-
-		if (inside == 0) {
-			// All out
-			return false;
-		}
-
-		// Any out. For testing that the planes are in the right locations.
-		// if (out != 0) return false;
-	}
-
-	return true;
 }
 
 bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
