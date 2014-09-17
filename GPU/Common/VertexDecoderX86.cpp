@@ -86,6 +86,8 @@ static const X64Reg fpScratchReg4 = XMM4;
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoder::Step_WeightsU8ToFloat, &VertexDecoderJitCache::Jit_WeightsU8ToFloat},
+	{&VertexDecoder::Step_WeightsU16ToFloat, &VertexDecoderJitCache::Jit_WeightsU16ToFloat},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
@@ -353,6 +355,34 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 	}
 	while (j & 3) {
 		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), Imm16(0));
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
+	// Basic implementation - a byte at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
+		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
+	}
+	while (j & 3) {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm8(0));
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
+	// Basic implementation - a short at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
+		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
+	}
+	while (j & 3) {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm8(0));
 		j++;
 	}
 }

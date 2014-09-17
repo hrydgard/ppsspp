@@ -603,6 +603,8 @@ public:
 
 	void Jit_WeightsU8();
 	void Jit_WeightsU16();
+	void Jit_WeightsU8ToFloat();
+	void Jit_WeightsU16ToFloat();
 	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
