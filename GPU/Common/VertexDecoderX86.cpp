@@ -273,38 +273,41 @@ void VertexDecoderJitCache::Jit_WeightsU8() {
 	switch (dec_->nweights) {
 	case 1:
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 2:
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 3:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		AND(32, R(tempReg1), Imm32(0x00FFFFFF));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 4:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
+	case 5:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->weightoff + 4));
+		break;
+	case 6:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->weightoff + 4));
+		break;
+	case 7:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
+		AND(32, R(tempReg2), Imm32(0x00FFFFFF));
+		break;
 	case 8:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w1off), R(tempReg2));
-		return;
+		break;
 	}
 
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		MOV(8, R(tempReg1), MDisp(srcReg, dec_->weightoff + j));
-		MOV(8, MDisp(dstReg, dec_->decFmt.w0off + j), R(tempReg1));
-	}
-	while (j & 3) {
-		MOV(8, MDisp(dstReg, dec_->decFmt.w0off + j), Imm8(0));
-		j++;
+	if (dec_->nweights <= 4) {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+	} else {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w1off), R(tempReg2));
 	}
 }
 
@@ -330,16 +333,21 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 		return;
 
 	case 4:
+		// Anything above 4 will do 4 here, and then the rest after.
+	case 5:
+	case 6:
+	case 7:
+	case 8:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), R(tempReg2));
-		return;
+		break;
 	}
 
 	// Basic implementation - a short at a time. TODO: Optimize
 	int j;
-	for (j = 0; j < dec_->nweights; j++) {
+	for (j = 4; j < dec_->nweights; j++) {
 		MOV(16, R(tempReg1), MDisp(srcReg, dec_->weightoff + j * 2));
 		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), R(tempReg1));
 	}
