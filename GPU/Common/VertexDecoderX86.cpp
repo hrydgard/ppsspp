@@ -365,10 +365,11 @@ void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
 	for (j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MULSS(fpScratchReg, M(&by128));
 		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
 	}
 	while (j & 3) {
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm8(0));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
 		j++;
 	}
 }
@@ -379,10 +380,11 @@ void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
 	for (j = 0; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(fpScratchReg, R(tempReg1));
+		MULSS(fpScratchReg, M(&by32768));
 		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
 	}
 	while (j & 3) {
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm8(0));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
 		j++;
 	}
 }
