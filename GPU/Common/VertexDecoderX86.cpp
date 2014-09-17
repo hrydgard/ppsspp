@@ -360,9 +360,28 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
+	int j = 0;
+
+	switch (dec_->nweights) {
+	case 4:
+		// We'll at least do the first 4 fast.
+	case 5:
+	case 6:
+	case 7:
+		j = 4;
+		Jit_AnyU8ToFloat(dec_->weightoff);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		break;
+	case 8:
+		Jit_AnyU8ToFloat(dec_->weightoff);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		Jit_AnyU8ToFloat(dec_->weightoff + 4);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		return;
+	}
+
 	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
+	for (; j < dec_->nweights; j++) {
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
 		CVTSI2SS(fpScratchReg, R(tempReg1));
 		MULSS(fpScratchReg, M(&by128));
@@ -375,9 +394,28 @@ void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
+	int j = 0;
+
+	switch (dec_->nweights) {
+	case 4:
+		// We'll at least do the first 4 fast.
+	case 5:
+	case 6:
+	case 7:
+		j = 4;
+		Jit_AnyU16ToFloat(dec_->weightoff);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		break;
+	case 8:
+		Jit_AnyU16ToFloat(dec_->weightoff);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		Jit_AnyU16ToFloat(dec_->weightoff + 4 * 2);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		return;
+	}
+
 	// Basic implementation - a short at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
+	for (; j < dec_->nweights; j++) {
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
 		CVTSI2SS(fpScratchReg, R(tempReg1));
 		MULSS(fpScratchReg, M(&by32768));
@@ -1140,6 +1178,35 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 		PUNPCKLWD(XMM1, R(XMM3));
 		PSLLD(XMM1, 16);
 		PSRAD(XMM1, 16);
+	}
+	CVTDQ2PS(XMM3, R(XMM1));
+	MULPS(XMM3, M(&by32768));
+}
+
+void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+	}
+	CVTDQ2PS(XMM3, R(XMM1));
+	MULPS(XMM3, M(&by128));
+}
+
+void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff) {
+	if (!cpu_info.bSSE4_1) {
+		XORPS(XMM3, R(XMM3));
+	}
+	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
+	if (cpu_info.bSSE4_1) {
+		PMOVZXWD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLWD(XMM1, R(XMM3));
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));

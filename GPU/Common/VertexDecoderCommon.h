@@ -673,6 +673,8 @@ private:
 	void Jit_WriteMorphColor(int outOff, bool checkAlpha = true);
 	void Jit_AnyS8ToFloat(int srcoff);
 	void Jit_AnyS16ToFloat(int srcoff);
+	void Jit_AnyU8ToFloat(int srcoff);
+	void Jit_AnyU16ToFloat(int srcoff);
 	void Jit_AnyS8Morph(int srcoff, int dstoff);
 	void Jit_AnyS16Morph(int srcoff, int dstoff);
 	void Jit_AnyFloatMorph(int srcoff, int dstoff);
