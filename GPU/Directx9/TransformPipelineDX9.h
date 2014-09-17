@@ -193,10 +193,6 @@ private:
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
-	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
-
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
