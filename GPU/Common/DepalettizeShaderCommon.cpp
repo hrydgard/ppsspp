@@ -236,10 +236,10 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 	} else if (lang == HLSL_DX9) {
 		WRITE(p, "sampler tex: register(s0);\n");
 		WRITE(p, "sampler pal: register(s1);\n");
-		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) {\n");
+		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) : COLOR0 {\n");
 		WRITE(p, "  float4 index = tex2D(tex, v_texcoord0);\n");
 		WRITE(p, "  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
-		WRITE(p, "  gl_FragColor = tex2D(pal, float2(coord, 0.0));\n");
+		WRITE(p, "  return tex2D(pal, float2(coord, 0.0));\n");
 		WRITE(p, "}\n");
 	}
 }

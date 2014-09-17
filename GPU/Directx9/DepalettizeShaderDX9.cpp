@@ -40,13 +40,14 @@ static const char *depalVShaderHLSL =
 "  float2 a_texcoord0 : TEXCOORD0;\n"
 "};\n"
 "struct VS_OUT {\n"
-"  float3 Position : POSITION;\n"
+"  float4 Position : POSITION;\n"
 "  float2 Texcoord : TEXCOORD0;\n"
-"}\n"
-"VS_OUT main(VS_IN in) {\n"
-"  VS_OUT out;\n"
-"  out.Texcoord = in.a_texcoord0;\n"
-"  out.Position = in.a_position;\n"
+"};\n"
+"VS_OUT main(VS_IN input) {\n"
+"  VS_OUT output;\n"
+"  output.Texcoord = input.a_texcoord0;\n"
+"  output.Position = float4(input.a_position, 1.0);\n"
+"  return output;\n"
 "}\n";
 
 DepalShaderCacheDX9::DepalShaderCacheDX9() : vertexShader_(nullptr) {

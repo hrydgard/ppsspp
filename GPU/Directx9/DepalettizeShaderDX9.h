@@ -43,7 +43,7 @@ public:
 
 	// This also uploads the palette and binds the correct texture.
 	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(GEBufferFormat pixelFormat);
-	LPDIRECT3DVERTEXSHADER9 GetDepalettizeVertexShader();
+	LPDIRECT3DVERTEXSHADER9 GetDepalettizeVertexShader() { return vertexShader_; }
 	LPDIRECT3DTEXTURE9 GetClutTexture(const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
