@@ -842,7 +842,7 @@ rotateVBO:
 			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
 			if (vb_ == NULL) {
 				if (useElements) {
-					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 				} else {
 					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
 				}
@@ -852,7 +852,7 @@ rotateVBO:
 				if (useElements) {
 					pD3Ddevice->SetIndices(ib_);
 
-					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, maxIndex, vertexCount, 0, D3DPrimCount(glprim[prim], vertexCount));
+					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, maxIndex + 1, vertexCount, 0, D3DPrimCount(glprim[prim], vertexCount));
 				} else {
 					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
 				}
