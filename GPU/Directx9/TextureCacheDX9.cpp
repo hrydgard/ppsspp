@@ -859,9 +859,9 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			vp.Height = framebuffer->renderHeight;
 			pD3Ddevice->SetViewport(&vp);
 
-			fbo_bind_color_as_texture(depalFBO, 0);
-
 			pD3Ddevice->DrawIndexedPrimitiveUP(D3DPT_TRIANGLEFAN, 0, 4, 2, indices, D3DFMT_INDEX16, pos, (3 + 2) * sizeof(float));
+
+			fbo_bind_color_as_texture(depalFBO, 0);
 
 			dxstate.Restore();
 			framebufferManager_->RebindFramebuffer();
