@@ -511,23 +511,13 @@ void VertexDecoderJitCache::Jit_TcU16() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {
-	// TODO: The first five instructions could be done in 1 or 2 in SSE4
-	MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->tcoff));
-	MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->tcoff + 1));
-	CVTSI2SS(fpScratchReg, R(tempReg1));
-	CVTSI2SS(fpScratchReg2, R(tempReg2));
-	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
-	MULPS(fpScratchReg, M(&by128));
-	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+	Jit_AnyU8ToFloat(dec_->tcoff, 16);
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), XMM3);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ToFloat() {
-	PXOR(fpScratchReg2, R(fpScratchReg2));
-	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
-	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
-	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
-	MULPS(fpScratchReg, M(&by32768));
-	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+	Jit_AnyU16ToFloat(dec_->tcoff, 32);
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), XMM3);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Double() {
