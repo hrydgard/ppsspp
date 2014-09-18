@@ -308,7 +308,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 #else
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			VSSetMatrix4x3_3(CONST_VS_BONE0 + 4 * i, gstate.boneMatrix + 12 * i);
+			VSSetMatrix4x3_3(CONST_VS_BONE0 + 3 * i, gstate.boneMatrix + 12 * i);
 		}
 	}
 #endif
