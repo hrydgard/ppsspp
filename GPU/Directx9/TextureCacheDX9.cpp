@@ -842,10 +842,10 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			fbo_bind_as_render_target(depalFBO);
 
 			static const float pos[12 + 8] = {
-				-1, -1, -1,   0, 0,
-				1, -1, -1,    1, 0,
-				1, 1, -1,     1, 1,
-				-1, 1, -1,    0, 1,
+				-1, 1, 0,    0, 0,
+				1, 1, 0,     1, 0,
+				1, -1, 0,    1, 1,
+				-1, -1, 0,   0, 1,
 			};
 			static const u16 indices[4] = { 0, 1, 3, 2 };
 
@@ -853,6 +853,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 
 			pD3Ddevice->SetPixelShader(pshader);
 			pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
+			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 			pD3Ddevice->SetTexture(1, clutTexture);
 
 			framebufferManager_->BindFramebufferColor(framebuffer, true);
@@ -861,7 +862,6 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
 			pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-			pD3Ddevice->SetFVF(D3DFVF_XYZ | D3DFVF_TEX0);
 
 			D3DVIEWPORT9 vp;
 			vp.MinZ = 0;
@@ -872,7 +872,10 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			vp.Height = framebuffer->renderHeight;
 			pD3Ddevice->SetViewport(&vp);
 
-			pD3Ddevice->DrawIndexedPrimitiveUP(D3DPT_TRIANGLEFAN, 0, 4, 2, indices, D3DFMT_INDEX16, pos, (3 + 2) * sizeof(float));
+			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pos, (3 + 2) * sizeof(float));
+			if (FAILED(hr)) {
+				ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+			}
 
 			fbo_bind_color_as_texture(depalFBO, 0);
 
