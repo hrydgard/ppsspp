@@ -175,10 +175,10 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
-		WRITE(p, "float4x4 u_world : register(c%i);\n", CONST_VS_WORLD);
-		WRITE(p, "float4x4 u_view : register(c%i);\n", CONST_VS_VIEW);
+		WRITE(p, "float4x3 u_world : register(c%i);\n", CONST_VS_WORLD);
+		WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
 		if (gstate.getUVGenMode() == 1)
-			WRITE(p, "float4x4 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
+			WRITE(p, "float4x3 u_texmtx : register(c%i);\n", CONST_VS_TEXMTX);
 		if (vertTypeIsSkinningEnabled(vertType)) {
 			int numBones = TranslateNumBonesDX9(vertTypeGetNumBoneWeights(vertType));
 #ifdef USE_BONE_ARRAY
@@ -304,9 +304,9 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		// Step 1: World Transform / Skinning
 		if (!vertTypeIsSkinningEnabled(vertType)) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world).xyz;\n");
+			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
 			if (hasNormal)
-				WRITE(p, "  float3 worldnormal = normalize(	mul(float4(In.normal, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
+				WRITE(p, "  float3 worldnormal = normalize(	mul(float4(In.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
 			else
 				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		} else {
@@ -375,17 +375,17 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 			// Trying to simplify this results in bugs in LBP...
 			WRITE(p, "  float3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix).xyz;\n");
-			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world).xyz;\n");
+			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world);\n");
 
 			if (hasNormal) {
 				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix).xyz;\n", flipNormal ? "-" : "");
-				WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world).xyz);\n");
+				WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 			} else {
-				WRITE(p, "  float3 worldnormal = mul( mul( float4(0.0, 0.0, 1.0, 0.0), skinMatrix), u_world).xyz;\n");
+				WRITE(p, "  float3 worldnormal = mul( mul( float4(0.0, 0.0, 1.0, 0.0), skinMatrix), u_world);\n");
 			}
 		}
 
-		WRITE(p, "  float4 viewPos = mul(float4(worldpos, 1.0), u_view);\n");
+		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
 
 		// Final view and projection transforms.
 		WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
@@ -562,7 +562,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 							temp_tc = "float4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
-					WRITE(p, "  Out.v_texcoord.xyz = mul(%s,u_texmtx).xyz * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  Out.v_texcoord.xyz = mul(%s,u_texmtx) * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;

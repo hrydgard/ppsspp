@@ -195,6 +195,12 @@ void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
+void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
+	float m3x4[16];
+	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
+	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
+}
+
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
@@ -259,13 +265,13 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	}
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
-		VSSetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
+		VSSetMatrix4x3_3(CONST_VS_WORLD, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
-		VSSetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
+		VSSetMatrix4x3_3(CONST_VS_VIEW, gstate.viewMatrix);
 	}
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
-		VSSetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
+		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
 		const float fogcoef[2] = {
