@@ -282,6 +282,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
+	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
