@@ -262,6 +262,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x794d1b073c183c77, 24, "fabsf", },
 	{ 0x7978a886cf70b1c9, 56, "wcschr", },
 	{ 0x79faa339fff5a80c, 28, "finitef", },
+	{ 0x7b0798b4b0012c8c, 40, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
 	{ 0x8126a59ffa504614, 540, "brandish_download_frame", }, // Brandish, Zero no Kiseki, and Ao no Kiseki
