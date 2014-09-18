@@ -252,6 +252,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x7499a2ce8b60d801, 12, "abs", },
 	{ 0x74ebbe7d341463f3, 72, "dl_write_colortest", },
 	{ 0x755a41f9183bb89a, 60, "vmmul_q", },
+	{ 0x757d7ab0afbc03f5, 948, "kirameki_school_life_download_frame", }, // Toradora! Portable
 	{ 0x759834c69bb12c12, 68, "strcpy", },
 	{ 0x75c5a88d62c9c99f, 276, "sinf", },
 	{ 0x76c661fecbb39990, 364, "sin", },
