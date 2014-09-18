@@ -911,10 +911,10 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			fbo_bind_as_render_target(depalFBO);
 
 			static const float pos[12 + 8] = {
-				-1, -1, -1,  0, 0,
-				1, -1, -1,	   1, 0,
-				1, 1, -1,		 1, 1,
-				-1, 1, -1,		 0, 1,
+				-1, -1, -1,   0, 0,
+				1, -1, -1,    1, 0,
+				1, 1, -1,     1, 1,
+				-1, 1, -1,    0, 1,
 			};
 			static const u16 indices[4] = { 0, 1, 3, 2 };
 
@@ -957,7 +957,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(0, framebuffer, false);
+			framebufferManager_->BindFramebufferColor(0, framebuffer);
 
 			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
