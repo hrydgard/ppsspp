@@ -360,70 +360,30 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
-	int j = 0;
-
-	switch (dec_->nweights) {
-	case 4:
-		// We'll at least do the first 4 fast.
-	case 5:
-	case 6:
-	case 7:
-		j = 4;
-		Jit_AnyU8ToFloat(dec_->weightoff);
+	if (dec_->nweights >= 4) {
+		Jit_AnyU8ToFloat(dec_->weightoff, 32);
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
-		break;
-	case 8:
-		Jit_AnyU8ToFloat(dec_->weightoff);
+		if (dec_->nweights > 4) {
+			Jit_AnyU8ToFloat(dec_->weightoff + 4, (dec_->nweights - 4) * 8);
+			MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		}
+	} else {
+		Jit_AnyU8ToFloat(dec_->weightoff, dec_->nweights * 8);
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
-		Jit_AnyU8ToFloat(dec_->weightoff + 4);
-		MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
-		return;
-	}
-
-	// Basic implementation - a byte at a time. TODO: Optimize
-	for (; j < dec_->nweights; j++) {
-		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
-		CVTSI2SS(fpScratchReg, R(tempReg1));
-		MULSS(fpScratchReg, M(&by128));
-		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
-	}
-	while (j & 3) {
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
-		j++;
 	}
 }
 
 void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
-	int j = 0;
-
-	switch (dec_->nweights) {
-	case 4:
-		// We'll at least do the first 4 fast.
-	case 5:
-	case 6:
-	case 7:
-		j = 4;
-		Jit_AnyU16ToFloat(dec_->weightoff);
+	if (dec_->nweights >= 4) {
+		Jit_AnyU16ToFloat(dec_->weightoff, 64);
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
-		break;
-	case 8:
-		Jit_AnyU16ToFloat(dec_->weightoff);
+		if (dec_->nweights > 4) {
+			Jit_AnyU16ToFloat(dec_->weightoff + 4 * 2, (dec_->nweights - 4) * 16);
+			MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		}
+	} else {
+		Jit_AnyU16ToFloat(dec_->weightoff, dec_->nweights * 16);
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
-		Jit_AnyU16ToFloat(dec_->weightoff + 4 * 2);
-		MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
-		return;
-	}
-
-	// Basic implementation - a short at a time. TODO: Optimize
-	for (; j < dec_->nweights; j++) {
-		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
-		CVTSI2SS(fpScratchReg, R(tempReg1));
-		MULSS(fpScratchReg, M(&by32768));
-		MOVSS(MDisp(dstReg, dec_->decFmt.w0off + j * 4), fpScratchReg);
-	}
-	while (j & 3) {
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
-		j++;
 	}
 }
 
@@ -1152,7 +1112,7 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
 	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
@@ -1169,7 +1129,7 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
 	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
@@ -1183,11 +1143,23 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 	MULPS(XMM3, M(&by32768));
 }
 
-void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff) {
+void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
+	_dbg_assert_msg_(JIT, (bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
+	_dbg_assert_msg_(JIT, bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
+
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
-	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	if (bits == 32) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 24) {
+		MOV(32, R(tempReg1), MDisp(srcReg, srcoff));
+		AND(32, R(tempReg1), Imm32(0x00FFFFFF));
+		MOVD_xmm(XMM1, R(tempReg1));
+	} else {
+		MOVZX(32, bits, tempReg1, MDisp(srcReg, srcoff));
+		MOVD_xmm(XMM1, R(tempReg1));
+	}
 	if (cpu_info.bSSE4_1) {
 		PMOVZXBD(XMM1, R(XMM1));
 	} else {
@@ -1198,11 +1170,24 @@ void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff) {
 	MULPS(XMM3, M(&by128));
 }
 
-void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff) {
+void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
+	_dbg_assert_msg_(JIT, (bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
+	_dbg_assert_msg_(JIT, bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
+
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
-	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
+	if (bits == 64) {
+		MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 48) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+		PINSRW(XMM1, MDisp(srcReg, srcoff + 4), 2);
+	} else if (bits == 32) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 16) {
+		MOVZX(32, bits, tempReg1, MDisp(srcReg, srcoff));
+		MOVD_xmm(XMM1, R(tempReg1));
+	}
 	if (cpu_info.bSSE4_1) {
 		PMOVZXWD(XMM1, R(XMM1));
 	} else {
