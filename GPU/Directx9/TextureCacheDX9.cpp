@@ -829,10 +829,10 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			fbo_bind_as_render_target(depalFBO);
 
 			static const float pos[12 + 8] = {
-				-1, -1, -1,  0, 0,
-				1, -1, -1,	   1, 0,
-				1, 1, -1,		 1, 1,
-				-1, 1, -1,		 0, 1,
+				-1, -1, -1,   0, 0,
+				1, -1, -1,    1, 0,
+				1, 1, -1,     1, 1,
+				-1, 1, -1,    0, 1,
 			};
 			static const u16 indices[4] = { 0, 1, 3, 2 };
 
@@ -874,24 +874,11 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutExtendedColors, clutExtendedColors, 1);
 			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
-
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			framebufferManager_->BindFramebufferColor(framebuffer);
 
-			// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
-			// But let's still not use random memory.
-			if (entry->framebuffer->fbo) {
-				fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-				// Keep the framebuffer alive.
-				// TODO: Dangerous if it sets a new one?
-				entry->framebuffer->last_frame_used = gpuStats.numFlips;
-			} else {
-				pD3Ddevice->SetTexture(0, NULL);
-				gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-			}
-
-			gstate_c.textureFullAlpha = framebuffer->format == GE_FORMAT_565;
+			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 

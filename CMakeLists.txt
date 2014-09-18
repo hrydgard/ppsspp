@@ -1302,9 +1302,8 @@ if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
-	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/DepalettizeShaderCommon.cpp
-	GPU/Common/FramebufferCommon.h
+	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferCommon.cpp
 	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.h
