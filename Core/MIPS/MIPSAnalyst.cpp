@@ -131,6 +131,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
 	{ 0x24d82a8675800808, 220, "ceilf", },
 	{ 0x26cc90cb25af9d27, 476, "log10", },
+	{ 0x275c79791a2bab83, 116, "rezel_cross_download_frame", }, // Rezel Cross
 	{ 0x2774614d57d4baa2, 28, "vsub_q", },
 	{ 0x279c6bf9cf99cc85, 436, "strncpy", },
 	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
