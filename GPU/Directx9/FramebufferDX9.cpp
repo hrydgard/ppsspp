@@ -323,9 +323,11 @@ namespace DX9 {
 
 		float invDestW = 1.0f / (destW * 0.5f);
 		float invDestH = 1.0f / (destH * 0.5f);
+		float halfPixelX = invDestW * 0.5f;
+		float halfPixelY = invDestH * 0.5f;
 		for (int i = 0; i < 4; i++) {
-			coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
-			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
+			coord[i * 5] = coord[i * 5] * invDestW - 1.0f + halfPixelX;
+			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
