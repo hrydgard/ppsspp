@@ -682,11 +682,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
 
 	if (g_Config.iAnisotropyLevel > 0) {
-		mipf = D3DTEXF_ANISOTROPIC;
 		minf = D3DTEXF_ANISOTROPIC;
-		// In OpenGL, it seems like enabling anisotropy effectively turns on linear filtering.
-		// If we wanted the same behaviour here, we could add the following line, but I don't think it's correct to do that:
-		// magf = D3DTEXF_LINEAR;  // (intentionally commented out)
 	}
 
 	dxstate.texMinFilter.set(minf);
