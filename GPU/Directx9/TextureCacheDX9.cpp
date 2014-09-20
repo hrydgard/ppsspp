@@ -841,13 +841,15 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 			fbo_bind_as_render_target(depalFBO);
 
-			static const float pos[12 + 8] = {
-				-1, 1, 0,    0, 0,
-				1, 1, 0,     1, 0,
-				1, -1, 0,    1, 1,
-				-1, -1, 0,   0, 1,
+			float xoff = -0.5f / framebuffer->renderWidth;
+			float yoff = 0.5f / framebuffer->renderHeight;
+
+			const float pos[12 + 8] = {
+				-1 + xoff, 1 + yoff, 0,    0, 0,
+				1 + xoff, 1 + yoff, 0,     1, 0,
+				1 + xoff, -1 + yoff, 0,    1, 1,
+				-1 + xoff, -1 + yoff, 0,   0, 1,
 			};
-			static const u16 indices[4] = { 0, 1, 3, 2 };
 
 			shaderManager_->DirtyLastShader();
 
