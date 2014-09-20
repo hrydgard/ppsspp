@@ -29,11 +29,11 @@
 class WindowsHeadlessHostDx9 : public WindowsHeadlessHost
 {
 public:
-	virtual bool InitGL(std::string *error_message);
-	virtual void ShutdownGL();
+	bool InitGraphics(std::string *error_message) override;
+	void ShutdownGraphics() override;
 
-	virtual void SwapBuffers();
+	void SwapBuffers() override;
 
 private:
-	bool ResizeGL();
+	bool ResizeGL() override;
 };

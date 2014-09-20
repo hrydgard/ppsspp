@@ -40,8 +40,8 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual bool InitGL(std::string *error_string) = 0;
-	virtual void ShutdownGL() = 0;
+	virtual bool InitGraphics(std::string *error_string) = 0;
+	virtual void ShutdownGraphics() = 0;
 
 	virtual void InitSound(PMixer *mixer) = 0;
 	virtual void UpdateSound() {}

@@ -89,7 +89,7 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 	SetConsolePosition();
 }
 
-bool WindowsHost::InitGL(std::string *error_message) {
+bool WindowsHost::InitGraphics(std::string *error_message) {
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
 		return GL_Init(displayWindow_, error_message);
@@ -100,7 +100,7 @@ bool WindowsHost::InitGL(std::string *error_message) {
 	}
 }
 
-void WindowsHost::ShutdownGL() {
+void WindowsHost::ShutdownGraphics() {
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
 		GL_Shutdown();
@@ -314,6 +314,10 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	CoUninitialize();
 
 	return hres; 
+}
+
+bool WindowsHost::CanCreateShortcut() { 
+	return false;  // Turn on when below function fixed
 }
 
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {

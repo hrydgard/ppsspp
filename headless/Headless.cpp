@@ -292,7 +292,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	bool glWorking = host->InitGL(&error_string);
+	bool glWorking = host->InitGraphics(&error_string);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -423,7 +423,7 @@ int main(int argc, const char* argv[])
 		}
 	}
 
-	host->ShutdownGL();
+	host->ShutdownGraphics();
 	delete host;
 	host = NULL;
 	headlessHost = NULL;

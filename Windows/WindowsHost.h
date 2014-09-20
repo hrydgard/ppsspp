@@ -24,47 +24,45 @@
 extern float mouseDeltaX;
 extern float mouseDeltaY;
 
-class WindowsHost : public Host
-{
+class WindowsHost : public Host {
 public:
 	WindowsHost(HWND mainWindow, HWND displayWindow);
 
-	~WindowsHost()
-	{
+	~WindowsHost() {
 		UpdateConsolePosition();
 	}
 
-	void UpdateMemView();
-	void UpdateDisassembly();
-	void UpdateUI();
-	virtual void UpdateScreen();
-	void SetDebugMode(bool mode);
+	void UpdateMemView() override;
+	void UpdateDisassembly() override;
+	void UpdateUI() override;
+	void UpdateScreen() override;
+	void SetDebugMode(bool mode) override;
 
-	bool InitGL(std::string *error_message);
-	void PollControllers(InputState &input_state);
-	void ShutdownGL();
+	bool InitGraphics(std::string *error_message) override;
+	void PollControllers(InputState &input_state) override;
+	void ShutdownGraphics() override;
 
-	void InitSound(PMixer *mixer);
-	void UpdateSound();
-	void ShutdownSound();
+	void InitSound(PMixer *mixer) override;
+	void UpdateSound() override;
+	void ShutdownSound() override;
 
-	bool IsDebuggingEnabled();
-	void BootDone();
-	bool AttemptLoadSymbolMap();
-	void SaveSymbolMap();
-	void SetWindowTitle(const char *message);
+	bool IsDebuggingEnabled() override;
+	void BootDone() override;
+	bool AttemptLoadSymbolMap() override;
+	void SaveSymbolMap() override;
+	void SetWindowTitle(const char *message) override;
 
-	virtual bool GPUDebuggingActive();
-	virtual void GPUNotifyCommand(u32 pc);
-	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format);
-	virtual void GPUNotifyDraw();
-	virtual void GPUNotifyTextureAttachment(u32 addr);
-	virtual void ToggleDebugConsoleVisibility();
+	bool GPUDebuggingActive() override;
+	void GPUNotifyCommand(u32 pc) override;
+	void GPUNotifyDisplay(u32 framebuf, u32 stride, int format) override;
+	void GPUNotifyDraw() override;
+	void GPUNotifyTextureAttachment(u32 addr) override;
+	void ToggleDebugConsoleVisibility() override;
 
-	virtual bool CanCreateShortcut() {return false;}  // Turn on when fixed
-	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
+	bool CanCreateShortcut() override;
+	bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;
 
-	virtual void GoFullscreen(bool);
+	void GoFullscreen(bool) override;
 
 	std::shared_ptr<KeyboardDevice> keyboard;
 

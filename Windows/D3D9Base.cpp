@@ -58,6 +58,13 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
 	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
+
+	if (!hD3D9) {
+		ELOG("Missing d3d9.dll");
+		*error_message = "D3D9.dll missing";
+		return false;
+	}
+
 	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9, "Direct3DCreate9Ex");
 	has9Ex = (g_pfnCreate9ex != NULL);
 
@@ -67,13 +74,13 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 		HRESULT result = g_pfnCreate9ex(D3D_SDK_VERSION, &d3dEx);
 		d3d = d3dEx;
 		if (FAILED(result)) {
-			ELOG("Failed to create D3D9Ex context");
+			*error_message = "D3D9Ex available but context creation failed";
 			return false;
 		}
 	} else {
 		d3d = Direct3DCreate9(D3D_SDK_VERSION);
 		if (!d3d) {
-			ELOG("Failed to create D3D context");
+			*error_message = "Failed to create D3D9 context";
 			return false;
 		}
 	}
@@ -83,12 +90,14 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 
 	D3DDISPLAYMODE d3ddm;
 	if (FAILED(d3d->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm))) {
+		*error_message = "GetAdapterDisplayMode failed";
 		d3d->Release();
 		return false;
 	}
 
 	adapterId = D3DADAPTER_DEFAULT;
 	if (FAILED(d3d->GetDeviceCaps(adapterId, D3DDEVTYPE_HAL, &d3dCaps))) {
+		*error_message = "GetDeviceCaps failed (???)";
 		d3d->Release();
 		return false;
 	}
@@ -101,6 +110,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 		D3DRTYPE_SURFACE,
 		D3DFMT_D24S8))) {
 		if (hr == D3DERR_NOTAVAILABLE) {
+			*error_message = "D24S8 depth/stencil not available";
 			d3d->Release();
 			return false;
 		}
@@ -143,7 +153,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	}
 
 	if (FAILED(hr)) {
-		ELOG("Failed to create D3D device");
+		*error_message = "Failed to create D3D device";
 		if (has9Ex) {
 			d3dEx->Release();
 		} else {
@@ -169,7 +179,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 }
 
 void D3D9_Resize(HWND window) {
-
+	// TODO!
 }
 
 void D3D9_Shutdown() { 
@@ -178,7 +188,8 @@ void D3D9_Shutdown() {
 	device->EndScene();
 	device->Release();
 	d3d->Release();
-	DX9::pD3Ddevice = NULL;
-	DX9::pD3Ddevice = NULL;
-	hWnd = NULL;
+	DX9::pD3Ddevice = nullptr;
+	DX9::pD3DdeviceEx = nullptr;
+	device = nullptr;
+	hWnd = nullptr;
 }
