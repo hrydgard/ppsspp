@@ -74,6 +74,7 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	memset(clutBufConverted_, 0, 4096 * sizeof(u32));
 	memset(clutBufRaw_, 0, 4096 * sizeof(u32));
 
+	// TODO: Get from device caps!
 	maxAnisotropyLevel = 16;
 	SetupTextureDecoder();
 }
@@ -676,9 +677,20 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		entry.lodBias = lodBias;
 	}
 
-	dxstate.texMinFilter.set(MinFilt[minFilt]);
-	dxstate.texMipFilter.set(MipFilt[minFilt]);
-	dxstate.texMagFilter.set(MagFilt[magFilt]);
+	D3DTEXTUREFILTERTYPE minf = (D3DTEXTUREFILTERTYPE)MinFilt[minFilt];
+	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
+	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[minFilt];
+
+	if (g_Config.iAnisotropyLevel > 0) {
+		if (minf == D3DTEXF_LINEAR) {
+			minf = D3DTEXF_ANISOTROPIC;
+			mipf = D3DTEXF_ANISOTROPIC;
+		}
+	}
+
+	dxstate.texMinFilter.set(minf);
+	dxstate.texMipFilter.set(mipf);
+	dxstate.texMagFilter.set(magf);
 	dxstate.texAddressU.set(sClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 	dxstate.texAddressV.set(tClamp ? D3DTADDRESS_CLAMP : D3DTADDRESS_WRAP);
 }
@@ -721,6 +733,10 @@ void TextureCacheDX9::StartFrame() {
 	} else {
 		Decimate();
 	}
+
+	DWORD anisotropyLevel = (DWORD)g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : g_Config.iAnisotropyLevel;
+	pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
+
 }
 
 static inline u32 MiniHash(const u32 *ptr) {
@@ -1253,9 +1269,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 	pD3Ddevice->SetTexture(0, entry->texture);
 	lastBoundTexture = entry->texture;
-
-	DWORD anisotropyLevel = (DWORD) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : g_Config.iAnisotropyLevel;
-	pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel); 
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
