@@ -133,6 +133,7 @@ private:
 	void PSSetColorUniform3(int creg, u32 color);
 
 	void VSSetMatrix4x3(int creg, const float *m4x3);
+	void VSSetMatrix4x3_3(int creg, const float *m4x3);
 	void VSSetColorUniform3(int creg, u32 color);
 	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
 	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);

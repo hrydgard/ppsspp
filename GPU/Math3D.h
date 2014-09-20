@@ -871,6 +871,21 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 	m4x4[15] = 1.0f;
 }
 
+inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[3];
+	m4x4[2] = m4x3[6];
+	m4x4[3] = m4x3[9];
+	m4x4[4] = m4x3[1];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[7];
+	m4x4[7] = m4x3[10];
+	m4x4[8] = m4x3[2];
+	m4x4[9] = m4x3[5];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = m4x3[11];
+}
+
 inline void Transpose4x4(float out[16], const float in[16]) {
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
