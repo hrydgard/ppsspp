@@ -63,33 +63,33 @@ namespace DX9 {
 	void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH) {
 		if (g_Config.bStretchToDisplay) {
-				*x = 0;
-				*y = 0;
-				*w = frameW;
-				*h = frameH;
-				return;
+			*x = 0;
+			*y = 0;
+			*w = frameW;
+			*h = frameH;
+			return;
 		}
 
 		float origRatio = origW/origH;
 		float frameRatio = frameW/frameH;
 
 		if (origRatio > frameRatio) {
-				// Image is wider than frame. Center vertically.
-				float scale = origW / frameW;
-				*x = 0.0f;
-				*w = frameW;
-				*h = frameW / origRatio;
-				// Stretch a little bit
-				if (g_Config.bPartialStretch)
-						*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-				*y = (frameH - *h) / 2.0f;
+			// Image is wider than frame. Center vertically.
+			float scale = origW / frameW;
+			*x = 0.0f;
+			*w = frameW;
+			*h = frameW / origRatio;
+			// Stretch a little bit
+			if (g_Config.bPartialStretch)
+				*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
+			*y = (frameH - *h) / 2.0f;
 		} else {
-				// Image is taller than frame. Center horizontally.
-				float scale = origH / frameH;
-				*y = 0.0f;
-				*h = frameH;
-				*w = frameH * origRatio;
-				*x = (frameW - *w) / 2.0f;
+			// Image is taller than frame. Center horizontally.
+			float scale = origH / frameH;
+			*y = 0.0f;
+			*h = frameH;
+			*w = frameH * origRatio;
+			*x = (frameW - *w) / 2.0f;
 		}
 	}
 
@@ -202,8 +202,6 @@ namespace DX9 {
 		convBuf = (u8*)rect.pBits;
 
 		// Final format is BGRA(directx)
-
-		// TODO: We can just change the texture format and flip some bits around instead of this.
 		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 			for (int y = 0; y < height; y++) {
 				switch (srcPixelFormat) {
