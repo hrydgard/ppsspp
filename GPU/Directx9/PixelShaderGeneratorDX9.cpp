@@ -144,9 +144,14 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
+			// TODO
+#if 0
 			if (pD3DdeviceEx) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
+#else
+			{
+#endif
 				return REPLACE_ALPHA_NO;
 			}
 		}
@@ -390,8 +395,6 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
-		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -445,9 +448,7 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 			gpuStats.numNonAlphaTestedDraws++;
 
 		id0 |= (gstate_c.bgraTexture & 1) << 29;
-		// TODO: Kill.
-		id0 |= (enableAlphaDoubling & 1) << 30;
-		// 31 is free.
+		// 30 and 31 are free.
 
 		// 3 bits.
 		id1 |= replaceBlend << 0;
@@ -480,15 +481,24 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
-	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
 
 	if (doTexture)
-		WRITE(p, "sampler tex: register(s0);\n");
-
+		WRITE(p, "sampler tex : register(s0);\n");
+	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
+		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
+			WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
+			WRITE(p, "sampler fbotex : register(s1);\n");
+		}
+		if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA) {
+			WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
+		}
+		if (gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
+			WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
+		}
+	}
 	if (gstate_c.needShaderTexClamp && doTexture) {
 		WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
 		if (textureAtOffset) {
@@ -500,7 +510,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
 		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
 	}
-
+	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
+		WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
+	}
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) {
 		WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 	}
@@ -535,7 +547,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  return In.v_color0;\n");
+		WRITE(p, "  float4 v = In.v_color0;\n");
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
@@ -672,33 +684,113 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			}
 		}
 #endif
-		// TODO: Before or after the color test?
-		if (enableColorDoubling && enableAlphaDoubling) {
-			WRITE(p, "  v = v * 2.0;\n");
-		} else if (enableColorDoubling) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		} else if (enableAlphaDoubling) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
-		}
-		
 		if (enableColorTest) {
 			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				const char * test = colorTestFuncs[colorTestFunc];
-				WRITE(p, "float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-				WRITE(p, "if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
+				WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
+				WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b ))  clip(-1);\n", test, test, test);
+			} else {
+				WRITE(p, "  clip(-1);\n");
 			}
+		}
+
+		// Color doubling happens after the color test.
+		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
+			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
+		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 		}
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth.x, 0.0, 1.0);\n");
-			WRITE(p, "  return lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
-		} else {
-			WRITE(p, "  return v;\n");
+			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
+
+		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
+			GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+			const char *srcFactor = "ERROR";
+			switch (funcA) {
+			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_SRCALPHA:          srcFactor = "float3(v.a, v.a, v.a)"; break;
+			case GE_SRCBLEND_INVSRCALPHA:       srcFactor = "float3(1.0 - v.a, 1.0 - v.a, 1.0 - v.a)"; break;
+			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "float3(v.a * 2.0, v.a * 2.0, v.a * 2.0)"; break;
+			// TODO: Double inverse, or inverse double?  Following softgpu for now...
+			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "float3(1.0 - v.a * 2.0, 1.0 - v.a * 2.0, 1.0 - v.a * 2.0)"; break;
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			}
+
+			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
+		}
+
+		// TODO: Copy FBO
+
+		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 	}
+
+	std::string replacedAlpha = "0.0";
+	char replacedAlphaTemp[64] = "";
+	if (stencilToAlpha != REPLACE_ALPHA_NO) {
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_UNIFORM:
+			replacedAlpha = "u_stencilReplaceValue";
+			break;
+
+		case STENCIL_VALUE_ZERO:
+			replacedAlpha = "0.0";
+			break;
+
+		case STENCIL_VALUE_ONE:
+		case STENCIL_VALUE_INVERT:
+			// In invert, we subtract by one, but we want to output one here.
+			replacedAlpha = "1.0";
+			break;
+
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_DECR_4:
+			// We're adding/subtracting, just by the smallest value in 4-bit.
+			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 15.0);
+			replacedAlpha = replacedAlphaTemp;
+			break;
+
+		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_DECR_8:
+			// We're adding/subtracting, just by the smallest value in 8-bit.
+			snprintf(replacedAlphaTemp, sizeof(replacedAlphaTemp), "%f", 1.0 / 255.0);
+			replacedAlpha = replacedAlphaTemp;
+			break;
+
+		case STENCIL_VALUE_KEEP:
+			// Do nothing. We'll mask out the alpha using color mask.
+			break;
+		}
+	}
+
+	switch (stencilToAlpha) {
+	case REPLACE_ALPHA_DUALSOURCE:
+		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
+		// TODO: Output the second color as well using original v.a.
+		break;
+
+	case REPLACE_ALPHA_YES:
+		WRITE(p, "  v.a = %s;\n", replacedAlpha.c_str());
+		break;
+
+	case REPLACE_ALPHA_NO:
+		// Do nothing, v is already fine.
+		break;
+	}
+
+	WRITE(p, "  return v;\n");
 	WRITE(p, "}\n");
 }
 

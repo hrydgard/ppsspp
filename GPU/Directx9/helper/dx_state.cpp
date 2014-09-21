@@ -21,6 +21,7 @@ void DirectxState::Restore() {
 	int count = 0;
 
 	blend.restore(); count++;
+	blendSeparate.restore(); count++;
 	blendEquation.restore(); count++;
 	blendFunc.restore(); count++;
 	blendColor.restore(); count++;

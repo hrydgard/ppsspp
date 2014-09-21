@@ -182,6 +182,10 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
+	void ApplyBlendState();
+	void ApplyStencilReplaceOnly();
+	bool ApplyShaderBlending();
+	inline void ResetShaderBlending();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
@@ -241,6 +245,7 @@ private:
 
 	UVScale *uvScale;
 
+	bool fboTexBound_;
 	VertexDecoderOptions decOptions_;
 };
 
