@@ -746,7 +746,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "suikoden1_and_2_download_frame_1", &Hook_suikoden1_and_2_download_frame_1, 0, REPFLAG_HOOKENTER, 0x9C },
 	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x48 },
 	{ "rezel_cross_download_frame", &Hook_rezel_cross_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
-	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x1C },
+	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
 	{}
 };
 

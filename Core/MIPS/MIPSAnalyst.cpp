@@ -263,7 +263,6 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x794d1b073c183c77, 24, "fabsf", },
 	{ 0x7978a886cf70b1c9, 56, "wcschr", },
 	{ 0x79faa339fff5a80c, 28, "finitef", },
-	{ 0x7b0798b4b0012c8c, 40, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
 	{ 0x8126a59ffa504614, 540, "brandish_download_frame", }, // Brandish, Zero no Kiseki, and Ao no Kiseki
@@ -337,6 +336,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
+	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
 	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
