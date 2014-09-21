@@ -60,7 +60,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	int id0 = 0;
-	int id1 = 1;
+	int id1 = 0;
 
 	id0 = lmode & 1;
 	id0 |= (gstate.isModeThrough() & 1) << 1;
@@ -209,7 +209,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
