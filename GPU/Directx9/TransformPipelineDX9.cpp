@@ -95,7 +95,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(0) {
+		uvScale(0),
+		fboTexBound_(false) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = true;

@@ -31,6 +31,6 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, ID3
 void DestroyShaders();
 void DirectxInit(HWND window);
 
-#define D3DBLEND_UNK	D3DSTENCILOP_FORCE_DWORD
+#define D3DBLEND_UNK	D3DBLEND_FORCE_DWORD
 
 };
