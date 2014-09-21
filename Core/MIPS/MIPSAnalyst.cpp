@@ -131,6 +131,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
 	{ 0x24d82a8675800808, 220, "ceilf", },
 	{ 0x26cc90cb25af9d27, 476, "log10", },
+	{ 0x275c79791a2bab83, 116, "rezel_cross_download_frame", }, // Rezel Cross
 	{ 0x2774614d57d4baa2, 28, "vsub_q", },
 	{ 0x279c6bf9cf99cc85, 436, "strncpy", },
 	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
@@ -251,6 +252,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x7499a2ce8b60d801, 12, "abs", },
 	{ 0x74ebbe7d341463f3, 72, "dl_write_colortest", },
 	{ 0x755a41f9183bb89a, 60, "vmmul_q", },
+	{ 0x757d7ab0afbc03f5, 948, "kirameki_school_life_download_frame", }, // Toradora! Portable
 	{ 0x759834c69bb12c12, 68, "strcpy", },
 	{ 0x75c5a88d62c9c99f, 276, "sinf", },
 	{ 0x76c661fecbb39990, 364, "sin", },
@@ -280,6 +282,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
+	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
@@ -333,6 +336,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
+	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
 	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
@@ -368,6 +372,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
+	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
