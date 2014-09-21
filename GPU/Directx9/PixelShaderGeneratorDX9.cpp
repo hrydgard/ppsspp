@@ -474,11 +474,14 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool alphaTestAgainstZero = IsAlphaTestAgainstZero();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool enableColorDoubling = gstate.isColorDoublingEnabled();
-	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
-	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
+	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
+	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
+	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
