@@ -483,10 +483,13 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
 		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
+		if (gstate.isClearModeDepthMask()) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
 		// Color Test
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool colorMask = gstate.isClearModeColorMask();
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
@@ -509,6 +512,9 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
+			if (gstate.isDepthWriteEnabled()) {
+				framebufferManager_->SetDepthUpdated();
+			}
 		} else {
 			dxstate.depthTest.disable();
 		}
@@ -533,6 +539,16 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
 		}
 #endif
+
+		// Let's not write to alpha if stencil isn't enabled.
+		if (!gstate.isStencilTestEnabled()) {
+			amask = false;
+		} else {
+			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+				amask = false;
+			}
+		}
 
 		dxstate.colorMask.set(rmask, gmask, bmask, amask);
 		
