@@ -269,10 +269,17 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		}
 
 		if (gstate.isTextureMapEnabled()) {
+			const char *texcoord = "In.v_texcoord";
+			if (doTextureProjection && gstate_c.flipTexture) {
+				// Since we need to flip v, we project manually.
+				WRITE(p, "  float2 fixedcoord = float2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
+				texcoord = "fixedcoord";
+				doTextureProjection = false;
+			}
 			if (doTextureProjection) {
 				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
 			} else {
-				WRITE(p, "  float4 t = tex2D(tex, In.v_texcoord.xy)%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
+				WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, gstate_c.bgraTexture ? ".bgra" : "");
 			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
