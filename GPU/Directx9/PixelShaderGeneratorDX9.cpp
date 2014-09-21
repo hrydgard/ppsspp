@@ -730,7 +730,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		// TODO: Copy FBO
+		// Can't really do REPLACE_BLEND_COPY_FBO in ps_2_0...
 
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
 			WRITE(p, "  v.a = v.a * 2.0;\n");

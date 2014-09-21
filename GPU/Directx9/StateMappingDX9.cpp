@@ -201,15 +201,16 @@ void TransformDrawEngineDX9::ApplyStencilReplaceOnly() {
 void TransformDrawEngineDX9::ApplyBlendState() {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
-	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
+	//  * Doubled blend modes (src, dst, inversed) aren't supported in Direct3D.
 	//    If possible, we double the src color or src alpha in the shader to account for these.
 	//    These may clip incorrectly, so we avoid unfortunately.
-	//  * OpenGL only has one arbitrary fixed color.  We premultiply the other in the shader.
+	//  * Direct3D only has one arbitrary fixed color.  We premultiply the other in the shader.
 	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
-	// TODO
-	gstate_c.allowShaderBlend = false; //!g_Config.bDisableSlowFramebufEffects;
+
+	// Unfortunately, we can't really do this in Direct3D 9...
+	gstate_c.allowShaderBlend = false;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
