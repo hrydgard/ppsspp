@@ -643,13 +643,13 @@ namespace DX9 {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
+	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
 		if (framebuffer == NULL) {
 			framebuffer = currentRenderVfb_;
 		}
 
 		if (!framebuffer->fbo || !useBufferedRendering_) {
-			pD3Ddevice->SetTexture(0, nullptr);
+			pD3Ddevice->SetTexture(stage, nullptr);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 			return;
 		}
@@ -668,12 +668,12 @@ namespace DX9 {
 				BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
 
 				RebindFramebuffer();
-				fbo_bind_color_as_texture(renderCopy, 0);
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
 			} else {
-				fbo_bind_color_as_texture(framebuffer->fbo, 0);
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
 			}
 		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
 		}
 	}
 

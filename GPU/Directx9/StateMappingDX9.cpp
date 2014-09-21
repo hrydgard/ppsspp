@@ -145,8 +145,7 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 		return false;
 	}
 
-	// TODO: Need a param to set stage 1.
-	// framebufferManager_->BindFramebufferColor(NULL);
+	framebufferManager_->BindFramebufferColor(1, nullptr, false);
 	// If we are rendering at a higher resolution, linear is probably best for the dest color.
 	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
