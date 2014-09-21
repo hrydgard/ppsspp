@@ -104,11 +104,7 @@ void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, boo
 		// 2 bits.
 		id1 |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 		id1 |= (gstate.areNormalsReversed() & 1) << 27;
-		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id1 |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 28;  // two bits
-		} else {
-			id1 |= (hasTexcoord & 1) << 28;
-		}
+		id1 |= (hasTexcoord & 1) << 28;
 	}
 
 	id->d[0] = id0;
