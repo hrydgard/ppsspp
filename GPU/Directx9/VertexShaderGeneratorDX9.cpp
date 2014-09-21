@@ -526,7 +526,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 					if (hasTexcoord) {
 						WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
 					} else {
-						WRITE(p, "  Out.v_texcoord = float2(0.0);\n");
+						WRITE(p, "  Out.v_texcoord = float2(0.0, 0.0);\n");
 					}
 				} else {
 					if (hasTexcoord) {
