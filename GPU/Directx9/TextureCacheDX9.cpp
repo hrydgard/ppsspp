@@ -74,8 +74,20 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	memset(clutBufConverted_, 0, 4096 * sizeof(u32));
 	memset(clutBufRaw_, 0, 4096 * sizeof(u32));
 
-	// TODO: Get from device caps!
-	maxAnisotropyLevel = 16;
+	D3DCAPS9 pCaps;
+	ZeroMemory(&pCaps, sizeof(pCaps));
+	HRESULT result = 0;
+	if (pD3DdeviceEx) {
+		result = pD3DdeviceEx->GetDeviceCaps(&pCaps);
+	} else {
+		result = pD3Ddevice->GetDeviceCaps(&pCaps);
+	}
+	if (FAILED(result)) {
+		WARN_LOG(G3D, "Failed to get the device caps!");
+		maxAnisotropyLevel = 16;
+	} else {
+		maxAnisotropyLevel = pCaps.MaxAnisotropy;
+	}
 	SetupTextureDecoder();
 }
 
