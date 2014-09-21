@@ -11,7 +11,8 @@
 #include "base/display.h"
 #include "mainwindow.h"
 #include "UI/HostTypes.h"
-#include "GPU/GLES/VertexDecoder.h"
+//commented out until someone bothers to maintain it
+//#include "GPU/GLES/VertexDecoder.h"
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
 	QDialog(parent),
@@ -1622,6 +1623,8 @@ void Debugger_DisplayList::on_zoompBtn_clicked()
 
 void Debugger_DisplayList::UpdateVertexInfo()
 {
+	//commented out until someone bothers to maintain it
+#if 0
 	ui->vertexData->clear();
 
 	QTreeWidgetItem* item = ui->vertexList->currentItem();
@@ -1691,6 +1694,7 @@ void Debugger_DisplayList::UpdateVertexInfo()
 	{
 		ui->vertexData->resizeColumnToContents(i);
 	}
+#endif
 }
 
 void Debugger_DisplayList::on_vertexList_itemClicked(QTreeWidgetItem *item, int column)
