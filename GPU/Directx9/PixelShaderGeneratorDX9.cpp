@@ -489,6 +489,13 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	if (doTexture)
 		WRITE(p, "sampler tex: register(s0);\n");
 
+	if (gstate_c.needShaderTexClamp && doTexture) {
+		WRITE(p, "float4 u_texclamp : register(c%i);\n", CONST_PS_TEXCLAMP);
+		if (textureAtOffset) {
+			WRITE(p, "float2 u_texclampoff : register(c%i);\n", CONST_PS_TEXCLAMPOFF);
+		}
+	}
+
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
 		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
@@ -541,12 +548,51 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 		if (gstate.isTextureMapEnabled()) {
 			const char *texcoord = "In.v_texcoord";
-			if (doTextureProjection && gstate_c.flipTexture) {
+			// TODO: Not sure the right way to do this for projection.
+			if (gstate_c.needShaderTexClamp) {
+				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
+				// We may also be wrapping in such a surface, or either one in a too-small surface.
+				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
+				std::string ucoord = "In.v_texcoord.x";
+				std::string vcoord = "In.v_texcoord.y";
+				if (doTextureProjection) {
+					ucoord += " / In.v_texcoord.z";
+					vcoord = "(In.v_texcoord.y / In.v_texcoord.z)";
+					// Vertex texcoords are NOT flipped when projecting despite gstate_c.flipTexture.
+				} else if (gstate_c.flipTexture) {
+					vcoord = "1.0 - " + vcoord;
+				}
+
+				if (gstate.isTexCoordClampedS()) {
+					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
+				} else {
+					ucoord = "fmod(" + ucoord + ", u_texclamp.x)";
+				}
+				if (gstate.isTexCoordClampedT()) {
+					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
+				} else {
+					vcoord = "fmod(" + vcoord + ", u_texclamp.y)";
+				}
+				if (textureAtOffset) {
+					ucoord = "(" + ucoord + " + u_texclampoff.x)";
+					vcoord = "(" + vcoord + " + u_texclampoff.y)";
+				}
+
+				if (gstate_c.flipTexture) {
+					vcoord = "1.0 - " + vcoord;
+				}
+
+				WRITE(p, "  float2 fixedcoord = float2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
+				texcoord = "fixedcoord";
+				// We already projected it.
+				doTextureProjection = false;
+			} else if (doTextureProjection && gstate_c.flipTexture) {
 				// Since we need to flip v, we project manually.
 				WRITE(p, "  float2 fixedcoord = float2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
 				texcoord = "fixedcoord";
 				doTextureProjection = false;
 			}
+
 			if (doTextureProjection) {
 				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
 			} else {
@@ -565,6 +611,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  float4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
+				case GE_TEXFUNC_UNKNOWN1:
+				case GE_TEXFUNC_UNKNOWN2:
+				case GE_TEXFUNC_UNKNOWN3:
 					WRITE(p, "  float4 v = float4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  float4 v = p;\n"); break;
@@ -581,6 +630,9 @@ void GenerateFragmentShaderDX9(char *buffer) {
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  float4 v = float4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
+				case GE_TEXFUNC_UNKNOWN1:
+				case GE_TEXFUNC_UNKNOWN2:
+				case GE_TEXFUNC_UNKNOWN3:
 					WRITE(p, "  float4 v = float4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  float4 v = p;\n"); break;

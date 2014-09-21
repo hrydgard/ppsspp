@@ -665,7 +665,6 @@ void GenerateFragmentShader(char *buffer) {
 				} else {
 					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
 				}
-				// The v coordinate is more tricky, since it's flipped.
 				if (gstate.isTexCoordClampedT()) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
