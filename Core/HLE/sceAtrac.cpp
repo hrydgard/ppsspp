@@ -695,10 +695,8 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
 	int ret = -1;
-	if (!Memory::IsValidAddress(outAddr)) {
-		ERROR_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, ...): Bad out addr, skipping", ret, atracID, outAddr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-	}
+
+	// Note that outAddr being null is completely valid here, used to skip data.
 
 	u32 numSamples = 0;
 	u32 finish = 0;
