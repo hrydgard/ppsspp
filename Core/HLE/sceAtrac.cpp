@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -27,12 +28,22 @@
 #include "Core/HW/BufferQueue.h"
 #include "Common/ChunkFile.h"
 
-#include "sceKernel.h"
-#include "sceUtility.h"
-#include "sceKernelMemory.h"
-#include "sceAtrac.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceAtrac.h"
 
-#include <algorithm>
+// Notes about sceAtrac buffer management
+//
+// sceAtrac decodes from a buffer the game fills, where this buffer is one of:
+//   * Not yet initialized (state NO DATA = 1)
+//   * The entire size of the audio data, and filled with audio data (state ALL DATA LOADED = 2)
+//   * The entire size, but only partially filled so far (state HALFWAY BUFFER = 3)
+//   * Smaller than the audio, sliding without any loop (state STREAMED WITHOUT LOOP = 4)
+//   * Smaller than the audio, sliding with a loop at the end (state STREAMED WITH LOOP AT END = 5)
+//   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
+//   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
+//   * Not managed, reseved externally - possibly by sceSas - through low level (RESERVED = 16)
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
@@ -108,7 +119,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(0), firstSampleoffset(0),
+		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
 		failedDecode(false), resetBuffer(false), codecType(0) {
 		memset(&first, 0, sizeof(first));
@@ -142,7 +153,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1 , 2);
+		auto s = p.Section("Atrac", 1, 3);
 		if (!s)
 			return;
 
@@ -157,6 +168,11 @@ struct Atrac {
 		p.Do(currentSample);
 		p.Do(endSample);
 		p.Do(firstSampleoffset);
+		if (s >= 3) {
+			p.Do(dataOff);
+		} else {
+			dataOff = firstSampleoffset;
+		}
 
 		u32 has_data_buf = data_buf != NULL;
 		p.Do(has_data_buf);
@@ -229,8 +245,9 @@ struct Atrac {
 
 	int currentSample;
 	int endSample;
-	// Offset of the first sample in the input buffer
 	int firstSampleoffset;
+	// Offset of the first sample in the input buffer
+	int dataOff;
 
 	std::vector<AtracLoopInfo> loopinfo;
 	int loopinfoNum;
@@ -421,7 +438,7 @@ int Atrac::Analyze() {
 	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
 
 	u32 offset = 12;
-	int atracSampleoffset = 0;
+	firstSampleoffset = 0;
 
 	this->decodeEnd = first.filesize;
 	bool bfoundData = false;
@@ -454,7 +471,7 @@ int Atrac::Analyze() {
 			{
 				if (chunkSize >= 8) {
 					endSample = Memory::Read_U32(first.addr + offset);
-					atracSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 				}
 			}
 			break;
@@ -470,8 +487,8 @@ int Atrac::Analyze() {
 					for (int i = 0; i < loopinfoNum; i++, loopinfoAddr += 24) {
 						loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
 						loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - atracSampleoffset;
-						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - atracSampleoffset;
+						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - firstSampleoffset;
+						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - firstSampleoffset;
 						loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 						loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
@@ -484,7 +501,7 @@ int Atrac::Analyze() {
 		case DATA_CHUNK_MAGIC:
 			{
 				bfoundData = true;
-				firstSampleoffset = offset;
+				dataOff = offset;
 			}
 			break;
 		}
@@ -603,6 +620,15 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
 			u32 numSamples = 0;
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+
+			int skipSamples = 0;
+			if (atrac->currentSample == 0) {
+				// Some kind of header size?
+				u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+				// It seems like the PSP aligns the sample position to 0x800...?
+				skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
+			}
+
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
@@ -643,14 +669,31 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 					if (got_frame) {
 						// got a frame
 						// Use a small buffer and keep overwriting it with file data constantly
-						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
-						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-						u8 *out = outbuf;
-						if (out != NULL) {
-							numSamples = atrac->pFrame->nb_samples;
-							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-								(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+						atrac->first.writableBytes += atrac->atracBytesPerFrame;
+						int skipped = std::min(skipSamples, atrac->pFrame->nb_samples);
+						skipSamples -= skipped;
+						numSamples = atrac->pFrame->nb_samples - skipped;
+						atrac->currentSample += skipped;
+
+						if (skipped > 0 && numSamples == 0) {
+							// Wait for the next one.
+							got_frame = 0;
+						}
+
+						if (outbuf != NULL && numSamples != 0) {
+							int inbufOffset = 0;
+							if (skipped != 0) {
+								AVSampleFormat fmt = (AVSampleFormat)atrac->pFrame->format;
+								// We want the offset per channel.
+								inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
+							}
+
+							u8 *out = outbuf;
+							const u8 *inbuf[2] = {
+								atrac->pFrame->extended_data[0] + inbufOffset,
+								atrac->pFrame->extended_data[1] + inbufOffset,
+							};
+							avret = swr_convert(atrac->pSwrCtx, &out, numSamples, inbuf, numSamples);
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
