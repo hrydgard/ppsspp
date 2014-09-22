@@ -15,6 +15,8 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
+int getDisplayNumber(void);
+
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	currentLanguage("en"),
@@ -25,6 +27,11 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+	
+	QDesktopWidget *desktop = QApplication::desktop();
+	QRect rect = desktop->screenGeometry(getDisplayNumber());
+	move(rect.topLeft());
+	
 	SetGameTitle("");
 	emugl = new MainUI(this);
 
