@@ -456,6 +456,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	u32 srcH = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
+		if (vfb->fb_stride == 0) {
+			continue;
+		}
+
 		const u32 vfb_address = (0x04000000 | vfb->fb_address) & 0x3FFFFFFF;
 		const u32 vfb_size = FramebufferByteSize(vfb);
 		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
