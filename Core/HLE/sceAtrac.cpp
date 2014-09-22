@@ -1663,7 +1663,7 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	context->info.sampleSize = atrac->atracBytesPerFrame;
 	context->info.numChan = atrac->atracChannels;
-	context->info.dataOff = atrac->firstSampleoffset;
+	context->info.dataOff = atrac->dataOff;
 	context->info.endSample = atrac->endSample;
 	context->info.dataEnd = atrac->first.filesize;
 	context->info.curOff = atrac->first.size;
@@ -1815,6 +1815,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 
 			atrac->firstSampleoffset = headersize;
+			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
 			atrac->data_buf = new u8[atrac->first.filesize];
@@ -1839,6 +1840,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 
 			atrac->firstSampleoffset = headersize;
+			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
 			atrac->data_buf = new u8[atrac->first.filesize];
