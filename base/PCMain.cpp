@@ -188,6 +188,72 @@ void EGL_Close() {
 }
 #endif
 
+//Dual Head Support
+bool verifyIsNumber(char * string)
+{
+    int x = 0;
+    int len;
+    
+    if (string == NULL)
+    {
+      return false;
+    }
+    
+    len = strlen(string);
+
+    while(x < len) {
+           if(!isdigit(*(string+x)))
+           return false;
+           ++x;
+    }
+    return true;
+}
+
+int getNumVideoDisplays(void)
+{
+  
+#ifdef USESDL2
+  #warning "sdl2 code"
+  return SDL_GetNumVideoDisplays();
+#else
+  #warning "sdl1.2 code"
+  return 0;
+#endif
+
+}
+
+//Dual Head Support
+int getDisplayNumber(void)
+{
+    int displayNumber;
+    long tempValue = 0;
+    char * displayNumberStr;
+    
+    // setup default display
+    displayNumber = 0;
+    
+    //get environment
+    displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
+    
+    // check if a valid number was found
+    if(verifyIsNumber(displayNumberStr))
+    {
+      // a valid number was found
+
+      //convert to integer
+      tempValue = atoi(displayNumberStr);
+      
+      //check if larger equal zero and less display numbers 
+      if ((tempValue >=0) && (tempValue < getNumVideoDisplays())) 
+      {
+          // check passed
+          displayNumber = tempValue;
+      }
+    }
+    
+    return displayNumber;
+}
+
 // Simple implementations of System functions
 
 
@@ -501,7 +567,17 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
+#ifdef USESDL2
+#warning "sdl2 code"
+	//Dual Head Support
+	g_Screen = SDL_CreateWindow((app_name_nice + " " + version_string).c_str(), \
+				      SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()), \
+				      SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
+
+#else
+	#warning "sdl1.2 code"
 	g_Screen = SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode);
+#endif
 	if (g_Screen == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
