@@ -39,8 +39,8 @@ int getDisplayNumber(void)
     // setup default: primary display
     displayNumber = 0;
 
-    //check if larger equal -1 (= default screen) and less then display numbers 
-    if ((tempValue >=-1) && (tempValue < getNumVideoDisplays())) 
+    //check if larger equal 0 and less then display numbers 
+    if ((tempValue >=0) && (tempValue < getNumVideoDisplays())) 
     {
         // check passed
         displayNumber = tempValue;
