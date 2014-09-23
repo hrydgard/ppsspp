@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 #include "Common/ChunkFile.h"
@@ -549,12 +550,13 @@ u32 sceAtracGetAtracID(int codecType) {
 	return atracID;
 }
 
-u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
+u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
 	int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-	memcpy(atrac->data_buf + atrac->first.fileoffset, buf, addbytes);
+	Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, bufPtr, addbytes);
+	CBreakPoints::ExecMemCheck(bufPtr, false, addbytes, currentMIPS->pc);
 	atrac->first.size += bytesToAdd;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
@@ -590,6 +592,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+			CBreakPoints::ExecMemCheck(atrac->first.addr + atrac->first.offset, false, addbytes, currentMIPS->pc);
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
@@ -601,7 +604,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	return 0;
 }
 
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains) {
+u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
@@ -694,6 +697,10 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 								atrac->pFrame->extended_data[1] + inbufOffset,
 							};
 							avret = swr_convert(atrac->pSwrCtx, &out, numSamples, inbuf, numSamples);
+							if (outbufPtr != 0) {
+								u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+								CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
@@ -744,7 +751,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
+	ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::Write_U32(numSamples, numSamplesAddr);
@@ -1237,7 +1244,9 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 
 #ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
-		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 #endif // USE_FFMPEG
 
@@ -1248,7 +1257,9 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 			WARN_LOG(ME, "This is an atrac3+ stereo audio");
 		}
 		atrac->data_buf = new u8[atrac->first.filesize];
-		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 	}
 
@@ -1868,6 +1879,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+			CBreakPoints::ExecMemCheck(sourceAddr, false, sourcebytes, currentMIPS->pc);
 			if (atrac->decodePos >= atrac->first.size) {
 				atrac->decodePos = atrac->first.size;
 			}

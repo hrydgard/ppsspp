@@ -564,7 +564,7 @@ u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int at
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
-		v.atrac3.addStreamData(Memory::GetPointer(atrac3DataAddr), atrac3DataLength);
+		v.atrac3.addStreamData(atrac3DataAddr, atrac3DataLength);
 	return 0;
 }
 
