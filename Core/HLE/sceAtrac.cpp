@@ -956,10 +956,18 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 		if (atrac->currentSample >= atrac->endSample) {
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(0, outNAddr);
-			return ATRAC_ERROR_ALL_DATA_DECODED;
+			return 0;
 		} else {
-			u32 numSamples = atrac->endSample - atrac->currentSample;
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			// Some kind of header size?
+			u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			// It seems like the PSP aligns the sample position to 0x800...?
+			u32 skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
+			u32 firstSamples = (atracSamplesPerFrame - skipSamples) % atracSamplesPerFrame;
+			u32 numSamples = atrac->endSample - atrac->currentSample;
+			if (atrac->currentSample == 0) {
+				numSamples = firstSamples;
+			}
 			if (numSamples > atracSamplesPerFrame)
 				numSamples = atracSamplesPerFrame;
 			if (Memory::IsValidAddress(outNAddr))
