@@ -32,7 +32,7 @@
 #include "QtMain.h"
 #include "math/math_util.h"
 
-#include <string.h> 
+#include <string.h>
 
 InputState* input_state;
 
