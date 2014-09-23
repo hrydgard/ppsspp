@@ -676,6 +676,9 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						skipSamples -= skipped;
 						numSamples = atrac->pFrame->nb_samples - skipped;
 
+						// If we're at the end, clamp to samples we want.  It always returns a full chunk.
+						numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, numSamples);
+
 						if (skipped > 0 && numSamples == 0) {
 							// Wait for the next one.
 							got_frame = 0;
