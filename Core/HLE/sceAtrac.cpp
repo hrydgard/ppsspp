@@ -624,19 +624,17 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			u32 numSamples = 0;
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
-			int skipSamples = 0;
-			if (atrac->currentSample == 0) {
-				// Some kind of header size?
-				u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
-				// It seems like the PSP aligns the sample position to 0x800...?
-				skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
-			}
+			// Some kind of header size?
+			u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			// It seems like the PSP aligns the sample position to 0x800...?
+			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
+			int skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
-				atrac->SeekToSample(atrac->currentSample);
+				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
 				AVPacket packet;
 				av_init_packet(&packet);
 				int got_frame, avret;
@@ -652,6 +650,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					if (avret == AVERROR_PATCHWELCOME) {
 						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 						// Let's try the next frame.
+						// TODO: Or actually, we should return a blank frame and pretend it worked.
 					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
 						av_free_packet(&packet);
@@ -676,7 +675,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						int skipped = std::min(skipSamples, atrac->pFrame->nb_samples);
 						skipSamples -= skipped;
 						numSamples = atrac->pFrame->nb_samples - skipped;
-						atrac->currentSample += skipped;
 
 						if (skipped > 0 && numSamples == 0) {
 							// Wait for the next one.
