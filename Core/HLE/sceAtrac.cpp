@@ -1039,7 +1039,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample, outEndSampleAddr);
+			Memory::Write_U32(atrac->endSample - 1, outEndSampleAddr);
 		if (Memory::IsValidAddress(outLoopStartSampleAddr))
 			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
 		if (Memory::IsValidAddress(outLoopEndSampleAddr))
