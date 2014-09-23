@@ -109,6 +109,7 @@ private slots:
 	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
 
 	void fullscrAct();
+	void raiseTopMost();
 	void statsAct() { g_Config.bShowDebugStats = !g_Config.bShowDebugStats; }
 	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
 
@@ -143,6 +144,7 @@ private:
 
 	QTranslator translator;
 	QString currentLanguage;
+	QTimer *timer;
 
 	CoreState nextState;
 	InputState input_state;

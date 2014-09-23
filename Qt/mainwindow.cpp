@@ -15,7 +15,39 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-int getDisplayNumber(void);
+// "--fullscreen" from command line interface
+extern bool fullscreenCLI;
+
+//Dual Head Support
+int getNumVideoDisplays(void)
+{
+
+  QDesktopWidget *desktop = QApplication::desktop();
+  return desktop->screenCount();
+
+}
+
+//Dual Head Support
+int getDisplayNumber(void)
+{
+
+    int tempValue, displayNumber;
+
+    //get environment
+    tempValue = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+
+    // setup default: primary display
+    displayNumber = 0;
+
+    //check if larger equal -1 (= default screen) and less then display numbers 
+    if ((tempValue >=-1) && (tempValue < getNumVideoDisplays())) 
+    {
+        // check passed
+        displayNumber = tempValue;
+    }
+
+    return displayNumber;
+}
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
@@ -27,7 +59,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
-	
+	// timer needed to bring window on top
+	timer = new QTimer(this);
 	QDesktopWidget *desktop = QApplication::desktop();
 	QRect rect = desktop->screenGeometry(getDisplayNumber());
 	move(rect.topLeft());
@@ -40,6 +73,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
+	
+	if(fullscreenCLI)
+	  fullscrAct();
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -336,6 +372,16 @@ void MainWindow::stretchAct()
 		gpu->Resized();
 }
 
+void MainWindow::raiseTopMost()
+{
+	
+	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+	raise();  
+	activateWindow(); 
+	timer->stop();
+	
+}
+
 void MainWindow::fullscrAct()
 {
 	if(isFullScreen()) {
@@ -366,6 +412,9 @@ void MainWindow::fullscrAct()
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
 	}
+	
+	connect(timer, SIGNAL(timeout()), this, SLOT(raiseTopMost()));
+	timer->start(1000);
 }
 
 void MainWindow::websiteAct()
