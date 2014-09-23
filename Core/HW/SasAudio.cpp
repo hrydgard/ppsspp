@@ -188,7 +188,7 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 		u32 numSamples = 0;
 		int remains = 0;
 		static s16 buf[0x800];
-		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
+		_AtracDecodeData(atracID, (u8*)buf, 0, &numSamples, &finish, &remains);
 		if (numSamples > 0)
 			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
 		else
@@ -198,9 +198,9 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 	return finish;
 }
 
-int SasAtrac3::addStreamData(u8* buf, u32 addbytes) {
+int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
 	if (atracID > 0) {
-		_AtracAddStreamData(atracID, buf, addbytes);
+		_AtracAddStreamData(atracID, bufPtr, addbytes);
 	}
 	return 0;
 }

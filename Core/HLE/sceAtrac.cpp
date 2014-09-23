@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -23,16 +24,27 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 #include "Common/ChunkFile.h"
 
-#include "sceKernel.h"
-#include "sceUtility.h"
-#include "sceKernelMemory.h"
-#include "sceAtrac.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceAtrac.h"
 
-#include <algorithm>
+// Notes about sceAtrac buffer management
+//
+// sceAtrac decodes from a buffer the game fills, where this buffer is one of:
+//   * Not yet initialized (state NO DATA = 1)
+//   * The entire size of the audio data, and filled with audio data (state ALL DATA LOADED = 2)
+//   * The entire size, but only partially filled so far (state HALFWAY BUFFER = 3)
+//   * Smaller than the audio, sliding without any loop (state STREAMED WITHOUT LOOP = 4)
+//   * Smaller than the audio, sliding with a loop at the end (state STREAMED WITH LOOP AT END = 5)
+//   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
+//   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
+//   * Not managed, reseved externally - possibly by sceSas - through low level (RESERVED = 16)
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
@@ -108,7 +120,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(0), firstSampleoffset(0),
+		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
 		failedDecode(false), resetBuffer(false), codecType(0) {
 		memset(&first, 0, sizeof(first));
@@ -142,7 +154,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1 , 2);
+		auto s = p.Section("Atrac", 1, 3);
 		if (!s)
 			return;
 
@@ -157,6 +169,11 @@ struct Atrac {
 		p.Do(currentSample);
 		p.Do(endSample);
 		p.Do(firstSampleoffset);
+		if (s >= 3) {
+			p.Do(dataOff);
+		} else {
+			dataOff = firstSampleoffset;
+		}
 
 		u32 has_data_buf = data_buf != NULL;
 		p.Do(has_data_buf);
@@ -229,8 +246,9 @@ struct Atrac {
 
 	int currentSample;
 	int endSample;
-	// Offset of the first sample in the input buffer
 	int firstSampleoffset;
+	// Offset of the first sample in the input buffer
+	int dataOff;
 
 	std::vector<AtracLoopInfo> loopinfo;
 	int loopinfoNum;
@@ -421,7 +439,7 @@ int Atrac::Analyze() {
 	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
 
 	u32 offset = 12;
-	int atracSampleoffset = 0;
+	firstSampleoffset = 0;
 
 	this->decodeEnd = first.filesize;
 	bool bfoundData = false;
@@ -454,7 +472,7 @@ int Atrac::Analyze() {
 			{
 				if (chunkSize >= 8) {
 					endSample = Memory::Read_U32(first.addr + offset);
-					atracSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 				}
 			}
 			break;
@@ -470,8 +488,8 @@ int Atrac::Analyze() {
 					for (int i = 0; i < loopinfoNum; i++, loopinfoAddr += 24) {
 						loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
 						loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - atracSampleoffset;
-						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - atracSampleoffset;
+						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - firstSampleoffset;
+						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - firstSampleoffset;
 						loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 						loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
@@ -484,7 +502,7 @@ int Atrac::Analyze() {
 		case DATA_CHUNK_MAGIC:
 			{
 				bfoundData = true;
-				firstSampleoffset = offset;
+				dataOff = offset;
 			}
 			break;
 		}
@@ -532,12 +550,13 @@ u32 sceAtracGetAtracID(int codecType) {
 	return atracID;
 }
 
-u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
+u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
 	int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-	memcpy(atrac->data_buf + atrac->first.fileoffset, buf, addbytes);
+	Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, bufPtr, addbytes);
+	CBreakPoints::ExecMemCheck(bufPtr, false, addbytes, currentMIPS->pc);
 	atrac->first.size += bytesToAdd;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
@@ -573,6 +592,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+			CBreakPoints::ExecMemCheck(atrac->first.addr + atrac->first.offset, false, addbytes, currentMIPS->pc);
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
@@ -584,7 +604,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	return 0;
 }
 
-u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains) {
+u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
@@ -603,14 +623,21 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
 			u32 numSamples = 0;
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+
+			// Some kind of header size?
+			u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			// It seems like the PSP aligns the sample position to 0x800...?
+			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
+			int skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
+
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
-				atrac->SeekToSample(atrac->currentSample);
+				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
 				AVPacket packet;
 				av_init_packet(&packet);
-				int got_frame, avret;
+				int got_frame = 0, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
 					if (packet.stream_index != atrac->audio_stream_index) {
 						av_free_packet(&packet);
@@ -623,6 +650,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 					if (avret == AVERROR_PATCHWELCOME) {
 						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 						// Let's try the next frame.
+						// TODO: Or actually, we should return a blank frame and pretend it worked.
 					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
 						av_free_packet(&packet);
@@ -643,14 +671,37 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 					if (got_frame) {
 						// got a frame
 						// Use a small buffer and keep overwriting it with file data constantly
-						atrac->first.writableBytes += atrac->atracBytesPerFrame;	
-						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-						u8 *out = outbuf;
-						if (out != NULL) {
-							numSamples = atrac->pFrame->nb_samples;
-							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-								(const u8 **)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+						atrac->first.writableBytes += atrac->atracBytesPerFrame;
+						int skipped = std::min(skipSamples, atrac->pFrame->nb_samples);
+						skipSamples -= skipped;
+						numSamples = atrac->pFrame->nb_samples - skipped;
+
+						// If we're at the end, clamp to samples we want.  It always returns a full chunk.
+						numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, numSamples);
+
+						if (skipped > 0 && numSamples == 0) {
+							// Wait for the next one.
+							got_frame = 0;
+						}
+
+						if (outbuf != NULL && numSamples != 0) {
+							int inbufOffset = 0;
+							if (skipped != 0) {
+								AVSampleFormat fmt = (AVSampleFormat)atrac->pFrame->format;
+								// We want the offset per channel.
+								inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
+							}
+
+							u8 *out = outbuf;
+							const u8 *inbuf[2] = {
+								atrac->pFrame->extended_data[0] + inbufOffset,
+								atrac->pFrame->extended_data[1] + inbufOffset,
+							};
+							avret = swr_convert(atrac->pSwrCtx, &out, numSamples, inbuf, numSamples);
+							if (outbufPtr != 0) {
+								u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+								CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
@@ -661,6 +712,15 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						// We only want one frame per call, let's continue the next time.
 						break;
 					}
+				}
+
+				if (!got_frame && atrac->currentSample < atrac->endSample) {
+					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
+					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
+					numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, atracSamplesPerFrame);
+					u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+					memset(outbuf, 0, outBytes);
+					CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
 				}
 			}
 #endif // USE_FFMPEG
@@ -695,15 +755,13 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
 	int ret = -1;
-	if (!Memory::IsValidAddress(outAddr)) {
-		ERROR_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, ...): Bad out addr, skipping", ret, atracID, outAddr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-	}
+
+	// Note that outAddr being null is completely valid here, used to skip data.
 
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
+	ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::Write_U32(numSamples, numSamplesAddr);
@@ -910,10 +968,18 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 		if (atrac->currentSample >= atrac->endSample) {
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(0, outNAddr);
-			return ATRAC_ERROR_ALL_DATA_DECODED;
+			return 0;
 		} else {
-			u32 numSamples = atrac->endSample - atrac->currentSample;
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			// Some kind of header size?
+			u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			// It seems like the PSP aligns the sample position to 0x800...?
+			u32 skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
+			u32 firstSamples = (atracSamplesPerFrame - skipSamples) % atracSamplesPerFrame;
+			u32 numSamples = atrac->endSample - atrac->currentSample;
+			if (atrac->currentSample == 0) {
+				numSamples = firstSamples;
+			}
 			if (numSamples > atracSamplesPerFrame)
 				numSamples = atracSamplesPerFrame;
 			if (Memory::IsValidAddress(outNAddr))
@@ -973,7 +1039,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	} else {
 		DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample, outEndSampleAddr);
+			Memory::Write_U32(atrac->endSample - 1, outEndSampleAddr);
 		if (Memory::IsValidAddress(outLoopStartSampleAddr))
 			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
 		if (Memory::IsValidAddress(outLoopEndSampleAddr))
@@ -1196,7 +1262,9 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 
 #ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
-		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 #endif // USE_FFMPEG
 
@@ -1207,7 +1275,9 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 			WARN_LOG(ME, "This is an atrac3+ stereo audio");
 		}
 		atrac->data_buf = new u8[atrac->first.filesize];
-		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 	}
 
@@ -1622,7 +1692,7 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	context->info.sampleSize = atrac->atracBytesPerFrame;
 	context->info.numChan = atrac->atracChannels;
-	context->info.dataOff = atrac->firstSampleoffset;
+	context->info.dataOff = atrac->dataOff;
 	context->info.endSample = atrac->endSample;
 	context->info.dataEnd = atrac->first.filesize;
 	context->info.curOff = atrac->first.size;
@@ -1774,6 +1844,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 
 			atrac->firstSampleoffset = headersize;
+			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
 			atrac->data_buf = new u8[atrac->first.filesize];
@@ -1798,6 +1869,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 
 			atrac->firstSampleoffset = headersize;
+			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
 			atrac->data_buf = new u8[atrac->first.filesize];
@@ -1825,6 +1897,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+			CBreakPoints::ExecMemCheck(sourceAddr, false, sourcebytes, currentMIPS->pc);
 			if (atrac->decodePos >= atrac->first.size) {
 				atrac->decodePos = atrac->first.size;
 			}
