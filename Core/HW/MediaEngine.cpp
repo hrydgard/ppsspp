@@ -26,8 +26,6 @@
 
 #include <algorithm>
 
-#ifdef USE_FFMPEG
-
 extern "C" {
 
 #include "libavcodec/avcodec.h"
@@ -35,11 +33,9 @@ extern "C" {
 #include "libswscale/swscale.h"
 
 }
-#endif // USE_FFMPEG
 
 int g_iNumVideos = 0;
 
-#ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
 	switch (pspFormat)
@@ -96,7 +92,6 @@ bool InitFFmpeg() {
 
 	return true;
 }
-#endif
 
 static int getPixelFormatBytes(int pspFormat)
 {
@@ -116,14 +111,12 @@ static int getPixelFormatBytes(int pspFormat)
 }
 
 MediaEngine::MediaEngine(): m_pdata(0) {
-#ifdef USE_FFMPEG
 	m_pFormatCtx = 0;
 	m_pCodecCtxs.clear();
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
 	m_sws_ctx = 0;
-#endif
 	m_sws_fmt = 0;
 	m_buffer = 0;
 
@@ -183,11 +176,8 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
 		reloadStream();
-#ifdef USE_FFMPEG
 	u32 hasopencontext = m_pFormatCtx != NULL;
-#else
-	u32 hasopencontext = false;
-#endif
+
 	p.Do(hasopencontext);
 	if (hasopencontext && p.mode == p.MODE_READ)
 		openContext();
@@ -235,7 +225,6 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 }
 
 bool MediaEngine::openContext() {
-#ifdef USE_FFMPEG
 	InitFFmpeg();
 
 	if (m_pFormatCtx || !m_pdata)
@@ -283,13 +272,11 @@ bool MediaEngine::openContext() {
 	m_isVideoEnd = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
-#endif // USE_FFMPEG
 	return true;
 }
 
 void MediaEngine::closeContext()
 {
-#ifdef USE_FFMPEG
 	if (m_buffer)
 		av_free(m_buffer);
 	if (m_pFrameRGB)
@@ -308,7 +295,6 @@ void MediaEngine::closeContext()
 	sws_freeContext(m_sws_ctx);
 	m_sws_ctx = NULL;
 	m_pIOContext = 0;
-#endif
 	m_buffer = 0;
 }
 
@@ -342,14 +328,12 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 		if (m_demux) {
 			m_demux->addStreamData(buffer, addSize);
 		}
-#ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int mpegoffset = (int)(*(s32_be*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
 			openContext();
 		}
-#endif // USE_FFMPEG
 
 		// We added data, so... not the end anymore?
 		m_isVideoEnd = false;
@@ -394,7 +378,6 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		return true;
 	}
 
-#ifdef USE_FFMPEG
 	if (m_pFormatCtx && m_pCodecCtxs.find(streamNum) == m_pCodecCtxs.end()) {
 		// Get a pointer to the codec context for the video stream
 		if ((u32)streamNum >= m_pFormatCtx->nb_streams) {
@@ -415,7 +398,6 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 		}
 		m_pCodecCtxs[streamNum] = m_pCodecCtx;
 	}
-#endif
 	m_videoStream = streamNum;
 
 	return true;
@@ -423,7 +405,6 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 
 bool MediaEngine::setVideoDim(int width, int height)
 {
-#ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	if (codecIter == m_pCodecCtxs.end())
 		return false;
@@ -456,12 +437,10 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 	// Assign appropriate parts of buffer to image planes in m_pFrameRGB
 	avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
-#endif // USE_FFMPEG
 	return true;
 }
 
 void MediaEngine::updateSwsFormat(int videoPixelMode) {
-#ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
 
@@ -483,11 +462,9 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 				NULL
 			);
 	}
-#endif
 }
 
 bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
-#ifdef USE_FFMPEG
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
 
@@ -541,11 +518,6 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 		av_free_packet(&packet);
 	}
 	return bGetFrame;
-#else
-	// If video engine is not available, just add to the timestamp at least.
-	m_videopts += 3003;
-	return true;
-#endif // USE_FFMPEG
 }
 
 // Helpers that null out alpha (which seems to be the case on the PSP.)
@@ -596,7 +568,6 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
-#ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 	int videoImageSize = 0;
@@ -652,8 +623,6 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	CBreakPoints::ExecMemCheck(bufferPtr, true, videoImageSize, currentMIPS->pc);
 #endif
 	return videoImageSize;
-#endif // USE_FFMPEG
-	return 0;
 }
 
 int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int videoPixelMode,
@@ -666,7 +635,6 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
-#ifdef USE_FFMPEG
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 	int videoImageSize = 0;
@@ -737,16 +705,10 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		break;
 	}
 	return videoImageSize;
-#endif // USE_FFMPEG
-	return 0;
 }
 
 u8 *MediaEngine::getFrameImage() {
-#ifdef USE_FFMPEG
 	return m_pFrameRGB->data[0];
-#else
-	return NULL;
-#endif
 }
 
 int MediaEngine::getRemainSize() {
