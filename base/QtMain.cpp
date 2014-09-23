@@ -36,67 +36,8 @@
 
 InputState* input_state;
 
-//Dual Head Support
-bool verifyIsNumber(char * string)
-{
-    int x = 0;
-    int len;
-    
-    if (string == NULL)
-    {
-      return false;
-    }
-    
-    len = strlen(string);
-
-    while(x < len) {
-           if(!isdigit(*(string+x)))
-           return false;
-           ++x;
-    }
-    return true;
-}
-
-int getNumVideoDisplays(void)
-{
-
-  QDesktopWidget *desktop = QApplication::desktop();
-  return desktop->screenCount();
-
-}
-
-//Dual Head Support
-int getDisplayNumber(void)
-{
-
-    int displayNumber;
-    long tempValue = 0;
-    char * displayNumberStr;
-    
-    // setup default display
-    displayNumber = 0;
-    
-    //get environment
-    displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
-    
-    // check if a valid number was found
-    if(verifyIsNumber(displayNumberStr))
-    {
-      // a valid number was found
-      
-      //convert to integer
-      tempValue = atoi(displayNumberStr);
-      
-      //check if larger equal zero and less display numbers 
-      if ((tempValue >=0) && (tempValue < getNumVideoDisplays())) 
-      {
-          // check passed
-          displayNumber = tempValue;
-      }
-    }
-    
-    return displayNumber;
-}
+// "--fullscreen" from command line interface
+bool fullscreenCLI;
 
 #ifdef QT_HAS_SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -266,6 +207,13 @@ int main(int argc, char *argv[])
 #endif
 	savegame_dir += "/";
 	assets_dir += "/";
+	
+	fullscreenCLI=false;
+	for (int i = 1; i < argc; i++) 
+	{
+		if (!strcmp(argv[i],"--fullscreen"))
+			fullscreenCLI=true;
+	}
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE");
 	
 	int ret = mainInternal(a);
