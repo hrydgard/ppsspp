@@ -637,7 +637,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
 				AVPacket packet;
 				av_init_packet(&packet);
-				int got_frame, avret;
+				int got_frame = 0, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
 					if (packet.stream_index != atrac->audio_stream_index) {
 						av_free_packet(&packet);
@@ -712,6 +712,15 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						// We only want one frame per call, let's continue the next time.
 						break;
 					}
+				}
+
+				if (!got_frame && atrac->currentSample < atrac->endSample) {
+					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
+					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
+					numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, atracSamplesPerFrame);
+					u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+					memset(outbuf, 0, outBytes);
+					CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
 				}
 			}
 #endif // USE_FFMPEG
