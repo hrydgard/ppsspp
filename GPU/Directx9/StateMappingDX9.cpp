@@ -162,15 +162,76 @@ inline void TransformDrawEngineDX9::ResetShaderBlending() {
 	}
 }
 
-void TransformDrawEngineDX9::ApplyStencilReplaceOnly() {
+void TransformDrawEngineDX9::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0, but the logic op may have us do differently.
+	D3DBLEND srcBlend = D3DBLEND_ONE;
+	D3DBLEND dstBlend = D3DBLEND_ZERO;
+	D3DBLENDOP blendOp = D3DBLENDOP_ADD;
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp())
+		{
+		case GE_LOGIC_CLEAR:
+			srcBlend = D3DBLEND_ZERO;
+			break;
+		case GE_LOGIC_AND:
+		case GE_LOGIC_AND_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_COPY:
+			// This is the same as off.
+			break;
+		case GE_LOGIC_COPY_INVERTED:
+			// Handled in the shader.
+			break;
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			// Handled in the shader.
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_INVERTED:
+			srcBlend = D3DBLEND_ONE;
+			dstBlend = D3DBLEND_ONE;
+			blendOp = D3DBLENDOP_SUBTRACT;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_NOOP:
+			srcBlend = D3DBLEND_ZERO;
+			dstBlend = D3DBLEND_ONE;
+			break;
+		case GE_LOGIC_XOR:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR:
+		case GE_LOGIC_OR_INVERTED:
+			// Inverted in shader.
+			dstBlend = D3DBLEND_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_SET:
+			dstBlend = D3DBLEND_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			break;
+		}
+	}
+
 	// We're not blending, but we may still want to blend for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
-	switch (ReplaceAlphaWithStencilType()) {
+	switch (stencilType) {
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		dxstate.blendFunc.set(D3DBLEND_ONE, D3DBLEND_ZERO, D3DBLEND_ONE, D3DBLEND_ONE);
-		dxstate.blendEquation.set(D3DBLENDOP_ADD, D3DBLENDOP_ADD);
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_ADD);
 		dxstate.blend.enable();
 		dxstate.blendSeparate.enable();
 		break;
@@ -178,22 +239,29 @@ void TransformDrawEngineDX9::ApplyStencilReplaceOnly() {
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		dxstate.blendFunc.set(D3DBLEND_ONE, D3DBLEND_ZERO, D3DBLEND_ONE, D3DBLEND_ONE);
-		dxstate.blendEquation.set(D3DBLENDOP_ADD, D3DBLENDOP_SUBTRACT);
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_SUBTRACT);
 		dxstate.blend.enable();
 		dxstate.blendSeparate.enable();
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		dxstate.blendFunc.set(D3DBLEND_ONE, D3DBLEND_ZERO, D3DBLEND_ONE, D3DBLEND_ONE);
-		dxstate.blendEquation.set(D3DBLENDOP_ADD, D3DBLENDOP_REVSUBTRACT);
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_REVSUBTRACT);
 		dxstate.blend.enable();
 		dxstate.blendSeparate.enable();
 		break;
 
 	default:
-		dxstate.blend.disable();
+		if (srcBlend == D3DBLEND_ONE && dstBlend == D3DBLEND_ZERO && blendOp == D3DBLENDOP_ADD) {
+			dxstate.blend.disable();
+		} else {
+			dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ZERO);
+			dxstate.blendEquation.set(blendOp, D3DBLENDOP_ADD);
+			dxstate.blend.enable();
+			dxstate.blendSeparate.enable();
+		}
 		break;
 	}
 }
@@ -206,6 +274,7 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 	//    These may clip incorrectly, so we avoid unfortunately.
 	//  * Direct3D only has one arbitrary fixed color.  We premultiply the other in the shader.
 	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
+	//  * We try to apply logical operations through blending.
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 
@@ -220,22 +289,13 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 	case REPLACE_BLEND_NO:
 		ResetShaderBlending();
 		// We may still want to do something about stencil -> alpha.
-		if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-			ApplyStencilReplaceOnly();
-		} else {
-			dxstate.blend.disable();
-		}
+		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
-			if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-				ApplyStencilReplaceOnly();
-			} else {
-				// None of the below logic is interesting, we're gonna do it entirely in the shader.
-				dxstate.blend.disable();
-			}
+			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 			return;
 		}
 		// Until next time, force it off.

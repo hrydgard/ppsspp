@@ -23,6 +23,7 @@
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -180,7 +181,7 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 	void ApplyBlendState();
-	void ApplyStencilReplaceOnly();
+	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
 	bool ApplyShaderBlending();
 	inline void ResetShaderBlending();
 	GLuint AllocateBuffer();

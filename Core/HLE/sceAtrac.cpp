@@ -44,7 +44,7 @@
 //   * Smaller than the audio, sliding with a loop at the end (state STREAMED WITH LOOP AT END = 5)
 //   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
 //   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
-//   * Not managed, reseved externally - possibly by sceSas - through low level (RESERVED = 16)
+//   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
