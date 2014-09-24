@@ -376,6 +376,33 @@ static bool CanDoubleSrcBlendMode() {
 	}
 }
 
+enum LogicOpReplaceType {
+	LOGICOPTYPE_NORMAL,
+	LOGICOPTYPE_ONE,
+	LOGICOPTYPE_INVERT,
+};
+
+static inline LogicOpReplaceType ReplaceLogicOpType() {
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+	return LOGICOPTYPE_NORMAL;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
@@ -448,7 +475,8 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 			gpuStats.numNonAlphaTestedDraws++;
 
 		id0 |= (gstate_c.bgraTexture & 1) << 29;
-		// 30 and 31 are free.
+		// 2 bits.
+		id0 |= ReplaceLogicOpType() << 30;
 
 		// 3 bits.
 		id1 |= replaceBlend << 0;
@@ -787,6 +815,17 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	case REPLACE_ALPHA_NO:
 		// Do nothing, v is already fine.
+		break;
+	}
+
+	switch (ReplaceLogicOpType()) {
+	case LOGICOPTYPE_ONE:
+		WRITE(p, "  v.rgb = float3(1.0, 1.0, 1.0);\n");
+		break;
+	case LOGICOPTYPE_INVERT:
+		WRITE(p, "  v.rgb = float3(1.0, 1.0, 1.0) - v.rgb;\n");
+		break;
+	case LOGICOPTYPE_NORMAL:
 		break;
 	}
 

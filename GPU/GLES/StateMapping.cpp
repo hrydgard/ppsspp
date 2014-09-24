@@ -208,35 +208,104 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 	}
 }
 
-void TransformDrawEngine::ApplyStencilReplaceOnly() {
+void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0, but the logic op may have us do differently.
+	GLenum srcBlend = GL_ONE;
+	GLenum dstBlend = GL_ZERO;
+	GLenum blendOp = GL_FUNC_ADD;
+#if defined(USING_GLES2)
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp())
+		{
+		case GE_LOGIC_CLEAR:
+			srcBlend = GL_ZERO;
+			break;
+		case GE_LOGIC_AND:
+		case GE_LOGIC_AND_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_COPY:
+			// This is the same as off.
+			break;
+		case GE_LOGIC_COPY_INVERTED:
+			// Handled in the shader.
+			break;
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			// Handled in the shader.
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_INVERTED:
+			srcBlend = GL_ONE;
+			dstBlend = GL_ONE;
+			blendOp = GL_FUNC_SUBTRACT;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_NOOP:
+			srcBlend = GL_ZERO;
+			dstBlend = GL_ONE;
+			break;
+		case GE_LOGIC_XOR:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR:
+		case GE_LOGIC_OR_INVERTED:
+			// Inverted in shader.
+			dstBlend = GL_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_SET:
+			dstBlend = GL_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			break;
+		}
+	}
+#endif
+
 	// We're not blending, but we may still want to blend for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
-	switch (ReplaceAlphaWithStencilType()) {
+	switch (stencilType) {
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
 		glstate.blend.enable();
 		break;
 
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_SUBTRACT);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_SUBTRACT);
 		glstate.blend.enable();
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_REVERSE_SUBTRACT);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_REVERSE_SUBTRACT);
 		glstate.blend.enable();
 		break;
 
 	default:
-		glstate.blend.disable();
+		if (srcBlend == GL_ONE && dstBlend == GL_ZERO && blendOp == GL_FUNC_ADD) {
+			glstate.blend.disable();
+		} else {
+			glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ZERO);
+			glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
+			glstate.blend.enable();
+		}
 		break;
 	}
 }
@@ -261,22 +330,13 @@ void TransformDrawEngine::ApplyBlendState() {
 	case REPLACE_BLEND_NO:
 		ResetShaderBlending();
 		// We may still want to do something about stencil -> alpha.
-		if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-			ApplyStencilReplaceOnly();
-		} else {
-			glstate.blend.disable();
-		}
+		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
-			if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-				ApplyStencilReplaceOnly();
-			} else {
-				// None of the below logic is interesting, we're gonna do it entirely in the shader.
-				glstate.blend.disable();
-			}
+			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 			return;
 		}
 		// Until next time, force it off.
