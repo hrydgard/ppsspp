@@ -26,7 +26,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = 0);
+	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
@@ -144,7 +144,6 @@ private:
 
 	QTranslator translator;
 	QString currentLanguage;
-	QTimer *timer;
 
 	CoreState nextState;
 	InputState input_state;

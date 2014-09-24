@@ -18,38 +18,7 @@
 // "--fullscreen" from command line interface
 extern bool fullscreenCLI;
 
-//Dual Head Support
-int getNumVideoDisplays(void)
-{
-
-  QDesktopWidget *desktop = QApplication::desktop();
-  return desktop->screenCount();
-
-}
-
-//Dual Head Support
-int getDisplayNumber(void)
-{
-
-    int tempValue, displayNumber;
-
-    //get environment
-    tempValue = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
-
-    // setup default: primary display
-    displayNumber = 0;
-
-    //check if larger equal 0 and less then display numbers 
-    if ((tempValue >=0) && (tempValue < getNumVideoDisplays())) 
-    {
-        // check passed
-        displayNumber = tempValue;
-    }
-
-    return displayNumber;
-}
-
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
@@ -59,10 +28,11 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
-	// timer needed to bring window on top
-	timer = new QTimer(this);
 	QDesktopWidget *desktop = QApplication::desktop();
-	QRect rect = desktop->screenGeometry(getDisplayNumber());
+	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+	
+	// Move window to top left coordinate of selected screen
+	QRect rect = desktop->screenGeometry(screenNum);
 	move(rect.topLeft());
 	
 	SetGameTitle("");
@@ -74,7 +44,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	SetZoom(g_Config.iInternalResolution);
 	
-	if(fullscreenCLI)
+	if(fullscreen)
 	  fullscrAct();
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
@@ -378,7 +348,6 @@ void MainWindow::raiseTopMost()
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
 	activateWindow(); 
-	timer->stop();
 	
 }
 
@@ -413,8 +382,7 @@ void MainWindow::fullscrAct()
 
 	}
 	
-	connect(timer, SIGNAL(timeout()), this, SLOT(raiseTopMost()));
-	timer->start(1000);
+	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
 void MainWindow::websiteAct()

@@ -246,7 +246,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 }
 
 void NativeInit(int argc, const char *argv[],
-								const char *savegame_directory, const char *external_directory, const char *installID) {
+								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -454,7 +454,7 @@ void NativeInit(int argc, const char *argv[],
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0);
+	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
