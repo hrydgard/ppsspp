@@ -25,6 +25,11 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+	// Allow creation on custom screen
+	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+	// Move window to top left coordinate of selected screen
+	move(qApp->desktop()->screen(screenNum)->pos());
+
 	SetGameTitle("");
 	emugl = new MainUI(this);
 
