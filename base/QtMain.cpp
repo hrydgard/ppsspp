@@ -36,9 +36,6 @@
 
 InputState* input_state;
 
-// "--fullscreen" from command line interface
-bool fullscreenCLI;
-
 #ifdef QT_HAS_SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
@@ -208,13 +205,13 @@ int main(int argc, char *argv[])
 	savegame_dir += "/";
 	assets_dir += "/";
 	
-	fullscreenCLI=false;
+	bool fullscreenCLI=false;
 	for (int i = 1; i < argc; i++) 
 	{
 		if (!strcmp(argv[i],"--fullscreen"))
 			fullscreenCLI=true;
 	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE",fullscreenCLI);
 	
 	int ret = mainInternal(a);
 
