@@ -784,7 +784,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);
+		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXScale * 2.0f;
 		gstate_c.vpHeight = -vpYScale * 2.0f;
 
