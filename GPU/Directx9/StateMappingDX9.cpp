@@ -708,21 +708,21 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			0.f, 1.f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXa = getFloat24(gstate.viewportx1);
-		float vpXb = getFloat24(gstate.viewportx2);
-		float vpYa = getFloat24(gstate.viewporty1);
-		float vpYb = getFloat24(gstate.viewporty2);
+		float vpXScale = getFloat24(gstate.viewportx1);
+		float vpXCenter = getFloat24(gstate.viewportx2);
+		float vpYScale = getFloat24(gstate.viewporty1);
+		float vpYCenter = getFloat24(gstate.viewporty2);
 
 		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXb + vpXa * Xview
-		// Yscreen = -offsetY + vpYb + vpYa * Yview
-		// Zscreen = vpZb + vpZa * Zview
+		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
+		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
+		// Zscreen = vpZCenter + vpZScale * Zview
 
 		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXb - offsetX - vpXa;
-		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2.0f;
-		gstate_c.vpHeight = -vpYa * 2.0f;
+		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
+		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);
+		gstate_c.vpWidth = vpXScale * 2.0f;
+		gstate_c.vpHeight = vpYScale * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
@@ -731,10 +731,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
-
-		vpX0 = (vpXb - offsetX - fabsf(vpXa)) * renderWidthFactor;
-		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = (framebufferManager_->GetTargetHeight() - (vpYb - offsetY + fabsf(vpYa))) * renderHeightFactor;
 		
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
