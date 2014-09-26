@@ -53,7 +53,7 @@ enum {
 	DIRTY_MATEMISSIVE = (1 << 14),
 	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
-	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
+	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 	DIRTY_TEXCLAMP = (1 << 19),
 
@@ -131,8 +131,11 @@ private:
 	void VSUpdateUniforms(int dirtyUniforms);
 	void PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha);
 	void PSSetColorUniform3(int creg, u32 color);
+	void PSSetFloat(int creg, float value);
+	void PSSetFloatArray(int creg, const float *value, int count);
 
 	void VSSetMatrix4x3(int creg, const float *m4x3);
+	void VSSetMatrix4x3_3(int creg, const float *m4x3);
 	void VSSetColorUniform3(int creg, u32 color);
 	void VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra);
 	void VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha);

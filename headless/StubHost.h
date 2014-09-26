@@ -24,30 +24,30 @@
 class HeadlessHost : public Host
 {
 public:
-	// virtual void StartThread()
-	virtual void UpdateUI() {}
+	// void StartThread() override
+	void UpdateUI() override {}
 
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
+	void UpdateMemView() override {}
+	void UpdateDisassembly() override {}
 
-	virtual void SetDebugMode(bool mode) { }
+	void SetDebugMode(bool mode) { }
 
-	virtual bool InitGL(std::string *error_message) {return false;}
-	virtual void ShutdownGL() {}
+	bool InitGraphics(std::string *error_message) override {return false;}
+	void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer) {}
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound() {}
+	void InitSound(PMixer *mixer) override {}
+	void UpdateSound() override {}
+	void ShutdownSound() override {}
 
 	// this is sent from EMU thread! Make sure that Host handles it properly
-	virtual void BootDone() {}
+	void BootDone() override {}
 
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() { symbolMap.Clear(); return false; }
+	bool IsDebuggingEnabled() override { return false; }
+	bool AttemptLoadSymbolMap() override { symbolMap.Clear(); return false; }
 
-	virtual bool ShouldSkipUI() { return true; }
+	bool ShouldSkipUI() override { return true; }
 
-	virtual void SendDebugOutput(const std::string &output) {
+	void SendDebugOutput(const std::string &output) override {
 		if (output.find('\n') != output.npos) {
 			DoFlushDebugOutput();
 			fwrite(output.data(), sizeof(char), output.length(), stdout);

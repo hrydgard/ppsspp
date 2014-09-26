@@ -142,8 +142,8 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 
+	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
 		quadIndices_[i * 6 + 0] = i * 4;
 		quadIndices_[i * 6 + 1] = i * 4 + 2;
@@ -609,12 +609,10 @@ void TransformDrawEngine::DoFlush() {
 
 	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
 
-	// Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
-	int maxIndex = 0;
-
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
+		int maxIndex = 0;  // Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
@@ -938,131 +936,4 @@ void TransformDrawEngine::Resized() {
 
 bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
-}
-
-// TODO: Probably move this to common code (with normalization?)
-
-static Vec3f ClipToScreen(const Vec4f& coords) {
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	float vpx1 = getFloat24(gstate.viewportx1);
-	float vpx2 = getFloat24(gstate.viewportx2);
-	float vpy1 = getFloat24(gstate.viewporty1);
-	float vpy2 = getFloat24(gstate.viewporty2);
-	float vpz1 = getFloat24(gstate.viewportz1);
-	float vpz2 = getFloat24(gstate.viewportz2);
-
-	float retx = coords.x * vpx1 / coords.w + vpx2;
-	float rety = coords.y * vpy1 / coords.w + vpy2;
-	float retz = coords.z * vpz1 / coords.w + vpz2;
-
-	// 16 = 0xFFFF / 4095.9375
-	return Vec3f(retx * 16, rety * 16, retz);
-}
-
-static Vec3f ScreenToDrawing(const Vec3f& coords) {
-	Vec3f ret;
-	ret.x = (coords.x - gstate.getOffsetX16()) * (1.0f / 16.0f);
-	ret.y = (coords.y - gstate.getOffsetY16()) * (1.0f / 16.0f);
-	ret.z = coords.z;
-	return ret;
-}
-
-// TODO: This probably is not the best interface.
-bool TransformDrawEngine::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	// This is always for the current vertices.
-	u16 indexLowerBound = 0;
-	u16 indexUpperBound = count - 1;
-
-	bool savedVertexFullAlpha = gstate_c.vertexFullAlpha;
-
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
-		const u16 *inds16 = (const u16 *)inds;
-
-		if (inds) {
-			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
-			indices.resize(count);
-			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			case GE_VTYPE_IDX_16BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds16[i];
-				}
-				break;
-			case GE_VTYPE_IDX_8BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds[i];
-				}
-				break;
-			default:
-				return false;
-			}
-		} else {
-			indices.clear();
-		}
-	} else {
-		indices.clear();
-	}
-
-	static std::vector<u32> temp_buffer;
-	static std::vector<SimpleVertex> simpleVertices;
-	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
-	simpleVertices.resize(indexUpperBound + 1);
-	NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), indexLowerBound, indexUpperBound, gstate.vertType);
-
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-
-	vertices.resize(indexUpperBound + 1);
-	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
-		const SimpleVertex &vert = simpleVertices[i];
-
-		if (gstate.isModeThrough()) {
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0];
-				vertices[i].v = vert.uv[1];
-			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
-			}
-			vertices[i].x = vert.pos.x;
-			vertices[i].y = vert.pos.y;
-			vertices[i].z = vert.pos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
-			}
-		} else {
-			float clipPos[4];
-			Vec3ByMatrix44(clipPos, vert.pos.AsArray(), worldviewproj);
-			Vec3f screenPos = ClipToScreen(clipPos);
-			Vec3f drawPos = ScreenToDrawing(screenPos);
-
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
-				vertices[i].u = vert.uv[0];
-				vertices[i].v = vert.uv[1];
-			} else {
-				vertices[i].u = 0.0f;
-				vertices[i].v = 0.0f;
-			}
-			vertices[i].x = drawPos.x;
-			vertices[i].y = drawPos.y;
-			vertices[i].z = drawPos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
-				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
-			} else {
-				memset(vertices[i].c, 0, sizeof(vertices[i].c));
-			}
-		}
-	}
-
-	gstate_c.vertexFullAlpha = savedVertexFullAlpha;
-
-	return true;
 }

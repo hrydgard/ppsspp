@@ -886,7 +886,9 @@ void DIRECTX9_GPU::Execute_BoundingBox(u32 op, u32 diff) {
 		}
 
 		// Test if the bounding box is within the drawing region.
-		currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
+		if (control_points) {
+			currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
+		}
 	} else {
 		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
 		// Data seems invalid. Let's assume the box test passed.

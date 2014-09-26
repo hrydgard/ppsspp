@@ -58,7 +58,7 @@ HWND DxCreateWindow()
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, NULL, NULL);
 }
 
-bool WindowsHeadlessHostDx9::InitGL(std::string *error_message)
+bool WindowsHeadlessHostDx9::InitGraphics(std::string *error_message)
 {
 	LoadD3DX9Dynamic();
 	hWnd = DxCreateWindow();
@@ -79,7 +79,7 @@ bool WindowsHeadlessHostDx9::InitGL(std::string *error_message)
 	return true;
 }
 
-void WindowsHeadlessHostDx9::ShutdownGL()
+void WindowsHeadlessHostDx9::ShutdownGraphics()
 {
 	DX9::DestroyShaders();
 	DX9::fbo_shutdown();

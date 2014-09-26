@@ -355,6 +355,7 @@ public:
 
 	// When adding a state here, don't forget to add it to DirectxState::Restore() too
 	BoolState<D3DRS_ALPHABLENDENABLE, false> blend;
+	BoolState<D3DRS_SEPARATEALPHABLENDENABLE, false> blendSeparate;
 	DxState4<D3DRS_SRCBLEND, D3DBLEND_SRCALPHA, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA, D3DRS_SRCBLENDALPHA, D3DBLEND_ONE, D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO> blendFunc;
 	DxState2<D3DRS_BLENDOP, D3DBLENDOP_ADD, D3DRS_BLENDOPALPHA, D3DBLENDOP_ADD> blendEquation;
 	SavedBlendFactor blendColor;

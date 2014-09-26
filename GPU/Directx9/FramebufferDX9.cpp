@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Debugger/Stepping.h"
 
 #include "helper/dx_state.h"
 #include "helper/fbo.h"
@@ -323,9 +324,11 @@ namespace DX9 {
 
 		float invDestW = 1.0f / (destW * 0.5f);
 		float invDestH = 1.0f / (destH * 0.5f);
+		float halfPixelX = invDestW * 0.5f;
+		float halfPixelY = invDestH * 0.5f;
 		for (int i = 0; i < 4; i++) {
-			coord[i * 5] = coord[i * 5] * invDestW - 1.0f;
-			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f);
+			coord[i * 5] = coord[i * 5] * invDestW - 1.0f + halfPixelX;
+			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
 		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
@@ -638,6 +641,40 @@ namespace DX9 {
 		const OffscreenSurface info = {offscreen, gpuStats.numFlips};
 		offscreenSurfaces_[key] = info;
 		return offscreen;
+	}
+
+	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
+		if (framebuffer == NULL) {
+			framebuffer = currentRenderVfb_;
+		}
+
+		if (!framebuffer->fbo || !useBufferedRendering_) {
+			pD3Ddevice->SetTexture(stage, nullptr);
+			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+			return;
+		}
+
+		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
+		// Let's just not bother with the copy in that case.
+		if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+			skipCopy = true;
+		}
+		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
+			FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
+			if (renderCopy) {
+				VirtualFramebuffer copyInfo = *framebuffer;
+				copyInfo.fbo = renderCopy;
+				BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
+
+				RebindFramebuffer();
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
+			} else {
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
+			}
+		} else {
+			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
+		}
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {

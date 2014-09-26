@@ -1052,7 +1052,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
 			glActiveTexture(GL_TEXTURE0);
 
-			framebufferManager_->BindFramebufferColor(framebuffer, true);
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, framebuffer, true);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
@@ -1087,7 +1087,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(framebuffer);
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, framebuffer);
 
 			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;

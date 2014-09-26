@@ -26,6 +26,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -137,6 +138,19 @@ void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha)
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
+void ShaderManagerDX9::PSSetFloat(int creg, float value) {
+	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
+	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+}
+
+void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) {
+	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	for (int i = 0; i < count; i++) {
+		f[i] = value[i];
+	}
+	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+}
+
 void ShaderManagerDX9::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
 	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
@@ -195,6 +209,12 @@ void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
+void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
+	float m3x4[16];
+	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
+	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
+}
+
 void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
@@ -225,6 +245,43 @@ void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
 	}
+	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
+		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
+	}
+
+	if (dirtyUniforms & DIRTY_SHADERBLEND) {
+		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
+		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());
+
+		const float fbotexSize[2] = {
+			1.0f / (float)gstate_c.curRTRenderWidth,
+			1.0f / (float)gstate_c.curRTRenderHeight,
+		};
+		PSSetFloatArray(CONST_PS_FBOTEXSIZE, fbotexSize, 2);
+	}
+
+	if (dirtyUniforms & DIRTY_TEXCLAMP) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		// First wrap xy, then half texel xy (for clamp.)
+		const float texclamp[4] = {
+			widthFactor,
+			heightFactor,
+			invW * 0.5f,
+			invH * 0.5f,
+		};
+		const float texclampoff[2] = {
+			gstate_c.curTextureXOffset * invW,
+			gstate_c.curTextureYOffset * invH,
+		};
+		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
+		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+	}
 }
 
 void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
@@ -234,7 +291,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 		const bool invertedY = gstate_c.vpHeight < 0;
-		if (invertedY) {
+		if (!invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
@@ -259,19 +316,20 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	}
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
-		VSSetMatrix4x3(CONST_VS_WORLD, gstate.worldMatrix);
+		VSSetMatrix4x3_3(CONST_VS_WORLD, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
-		VSSetMatrix4x3(CONST_VS_VIEW, gstate.viewMatrix);
+		VSSetMatrix4x3_3(CONST_VS_VIEW, gstate.viewMatrix);
 	}
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
-		VSSetMatrix4x3(CONST_VS_TEXMTX, gstate.tgenMatrix);
+		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
 		const float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
+		// TODO: Handle NAN/INF?
 		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
@@ -302,38 +360,65 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 #else
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			VSSetMatrix4x3(CONST_VS_BONE0 + 4 * i, gstate.boneMatrix + 12 * i);
+			VSSetMatrix4x3_3(CONST_VS_BONE0 + 3 * i, gstate.boneMatrix + 12 * i);
 		}
 	}
 #endif
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
 		float uvscaleoff[4];
-		if (gstate.isModeThrough()) {
-			// We never get here because we don't use HW transform with through mode.
-			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
-		} else {
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
+
+		switch (gstate.getUVGenMode()) {
+		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			} else {
+		case GE_TEXMAP_UNKNOWN:
+			if (g_Config.bPrescaleUV) {
+				// Shouldn't even get here as we won't use the uniform in the shader.
+				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
+				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
 				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
+			} else {
+				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			}
+			break;
+
+		// These two work the same whether or not we prescale UV.
+
+		case GE_TEXMAP_TEXTURE_MATRIX:
+			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
+			// before this is applied, and the matrix multiplication may contain translation. In this case
+			// the translation will be scaled which breaks faces in Hexyz Force for example.
+			// So I've gone back to applying the scale factor in the shader.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		case GE_TEXMAP_ENVIRONMENT_MAP:
+			// In this mode we only use uvscaleoff to scale to the texture size.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}

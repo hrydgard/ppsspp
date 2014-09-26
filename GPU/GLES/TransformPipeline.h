@@ -23,6 +23,7 @@
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -107,8 +108,6 @@ public:
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -171,9 +170,6 @@ public:
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
-	// Really just for convenience to share with softgpu.
-	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
-
 protected:
 	// Preprocessing for spline/bezier
 	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
@@ -185,7 +181,7 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 	void ApplyBlendState();
-	void ApplyStencilReplaceOnly();
+	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
 	bool ApplyShaderBlending();
 	inline void ResetShaderBlending();
 	GLuint AllocateBuffer();

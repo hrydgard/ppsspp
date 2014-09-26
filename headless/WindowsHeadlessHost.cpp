@@ -154,7 +154,7 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGL(std::string *error_message)
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 {
 	hWnd = CreateHiddenWindow();
 
@@ -193,7 +193,7 @@ bool WindowsHeadlessHost::InitGL(std::string *error_message)
 	return ResizeGL();
 }
 
-void WindowsHeadlessHost::ShutdownGL()
+void WindowsHeadlessHost::ShutdownGraphics()
 {
 	if (hRC)
 	{
