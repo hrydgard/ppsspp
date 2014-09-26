@@ -139,22 +139,25 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 	return true;
 }
 
-void CompileShaders() {
-	std::string errorMsg;
-
+bool CompileShaders(std::string &errorMsg) {
 	if (!CompileVertexShader(vscode, &pFramebufferVertexShader, NULL, errorMsg)) {
 		OutputDebugStringA(errorMsg.c_str());
-		DebugBreak();
+		return false;
 	}
 
 	if (!CompilePixelShader(pscode, &pFramebufferPixelShader, NULL, errorMsg)) {
 		OutputDebugStringA(errorMsg.c_str());
-		DebugBreak();
+		if (pFramebufferVertexShader) {
+			pFramebufferVertexShader->Release();
+		}
+		return false;
 	}
 
 	pD3Ddevice->CreateVertexDeclaration(VertexElements, &pFramebufferVertexDecl);
 	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 	pD3Ddevice->CreateVertexDeclaration(SoftTransVertexElements, &pSoftVertexDecl);
+
+	return true;
 }
 
 void DestroyShaders() {
@@ -207,7 +210,8 @@ void DirectxInit(HWND window) {
 	pD3Ddevice->SetRingBufferParameters( &d3dr );
 #endif
 
-	CompileShaders();
+	std::string errorMessage;
+	CompileShaders(errorMessage);
 
 	fbo_init(pD3D);
 }
