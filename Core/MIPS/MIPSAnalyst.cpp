@@ -344,6 +344,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
 	{ 0xb8cfaeebfeb2de20, 7548, "_vfprintf_r", },
 	{ 0xb97f352e85661af6, 32, "finitef", },
+	{ 0xba76a8e853426baa, 544, "soranokiseki_fc_download_frame", }, // Sora no kiseki FC
 	{ 0xbb3c6592ed319ba4, 132, "dl_write_fog_params", },
 	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
 	{ 0xbdf54d66079afb96, 200, "dl_write_bone_matrix_3", },
