@@ -31,6 +31,13 @@ if(RPI)
 	set(MOBILE_DEVICE OFF)
 endif()
 
+if(BB)
+	set(MOBILE_DEVICE OFF)
+	set(ARMV7 ON)
+	set(USING_FBDEV ON)
+endif()
+
+
 if(USING_EGL)
 	# Default to GLES2 but could be GL.
 	set(USING_GLES2 ON)
@@ -73,6 +80,7 @@ option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
+option(BB "Set to ON if targeting a Beaglebone/Beaglebone Black device" ${BB})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
@@ -669,7 +677,11 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ARMV7)
-	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	if(BB)
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a8")
+	else()
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	endif()
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
 endif()
