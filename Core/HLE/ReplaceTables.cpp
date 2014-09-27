@@ -720,6 +720,15 @@ static int Hook_soranokiseki_sc_download_frame() {
 	return 0;
 }
 
+static int Hook_bokunonatsuyasumi4_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -779,6 +788,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
 	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
 	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
 	{}
 };
 
