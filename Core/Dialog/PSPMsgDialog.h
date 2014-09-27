@@ -85,7 +85,8 @@ private :
 		DS_VALIDBUTTON  = 0x20,
 		DS_CANCELBUTTON = 0x40,
 		DS_NOSOUND      = 0x80,
-		DS_ERROR        = 0x100
+		DS_ERROR        = 0x100,
+		DS_ABORT        = 0x200,
 	};
 
 	u32 flag;

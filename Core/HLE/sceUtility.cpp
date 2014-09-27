@@ -305,6 +305,8 @@ int sceUtilityMsgDialogUpdate(int animSpeed)
 	
 	int ret = msgDialog.Update(animSpeed);
 	DEBUG_LOG(SCEUTILITY,"%08x=sceUtilityMsgDialogUpdate(%i)", ret, animSpeed);
+	if (ret >= 0)
+		return hleDelayResult(ret, "msgdialog update", 800);
 	return ret;
 }
 
