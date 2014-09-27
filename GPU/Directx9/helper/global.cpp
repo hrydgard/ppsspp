@@ -63,7 +63,7 @@ bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3D
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
-	HRESULT hr = -1;
+	HRESULT hr = E_FAIL;
 
 	// Compile pixel shader.
 	hr = dyn_D3DXCompileShader(code,
@@ -103,7 +103,7 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 	ID3DXBuffer* pShaderCode = NULL;
 	ID3DXBuffer* pErrorMsg = NULL;
 
-	HRESULT hr = -1;
+	HRESULT hr = E_FAIL;
 
 	// Compile pixel shader.
 	hr = dyn_D3DXCompileShader(code,
@@ -141,7 +141,6 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 
 void CompileShaders() {
 	std::string errorMsg;
-	HRESULT hr = -1;
 
 	if (!CompileVertexShader(vscode, &pFramebufferVertexShader, NULL, errorMsg)) {
 		OutputDebugStringA(errorMsg.c_str());
