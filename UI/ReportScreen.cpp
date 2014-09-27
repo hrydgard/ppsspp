@@ -32,11 +32,18 @@ public:
 
 	Event OnChoice;
 
-private:
+protected:
+	virtual void SetupChoices();
+	virtual int TotalChoices() {
+		return 3;
+	}
 	void AddChoice(int i, const std::string &title);
-	EventReturn OnChoiceClick(EventParams &e);
 
 	LinearLayout *group_;
+
+private:
+	EventReturn OnChoiceClick(EventParams &e);
+
 	int *value_;
 };
 
@@ -50,6 +57,11 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 	Add(group_);
 
 	group_->SetSpacing(0.0f);
+	SetupChoices();
+}
+
+void RatingChoice::SetupChoices() {
+	I18NCategory *rp = GetI18NCategory("Reporting");
 	AddChoice(0, rp->T("Bad"));
 	AddChoice(1, rp->T("OK"));
 	AddChoice(2, rp->T("Great"));
@@ -64,7 +76,8 @@ void RatingChoice::AddChoice(int i, const std::string &title) {
 
 EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
-	for (int i = 0; i < 3; i++) {
+	int total = TotalChoices();
+	for (int i = 0; i < total; i++) {
 		auto v = group_->GetViewByIndex(i);
 		if (v != e.v) {
 			static_cast<StickyChoice *>(v)->Release();
@@ -80,12 +93,38 @@ EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 	return OnChoice.Dispatch(e2);
 }
 
+class CompatRatingChoice : public RatingChoice {
+public:
+	CompatRatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams = 0);
+
+protected:
+	virtual void SetupChoices() override;
+	virtual int TotalChoices() override {
+		return 5;
+	}
+};
+
+CompatRatingChoice::CompatRatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams)
+		: RatingChoice(captionKey, value, layoutParams) {
+	SetupChoices();
+}
+
+void CompatRatingChoice::SetupChoices() {
+	I18NCategory *rp = GetI18NCategory("Reporting");
+	group_->Clear();
+	AddChoice(1, rp->T("Perfect"));
+	AddChoice(2, rp->T("Plays"));
+	AddChoice(3, rp->T("In-game"));
+	AddChoice(4, rp->T("Menu/Intro"));
+	AddChoice(5, rp->T("Nothing"));
+}
+
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), graphics_(-1), speed_(-1), gameplay_(-1) {
+	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1) {
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
-	submit_->SetEnabled(graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 	return EVENT_DONE;
 }
 
@@ -93,14 +132,15 @@ void ReportScreen::CreateViews() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	Margins actionMenuMargins(0, 100, 15, 0);
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
+	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
 	leftColumnItems->Add(new InfoItem(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), ""));
 
 	// TODO: screenshot
+	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
@@ -111,14 +151,16 @@ void ReportScreen::CreateViews() {
 	submit_ = new Choice(rp->T("Submit Feedback"));
 	// TODO: Handle.
 	rightColumnItems->Add(submit_);
-	submit_->SetEnabled(graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	rightColumnItems->Add(new Spacer(25.0));
+	rightColumnItems->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 
 	leftColumn->Add(leftColumnItems);
-	leftColumn->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	rightColumn->Add(rightColumnItems);
 }

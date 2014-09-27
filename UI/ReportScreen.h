@@ -31,6 +31,7 @@ protected:
 	virtual void CreateViews();
 
 	UI::Choice *submit_;
+	int overall_;
 	int graphics_;
 	int speed_;
 	int gameplay_;
