@@ -1,6 +1,7 @@
 #include "global.h"
 #include "fbo.h"
 #include "thin3d/d3dx9_loader.h"
+#include "Common/CommonFuncs.h"
 
 namespace DX9 {
 
@@ -60,16 +61,14 @@ LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader = NULL; // Vertex Shader
 LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader = NULL;  // Pixel Shader
 
 bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
-	ID3DXBuffer* pShaderCode = NULL;
-	ID3DXBuffer* pErrorMsg = NULL;
-
-	HRESULT hr = E_FAIL;
+	ID3DXBuffer *pShaderCode = nullptr;
+	ID3DXBuffer *pErrorMsg = nullptr;
 
 	// Compile pixel shader.
-	hr = dyn_D3DXCompileShader(code,
+	HRESULT hr = dyn_D3DXCompileShader(code,
 		(UINT)strlen(code),
-		NULL,
-		NULL,
+		nullptr,
+		nullptr,
 		"main",
 		"ps_2_0",
 		0,
@@ -80,11 +79,13 @@ bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3D
 	if (pErrorMsg) {
 		errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
 		pErrorMsg->Release();
+	} else if (FAILED(hr)) {
+		errorMessage = GetStringErrorMsg(hr);
 	} else {
 		errorMessage = "";
 	}
 
-	if (FAILED(hr)) {
+	if (FAILED(hr) || !pShaderCode) {
 		if (pShaderCode)
 			pShaderCode->Release();
 		return false;
@@ -100,16 +101,14 @@ bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, LPD3D
 }
 
 bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD3DXCONSTANTTABLE *pShaderTable, std::string &errorMessage) {
-	ID3DXBuffer* pShaderCode = NULL;
-	ID3DXBuffer* pErrorMsg = NULL;
-
-	HRESULT hr = E_FAIL;
+	ID3DXBuffer *pShaderCode = nullptr;
+	ID3DXBuffer *pErrorMsg = nullptr;
 
 	// Compile pixel shader.
-	hr = dyn_D3DXCompileShader(code,
+	HRESULT hr = dyn_D3DXCompileShader(code,
 		(UINT)strlen(code),
-		NULL,
-		NULL,
+		nullptr,
+		nullptr,
 		"main",
 		"vs_2_0",
 		0,
@@ -120,11 +119,13 @@ bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, LPD
 	if (pErrorMsg) {
 		errorMessage = (CHAR *)pErrorMsg->GetBufferPointer();
 		pErrorMsg->Release();
+	} else if (FAILED(hr)) {
+		errorMessage = GetStringErrorMsg(hr);
 	} else {
 		errorMessage = "";
 	}
 
-	if (FAILED(hr)) {
+	if (FAILED(hr) || !pShaderCode) {
 		if (pShaderCode)
 			pShaderCode->Release();
 		return false;
