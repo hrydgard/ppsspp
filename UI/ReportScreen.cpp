@@ -90,7 +90,8 @@ EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 	e2.v = e.v;
 	e2.a = *value_;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
-	return OnChoice.Dispatch(e2);
+	OnChoice.Dispatch(e2);
+	return EVENT_DONE;
 }
 
 class CompatRatingChoice : public RatingChoice {
@@ -112,11 +113,11 @@ CompatRatingChoice::CompatRatingChoice(const char *captionKey, int *value, Layou
 void CompatRatingChoice::SetupChoices() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	group_->Clear();
-	AddChoice(1, rp->T("Perfect"));
-	AddChoice(2, rp->T("Plays"));
-	AddChoice(3, rp->T("In-game"));
-	AddChoice(4, rp->T("Menu/Intro"));
-	AddChoice(5, rp->T("Nothing"));
+	AddChoice(0, rp->T("Perfect"));
+	AddChoice(1, rp->T("Plays"));
+	AddChoice(2, rp->T("In-game"));
+	AddChoice(3, rp->T("Menu/Intro"));
+	AddChoice(4, rp->T("Nothing"));
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
@@ -146,11 +147,9 @@ void ReportScreen::CreateViews() {
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 
 	rightColumnItems->SetSpacing(0.0f);
-	// TODO: Handle.
-	rightColumnItems->Add(new Choice(rp->T("Open Browser")));
+	rightColumnItems->Add(new Choice(rp->T("Open Browser")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
 	submit_ = new Choice(rp->T("Submit Feedback"));
-	// TODO: Handle.
-	rightColumnItems->Add(submit_);
+	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
 	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 
 	rightColumnItems->Add(new Spacer(25.0));
@@ -161,6 +160,26 @@ void ReportScreen::CreateViews() {
 	root_->Add(rightColumn);
 
 	leftColumn->Add(leftColumnItems);
-
 	rightColumn->Add(rightColumnItems);
+}
+
+EventReturn ReportScreen::HandleSubmit(EventParams &e) {
+	const char *compat;
+	switch (overall_) {
+	case 0: compat = "perfect"; break;
+	case 1: compat = "playable"; break;
+	case 2: compat = "ingame"; break;
+	case 3: compat = "menu"; break;
+	case 4: compat = "none"; break;
+	default: compat = "unknown"; break;
+	}
+
+	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1);
+	screenManager()->finishDialog(this, DR_OK);
+	return EVENT_DONE;
+}
+
+EventReturn ReportScreen::HandleBrowser(EventParams &e) {
+	LaunchBrowser("http://report.ppsspp.org/");
+	return EVENT_DONE;
 }

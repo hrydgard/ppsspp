@@ -28,6 +28,9 @@ public:
 
 protected:
 	UI::EventReturn HandleChoice(UI::EventParams &e);
+	UI::EventReturn HandleSubmit(UI::EventParams &e);
+	UI::EventReturn HandleBrowser(UI::EventParams &e);
+
 	virtual void CreateViews();
 
 	UI::Choice *submit_;

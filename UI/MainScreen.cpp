@@ -1177,13 +1177,12 @@ void GamePauseScreen::CreateViews() {
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
-#if 0
 	// TODO, also might be nice to show overall compat rating here?
+	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (Reporting::IsEnabled()) {
 		I18NCategory *rp = GetI18NCategory("Reporting");
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
-#endif
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
