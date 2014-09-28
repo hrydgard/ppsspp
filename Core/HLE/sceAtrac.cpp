@@ -440,6 +440,7 @@ int Atrac::Analyze() {
 	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
 
 	u32 offset = 12;
+	int loopFirstSampleOffset = 0;
 	firstSampleoffset = 0;
 
 	this->decodeEnd = first.filesize;
@@ -471,9 +472,13 @@ int Atrac::Analyze() {
 			break;
 		case FACT_CHUNK_MAGIC:
 			{
-				if (chunkSize >= 8) {
-					endSample = Memory::Read_U32(first.addr + offset);
-					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				endSample = Memory::Read_U32(first.addr + offset);
+				firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				if (chunkSize >= 12) {
+					// Seems like this indicates it's got a separate offset for loops.
+					loopFirstSampleOffset = Memory::Read_U32(first.addr + offset + 8);
+				} else if (chunkSize >= 8) {
+					loopFirstSampleOffset = firstSampleoffset;
 				}
 			}
 			break;
@@ -489,8 +494,8 @@ int Atrac::Analyze() {
 					for (int i = 0; i < loopinfoNum; i++, loopinfoAddr += 24) {
 						loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
 						loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - firstSampleoffset;
-						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - firstSampleoffset;
+						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - loopFirstSampleOffset;
+						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - loopFirstSampleOffset;
 						loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 						loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
