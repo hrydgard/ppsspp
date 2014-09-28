@@ -737,7 +737,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample + (int)atracSamplesPerFrame > atrac->loopEndSample ||
+			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
