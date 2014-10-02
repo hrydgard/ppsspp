@@ -98,5 +98,6 @@ extern "C" {
 // Call directly after the command or use the error num.
 // This function might change the error code.
 // Defined in Misc.cpp.
-const char* GetLastErrorMsg();
+const char *GetLastErrorMsg();
+const char *GetStringErrorMsg(int errCode);
 

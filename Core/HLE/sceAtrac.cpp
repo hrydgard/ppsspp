@@ -59,6 +59,7 @@
 #define ATRAC_ERROR_INCORRECT_READ_SIZE      0x80630013
 #define ATRAC_ERROR_BAD_SAMPLE               0x80630015
 #define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
+#define ATRAC_ERROR_NOT_MONO                 0x80630019
 #define ATRAC_ERROR_NO_LOOP_INFORMATION      0x80630021
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 #define ATRAC_ERROR_BUFFER_IS_EMPTY          0x80630023
@@ -439,6 +440,7 @@ int Atrac::Analyze() {
 	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
 
 	u32 offset = 12;
+	int loopFirstSampleOffset = 0;
 	firstSampleoffset = 0;
 
 	this->decodeEnd = first.filesize;
@@ -470,9 +472,13 @@ int Atrac::Analyze() {
 			break;
 		case FACT_CHUNK_MAGIC:
 			{
-				if (chunkSize >= 8) {
-					endSample = Memory::Read_U32(first.addr + offset);
-					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				endSample = Memory::Read_U32(first.addr + offset);
+				firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				if (chunkSize >= 12) {
+					// Seems like this indicates it's got a separate offset for loops.
+					loopFirstSampleOffset = Memory::Read_U32(first.addr + offset + 8);
+				} else if (chunkSize >= 8) {
+					loopFirstSampleOffset = firstSampleoffset;
 				}
 			}
 			break;
@@ -488,8 +494,8 @@ int Atrac::Analyze() {
 					for (int i = 0; i < loopinfoNum; i++, loopinfoAddr += 24) {
 						loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
 						loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - firstSampleoffset;
-						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - firstSampleoffset;
+						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - loopFirstSampleOffset;
+						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - loopFirstSampleOffset;
 						loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 						loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
@@ -731,7 +737,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample + (int)atracSamplesPerFrame > atrac->loopEndSample ||
+			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
@@ -1533,43 +1539,73 @@ int sceAtracIsSecondBufferNeeded(int atracID) {
 	return 0;
 }
 
-int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize) {
+int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad atrac ID", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad atrac ID", atracID, buffer, readSize, bufferSize);
 		return ATRAC_ERROR_BAD_ATRACID;
 	}
 
-	INFO_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
-	if (readSize > MOutHalfBufferSize)
+	INFO_LOG(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x)", atracID, buffer, readSize, bufferSize);
+	if (readSize > bufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
 	int ret = 0;
 	if (atrac != NULL) {
-		atrac->first.addr = MOutHalfBuffer;
+		atrac->first.addr = buffer;
 		atrac->first.size = readSize;
 		ret = atrac->Analyze();
 		if (ret < 0) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad data", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad data", atracID, buffer, readSize, bufferSize);
 			return ret;
 		}
-		atrac->atracOutputChannels = 1;
-		ret = _AtracSetData(atracID, MOutHalfBuffer, MOutHalfBufferSize);
+		if (atrac->atracChannels != 1) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): not mono data", atracID, buffer, readSize, bufferSize);
+			ret = ATRAC_ERROR_NOT_MONO;
+			// It seems it still sets the data.
+			atrac->atracOutputChannels = 2;
+			_AtracSetData(atrac, buffer, bufferSize);
+			return ret;
+		} else {
+			atrac->atracOutputChannels = 1;
+			ret = _AtracSetData(atracID, buffer, bufferSize);
+		}
 	}
 	return ret;
 }
+
 u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
-	INFO_LOG(ME, "sceAtracSetMOutData(%i, %08x, %08x)", atracID, buffer, bufferSize);
 	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		ERROR_LOG(ME, "sceAtracSetMOutData(%i, %08x, %08x): bad atrac ID", atracID, buffer, bufferSize);
+		return ATRAC_ERROR_BAD_ATRACID;
+	}
+
+	// This doesn't seem to be part of any available libatrac3plus library.
+	WARN_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x)", atracID, buffer, bufferSize);
+
 	// TODO: What is the proper error code here?
 	int ret = 0;
 	if (atrac != NULL) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
-		// TODO: Error code for bad data (probably yes)?
-		atrac->Analyze();
-		atrac->atracOutputChannels = 1;
-		ret = _AtracSetData(atracID, buffer, bufferSize);
+		ret = atrac->Analyze();
+		if (ret < 0) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
+			return ret;
+		}
+		if (atrac->atracChannels != 1) {
+			ERROR_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x): not mono data", atracID, buffer, bufferSize);
+			ret = ATRAC_ERROR_NOT_MONO;
+			// It seems it still sets the data.
+			atrac->atracOutputChannels = 2;
+			_AtracSetData(atrac, buffer, bufferSize);
+			// Not sure of the real delay time.
+			return ret;
+		} else {
+			atrac->atracOutputChannels = 1;
+			ret = _AtracSetData(atracID, buffer, bufferSize);
+		}
 	}
 	return ret;
 }
@@ -1583,8 +1619,17 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
-	// TODO: Error code for bad data (probably yes)?
-	atrac->Analyze();
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): bad data", buffer, bufferSize);
+		delete atrac;
+		return ret;
+	}
+	if (atrac->atracChannels != 1) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): not mono data", buffer, bufferSize);
+		delete atrac;
+		return ATRAC_ERROR_NOT_MONO;
+	}
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
@@ -1592,8 +1637,9 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		delete atrac;
 		return atracID;
 	}
-	INFO_LOG(ME, "%d=sceAtracSetMOutDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
-	int ret = _AtracSetData(atracID, buffer, bufferSize, true);
+	// This doesn't seem to be part of any available libatrac3plus library.
+	WARN_LOG_REPORT(ME, "%d=sceAtracSetMOutDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
+	ret = _AtracSetData(atracID, buffer, bufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1617,6 +1663,11 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
 		return ret;
+	}
+	if (atrac->atracChannels != 1) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): not mono data", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return ATRAC_ERROR_NOT_MONO;
 	}
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac, codecType);

@@ -313,6 +313,10 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 		break;
 	}
 
+	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+		WARN_LOG_REPORT_ONCE(logicOpBlend, G3D, "Logic op and blend enabled, unsupported.");
+	}
+
 	dxstate.blend.enable();
 	dxstate.blendSeparate.enable();
 	ResetShaderBlending();

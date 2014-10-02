@@ -153,11 +153,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 
 	if (FAILED(hr)) {
 		*error_message = "Failed to create D3D device";
-		if (has9Ex) {
-			d3dEx->Release();
-		} else {
-			d3d->Release();
-		}
+		d3d->Release();
 		return false;
 	}
 
@@ -167,7 +163,18 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 
 	LoadD3DX9Dynamic();
 
-	DX9::CompileShaders();
+	if (!DX9::CompileShaders(*error_message)) {
+		*error_message = "Unable to compile shaders: " + *error_message;
+		device->EndScene();
+		device->Release();
+		d3d->Release();
+		DX9::pD3Ddevice = nullptr;
+		DX9::pD3DdeviceEx = nullptr;
+		device = nullptr;
+		UnloadD3DXDynamic();
+		return false;
+	}
+
 	DX9::fbo_init(d3d);
 
 	if (deviceEx && IsWin7OrLater()) {
@@ -182,12 +189,13 @@ void D3D9_Resize(HWND window) {
 	// TODO!
 }
 
-void D3D9_Shutdown() { 
+void D3D9_Shutdown() {
 	DX9::DestroyShaders();
 	DX9::fbo_shutdown();
 	device->EndScene();
 	device->Release();
 	d3d->Release();
+	UnloadD3DXDynamic();
 	DX9::pD3Ddevice = nullptr;
 	DX9::pD3DdeviceEx = nullptr;
 	device = nullptr;
