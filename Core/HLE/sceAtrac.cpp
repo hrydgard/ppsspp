@@ -970,10 +970,10 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 		ERROR_LOG(ME, "sceAtracGetNextSample(%i, %08x): no data", atracID, outNAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
 		if (atrac->currentSample >= atrac->endSample) {
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(0, outNAddr);
+			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): 0 samples left", atracID, outNAddr);
 			return 0;
 		} else {
 			u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
@@ -983,13 +983,14 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 			u32 skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			u32 firstSamples = (atracSamplesPerFrame - skipSamples) % atracSamplesPerFrame;
 			u32 numSamples = atrac->endSample - atrac->currentSample;
-			if (atrac->currentSample == 0) {
+			if (atrac->currentSample == 0 && firstSamples != 0) {
 				numSamples = firstSamples;
 			}
 			if (numSamples > atracSamplesPerFrame)
 				numSamples = atracSamplesPerFrame;
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(numSamples, outNAddr);
+			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): %d samples left", atracID, outNAddr, numSamples);
 		}
 	}
 	return 0;
