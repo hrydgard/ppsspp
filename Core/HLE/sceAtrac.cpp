@@ -337,7 +337,7 @@ struct Atrac {
 		const u32 unalignedSamples = (offsetSamples + sample) % atracSamplesPerFrame;
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
-		if (sample < currentSample) {
+		if (sample != currentSample) {
 			// "Seeking" by reading frames seems to work much better.
 			av_seek_frame(pFormatCtx, audio_stream_index, 0, AVSEEK_FLAG_BACKWARD);
 			avcodec_flush_buffers(pCodecCtx);
@@ -348,6 +348,8 @@ struct Atrac {
 				}
 			}
 		} else {
+			// For some reason, if we skip seeking, we get the wrong amount of data.
+			// (even without flushing the packet...)
 			av_seek_frame(pFormatCtx, audio_stream_index, seekFrame, 0);
 			avcodec_flush_buffers(pCodecCtx);
 		}
