@@ -683,6 +683,12 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			int skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
+			u32 maxSamples = atrac->endSample - atrac->currentSample;
+			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
+			if (unalignedSamples != 0) {
+				// We're off alignment, possibly due to a loop.  Force it back on.
+				maxSamples = atracSamplesPerFrame - unalignedSamples;
+			}
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
@@ -710,7 +716,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						numSamples = atrac->pFrame->nb_samples - skipped;
 
 						// If we're at the end, clamp to samples we want.  It always returns a full chunk.
-						numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, numSamples);
+						numSamples = std::min(maxSamples, numSamples);
 
 						if (skipped > 0 && numSamples == 0) {
 							// Wait for the next one.
@@ -749,7 +755,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				if (res != ATDECODE_GOTFRAME && atrac->currentSample < atrac->endSample) {
 					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-					numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, atracSamplesPerFrame);
+					numSamples = std::min(maxSamples, atracSamplesPerFrame);
 					u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
 					memset(outbuf, 0, outBytes);
 					CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
@@ -1011,6 +1017,11 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 			u32 numSamples = atrac->endSample - atrac->currentSample;
 			if (atrac->currentSample == 0 && firstSamples != 0) {
 				numSamples = firstSamples;
+			}
+			u32 unalignedSamples = (skipSamples + atrac->currentSample) % atracSamplesPerFrame;
+			if (unalignedSamples != 0) {
+				// We're off alignment, possibly due to a loop.  Force it back on.
+				numSamples = atracSamplesPerFrame - unalignedSamples;
 			}
 			if (numSamples > atracSamplesPerFrame)
 				numSamples = atracSamplesPerFrame;
