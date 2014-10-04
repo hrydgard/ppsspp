@@ -1255,6 +1255,7 @@ int __AtracSetContext(Atrac *atrac) {
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
 
 	// open codec
+	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
