@@ -311,6 +311,8 @@ struct Atrac {
 	void SeekToSample(int sample) {
 		s64 seek_pos = (s64)sample;
 		av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
+		// Discard any pending packet data.
+		packet->size = 0;
 	}
 
 	bool FillPacket() {
