@@ -360,7 +360,9 @@ struct Atrac {
 		if (bytes_read == AVERROR_PATCHWELCOME) {
 			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 			// Let's try the next packet.
-			packet->size = 0;
+			if (packet == decodePacket) {
+				packet->size = 0;
+			}
 			// TODO: Or actually, should we return a blank frame and pretend it worked?
 			return ATDECODE_FEEDME;
 		} else if (bytes_read < 0) {
@@ -369,8 +371,10 @@ struct Atrac {
 			return ATDECODE_FAILED;
 		}
 
-		packet->size -= bytes_read;
-		packet->data += bytes_read;
+		if (packet == decodePacket) {
+			packet->size -= bytes_read;
+			packet->data += bytes_read;
+		}
 		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
 	}
 #endif // USE_FFMPEG
