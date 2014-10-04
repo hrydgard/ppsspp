@@ -127,11 +127,12 @@ struct Atrac {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
-		pFormatCtx = 0;
-		pAVIOCtx = 0;
-		pCodecCtx = 0;
-		pSwrCtx = 0;
-		pFrame = 0;
+		pFormatCtx = nullptr;
+		pAVIOCtx = nullptr;
+		pCodecCtx = nullptr;
+		pSwrCtx = nullptr;
+		pFrame = nullptr;
+		packet = nullptr;
 		audio_stream_index = 0;
 #endif // USE_FFMPEG
 		atracContext = 0;
@@ -274,6 +275,7 @@ struct Atrac {
 	AVCodecContext  *pCodecCtx;
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
+	AVPacket        *packet;
 	int audio_stream_index;
 
 	void ReleaseFFMPEGContext() {
@@ -289,16 +291,36 @@ struct Atrac {
 			avcodec_close(pCodecCtx);
 		if (pFormatCtx)
 			avformat_close_input(&pFormatCtx);
-		pFormatCtx = 0;
-		pAVIOCtx = 0;
-		pCodecCtx = 0;
-		pSwrCtx = 0;
-		pFrame = 0;
+		if (packet)
+			av_free_packet(packet);
+		delete packet;
+		pFormatCtx = nullptr;
+		pAVIOCtx = nullptr;
+		pCodecCtx = nullptr;
+		pSwrCtx = nullptr;
+		pFrame = nullptr;
+		packet = nullptr;
 	}
 
 	void SeekToSample(int sample) {
 		s64 seek_pos = (s64)sample;
 		av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
+	}
+
+	bool FillPacket() {
+		if (packet->size > 0) {
+			return true;
+		}
+		do {
+			// This is double-free safe, so we just call it before each read and at the end.
+			av_free_packet(packet);
+			if (av_read_frame(pFormatCtx, packet) < 0) {
+				return false;
+			}
+			// We keep reading until we get the right stream index.
+		} while (packet->stream_index != audio_stream_index);
+
+		return true;
 	}
 #endif // USE_FFMPEG
 };
@@ -641,25 +663,18 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
-				AVPacket packet;
-				av_init_packet(&packet);
 				int got_frame = 0, avret;
-				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-					if (packet.stream_index != atrac->audio_stream_index) {
-						av_free_packet(&packet);
-						continue;
-					}
-
+				while (atrac->FillPacket()) {
 					got_frame = 0;
-					int bytes_in_packet = packet.size;
-					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, atrac->packet);
 					if (avret == AVERROR_PATCHWELCOME) {
 						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
-						// Let's try the next frame.
+						// Let's try the next packet.
+						atrac->packet->size = 0;
+						avret = 0;
 						// TODO: Or actually, we should return a blank frame and pretend it worked.
 					} else if (avret < 0) {
 						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
-						av_free_packet(&packet);
 						atrac->failedDecode = true;
 						// No need to free the packet if decode_audio4 fails.
 						// Avoid getting stuck in a loop (Virtua Tennis)
@@ -668,11 +683,9 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						*remains = 0;
 						return ATRAC_ERROR_ALL_DATA_DECODED;
 					}
-					// FFmpeg seems to return packet.size / 10.
-					// However, advancing the packet by this causes decode errors.  Bug?
-					if (avret != packet.size && avret != packet.size / 10) {
-						ERROR_LOG_REPORT_ONCE(multipacket, ME, "WARNING: Remaining data in packet - we currently only decode one frame per packet");
-					}
+
+					atrac->packet->size -= avret;
+					atrac->packet->data += avret;
 
 					if (got_frame) {
 						// got a frame
@@ -713,7 +726,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							}
 						}
 					}
-					av_free_packet(&packet);
 					if (got_frame) {
 						// We only want one frame per call, let's continue the next time.
 						break;
@@ -1239,6 +1251,10 @@ int __AtracSetContext(Atrac *atrac) {
 
 	// alloc audio frame
 	atrac->pFrame = av_frame_alloc();
+	atrac->packet = new AVPacket;
+	av_init_packet(atrac->packet);
+	atrac->packet->data = nullptr;
+	atrac->packet->size = 0;
 	// reinit decodePos, because ffmpeg had changed it.
 	atrac->decodePos = 0;
 #endif
@@ -1962,26 +1978,23 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		atrac->SeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
-			AVPacket packet;
-			av_init_packet(&packet);
 			int got_frame, avret;
-			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
-				if (packet.stream_index != atrac->audio_stream_index) {
-					av_free_packet(&packet);
-					continue;
-				}
-
+			while (atrac->FillPacket()) {
 				got_frame = 0;
-				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, atrac->packet);
 				if (avret == AVERROR_PATCHWELCOME) {
 					ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
-					// Let's try the next frame.
+					// Let's try the next packet.
+					atrac->packet->size = 0;
+					avret = 0;
 				} else if (avret < 0) {
 					ERROR_LOG(ME, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
-					av_free_packet(&packet);
 					atrac->failedDecode = true;
 					break;
 				}
+
+				atrac->packet->size -= avret;
+				atrac->packet->data += avret;
 
 				if (got_frame) {
 					// got a frame
@@ -1995,7 +2008,6 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
 				}
-				av_free_packet(&packet);
 				if (got_frame)
 					break;
 			}
