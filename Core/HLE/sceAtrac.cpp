@@ -335,7 +335,7 @@ struct Atrac {
 		if (packet->size < (int)atracBytesPerFrame) {
 			// Whoops, we have a packet that is smaller than a frame.  Let's meld a new one.
 			u32 initialSize = packet->size;
-			u32 needed = atracBytesPerFrame - initialSize;
+			int needed = atracBytesPerFrame - initialSize;
 			av_init_packet(&tempPacket);
 			av_copy_packet(&tempPacket, packet);
 			av_grow_packet(&tempPacket, needed);
@@ -350,6 +350,7 @@ struct Atrac {
 					packet->data += needed;
 				}
 			}
+			decodePacket = &tempPacket;
 		}
 
 		int got_frame = 0;
