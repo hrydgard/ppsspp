@@ -95,6 +95,12 @@ extern "C" {
 
 #endif // USE_FFMPEG
 
+enum AtracDecodeResult {
+	ATDECODE_FAILED = -1,
+	ATDECODE_FEEDME = 0,
+	ATDECODE_GOTFRAME = 1,
+};
+
 struct InputBuffer {
 	u32 addr;
 	u32 size;
@@ -321,6 +327,26 @@ struct Atrac {
 		} while (packet->stream_index != audio_stream_index);
 
 		return true;
+	}
+
+	AtracDecodeResult DecodePacket() {
+		int got_frame = 0;
+		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, packet);
+		if (bytes_read == AVERROR_PATCHWELCOME) {
+			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
+			// Let's try the next packet.
+			packet->size = 0;
+			// TODO: Or actually, should we return a blank frame and pretend it worked?
+			return ATDECODE_FEEDME;
+		} else if (bytes_read < 0) {
+			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
+			failedDecode = true;
+			return ATDECODE_FAILED;
+		}
+
+		packet->size -= bytes_read;
+		packet->data += bytes_read;
+		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
 	}
 #endif // USE_FFMPEG
 };
@@ -663,20 +689,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
-				int got_frame = 0, avret;
+
+				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket()) {
-					got_frame = 0;
-					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, atrac->packet);
-					if (avret == AVERROR_PATCHWELCOME) {
-						ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
-						// Let's try the next packet.
-						atrac->packet->size = 0;
-						avret = 0;
-						// TODO: Or actually, we should return a blank frame and pretend it worked.
-					} else if (avret < 0) {
-						ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", avret);
-						atrac->failedDecode = true;
-						// No need to free the packet if decode_audio4 fails.
+					res = atrac->DecodePacket();
+					if (res == ATDECODE_FAILED) {
 						// Avoid getting stuck in a loop (Virtua Tennis)
 						*SamplesNum = 0;
 						*finish = 1;
@@ -684,10 +701,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 						return ATRAC_ERROR_ALL_DATA_DECODED;
 					}
 
-					atrac->packet->size -= avret;
-					atrac->packet->data += avret;
-
-					if (got_frame) {
+					if (res == ATDECODE_GOTFRAME) {
 						// got a frame
 						// Use a small buffer and keep overwriting it with file data constantly
 						atrac->first.writableBytes += atrac->atracBytesPerFrame;
@@ -700,7 +714,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 						if (skipped > 0 && numSamples == 0) {
 							// Wait for the next one.
-							got_frame = 0;
+							res = ATDECODE_FEEDME;
 						}
 
 						if (outbuf != NULL && numSamples != 0) {
@@ -716,7 +730,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 								atrac->pFrame->extended_data[0] + inbufOffset,
 								atrac->pFrame->extended_data[1] + inbufOffset,
 							};
-							avret = swr_convert(atrac->pSwrCtx, &out, numSamples, inbuf, numSamples);
+							int avret = swr_convert(atrac->pSwrCtx, &out, numSamples, inbuf, numSamples);
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
 								CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
@@ -726,13 +740,13 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							}
 						}
 					}
-					if (got_frame) {
+					if (res == ATDECODE_GOTFRAME) {
 						// We only want one frame per call, let's continue the next time.
 						break;
 					}
 				}
 
-				if (!got_frame && atrac->currentSample < atrac->endSample) {
+				if (res != ATDECODE_GOTFRAME && atrac->currentSample < atrac->endSample) {
 					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
 					numSamples = std::min((u32)atrac->endSample - (u32)atrac->currentSample, atracSamplesPerFrame);
@@ -1978,37 +1992,26 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		atrac->SeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
-			int got_frame, avret;
+			AtracDecodeResult res;
 			while (atrac->FillPacket()) {
-				got_frame = 0;
-				avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, atrac->packet);
-				if (avret == AVERROR_PATCHWELCOME) {
-					ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
-					// Let's try the next packet.
-					atrac->packet->size = 0;
-					avret = 0;
-				} else if (avret < 0) {
-					ERROR_LOG(ME, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
-					atrac->failedDecode = true;
+				res = atrac->DecodePacket();
+				if (res == ATDECODE_FAILED) {
 					break;
 				}
 
-				atrac->packet->size -= avret;
-				atrac->packet->data += avret;
-
-				if (got_frame) {
+				if (res == ATDECODE_GOTFRAME) {
 					// got a frame
-					int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
-						atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
-					u8* out = Memory::GetPointer(samplesAddr);
+					u8 *out = Memory::GetPointer(samplesAddr);
 					numSamples = atrac->pFrame->nb_samples;
-					avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
-						(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+					int avret = swr_convert(atrac->pSwrCtx, &out, numSamples,
+						(const u8**)atrac->pFrame->extended_data, numSamples);
+					u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+					CBreakPoints::ExecMemCheck(samplesAddr, true, outBytes, currentMIPS->pc);
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
 				}
-				if (got_frame)
+				if (res == ATDECODE_GOTFRAME)
 					break;
 			}
 		}
