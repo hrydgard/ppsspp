@@ -330,8 +330,33 @@ struct Atrac {
 	}
 
 	AtracDecodeResult DecodePacket() {
+		AVPacket tempPacket;
+		AVPacket *decodePacket = packet;
+		if (packet->size < (int)atracBytesPerFrame) {
+			// Whoops, we have a packet that is smaller than a frame.  Let's meld a new one.
+			u32 initialSize = packet->size;
+			u32 needed = atracBytesPerFrame - initialSize;
+			av_init_packet(&tempPacket);
+			av_copy_packet(&tempPacket, packet);
+			av_grow_packet(&tempPacket, needed);
+
+			// Okay, we're "out of data", let's get more.
+			packet->size = 0;
+
+			if (FillPacket()) {
+				if (packet->size >= needed) {
+					memcpy(tempPacket.data + initialSize, packet->data, needed);
+					packet->size -= needed;
+					packet->data += needed;
+				}
+			}
+		}
+
 		int got_frame = 0;
-		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, packet);
+		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, decodePacket);
+		if (packet != decodePacket) {
+			av_free_packet(&tempPacket);
+		}
 		if (bytes_read == AVERROR_PATCHWELCOME) {
 			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 			// Let's try the next packet.
