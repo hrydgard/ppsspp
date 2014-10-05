@@ -38,9 +38,11 @@ enum MIPSGPReg
 	MIPS_REG_A1=5,
 	MIPS_REG_A2=6,
 	MIPS_REG_A3=7,
-	MIPS_REG_A4=8,	// Seems to be N32 register calling convention - there are 8 args instead of 4.
+	MIPS_REG_A4=8,
 	MIPS_REG_A5=9,
 
+	MIPS_REG_T2=10,
+	MIPS_REG_T3=11,
 	MIPS_REG_T4=12,
 	MIPS_REG_T5=13,
 	MIPS_REG_T6=14,
