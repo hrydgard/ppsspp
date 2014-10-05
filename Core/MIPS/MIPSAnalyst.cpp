@@ -311,6 +311,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
 	{ 0xa662359e30b829e4, 148, "memcmp", },
+	{ 0xa6a03f0487a911b0, 392, "danganronpa1_1_download_frame", }, // Danganronpa 1
 	{ 0xa8390e65fa087c62, 140, "vtfm_t_q", },
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
