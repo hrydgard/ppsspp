@@ -56,16 +56,24 @@ static int g_DesktopHeight = 0;
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
+
+#if !defined(USING_FBDEV)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#endif
+
 #include "SDL_syswm.h"
 #include "math.h"
 
-static EGLDisplay          g_eglDisplay    = NULL;
-static EGLContext          g_eglContext    = NULL;
-static EGLSurface          g_eglSurface    = NULL;
-static Display*            g_Display       = NULL;
-static NativeWindowType    g_Window        = (NativeWindowType)NULL;
+static EGLDisplay               g_eglDisplay    = NULL;
+static EGLContext               g_eglContext    = NULL;
+static EGLSurface               g_eglSurface    = NULL;
+#ifdef USING_FBDEV
+static EGLNativeDisplayType     g_Display       = NULL;
+#else
+static Display*                 g_Display       = NULL;
+#endif
+static NativeWindowType         g_Window        = (NativeWindowType)NULL;
 
 int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	EGLenum error;
@@ -141,13 +149,15 @@ int8_t EGL_Init() {
 	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
-	// Get the SDL window handle
+#if !defined(USING_FBDEV)
+	//Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
 	if (SDL_GetWMInfo(&sysInfo) <= 0) {
 		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
 		return 1;
 	}
+#endif
 
 #ifdef USING_FBDEV
 	g_Window = (NativeWindowType)NULL;
@@ -177,7 +187,9 @@ void EGL_Close() {
 		g_eglDisplay = NULL;
 	}
 	if (g_Display != NULL) {
+#if !defined(USING_FBDEV)
 		XCloseDisplay(g_Display);
+#endif
 		g_Display = NULL;
 	}
 	g_eglSurface = NULL;
