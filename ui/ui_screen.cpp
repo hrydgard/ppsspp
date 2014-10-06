@@ -206,7 +206,20 @@ void PopupScreen::CreateViews() {
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	parent->Add(new UI::TextView(message_));
+	std::vector<std::string> messageLines;
+	SplitString(message_, '\n', messageLines);
+	for (const auto& lineOfText : messageLines)
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false));
+}
+
+void MessagePopupScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK) {
+		if (callback_)
+			callback_(true);
+	} else {
+		if (callback_)
+			callback_(false);
+	}
 }
 
 UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
