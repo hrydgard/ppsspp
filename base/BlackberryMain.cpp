@@ -279,7 +279,7 @@ void BlackberryMain::runMain() {
 					break;
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
-					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE, KEY_DOWN));
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_BACK, KEY_DOWN));
 					break;
 				case NAVIGATOR_EXIT:
 					return;
