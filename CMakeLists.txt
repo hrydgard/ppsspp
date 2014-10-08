@@ -1500,12 +1500,7 @@ if (TargetBin)
 		set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
 		set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
 		
-		if (IOS)
-			set(LAUNCH_SCREEN_XIB ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/LaunchScreen.xib)
-			set_source_files_properties(${LAUNCH_SCREEN_XIB} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-		endif()
-
-		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} ${LAUNCH_SCREEN_XIB})
+		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
 	endif()
