@@ -1530,7 +1530,7 @@ if(IOS)
 	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
 	)
 	# Force Xcode to relink the binary.
 	add_custom_command(TARGET Core PRE_BUILD
