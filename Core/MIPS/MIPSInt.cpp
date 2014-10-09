@@ -74,29 +74,13 @@ int MIPS_SingleStep()
 #else
 	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 #endif
-	/*
-	// Choke on VFPU
-	MIPSInfo info = MIPSGetInfo(op);
-	if (info & IS_VFPU)
-	{
-		if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
-		{
-			Core_EnableStepping(true);
-			return;
-		}
-	}*/
-
-	if (mipsr4k.inDelaySlot)
-	{
+	if (mipsr4k.inDelaySlot) {
 		MIPSInterpret(op);
-		if (mipsr4k.inDelaySlot)
-		{
+		if (mipsr4k.inDelaySlot) {
 			mipsr4k.pc = mipsr4k.nextPC;
 			mipsr4k.inDelaySlot = false;
 		}
-	}
-	else
-	{
+	} else {
 		MIPSInterpret(op);
 	}
 	return 1;
@@ -872,14 +856,12 @@ namespace MIPSInt
 		int pos = _POS;
 
 		// Don't change $zr.
-		if (rt == 0)
-		{
+		if (rt == 0) {
 			PC += 4;
 			return;
 		}
 
-		switch (op & 0x3f)
-		{
+		switch (op & 0x3f) {
 		case 0x0: //ext
 			{
 				int size = _SIZE + 1;
@@ -1025,10 +1007,10 @@ namespace MIPSInt
 
 		switch (op & 0x3f)
 		{
-		case 0: F(fd) = F(fs) + F(ft); break; //add
-		case 1: F(fd) = F(fs) - F(ft); break; //sub
-		case 2: F(fd) = F(fs) * F(ft); break; //mul
-		case 3: F(fd) = F(fs) / F(ft); break; //div
+		case 0: F(fd) = F(fs) + F(ft); break; // add.s
+		case 1: F(fd) = F(fs) - F(ft); break; // sub.s
+		case 2: F(fd) = F(fs) * F(ft); break; // mul.s
+		case 3: F(fd) = F(fs) / F(ft); break; // div.s
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU3Op instruction that can't be interpreted");
 			break;

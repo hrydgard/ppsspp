@@ -26,8 +26,7 @@ class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 
-enum MIPSGPReg
-{
+enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
 
@@ -65,17 +64,16 @@ enum MIPSGPReg
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	MIPS_REG_INVALID=-1,
-
 	// Not real regs, just for convenience/jit mapping.
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
 	MIPS_REG_FPCOND = 34,
 	MIPS_REG_VFPUCC = 35,
+
+	MIPS_REG_INVALID=-1,
 };
 
-enum
-{
+enum {
 	VFPU_CTRL_SPREFIX,
 	VFPU_CTRL_TPREFIX,
 	VFPU_CTRL_DPREFIX,
