@@ -22,10 +22,6 @@
 
 #include "Common.h"
 
-#if !defined(_M_IX86) && !defined(_M_X64)
-#error "Don't build this on arm."
-#endif
-
 namespace Gen
 {
 
@@ -33,7 +29,7 @@ enum X64Reg
 {
 	EAX = 0, EBX = 3, ECX = 1, EDX = 2,
 	ESI = 6, EDI = 7, EBP = 5, ESP = 4,
-	
+
 	RAX = 0, RBX = 3, RCX = 1, RDX = 2,
 	RSI = 6, RDI = 7, RBP = 5, RSP = 4,
 	R8  = 8, R9  = 9, R10 = 10,R11 = 11,
@@ -46,8 +42,11 @@ enum X64Reg
 	AX = 0, BX = 3, CX = 1, DX = 2,
 	SI = 6, DI = 7, BP = 5, SP = 4,
 
-	XMM0=0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, 
+	XMM0=0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 	XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
+
+	YMM0=0, YMM1, YMM2, YMM3, YMM4, YMM5, YMM6, YMM7,
+	YMM8, YMM9, YMM10, YMM11, YMM12, YMM13, YMM14, YMM15,
 
 	INVALID_REG = 0xFFFFFFFF
 };
@@ -59,7 +58,7 @@ enum CCFlags
 	CC_B   = 2, CC_C  = 2, CC_NAE = 2,
 	CC_NB  = 3, CC_NC = 3, CC_AE  = 3,
 	CC_Z   = 4, CC_E   = 4,
-	CC_NZ  = 5,	CC_NE  = 5, 
+	CC_NZ  = 5,	CC_NE  = 5,
 	CC_BE  = 6, CC_NA  = 6,
 	CC_NBE = 7, CC_A   = 7,
 	CC_S   = 8,
@@ -111,8 +110,7 @@ enum NormalOp {
 	nrmXCHG,
 };
 
-enum
-{
+enum {
 	CMP_EQ = 0,
 	CMP_LT = 1,
 	CMP_LE = 2,
@@ -125,6 +123,7 @@ enum
 
 class XEmitter;
 
+// RIP addressing does not benefit from micro op fusion on Core arch
 struct OpArg
 {
 	OpArg() {}  // dummy op arg, used for storage
@@ -134,10 +133,11 @@ struct OpArg
 		scale = (u8)_scale;
 		offsetOrBaseReg = (u16)rmReg;
 		indexReg = (u16)scaledReg;
-		//if scale == 0 never mind offseting
+		//if scale == 0 never mind offsetting
 		offset = _offset;
 	}
 	void WriteRex(XEmitter *emit, int opBits, int bits, int customOp = -1) const;
+	void WriteVex(XEmitter* emit, int size, int packed, Gen::X64Reg regOp1, X64Reg regOp2) const;
 	void WriteRest(XEmitter *emit, int extraBytes=0, X64Reg operandReg=(X64Reg)0xFF, bool warn_64bit_offset = true) const;
 	void WriteSingleByteOp(XEmitter *emit, u8 op, X64Reg operandReg, int bits);
 	// This one is public - must be written to
@@ -148,6 +148,8 @@ struct OpArg
 	bool IsImm() const {return scale == SCALE_IMM8 || scale == SCALE_IMM16 || scale == SCALE_IMM32 || scale == SCALE_IMM64;}
 	bool IsSimpleReg() const {return scale == SCALE_NONE;}
 	bool IsSimpleReg(X64Reg reg) const {
+		if (!IsSimpleReg())
+			return false;
 		return GetSimpleReg() == reg;
 	}
 
@@ -186,16 +188,17 @@ struct OpArg
 	void IncreaseOffset(int sz) {
 		offset += sz;
 	}
+
 private:
 	u8 scale;
 	u16 offsetOrBaseReg;
 	u16 indexReg;
 };
 
-inline OpArg M(const void *ptr) {return OpArg((u64)ptr, (int)SCALE_RIP);}
+inline OpArg M(void *ptr)	    {return OpArg((u64)ptr, (int)SCALE_RIP);}
 template <typename T>
 inline OpArg M(const T *ptr)    {return OpArg((u64)(const void *)ptr, (int)SCALE_RIP);}
-inline OpArg R(X64Reg value)    {return OpArg(0, SCALE_NONE, value);}
+inline OpArg R(X64Reg value)	{return OpArg(0, SCALE_NONE, value);}
 inline OpArg MatR(X64Reg value) {return OpArg(0, SCALE_ATREG, value);}
 inline OpArg MDisp(X64Reg value, int offset) {
 	return OpArg((u32)offset, SCALE_ATREG, value);
@@ -224,11 +227,11 @@ inline OpArg SImmAuto(s32 imm) {
 }
 
 #ifdef _M_X64
-inline OpArg ImmPtr(const void *imm) {return Imm64((u64)imm);}
+inline OpArg ImmPtr(const void* imm) {return Imm64((u64)imm);}
 #else
-inline OpArg ImmPtr(const void *imm) {return Imm32((u32)imm);}
+inline OpArg ImmPtr(const void* imm) {return Imm32((u32)imm);}
 #endif
-inline u32 PtrOffset(const void *ptr, const void *base) {
+inline u32 PtrOffset(const void* ptr, const void* base) {
 #ifdef _M_X64
 	s64 distance = (s64)ptr-(s64)base;
 	if (distance >= 0x80000000LL ||
@@ -253,6 +256,18 @@ struct FixupBranch
 	int type; //0 = 8bit 1 = 32bit
 };
 
+enum SSECompare
+{
+	EQ = 0,
+	LT,
+	LE,
+	UNORD,
+	NEQ,
+	NLT,
+	NLE,
+	ORD,
+};
+
 typedef const u8* JumpTarget;
 
 class XEmitter
@@ -271,15 +286,12 @@ private:
 	void WriteMXCSR(OpArg arg, int ext);
 	void WriteSSEOp(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes = 0);
 	void WriteSSEOp2(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes = 0);
+	void WriteAVXOp(int size, u8 sseOp, bool packed, X64Reg regOp, OpArg arg, int extrabytes = 0);
+	void WriteAVXOp(int size, u8 sseOp, bool packed, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes = 0);
 	void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
 
 protected:
-	inline void Write8(u8 value)   {
-		//if (value == 0xcc) {
-		//	value = 0xcc;   // set breakpoint here to find where mysterious 0xcc are written
-		//}
-		*code++ = value;
-	}
+	inline void Write8(u8 value)   {*code++ = value;}
 	inline void Write16(u16 value) {*(u16*)code = (value); code += 2;}
 	inline void Write32(u32 value) {*(u32*)code = (value); code += 4;}
 	inline void Write64(u64 value) {*(u64*)code = (value); code += 8;}
@@ -301,7 +313,7 @@ public:
 	u8 *GetWritableCodePtr();
 
 	// Looking for one of these? It's BANNED!! Some instructions are slow on modern CPU
-	// INC, DEC, LOOP, LOOPNE, LOOPE, ENTER, LEAVE, XCHG, XLAT, REP MOVSB/MOVSD, REP SCASD + other string instr., 
+	// INC, DEC, LOOP, LOOPNE, LOOPE, ENTER, LEAVE, XCHG, XLAT, REP MOVSB/MOVSD, REP SCASD + other string instr.,
 	// INC and DEC are slow on Intel Core, but not on AMD. They create a
 	// false flag dependency because they only update a subset of the flags.
 	// XCHG is SLOW and should be avoided.
@@ -390,7 +402,7 @@ public:
 	void DIV(int bits, OpArg src);
 	void IDIV(int bits, OpArg src);
 
-	// Shift 
+	// Shift
 	void ROL(int bits, OpArg dest, OpArg shift);
 	void ROR(int bits, OpArg dest, OpArg shift);
 	void RCL(int bits, OpArg dest, OpArg shift);
@@ -445,7 +457,7 @@ public:
 
 	// Sign/zero extension
 	void MOVSX(int dbits, int sbits, X64Reg dest, OpArg src); //automatically uses MOVSXD if necessary
-	void MOVZX(int dbits, int sbits, X64Reg dest, OpArg src); 
+	void MOVZX(int dbits, int sbits, X64Reg dest, OpArg src);
 
 	// WARNING - These two take 11-13 cycles and are VectorPath! (AMD64)
 	void STMXCSR(OpArg memloc);
@@ -459,25 +471,33 @@ public:
 	void FWAIT();
 
 	// SSE/SSE2: Floating point arithmetic
-	void ADDSS(X64Reg regOp, OpArg arg);  
-	void ADDSD(X64Reg regOp, OpArg arg);  
-	void SUBSS(X64Reg regOp, OpArg arg);  
-	void SUBSD(X64Reg regOp, OpArg arg);  
-	void MULSS(X64Reg regOp, OpArg arg);  
-	void MULSD(X64Reg regOp, OpArg arg);  
-	void DIVSS(X64Reg regOp, OpArg arg);  
-	void DIVSD(X64Reg regOp, OpArg arg);  
-	void MINSS(X64Reg regOp, OpArg arg);  
-	void MINSD(X64Reg regOp, OpArg arg);  
-	void MAXSS(X64Reg regOp, OpArg arg);  
-	void MAXSD(X64Reg regOp, OpArg arg);  
-	void SQRTSS(X64Reg regOp, OpArg arg); 
-	void SQRTSD(X64Reg regOp, OpArg arg); 
+	void ADDSS(X64Reg regOp, OpArg arg);
+	void ADDSD(X64Reg regOp, OpArg arg);
+	void SUBSS(X64Reg regOp, OpArg arg);
+	void SUBSD(X64Reg regOp, OpArg arg);
+	void MULSS(X64Reg regOp, OpArg arg);
+	void MULSD(X64Reg regOp, OpArg arg);
+	void DIVSS(X64Reg regOp, OpArg arg);
+	void DIVSD(X64Reg regOp, OpArg arg);
+	void MINSS(X64Reg regOp, OpArg arg);
+	void MINSD(X64Reg regOp, OpArg arg);
+	void MAXSS(X64Reg regOp, OpArg arg);
+	void MAXSD(X64Reg regOp, OpArg arg);
+	void SQRTSS(X64Reg regOp, OpArg arg);
+	void SQRTSD(X64Reg regOp, OpArg arg);
 	void RSQRTSS(X64Reg regOp, OpArg arg);
 
 	// SSE/SSE2: Floating point bitwise (yes)
-	void CMPSS(X64Reg regOp, OpArg arg, u8 compare);  
-	void CMPSD(X64Reg regOp, OpArg arg, u8 compare);  
+	void CMPSS(X64Reg regOp, OpArg arg, u8 compare);
+	void CMPSD(X64Reg regOp, OpArg arg, u8 compare);
+	void ANDSS(X64Reg regOp, OpArg arg);
+	void ANDSD(X64Reg regOp, OpArg arg);
+	void ANDNSS(X64Reg regOp, OpArg arg);
+	void ANDNSD(X64Reg regOp, OpArg arg);
+	void ORSS(X64Reg regOp, OpArg arg);
+	void ORSD(X64Reg regOp, OpArg arg);
+	void XORSS(X64Reg regOp, OpArg arg);
+	void XORSD(X64Reg regOp, OpArg arg);
 
 	inline void CMPEQSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_EQ); }
 	inline void CMPLTSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_LT); }
@@ -487,24 +507,12 @@ public:
 	inline void CMPNLTSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_NLT); }
 	inline void CMPORDSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_ORD); }
 
-
-	// I don't think these exist
-	/*
-	void ANDSD(X64Reg regOp, OpArg arg);  
-	void ANDNSS(X64Reg regOp, OpArg arg); 
-	void ANDNSD(X64Reg regOp, OpArg arg); 
-	void ORSS(X64Reg regOp, OpArg arg);   
-	void ORSD(X64Reg regOp, OpArg arg);   
-	void XORSS(X64Reg regOp, OpArg arg);   
-	void XORSD(X64Reg regOp, OpArg arg);   
-	*/
-
 	// SSE/SSE2: Floating point packed arithmetic (x4 for float, x2 for double)
-	void ADDPS(X64Reg regOp, OpArg arg); 
-	void ADDPD(X64Reg regOp, OpArg arg); 
-	void SUBPS(X64Reg regOp, OpArg arg); 
-	void SUBPD(X64Reg regOp, OpArg arg); 
-	void CMPPS(X64Reg regOp, OpArg arg, u8 compare);  
+	void ADDPS(X64Reg regOp, OpArg arg);
+	void ADDPD(X64Reg regOp, OpArg arg);
+	void SUBPS(X64Reg regOp, OpArg arg);
+	void SUBPD(X64Reg regOp, OpArg arg);
+	void CMPPS(X64Reg regOp, OpArg arg, u8 compare);
 	void CMPPD(X64Reg regOp, OpArg arg, u8 compare);
 	void MULPS(X64Reg regOp, OpArg arg);
 	void MULPD(X64Reg regOp, OpArg arg);
@@ -519,8 +527,8 @@ public:
 	void RSQRTPS(X64Reg regOp, OpArg arg);
 
 	// SSE/SSE2: Floating point packed bitwise (x4 for float, x2 for double)
-	void ANDPS(X64Reg regOp, OpArg arg); 
-	void ANDPD(X64Reg regOp, OpArg arg); 
+	void ANDPS(X64Reg regOp, OpArg arg);
+	void ANDPD(X64Reg regOp, OpArg arg);
 	void ANDNPS(X64Reg regOp, OpArg arg);
 	void ANDNPD(X64Reg regOp, OpArg arg);
 	void ORPS(X64Reg regOp, OpArg arg);
@@ -529,9 +537,9 @@ public:
 	void XORPD(X64Reg regOp, OpArg arg);
 
 	// SSE/SSE2: Shuffle components. These are tricky - see Intel documentation.
-	void SHUFPS(X64Reg regOp, OpArg arg, u8 shuffle);  
-	void SHUFPD(X64Reg regOp, OpArg arg, u8 shuffle);  
-	
+	void SHUFPS(X64Reg regOp, OpArg arg, u8 shuffle);
+	void SHUFPD(X64Reg regOp, OpArg arg, u8 shuffle);
+
 	// SSE/SSE2: Useful alternative to shuffle in some cases.
 	void MOVDDUP(X64Reg regOp, OpArg arg);
 
@@ -549,18 +557,17 @@ public:
 	void UCOMISS(X64Reg regOp, OpArg arg);
 	void UCOMISD(X64Reg regOp, OpArg arg);
 
-	// SSE/SSE2: Moves. Use the right data type for your data to avoid slight penalties on some CPUs.
-
-	// Singles
+	// SSE/SSE2: Moves. Use the right data type for your data, in most cases.
 	void MOVAPS(X64Reg regOp, OpArg arg);
-	void MOVAPS(OpArg arg, X64Reg regOp);
-	void MOVUPS(X64Reg regOp, OpArg arg);
-	void MOVUPS(OpArg arg, X64Reg regOp);
-	// Doubles
 	void MOVAPD(X64Reg regOp, OpArg arg);
+	void MOVAPS(OpArg arg, X64Reg regOp);
 	void MOVAPD(OpArg arg, X64Reg regOp);
+
+	void MOVUPS(X64Reg regOp, OpArg arg);
 	void MOVUPD(X64Reg regOp, OpArg arg);
+	void MOVUPS(OpArg arg, X64Reg regOp);
 	void MOVUPD(OpArg arg, X64Reg regOp);
+
 	// Integers (NOTE: untested - I added these then it turned out I didn't have a use for them after all).
 	void MOVDQA(X64Reg regOp, OpArg arg);
 	void MOVDQA(OpArg arg, X64Reg regOp);
@@ -596,11 +603,11 @@ public:
 	void CVTDQ2PS(X64Reg regOp, OpArg arg);
 	void CVTPS2DQ(X64Reg regOp, OpArg arg);
 
+	void CVTTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
+	void CVTTPS2DQ(X64Reg regOp, OpArg arg);
 	void CVTSI2SS(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
-	void CVTTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTTSD2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
-	void CVTTPS2DQ(X64Reg regOp, OpArg arg);
 	void CVTTPD2DQ(X64Reg xregdest, OpArg arg);
 
 	// SSE2: Packed integer instructions
@@ -621,57 +628,57 @@ public:
 	void PMOVZXWD(X64Reg dest, const OpArg &arg);
 
 	void PAND(X64Reg dest, OpArg arg);
-	void PANDN(X64Reg dest, OpArg arg);   
-	void PXOR(X64Reg dest, OpArg arg);    
-	void POR(X64Reg dest, OpArg arg);     
+	void PANDN(X64Reg dest, OpArg arg);
+	void PXOR(X64Reg dest, OpArg arg);
+	void POR(X64Reg dest, OpArg arg);
 
 	void PADDB(X64Reg dest, OpArg arg);
-	void PADDW(X64Reg dest, OpArg arg);   
-	void PADDD(X64Reg dest, OpArg arg);   
-	void PADDQ(X64Reg dest, OpArg arg);   
+	void PADDW(X64Reg dest, OpArg arg);
+	void PADDD(X64Reg dest, OpArg arg);
+	void PADDQ(X64Reg dest, OpArg arg);
 
-	void PADDSB(X64Reg dest, OpArg arg);  
-	void PADDSW(X64Reg dest, OpArg arg);  
-	void PADDUSB(X64Reg dest, OpArg arg); 
-	void PADDUSW(X64Reg dest, OpArg arg); 
+	void PADDSB(X64Reg dest, OpArg arg);
+	void PADDSW(X64Reg dest, OpArg arg);
+	void PADDUSB(X64Reg dest, OpArg arg);
+	void PADDUSW(X64Reg dest, OpArg arg);
 
-	void PSUBB(X64Reg dest, OpArg arg);   
-	void PSUBW(X64Reg dest, OpArg arg);   
-	void PSUBD(X64Reg dest, OpArg arg);   
-	void PSUBQ(X64Reg dest, OpArg arg);   
+	void PSUBB(X64Reg dest, OpArg arg);
+	void PSUBW(X64Reg dest, OpArg arg);
+	void PSUBD(X64Reg dest, OpArg arg);
+	void PSUBQ(X64Reg dest, OpArg arg);
 
-	void PSUBSB(X64Reg dest, OpArg arg);  
-	void PSUBSW(X64Reg dest, OpArg arg);  
-	void PSUBUSB(X64Reg dest, OpArg arg); 
-	void PSUBUSW(X64Reg dest, OpArg arg); 
+	void PSUBSB(X64Reg dest, OpArg arg);
+	void PSUBSW(X64Reg dest, OpArg arg);
+	void PSUBUSB(X64Reg dest, OpArg arg);
+	void PSUBUSW(X64Reg dest, OpArg arg);
 
-	void PAVGB(X64Reg dest, OpArg arg);   
-	void PAVGW(X64Reg dest, OpArg arg);   
+	void PAVGB(X64Reg dest, OpArg arg);
+	void PAVGW(X64Reg dest, OpArg arg);
 
-	void PCMPEQB(X64Reg dest, OpArg arg); 
-	void PCMPEQW(X64Reg dest, OpArg arg); 
-	void PCMPEQD(X64Reg dest, OpArg arg); 
+	void PCMPEQB(X64Reg dest, OpArg arg);
+	void PCMPEQW(X64Reg dest, OpArg arg);
+	void PCMPEQD(X64Reg dest, OpArg arg);
 
-	void PCMPGTB(X64Reg dest, OpArg arg); 
-	void PCMPGTW(X64Reg dest, OpArg arg); 
-	void PCMPGTD(X64Reg dest, OpArg arg); 
+	void PCMPGTB(X64Reg dest, OpArg arg);
+	void PCMPGTW(X64Reg dest, OpArg arg);
+	void PCMPGTD(X64Reg dest, OpArg arg);
 
 	void PEXTRW(X64Reg dest, OpArg arg, u8 subreg);
 	void PINSRW(X64Reg dest, OpArg arg, u8 subreg);
 
-	void PMADDWD(X64Reg dest, OpArg arg); 
-	void PSADBW(X64Reg dest, OpArg arg);  
+	void PMADDWD(X64Reg dest, OpArg arg);
+	void PSADBW(X64Reg dest, OpArg arg);
 
-	void PMAXSW(X64Reg dest, OpArg arg);  
-	void PMAXUB(X64Reg dest, OpArg arg);  
-	void PMINSW(X64Reg dest, OpArg arg);  
-	void PMINUB(X64Reg dest, OpArg arg);  
+	void PMAXSW(X64Reg dest, OpArg arg);
+	void PMAXUB(X64Reg dest, OpArg arg);
+	void PMINSW(X64Reg dest, OpArg arg);
+	void PMINUB(X64Reg dest, OpArg arg);
 	// SSE4 has PMAXSB and PMINSB and PMAXUW and PMINUW too if we need them.
-	
+
 	void PMOVMSKB(X64Reg dest, OpArg arg);
+	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
 	void PSHUFB(X64Reg dest, OpArg arg);
 
-	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
 	void PSHUFLW(X64Reg dest, OpArg arg, u8 shuffle);
 
 	void PSRLW(X64Reg reg, int shift);
@@ -688,13 +695,19 @@ public:
 	void PSRAW(X64Reg reg, int shift);
 	void PSRAD(X64Reg reg, int shift);
 
+	// AVX
+	void VADDSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VSUBSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VMULSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VDIVSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VSQRTSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
 	void RTDSC();
 
 	// Utility functions
 	// The difference between this and CALL is that this aligns the stack
 	// where appropriate.
 	void ABI_CallFunction(const void *func);
-
 	template <typename T>
 	void ABI_CallFunction(T (*func)()) {
 		ABI_CallFunction((const void *)func);
@@ -703,10 +716,9 @@ public:
 	void ABI_CallFunction(const u8 *func) {
 		ABI_CallFunction((const void *)func);
 	}
-
 	void ABI_CallFunctionC16(const void *func, u16 param1);
 	void ABI_CallFunctionCC16(const void *func, u32 param1, u16 param2);
-	
+
 	// These only support u32 parameters, but that's enough for a lot of uses.
 	// These will destroy the 1 or 2 first "parameter regs".
 	void ABI_CallFunctionC(const void *func, u32 param1);
@@ -783,8 +795,7 @@ public:
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace();
 
-	bool IsInSpace(const u8 *ptr) const
-	{
+	bool IsInSpace(const u8 *ptr) const {
 		return ptr >= region && ptr < region + region_size;
 	}
 
@@ -792,13 +803,11 @@ public:
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
 	void WriteProtect();
 
-	void ResetCodePtr()
-	{
+	void ResetCodePtr() {
 		SetCodePtr(region);
 	}
 
-	size_t GetSpaceLeft() const
-	{
+	size_t GetSpaceLeft() const {
 		return region_size - (GetCodePtr() - region);
 	}
 
