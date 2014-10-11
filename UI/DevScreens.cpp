@@ -62,16 +62,19 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogConfigScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
