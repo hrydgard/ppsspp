@@ -178,9 +178,6 @@ public:
 
 	static const u32 FCR0_VALUE = 0x00003351;
 
-	void WriteFCR(int reg, int value);
-	u32 ReadFCR(int reg);
-
 	u8 VfpuWriteMask() const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
 	}

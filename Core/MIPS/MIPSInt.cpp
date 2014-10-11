@@ -527,12 +527,41 @@ namespace MIPSInt
 		int fs = _FS;
 		int rt = _RT;
 
-		switch((op>>21)&0x1f) 
-		{
-		case 0: if (rt != 0) R(rt) = FI(fs); break; //mfc1
-		case 2: if (rt != 0) R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
-		case 4: FI(fs) = R(rt);	break; //mtc1
-		case 6: currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
+		switch ((op>>21)&0x1f) {
+		case 0: //mfc1
+			if (rt != 0)
+				R(rt) = FI(fs);
+			break;
+
+		case 2: //cfc1
+			if (rt != 0) {
+				if (fs == 31) {
+					currentMIPS->fcr31 = (currentMIPS->fcr31 & ~(1<<23)) | ((currentMIPS->fpcond & 1)<<23);
+					R(rt) = currentMIPS->fcr31;
+				} else if (fs == 0) {
+					R(rt) = MIPSState::FCR0_VALUE;
+				} else {
+					WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", fs);
+				}
+				break;
+			}
+
+		case 4: //mtc1
+			FI(fs) = R(rt);
+			break;
+
+		case 6: //ctc1
+			{
+				u32 value = R(rt);
+				if (fs == 31) {
+					currentMIPS->fcr31 = value & 0x0181FFFF;
+					currentMIPS->fpcond = (value >> 23) & 1;
+				} else {
+					WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
+				}
+				DEBUG_LOG(CPU, "FCR%i written to, value %08x", fs, value);
+				break;
+			}
 		
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
@@ -818,14 +847,14 @@ namespace MIPSInt
 		static int reported = 0;
 		switch (op & 0x3F)
 		{
-		case 36:
+		case 36:  // mfic
 			if (!reported) {
 				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
 				WARN_LOG(CPU,"MFIC Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}
 			break;
-		case 38:
+		case 38:  // mtic
 			if (!reported) {
 				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
 				WARN_LOG(CPU,"MTIC Disable/Enable Interrupt CPU instruction");
