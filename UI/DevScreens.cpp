@@ -25,6 +25,7 @@
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
 #include "ext/disarm.h"
+#include "ext/udis86/udis86.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -61,16 +62,19 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogConfigScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
@@ -491,7 +495,19 @@ void JitCompareScreen::UpdateDisasm() {
 		rightDisasm_->Add(new TextView(targetDis[i]));
 	}
 #else
-	rightDisasm_->Add(new TextView("No x86 disassembler available"));
+	ud_t ud_obj;
+	ud_init(&ud_obj);
+#ifdef _M_X64
+	ud_set_mode(&ud_obj, 64);
+#endif
+	ud_set_pc(&ud_obj, (intptr_t)block->normalEntry);
+	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
+	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
+
+	ud_set_input_buffer(&ud_obj, block->normalEntry, block->codeSize);
+	while (ud_disassemble(&ud_obj) != 0) {
+		rightDisasm_->Add(new TextView(ud_insn_asm(&ud_obj)));
+	}
 #endif
 }
 

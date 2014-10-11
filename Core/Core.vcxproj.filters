@@ -55,6 +55,9 @@
     <Filter Include="MIPS\PPC">
       <UniqueIdentifier>{ac0e396a-6e16-4796-a0a0-b8ebf46ea74c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\udis86">
+      <UniqueIdentifier>{435eb15d-386c-44df-97b4-343a1d6524ec}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -532,6 +535,24 @@
     <ClCompile Include="HLE\sceUsbGps.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\itab.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\syn.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\syn-att.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\syn-intel.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\udis86.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\decode.c">
+      <Filter>Ext\udis86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -983,6 +1004,27 @@
     </ClInclude>
     <ClInclude Include="HLE\sceUsbGps.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\decode.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\extern.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\itab.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\syn.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\types.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\udint.h">
+      <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Unknown\Documents\projects\ppsspp\ext\udis86\udis86.h">
+      <Filter>Ext\udis86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
