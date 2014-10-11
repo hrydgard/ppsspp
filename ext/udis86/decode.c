@@ -544,7 +544,7 @@ decode_modrm_rm(struct ud         *u,
                 unsigned int       size)    /* operand size */
 
 {
-  size_t offset = 0;
+  unsigned int offset = 0;
   unsigned char mod, rm;
 
   /* get mod, r/m and reg fields */
@@ -1257,7 +1257,7 @@ ud_decode(struct ud *u)
   u->pc += u->inp_ctr;    /* move program counter by bytes decoded */
 
   /* return number of bytes disassembled. */
-  return u->inp_ctr;
+  return (unsigned int)u->inp_ctr;
 }
 
 /*

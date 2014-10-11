@@ -198,7 +198,7 @@ ud_insn_ptr(const struct ud* u)
 extern unsigned int 
 ud_insn_len(const struct ud* u) 
 {
-  return u->inp_ctr;
+  return (unsigned int)u->inp_ctr;
 }
 
 
