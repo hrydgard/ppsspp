@@ -46,6 +46,12 @@ SOURCES += $$P/ext/snappy/*.cpp
 HEADERS += $$P/ext/snappy/*.h
 INCLUDEPATH += $$P/ext/snappy
 
+# udis86
+
+SOURCES += $$P/ext/udis86/*.c
+HEADERS += $$P/ext/udis86/*.h
+INCLUDEPATH += $$P/ext/udis86
+
 # VJSON
 
 SOURCES += $$P/native/ext/vjson/json.cpp \

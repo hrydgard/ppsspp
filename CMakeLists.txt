@@ -359,6 +359,23 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
+add_library(udis86 STATIC
+	ext/udis86/decode.c
+	ext/udis86/decode.h
+	ext/udis86/extern.h
+	ext/udis86/itab.c
+	ext/udis86/itab.h
+	ext/udis86/syn-att.c
+	ext/udis86/syn-intel.c
+	ext/udis86/syn.c
+	ext/udis86/syn.h
+	ext/udis86/types.h
+	ext/udis86/udint.h
+	ext/udis86/udis86.c
+	ext/udis86/udis86.h
+)
+include_directories(ext/udis86)
+
 add_library(vjson STATIC
 	native/ext/vjson/json.cpp
 	native/ext/vjson/json.h
@@ -555,6 +572,7 @@ include_directories(ext/cityhash)
 if (NOT MSVC)
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
 		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
@@ -949,7 +967,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
