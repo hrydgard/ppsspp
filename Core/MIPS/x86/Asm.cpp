@@ -103,6 +103,14 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			dispatcherNoCheck = GetCodePtr();
 
+			// TODO: Find a less costly place to put this (or multiple..)
+#ifdef _M_X64
+			// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+			MOV(64, R(CTXREG), ImmPtr(&mips->f[0]));
+#else
+			MOV(32, R(CTXREG), ImmPtr(&mips->f[0]));
+#endif
+
 			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
