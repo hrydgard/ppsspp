@@ -26,6 +26,12 @@
 #error "Don't build this on arm."
 #endif
 
+#ifdef _M_X64
+#define PTRBITS 64
+#else
+#define PTRBITS 32
+#endif
+
 namespace Gen
 {
 
