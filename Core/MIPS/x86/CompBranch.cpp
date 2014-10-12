@@ -189,7 +189,12 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 			if (predictTakeBranch)
 				GetStateAndFlushAll(state);
 			else
+			{
+				// We need to get the state BEFORE the delay slot is compiled.
+				gpr.GetState(state.gpr);
+				fpr.GetState(state.fpr);
 				CompileDelaySlot(DELAYSLOT_FLUSH);
+			}
 		}
 
 		if (predictTakeBranch)
