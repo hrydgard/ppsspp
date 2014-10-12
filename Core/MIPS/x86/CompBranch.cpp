@@ -278,21 +278,25 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	if (jo.immBranches && gpr.IsImm(rs) && gpr.IsImm(rt) && js.numInstructions < jo.continueMaxInstructions)
-	{
+	bool immBranch = false;
+	bool immBranchNotTaken = false;
+	if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 		// The cc flags are opposites: when NOT to take the branch.
-		bool skipBranch;
 		s32 rsImm = (s32)gpr.GetImm(rs);
 		s32 rtImm = (s32)gpr.GetImm(rt);
 
 		switch (cc)
 		{
-		case CC_E: skipBranch = rsImm == rtImm; break;
-		case CC_NE: skipBranch = rsImm != rtImm; break;
-		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		case CC_E: immBranchNotTaken = rsImm == rtImm; break;
+		case CC_NE: immBranchNotTaken = rsImm != rtImm; break;
+		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
 		}
+		immBranch = true;
+	}
 
-		if (skipBranch)
+	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
+	{
+		if (immBranchNotTaken)
 		{
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
 			if (likely)
@@ -340,22 +344,26 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
-	if (jo.immBranches && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
-	{
+	bool immBranch = false;
+	bool immBranchNotTaken = false;
+	if (gpr.IsImm(rs)) {
 		// The cc flags are opposites: when NOT to take the branch.
-		bool skipBranch;
 		s32 imm = (s32)gpr.GetImm(rs);
 
 		switch (cc)
 		{
-		case CC_G: skipBranch = imm > 0; break;
-		case CC_GE: skipBranch = imm >= 0; break;
-		case CC_L: skipBranch = imm < 0; break;
-		case CC_LE: skipBranch = imm <= 0; break;
-		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		case CC_G: immBranchNotTaken = imm > 0; break;
+		case CC_GE: immBranchNotTaken = imm >= 0; break;
+		case CC_L: immBranchNotTaken = imm < 0; break;
+		case CC_LE: immBranchNotTaken = imm <= 0; break;
+		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
 		}
+		immBranch = true;
+	}
 
-		if (skipBranch)
+	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
+	{
+		if (immBranchNotTaken)
 		{
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
 			if (likely)
