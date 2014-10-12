@@ -115,7 +115,6 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
 			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
 			FixupBranch notfound = J_CC(CC_NZ);
-				// IDEA - we have 24 bits, why not just use offsets from base of code?
 				if (enableDebug)
 				{
 					ADD(32, M(&mips->debugCount), Imm8(1));

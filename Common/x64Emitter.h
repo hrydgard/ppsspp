@@ -216,6 +216,13 @@ inline OpArg Imm8 (u8 imm)  {return OpArg(imm, SCALE_IMM8);}
 inline OpArg Imm16(u16 imm) {return OpArg(imm, SCALE_IMM16);} //rarely used
 inline OpArg Imm32(u32 imm) {return OpArg(imm, SCALE_IMM32);}
 inline OpArg Imm64(u64 imm) {return OpArg(imm, SCALE_IMM64);}
+inline OpArg UImmAuto(u32 imm) {
+	return OpArg(imm, imm >= 128 ? SCALE_IMM32 : SCALE_IMM8);
+}
+inline OpArg SImmAuto(s32 imm) {
+	return OpArg(imm, (imm >= 128 || imm < -128) ? SCALE_IMM32 : SCALE_IMM8);
+}
+
 #ifdef _M_X64
 inline OpArg ImmPtr(const void *imm) {return Imm64((u64)imm);}
 #else
