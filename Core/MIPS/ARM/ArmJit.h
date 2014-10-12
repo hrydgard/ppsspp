@@ -192,8 +192,9 @@ private:
 
 	void WriteDownCount(int offset = 0);
 	void WriteDownCountR(ARMReg reg);
-	void ClearRoundingMode();
-	void SetRoundingMode();
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void UpdateRoundingMode();
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
 

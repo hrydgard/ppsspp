@@ -165,8 +165,9 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
-	void ClearRoundingMode(XEmitter *emitter = NULL);
-	void SetRoundingMode(XEmitter *emitter = NULL);
+	void RestoreRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void ApplyRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void UpdateRoundingMode(XEmitter *emitter = NULL);
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
@@ -227,6 +228,7 @@ private:
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
 	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
 
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
