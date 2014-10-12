@@ -427,6 +427,9 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView("no block"));
+
+	EventParams ignore = {0};
+	OnCurrentBlock(ignore);
 }
 
 #ifdef ARM
