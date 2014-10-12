@@ -538,7 +538,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
 	WriteDownCount(offset);
-	ClearRoundingMode();
+	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
 	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
@@ -558,7 +558,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&CallSyscall);
 	}
-	SetRoundingMode();
+	ApplyRoundingMode();
 	RestoreDowncount();
 
 	WriteSyscallExit();

@@ -681,7 +681,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
 	WriteDowncount(offset);
-	ClearRoundingMode();
+	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
 	// Skip the CallSyscall where possible.
@@ -691,7 +691,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	else
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
 
-	SetRoundingMode();
+	ApplyRoundingMode();
 	WriteSyscallExit();
 	js.compiling = false;
 }

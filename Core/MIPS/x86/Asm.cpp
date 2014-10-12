@@ -77,9 +77,9 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #endif
 
 	outerLoop = GetCodePtr();
-		jit->ClearRoundingMode(this);
+		jit->RestoreRoundingMode(this);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
-		jit->SetRoundingMode(this);
+		jit->ApplyRoundingMode(this);
 		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
@@ -134,9 +134,9 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
-			jit->ClearRoundingMode(this);
+			jit->RestoreRoundingMode(this);
 			ABI_CallFunction(&Jit);
-			jit->SetRoundingMode(this);
+			jit->ApplyRoundingMode(this);
 			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
@@ -146,12 +146,12 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
-	jit->ClearRoundingMode(this);
+	jit->RestoreRoundingMode(this);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
 	breakpointBailout = GetCodePtr();
-	jit->ClearRoundingMode(this);
+	jit->RestoreRoundingMode(this);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 }

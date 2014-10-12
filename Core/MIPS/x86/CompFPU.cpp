@@ -379,15 +379,15 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
 		if (fs == 31) {
-			// Must clear before setting, since SetRoundingMode() assumes it was cleared.
-			ClearRoundingMode();
+			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
+			RestoreRoundingMode();
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
 				MOV(32, M(&mips_->fcr31), Imm32(gpr.GetImm(rt) & 0x0181FFFF));
 				if ((gpr.GetImm(rt) & 0x1000003) == 0) {
 					// Default nearest / no-flush mode, just leave it cleared.
 				} else {
-					SetRoundingMode();
+					ApplyRoundingMode();
 				}
 			} else {
 				gpr.Lock(rt, MIPS_REG_FPCOND);
@@ -399,7 +399,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				MOV(32, M(&mips_->fcr31), gpr.R(rt));
 				AND(32, M(&mips_->fcr31), Imm32(0x0181FFFF));
 				gpr.UnlockAll();
-				SetRoundingMode();
+				ApplyRoundingMode();
 			}
 		} else {
 			Comp_Generic(op);

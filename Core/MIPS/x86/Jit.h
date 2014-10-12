@@ -165,8 +165,8 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
-	void ClearRoundingMode(XEmitter *emitter = NULL);
-	void SetRoundingMode(XEmitter *emitter = NULL);
+	void RestoreRoundingMode(XEmitter *emitter = NULL);
+	void ApplyRoundingMode(XEmitter *emitter = NULL);
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }

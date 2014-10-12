@@ -381,14 +381,14 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
 			MOVI2R(R0, (u32)entry->replaceFunc);
 			BL(R0);
 		}
-		SetRoundingMode();
+		ApplyRoundingMode();
 		WriteDownCountR(R0);
 	}
 
@@ -435,7 +435,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
 		MovToPC(SCRATCHREG1);
 
@@ -450,10 +450,10 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
-			SetRoundingMode();
+			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
-			SetRoundingMode();
+			ApplyRoundingMode();
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
@@ -472,12 +472,12 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	{
 		SaveDowncount();
 		// TODO: Perhaps keep the rounding mode for interp?
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);
-		SetRoundingMode();
+		ApplyRoundingMode();
 		RestoreDowncount();
 	}
 
@@ -547,7 +547,7 @@ void Jit::WriteDownCountR(ARMReg reg) {
 	}
 }
 
-void Jit::ClearRoundingMode() {
+void Jit::RestoreRoundingMode() {
 	if (g_Config.bSetRoundingMode) {
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand.
@@ -560,7 +560,7 @@ void Jit::ClearRoundingMode() {
 	}
 }
 
-void Jit::SetRoundingMode() {
+void Jit::ApplyRoundingMode() {
 	// NOTE: Must not destory R0.
 	if (g_Config.bSetRoundingMode) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
