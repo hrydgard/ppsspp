@@ -1204,19 +1204,19 @@ skip:
 			case 0x20:	// add
 			case 0x21:	// addu
 				info.hasRelevantAddress = true;
-				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+cpu->GetRegValue(0,MIPS_GET_RT(op));
+				info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+cpu->GetRegValue(0,MIPS_GET_RT(op));
 				break;
 			case 0x22:	// sub
 			case 0x23:	// subu
 				info.hasRelevantAddress = true;
-				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))-cpu->GetRegValue(0,MIPS_GET_RT(op));
+				info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))-cpu->GetRegValue(0,MIPS_GET_RT(op));
 				break;
 			}
 			break;
 		case 0x08:	// addi
 		case 0x09:	// adiu
 			info.hasRelevantAddress = true;
-			info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
+			info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
 			break;
 		}
 
@@ -1323,7 +1323,7 @@ skip:
 			info.dataAddress = rs + imm16;
 
 			info.hasRelevantAddress = true;
-			info.releventAddress = info.dataAddress;
+			info.relevantAddress = info.dataAddress;
 		}
 
 		return info;

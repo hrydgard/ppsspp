@@ -49,6 +49,17 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
+
+#define _XCR_XFEATURE_ENABLED_MASK 0
+static unsigned long long _xgetbv(unsigned int index)
+{
+	unsigned int eax, edx;
+	__asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+	return ((unsigned long long)edx << 32) | eax;
+}
+
+#else
+#define _XCR_XFEATURE_ENABLED_MASK 0
 #endif
 
 #if defined __FreeBSD__
@@ -172,6 +183,38 @@ void CPUInfo::Detect() {
 				bFMA = true;
 		}
 		if ((cpu_id[2] >> 25) & 1) bAES = true;
+
+		if ((cpu_id[3] >> 24) & 1)
+		{
+			// We can use FXSAVE.
+			bFXSR = true;
+		}
+
+		// AVX support requires 3 separate checks:
+		//  - Is the AVX bit set in CPUID?
+		//  - Is the XSAVE bit set in CPUID?
+		//  - XGETBV result has the XCR bit set.
+		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1))
+		{
+			if ((_xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0x6) == 0x6)
+			{
+				bAVX = true;
+				if ((cpu_id[2] >> 12) & 1)
+					bFMA = true;
+			}
+		}
+
+		if (max_std_fn >= 7)
+		{
+			do_cpuid(cpu_id, 0x00000007);
+			// careful; we can't enable AVX2 unless the XSAVE/XGETBV checks above passed
+			if ((cpu_id[1] >> 5) & 1)
+				bAVX2 = bAVX;
+			if ((cpu_id[1] >> 3) & 1)
+				bBMI1 = true;
+			if ((cpu_id[1] >> 8) & 1)
+				bBMI2 = true;
+		}
 	}
 	if (max_ex_fn >= 0x80000004) {
 		// Extract brand string
