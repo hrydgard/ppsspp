@@ -218,7 +218,7 @@ void Jit::FlushPrefixV()
 void Jit::WriteDowncount(int offset)
 {
 	const int downcount = js.downcountAmount + offset;
-	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
 void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
@@ -228,10 +228,10 @@ void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 	{
 		if (emitter == NULL)
 			emitter = this;
-		emitter->STMXCSR(M(&currentMIPS->temp));
+		emitter->STMXCSR(M(&mips_->temp));
 		// Clear the rounding mode and flush-to-zero bits back to 0.
-		emitter->AND(32, M(&currentMIPS->temp), Imm32(~(7 << 13)));
-		emitter->LDMXCSR(M(&currentMIPS->temp));
+		emitter->AND(32, M(&mips_->temp), Imm32(~(7 << 13)));
+		emitter->LDMXCSR(M(&mips_->temp));
 	}
 }
 
@@ -252,7 +252,7 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		if (!g_Config.bForceFlushToZero)
 			skip = emitter->J_CC(CC_Z);
 
-		emitter->STMXCSR(M(&currentMIPS->temp));
+		emitter->STMXCSR(M(&mips_->temp));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
 		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
@@ -262,18 +262,18 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		emitter->SetJumpTarget(skip2);
 
 		emitter->SHL(32, R(EAX), Imm8(13));
-		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
+		emitter->OR(32, M(&mips_->temp), R(EAX));
 
 		if (g_Config.bForceFlushToZero) {
-			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
 		} else {
 			emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
 			FixupBranch skip3 = emitter->J_CC(CC_Z);
-			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
 			emitter->SetJumpTarget(skip3);
 		}
 
-		emitter->LDMXCSR(M(&currentMIPS->temp));
+		emitter->LDMXCSR(M(&mips_->temp));
 
 		if (!g_Config.bForceFlushToZero)
 			emitter->SetJumpTarget(skip);
@@ -543,7 +543,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		SUB(32, M(&mips_->downcount), R(EAX));
 		ApplyRoundingMode();
 	}
 
@@ -582,7 +582,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
 			FlushAll();
-			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
+			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
 			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
@@ -601,10 +601,10 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
-			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-			SUB(32, M(&currentMIPS->downcount), R(EAX));
+			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
+			SUB(32, M(&mips_->downcount), R(EAX));
 			ApplyRoundingMode();
-			SUB(32, M(&currentMIPS->downcount), Imm8(0));
+			SUB(32, M(&mips_->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -707,7 +707,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		FixupBranch tooHigh = J_CC(CC_AE);
 
 		// Need to set neg flag again if necessary.
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		JMP(asm_.dispatcher, true);
 
 		SetJumpTarget(tooLow);
@@ -721,11 +721,11 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		if (g_Config.bIgnoreBadMemAccess)
 			CallProtectedFunction(Core_UpdateState, Imm32(CORE_ERROR));
 
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
 		SetJumpTarget(skip);
 
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		J_CC(CC_NE, asm_.dispatcher, true);
 	}
 	else

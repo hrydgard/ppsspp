@@ -650,7 +650,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
+		MOV(32, M(&mips_->pc), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
