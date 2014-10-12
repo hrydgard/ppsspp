@@ -94,22 +94,32 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_
 
 void Jit::DoState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1);
+	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(js.startDefaultPrefix);
+	if (s >= 2) {
+		p.Do(js.hasSetRounding);
+		js.lastSetRounding = 0;
+	} else {
+		js.hasSetRounding = 1;
+	}
 }
 
 // This is here so the savestate matches between jit and non-jit.
 void Jit::DoDummyState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1);
+	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
 
 	bool dummy = false;
 	p.Do(dummy);
+	if (s >= 2) {
+		dummy = true;
+		p.Do(dummy);
+	}
 }
 
 void Jit::FlushAll()
@@ -201,17 +211,28 @@ void Jit::Compile(u32 em_address) {
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
+	bool cleanSlate = false;
+
+	if (js.hasSetRounding && !js.lastSetRounding) {
+		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		// Won't loop, since hasSetRounding is only ever set to 1.
+		js.lastSetRounding = js.hasSetRounding;
+		cleanSlate = true;
+	}
+
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
 		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
 		js.LogPrefix();
 
+		// Let's try that one more time.  We won't get back here because we toggled the value.
 		js.startDefaultPrefix = false;
+		cleanSlate = true;
+	}
 
+	if (cleanSlate) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
-
-		// Let's try that one more time.  We won't get back here because we toggled the value.
 		Compile(em_address);
 	}
 }
@@ -547,8 +568,9 @@ void Jit::WriteDownCountR(ARMReg reg) {
 	}
 }
 
-void Jit::RestoreRoundingMode() {
-	if (g_Config.bSetRoundingMode) {
+void Jit::RestoreRoundingMode(bool force) {
+	// If the game has never set an interesting rounding mode, we can safely skip this.
+	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand.
 		// Also on ARM, we're always in flush-to-zero in C++, so stay that way.
@@ -560,9 +582,10 @@ void Jit::RestoreRoundingMode() {
 	}
 }
 
-void Jit::ApplyRoundingMode() {
+void Jit::ApplyRoundingMode(bool force) {
 	// NOTE: Must not destory R0.
-	if (g_Config.bSetRoundingMode) {
+	// If the game has never set an interesting rounding mode, we can safely skip this.
+	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
 		if (!g_Config.bForceFlushToZero) {
 			TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
@@ -604,6 +627,32 @@ void Jit::ApplyRoundingMode() {
 		ORR(SCRATCHREG1, SCRATCHREG1, Operand2(SCRATCHREG2, ST_LSL, 22));
 		VMSR(SCRATCHREG1);
 
+		POP(1, SCRATCHREG1);
+		SetJumpTarget(skip);
+	}
+}
+
+void Jit::UpdateRoundingMode() {
+	// NOTE: Must not destory R0.
+	if (g_Config.bSetRoundingMode) {
+		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
+		if (!g_Config.bForceFlushToZero) {
+			TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
+			AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+			SetCC(CC_NEQ);
+			ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
+			SetCC(CC_AL);
+			// We can only skip if the rounding mode is zero and flush is set.
+			CMP(SCRATCHREG2, Operand2(4));
+		} else {
+			ANDS(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+		}
+
+		FixupBranch skip = B_CC(CC_EQ);
+		PUSH(1, SCRATCHREG1);
+		MOVI2R(SCRATCHREG2, 1);
+		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
+		STRB(SCRATCHREG2, SCRATCHREG1, 0);
 		POP(1, SCRATCHREG1);
 		SetJumpTarget(skip);
 	}

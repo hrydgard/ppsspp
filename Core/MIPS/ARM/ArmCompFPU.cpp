@@ -420,6 +420,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
 			}
+			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {
 			Comp_Generic(op);

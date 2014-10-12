@@ -387,6 +387,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				if ((gpr.GetImm(rt) & 0x1000003) == 0) {
 					// Default nearest / no-flush mode, just leave it cleared.
 				} else {
+					UpdateRoundingMode();
 					ApplyRoundingMode();
 				}
 			} else {
@@ -399,6 +400,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				MOV(32, M(&mips_->fcr31), gpr.R(rt));
 				AND(32, M(&mips_->fcr31), Imm32(0x0181FFFF));
 				gpr.UnlockAll();
+				UpdateRoundingMode();
 				ApplyRoundingMode();
 			}
 		} else {

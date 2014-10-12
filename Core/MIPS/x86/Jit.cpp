@@ -145,22 +145,32 @@ Jit::~Jit() {
 
 void Jit::DoState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1);
+	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(js.startDefaultPrefix);
+	if (s >= 2) {
+		p.Do(js.hasSetRounding);
+		js.lastSetRounding = 0;
+	} else {
+		js.hasSetRounding = 1;
+	}
 }
 
 // This is here so the savestate matches between jit and non-jit.
 void Jit::DoDummyState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1);
+	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
 
 	bool dummy = false;
 	p.Do(dummy);
+	if (s >= 2) {
+		dummy = true;
+		p.Do(dummy);
+	}
 }
 
 
@@ -211,9 +221,10 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
-void Jit::RestoreRoundingMode(XEmitter *emitter)
+void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 {
-	if (g_Config.bSetRoundingMode)
+	// If the game has never set an interesting rounding mode, we can safely skip this.
+	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -224,9 +235,10 @@ void Jit::RestoreRoundingMode(XEmitter *emitter)
 	}
 }
 
-void Jit::ApplyRoundingMode(XEmitter *emitter)
+void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 {
-	if (g_Config.bSetRoundingMode)
+	// If the game has never set an interesting rounding mode, we can safely skip this.
+	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -261,6 +273,22 @@ void Jit::ApplyRoundingMode(XEmitter *emitter)
 
 		emitter->LDMXCSR(M(&currentMIPS->temp));
 
+		emitter->SetJumpTarget(skip);
+	}
+}
+
+void Jit::UpdateRoundingMode(XEmitter *emitter)
+{
+	if (g_Config.bSetRoundingMode)
+	{
+		if (emitter == NULL)
+			emitter = this;
+
+		// If it's only ever 0, we don't actually bother applying or restoring it.
+		// This is the most common situation.
+		emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
+		FixupBranch skip = emitter->J_CC(CC_Z);
+		emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
 		emitter->SetJumpTarget(skip);
 	}
 }
@@ -330,14 +358,28 @@ void Jit::Compile(u32 em_address)
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
+	bool cleanSlate = false;
+
+	if (js.hasSetRounding && !js.lastSetRounding) {
+		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		// Won't loop, since hasSetRounding is only ever set to 1.
+		js.lastSetRounding = js.hasSetRounding;
+		cleanSlate = true;
+	}
+
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "Uneaten prefix at end of block: %08x", js.compilerPC - 4);
-		js.startDefaultPrefix = false;
-		// Our assumptions are all wrong so it's clean-slate time.
-		ClearCache();
+		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
+		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
+		js.startDefaultPrefix = false;
+		cleanSlate = true;
+	}
+
+	if (cleanSlate) {
+		// Our assumptions are all wrong so it's clean-slate time.
+		ClearCache();
 		Compile(em_address);
 	}
 }
