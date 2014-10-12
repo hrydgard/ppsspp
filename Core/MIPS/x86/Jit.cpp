@@ -248,7 +248,9 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		// If it's 0, we don't actually bother setting.  This is the most common.
 		// We always use nearest as the default rounding mode with
 		// flush-to-zero disabled.
-		FixupBranch skip = emitter->J_CC(CC_Z);
+		FixupBranch skip;
+		if (!g_Config.bForceFlushToZero)
+			skip = emitter->J_CC(CC_Z);
 
 		emitter->STMXCSR(M(&currentMIPS->temp));
 
@@ -273,7 +275,8 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 
 		emitter->LDMXCSR(M(&currentMIPS->temp));
 
-		emitter->SetJumpTarget(skip);
+		if (!g_Config.bForceFlushToZero)
+			emitter->SetJumpTarget(skip);
 	}
 }
 
