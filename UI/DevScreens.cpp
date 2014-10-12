@@ -499,6 +499,8 @@ void JitCompareScreen::UpdateDisasm() {
 	ud_init(&ud_obj);
 #ifdef _M_X64
 	ud_set_mode(&ud_obj, 64);
+#else
+	ud_set_mode(&ud_obj, 32);
 #endif
 	ud_set_pc(&ud_obj, (intptr_t)block->normalEntry);
 	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
