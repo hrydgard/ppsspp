@@ -661,29 +661,35 @@ namespace MIPSAnalyst {
 		}
 	}
 
-	// Look forwards to find if a register is used again in this block.
-	// Don't think we use this yet.
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr) {
-		while (true) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			MIPSInfo info = MIPSGetInfo(op);
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+		u32 end = addr + instrs * sizeof(u32);
+		while (addr < end) {
+			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSInfo info = MIPSGetInfo(op);
+
+			// Yes, used.
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
 			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
 				return true;
-			if ((info & IS_CONDBRANCH))
-				return true; // could also follow both paths
-			if ((info & IS_JUMP))
-				return true; // could also follow the path
+
+			// Clobbered, so not used.
 			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return false; //the reg got clobbed! yay!
+				return false;
 			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return false; //the reg got clobbed! yay!
+				return false;
 			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return false; //the reg got clobbed! yay!
+				return false;
+
+			// Bail early if we hit a branch (could follow each path for continuing?)
+			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+				// Still need to check the delay slot (so end after it.)
+				// We'll assume likely are taken.
+				end = addr + 8;
+			}
 			addr += 4;
 		}
-		return true;
+		return false;
 	}
 
 	void HashFunctions() {
