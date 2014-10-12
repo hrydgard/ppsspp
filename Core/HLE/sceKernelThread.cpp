@@ -1148,10 +1148,8 @@ void __KernelThreadingInit()
 
 	// Yeah, this is straight out of JPCSP, I should be ashamed.
 	const static u32_le idleThreadCode[] = {
-		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800),
 		MIPS_MAKE_JR_RA(),
-		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
 		MIPS_MAKE_BREAK(0),
 	};
