@@ -141,6 +141,8 @@ public:
 
 	int GetNumBlocks() const { return num_blocks_; }
 
+	static int GetBlockExitSize();
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);

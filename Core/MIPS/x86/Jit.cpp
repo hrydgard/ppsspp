@@ -677,6 +677,14 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		// No blocklinking.
 		MOV(32, M(&mips_->pc), Imm32(destination));
 		JMP(asm_.dispatcher, true);
+
+		// Normally, exits are 15 bytes (MOV + &pc + dest + JMP + dest) on 64 or 32 bit.
+		// But just in case we somehow optimized, pad.
+		ptrdiff_t actualSize = GetWritableCodePtr() - b->exitPtrs[exit_num];
+		int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
+		for (int i = 0; i < pad; ++i) {
+			INT3();
+		}
 	}
 }
 

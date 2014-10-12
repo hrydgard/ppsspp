@@ -386,6 +386,12 @@ void JitBlockCache::LinkBlockExits(int i) {
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
 				emit.JMP(blocks_[destinationBlock].checkedEntry, true);
+
+				ptrdiff_t actualSize = emit.GetWritableCodePtr() - b.exitPtrs[e];
+				int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
+				for (int i = 0; i < pad; ++i) {
+					emit.INT3();
+				}
 #elif defined(PPC)
 				PPCXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks_[destinationBlock].checkedEntry);
@@ -397,9 +403,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 	}
 }
 
-using namespace std;
-
 void JitBlockCache::LinkBlock(int i) {
+	using namespace std;
 	LinkBlockExits(i);
 	JitBlock &b = blocks_[i];
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
@@ -415,6 +420,7 @@ void JitBlockCache::LinkBlock(int i) {
 }
 
 void JitBlockCache::UnlinkBlock(int i) {
+	using namespace std;
 	JitBlock &b = blocks_[i];
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	ppp = links_to_.equal_range(b.originalAddress);
@@ -547,7 +553,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address
 	// TODO: This may not be a safe assumption with jit continuing enabled.
-	std::map<pair<u32,u32>, u32>::iterator it1 = block_map_.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
+	std::map<std::pair<u32,u32>, u32>::iterator it1 = block_map_.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
 	while (it2 != block_map_.end() && it2->first.second < pAddr + length) {
 		DestroyBlock(it2->second, true);
 		it2++;
@@ -555,4 +561,16 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 
 	if (it1 != it2)
 		block_map_.erase(it1, it2);
+}
+
+int JitBlockCache::GetBlockExitSize() {
+#if defined(ARM)
+	// TODO
+	return 0;
+#elif defined(_M_IX86) || defined(_M_X64)
+	return 15;
+#elif defined(PPC)
+	// TODO
+	return 0;
+#endif
 }
