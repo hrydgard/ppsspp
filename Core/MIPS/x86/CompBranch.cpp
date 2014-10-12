@@ -224,7 +224,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 		{
 			// Take the branch
 			if (andLink)
-				MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
+				MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(js.compilerPC + 8));
 			CONDITIONAL_LOG_EXIT(targetAddr);
 			WriteExit(targetAddr, js.nextExit++);
 
@@ -259,7 +259,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 
 		// Take the branch
 		if (andLink)
-			MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
+			MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(js.compilerPC + 8));
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 
