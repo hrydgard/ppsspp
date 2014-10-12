@@ -266,6 +266,21 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 	}
 }
 
+void Jit::CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink) {
+	// Continuing is handled in the imm branch case... TODO: move it here?
+	if (taken && andLink)
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+	if (taken || !likely)
+		CompileDelaySlot(DELAYSLOT_FLUSH);
+	else
+		FlushAll();
+
+	const u32 destAddr = taken ? targetAddr : notTakenAddr;
+	CONDITIONAL_LOG_EXIT(destAddr);
+	WriteExit(destAddr, js.nextExit++);
+	js.compiling = false;
+}
+
 void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
@@ -279,9 +294,10 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	bool immBranch = false;
-	bool immBranchNotTaken = false;
+	bool immBranchTaken = false;
 	if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 		// The cc flags are opposites: when NOT to take the branch.
+		bool immBranchNotTaken;
 		s32 rsImm = (s32)gpr.GetImm(rs);
 		s32 rtImm = (s32)gpr.GetImm(rt);
 
@@ -292,11 +308,12 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
 		}
 		immBranch = true;
+		immBranchTaken = !immBranchNotTaken;
 	}
 
 	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
 	{
-		if (immBranchNotTaken)
+		if (!immBranchTaken)
 		{
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
 			if (likely)
@@ -316,21 +333,27 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
-	if (!likely && delaySlotIsNice)
-		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-	{
-		gpr.KillImmediate(rs, true, false);
-		CMP(32, gpr.R(rs), Imm32(0));
-	}
+	if (immBranch)
+		CompBranchExit(immBranchTaken, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
 	else
 	{
-		gpr.MapReg(rs, true, false);
-		CMP(32, gpr.R(rs), gpr.R(rt));
-	}
+		if (!likely && delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_NICE);
 
-	CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+		{
+			gpr.KillImmediate(rs, true, false);
+			CMP(32, gpr.R(rs), Imm32(0));
+		}
+		else
+		{
+			gpr.MapReg(rs, true, false);
+			CMP(32, gpr.R(rs), gpr.R(rt));
+		}
+
+		CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
+	}
 }
 
 void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool likely)
@@ -345,9 +368,10 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	bool immBranch = false;
-	bool immBranchNotTaken = false;
+	bool immBranchTaken = false;
 	if (gpr.IsImm(rs)) {
 		// The cc flags are opposites: when NOT to take the branch.
+		bool immBranchNotTaken;
 		s32 imm = (s32)gpr.GetImm(rs);
 
 		switch (cc)
@@ -359,11 +383,12 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
 		}
 		immBranch = true;
+		immBranchTaken = !immBranchNotTaken;
 	}
 
 	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
 	{
-		if (immBranchNotTaken)
+		if (!immBranchTaken)
 		{
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
 			if (likely)
@@ -386,13 +411,19 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
-	if (!likely && delaySlotIsNice)
-		CompileDelaySlot(DELAYSLOT_NICE);
 
-	gpr.MapReg(rs, true, false);
-	CMP(32, gpr.R(rs), Imm32(0));
+	if (immBranch)
+		CompBranchExit(immBranchTaken, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
+	else
+	{
+		if (!likely && delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_NICE);
 
-	CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, andLink);
+		gpr.MapReg(rs, true, false);
+		CMP(32, gpr.R(rs), Imm32(0));
+
+		CompBranchExits(cc, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, andLink);
+	}
 }
 
 
