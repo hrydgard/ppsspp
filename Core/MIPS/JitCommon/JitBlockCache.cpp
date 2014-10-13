@@ -596,6 +596,9 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 				break;
 			}
 		}
+		if (next == last) {
+			break;
+		}
 	}
 }
 
