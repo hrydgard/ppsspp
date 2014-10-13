@@ -168,9 +168,9 @@ bool Jit::PredictTakeBranch(u32 targetAddr, bool likely) {
 
 void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink) {
 	// We may want to try to continue along this branch a little while, to reduce reg flushing.
-	if (CanContinueBranch())
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	if (CanContinueBranch(predictTakeBranch ? targetAddr : notTakenAddr))
 	{
-		bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
 		if (predictTakeBranch)
 			cc = FlipCCFlag(cc);
 
@@ -586,7 +586,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		if (CanContinueJump(targetAddr))
 		{
 			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
@@ -611,7 +611,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		// Save return address - might be overwritten by delay slot.
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		if (CanContinueJump(targetAddr))
 		{
 			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
@@ -682,7 +682,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
-		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
+		if (gpr.IsImm(rs) && CanContinueJump(gpr.GetImm(rs)))
 		{
 			AddContinuedBlock(gpr.GetImm(rs));
 			// Account for the increment in the loop.
