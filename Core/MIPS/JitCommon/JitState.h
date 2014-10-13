@@ -64,6 +64,8 @@ namespace MIPSComp {
 
 		u32 compilerPC;
 		u32 blockStart;
+		u32 lastContinuedPC;
+		u32 initialBlockSize;
 		int nextExit;
 		bool cancel;
 		bool inDelaySlot;

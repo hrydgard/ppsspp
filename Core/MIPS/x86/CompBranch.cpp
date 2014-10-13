@@ -168,9 +168,9 @@ bool Jit::PredictTakeBranch(u32 targetAddr, bool likely) {
 
 void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink) {
 	// We may want to try to continue along this branch a little while, to reduce reg flushing.
-	if (CanContinueBranch())
+	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
+	if (CanContinueBranch(predictTakeBranch ? targetAddr : notTakenAddr))
 	{
-		bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
 		if (predictTakeBranch)
 			cc = FlipCCFlag(cc);
 
@@ -215,6 +215,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 			if (likely)
 				CompileDelaySlot(DELAYSLOT_NICE);
 
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -224,7 +225,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 		{
 			// Take the branch
 			if (andLink)
-				MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
+				MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(js.compilerPC + 8));
 			CONDITIONAL_LOG_EXIT(targetAddr);
 			WriteExit(targetAddr, js.nextExit++);
 
@@ -259,7 +260,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 
 		// Take the branch
 		if (andLink)
-			MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
+			MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(js.compilerPC + 8));
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 
@@ -328,6 +329,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 
 		// Branch taken.  Always compile the delay slot, and then go to dest.
 		CompileDelaySlot(DELAYSLOT_NICE);
+		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -406,6 +408,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		if (andLink)
 			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 
+		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -583,8 +586,9 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		if (CanContinueJump(targetAddr))
 		{
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -607,8 +611,9 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		// Save return address - might be overwritten by delay slot.
 		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
+		if (CanContinueJump(targetAddr))
 		{
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -650,7 +655,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.MapReg(rs, true, false);
-		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
+		MOV(32, M(&mips_->pc), gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -677,8 +682,9 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
-		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
+		if (gpr.IsImm(rs) && CanContinueJump(gpr.GetImm(rs)))
 		{
+			AddContinuedBlock(gpr.GetImm(rs));
 			// Account for the increment in the loop.
 			js.compilerPC = gpr.GetImm(rs) - 4;
 			// In case the delay slot was a break or something.

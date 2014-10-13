@@ -116,8 +116,6 @@ static void JitLogMiss(MIPSOpcode op)
 JitOptions::JitOptions()
 {
 	enableBlocklink = true;
-	// WARNING: These options don't work properly with cache clearing.
-	// Need to find a smart way to handle before enabling.
 	immBranches = false;
 	continueBranches = false;
 	continueJumps = false;
@@ -218,7 +216,7 @@ void Jit::FlushPrefixV()
 void Jit::WriteDowncount(int offset)
 {
 	const int downcount = js.downcountAmount + offset;
-	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
 void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
@@ -228,10 +226,10 @@ void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 	{
 		if (emitter == NULL)
 			emitter = this;
-		emitter->STMXCSR(M(&currentMIPS->temp));
+		emitter->STMXCSR(M(&mips_->temp));
 		// Clear the rounding mode and flush-to-zero bits back to 0.
-		emitter->AND(32, M(&currentMIPS->temp), Imm32(~(7 << 13)));
-		emitter->LDMXCSR(M(&currentMIPS->temp));
+		emitter->AND(32, M(&mips_->temp), Imm32(~(7 << 13)));
+		emitter->LDMXCSR(M(&mips_->temp));
 	}
 }
 
@@ -252,7 +250,7 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		if (!g_Config.bForceFlushToZero)
 			skip = emitter->J_CC(CC_Z);
 
-		emitter->STMXCSR(M(&currentMIPS->temp));
+		emitter->STMXCSR(M(&mips_->temp));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
 		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
@@ -262,18 +260,18 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		emitter->SetJumpTarget(skip2);
 
 		emitter->SHL(32, R(EAX), Imm8(13));
-		emitter->OR(32, M(&currentMIPS->temp), R(EAX));
+		emitter->OR(32, M(&mips_->temp), R(EAX));
 
 		if (g_Config.bForceFlushToZero) {
-			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
 		} else {
 			emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
 			FixupBranch skip3 = emitter->J_CC(CC_Z);
-			emitter->OR(32, M(&currentMIPS->temp), Imm32(1 << 15));
+			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
 			emitter->SetJumpTarget(skip3);
 		}
 
-		emitter->LDMXCSR(M(&currentMIPS->temp));
+		emitter->LDMXCSR(M(&mips_->temp));
 
 		if (!g_Config.bForceFlushToZero)
 			emitter->SetJumpTarget(skip);
@@ -396,6 +394,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
+	js.lastContinuedPC = 0;
+	js.initialBlockSize = 0;
 	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
@@ -466,8 +466,25 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	b->originalSize = js.numInstructions;
+	if (js.lastContinuedPC == 0)
+		b->originalSize = js.numInstructions;
+	else
+	{
+		// We continued at least once.  Add the last proxy and set the originalSize correctly.
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		b->originalSize = js.initialBlockSize;
+	}
 	return b->normalEntry;
+}
+
+void Jit::AddContinuedBlock(u32 dest)
+{
+	// The first block is the root block.  When we continue, we create proxy blocks after that.
+	if (js.lastContinuedPC == 0)
+		js.initialBlockSize = js.numInstructions;
+	else
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+	js.lastContinuedPC = dest;
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
@@ -543,7 +560,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		RestoreRoundingMode();
 		ABI_CallFunction(entry->replaceFunc);
-		SUB(32, M(&currentMIPS->downcount), R(EAX));
+		SUB(32, M(&mips_->downcount), R(EAX));
 		ApplyRoundingMode();
 	}
 
@@ -551,8 +568,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	// TODO: Correctly determine the size of this block.
-	blocks.ProxyBlock(js.blockStart, dest, 4, GetCodePtr());
+	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
 	return true;
 }
 
@@ -582,7 +598,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
 			FlushAll();
-			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
+			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
 			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
@@ -601,10 +617,10 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 		} else {
-			MOV(32, R(ECX), M(&currentMIPS->r[MIPS_REG_RA]));
-			SUB(32, M(&currentMIPS->downcount), R(EAX));
+			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
+			SUB(32, M(&mips_->downcount), R(EAX));
 			ApplyRoundingMode();
-			SUB(32, M(&currentMIPS->downcount), Imm8(0));
+			SUB(32, M(&mips_->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
 		}
@@ -677,6 +693,14 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		// No blocklinking.
 		MOV(32, M(&mips_->pc), Imm32(destination));
 		JMP(asm_.dispatcher, true);
+
+		// Normally, exits are 15 bytes (MOV + &pc + dest + JMP + dest) on 64 or 32 bit.
+		// But just in case we somehow optimized, pad.
+		ptrdiff_t actualSize = GetWritableCodePtr() - b->exitPtrs[exit_num];
+		int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
+		for (int i = 0; i < pad; ++i) {
+			INT3();
+		}
 	}
 }
 
@@ -707,7 +731,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		FixupBranch tooHigh = J_CC(CC_AE);
 
 		// Need to set neg flag again if necessary.
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		JMP(asm_.dispatcher, true);
 
 		SetJumpTarget(tooLow);
@@ -721,11 +745,11 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		if (g_Config.bIgnoreBadMemAccess)
 			CallProtectedFunction(Core_UpdateState, Imm32(CORE_ERROR));
 
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
 		SetJumpTarget(skip);
 
-		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm32(0));
 		J_CC(CC_NE, asm_.dispatcher, true);
 	}
 	else
