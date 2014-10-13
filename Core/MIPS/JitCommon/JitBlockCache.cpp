@@ -149,6 +149,7 @@ int JitBlockCache::AllocateBlock(u32 startAddress) {
 	int num = GetBlockNumberFromStartAddress(startAddress, false);
 	if (num >= 0) {
 		if (blocks_[num].IsPureProxy()) {
+			RemoveBlockMap(num);
 			blocks_[num].invalid = true;
 			b.proxyFor = new std::vector<u32>();
 			*b.proxyFor = *blocks_[num].proxyFor;
@@ -200,7 +201,23 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	b.normalEntry = codePtr;
 	b.checkedEntry = codePtr;
 	proxyBlockIndices_.push_back(num_blocks_);
+	AddBlockMap(num_blocks_);
+
 	num_blocks_++; //commit the current block
+}
+
+void JitBlockCache::AddBlockMap(int block_num) {
+	const JitBlock &b = blocks_[block_num];
+	// Convert the logical address to a physical address for the block map
+	// Yeah, this'll work fine for PSP too I think.
+	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
+	block_map_[std::make_pair(pAddr + 4 * b.originalSize, pAddr)] = block_num;
+}
+
+void JitBlockCache::RemoveBlockMap(int block_num) {
+	const JitBlock &b = blocks_[block_num];
+	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
+	block_map_.erase(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
 }
 
 static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
@@ -215,12 +232,9 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
 	Memory::Write_Opcode_JIT(b.originalAddress, opcode);
 
-	// Convert the logical address to a physical address for the block map
-	// Yeah, this'll work fine for PSP too I think.
-	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
+	AddBlockMap(block_num);
 
 	u32 latestExit = 0;
-	block_map_[std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr)] = block_num;
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
@@ -479,6 +493,8 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 		return;
 	}
 	JitBlock *b = &blocks_[block_num];
+	// No point it being in there anymore.
+	RemoveBlockMap(block_num);
 
 	// Pure proxy blocks always point directly to a real block, there should be no chains of
 	// proxy-only blocks pointing to proxy-only blocks.
@@ -548,19 +564,31 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 
 void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	// Convert the logical address to a physical address for the block map
-	u32 pAddr = address & 0x1FFFFFFF;
+	const u32 pAddr = address & 0x1FFFFFFF;
+	const u32 pEnd = pAddr + length;
 
-	// destroy JIT blocks
-	// !! this works correctly under assumption that any two overlapping blocks end at the same address
-	// TODO: This may not be a safe assumption with jit continuing enabled.
-	std::map<std::pair<u32,u32>, u32>::iterator it1 = block_map_.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
-	while (it2 != block_map_.end() && it2->first.second < pAddr + length) {
-		DestroyBlock(it2->second, true);
-		it2++;
+	// Blocks may start and end in overlapping ways, and destroying one invalidates iterators.
+	// So after destroying one, we start over.
+	while (true) {
+		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
+		// End is inclusive, so a matching end won't be included.
+		auto last = block_map_.lower_bound(std::make_pair(pEnd, 0));
+		if (next == last) {
+			// It wasn't in the map at all (or anymore.)
+			// This includes if both were end(), which should be uncommon.
+			break;
+		}
+		for (; next != last; ++next) {
+			const u32 blockStart = next->first.second;
+			const u32 blockEnd = next->first.first;
+			if (blockStart < pEnd && blockEnd > pAddr) {
+				DestroyBlock(next->second, true);
+				// Our iterator is now invalid.  Break and search again.
+				// Most of the time there shouldn't be a bunch of matching blocks.
+				break;
+			}
+		}
 	}
-
-	if (it1 != it2)
-		block_map_.erase(it1, it2);
 }
 
 int JitBlockCache::GetBlockExitSize() {

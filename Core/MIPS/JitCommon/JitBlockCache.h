@@ -148,6 +148,9 @@ private:
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
 
+	void AddBlockMap(int block_num);
+	void RemoveBlockMap(int block_num);
+
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
