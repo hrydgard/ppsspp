@@ -156,7 +156,7 @@ private:
 	MIPSState *mips_;
 	CodeBlock *codeBlock_;
 	JitBlock *blocks_;
-	std::vector<int> proxyBlockIndices_;
+	std::multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_;
 	std::multimap<u32, int> links_to_;

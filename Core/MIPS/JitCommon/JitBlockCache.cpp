@@ -123,7 +123,7 @@ void JitBlockCache::Clear() {
 		DestroyBlock(i, false);
 	links_to_.clear();
 	block_map_.clear();
-	proxyBlockIndices_.clear();
+	proxyBlockMap_.clear();
 	num_blocks_ = 0;
 
 	blockMemRanges_[JITBLOCK_RANGE_SCRATCH] = std::make_pair(0xFFFFFFFF, 0x00000000);
@@ -176,7 +176,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	// instead of creating a new block.
 	int num = GetBlockNumberFromStartAddress(startAddress, false);
 	if (num != -1) {
-		INFO_LOG(HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
+		DEBUG_LOG(HLE, "Adding proxy root %08x to block at %08x", rootAddress, startAddress);
 		if (!blocks_[num].proxyFor) {
 			blocks_[num].proxyFor = new std::vector<u32>();
 		}
@@ -200,7 +200,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
 	b.checkedEntry = codePtr;
-	proxyBlockIndices_.push_back(num_blocks_);
+	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
 	AddBlockMap(num_blocks_);
 
 	num_blocks_++; //commit the current block
@@ -337,9 +337,10 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly)
 	int bl = GetBlockNumberFromEmuHackOp(inst);
 	if (bl < 0) {
 		if (!realBlocksOnly) {
-			// Wasn't an emu hack op, look through proxyBlockIndices_.
-			for (size_t i = 0; i < proxyBlockIndices_.size(); i++) {
-				int blockIndex = proxyBlockIndices_[i];
+			// Wasn't an emu hack op, look through proxyBlockMap_.
+			auto range = proxyBlockMap_.equal_range(addr);
+			for (auto it = range.first; it != range.second; ++it) {
+				const int blockIndex = it->second;
 				if (blocks_[blockIndex].originalAddress == addr && !blocks_[blockIndex].proxyFor && !blocks_[blockIndex].invalid)
 					return blockIndex;
 			}
@@ -513,7 +514,14 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 		delete b->proxyFor;
 		b->proxyFor = 0;
 	}
-	// TODO: Remove from proxyBlockIndices_.
+	auto range = proxyBlockMap_.equal_range(b->originalAddress);
+	for (auto it = range.first; it != range.second; ++it) {
+		if (it->second == block_num) {
+			// Found it.  Delete and bail.
+			proxyBlockMap_.erase(it);
+			break;
+		}
+	}
 
 	// TODO: Handle the case when there's a proxy block and a regular JIT block at the same location.
 	// In this case we probably "leak" the proxy block currently (no memory leak but it'll stay enabled).
