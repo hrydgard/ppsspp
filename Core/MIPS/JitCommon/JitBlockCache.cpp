@@ -217,7 +217,18 @@ void JitBlockCache::AddBlockMap(int block_num) {
 void JitBlockCache::RemoveBlockMap(int block_num) {
 	const JitBlock &b = blocks_[block_num];
 	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
-	block_map_.erase(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
+	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
+	if (it != block_map_.end() && it->second == block_num) {
+		block_map_.erase(it);
+	} else {
+		// It wasn't in there, or it has the wrong key.  Let's search...
+		for (auto it = block_map_.begin(); it != block_map_.end(); ++it) {
+			if (it->second == block_num) {
+				block_map_.erase(it);
+				break;
+			}
+		}
+	}
 }
 
 static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
