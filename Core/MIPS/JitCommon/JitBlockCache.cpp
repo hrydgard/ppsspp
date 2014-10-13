@@ -119,11 +119,11 @@ void JitBlockCache::Shutdown() {
 // This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
 void JitBlockCache::Clear() {
+	block_map_.clear();
+	proxyBlockMap_.clear();
 	for (int i = 0; i < num_blocks_; i++)
 		DestroyBlock(i, false);
 	links_to_.clear();
-	block_map_.clear();
-	proxyBlockMap_.clear();
 	num_blocks_ = 0;
 
 	blockMemRanges_[JITBLOCK_RANGE_SCRATCH] = std::make_pair(0xFFFFFFFF, 0x00000000);
@@ -216,7 +216,11 @@ void JitBlockCache::AddBlockMap(int block_num) {
 
 void JitBlockCache::RemoveBlockMap(int block_num) {
 	const JitBlock &b = blocks_[block_num];
-	u32 pAddr = b.originalAddress & 0x1FFFFFFF;
+	if (b.invalid) {
+		return;
+	}
+
+	const u32 pAddr = b.originalAddress & 0x1FFFFFFF;
 	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
 	if (it != block_map_.end() && it->second == block_num) {
 		block_map_.erase(it);
