@@ -193,6 +193,7 @@ private:
 		CompileDelaySlot(flags, &state);
 	}
 	void EatInstruction(MIPSOpcode op);
+	void AddContinuedBlock(u32 dest);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(X64Reg reg);

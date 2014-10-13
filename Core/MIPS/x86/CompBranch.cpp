@@ -215,6 +215,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 			if (likely)
 				CompileDelaySlot(DELAYSLOT_NICE);
 
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -328,6 +329,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 
 		// Branch taken.  Always compile the delay slot, and then go to dest.
 		CompileDelaySlot(DELAYSLOT_NICE);
+		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -406,6 +408,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		if (andLink)
 			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
 
+		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
 		// In case the delay slot was a break or something.
@@ -585,6 +588,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
 		{
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -609,6 +613,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions)
 		{
+			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			js.compilerPC = targetAddr - 4;
 			// In case the delay slot was a break or something.
@@ -679,6 +684,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions)
 		{
+			AddContinuedBlock(gpr.GetImm(rs));
 			// Account for the increment in the loop.
 			js.compilerPC = gpr.GetImm(rs) - 4;
 			// In case the delay slot was a break or something.

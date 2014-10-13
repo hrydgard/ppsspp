@@ -116,8 +116,6 @@ static void JitLogMiss(MIPSOpcode op)
 JitOptions::JitOptions()
 {
 	enableBlocklink = true;
-	// WARNING: These options don't work properly with cache clearing.
-	// Need to find a smart way to handle before enabling.
 	immBranches = false;
 	continueBranches = false;
 	continueJumps = false;
@@ -396,6 +394,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
+	js.lastContinuedPC = 0;
+	js.initialBlockSize = 0;
 	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
@@ -466,8 +466,25 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	b->originalSize = js.numInstructions;
+	if (js.lastContinuedPC == 0)
+		b->originalSize = js.numInstructions;
+	else
+	{
+		// We continued at least once.  Add the last proxy and set the originalSize correctly.
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		b->originalSize = js.initialBlockSize;
+	}
 	return b->normalEntry;
+}
+
+void Jit::AddContinuedBlock(u32 dest)
+{
+	// The first block is the root block.  When we continue, we create proxy blocks after that.
+	if (js.lastContinuedPC == 0)
+		js.initialBlockSize = js.numInstructions;
+	else
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+	js.lastContinuedPC = dest;
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
