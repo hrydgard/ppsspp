@@ -197,6 +197,22 @@ void EGL_Close() {
 }
 #endif
 
+int getDisplayNumber(void)
+{
+    int displayNumber = 0;
+    char * displayNumberStr;
+
+    //get environment
+    displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
+
+    if (displayNumberStr)
+    {
+      displayNumber = atoi(displayNumberStr);
+    }
+
+    return displayNumber;
+}
+
 // Simple implementations of System functions
 
 
@@ -503,7 +519,9 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
-	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, pixel_xres, pixel_yres, mode);
+	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()),\
+					SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
+
 	if (g_Screen == NULL) {
 		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		SDL_Quit();

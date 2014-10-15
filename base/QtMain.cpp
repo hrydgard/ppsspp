@@ -204,8 +204,15 @@ int main(int argc, char *argv[])
 #endif
 	savegame_dir += "/";
 	assets_dir += "/";
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE");
-
+	
+	bool fullscreenCLI=false;
+	for (int i = 1; i < argc; i++) 
+	{
+		if (!strcmp(argv[i],"--fullscreen"))
+			fullscreenCLI=true;
+	}
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE",fullscreenCLI);
+	
 	int ret = mainInternal(a);
 
 #ifndef MOBILE_DEVICE
