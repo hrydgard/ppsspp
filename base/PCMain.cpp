@@ -15,9 +15,6 @@
 #endif
 
 #include "SDL.h"
-#include "SDL_timer.h"
-#include "SDL_audio.h"
-#include "SDL_video.h"
 #ifndef _WIN32
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
@@ -50,7 +47,7 @@ GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 #endif
 
-static SDL_Surface* g_Screen        = NULL;
+static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
 static int g_QuitRequested = 0;
 
@@ -59,16 +56,24 @@ static int g_DesktopHeight = 0;
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
+
+#if !defined(USING_FBDEV)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#endif
+
 #include "SDL_syswm.h"
 #include "math.h"
 
-static EGLDisplay          g_eglDisplay    = NULL;
-static EGLContext          g_eglContext    = NULL;
-static EGLSurface          g_eglSurface    = NULL;
-static Display*            g_Display       = NULL;
-static NativeWindowType    g_Window        = (NativeWindowType)NULL;
+static EGLDisplay               g_eglDisplay    = NULL;
+static EGLContext               g_eglContext    = NULL;
+static EGLSurface               g_eglSurface    = NULL;
+#ifdef USING_FBDEV
+static EGLNativeDisplayType     g_Display       = NULL;
+#else
+static Display*                 g_Display       = NULL;
+#endif
+static NativeWindowType         g_Window        = (NativeWindowType)NULL;
 
 int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	EGLenum error;
@@ -144,13 +149,15 @@ int8_t EGL_Init() {
 	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
-	// Get the SDL window handle
+#if !defined(USING_FBDEV)
+	//Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
 	if (SDL_GetWMInfo(&sysInfo) <= 0) {
 		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
 		return 1;
 	}
+#endif
 
 #ifdef USING_FBDEV
 	g_Window = (NativeWindowType)NULL;
@@ -180,7 +187,9 @@ void EGL_Close() {
 		g_eglDisplay = NULL;
 	}
 	if (g_Display != NULL) {
+#if !defined(USING_FBDEV)
 		XCloseDisplay(g_Display);
+#endif
 		g_Display = NULL;
 	}
 	g_eglSurface = NULL;
@@ -188,69 +197,19 @@ void EGL_Close() {
 }
 #endif
 
-//Dual Head Support
-bool verifyIsNumber(char * string)
-{
-    int x = 0;
-    int len;
-    
-    if (string == NULL)
-    {
-      return false;
-    }
-    
-    len = strlen(string);
-
-    while(x < len) {
-           if(!isdigit(*(string+x)))
-           return false;
-           ++x;
-    }
-    return true;
-}
-
-int getNumVideoDisplays(void)
-{
-  
-#ifdef USESDL2
-  #warning "sdl2 code"
-  return SDL_GetNumVideoDisplays();
-#else
-  #warning "sdl1.2 code"
-  return 0;
-#endif
-
-}
-
-//Dual Head Support
 int getDisplayNumber(void)
 {
-    int displayNumber;
-    long tempValue = 0;
+    int displayNumber = 0;
     char * displayNumberStr;
-    
-    // setup default display
-    displayNumber = 0;
-    
+
     //get environment
     displayNumberStr=getenv("SDL_VIDEO_FULLSCREEN_HEAD");
-    
-    // check if a valid number was found
-    if(verifyIsNumber(displayNumberStr))
-    {
-      // a valid number was found
 
-      //convert to integer
-      tempValue = atoi(displayNumberStr);
-      
-      //check if larger equal zero and less display numbers 
-      if ((tempValue >=0) && (tempValue < getNumVideoDisplays())) 
-      {
-          // check passed
-          displayNumber = tempValue;
-      }
+    if (displayNumberStr)
+    {
+      displayNumber = atoi(displayNumberStr);
     }
-    
+
     return displayNumber;
 }
 
@@ -417,23 +376,8 @@ void ToggleFullScreenIfFlagSet() {
 	if (g_ToggleFullScreenNextFrame) {
 		g_ToggleFullScreenNextFrame = false;
 
-#if 1
-		pixel_xres = g_DesktopWidth;
-		pixel_yres = g_DesktopHeight;
-		dp_xres = (float)pixel_xres;
-		dp_yres = (float)pixel_yres;
-
-		int flags = g_Screen->flags; // Save the current flags in case toggling fails
-		g_Screen = SDL_SetVideoMode(g_DesktopWidth, g_DesktopHeight, 0, g_Screen->flags ^ SDL_FULLSCREEN); // Toggles FullScreen Mode
-		if (g_Screen == NULL) {
-			g_Screen = SDL_SetVideoMode(0, 0, 0, flags); // If toggle FullScreen failed, then switch back
-		}
-		if (g_Screen == NULL) {
-			exit(1); // If you can't switch back for some reason, then epic fail
-		}
-
-		NativeResized();
-#endif
+		Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+		SDL_SetWindowFullscreen(g_Screen, window_flags ^ SDL_WINDOW_FULLSCREEN_DESKTOP);
 	}
 }
 
@@ -452,28 +396,37 @@ int main(int argc, char *argv[]) {
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
 	net::Init();
-#ifdef __APPLE__
-	// Make sure to request a somewhat modern GL context at least - the
-	// latest supported by MacOSX (really, really sad...)
-	// Requires SDL 2.0
-	// We really should upgrade to SDL 2.0 soon.
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-#endif
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
+
+#ifdef __APPLE__
+	// Make sure to request a somewhat modern GL context at least - the
+	// latest supported by MacOSX (really, really sad...)
+	// Requires SDL 2.0
+	// We really should upgrade to SDL 2.0 soon.
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+#endif
+
 #ifdef USING_EGL
 	if (EGL_Open())
 		return 1;
 #endif
 
 	// Get the video info before doing anything else, so we don't get skewed resolution results.
-	const SDL_VideoInfo* desktopVideoInfo = SDL_GetVideoInfo();
-	g_DesktopWidth = desktopVideoInfo->current_w;
-	g_DesktopHeight = desktopVideoInfo->current_h;
+	// TODO: support multiple displays correctly
+	SDL_DisplayMode displayMode;
+	int should_be_zero = SDL_GetCurrentDisplayMode(0, &displayMode);
+	if (should_be_zero != 0) {
+		fprintf(stderr, "Could not get display mode: %s\n", SDL_GetError());
+		return 1;
+	}
+	g_DesktopWidth = displayMode.w;
+	g_DesktopHeight = displayMode.h;
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -481,13 +434,13 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
+	SDL_GL_SetSwapInterval(1);
 
-	int mode;
+	Uint32 mode;
 #ifdef USING_GLES2
 	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
 #else
-	mode = SDL_OPENGL | SDL_RESIZABLE;
+	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 #endif
 	int set_xres = -1;
 	int set_yres = -1;
@@ -498,7 +451,7 @@ int main(int argc, char *argv[]) {
 
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
-			mode |= SDL_FULLSCREEN;
+			mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		if (set_xres == -2) {
 			set_xres = parseInt(argv[i]);
 		} else if (set_yres == -2) {
@@ -524,10 +477,9 @@ int main(int argc, char *argv[]) {
 			portrait = true;
 	}
 
-	if (mode & SDL_FULLSCREEN) {
-		const SDL_VideoInfo* info = SDL_GetVideoInfo();
-		pixel_xres = info->current_w;
-		pixel_yres = info->current_h;
+	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+		pixel_xres = g_DesktopWidth;
+		pixel_yres = g_DesktopHeight;
 #ifdef PPSSPP
 		g_Config.bFullScreen = true;
 #endif
@@ -567,19 +519,18 @@ int main(int argc, char *argv[]) {
 	dp_xres = (float)pixel_xres * dpi_scale;
 	dp_yres = (float)pixel_yres * dpi_scale;
 
-#ifdef USESDL2
-#warning "sdl2 code"
-	//Dual Head Support
-	g_Screen = SDL_CreateWindow((app_name_nice + " " + version_string).c_str(), \
-				      SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()), \
-				      SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
+	g_Screen = SDL_CreateWindow(app_name_nice.c_str(), SDL_WINDOWPOS_UNDEFINED_DISPLAY(getDisplayNumber()),\
+					SDL_WINDOWPOS_UNDEFINED, pixel_xres, pixel_yres, mode);
 
-#else
-	#warning "sdl1.2 code"
-	g_Screen = SDL_SetVideoMode(pixel_xres, pixel_yres, 0, mode);
-#endif
 	if (g_Screen == NULL) {
-		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
+		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+		SDL_Quit();
+		return 2;
+	}
+
+	SDL_GLContext glContext = SDL_GL_CreateContext(g_Screen);
+	if (glContext == NULL) {
+		fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 		SDL_Quit();
 		return 2;
 	}
@@ -589,7 +540,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef PPSSPP
-	SDL_WM_SetCaption((app_name_nice + " " + PPSSPP_GIT_VERSION).c_str(), NULL);
+	SDL_SetWindowTitle(g_Screen, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 #endif
 
 #ifdef MOBILE_DEVICE
@@ -631,9 +582,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef _WIN32
-	NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE",false);
+	NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE");
 #else
-	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE",false);
+	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
 #endif
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
@@ -694,21 +645,34 @@ int main(int argc, char *argv[]) {
 				g_QuitRequested = 1;
 				break;
 #if !defined(MOBILE_DEVICE)
-			case SDL_VIDEORESIZE:
-			{
-				g_Screen = SDL_SetVideoMode(event.resize.w, event.resize.h, 0, SDL_OPENGL | SDL_RESIZABLE);
-				if (g_Screen == NULL) {
-					fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
-					SDL_Quit();
-					return 2;
+			case SDL_WINDOWEVENT:
+			switch (event.window.event) {
+				case SDL_WINDOWEVENT_RESIZED:
+					{
+						Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+						bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+
+						pixel_xres = event.window.data1;
+						pixel_yres = event.window.data2;
+						dp_xres = (float)pixel_xres * dpi_scale;
+						dp_yres = (float)pixel_yres * dpi_scale;
+						NativeResized();
+
+#if defined(PPSSPP)
+						// Set variable here in case fullscreen was toggled by hotkey
+						g_Config.bFullScreen = fullscreen;
+
+						// Hide/Show cursor correctly toggling fullscreen
+						if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
+								SDL_ShowCursor(SDL_DISABLE);
+						} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
+								SDL_ShowCursor(SDL_ENABLE);
+						}
+#endif
+						break;
+					}
+					break;
 				}
-				pixel_xres = event.resize.w;
-				pixel_yres = event.resize.h;
-				dp_xres = (float)pixel_xres * dpi_scale;
-				dp_yres = (float)pixel_yres * dpi_scale;
-				NativeResized();
-				break;
-			}
 #endif
 			case SDL_KEYDOWN:
 				{
@@ -763,26 +727,26 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 					}
 					break;
-				case SDL_BUTTON_WHEELUP:
-					{
-						KeyInput key;
-						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-						key.flags = KEY_DOWN;
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_WHEELDOWN:
-					{
-						KeyInput key;
-						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-						key.flags = KEY_DOWN;
-						NativeKey(key);
-					}
-					break;
 				}
 				break;
+			case SDL_MOUSEWHEEL:
+				{
+					KeyInput key;
+					key.deviceId = DEVICE_ID_MOUSE;
+					if (event.wheel.y > 0) {
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+					} else {
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+					}
+					key.flags = KEY_DOWN;
+					NativeKey(key);
+
+					// SDL2 doesn't consider the mousewheel a button anymore
+					// so let's send the KEY_UP right away.
+					// Maybe KEY_UP alone will suffice?
+					key.flags = KEY_UP;
+					NativeKey(key);
+				}
 			case SDL_MOUSEMOTION:
 				if (input_state.pointer_down[0]) {
 					input_state.pointer_x[0] = mx;
@@ -821,24 +785,6 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 					}
 					break;
-				case SDL_BUTTON_WHEELUP:
-					{
-						KeyInput key;
-						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-						key.flags = KEY_UP;
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_WHEELDOWN:
-					{
-						KeyInput key;
-						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-						key.flags = KEY_UP;
-						NativeKey(key);
-					}
-					break;
 				}
 				break;
 			default:
@@ -850,7 +796,7 @@ int main(int argc, char *argv[]) {
 		}
 		if (g_QuitRequested)
 			break;
-		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
+		const uint8 *keys = SDL_GetKeyboardState(NULL);
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
@@ -881,7 +827,7 @@ int main(int argc, char *argv[]) {
 #else
 		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
 		{
-			SDL_GL_SwapBuffers();
+			SDL_GL_SwapWindow(g_Screen);
 			lastT = t;
 		}
 #endif
@@ -906,6 +852,7 @@ int main(int argc, char *argv[]) {
 #ifdef USING_EGL
 	EGL_Close();
 #endif
+	SDL_GL_DeleteContext(glContext);
 	SDL_Quit();
 	net::Shutdown();
 #ifdef RPI
