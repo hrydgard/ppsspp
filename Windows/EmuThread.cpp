@@ -110,7 +110,7 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
-	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234", fs);
+	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
 
 	Host *nativeHost = host;
 	host = oldHost;
