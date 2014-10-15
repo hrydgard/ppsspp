@@ -130,7 +130,7 @@ ViewController* sharedViewController;
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;
 
-	float scale = [UIScreen mainScreen].scale;
+	float scale = [UIScreen mainScreen].nativeScale;
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
 
 	if (size.height > size.width)
@@ -227,7 +227,7 @@ ViewController* sharedViewController;
 {
 	lock_guard guard(input_state.lock);
 
-	float scale = [UIScreen mainScreen].scale;
+	float scale = [UIScreen mainScreen].nativeScale;
 
 	float scaledX = (int)(x * dp_xscale) * scale;
 	float scaledY = (int)(y * dp_yscale) * scale;
