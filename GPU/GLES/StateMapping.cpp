@@ -208,35 +208,104 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 	}
 }
 
-void TransformDrawEngine::ApplyStencilReplaceOnly() {
+void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0, but the logic op may have us do differently.
+	GLenum srcBlend = GL_ONE;
+	GLenum dstBlend = GL_ZERO;
+	GLenum blendOp = GL_FUNC_ADD;
+#if defined(USING_GLES2)
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp())
+		{
+		case GE_LOGIC_CLEAR:
+			srcBlend = GL_ZERO;
+			break;
+		case GE_LOGIC_AND:
+		case GE_LOGIC_AND_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_COPY:
+			// This is the same as off.
+			break;
+		case GE_LOGIC_COPY_INVERTED:
+			// Handled in the shader.
+			break;
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			// Handled in the shader.
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_INVERTED:
+			srcBlend = GL_ONE;
+			dstBlend = GL_ONE;
+			blendOp = GL_FUNC_SUBTRACT;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_NOOP:
+			srcBlend = GL_ZERO;
+			dstBlend = GL_ONE;
+			break;
+		case GE_LOGIC_XOR:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR:
+		case GE_LOGIC_OR_INVERTED:
+			// Inverted in shader.
+			dstBlend = GL_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_SET:
+			dstBlend = GL_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			break;
+		}
+	}
+#endif
+
 	// We're not blending, but we may still want to blend for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
-	switch (ReplaceAlphaWithStencilType()) {
+	switch (stencilType) {
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_ADD);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
 		glstate.blend.enable();
 		break;
 
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_SUBTRACT);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_SUBTRACT);
 		glstate.blend.enable();
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		glstate.blendFuncSeparate.set(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(GL_FUNC_ADD, GL_FUNC_REVERSE_SUBTRACT);
+		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
+		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_REVERSE_SUBTRACT);
 		glstate.blend.enable();
 		break;
 
 	default:
-		glstate.blend.disable();
+		if (srcBlend == GL_ONE && dstBlend == GL_ZERO && blendOp == GL_FUNC_ADD) {
+			glstate.blend.disable();
+		} else {
+			glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ZERO);
+			glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
+			glstate.blend.enable();
+		}
 		break;
 	}
 }
@@ -261,22 +330,13 @@ void TransformDrawEngine::ApplyBlendState() {
 	case REPLACE_BLEND_NO:
 		ResetShaderBlending();
 		// We may still want to do something about stencil -> alpha.
-		if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-			ApplyStencilReplaceOnly();
-		} else {
-			glstate.blend.disable();
-		}
+		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
-			if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-				ApplyStencilReplaceOnly();
-			} else {
-				// None of the below logic is interesting, we're gonna do it entirely in the shader.
-				glstate.blend.disable();
-			}
+			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
 			return;
 		}
 		// Until next time, force it off.
@@ -712,21 +772,21 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXa = getFloat24(gstate.viewportx1);
-		float vpXb = getFloat24(gstate.viewportx2);
-		float vpYa = getFloat24(gstate.viewporty1);
-		float vpYb = getFloat24(gstate.viewporty2);
+		float vpXScale = getFloat24(gstate.viewportx1);
+		float vpXCenter = getFloat24(gstate.viewportx2);
+		float vpYScale = getFloat24(gstate.viewporty1);
+		float vpYCenter = getFloat24(gstate.viewporty2);
 
-		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXb + vpXa * Xview
-		// Yscreen = -offsetY + vpYb + vpYa * Yview
-		// Zscreen = vpZb + vpZa * Zview
+		// The viewport transform appears to go like this:
+		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
+		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
+		// Zscreen = vpZCenter + vpZScale * Zview
 
 		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXb - offsetX - vpXa;
-		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2.0f;
-		gstate_c.vpHeight = -vpYa * 2.0f;
+		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
+		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);   // Need to account for sign of Y
+		gstate_c.vpWidth = vpXScale * 2.0f;
+		gstate_c.vpHeight = -vpYScale * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
@@ -736,10 +796,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
 
-		vpX0 = (vpXb - offsetX - fabsf(vpXa)) * renderWidthFactor;
 		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
-		
+		vpY0 = renderHeight - vpY0;
+
 		glstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);

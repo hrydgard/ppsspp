@@ -75,28 +75,34 @@ namespace MIPSComp
 		case 8:	// same as addiu?
 		case 9:	// R(rt) = R(rs) + simm; break; //addiu
 			{
-				if (gpr.IsImm(rs))
-				{
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
 					break;
 				}
 
 				gpr.Lock(rt, rs);
 				gpr.MapReg(rt, rt == rs, true);
-				if (rt == rs || gpr.R(rs).IsSimpleReg())
+				if (rt == rs) {
+					if (simm > 0) {
+						ADD(32, gpr.R(rt), UImmAuto(simm));
+					} else if (simm < 0) {
+						SUB(32, gpr.R(rt), UImmAuto(-simm));
+					}
+				} else if (gpr.R(rs).IsSimpleReg()) {
 					LEA(32, gpr.RX(rt), MDisp(gpr.RX(rs), simm));
-				else
-				{
+				} else {
 					MOV(32, gpr.R(rt), gpr.R(rs));
-					if (suimm != 0)
-						ADD(32, gpr.R(rt), Imm32(suimm));
+					if (simm > 0)
+						ADD(32, gpr.R(rt), UImmAuto(simm));
+					else if (simm < 0) {
+						SUB(32, gpr.R(rt), UImmAuto(-simm));
+					}
 				}
 				gpr.UnlockAll();
 			}
 			break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			// There's a mips compiler out there asking questions it already knows the answer to...
 			if (gpr.IsImm(rs))
 			{
 				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);

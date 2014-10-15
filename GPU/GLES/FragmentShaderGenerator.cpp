@@ -354,6 +354,35 @@ ReplaceBlendType ReplaceBlendWithShader() {
 	}
 }
 
+enum LogicOpReplaceType {
+	LOGICOPTYPE_NORMAL,
+	LOGICOPTYPE_ONE,
+	LOGICOPTYPE_INVERT,
+};
+
+static inline LogicOpReplaceType ReplaceLogicOpType() {
+#if defined(USING_GLES2)
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+#endif
+	return LOGICOPTYPE_NORMAL;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
@@ -425,7 +454,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 29 - 31 are free.
+		// 29 is free.
+		// 2 bits.
+		id0 |= ReplaceLogicOpType() << 30;
 
 		// 3 bits.
 		id1 |= replaceBlend << 0;
@@ -1004,6 +1035,17 @@ void GenerateFragmentShader(char *buffer) {
 
 	case REPLACE_ALPHA_NO:
 		WRITE(p, "  %s = v;\n", fragColor0);
+		break;
+	}
+
+	switch (ReplaceLogicOpType()) {
+	case LOGICOPTYPE_ONE:
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);
+		break;
+	case LOGICOPTYPE_INVERT:
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", fragColor0, fragColor0);
+		break;
+	case LOGICOPTYPE_NORMAL:
 		break;
 	}
 

@@ -141,17 +141,22 @@ public:
 
 	int GetNumBlocks() const { return num_blocks_; }
 
+	static int GetBlockExitSize();
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
+
+	void AddBlockMap(int block_num);
+	void RemoveBlockMap(int block_num);
 
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
 	CodeBlock *codeBlock_;
 	JitBlock *blocks_;
-	std::vector<int> proxyBlockIndices_;
+	std::multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_;
 	std::multimap<u32, int> links_to_;

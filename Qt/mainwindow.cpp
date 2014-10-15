@@ -15,9 +15,6 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-// "--fullscreen" from command line interface
-extern bool fullscreenCLI;
-
 MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
@@ -34,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	// Move window to top left coordinate of selected screen
 	QRect rect = desktop->screenGeometry(screenNum);
 	move(rect.topLeft());
-	
+
 	SetGameTitle("");
 	emugl = new MainUI(this);
 

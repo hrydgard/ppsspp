@@ -51,7 +51,8 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp
 endif
 
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
@@ -117,6 +118,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
+  $(SRC)/ext/udis86/decode.c \
+  $(SRC)/ext/udis86/itab.c \
+  $(SRC)/ext/udis86/syn-att.c \
+  $(SRC)/ext/udis86/syn-intel.c \
+  $(SRC)/ext/udis86/syn.c \
+  $(SRC)/ext/udis86/udis86.c \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Crypto/md5.cpp \
@@ -289,6 +296,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \

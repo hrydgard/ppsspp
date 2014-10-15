@@ -291,7 +291,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 		const bool invertedY = gstate_c.vpHeight < 0;
-		if (invertedY) {
+		if (!invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}

@@ -1148,10 +1148,8 @@ void __KernelThreadingInit()
 
 	// Yeah, this is straight out of JPCSP, I should be ashamed.
 	const static u32_le idleThreadCode[] = {
-		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800),
 		MIPS_MAKE_JR_RA(),
-		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
 		MIPS_MAKE_BREAK(0),
 	};
@@ -2559,7 +2557,7 @@ int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)
 	// Seems like this is the only allowed attribute?
 	if ((clearAttr & ~PSP_THREAD_ATTR_VFPU) != 0 || (setAttr & ~PSP_THREAD_ATTR_VFPU) != 0)
 	{
-		ERROR_LOG_REPORT(SCEKERNEL, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 

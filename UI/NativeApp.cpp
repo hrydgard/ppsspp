@@ -541,6 +541,10 @@ void NativeInitGraphics() {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
+#ifdef _WIN32
+		UINT ExitCode = 0;
+		ExitProcess(ExitCode);
+#endif
 	}
 
 	uiContext = new UIContext();
