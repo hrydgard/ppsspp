@@ -22,7 +22,6 @@
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
-#define IS_IPHONE_6P() (IS_IPHONE() && [[UIScreen mainScreen] bounds].size.height == 736.0)
 
 float dp_xscale = 1.0f;
 float dp_yscale = 1.0f;
@@ -132,11 +131,16 @@ ViewController* sharedViewController;
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;
 
-	float scale = (IS_IPHONE_6P() ? 3.0f : [UIScreen mainScreen].scale);
+	float scale = [UIScreen mainScreen].scale;
+	
+	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
+		scale = [UIScreen mainScreen].nativeScale;
+	}
+
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
 
 	if (size.height > size.width)
-    {
+    	{
 		float h = size.height;
 		size.height = size.width;
 		size.width = h;
@@ -229,7 +233,11 @@ ViewController* sharedViewController;
 {
 	lock_guard guard(input_state.lock);
 
-	float scale = (IS_IPHONE_6P() ? 3.0f : [UIScreen mainScreen].scale);
+	float scale = [UIScreen mainScreen].scale;
+	
+	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
+		scale = [UIScreen mainScreen].nativeScale;
+	}
 
 	float scaledX = (int)(x * dp_xscale) * scale;
 	float scaledY = (int)(y * dp_yscale) * scale;
