@@ -415,12 +415,17 @@ void JitBlockCache::LinkBlockExits(int i) {
 
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
+				// Okay, this is a bit ugly, but we check here if it already has a JMP.
+				// That means it doesn't have a full exit to pad with INT 3.
+				bool prelinked = *emit.GetCodePtr() == 0xE9;
 				emit.JMP(blocks_[destinationBlock].checkedEntry, true);
 
-				ptrdiff_t actualSize = emit.GetWritableCodePtr() - b.exitPtrs[e];
-				int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
-				for (int i = 0; i < pad; ++i) {
-					emit.INT3();
+				if (!prelinked) {
+					ptrdiff_t actualSize = emit.GetWritableCodePtr() - b.exitPtrs[e];
+					int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
+					for (int i = 0; i < pad; ++i) {
+						emit.INT3();
+					}
 				}
 #elif defined(PPC)
 				PPCXEmitter emit(b.exitPtrs[e]);
