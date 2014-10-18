@@ -26,7 +26,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = 0);
+	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
@@ -109,6 +109,7 @@ private slots:
 	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
 
 	void fullscrAct();
+	void raiseTopMost();
 	void statsAct() { g_Config.bShowDebugStats = !g_Config.bShowDebugStats; }
 	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
 

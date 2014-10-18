@@ -454,7 +454,7 @@ void NativeInit(int argc, const char *argv[],
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0);
+	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
