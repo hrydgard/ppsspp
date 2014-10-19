@@ -1,5 +1,5 @@
 4096
-font UBUNTU24 Roboto-Condensed.ttf UWER 34 -2
+//font UBUNTU24 Roboto-Condensed.ttf UWER 34 -2
 font UBUNTU24 ARIALUNI.ttf UWEhkcRGHKVTe 30 0
 image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
@@ -19,21 +19,31 @@ image I_ARROW1 source_assets/image/arrow1.png copy
 image I_ARROW2 source_assets/image/arrow2.png copy
 image I_ARROW3 source_assets/image/arrow3.png copy
 image I_DIR source_assets/image/dir.png copy
+image I_DIR_UP source_assets/image/dir_up.png copy
+image I_DIR_RIGHT source_assets/image/dir_right.png copy
+image I_DIR_DOWN source_assets/image/dir_down.png copy
 image I_ROUND source_assets/image/round.png copy
 image I_RECT source_assets/image/rect.png copy
 image I_STICK source_assets/image/stick.png copy
 image I_STICK_BG source_assets/image/stick_bg.png copy
 image I_SHOULDER source_assets/image/shoulder.png copy
 image I_DIR_LINE source_assets/image/dir_line.png copy
+image I_DIR_LINE_UP source_assets/image/dir_line_up.png copy
+image I_DIR_LINE_RIGHT source_assets/image/dir_line_right.png copy
+image I_DIR_LINE_DOWN source_assets/image/dir_line_down.png copy
 image I_ROUND_LINE source_assets/image/round_line.png copy
 image I_RECT_LINE source_assets/image/rect_line.png copy
 image I_SHOULDER_LINE source_assets/image/shoulder_line.png copy
 image I_STICK_LINE source_assets/image/stick_line.png copy
 image I_STICK_BG_LINE source_assets/image/stick_bg_line.png copy
 image I_CHECKEDBOX source_assets/image/checkedbox.png copy
-image I_BG1 source_assets/image/I_BG11.png copy
-image I_BG2 source_assets/image/I_BG22.png copy
-image I_BG3 source_assets/image/I_BG33.png copy
+//image I_BG1 source_assets/image/a.png copy
+//image I_BG2 source_assets/image/b.png copy
+//image I_BG3 source_assets/image/333.png copy
+//image I_BG4 source_assets/image/444.png copy
+//image I_BG5 source_assets/image/555.png copy
+//image I_BG6 source_assets/image/666.png copy
+//image I_BG7 source_assets/image/8888.png copy
 //image I_BG source_assets/image/background2.png copy
 image I_BG_GOLD source_assets/image/background_gold.png copy
 image I_L source_assets/image/L.png copy
@@ -46,3 +56,9 @@ image I_ICON source_assets/image/icon_regular_72.png copy
 image I_ICONGOLD source_assets/image/icon_gold_72.png copy
 image I_FOLDER source_assets/image/folder_line.png copy
 image I_UP_DIRECTORY source_assets/image/up_line.png copy
+image I_BG source_assets/image/background2.png copy
+image I_BG1 source_assets/image/a.png copy
+image I_BG2 source_assets/image/b.png copy
+image I_BG3 source_assets/image/c.png copy
+image I_BG4 source_assets/image/d.png copy
+image I_BG5 source_assets/image/e.png copy

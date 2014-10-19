@@ -49,7 +49,7 @@
         </activity>
         <meta-data android:name="isGame" android:value="true" />
         <activity
-            android:name=".ShortcutActivity"
+            android:name="ShortcutActivity"
             android:label="@string/shortcut_name" >
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />

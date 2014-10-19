@@ -158,13 +158,22 @@ private:
 
 class PSPButton1 : public MultiTouchButton {
 public:
-	PSPButton1(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
+	PSPButton1(bool pspButtonBit0, bool pspButtonBit1, bool pspButtonBit2, bool pspButtonBit3, bool pspButtonBit4, bool pspButtonBit5, bool pspButtonBit6, bool pspButtonBit7, bool pspButtonBit8, bool pspButtonBit9, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_0(pspButtonBit0), pspButtonBit_1(pspButtonBit1), pspButtonBit_2(pspButtonBit2), pspButtonBit_3(pspButtonBit3), pspButtonBit_9(pspButtonBit9), pspButtonBit_4(pspButtonBit4), pspButtonBit_5(pspButtonBit5), pspButtonBit_6(pspButtonBit6), pspButtonBit_7(pspButtonBit7), pspButtonBit_8(pspButtonBit8) {
 	}
 	virtual void Touch(const TouchInput &input);
 	virtual bool IsDown1();
 
 private:
-	int pspButtonBit_;
+	bool pspButtonBit_0;
+	bool pspButtonBit_1;
+	bool pspButtonBit_2;
+	bool pspButtonBit_3;
+	int pspButtonBit_4;
+	bool pspButtonBit_5;
+	bool pspButtonBit_6;
+	bool pspButtonBit_7;
+	bool pspButtonBit_8;
+	bool pspButtonBit_9;
 };
 

@@ -185,6 +185,7 @@ public:
 	int iShowFPSCounter;
 	bool bShowDebugStats;
 
+	bool bLowMem_UI;
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
 	//considers this orientation to be equal to no movement of the analog stick.
@@ -219,12 +220,31 @@ public:
 	float fActionButtonCenterX, fActionButtonCenterY;
 	float fActionButtonScale;
 	float fActionButtonSpacing;
+
+	float CircleX, CircleY, CircleScale;
+	float CrossX, CrossY, CrossScale;
+	float TriangleX, TriangleY, TriangleScale;
+	float SquareX, SquareY, SquareScale;
+		
 	//radius of the D-pad (PSP cross)
 	// int iDpadRadius;
 	//the D-pad (PSP cross) position
 	float fDpadX, fDpadY;
 	float fDpadScale;
 	float fDpadSpacing;
+
+	float fDpad_LEFTX, fDpad_LEFTY;
+	float fDpad_LEFTScale;
+	
+	float fDpad_UPX, fDpad_UPY;
+	float fDpad_UPScale;
+
+	float fDpad_RIGHTX, fDpad_RIGHTY;
+	float fDpad_RIGHTScale;
+
+	float fDpad_DOWNX, fDpad_DOWNY;
+	float fDpad_DOWNScale;
+
 	//the start key position
 	float fStartKeyX, fStartKeyY;
 	float fStartKeyScale;
@@ -257,6 +277,14 @@ public:
 
 	// Controls Visibility
 	bool bShowTouchControls;
+
+	bool bActionButtonseparation;
+
+	bool bShowTouchDpad_LEFT;
+	bool bShowTouchDpad_UP;
+	bool bShowTouchDpad_RIGHT;
+	bool bShowTouchDpad_DOWN;
+
 
 	bool bShowTouchCircle;
 	bool bShowTouchCross;

@@ -261,7 +261,7 @@ void NativeInit(int argc, const char *argv[],
 	// Also, the FZ thing may actually be a little bit dangerous, I'm not sure how compliant the MIPS
 	// CPU is with denormal handling. Needs testing. Default-NAN should be reasonably safe though.
 	FPU_SetFastMode();
-
+	//g_Config.bEnableCheats = false;
 	bool skipLogo = false;
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
@@ -467,7 +467,7 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 	int theme = g_Config.iR + g_Config.iG * 16 * 16 + g_Config.iB * 16 * 16 * 16 * 16 + g_Config.iTransparent * 16 * 16 * 16 * 16 * 16 * 16;
-
+	
 #ifndef _WIN32
 	// Force backend to GL
 	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
@@ -481,10 +481,19 @@ void NativeInitGraphics() {
 		thin3d = D3D9_CreateThin3DContext();
 #endif
 	}
+	if (g_Config.bLowMem_UI)
+	{
+		const char *UI1 = "ui_atlas.zim";
+		ui_draw2d.SetAtlas(&ui_atlas);
+		ui_draw2d_front.SetAtlas(&ui_atlas);
+	}
+	if (!g_Config.bLowMem_UI)
+	{
+		const char *UI1 = "ui_atlas1.zim";
+		ui_draw2d.SetAtlas(&ui_atlas1);
+		ui_draw2d_front.SetAtlas(&ui_atlas1);
 
-	ui_draw2d.SetAtlas(&ui_atlas);
-	ui_draw2d_front.SetAtlas(&ui_atlas);
-
+	}
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 #ifdef _WIN32
@@ -537,7 +546,10 @@ void NativeInitGraphics() {
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim", T3DImageType::ZIM);
 	if (!uiTexture) {
 #else
+	if (g_Config.bLowMem_UI)
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	if (!g_Config.bLowMem_UI)
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas1.zim", T3DImageType::ZIM);
 	if (!uiTexture) {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");

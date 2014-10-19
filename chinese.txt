@@ -93,6 +93,7 @@ Enable Windows native keyboard  = 启用Windows自带键盘
 Rewind Snapshot Frequency = 快照倒回频率(0=关闭)
 Auto Load Newest Savestate = 自动载入最新即时存档
 Enable Cheats = 开启金手指
+One Key Online Setting (Face to face adhoc) = 一键联机设置（面联）
 Day Light Saving = 夏令时
 Change Nickname = 修改昵称
 Developer Tools = 开发者工具
@@ -127,6 +128,14 @@ PSP Model = PSP机型
 Force real clock sync (slower, less lag) = 强制实际时钟同步(减少延迟, 会降低速度)
 
 [Graphics]
+Changing Background = 更换背景
+background = 背景
+Custom Theme = 自定义主题
+Red = R
+Green = G
+Blue = B
+Transparency = 透明度
+Apply to touch botton = 应用于触摸按钮
 Stretch to Display = 拉伸画面
 Hardware Transform = 硬件几何变换
 Texture Filtering = 纹理过滤
@@ -266,10 +275,20 @@ Control Mapping = 按键映射
 HapticFeedback = 按键反馈 (震动)
 Custom layout... = 自定义布局
 Customize tilt = 自定义倾斜
+Action Button separation = 按键分离
+CBK = 组合键1
+CBK1 = 组合键2
+CBK2 = 组合键3
+Combo Key = 组合键1
+Combo Key 1 = 组合键2
+Combo Key 2 = 组合键3
 Visibility = 可见设定
 Show Touch Pause Menu Button = 显示触摸暂停菜单键
 Disable D-Pad diagonals (4-way touch) = 禁止D-Pad对角线(四方向触控)
 Button style = 按键样式
+Combo Button style = 组合键样式
+ACG = 动漫
+CV = CV	
 Classic = 传统
 Thin borders = 薄边框
 Tilt Input Type = 倾斜替代按键
@@ -581,6 +600,7 @@ Read Framebuffers To Memory (GPU) = 幀緩衝記憶體渲染 (GPU)
 Frame Skipping = 跳幀
 Off = 關閉
 Auto = 自動
+GE2 1.4 = 噬神者2 1.4修复
 Texture Filtering = 紋理過濾
 Texture Scaling = 紋理縮放
 Deposterize = 色調混合
@@ -955,3 +975,68 @@ MB = MB
 Loading... = 載入中...
 Connection Error = 連線錯誤
 
+//禁用npc  use only for a second, at the screen you see npc's listed for the mission and deactivate
+_C0 禁用 (npc disable npcs)
+_L 0x405DE394 0x00930001
+_L 0x00000000 0x00000000
+
+//use this cheat only for a second in menu between survival mode stages then deactivate, it has to be done only once between 1st and 2nd stage
+//make note that previous cheat to disable npc's is still required before entering first stage/starting quest:]
+_C0 故事生存模式中禁用 npc （disable npc for story mode survival）
+_L 0x41E0ACA8 0x00380001
+_L 0x00000000 0x00000000
+_L 0x41E123D0 0x00380001
+_L 0x00000000 0x00000000
+_L 0x41E19AF8 0x00380001
+_L 0x00000000 0x00000000
+
+//simple workaround for dlc mission requirements, made for hacked build and version 1.40 of the game
+_C0 dlc角色升到6级 （set dlc chars lvl's to 6）
+_L 0x81EB5D62 0x00060004
+_L 0x00000006 0x00000000
+========and in case you will want to revert it later==========
+_C0 dlc角色降到1级 （set dlc chars lvl's to 1）
+_L 0x81EB5D62 0x00060004
+_L 0x00000001 0x00000000
+
+
+
+
+
+
+_C0 攻击力提升 Attack Multiplier
+_L 0x20001030 0x56000001
+_L 0x20001034 0x27FF0010
+_L 0x20001038 0x0014Axxx
+_L 0x2000103C 0x03E00008
+_L 0x20001040 0x0054A823
+_L 0xE0020001 0x01A91044
+_L 0x21A91038 0x0E20040C
+_L 0x21A91044 0x24150000
+//xxx:
+//2x - 040
+//4x - 080
+//8x - 0C0
+//16x - 100
+//32x - 140
+//64x - 180
+//128x - 1C0
+//256x - 200
+//512x - 240
+//1024x - 280
+_C0 攻击力提升取消 （Attack Multiplier [Disable]）
+_L 0xE0020000 0x01A91044
+_L 0x21A91038 0x12000005
+_L 0x21A91044 0x24150001
+_C0 HP 不减 （HP Not Dec）
+_L 0x201042A0 0x00000000
+_C0 HP 不减取消 （HP Not Dec [Disable]）
+_L 0x201042A0 0xE4540000
+_C0 STM 不减（STM Not Dec）
+_L 0x20104440 0x00000000
+_C0 STM 不减取消 （STM Not Dec [Disable]）
+_L 0x20104440 0xE4540008
+_C0 OP 不减 （OP Not Dec）
+_L 0x20104370 0x00000000
+_C0 OP 不减取消 （OP Not Dec [Disable]）
+_L 0x20104370 0xE4540004

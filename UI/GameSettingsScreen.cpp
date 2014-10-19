@@ -111,10 +111,13 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
-	graphicsSettings->Add(new ItemHeader(gs->T("Changing Background")));
-	static const char *backgroundlist[] = { "1", "2", "3"};//changeable
-	PopupMultiChoice *backgroundChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBackGroundChange, gs->T("background"), backgroundlist, 0, ARRAY_SIZE(backgroundlist), gs, screenManager()));
+	if (!g_Config.bLowMem_UI)
+	{
+		graphicsSettings->Add(new ItemHeader(gs->T("Changing Background")));
+		static const char *backgroundlist[] = { "1", "2", "3" ,"4", "5", /*"6", "7"*/ };//changeable
+		PopupMultiChoice *backgroundChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBackGroundChange, gs->T("background"), backgroundlist, 0, ARRAY_SIZE(backgroundlist), gs, screenManager()));
 
+	}
 	graphicsSettings->Add(new ItemHeader(gs->T("Custom Theme")));
 	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iR, 0, 255, gs->T("Red"), 1, screenManager()));
 	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iG, 0, 255, gs->T("Green"), 1, screenManager()));
@@ -338,7 +341,9 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
-
+	
+	CheckBox *ActionButtonseparation = controlsSettings->Add(new CheckBox(&g_Config.bActionButtonseparation, c->T("Action Button separation")));
+	ActionButtonseparation->SetEnabledPtr(&g_Config.bShowTouchControls);
 	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
@@ -428,7 +433,9 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, s->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, s->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
-
+	Choice *One_Key = systemSettings->Add(new Choice(s->T("One Key Online Setting (Face to face adhoc)")));
+	One_Key->OnClick.Handle(this, &GameSettingsScreen::OnOne_Key);
+	One_Key->SetEnabled(!PSP_IsInited());
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
@@ -629,6 +636,19 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	}
 #endif
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnOne_Key(UI::EventParams &e) {
+	g_Config.bFastMemory = false;
+	g_Config.bSeparateCPUThread = 0;
+	g_Config.bEnableWlan = 1;
+	g_Config.proAdhocServer = "192.168.43.1";
+	g_Config.sMACAddress = std::string(CreateRandMAC());
+	g_Config.bEnableAdhocServer = 1;
+	g_Config.bTimerHack = 0;
+
+	return UI::EVENT_DONE;
+
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {	
