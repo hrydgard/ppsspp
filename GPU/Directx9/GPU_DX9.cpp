@@ -1070,7 +1070,7 @@ void DIRECTX9_GPU::Execute_ColorRef(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1110,7 +1110,7 @@ void DIRECTX9_GPU::Execute_WorldMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_ViewMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1150,7 +1150,7 @@ void DIRECTX9_GPU::Execute_ViewMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_ProjMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
 	const int end = 16 - (op & 0xF);
 	int i = 0;
@@ -1190,7 +1190,7 @@ void DIRECTX9_GPU::Execute_ProjMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_TgenMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1230,7 +1230,7 @@ void DIRECTX9_GPU::Execute_TgenMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_BoneMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
