@@ -305,6 +305,9 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 	prevPrim_ = prim;
 
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+		return;
+
 	SetupVertexDecoderInternal(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
@@ -606,6 +609,7 @@ VertexArrayInfoDX9::~VertexArrayInfoDX9() {
 	}
 }
 
+// The inline wrapper in the header checks for numDrawCalls == 0
 void TransformDrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -721,7 +725,7 @@ void TransformDrawEngineDX9::DoFlush() {
 						vai->vbo->Unlock();
 						if (useElements) {
 							void * pIb;
-							u32 size =  sizeof(short) * indexGen.VertexCount();
+							u32 size = sizeof(short) * indexGen.VertexCount();
 							pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
 							vai->ebo->Lock(0, size, &pIb, 0);
 							memcpy(pIb, decIndex, size);

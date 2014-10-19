@@ -77,7 +77,8 @@ namespace MIPSAnalyst
 
 	AnalysisResults Analyze(u32 address);
 
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr);
+	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
 
 	struct AnalyzedFunction {
 		u32 start;
@@ -154,7 +155,7 @@ namespace MIPSAnalyst
 		u32 dataAddress;
 
 		bool hasRelevantAddress;
-		u32 releventAddress;
+		u32 relevantAddress;
 	} MipsOpcodeInfo;
 
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);

@@ -15,7 +15,7 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
@@ -25,6 +25,13 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+	QDesktopWidget *desktop = QApplication::desktop();
+	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+	
+	// Move window to top left coordinate of selected screen
+	QRect rect = desktop->screenGeometry(screenNum);
+	move(rect.topLeft());
+
 	SetGameTitle("");
 	emugl = new MainUI(this);
 
@@ -33,6 +40,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
+	
+	if(fullscreen)
+	  fullscrAct();
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -329,6 +339,15 @@ void MainWindow::stretchAct()
 		gpu->Resized();
 }
 
+void MainWindow::raiseTopMost()
+{
+	
+	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+	raise();  
+	activateWindow(); 
+	
+}
+
 void MainWindow::fullscrAct()
 {
 	if(isFullScreen()) {
@@ -359,6 +378,8 @@ void MainWindow::fullscrAct()
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
 	}
+	
+	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
 void MainWindow::websiteAct()

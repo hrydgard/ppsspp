@@ -20,6 +20,7 @@
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
 u32 FPURegCache::tempValues[NUM_TEMPS];
@@ -215,7 +216,7 @@ void FPURegCache::Flush() {
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
-		return M(&mips->f[reg]);
+		return MDisp(CTXREG, reg * 4);
 	} else if (reg < 32 + 128) {
 		return M(&mips->v[voffset[reg - 32]]);
 	} else {

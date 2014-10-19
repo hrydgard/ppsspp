@@ -690,6 +690,95 @@ static int Hook_kagaku_no_ensemble_download_frame() {
 	return 0;
 }
 
+static int Hook_soranokiseki_fc_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_soranokiseki_sc_download_frame() {
+	u32 fb_infoaddr;
+	if (!GetMIPSStaticAddress(fb_infoaddr, 0x28, 0x2C)) {
+		return 0;
+	}
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x34, true);
+	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
+		return 0;
+	}
+	const int fb_index_offset = (s16)(fb_index_load & 0xffff);
+	const u32 fb_index = (Memory::Read_U32(fb_info + fb_index_offset) + 1) & 1;
+	const u32 fb_address = 0x4000000 + (0x44000 * fb_index);
+	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsRAMAddress(dest_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_bokunonatsuyasumi4_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa2_1_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V1];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa2_2_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V1];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa1_1_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_A5];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa1_2_download_frame() {
+	const MIPSOpcode instruction = Memory::Read_Instruction(currentMIPS->pc + 0x8, true);
+	const int reg_num = instruction >> 11 & 31;
+	const u32 fb_base = currentMIPS->r[reg_num];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -747,6 +836,13 @@ static const ReplacementTableEntry entries[] = {
 	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x48 },
 	{ "rezel_cross_download_frame", &Hook_rezel_cross_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
 	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
+	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
+	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
+	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOKENTER, 0x68 },
+	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "danganronpa1_1_download_frame", &Hook_danganronpa1_1_download_frame, 0, REPFLAG_HOOKENTER, 0x78 },
+	{ "danganronpa1_2_download_frame", &Hook_danganronpa1_2_download_frame, 0, REPFLAG_HOOKENTER, 0xA8 },
 	{}
 };
 

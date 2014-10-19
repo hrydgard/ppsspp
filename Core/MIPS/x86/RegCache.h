@@ -31,6 +31,12 @@ using namespace Gen;
 
 #define NUM_MIPS_GPRS 36
 
+#ifdef _M_X64
+#define CTXREG R14
+#else
+#define CTXREG EBP
+#endif
+
 struct MIPSCachedReg {
 	OpArg location;
 	bool away;  // value not in source register

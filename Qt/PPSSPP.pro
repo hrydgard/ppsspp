@@ -37,11 +37,11 @@ greaterThan(QT_MAJOR_VERSION,4) {
 macx|equals(PLATFORM_NAME, "linux") {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libGPU.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
-	packagesExist(sdl) {
+	packagesExist(sdl2) {
 		DEFINES += QT_HAS_SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
-		PKGCONFIG += sdl
+		PKGCONFIG += sdl2
 		macx {
 			LIBS += -F/Library/Frameworks -framework SDL
 			INCLUDEPATH += /Library/Frameworks/SDL.framework/Versions/A/Headers

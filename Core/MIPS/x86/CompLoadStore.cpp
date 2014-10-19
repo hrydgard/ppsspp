@@ -121,7 +121,7 @@ namespace MIPSComp
 		shiftReg = R9;
 #endif
 
-		gpr.Lock(rt);
+		gpr.Lock(rt, rs);
 		gpr.MapReg(rt, true, !isStore);
 
 		// Grab the offset from alignment for shifting (<< 3 for bytes -> bits.)
