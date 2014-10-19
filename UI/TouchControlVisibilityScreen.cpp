@@ -54,6 +54,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyImages["Combo"] = g_Config.iComboButtonStyle ? I_SQUARE1 : I_STAR;
 	keyImages["Combo1"] = g_Config.iComboButtonStyle ? I_TRIANGLE1 : I_EYE;
 	keyImages["Combo2"] = g_Config.iComboButtonStyle ? I_CROSS1 : I_GC;
+	keyImages["LEFT"] = I_ARROW;
+	keyImages["UP"] = I_ARROW1;
+	keyImages["RIGHT"] = I_ARROW2;
+	keyImages["DOWN"] = I_ARROW3;
+
 
 	keyToggles["Circle"] = &g_Config.bShowTouchCircle;
 	keyToggles["Cross"] = &g_Config.bShowTouchCross;
@@ -69,6 +74,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyToggles["Combo"] = &g_Config.bShowComboKey;
 	keyToggles["Combo1"] = &g_Config.bShowComboKey1;
 	keyToggles["Combo2"] = &g_Config.bShowComboKey2;
+
+	keyToggles["LEFT"] = &g_Config.bShowTouchDpad_LEFT;
+	keyToggles["UP"] = &g_Config.bShowTouchDpad_UP;
+	keyToggles["RIGHT"] = &g_Config.bShowTouchDpad_RIGHT;
+	keyToggles["DOWN"] = &g_Config.bShowTouchDpad_DOWN;
 
 	std::map<std::string, int>::iterator imageFinder;
 
