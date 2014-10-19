@@ -293,30 +293,22 @@ inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (vertexCount == 0)
-		return;  // we ignore zero-sized draw calls.
-
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
-
-	// TODO: Is this the right thing to do?
-	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_;
-	}
-	prevPrim_ = prim;
 
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
 		return;
 
+	// TODO: Is this the right thing to do?
+	if (prim == GE_PRIM_KEEP_PREVIOUS) {
+		prim = prevPrim_;
+	} else {
+		prevPrim_ = prim;
+	}
+
 	SetupVertexDecoderInternal(vertType);
 
-	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
-
-	if (bytesRead)
-		*bytesRead = vertexCount * dec_->VertexSize();
-
-	gpuStats.numDrawCalls++;
-	gpuStats.numVertsSubmitted += vertexCount;
+	*bytesRead = vertexCount * dec_->VertexSize();
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
@@ -358,6 +350,7 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
 			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 			Flush();
@@ -887,6 +880,9 @@ rotateVBO:
 			pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
 		}
 	}
+
+	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;

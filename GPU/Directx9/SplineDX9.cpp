@@ -98,7 +98,8 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 		gstate_c.uv.uOff = 0;
 		gstate_c.uv.vOff = 0;
 	}
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
+	int bytesRead;
+	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -190,7 +191,8 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 		gstate_c.uv.vOff = 0;
 	}
 
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, 0);
+	int bytesRead;
+	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
 	Flush();
 
 	if (g_Config.bPrescaleUV) {
