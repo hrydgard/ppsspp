@@ -1,0 +1,1 @@
+atlastool atlasscript.txt ui etc1 && Set COPYCMD=/Y && copy ui_atlas.zim assets && move ui_atlas.zim android/assets && move ui_atlas.cpp UI && move ui_atlas.h UI
