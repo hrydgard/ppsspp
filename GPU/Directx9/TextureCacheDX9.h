@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "../Globals.h"
 #include "helper/global.h"
 #include "helper/fbo.h"
@@ -155,6 +157,7 @@ public:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
 private:
+	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
 	void Decimate();  // Run this once per frame to get rid of old textures.

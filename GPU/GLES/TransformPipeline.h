@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -212,7 +212,7 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
@@ -220,7 +220,7 @@ private:
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfo *> vai_;
+	std::unordered_map<u32, VertexArrayInfo *> vai_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;

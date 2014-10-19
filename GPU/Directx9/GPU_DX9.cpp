@@ -732,19 +732,22 @@ void DIRECTX9_GPU::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+	u32 vertexAddr = gstate_c.vertexAddr;
+	if (!Memory::IsValidAddress(vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", vertexAddr);
 		return;
 	}
 
-	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *verts = Memory::GetPointerUnchecked(vertexAddr);
 	void *inds = 0;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+	u32 vertexType = gstate.vertType;
+	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		u32 indexAddr = gstate_c.indexAddr;
+		if (!Memory::IsValidAddress(indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
 			return;
 		}
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+		inds = Memory::GetPointerUnchecked(indexAddr);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -754,18 +757,18 @@ void DIRECTX9_GPU::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	int bytesRead = 0;
-	transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
+	transformDraw_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 
-	int vertexCost = transformDraw_.EstimatePerVertexCost();
-	gpuStats.vertexGPUCycles += vertexCost * count;
-	cyclesExecuted += vertexCost * count;
+	int vertexCost = transformDraw_.EstimatePerVertexCost() * count;
+	gpuStats.vertexGPUCycles += vertexCost;
+	cyclesExecuted += vertexCost;
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	if (inds) {
 		int indexSize = 1;
-		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+		if ((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
 			indexSize = 2;
 		gstate_c.indexAddr += count * indexSize;
 	} else {
