@@ -294,10 +294,10 @@ void NativeInit(int argc, const char *argv[],
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
-	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.memStickDirectory = std::string(external_directory) + "/";
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
-	g_Config.memCardDirectory = user_data_path;
+	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
@@ -308,7 +308,7 @@ void NativeInit(int argc, const char *argv[],
 	else // Just in case
 		config = "./config";
 
-	g_Config.memCardDirectory = config + "/ppsspp/";
+	g_Config.memStickDirectory = config + "/ppsspp/";
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
@@ -319,8 +319,8 @@ void NativeInit(int argc, const char *argv[],
 	LogManager *logman = LogManager::GetInstance();
 
 	g_Config.AddSearchPath(user_data_path);
-	g_Config.AddSearchPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.Load();
 	g_Config.externalDirectory = external_directory;
 #endif
@@ -328,10 +328,10 @@ void NativeInit(int argc, const char *argv[],
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit.
-	ILOG("Creating %s", (g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/SAVEDATA").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/GAME").c_str());
+	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -419,7 +419,7 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -596,7 +596,7 @@ void TakeScreenshot() {
 	g_TakeScreenshot = false;
 
 #if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
+	mkDir(g_Config.memStickDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
 	int i = 0;
@@ -609,9 +609,9 @@ void TakeScreenshot() {
 	char filename[2048];
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		else
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		FileInfo info;
 		if (!getFileInfo(filename, &info))
 			break;

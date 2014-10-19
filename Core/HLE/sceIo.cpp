@@ -443,7 +443,7 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory, FILESYSTEM_SIMULATE_FAT32);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FILESYSTEM_SIMULATE_FAT32);
 #if defined(USING_WIN_UI) || defined(APPLE)
 	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #else

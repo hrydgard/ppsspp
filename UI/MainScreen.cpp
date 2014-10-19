@@ -439,7 +439,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef ANDROID
-	path_.SetPath(g_Config.memCardDirectory);
+	path_.SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI)
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
