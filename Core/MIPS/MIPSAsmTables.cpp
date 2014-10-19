@@ -305,7 +305,9 @@ const tMipsOpcode MipsOpcodes[] = {
 	// OPCODE 2F - UNDEF
 	// OPCODE 30 - UNDEF
 	// OPCODE 31 - LWC1
+	{ "lwc1",	"T,i(s)",	0xc4000000, MO_FRT|O_I16|O_RS },
 	// OPCODE 32 - LWC2
+	{ "lwc2",	"T,i(s)",	0xc8000000, MO_FRT|O_I16|O_RS },
 	// OPCODE 33 - LWC3
 	// OPCODE 34 - UNDEF
 	// OPCODE 35 - UNDEF
@@ -313,7 +315,9 @@ const tMipsOpcode MipsOpcodes[] = {
 	// OPCODE 37 - UNDEF
 	// OPCODE 38 - UNDEF
 	// OPCODE 39 - SWC1
+	{ "swc1",	"T,i(s)",	0xe4000000, MO_FRT|O_I16|O_RS },
 	// OPCODE 3A - SWC2
+	{ "swc2",	"T,i(s)",	0xe8000000, MO_FRT|O_I16|O_RS },
 	// OPCODE 3B - SWC3
 	// OPCODE 3C - UNDEF
 	// OPCODE 3D - UNDEF
