@@ -85,11 +85,6 @@ struct TransformedVertex
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
-enum {
-	STAT_VERTSSUBMITTED = 0,
-	NUM_VERTEX_DECODER_STATS = 1
-};
-
 inline int RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
@@ -524,14 +519,6 @@ public:
 	void Step_PosS16Through() const;
 	void Step_PosFloatThrough() const;
 
-	void ResetStats() {
-		memset(stats_, 0, sizeof(stats_));
-	}
-
-	void IncrementStat(int stat, int amount) {
-		stats_[stat] += amount;
-	}
-
 	// output must be big for safety.
 	// Returns number of chars written.
 	// Ugly for speed.
@@ -541,9 +528,11 @@ public:
 	mutable u8 *decoded_;
 	mutable const u8 *ptr_;
 
+	JittedVertexDecoder jitted_;
+
 	// "Immutable" state, set at startup
 
-	// The decoding steps
+	// The decoding steps. Never more than 5.
 	StepFunction steps_[5];
 	int numSteps_;
 
@@ -551,28 +540,23 @@ public:
 	DecVtxFormat decFmt;
 
 	bool throughmode;
-	int biggest;
-	int size;
-	int onesize_;
+	u8 size;
+	u8 onesize_;
 
-	int weightoff;
-	int tcoff;
-	int coloff;
-	int nrmoff;
-	int posoff;
+	u8 weightoff;
+	u8 tcoff;
+	u8 coloff;
+	u8 nrmoff;
+	u8 posoff;
 
-	int tc;
-	int col;
-	int nrm;
-	int pos;
-	int weighttype;
-	int idx;
-	int morphcount;
-	int nweights;
-
-	int stats_[NUM_VERTEX_DECODER_STATS];
-
-	JittedVertexDecoder jitted_;
+	u8 tc;
+	u8 col;
+	u8 nrm;
+	u8 pos;
+	u8 weighttype;
+	u8 idx;
+	u8 morphcount;
+	u8 nweights;
 
 	friend class VertexDecoderJitCache;
 };

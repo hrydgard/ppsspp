@@ -466,30 +466,30 @@ CoreParameter &PSP_CoreParameter() {
 std::string GetSysDirectory(PSPDirectories directoryType) {
 	switch (directoryType) {
 	case DIRECTORY_CHEATS:
-		return g_Config.memCardDirectory + "PSP/Cheats/";
+		return g_Config.memStickDirectory + "PSP/Cheats/";
 	case DIRECTORY_GAME:
-		return g_Config.memCardDirectory + "PSP/GAME/";
+		return g_Config.memStickDirectory + "PSP/GAME/";
 	case DIRECTORY_SAVEDATA:
-		return g_Config.memCardDirectory + "PSP/SAVEDATA/";
+		return g_Config.memStickDirectory + "PSP/SAVEDATA/";
 	case DIRECTORY_SCREENSHOT:
-		return g_Config.memCardDirectory + "PSP/SCREENSHOT/";
+		return g_Config.memStickDirectory + "PSP/SCREENSHOT/";
 	case DIRECTORY_SYSTEM:
-		return g_Config.memCardDirectory + "PSP/SYSTEM/";
+		return g_Config.memStickDirectory + "PSP/SYSTEM/";
 	case DIRECTORY_PAUTH:
-		return g_Config.memCardDirectory + "PAUTH/";
+		return g_Config.memStickDirectory + "PAUTH/";
 	case DIRECTORY_DUMP:
-		return g_Config.memCardDirectory + "PSP/SYSTEM/DUMP/";
+		return g_Config.memStickDirectory + "PSP/SYSTEM/DUMP/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");
-		return g_Config.memCardDirectory;
+		return g_Config.memStickDirectory;
 	}
 }
 
 #if defined(_WIN32)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
-	if (!g_Config.memCardDirectory.empty() && !g_Config.flash0Directory.empty())
+	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
 	const std::string path = File::GetExeDirectory();
@@ -518,38 +518,38 @@ void InitSysDirectories() {
 			if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
 				tempString = tempString.substr(3);
 
-			g_Config.memCardDirectory = tempString;
+			g_Config.memStickDirectory = tempString;
 		}
 		inputFile.close();
 
 		// Check if the file is empty first, before appending the slash.
-		if (g_Config.memCardDirectory.empty())
-			g_Config.memCardDirectory = myDocsPath;
+		if (g_Config.memStickDirectory.empty())
+			g_Config.memStickDirectory = myDocsPath;
 
-		size_t lastSlash = g_Config.memCardDirectory.find_last_of("/");
-		if (lastSlash != (g_Config.memCardDirectory.length() - 1))
-			g_Config.memCardDirectory.append("/");
+		size_t lastSlash = g_Config.memStickDirectory.find_last_of("/");
+		if (lastSlash != (g_Config.memStickDirectory.length() - 1))
+			g_Config.memStickDirectory.append("/");
 	} else {
-		g_Config.memCardDirectory = path + "memstick/";
+		g_Config.memStickDirectory = path + "memstick/";
 	}
 
 	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
 	// if we can't make it.
-	if (!File::Exists(g_Config.memCardDirectory)) {
-		if (!File::CreateDir(g_Config.memCardDirectory))
-			g_Config.memCardDirectory = myDocsPath;
+	if (!File::Exists(g_Config.memStickDirectory)) {
+		if (!File::CreateDir(g_Config.memStickDirectory))
+			g_Config.memStickDirectory = myDocsPath;
 	}
 
 	const std::string testFile = "/_writable_test.$$$";
 
 	// If any directory is read-only, fall back to the Documents directory.
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
-	if (!File::CreateEmptyFile(g_Config.memCardDirectory + testFile))
-		g_Config.memCardDirectory = myDocsPath;
+	if (!File::CreateEmptyFile(g_Config.memStickDirectory + testFile))
+		g_Config.memStickDirectory = myDocsPath;
 
 	// Clean up our mess.
-	if (File::Exists(g_Config.memCardDirectory + testFile))
-		File::Delete(g_Config.memCardDirectory + testFile);
+	if (File::Exists(g_Config.memStickDirectory + testFile))
+		File::Delete(g_Config.memStickDirectory + testFile);
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

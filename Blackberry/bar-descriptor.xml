@@ -18,9 +18,11 @@
 
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
     <asset path="../assets/icon-114.png">icon-114.png</asset>
-    <asset path="../android/assets">assets</asset>
-    <asset path="../assets/langregion.ini">assets/langregion.ini</asset>
-    <asset path="../assets/shaders">assets/shaders</asset>
+    <asset path="../assets" dest="assets">
+        <include name="*.png"/>
+        <include name="*.ini"/>
+        <include name="*atlas.zim"/>
+    </asset>
     <asset path="../lang">assets/lang</asset>
     <asset path="../flash0">assets/flash0</asset>
     

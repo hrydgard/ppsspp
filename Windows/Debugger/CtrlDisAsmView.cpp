@@ -643,7 +643,7 @@ void CtrlDisAsmView::followBranch()
 		} else if (line.info.hasRelevantAddress)
 		{
 			// well, not  exactly a branch, but we can do something anyway
-			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.relevantAddress,0);
 			SetFocus(wnd);
 		}
 	} else if (line.type == DISTYPE_DATA)

@@ -772,7 +772,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.params = buffer;
 		
 		dest.info.hasRelevantAddress = true;
-		dest.info.releventAddress = immediate;
+		dest.info.relevantAddress = immediate;
 		break;
 	case MACRO_MEMORYIMM:
 		dest.name = name;
@@ -792,7 +792,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.info.dataSize = dataSize;
 
 		dest.info.hasRelevantAddress = true;
-		dest.info.releventAddress = immediate;
+		dest.info.relevantAddress = immediate;
 		break;
 	default:
 		return false;

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 #include <d3d9.h>
 
@@ -215,7 +215,7 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
@@ -223,8 +223,8 @@ private:
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfoDX9 *> vai_;
-	std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
+	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
+	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;

@@ -634,8 +634,8 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	// Technically should crash if these are invalid and size > 0...
 	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{
-		u8 *dstp = Memory::GetPointer(dst);
-		u8 *srcp = Memory::GetPointer(src);
+		u8 *dstp = Memory::GetPointerUnchecked(dst);
+		u8 *srcp = Memory::GetPointerUnchecked(src);
 
 		// If it's non-overlapping, just do it in one go.
 		if (dst + size < src || src + size < dst)

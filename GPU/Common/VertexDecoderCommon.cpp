@@ -134,8 +134,7 @@ void PrintDecodedVertex(VertexReader &vtx) {
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
-VertexDecoder::VertexDecoder() : coloff(0), nrmoff(0), posoff(0), jitted_(0) {
-	memset(stats_, 0, sizeof(stats_));
+VertexDecoder::VertexDecoder() : jitted_(0) {
 }
 
 void VertexDecoder::Step_WeightsU8() const
@@ -1090,7 +1089,6 @@ int VertexDecoder::ToString(char *output) const {
 		output += sprintf(output, "I: %i ", idx);
 	if (morphcount > 1)
 		output += sprintf(output, "Morph: %i ", morphcount);
-	output += sprintf(output, "Verts: %i ", stats_[STAT_VERTSSUBMITTED]);
 	if (throughmode)
 		output += sprintf(output, " (through)");
 

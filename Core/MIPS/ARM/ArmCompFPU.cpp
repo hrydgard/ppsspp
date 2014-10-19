@@ -280,7 +280,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		VNEG(fpr.R(fd), fpr.R(fs));
 		break;
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		break;
@@ -295,7 +295,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode.
@@ -313,7 +313,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 	{
-		ClearRoundingMode();
+		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode.
@@ -399,8 +399,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 6: //ctc1
 		if (fs == 31) {
-			// Must clear before setting, since SetRoundingMode() assumes it was cleared.
-			ClearRoundingMode();
+			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
+			RestoreRoundingMode();
 			bool wasImm = gpr.IsImm(rt);
 			if (wasImm) {
 				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
@@ -420,7 +420,8 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
 			}
-			SetRoundingMode();
+			UpdateRoundingMode();
+			ApplyRoundingMode();
 		} else {
 			Comp_Generic(op);
 		}

@@ -772,7 +772,7 @@ void DeveloperToolsScreen::CreateViews() {
 #ifdef IOS
 	const std::string testDirectory = g_Config.flash0Directory + "../";
 #else
-	const std::string testDirectory = g_Config.memCardDirectory;
+	const std::string testDirectory = g_Config.memStickDirectory;
 #endif
 	if (!File::Exists(testDirectory + "pspautotests/tests/")) {
 		cpuTests->SetEnabled(false);

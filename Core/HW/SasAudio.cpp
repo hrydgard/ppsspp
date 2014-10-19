@@ -89,6 +89,7 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	int coef1 = f[predict_nr][0];
 	int coef2 = -f[predict_nr][1];
 
+	// TODO: Unroll once more and interleave the unpacking with the decoding more?
 	for (int i = 0; i < 28; i += 2) {
 		u8 d = *readp++;
 		int sample1 = (short)((d & 0xf) << 12) >> shift_factor;
@@ -115,11 +116,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
-	u8 *readp = Memory::GetPointer(read_);
-	if (!readp) {
+	if (!Memory::IsValidAddress(read_)) {
 		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
+	u8 *readp = Memory::GetPointerUnchecked(read_);
 	u8 *origp = readp;
 
 	for (int i = 0; i < numSamples; i++) {

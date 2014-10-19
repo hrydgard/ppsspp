@@ -114,20 +114,25 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	int values = 0;
 	u8 usedBits = 0;
 
+	const u8 *src = Memory::GetPointer(addr);
+	if (!src) {
+		return false;
+	}
+
 	switch (dstBuffer->format) {
 	case GE_FORMAT_565:
 		// Well, this doesn't make much sense.
 		return false;
 	case GE_FORMAT_5551:
-		usedBits = StencilBits5551(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits5551(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 2;
 		break;
 	case GE_FORMAT_4444:
-		usedBits = StencilBits4444(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits4444(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 16;
 		break;
 	case GE_FORMAT_8888:
-		usedBits = StencilBits8888(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits8888(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 256;
 		break;
 	case GE_FORMAT_INVALID:
@@ -218,7 +223,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	}
 	dxstate.viewport.set(0, 0, w, h);
 
-	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 
 	pD3Ddevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_STENCIL, D3DCOLOR_RGBA(0, 0, 0, 0), 0.0f, 0);
 

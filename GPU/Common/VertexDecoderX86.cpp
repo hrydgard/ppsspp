@@ -150,13 +150,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
 
-// TODO: This should probably be global...
-#ifdef _M_X64
-#define PTRBITS 64
-#else
-#define PTRBITS 32
-#endif
-
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
 	const u8 *start = this->GetCodePtr();

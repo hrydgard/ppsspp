@@ -333,7 +333,7 @@ public:
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
-	std::string memCardDirectory;
+	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
 

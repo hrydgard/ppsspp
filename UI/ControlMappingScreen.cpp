@@ -416,7 +416,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 
 void JoystickHistoryView::Update(const InputState &input_state) {
 	locations_.push_back(Location(curX_, curY_));
-	if (locations_.size() > maxCount_) {
+	if ((int)locations_.size() > maxCount_) {
 		locations_.pop_front();
 	}
 }

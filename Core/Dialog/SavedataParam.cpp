@@ -1106,9 +1106,11 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
 	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
 	std::set<std::string> secureFilenames;
-	// TODO: Error code if not?
+
 	if (sfoFileInfo.exists) {
 		secureFilenames = getSecureFileNames(dirPath);
+	} else {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 	}
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
@@ -1657,24 +1659,15 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 	return false;
 }
 
-bool SavedataParam::secureCanSkip(SceUtilitySavedataParam* param, bool secureMode) {
-	if (!secureMode)       // Only check in secure mode.
-		return false;
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);	
+bool SavedataParam::IsSaveDirectoryExist(SceUtilitySavedataParam* param) {
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
+	PSPFileInfo directoryInfo = pspFileSystem.GetFileInfo(dirPath);
+	return directoryInfo.exists;
+}
+
+bool SavedataParam::IsSfoFileExist(SceUtilitySavedataParam* param) {
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
 	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	std::string secureFileName = GetFileName(param); 
-	std::set<std::string> secureFileNames;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
-	// If sfo doesn't exist,shouldn't skip.
-	if (!sfoInfo.exists)
-		return false;
-
-	// Get secure file names from PARAM.SFO.
-	secureFileNames = getSecureFileNames(dirPath);
-	// Secure file name should be saved in PARAM.SFO
-	// Cannot find name in PARAM.SFO, could skip.
-	if (secureFileNames.find(secureFileName) == secureFileNames.end())
-		return true;
-
-	return false;
+	return sfoInfo.exists;
 }

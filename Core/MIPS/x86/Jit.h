@@ -165,8 +165,9 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
-	void ClearRoundingMode(XEmitter *emitter = NULL);
-	void SetRoundingMode(XEmitter *emitter = NULL);
+	void RestoreRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void ApplyRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void UpdateRoundingMode(XEmitter *emitter = NULL);
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
@@ -192,6 +193,7 @@ private:
 		CompileDelaySlot(flags, &state);
 	}
 	void EatInstruction(MIPSOpcode op);
+	void AddContinuedBlock(u32 dest);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(X64Reg reg);
@@ -227,6 +229,7 @@ private:
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
 	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
 
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
@@ -257,12 +260,31 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
-	bool CanContinueBranch() {
+	bool CanContinueBranch(u32 targetAddr) {
 		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
 		}
 		// Need at least 2 exits left over.
 		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 2) {
+			return false;
+		}
+		// Sometimes we predict wrong and get into impossible conditions where games have jumps to 0.
+		if (!targetAddr) {
+			return false;
+		}
+		return true;
+	}
+	bool CanContinueJump(u32 targetAddr) {
+		if (!jo.continueJumps || js.numInstructions >= jo.continueMaxInstructions) {
+			return false;
+		}
+		if (!targetAddr) {
+			return false;
+		}
+		return true;
+	}
+	bool CanContinueImmBranch(u32 targetAddr) {
+		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
 		}
 		return true;

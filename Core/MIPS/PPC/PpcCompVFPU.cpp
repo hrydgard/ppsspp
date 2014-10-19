@@ -671,7 +671,7 @@ namespace MIPSComp
 					// In case we have a saved prefix.
 					//FlushPrefixV();
 					//gpr.BindToRegister(rt, false, true);
-					//MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+					//MOV(32, gpr.R(rt), M(&mips_->vfpuCtrl[imm - 128]));
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
 					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
@@ -688,7 +688,7 @@ namespace MIPSComp
 				gpr.MapReg(rt);
 				STW(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 				//gpr.BindToRegister(rt, true, false);
-				//MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+				//MOV(32, M(&mips_->vfpuCtrl[imm - 128]), gpr.R(rt));
 
 				// TODO: Optimization if rt is Imm?
 				// Set these BEFORE disable!
