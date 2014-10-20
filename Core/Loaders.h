@@ -37,6 +37,7 @@ enum IdentifiedFileType {
 	// Try to reduce support emails...
 	FILETYPE_ARCHIVE_RAR,
 	FILETYPE_ARCHIVE_ZIP,
+	FILETYPE_ARCHIVE_7Z,
 	FILETYPE_PSP_PS1_PBP,
 	FILETYPE_ISO_MODE2,
 

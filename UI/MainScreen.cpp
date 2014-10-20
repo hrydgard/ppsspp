@@ -550,7 +550,7 @@ void GameBrowser::Refresh() {
 		// to a flood of support email...
 		if (allowBrowsing_) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r01:");
+			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
 				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				zl->SetSpacing(4.0f);
