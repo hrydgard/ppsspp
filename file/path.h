@@ -42,13 +42,6 @@ public:
 			str.insert(0, 1, '~');
 		}
 #endif
-		/*
-#ifdef ANDROID
-		if (!memcmp(str.c_str(), g_Config.memCardDirectory.c_str(), g_Config.memCardDirectory.size()))
-		{
-			str = str.substr(g_Config.memCardDirectory.size());
-		}
-#endif*/
 		return str;
 	}
 
