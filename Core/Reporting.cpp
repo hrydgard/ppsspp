@@ -30,13 +30,11 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/Framebuffer.h"
-
-#ifndef _XBOX
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
-#endif
 
+#include "base/stringutil.h"
 #include "base/buffer.h"
 #include "thread/thread.h"
 #include "file/zip_read.h"
@@ -45,13 +43,6 @@
 #include <stdlib.h>
 #include <cstdarg>
 
-#ifdef _XBOX
-namespace Reporting
-{
-	bool IsEnabled() { return false;}
-	void ReportMessage(const char *message, ...) { }
-}
-#else
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
@@ -72,6 +63,7 @@ namespace Reporting
 	enum RequestType
 	{
 		MESSAGE,
+		COMPAT,
 	};
 
 	struct Payload
@@ -79,6 +71,9 @@ namespace Reporting
 		RequestType type;
 		std::string string1;
 		std::string string2;
+		int int1;
+		int int2;
+		int int3;
 	};
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
@@ -150,7 +145,7 @@ namespace Reporting
 		return ++spamProtectionCount >= SPAM_LIMIT;
 	}
 
-	bool SendReportRequest(const char *uri, const std::string &data, Buffer *output = NULL)
+	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
 		bool result = false;
 		net::AutoInit netInit;
@@ -163,7 +158,7 @@ namespace Reporting
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
-			http.POST("/report/message", data, "application/x-www-form-urlencoded", output);
+			http.POST(uri, data, mimeType, output);
 			http.Disconnect();
 			result = true;
 		}
@@ -313,7 +308,19 @@ namespace Reporting
 			payload.string1.clear();
 			payload.string2.clear();
 
-			SendReportRequest("/report/message", postdata.ToString());
+			postdata.Finish();
+			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType());
+			break;
+
+		case COMPAT:
+			postdata.Add("compat", payload.string1);
+			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
+			postdata.Add("speed", StringFromFormat("%d", payload.int2));
+			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
+			payload.string1.clear();
+
+			postdata.Finish();
+			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
 			break;
 		}
 
@@ -377,7 +384,7 @@ namespace Reporting
 		if (!IsEnabled() || CheckSpamLimited())
 			return;
 
-		const int MESSAGE_BUFFER_SIZE = 32768;
+		const int MESSAGE_BUFFER_SIZE = 65536;
 		char temp[MESSAGE_BUFFER_SIZE];
 
 		va_list args;
@@ -396,6 +403,21 @@ namespace Reporting
 		th.detach();
 	}
 
-}
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay)
+	{
+		if (!IsEnabled())
+			return;
 
-#endif
+		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
+		Payload &payload = payloadBuffer[pos];
+		payload.type = COMPAT;
+		payload.string1 = compat;
+		payload.int1 = graphics;
+		payload.int2 = speed;
+		payload.int3 = gameplay;
+
+		std::thread th(Process, pos);
+		th.detach();
+	}
+
+}

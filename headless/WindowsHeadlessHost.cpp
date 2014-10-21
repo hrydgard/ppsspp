@@ -24,11 +24,11 @@
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
-#include "gfx/gl_lost_manager.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -80,8 +80,6 @@ void WindowsHeadlessHost::LoadNativeAssets()
 	VFSRegister("", new DirectoryAssetReader("../"));
 	VFSRegister("", new DirectoryAssetReader("../Windows/assets/"));
 	VFSRegister("", new DirectoryAssetReader("../Windows/"));
-
-	gl_lost_manager_init();
 }
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
@@ -108,16 +106,16 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	}
 
 	// We ignore the current framebuffer parameters and just grab the full screen.
-	const static int FRAME_WIDTH = 512;
-	const static int FRAME_HEIGHT = 272;
-	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
+	const static u32 FRAME_STRIDE = 512;
+	const static u32 FRAME_WIDTH = 480;
+	const static u32 FRAME_HEIGHT = 272;
 
-	// TODO: Maybe this code should be moved into GLES_GPU to support DirectX/etc.
-	glReadBuffer(GL_FRONT);
-	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+	GPUDebugBuffer buffer;
+	gpuDebug->GetCurrentFramebuffer(buffer);
+	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
 	std::string error;
-	double errors = CompareScreenshot(pixels, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, comparisonScreenshot, error);
+	double errors = CompareScreenshot(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT, comparisonScreenshot, error);
 	if (errors < 0)
 		SendOrCollectDebugOutput(error);
 
@@ -143,14 +141,12 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 		if (saved)
 		{
 			fwrite(&header, sizeof(header), 1, saved);
-			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
+			fwrite(pixels.data(), sizeof(u32), FRAME_STRIDE * FRAME_HEIGHT, saved);
 			fclose(saved);
 
 			SendOrCollectDebugOutput("Actual output written to: __testfailure.bmp\n");
 		}
 	}
-
-	delete [] pixels;
 }
 
 void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
@@ -158,7 +154,7 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGL(std::string *error_message)
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 {
 	hWnd = CreateHiddenWindow();
 
@@ -197,7 +193,7 @@ bool WindowsHeadlessHost::InitGL(std::string *error_message)
 	return ResizeGL();
 }
 
-void WindowsHeadlessHost::ShutdownGL()
+void WindowsHeadlessHost::ShutdownGraphics()
 {
 	if (hRC)
 	{

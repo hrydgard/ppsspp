@@ -49,6 +49,8 @@ endif (CMAKE_UNAME)
 include (CMakeForceCompiler)
 CMAKE_FORCE_C_COMPILER (gcc gcc)
 CMAKE_FORCE_CXX_COMPILER (g++ g++)
+CMAKE_FORCE_C_COMPILER (/usr/bin/clang Apple)
+CMAKE_FORCE_CXX_COMPILER (/usr/bin/clang++ Apple)
 
 # Skip the platform compiler checks for cross compiling
 set (CMAKE_CROSSCOMPILING TRUE)

@@ -56,10 +56,15 @@ struct CPUInfo {
 	bool bLZCNT;
 	bool bSSE4A;
 	bool bAVX;
+	bool bAVX2;
 	bool bFMA;
 	bool bAES;
 	bool bLAHFSAHF64;
 	bool bLongMode;
+	bool bBMI1;
+	bool bBMI2;
+	bool bMOVBE;
+	bool bFXSR;
 
 	// ARM specific CPUInfo
 	bool bSwp;

@@ -15,17 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
+#include "base/functional.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx_es2/gl_state.h"
-#include "file/vfs.h"
 #include "math/curves.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "file/vfs.h"
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
@@ -42,7 +44,6 @@
 #include "ui_atlas.h"
 
 #ifdef _MSC_VER
-#define snprintf _snprintf
 #pragma execution_character_set("utf-8")
 #endif
 
@@ -85,11 +86,8 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_xres = xres;
 		last_yres = yres;
 	}
-
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0.1f, 0.2f, 0.43f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	
+	dc.GetThin3DContext()->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xff224477, 0.0, 0);
 	int img = I_BG;
 #ifdef GOLD
 	img = I_BG_GOLD;
@@ -106,18 +104,18 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {
 		bool hasPic = false;
 		double loadTime;
 		if (ginfo->pic1Texture) {
-			ginfo->pic1Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
 			loadTime = ginfo->timePic1WasLoaded;
 			hasPic = true;
 		} else if (ginfo->pic0Texture) {
-			ginfo->pic0Texture->Bind(0);
+			dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
 			loadTime = ginfo->timePic0WasLoaded;
 			hasPic = true;
 		}
@@ -339,7 +337,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	bool iniLoadedSuccessfully = false;
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -396,7 +394,6 @@ bool LogoScreen::key(const KeyInput &key) {
 
 void LogoScreen::render() {
 	UIScreen::render();
-
 	UIContext &dc = *screenManager()->getUIContext();
 
 	const Bounds &bounds = dc.GetBounds();
@@ -418,7 +415,7 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
@@ -434,6 +431,10 @@ void LogoScreen::render() {
 	if (boot_filename.size()) {
 		ui_draw2d.DrawTextShadow(UBUNTU24, boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
+
+#ifdef _WIN32
+	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#endif
 
 	dc.End();
 	dc.Flush();
@@ -625,7 +626,7 @@ void CreditsScreen::render() {
 
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	snprintf(temp, sizeof(temp), "PPSSPP %s", PPSSPP_GIT_VERSION);
 	credits[0] = (const char *)temp;
 
 	UIContext &dc = *screenManager()->getUIContext();

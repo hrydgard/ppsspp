@@ -52,10 +52,40 @@ struct VertexShaderIDDX9
 
 bool CanUseHardwareTransformDX9(int prim);
 
-void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, int prim, bool useHWTransform);
+void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, int prim, bool useHWTransform);
 void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform);
 
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
 int TranslateNumBonesDX9(int bones);
+
+#define CONST_VS_PROJ 0
+#define CONST_VS_PROJ_THROUGH 4
+#define CONST_VS_VIEW 8
+#define CONST_VS_WORLD 11
+#define CONST_VS_TEXMTX 14
+#define CONST_VS_UVSCALEOFFSET 17
+#define CONST_VS_FOGCOEF 18
+#define CONST_VS_AMBIENT 19
+#define CONST_VS_BONE0 20
+#define CONST_VS_BONE1 23
+#define CONST_VS_BONE2 26
+#define CONST_VS_BONE3 29
+#define CONST_VS_BONE4 32
+#define CONST_VS_BONE5 35
+#define CONST_VS_BONE6 38
+#define CONST_VS_BONE7 41
+#define CONST_VS_BONE8 44
+#define CONST_VS_MATAMBIENTALPHA 47
+#define CONST_VS_MATDIFFUSE 48
+#define CONST_VS_MATSPECULAR 49
+#define CONST_VS_MATEMISSIVE 50
+#define CONST_VS_LIGHTPOS 51
+#define CONST_VS_LIGHTDIR 55
+#define CONST_VS_LIGHTATT 59
+#define CONST_VS_LIGHTANGLE 63
+#define CONST_VS_LIGHTSPOTCOEF 67
+#define CONST_VS_LIGHTDIFFUSE 71
+#define CONST_VS_LIGHTSPECULAR 75
+#define CONST_VS_LIGHTAMBIENT 79
 
 };

@@ -23,9 +23,7 @@
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
-#ifndef _XBOX
 #include "gfx_es2/gpu_features.h"
-#endif
 #include "net/http_client.h"
 #include "util/text/parsers.h"
 #include "net/url.h"
@@ -315,6 +313,14 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting(false),
 };
 
+static bool DefaultForceFlushToZero() {
+#ifdef ARM
+	return true;
+#else
+	return false;
+#endif
+}
+
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit),
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false),
@@ -324,6 +330,8 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
+	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true),
+	ReportedConfigSetting("ForceFlushToZero", &g_Config.bForceFlushToZero, &DefaultForceFlushToZero),
 
 	ConfigSetting(false),
 };
@@ -385,6 +393,7 @@ static int DefaultAndroidHwScale() {
 
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
+	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
 	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
@@ -398,6 +407,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false),
+	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
+	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
@@ -441,6 +452,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
 	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false),
+	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true),
 
 	ConfigSetting(false),
 };
@@ -694,8 +706,11 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
-	iniFilename_ = FindConfigFile(iniFileName != NULL ? iniFileName : "ppsspp.ini");
-	controllerIniFilename_ = FindConfigFile(controllerIniFilename != NULL ? controllerIniFilename : "controls.ini");
+	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+
+	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -731,7 +746,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 			 char keyName[64];
 			 std::string fileName;
 
-			 sprintf(keyName, "FileName%d", i);
+			 snprintf(keyName, sizeof(keyName), "FileName%d", i);
 			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
 				 recentIsos.push_back(fileName);
 			 }
@@ -815,6 +830,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
+
+#ifdef _WIN32
+	iTempGPUBackend = iGPUBackend;
+#endif
 }
 
 void Config::Save() {
@@ -840,7 +859,7 @@ void Config::Save() {
 
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
-			sprintf(keyName,"FileName%d",i);
+			snprintf(keyName, sizeof(keyName), "FileName%d", i);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
@@ -1059,5 +1078,3 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 		}
 	}
 }
-
-

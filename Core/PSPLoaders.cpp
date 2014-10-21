@@ -252,7 +252,7 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 
 		const std::string filepath = ReplaceAll(pathNorm.substr(rootNorm.size()), "\\", "/");
 		file = filepath + "/" + file;
-		path = rootNorm;
+		path = rootNorm + "/";
 		pspFileSystem.SetStartingDirectory(filepath);
 	}
 

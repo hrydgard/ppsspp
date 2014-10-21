@@ -44,6 +44,7 @@
 #include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/ReportScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -174,8 +175,8 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, 0);
-	Texture *texture = 0;
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath_, 0);
+	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 
 	if (ginfo->iconTexture) {
@@ -249,7 +250,7 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		dc.Draw()->Flush();
-		texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, texture);
 		if (holdFrameCount_ > 60) {
 			// Blink before launching by holding
 			if (((holdFrameCount_ >> 3) & 1) == 0)
@@ -438,7 +439,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef ANDROID
-	path_.SetPath(g_Config.memCardDirectory);
+	path_.SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI)
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
@@ -549,7 +550,7 @@ void GameBrowser::Refresh() {
 		// to a flood of support email...
 		if (allowBrowsing_) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r01:");
+			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
 				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				zl->SetSpacing(4.0f);
@@ -959,7 +960,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 
 	GameInfo *ginfo = 0;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache.GetInfo(gamePath, GAMEINFO_WANTBG);
+		ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 		// Loading texture data may bind a texture.
 		dc.RebindTexture();
 
@@ -972,9 +973,9 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 	}
 
 	if (ginfo->pic1Texture) {
-		ginfo->pic1Texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
 	} else if (ginfo->pic0Texture) {
-		ginfo->pic0Texture->Bind(0);
+		dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
@@ -1176,6 +1177,12 @@ void GamePauseScreen::CreateViews() {
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
+	// TODO, also might be nice to show overall compat rating here?
+	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
+	if (Reporting::IsEnabled()) {
+		I18NCategory *rp = GetI18NCategory("Reporting");
+		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
+	}
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
@@ -1204,6 +1211,11 @@ void GamePauseScreen::onFinish(DialogResult result) {
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
+	screenManager()->push(new ReportScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

@@ -20,6 +20,8 @@
 #include <vector>
 #include <map>
 
+#include "base/compat.h"
+
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -653,6 +655,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 
 int sceKernelDeleteFpl(SceUID uid)
 {
+	hleEatCycles(600);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
@@ -833,6 +836,8 @@ retry:
 
 int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 {
+	hleEatCycles(600);
+
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
@@ -896,7 +901,7 @@ public:
 	void GetQuickInfo(char *ptr, int size)
 	{
 		int sz = alloc->GetBlockSizeFromAddress(address);
-		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
+		snprintf(ptr, size, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_PMB; }

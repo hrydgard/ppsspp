@@ -27,6 +27,7 @@
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/DepalettizeShader.h"
+#include "GPU/GLES/FragmentTestCache.h"
 
 class ShaderManager;
 class LinkedShader;
@@ -38,7 +39,7 @@ public:
 	virtual void InitClear();
 	virtual void Reinitialize();
 	virtual void PreExecuteOp(u32 op, u32 diff);
-	void ExecuteOpInternal(u32 op, u32 diff);
+	void Execute_Generic(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
@@ -173,6 +174,7 @@ private:
 	TextureCache textureCache_;
 	DepalShaderCache depalShaderCache_;
 	TransformDrawEngine transformDraw_;
+	FragmentTestCache fragmentTestCache_;
 	ShaderManager *shaderManager_;
 
 	bool resized_;

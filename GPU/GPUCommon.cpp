@@ -569,7 +569,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 			} else {
 				prev = 0;
 			}
-			GeDisassembleOp(list.pc, op, prev, temp);
+			GeDisassembleOp(list.pc, op, prev, temp, 256);
 			NOTICE_LOG(G3D, "%s", temp);
 		}
 		gstate.cmdmem[cmd] = op;
@@ -756,6 +756,10 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	// Saint Seiya needs correct support for relative calls.
 	const u32 retval = currentList->pc + 4;
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+	if (!Memory::IsValidAddress(target)) {
+		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		return;
+	}
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -770,8 +774,6 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 		ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
-	} else if (!Memory::IsValidAddress(target)) {
-		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;
@@ -1189,7 +1191,7 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 
 GPUDebugOp GPUCommon::DissassembleOp(u32 pc, u32 op) {
 	char buffer[1024];
-	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer);
+	GeDisassembleOp(pc, op, Memory::Read_U32(pc - 4), buffer, sizeof(buffer));
 
 	GPUDebugOp info;
 	info.pc = pc;
@@ -1208,7 +1210,7 @@ std::vector<GPUDebugOp> GPUCommon::DissassembleOpRange(u32 startpc, u32 endpc) {
 	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
 		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
-		GeDisassembleOp(pc, op, prev, buffer);
+		GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 		prev = op;
 
 		info.pc = pc;

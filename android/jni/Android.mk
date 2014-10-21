@@ -48,10 +48,11 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderX86.cpp
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
 endif
 
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
@@ -68,7 +69,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderArm.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 endif
 
@@ -88,7 +89,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderArm.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 endif
 
@@ -117,6 +118,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
+  $(SRC)/ext/udis86/decode.c \
+  $(SRC)/ext/udis86/itab.c \
+  $(SRC)/ext/udis86/syn-att.c \
+  $(SRC)/ext/udis86/syn-intel.c \
+  $(SRC)/ext/udis86/syn.c \
+  $(SRC)/ext/udis86/udis86.c \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Crypto/md5.cpp \
@@ -136,8 +143,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
+  $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
+  $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
+  $(SRC)/GPU/Common/SplineCommon.cpp.arm \
+  $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
   $(SRC)/GPU/Common/TransformCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
@@ -149,12 +161,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
-  $(SRC)/GPU/GLES/SoftwareTransform.cpp.arm \
   $(SRC)/GPU/GLES/StateMapping.cpp.arm \
-  $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManager.cpp.arm \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
+  $(SRC)/GPU/GLES/FragmentTestCache.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
   $(SRC)/GPU/GLES/Spline.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
@@ -285,8 +296,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/Store.cpp \
-  $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \

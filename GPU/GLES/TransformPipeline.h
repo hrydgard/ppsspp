@@ -17,11 +17,13 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -29,6 +31,9 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
+class FramebufferManagerCommon;
+class TextureCacheCommon;
+class FragmentTestCache;
 struct TransformedVertex;
 
 struct DecVtxFormat;
@@ -55,7 +60,6 @@ public:
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
-		numDCs = 0;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
@@ -74,6 +78,7 @@ public:
 	};
 
 	u32 hash;
+	u32 minihash;
 
 	Status status;
 
@@ -86,7 +91,6 @@ public:
 	s8 prim;
 
 	// ID information
-	u8 numDCs;
 	int numDraws;
 	int numFrames;
 	int lastFrame;  // So that we can forget.
@@ -95,7 +99,7 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine : public GfxResourceHolder {
+class TransformDrawEngine : public DrawEngineCommon, public GfxResourceHolder {
 public:
 	TransformDrawEngine();
 	virtual ~TransformDrawEngine();
@@ -103,9 +107,6 @@ public:
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
-	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
-
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -115,6 +116,9 @@ public:
 	}
 	void SetFramebufferManager(FramebufferManager *fbManager) {
 		framebufferManager_ = fbManager;
+	}
+	void SetFragmentTestCache(FragmentTestCache *testCache) {
+		fragmentTestCache_ = testCache;
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -166,28 +170,26 @@ public:
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
-	// Really just for convenience to share with softgpu.
-	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
+protected:
+	// Preprocessing for spline/bezier
+	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
 
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
+	void ApplyDrawStateLate();
 	void ApplyBlendState();
+	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
 	bool ApplyShaderBlending();
 	inline void ResetShaderBlending();
-	bool IsReallyAClear(int numVerts) const;
 	GLuint AllocateBuffer();
 	void FreeBuffer(GLuint buf);
 
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
-
-	// drawcall ID
-	u32 ComputeFastDCID();
+	u32 ComputeMiniHash();
 	u32 ComputeHash();  // Reads deferred vertex data.
+	void MarkUnreliable(VertexArrayInfo *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -210,19 +212,15 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
-	
-	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfo *> vai_;
+	std::unordered_map<u32, VertexArrayInfo *> vai_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
@@ -235,6 +233,7 @@ private:
 	ShaderManager *shaderManager_;
 	TextureCache *textureCache_;
 	FramebufferManager *framebufferManager_;
+	FragmentTestCache *fragmentTestCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
@@ -248,4 +247,5 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
+	VertexDecoderOptions decOptions_;
 };

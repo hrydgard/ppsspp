@@ -17,16 +17,16 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#ifndef _XBOX
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
-#endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
-#if defined(_XBOX) || defined(_WIN32)
+
+#if defined(_WIN32)
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
+
 #include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"
 #include "Core/Config.h"
@@ -57,17 +57,13 @@ bool GPU_Init() {
 		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
-#ifndef _XBOX
 		SetGPU(new GLES_GPU());
-#endif
 		break;
 	case GPU_SOFTWARE:
-#ifndef _XBOX
 		SetGPU(new SoftGPU());
-#endif
 		break;
 	case GPU_DIRECTX9:
-#if defined(_XBOX) || defined(_WIN32)
+#if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU());
 #endif
 		break;
@@ -270,7 +266,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 3);
+	auto s = p.Section("GPUStateCache", 0, 4);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -302,7 +298,7 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(flipTexture);
 	}
 
-	// needShaderTexClamp doesn't need to be saved.
+	// needShaderTexClamp and bgraTexture don't need to be saved.
 
 	if (s >= 3) {
 		p.Do(textureSimpleAlpha);
@@ -332,6 +328,11 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	p.Do(vpWidth);
 	p.Do(vpHeight);
+	if (s >= 4) {
+		p.Do(vpDepth);
+	} else {
+		vpDepth = 1.0f;  // any positive value should be fine
+	}
 
 	p.Do(curRTWidth);
 	p.Do(curRTHeight);

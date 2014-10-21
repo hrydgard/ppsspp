@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,17 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
 
-#include "gfx_es2/glsl_program.h"
-#include "gfx/texture.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
-void UIShader_Init();
-GLSLProgram *UIShader_Get();
-GLSLProgram *UIShader_GetPlain();  // Just color
-void UIShader_Shutdown();
+TextureCacheCommon::~TextureCacheCommon() {}
 
-void UIShader_Prepare();
-
-// TODO: Remove
-extern Texture *uiTexture;
+bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
+	return false;
+}

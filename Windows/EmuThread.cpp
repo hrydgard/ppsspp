@@ -3,11 +3,13 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "base/mutex.h"
+#include "i18n/i18n.h"
 #include "util/text/utf8.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "../Globals.h"
 #include "Windows/EmuThread.h"
+#include "Windows/W32Util/Misc.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/resource.h"
 #include "Core/Reporting.h"
@@ -26,6 +28,8 @@
 static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
+
+extern std::vector<std::wstring> GetWideCmdLine();
 
 enum EmuThreadStatus : long
 {
@@ -89,7 +93,25 @@ unsigned int WINAPI TheThread(void *)
 
 	Host *oldHost = host;
 
-	NativeInit(__argc, (const char **)__argv, "1234", "1234", "1234");
+	// Convert the command-line arguments to Unicode, then to proper UTF-8 
+	// (the benefit being that we don't have to pollute the UI project with win32 ifdefs and lots of Convert<whatever>To<whatever>).
+	// This avoids issues with PPSSPP inadvertently destroying paths with Unicode glyphs 
+	// (using the ANSI args resulted in Japanese/Chinese glyphs being turned into question marks, at least for me..).
+	// -TheDax
+	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+	std::vector<std::string> argsUTF8;
+	for (auto& string : wideArgs) {
+		argsUTF8.push_back(ConvertWStringToUTF8(string));
+	}
+
+	std::vector<const char *> args;
+
+	for (auto& string : argsUTF8) {
+		args.push_back(string.c_str());
+	}
+
+	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
+
 	Host *nativeHost = host;
 	host = oldHost;
 
@@ -105,13 +127,39 @@ unsigned int WINAPI TheThread(void *)
 	}
 
 	std::string error_string;
-	if (!host->InitGL(&error_string)) {
-		Reporting::ReportMessage("OpenGL init error: %s", error_string.c_str());
-		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
-		MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), L"OpenGL Error", MB_OK | MB_ICONERROR);
+	if (!host->InitGraphics(&error_string)) {
+		I18NCategory *err = GetI18NCategory("Error");
+		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
+
+		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
+		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
+		const char *genericError;
+		int nextBackend = GPU_BACKEND_DIRECT3D9;
+		switch (g_Config.iGPUBackend) {
+		case GPU_BACKEND_DIRECT3D9:
+			nextBackend = GPU_BACKEND_OPENGL;
+			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
+			break;
+		case GPU_BACKEND_OPENGL:
+		default:
+			nextBackend = GPU_BACKEND_DIRECT3D9;
+			genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
+			break;
+		}
+		std::string full_error = StringFromFormat("%s\n\n%s", genericError, error_string.c_str());
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		ERROR_LOG(BOOT, full_error.c_str());
 
-		// No safe way out without OpenGL.
+		if (yes) {
+			// Change the config to the alternative and restart.
+			g_Config.iGPUBackend = nextBackend;
+			g_Config.Save();
+
+			W32Util::ExitAndRestart();
+		}
+
+		// No safe way out without graphics.
 		ExitProcess(1);
 	}
 
@@ -152,7 +200,7 @@ shutdown:
 	host = nativeHost;
 	NativeShutdown();
 	host = oldHost;
-	host->ShutdownGL();
+	host->ShutdownGraphics();
 	
 	_InterlockedExchange(&emuThreadReady, THREAD_END);
 

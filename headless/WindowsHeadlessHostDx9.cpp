@@ -23,7 +23,9 @@
 #include <io.h>
 
 #include "base/logging.h"
+#include "thin3d/d3dx9_loader.h"
 #include "GPU/Directx9/helper/global.h"
+#include "GPU/Directx9/helper/fbo.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -52,47 +54,20 @@ HWND DxCreateWindow()
 	RECT wr = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};    // set the size, but not the position
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);    // adjust the size
 
-	DWORD style = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+	DWORD style = WS_OVERLAPPEDWINDOW | (WINDOW_VISIBLE ? WS_VISIBLE : 0);
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, NULL, NULL);
 }
 
-void WindowsHeadlessHostDx9::LoadNativeAssets()
+bool WindowsHeadlessHostDx9::InitGraphics(std::string *error_message)
 {
-	// Native is kinda talkative, but that's annoying in our case.
-	out = _fdopen(_dup(_fileno(stdout)), "wt");
-	freopen("NUL", "wt", stdout);
-
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-	VFSRegister("", new DirectoryAssetReader(""));
-	VFSRegister("", new DirectoryAssetReader("../"));
-	VFSRegister("", new DirectoryAssetReader("../Windows/assets/"));
-	VFSRegister("", new DirectoryAssetReader("../Windows/"));
-
-	// See SendDebugOutput() for how things get back on track.
-}
-
-void WindowsHeadlessHostDx9::SendDebugOutput(const std::string &output)
-{
-	fwrite(output.data(), sizeof(char), output.length(), out);
-	OutputDebugStringUTF8(output.c_str());
-}
-
-void WindowsHeadlessHostDx9::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
-{
-	
-}
-
-void WindowsHeadlessHostDx9::SetComparisonScreenshot(const std::string &filename)
-{
-	comparisonScreenshot = filename;
-}
-
-bool WindowsHeadlessHostDx9::InitGL(std::string *error_message)
-{
+	LoadD3DX9Dynamic();
 	hWnd = DxCreateWindow();
 
-	ShowWindow(hWnd, TRUE);
-	SetFocus(hWnd);
+	if (WINDOW_VISIBLE)
+	{
+		ShowWindow(hWnd, TRUE);
+		SetFocus(hWnd);
+	}
 
 	DX9::DirectxInit(hWnd);
 
@@ -104,8 +79,14 @@ bool WindowsHeadlessHostDx9::InitGL(std::string *error_message)
 	return true;
 }
 
-void WindowsHeadlessHostDx9::ShutdownGL()
+void WindowsHeadlessHostDx9::ShutdownGraphics()
 {
+	DX9::DestroyShaders();
+	DX9::fbo_shutdown();
+	DX9::pD3Ddevice->EndScene();
+	DX9::pD3Ddevice->Release();
+	DX9::pD3Ddevice = NULL;
+	hWnd = NULL;
 }
 
 bool WindowsHeadlessHostDx9::ResizeGL()

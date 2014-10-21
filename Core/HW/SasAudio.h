@@ -126,7 +126,7 @@ public:
 	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
 	int setContext(u32 context);
 	int getNextSamples(s16* outbuf, int wantedSamples);
-	int addStreamData(u8* buf, u32 addbytes);
+	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
 
 private:

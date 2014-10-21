@@ -2,6 +2,7 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
 enable_language(ASM)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
 
 add_definitions(-DPPSSPP)
 
@@ -30,6 +31,13 @@ check_include_file(/opt/vc/include/bcm_host.h RPI)
 if(RPI)
 	set(MOBILE_DEVICE OFF)
 endif()
+
+if(BB)
+	set(MOBILE_DEVICE OFF)
+	set(ARMV7 ON)
+	set(USING_FBDEV ON)
+endif()
+
 
 if(USING_EGL)
 	# Default to GLES2 but could be GL.
@@ -73,6 +81,7 @@ option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
+option(BB "Set to ON if targeting a Beaglebone/Beaglebone Black device" ${BB})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
@@ -126,7 +135,7 @@ if(MAEMO)
 endif()
 
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
-	include(FindSDL)
+	include(FindSDL2)
 endif()
 include(FindThreads)
 
@@ -276,9 +285,12 @@ if(ARM)
 		Common/ArmEmitter.cpp
 		Common/ArmThunk.cpp)
 elseif(X86)
+	# ARMEmitter is here for the unit tests and don't really hurt otherwise.
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
 		Common/ABI.h
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
 		Common/Thunk.cpp
@@ -355,6 +367,23 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
+add_library(udis86 STATIC
+	ext/udis86/decode.c
+	ext/udis86/decode.h
+	ext/udis86/extern.h
+	ext/udis86/itab.c
+	ext/udis86/itab.h
+	ext/udis86/syn-att.c
+	ext/udis86/syn-intel.c
+	ext/udis86/syn.c
+	ext/udis86/syn.h
+	ext/udis86/types.h
+	ext/udis86/udint.h
+	ext/udis86/udis86.c
+	ext/udis86/udis86.h
+)
+include_directories(ext/udis86)
+
 add_library(vjson STATIC
 	native/ext/vjson/json.cpp
 	native/ext/vjson/json.h
@@ -388,7 +417,11 @@ if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 	elseif(MACOSX)
 		set(PLATFORM_ARCH "macosx/x86_64")
 	elseif(LINUX)
-		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		if(ARMV7)
+			set(PLATFORM_ARCH "linux/armv7")
+		elseif(ARM)
+			set(PLATFORM_ARCH "linux/arm")
+		elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 			set(PLATFORM_ARCH "linux/x86_64")
 		else()
 			set(PLATFORM_ARCH "linux/x86")
@@ -551,6 +584,7 @@ include_directories(ext/cityhash)
 if (NOT MSVC)
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
 		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
@@ -662,7 +696,11 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ARMV7)
-	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	if(BB)
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a8")
+	else()
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	endif()
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
 endif()
@@ -726,15 +764,15 @@ elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
-elseif(SDL_FOUND)
+elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
-	include_directories(${SDL_INCLUDE_DIR})
+	include_directories(${SDL2_INCLUDE_DIR})
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		native/base/PCMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
+	set(nativeExtraLibs ${nativeExtraLibs} ${SDL2_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
@@ -743,15 +781,15 @@ elseif(SDL_FOUND)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
-	message(FATAL_ERROR "Could not find SDL. Failing.")
+	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
 set(NativeAppSource
+	android/jni/TestRunner.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
 	UI/DevScreens.cpp
 	UI/EmuScreen.cpp
-	android/jni/TestRunner.cpp
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
 	UI/MiscScreens.cpp
@@ -762,9 +800,9 @@ set(NativeAppSource
 	UI/TouchControlLayoutScreen.cpp
 	UI/TouchControlVisibilityScreen.cpp
 	UI/GamepadEmu.cpp
-	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/ReportScreen.cpp
 	UI/Store.cpp
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.cpp
@@ -897,6 +935,9 @@ add_library(native STATIC
 	native/net/url.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
+	native/thin3d/thin3d.cpp
+	native/thin3d/thin3d.h
+	native/thin3d/thin3d_gl.cpp
 	native/thread/prioritizedworkqueue.cpp
 	native/thread/prioritizedworkqueue.h
 	native/thread/threadutil.cpp
@@ -942,7 +983,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
@@ -995,8 +1036,7 @@ if(ARM)
 		Core/MIPS/ARM/ArmRegCache.h
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.h
-		GPU/GLES/VertexDecoderArm.cpp
-		GPU/GLES/VertexDecoder.h
+		GPU/Common/VertexDecoderArm.cpp
 		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
@@ -1016,8 +1056,7 @@ elseif(X86)
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
-		GPU/GLES/VertexDecoderX86.cpp
-		GPU/GLES/VertexDecoder.h
+		GPU/Common/VertexDecoderX86.cpp
 		ext/disarm.cpp)
 endif()
 
@@ -1299,7 +1338,15 @@ if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 add_library(GPU OBJECT
+	GPU/Common/FramebufferCommon.cpp
+	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.h
+	GPU/Common/DrawEngineCommon.cpp
+	GPU/Common/DrawEngineCommon.h
+	GPU/Common/SplineCommon.cpp
+	GPU/Common/SplineCommon.h
+	GPU/Common/SoftwareTransformCommon.cpp
+	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
 	GPU/Common/TransformCommon.cpp
@@ -1308,6 +1355,8 @@ add_library(GPU OBJECT
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp
 	GPU/Common/TextureDecoder.h
+	GPU/Common/TextureCacheCommon.cpp
+	GPU/Common/TextureCacheCommon.h
 	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
@@ -1322,6 +1371,8 @@ add_library(GPU OBJECT
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
+	GPU/GLES/FragmentTestCache.cpp
+	GPU/GLES/FragmentTestCache.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
 	GPU/GLES/ShaderManager.cpp
@@ -1336,9 +1387,6 @@ add_library(GPU OBJECT
 	GPU/GLES/TextureScaler.h
 	GPU/GLES/TransformPipeline.cpp
 	GPU/GLES/TransformPipeline.h
-	GPU/GLES/SoftwareTransform.cpp
-	GPU/GLES/VertexDecoder.cpp
-	GPU/GLES/VertexDecoder.h
 	GPU/GLES/VertexShaderGenerator.cpp
 	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h
@@ -1516,7 +1564,7 @@ if(IOS)
 	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
 	)
 	# Force Xcode to relink the binary.
 	add_custom_command(TARGET Core PRE_BUILD

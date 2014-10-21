@@ -21,7 +21,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // We start out by converting the active matrices into 4x4 which are easier to multiply with
 // using SSE / NEON and store them here.
@@ -38,6 +38,10 @@ static const float MEMORY_ALIGNED16( by32768[4] ) = {
 
 static const u32 MEMORY_ALIGNED16( threeMasks[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0};
 static const u32 MEMORY_ALIGNED16( aOne[4] ) = {0, 0, 0, 0x3F800000};
+
+static const float MEMORY_ALIGNED16(by16384[4]) = {
+	1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f, 1.0f / 16384.0f,
+};
 
 #ifdef _M_X64
 #ifdef _WIN32
@@ -82,6 +86,8 @@ static const X64Reg fpScratchReg4 = XMM4;
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
+	{&VertexDecoder::Step_WeightsU8ToFloat, &VertexDecoderJitCache::Jit_WeightsU8ToFloat},
+	{&VertexDecoder::Step_WeightsU16ToFloat, &VertexDecoderJitCache::Jit_WeightsU16ToFloat},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
@@ -90,6 +96,8 @@ static const JitLookup jitLookup[] = {
 
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
+	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
+	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
@@ -98,10 +106,12 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
+	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
+	{&VertexDecoder::Step_NormalS8ToFloat, &VertexDecoderJitCache::Jit_NormalS8ToFloat},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
@@ -139,13 +149,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
 	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
-
-// TODO: This should probably be global...
-#ifdef _M_X64
-#define PTRBITS 64
-#else
-#define PTRBITS 32
-#endif
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
@@ -208,11 +211,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-#ifdef _M_X64
-		MOV(64, R(tempReg1), Imm64((u64)(&gstate_c.uv)));
-#else
-		MOV(32, R(tempReg1), Imm32((u32)(&gstate_c.uv)));
-#endif
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
 		MOVSS(fpScaleOffsetReg, MDisp(tempReg1, 0));
 		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
 		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
@@ -265,38 +264,41 @@ void VertexDecoderJitCache::Jit_WeightsU8() {
 	switch (dec_->nweights) {
 	case 1:
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 2:
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 3:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		AND(32, R(tempReg1), Imm32(0x00FFFFFF));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
 	case 4:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		return;
+		break;
+	case 5:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 8, tempReg2, MDisp(srcReg, dec_->weightoff + 4));
+		break;
+	case 6:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->weightoff + 4));
+		break;
+	case 7:
+		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
+		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
+		AND(32, R(tempReg2), Imm32(0x00FFFFFF));
+		break;
 	case 8:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w1off), R(tempReg2));
-		return;
+		break;
 	}
 
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		MOV(8, R(tempReg1), MDisp(srcReg, dec_->weightoff + j));
-		MOV(8, MDisp(dstReg, dec_->decFmt.w0off + j), R(tempReg1));
-	}
-	while (j & 3) {
-		MOV(8, MDisp(dstReg, dec_->decFmt.w0off + j), Imm8(0));
-		j++;
+	if (dec_->nweights <= 4) {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+	} else {
+		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
+		MOV(32, MDisp(dstReg, dec_->decFmt.w1off), R(tempReg2));
 	}
 }
 
@@ -322,22 +324,55 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 		return;
 
 	case 4:
+		// Anything above 4 will do 4 here, and then the rest after.
+	case 5:
+	case 6:
+	case 7:
+	case 8:
 		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff));
 		MOV(32, R(tempReg2), MDisp(srcReg, dec_->weightoff + 4));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off), R(tempReg1));
 		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + 4), R(tempReg2));
-		return;
+		break;
 	}
 
 	// Basic implementation - a short at a time. TODO: Optimize
 	int j;
-	for (j = 0; j < dec_->nweights; j++) {
+	for (j = 4; j < dec_->nweights; j++) {
 		MOV(16, R(tempReg1), MDisp(srcReg, dec_->weightoff + j * 2));
 		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), R(tempReg1));
 	}
 	while (j & 3) {
 		MOV(16, MDisp(dstReg, dec_->decFmt.w0off + j * 2), Imm16(0));
 		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU8ToFloat() {
+	if (dec_->nweights >= 4) {
+		Jit_AnyU8ToFloat(dec_->weightoff, 32);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		if (dec_->nweights > 4) {
+			Jit_AnyU8ToFloat(dec_->weightoff + 4, (dec_->nweights - 4) * 8);
+			MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		}
+	} else {
+		Jit_AnyU8ToFloat(dec_->weightoff, dec_->nweights * 8);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
+	if (dec_->nweights >= 4) {
+		Jit_AnyU16ToFloat(dec_->weightoff, 64);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		if (dec_->nweights > 4) {
+			Jit_AnyU16ToFloat(dec_->weightoff + 4 * 2, (dec_->nweights - 4) * 16);
+			MOVUPS(MDisp(dstReg, dec_->decFmt.w1off), XMM3);
+		}
+	} else {
+		Jit_AnyU16ToFloat(dec_->weightoff, dec_->nweights * 16);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
 	}
 }
 
@@ -464,6 +499,16 @@ void VertexDecoderJitCache::Jit_TcU16() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
+void VertexDecoderJitCache::Jit_TcU8ToFloat() {
+	Jit_AnyU8ToFloat(dec_->tcoff, 16);
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), XMM3);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ToFloat() {
+	Jit_AnyU16ToFloat(dec_->tcoff, 32);
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), XMM3);
+}
+
 void VertexDecoderJitCache::Jit_TcU16Double() {
 	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
 	MOVZX(32, 16, tempReg2, MDisp(srcReg, dec_->tcoff + 2));
@@ -523,6 +568,14 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 void VertexDecoderJitCache::Jit_TcU16Through() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
+	PXOR(fpScratchReg2, R(fpScratchReg2));
+	MOVD_xmm(fpScratchReg, MDisp(srcReg, dec_->tcoff));
+	PUNPCKLWD(fpScratchReg, R(fpScratchReg2));
+	CVTDQ2PS(fpScratchReg, R(fpScratchReg));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
@@ -921,6 +974,11 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 	MOV(32, MDisp(dstReg, dec_->decFmt.nrmoff), R(tempReg1));
 }
 
+void VertexDecoderJitCache::Jit_NormalS8ToFloat() {
+	Jit_AnyS8ToFloat(dec_->nrmoff);
+	MOVUPS(MDisp(dstReg, dec_->decFmt.nrmoff), XMM3);
+}
+
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->nrmoff));
@@ -1033,7 +1091,7 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
 	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
@@ -1050,7 +1108,7 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 	if (!cpu_info.bSSE4_1) {
-		XORPS(XMM3, R(XMM3));
+		PXOR(XMM3, R(XMM3));
 	}
 	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
@@ -1059,6 +1117,60 @@ void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 		PUNPCKLWD(XMM1, R(XMM3));
 		PSLLD(XMM1, 16);
 		PSRAD(XMM1, 16);
+	}
+	CVTDQ2PS(XMM3, R(XMM1));
+	MULPS(XMM3, M(&by32768));
+}
+
+void VertexDecoderJitCache::Jit_AnyU8ToFloat(int srcoff, u32 bits) {
+	_dbg_assert_msg_(JIT, (bits & ~(32 | 16 | 8)) == 0, "Bits must be a multiple of 8.");
+	_dbg_assert_msg_(JIT, bits >= 8 && bits <= 32, "Bits must be a between 8 and 32.");
+
+	if (!cpu_info.bSSE4_1) {
+		PXOR(XMM3, R(XMM3));
+	}
+	if (bits == 32) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 24) {
+		MOV(32, R(tempReg1), MDisp(srcReg, srcoff));
+		AND(32, R(tempReg1), Imm32(0x00FFFFFF));
+		MOVD_xmm(XMM1, R(tempReg1));
+	} else {
+		MOVZX(32, bits, tempReg1, MDisp(srcReg, srcoff));
+		MOVD_xmm(XMM1, R(tempReg1));
+	}
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLBW(XMM1, R(XMM3));
+		PUNPCKLWD(XMM1, R(XMM3));
+	}
+	CVTDQ2PS(XMM3, R(XMM1));
+	MULPS(XMM3, M(&by128));
+}
+
+void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
+	_dbg_assert_msg_(JIT, (bits & ~(64 | 32 | 16)) == 0, "Bits must be a multiple of 16.");
+	_dbg_assert_msg_(JIT, bits >= 16 && bits <= 64, "Bits must be a between 16 and 64.");
+
+	if (!cpu_info.bSSE4_1) {
+		PXOR(XMM3, R(XMM3));
+	}
+	if (bits == 64) {
+		MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 48) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+		PINSRW(XMM1, MDisp(srcReg, srcoff + 4), 2);
+	} else if (bits == 32) {
+		MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
+	} else if (bits == 16) {
+		MOVZX(32, bits, tempReg1, MDisp(srcReg, srcoff));
+		MOVD_xmm(XMM1, R(tempReg1));
+	}
+	if (cpu_info.bSSE4_1) {
+		PMOVZXWD(XMM1, R(XMM1));
+	} else {
+		PUNPCKLWD(XMM1, R(XMM3));
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
 	MULPS(XMM3, M(&by32768));

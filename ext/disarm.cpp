@@ -1269,7 +1269,7 @@ const char *ArmRegName(int r) {
 	return reg_names[r];
 }
 
-void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
+void ArmDis(unsigned int addr, unsigned int w, char *output, int bufsize, bool includeWord) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
 	char temp[256];
 	if (includeWord) {

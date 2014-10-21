@@ -240,6 +240,17 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	}
 #endif
 
+#ifndef _WIN32
+	if (success) {
+		struct stat st;
+		if (fstat(hFile, &st) == 0 && S_ISDIR(st.st_mode)) {
+			close(hFile);
+			errno = EISDIR;
+			success = false;
+		}
+	}
+#endif
+
 	return success;
 }
 

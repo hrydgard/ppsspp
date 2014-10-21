@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/compat.h"
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -24,6 +25,7 @@
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
 #include "ext/disarm.h"
+#include "ext/udis86/udis86.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -60,16 +62,19 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogConfigScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
@@ -231,16 +236,20 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Threads", cores));
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
-	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
-	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
+
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+
+	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(T3DInfo::APINAME)));
+	deviceSpecs->Add(new InfoItem("Vendor", thin3d->GetInfoString(T3DInfo::VENDOR)));
+	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #endif
-	deviceSpecs->Add(new ItemHeader("OpenGL Version Information"));
-	std::string openGL = (char *)glGetString(GL_VERSION);
-	openGL.resize(30);
-	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
-	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	deviceSpecs->Add(new ItemHeader("Version Information"));
+	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+	apiVersion.resize(30);
+	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
+	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
 
 #ifdef ANDROID
 	char temp[256];
@@ -418,6 +427,9 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView("no block"));
+
+	EventParams ignore = {0};
+	OnCurrentBlock(ignore);
 }
 
 #ifdef ARM
@@ -443,7 +455,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 				continue;
 			}
 		}
-		ArmDis((u32)(intptr_t)codePtr, inst, temp, false);
+		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
 		std::string buf = temp;
 		lines.push_back(buf);
 	}
@@ -467,7 +479,7 @@ void JitCompareScreen::UpdateDisasm() {
 	JitBlock *block = blockCache->GetBlock(currentBlock_);
 
 	char temp[256];
-	sprintf(temp, "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
+	snprintf(temp, sizeof(temp), "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
 	blockName_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
@@ -486,7 +498,21 @@ void JitCompareScreen::UpdateDisasm() {
 		rightDisasm_->Add(new TextView(targetDis[i]));
 	}
 #else
-	rightDisasm_->Add(new TextView("No x86 disassembler available"));
+	ud_t ud_obj;
+	ud_init(&ud_obj);
+#ifdef _M_X64
+	ud_set_mode(&ud_obj, 64);
+#else
+	ud_set_mode(&ud_obj, 32);
+#endif
+	ud_set_pc(&ud_obj, (intptr_t)block->normalEntry);
+	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
+	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
+
+	ud_set_input_buffer(&ud_obj, block->normalEntry, block->codeSize);
+	while (ud_disassemble(&ud_obj) != 0) {
+		rightDisasm_->Add(new TextView(ud_insn_asm(&ud_obj)));
+	}
 #endif
 }
 

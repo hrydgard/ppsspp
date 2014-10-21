@@ -29,6 +29,7 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include "GPU/GLES/VertexShaderGenerator.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
 // special treatment in the shader generator.
@@ -46,13 +47,6 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-int TranslateNumBones(int bones) {
-	if (!bones) return 0;
-	if (bones < 4) return 4;
-	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
-	return bones;
-}
-
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -66,7 +60,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	int id0 = 0;
-	int id1 = 1;
+	int id1 = 0;
 
 	id0 = lmode & 1;
 	id0 |= (gstate.isModeThrough() & 1) << 1;
@@ -215,7 +209,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
@@ -527,14 +521,15 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			bool doSpecular = gstate.isUsingSpecularLight(i);
 			bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(i);
 
+			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
 			if (poweredDiffuse) {
-				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
-				// Ugly NaN check.  pow(0.0, 0.0) may be undefined, but PSP seems to treat it as 1.0.
+				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (!(dot%i < 1.0) && !(dot%i > 0.0))\n", i, i);
+				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
-			} else {
-				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "  }\n");
 			}
 
 			const char *timesLightScale = " * lightScale";
@@ -561,7 +556,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * dot%i;\n", i, diffuseStr, i);
 			if (doSpecular) {
 				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);

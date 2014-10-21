@@ -15,7 +15,7 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
@@ -25,6 +25,13 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+	QDesktopWidget *desktop = QApplication::desktop();
+	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+	
+	// Move window to top left coordinate of selected screen
+	QRect rect = desktop->screenGeometry(screenNum);
+	move(rect.topLeft());
+
 	SetGameTitle("");
 	emugl = new MainUI(this);
 
@@ -33,6 +40,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
+	
+	if(fullscreen)
+	  fullscrAct();
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -256,9 +266,12 @@ void MainWindow::lmapAct()
 	dialog.setAcceptMode(QFileDialog::AcceptOpen);
 	QStringList fileNames;
 	if (dialog.exec())
-	{
 		fileNames = dialog.selectedFiles();
-		symbolMap.LoadSymbolMap(fileNames[0].toStdString().c_str());
+
+	if (fileNames.count() > 0)
+	{
+		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
+		symbolMap.LoadSymbolMap(fileName.toStdString().c_str());
 		notifyMapsLoaded();
 	}
 }
@@ -326,6 +339,15 @@ void MainWindow::stretchAct()
 		gpu->Resized();
 }
 
+void MainWindow::raiseTopMost()
+{
+	
+	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+	raise();  
+	activateWindow(); 
+	
+}
+
 void MainWindow::fullscrAct()
 {
 	if(isFullScreen()) {
@@ -356,6 +378,8 @@ void MainWindow::fullscrAct()
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
 	}
+	
+	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
 void MainWindow::websiteAct()
@@ -471,8 +495,9 @@ void MainWindow::createMenus()
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
-		->addDisableState(UISTATE_MENU);
+	//commented out until someone bothers to maintain it
+	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
+	//	->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))

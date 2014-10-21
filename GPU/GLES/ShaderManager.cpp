@@ -147,6 +147,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 	u_alphacolormask = glGetUniformLocation(program, "u_alphacolormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
+	u_testtex = glGetUniformLocation(program, "testtex");
 
 	u_fbotex = glGetUniformLocation(program, "fbotex");
 	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
@@ -258,6 +259,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_fbotex, 1);
+	glUniform1i(u_testtex, 2);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 	use(vertType, previous);
@@ -414,7 +416,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		if (my_isinf(fogcoef[1])) {
 			// not really sure what a sensible value might be.
 			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
-		} else if (my_isnan(fogcoef[1]))	{
+		} else if (my_isnan(fogcoef[1])) {
 			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
 			// Just put the fog far away at a large finite distance.
 			// Infinities and NaNs are rather unpredictable in shaders on many GPUs

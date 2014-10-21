@@ -28,32 +28,36 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Null/NullGpu.cpp \
 	$$P/GPU/GLES/DepalettizeShader.cpp \
 	$$P/GPU/GLES/FragmentShaderGenerator.cpp \
+	$$P/GPU/GLES/FragmentTestCache.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLES_GPU.cpp \
 	$$P/GPU/GLES/ShaderManager.cpp \
-	$$P/GPU/GLES/SoftwareTransform.cpp \
 	$$P/GPU/GLES/Spline.cpp \
 	$$P/GPU/GLES/StateMapping.cpp \
 	$$P/GPU/GLES/StencilBuffer.cpp \
 	$$P/GPU/GLES/TextureCache.cpp \
 	$$P/GPU/GLES/TextureScaler.cpp \
 	$$P/GPU/GLES/TransformPipeline.cpp \
-	$$P/GPU/GLES/VertexDecoder.cpp \
 	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
 	$$P/GPU/Debugger/*.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
+	$$P/GPU/Common/TextureCacheCommon.cpp \
 	$$P/GPU/Common/TransformCommon.cpp \
+	$$P/GPU/Common/SoftwareTransformCommon.cpp \
 	$$P/GPU/Common/PostShader.cpp \
+	$$P/GPU/Common/FramebufferCommon.cpp \
+	$$P/GPU/Common/SplineCommon.cpp \
+	$$P/GPU/Common/DrawEngineCommon.cpp \
 	$$P/ext/xxhash.c \ # xxHash
 	$$P/ext/xbrz/*.cpp # XBRZ
 
 armv7: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 
-arm: SOURCES += $$P/GPU/GLES/VertexDecoderArm.cpp
-else: SOURCES += $$P/GPU/GLES/VertexDecoderX86.cpp
+arm: SOURCES += $$P/GPU/Common/VertexDecoderArm.cpp
+else: SOURCES += $$P/GPU/Common/VertexDecoderX86.cpp
 
 HEADERS += $$P/GPU/GLES/*.h \
 	$$P/GPU/Software/*.h \

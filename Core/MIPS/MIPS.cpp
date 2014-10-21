@@ -191,6 +191,7 @@ void MIPSState::Init() {
 	vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
 	vfpuCtrl[VFPU_CTRL_CC] = 0x3f;
 	vfpuCtrl[VFPU_CTRL_INF4] = 0;
+	vfpuCtrl[VFPU_CTRL_REV] = 0x7772ceab;
 	vfpuCtrl[VFPU_CTRL_RCX0] = 0x3f800001;
 	vfpuCtrl[VFPU_CTRL_RCX1] = 0x3f800002;
 	vfpuCtrl[VFPU_CTRL_RCX2] = 0x3f800004;
@@ -302,31 +303,6 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;
-}
-
-void MIPSState::WriteFCR(int reg, int value) {
-	if (reg == 31) {
-		fcr31 = value & 0x0181FFFF;
-		fpcond = (value >> 23) & 1;
-	} else {
-		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
-}
-
-u32 MIPSState::ReadFCR(int reg) {
-	DEBUG_LOG(CPU,"FCR%i read",reg);
-	if (reg == 31) {
-		fcr31 = (fcr31 & ~(1<<23)) | ((fpcond & 1)<<23);
-		return fcr31;
-	} else if (reg == 0) {
-		return FCR0_VALUE;
-	} else {
-		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	return 0;
 }
 
 void MIPSState::InvalidateICache(u32 address, int length) {

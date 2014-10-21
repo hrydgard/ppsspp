@@ -28,31 +28,28 @@
 class NativeHost : public Host {
 public:
 	NativeHost() {
-		// hasRendered = false;
 	}
 
-	virtual void UpdateUI() {}
+	void UpdateUI() override {}
 
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
+	void UpdateMemView() override {}
+	void UpdateDisassembly() override {}
 
-	virtual void SetDebugMode(bool mode) { }
+	void SetDebugMode(bool mode) override { }
 
-	virtual bool InitGL(std::string *error_message) { return true; }
-	virtual void ShutdownGL() {}
+	bool InitGraphics(std::string *error_message) override { return true; }
+	void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound();
+	void InitSound(PMixer *mixer) override;
+	void UpdateSound() override {}
+	void ShutdownSound() override;
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {}
+	void BootDone() override {}
 
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-	virtual void ResetSymbolMap() {}
-	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
-	virtual void SetWindowTitle(const char *message) {}
+	bool IsDebuggingEnabled() override {return false;}
+	bool AttemptLoadSymbolMap() override {return false;}
+	void SetWindowTitle(const char *message) override {}
 };
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
@@ -76,31 +73,31 @@ public:
 		m_GPUFlag = 0;
 	}
 
-	virtual void UpdateUI() {
+	virtual void UpdateUI() override {
 		mainWindow->updateMenus();
 	}
 
-	virtual void UpdateMemView() {
+	virtual void UpdateMemView() override {
 		if(mainWindow->GetDialogMemory())
 			mainWindow->GetDialogMemory()->Update();
 	}
-	virtual void UpdateDisassembly() {
+	virtual void UpdateDisassembly() override {
 		if(mainWindow->GetDialogDisasm())
 			mainWindow->GetDialogDisasm()->Update();
 		if(mainWindow->GetDialogDisplaylist())
 			mainWindow->GetDialogDisplaylist()->Update();
 	}
 
-	virtual void SetDebugMode(bool mode) {
+	virtual void SetDebugMode(bool mode) override {
 		if(mainWindow->GetDialogDisasm())
 			mainWindow->GetDialogDisasm()->SetDebugMode(mode);
 	}
 
-	virtual bool InitGL(std::string *error_message) { return true; }
-	virtual void ShutdownGL() {}
+	virtual bool InitGraphics(std::string *error_message) override { return true; }
+	virtual void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {}
+	virtual void InitSound(PMixer *mixer) override;
+	virtual void UpdateSound() override {}
 	virtual void ShutdownSound();
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!

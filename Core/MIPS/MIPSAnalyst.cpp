@@ -123,6 +123,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
+	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
 	{ 0x1f53eac122f96b37, 224, "cosf", },
@@ -130,6 +131,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
 	{ 0x24d82a8675800808, 220, "ceilf", },
 	{ 0x26cc90cb25af9d27, 476, "log10", },
+	{ 0x275c79791a2bab83, 116, "rezel_cross_download_frame", }, // Rezel Cross
 	{ 0x2774614d57d4baa2, 28, "vsub_q", },
 	{ 0x279c6bf9cf99cc85, 436, "strncpy", },
 	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
@@ -204,6 +206,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
+	{ 0x5642a63f3802a792, 456, "orenoimouto_download_frame", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
 	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
 	{ 0x580200b840b47c58, 1856, "_realloc_r", },
@@ -229,6 +232,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x68b22c2aa4b8b915, 400, "sqrt", },
 	{ 0x6962da85a6dad937, 60, "strrchr", },
 	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
+	{ 0x6ab54910104ef000, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation World
 	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
 	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
 	{ 0x6b4148322c569cb3, 240, "wmemchr", },
@@ -241,13 +245,16 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6f101c5c4311c144, 276, "floorf", },
 	{ 0x6f1731f84bbf76c3, 116, "strcmp", },
 	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
+	{ 0x6f7c9109b5b8fa47, 688, "danganronpa1_2_download_frame", }, // Danganronpa 1
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
 	{ 0x736b34ebc702d873, 104, "vmmul_q_transp", },
+	{ 0x73a614c08f777d52, 792, "danganronpa2_2_download_frame", }, // Danganronpa 2
 	{ 0x7499a2ce8b60d801, 12, "abs", },
 	{ 0x74ebbe7d341463f3, 72, "dl_write_colortest", },
 	{ 0x755a41f9183bb89a, 60, "vmmul_q", },
+	{ 0x757d7ab0afbc03f5, 948, "kirameki_school_life_download_frame", }, // Toradora! Portable
 	{ 0x759834c69bb12c12, 68, "strcpy", },
 	{ 0x75c5a88d62c9c99f, 276, "sinf", },
 	{ 0x76c661fecbb39990, 364, "sin", },
@@ -260,6 +267,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x79faa339fff5a80c, 28, "finitef", },
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
+	{ 0x8126a59ffa504614, 540, "brandish_download_frame", }, // Brandish, Zero no Kiseki, and Ao no Kiseki
 	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
 	{ 0x83ac39971df4b966, 336, "sqrtf", },
 	{ 0x84c6cd47834f4c79, 1284, "powf", },
@@ -276,6 +284,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
+	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
@@ -303,11 +312,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
 	{ 0xa662359e30b829e4, 148, "memcmp", },
+	{ 0xa6a03f0487a911b0, 392, "danganronpa1_1_download_frame", }, // Danganronpa 1
 	{ 0xa8390e65fa087c62, 140, "vtfm_t_q", },
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
 	{ 0xab97ec58c58a7c75, 52, "vector_divide_t", },
+	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
 	{ 0xad67add5122b8c64, 52, "matrix_q_translate_t", },
 	{ 0xada952a1adcea4f5, 60, "vmmul_q_transp5", },
@@ -318,6 +329,8 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xafb2c7e56c04c8e9, 48, "vtfm_q", },
 	{ 0xafc9968e7d246a5e, 1588, "atan", },
 	{ 0xafcb7dfbc4d72588, 44, "vector_transform_3x4", },
+	{ 0xb07f9d82d79deea9, 536, "brandish_download_frame", },  // Brandish, and Sora no kiseki 3rd
+	{ 0xb09c9bc1343a774c, 456, "danganronpa2_1_download_frame", }, // Danganronpa 2
 	{ 0xb0db731f27d3aa1b, 40, "vmax_s", },
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },
@@ -327,6 +340,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
+	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
 	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
@@ -334,14 +348,19 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
 	{ 0xb8cfaeebfeb2de20, 7548, "_vfprintf_r", },
 	{ 0xb97f352e85661af6, 32, "finitef", },
+	{ 0xba76a8e853426baa, 544, "soranokiseki_fc_download_frame", }, // Sora no kiseki FC
 	{ 0xbb3c6592ed319ba4, 132, "dl_write_fog_params", },
 	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
 	{ 0xbdf54d66079afb96, 200, "dl_write_bone_matrix_3", },
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
+	{ 0xbfa8c16038b7753d, 868, "sakurasou_download_frame", }, // Sakurasou No Pet Na Kanojo
+	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
+	{ 0xc1220040b0599a75, 472, "soranokiseki_sc_download_frame", }, // Sora no kiseki SC
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
+	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", }, // Growlanswer IV
 	{ 0xc319f0d107dd2f45, 888, "__muldf3", },
 	{ 0xc35c10300b6b6091, 620, "floor", },
 	{ 0xc3dbf3e6c80a0a51, 164, "dl_write_bone_matrix", },
@@ -359,6 +378,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
+	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
@@ -375,11 +395,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xddfa5a85937aa581, 32, "vdot_q", },
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
+	{ 0xe086d5c9ce89148f, 212, "bokunonatsuyasumi4_download_frame", }, // Boku no Natsuyasumi 2 and 4,
 	{ 0xe093c2b0194d52b3, 820, "ff1_battle_effect", }, // Final Fantasy 1
 	{ 0xe1107cf3892724a0, 460, "_memalign_r", },
 	{ 0xe1724e6e29209d97, 24, "vector_length_t_2", },
 	{ 0xe1a5d939cc308195, 68, "wcscmp", },
 	{ 0xe2d9106e5b9e39e6, 80, "strnlen", },
+	{ 0xe3154c81a76515fa, 208, "narisokonai_download_frame", }, // Narisokonai Eiyuutan
 	{ 0xe32cb5c062d1a1c4, 700, "_strtoull_r", },
 	{ 0xe3835fb2c9c04e59, 44, "vmmul_q", },
 	{ 0xe527c62d8613f297, 136, "strcpy", },
@@ -388,9 +410,10 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
 	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
 	{ 0xe8ad7719be44e7c8, 276, "strchr", },
-	{ 0xeabb9c1b4f83d2b4, 52, "memset", },
+	{ 0xeabb9c1b4f83d2b4, 52, "memset", }, // Crisis Core
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
+	{ 0xed8918f378e9a563, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation Overworld
 	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },
 	{ 0xedc3f476221f96e6, 148, "tanf", },
 	{ 0xf1f660fdf349eac2, 1588, "_malloc_r", },
@@ -412,6 +435,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xfa156c48461eeeb9, 24, "vf2id_q", },
 	{ 0xfb4253a1d9d9df9f, 20, "isnanf", },
 	{ 0xfd34a9ad94fa6241, 76, "__extendsfdf2", },
+	{ 0xfe2566ad957054b7, 232, "suikoden1_and_2_download_frame_2", }, // Gensou Suikoden 1&2
 	{ 0xfe4f0280240008e9, 28, "vavg_q", },
 	{ 0xfe5dd338ab862291, 216, "memset", }, // Metal Gear Solid: Peace Walker demo
 	{ 0xffc8f5f8f946152c, 192, "dl_write_light_color", },
@@ -637,29 +661,35 @@ namespace MIPSAnalyst {
 		}
 	}
 
-	// Look forwards to find if a register is used again in this block.
-	// Don't think we use this yet.
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr) {
-		while (true) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			MIPSInfo info = MIPSGetInfo(op);
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+		u32 end = addr + instrs * sizeof(u32);
+		while (addr < end) {
+			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSInfo info = MIPSGetInfo(op);
+
+			// Yes, used.
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
 			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
 				return true;
-			if ((info & IS_CONDBRANCH))
-				return true; // could also follow both paths
-			if ((info & IS_JUMP))
-				return true; // could also follow the path
+
+			// Clobbered, so not used.
 			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return false; //the reg got clobbed! yay!
+				return false;
 			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return false; //the reg got clobbed! yay!
+				return false;
 			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return false; //the reg got clobbed! yay!
+				return false;
+
+			// Bail early if we hit a branch (could follow each path for continuing?)
+			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+				// Still need to check the delay slot (so end after it.)
+				// We'll assume likely are taken.
+				end = addr + 8;
+			}
 			addr += 4;
 		}
-		return true;
+		return false;
 	}
 
 	void HashFunctions() {
@@ -1180,19 +1210,19 @@ skip:
 			case 0x20:	// add
 			case 0x21:	// addu
 				info.hasRelevantAddress = true;
-				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+cpu->GetRegValue(0,MIPS_GET_RT(op));
+				info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+cpu->GetRegValue(0,MIPS_GET_RT(op));
 				break;
 			case 0x22:	// sub
 			case 0x23:	// subu
 				info.hasRelevantAddress = true;
-				info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))-cpu->GetRegValue(0,MIPS_GET_RT(op));
+				info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))-cpu->GetRegValue(0,MIPS_GET_RT(op));
 				break;
 			}
 			break;
 		case 0x08:	// addi
 		case 0x09:	// adiu
 			info.hasRelevantAddress = true;
-			info.releventAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
+			info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
 			break;
 		}
 
@@ -1299,7 +1329,7 @@ skip:
 			info.dataAddress = rs + imm16;
 
 			info.hasRelevantAddress = true;
-			info.releventAddress = info.dataAddress;
+			info.relevantAddress = info.dataAddress;
 		}
 
 		return info;

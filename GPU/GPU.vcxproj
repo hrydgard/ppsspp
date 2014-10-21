@@ -161,9 +161,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="Common\DrawEngineCommon.h" />
+    <ClInclude Include="Common\FramebufferCommon.h" />
     <ClInclude Include="Common\GPUDebugInterface.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\TextureDecoderNEON.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -171,6 +174,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="Common\TextureCacheCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
@@ -186,12 +190,12 @@
     <ClInclude Include="Directx9\TextureCacheDX9.h" />
     <ClInclude Include="Directx9\TextureScalerDX9.h" />
     <ClInclude Include="Directx9\TransformPipelineDX9.h" />
-    <ClInclude Include="Directx9\VertexDecoderDX9.h" />
     <ClInclude Include="Directx9\VertexShaderGeneratorDX9.h" />
     <ClInclude Include="ge_constants.h" />
     <ClInclude Include="GeDisasm.h" />
     <ClInclude Include="GLES\DepalettizeShader.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
+    <ClInclude Include="GLES\FragmentTestCache.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
     <ClInclude Include="GLES\GLES_GPU.h" />
     <ClInclude Include="GLES\ShaderManager.h" />
@@ -199,7 +203,6 @@
     <ClInclude Include="GLES\TextureCache.h" />
     <ClInclude Include="GLES\TextureScaler.h" />
     <ClInclude Include="GLES\TransformPipeline.h" />
-    <ClInclude Include="GLES\VertexDecoder.h" />
     <ClInclude Include="GLES\VertexShaderGenerator.h" />
     <ClInclude Include="GPUCommon.h" />
     <ClInclude Include="GPUInterface.h" />
@@ -216,16 +219,28 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="Common\DrawEngineCommon.cpp" />
+    <ClCompile Include="Common\FramebufferCommon.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\SplineCommon.cpp" />
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Common\TextureCacheCommon.cpp" />
     <ClCompile Include="Common\TransformCommon.cpp" />
+    <ClCompile Include="Common\SoftwareTransformCommon.cpp" />
+    <ClCompile Include="Common\VertexDecoderArm.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="Common\VertexDecoderX86.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\GPU_DX9.cpp" />
@@ -237,14 +252,15 @@
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
     <ClCompile Include="Directx9\SplineDX9.cpp" />
     <ClCompile Include="Directx9\StateMappingDX9.cpp" />
+    <ClCompile Include="Directx9\StencilBufferDX9.cpp" />
     <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
     <ClCompile Include="Directx9\TextureScalerDX9.cpp" />
     <ClCompile Include="Directx9\TransformPipelineDX9.cpp" />
-    <ClCompile Include="Directx9\VertexDecoderDX9.cpp" />
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\DepalettizeShader.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
+    <ClCompile Include="GLES\FragmentTestCache.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\GLES_GPU.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
@@ -253,16 +269,7 @@
     <ClCompile Include="GLES\StencilBuffer.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp" />
-    <ClCompile Include="GLES\SoftwareTransform.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
-    <ClCompile Include="GLES\VertexDecoder.cpp" />
-    <ClCompile Include="GLES\VertexDecoderArm.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="GLES\VertexDecoderX86.cpp" />
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />

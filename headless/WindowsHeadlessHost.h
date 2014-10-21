@@ -28,17 +28,17 @@
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
-	virtual bool InitGL(std::string *error_message);
-	virtual void ShutdownGL();
+	virtual bool InitGraphics(std::string *error_message) override;
+	virtual void ShutdownGraphics() override;
 
-	virtual void SwapBuffers();
+	virtual void SwapBuffers() override;
 
-	virtual void SendDebugOutput(const std::string &output);
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
-	virtual void SetComparisonScreenshot(const std::string &filename);
+	virtual void SendDebugOutput(const std::string &output) override;
+	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) override;
+	virtual void SetComparisonScreenshot(const std::string &filename) override;
 
-private:
-	bool ResizeGL();
+protected:
+	virtual bool ResizeGL();
 	void LoadNativeAssets();
 	void SendOrCollectDebugOutput(const std::string &output);
 

@@ -721,11 +721,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 void CDisasm::updateThreadLabel(bool clear)
 {
 	char label[512];
-	if (clear)
-	{
-		sprintf(label,"Thread: -");
+	if (clear) {
+		snprintf(label, sizeof(label), "Thread: -");
 	} else {
-		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
+		snprintf(label, sizeof(label), "Thread: %s", threadList->getCurrentThreadName());
 	}
 
 	SetDlgItemText(m_hDlg, IDC_THREADNAME, ConvertUTF8ToWString(label).c_str());
@@ -827,11 +826,13 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
-		EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEP), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
 		if (switchPC)
@@ -852,17 +853,19 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
-			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
+			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		}
 		else
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
-			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), FALSE);
+			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), FALSE);
 		}
-		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEP), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), FALSE);
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
 	}

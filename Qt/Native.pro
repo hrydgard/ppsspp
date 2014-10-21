@@ -46,6 +46,12 @@ SOURCES += $$P/ext/snappy/*.cpp
 HEADERS += $$P/ext/snappy/*.h
 INCLUDEPATH += $$P/ext/snappy
 
+# udis86
+
+SOURCES += $$P/ext/udis86/*.c
+HEADERS += $$P/ext/udis86/*.h
+INCLUDEPATH += $$P/ext/udis86
+
 # VJSON
 
 SOURCES += $$P/native/ext/vjson/json.cpp \
@@ -70,6 +76,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/base/backtrace.cpp \
 	$$P/native/base/buffer.cpp \
 	$$P/native/base/colorutil.cpp \
+	$$P/native/base/compat.cpp \
 	$$P/native/base/display.cpp \
 	$$P/native/base/error_context.cpp \
 	$$P/native/base/fastlist_test.cpp \
@@ -94,6 +101,8 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/fast/*.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
+	$$P/native/thin3d/thin3d.cpp \
+	$$P/native/thin3d/thin3d_gl.cpp \
 	$$P/native/thread/*.cpp \
 	$$P/native/ui/*.cpp \
 	$$P/native/util/bits/*.cpp \

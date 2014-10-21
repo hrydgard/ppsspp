@@ -50,7 +50,6 @@
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
-#include "UI/UIShader.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
@@ -87,6 +86,9 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		coreParam.gpuCore = GPU_DIRECTX9;
+	}
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
@@ -136,11 +138,13 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
-	const char *renderer = (const char*)glGetString(GL_RENDERER);
-	if (strstr(renderer, "Chainfire3D") != 0) {
-		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
-	} else if (strstr(renderer, "GLTools") != 0) {
-		osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		const char *renderer = (const char*)glGetString(GL_RENDERER);
+		if (strstr(renderer, "Chainfire3D") != 0) {
+			osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		} else if (strstr(renderer, "GLTools") != 0) {
+			osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		}
 	}
 
 	System_SendMessage("event", "startgame");
@@ -702,17 +706,24 @@ void EmuScreen::render() {
 		return;
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering)
+	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
-	UIShader_Prepare();
+	screenManager()->getUIContext()->RebindTexture();
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
-	uiTexture->Bind(0);
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
+	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetScissorEnabled(false);
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
-	glstate.viewport.restore();
-
-	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
+	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
@@ -725,10 +736,7 @@ void EmuScreen::render() {
 
 	if (g_Config.bShowDebugStats) {
 		char statbuf[4096] = {0};
-		__DisplayGetDebugStats(statbuf);
-		if (statbuf[4095]) {
-			ELOG("Statbuf too small! :(");
-		}
+		__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 		ui_draw2d.SetFontScale(.7f, .7f);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
@@ -741,11 +749,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
 		case 2:
-			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
 		default:
 			return;
 		}
@@ -757,7 +765,6 @@ void EmuScreen::render() {
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
-	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
 	ui_draw2d.Flush();
 

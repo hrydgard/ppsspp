@@ -68,6 +68,8 @@ public:
 
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
+	void AddContinuedBlock(u32 dest);
+
 	void Comp_RunBlock(MIPSOpcode op);
 	void Comp_ReplacementFunc(MIPSOpcode op);
 
@@ -110,6 +112,7 @@ public:
 	void Comp_VecDo3(MIPSOpcode op);
 	void Comp_VV2Op(MIPSOpcode op);
 	void Comp_Mftv(MIPSOpcode op);
+	void Comp_Vmfvc(MIPSOpcode op);
 	void Comp_Vmtvc(MIPSOpcode op);
 	void Comp_Vmmov(MIPSOpcode op);
 	void Comp_VScl(MIPSOpcode op);
@@ -147,6 +150,7 @@ public:
 	void CompNEON_VecDo3(MIPSOpcode op);
 	void CompNEON_VV2Op(MIPSOpcode op);
 	void CompNEON_Mftv(MIPSOpcode op);
+	void CompNEON_Vmfvc(MIPSOpcode op);
 	void CompNEON_Vmtvc(MIPSOpcode op);
 	void CompNEON_Vmmov(MIPSOpcode op);
 	void CompNEON_VScl(MIPSOpcode op);
@@ -190,6 +194,9 @@ private:
 
 	void WriteDownCount(int offset = 0);
 	void WriteDownCountR(ARMReg reg);
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void UpdateRoundingMode();
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
 

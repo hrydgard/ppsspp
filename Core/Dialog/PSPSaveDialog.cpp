@@ -1108,14 +1108,14 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
-		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE)) {
-			param.GetPspParam()->common.result = 0;
-		} else if (param.secureCanSkip(param.GetPspParam(),param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE)) {
-			// TODO: This makes loading/saving work in some games but also confuses them.  Must be wrong in some way.
-			INFO_LOG(SCEUTILITY,"Has not been saved yet, just skip.");
+		if (!param.IsSaveDirectoryExist(param.GetPspParam())){
+			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+		} else if (!param.IsSfoFileExist(param.GetPspParam())) {
+			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
+		} else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE)) {
 			param.GetPspParam()->common.result = 0;
 		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA; // not sure if correct code
+			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 		}
 		break;
 	default:

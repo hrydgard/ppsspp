@@ -28,7 +28,6 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
 #include "UI/GamepadEmu.h"
-#include "UI/UIShader.h"
 
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"

@@ -20,6 +20,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCache.h"
 
 static const char *stencil_fs =
 #ifdef USING_GLES2
@@ -103,20 +104,24 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	int values = 0;
 	u8 usedBits = 0;
 
+	const u8 *src = Memory::GetPointer(addr);
+	if (!src)
+		return false;
+
 	switch (dstBuffer->format) {
 	case GE_FORMAT_565:
 		// Well, this doesn't make much sense.
 		return false;
 	case GE_FORMAT_5551:
-		usedBits = StencilBits5551(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits5551(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 2;
 		break;
 	case GE_FORMAT_4444:
-		usedBits = StencilBits4444(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits4444(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 16;
 		break;
 	case GE_FORMAT_8888:
-		usedBits = StencilBits8888(Memory::GetPointer(addr), dstBuffer->fb_stride * dstBuffer->bufferHeight);
+		usedBits = StencilBits8888(src, dstBuffer->fb_stride * dstBuffer->bufferHeight);
 		values = 256;
 		break;
 	case GE_FORMAT_INVALID:
@@ -194,7 +199,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	}
 	glViewport(0, 0, w, h);
 
-	MakePixelTexture(Memory::GetPointer(addr), dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
+	textureCache_->ForgetLastTexture();
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);
@@ -235,8 +241,6 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		}
 	}
 
-	fbo_unbind();
 	RebindFramebuffer();
-	glstate.viewport.restore();
 	return true;
 }

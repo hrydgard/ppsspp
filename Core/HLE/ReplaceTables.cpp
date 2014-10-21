@@ -538,7 +538,7 @@ static int Hook_hexyzforce_monoclome_thread() {
 }
 
 static int Hook_starocean_write_stencil() {
-	u32 fb_address = currentMIPS->r[MIPS_REG_T7];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_T7];
 	if (Memory::IsVRAMAddress(fb_address) && !g_Config.bDisableStencilTest) {
 		gpu->PerformStencilUpload(fb_address, 0x00088000);
 	}
@@ -546,7 +546,7 @@ static int Hook_starocean_write_stencil() {
 }
 
 static int Hook_topx_create_saveicon() {
-	u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
@@ -555,7 +555,7 @@ static int Hook_topx_create_saveicon() {
 }
 
 static int Hook_ff1_battle_effect() {
-	u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
@@ -565,10 +565,216 @@ static int Hook_ff1_battle_effect() {
 
 static int Hook_dissidia_recordframe_avi() {
 	// This is called once per frame, and records that frame's data to avi.
-	u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_brandish_download_frame() {
+	u32 fb_infoaddr;
+	if (!GetMIPSStaticAddress(fb_infoaddr, 0x2c, 0x30)) {
+		return 0;
+	}
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x38, true);
+	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
+		return 0;
+	}
+	const int fb_index_offset = (s16)(fb_index_load & 0xffff);
+	const u32 fb_index = (Memory::Read_U32(fb_info + fb_index_offset) + 1) & 1;
+	const u32 fb_address = 0x4000000 + (0x44000 * fb_index);
+	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsRAMAddress(dest_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_growlanser_create_saveicon() {
+    const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
+    const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP]);
+    const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
+    if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
+        gpu->PerformMemoryDownload(fb_address, sz);
+        CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+    }
+    return 0;
+}
+
+static int Hook_sd_gundam_g_generation_download_frame() {
+	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 8);
+	const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
+	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
+	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
+		gpu->PerformMemoryDownload(fb_address, sz);
+		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_narisokonai_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_kirameki_school_life_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_orenoimouto_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A4];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_sakurasou_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_suikoden1_and_2_download_frame_1() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S4];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_suikoden1_and_2_download_frame_2() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_rezel_cross_download_frame() {
+	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 0x1C);
+	const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 0x14);
+	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
+	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
+		gpu->PerformMemoryDownload(fb_address, sz);
+		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_kagaku_no_ensemble_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_soranokiseki_fc_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_soranokiseki_sc_download_frame() {
+	u32 fb_infoaddr;
+	if (!GetMIPSStaticAddress(fb_infoaddr, 0x28, 0x2C)) {
+		return 0;
+	}
+	const u32 fb_info = Memory::Read_U32(fb_infoaddr);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x34, true);
+	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
+		return 0;
+	}
+	const int fb_index_offset = (s16)(fb_index_load & 0xffff);
+	const u32 fb_index = (Memory::Read_U32(fb_info + fb_index_offset) + 1) & 1;
+	const u32 fb_address = 0x4000000 + (0x44000 * fb_index);
+	const u32 dest_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsRAMAddress(dest_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_bokunonatsuyasumi4_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa2_1_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V1];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa2_2_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V1];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa1_1_download_frame() {
+	const u32 fb_base = currentMIPS->r[MIPS_REG_A5];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_danganronpa1_2_download_frame() {
+	const MIPSOpcode instruction = Memory::Read_Instruction(currentMIPS->pc + 0x8, true);
+	const int reg_num = instruction >> 11 & 31;
+	const u32 fb_base = currentMIPS->r[reg_num];
+	const u32 fb_offset = currentMIPS->r[MIPS_REG_V0];
+	const u32 fb_offset_fix = fb_offset & 0xFFFFFFFC;
+	const u32 fb_address = fb_base + fb_offset_fix;
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -612,13 +818,31 @@ static const ReplacementTableEntry entries[] = {
 
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, REPFLAG_DISABLED },
 
-	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER},
-	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58},
-	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260},
-	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34},
-	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER},
+	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER },
+	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58 },
+	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260 },
+	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34 },
+	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER },
 	// This is actually used in other games, not just Dissidia.
-	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER},
+	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER },
+	{ "brandish_download_frame", &Hook_brandish_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "growlanser_create_saveicon", &Hook_growlanser_create_saveicon, 0, REPFLAG_HOOKENTER, 0x7C },
+	{ "sd_gundam_g_generation_download_frame", &Hook_sd_gundam_g_generation_download_frame, 0, REPFLAG_HOOKENTER, 0x48},
+	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
+	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOKENTER, 0xF8 },
+	{ "suikoden1_and_2_download_frame_1", &Hook_suikoden1_and_2_download_frame_1, 0, REPFLAG_HOOKENTER, 0x9C },
+	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x48 },
+	{ "rezel_cross_download_frame", &Hook_rezel_cross_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
+	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
+	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
+	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
+	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOKENTER, 0x68 },
+	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "danganronpa1_1_download_frame", &Hook_danganronpa1_1_download_frame, 0, REPFLAG_HOOKENTER, 0x78 },
+	{ "danganronpa1_2_download_frame", &Hook_danganronpa1_2_download_frame, 0, REPFLAG_HOOKENTER, 0xA8 },
 	{}
 };
 

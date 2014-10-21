@@ -289,11 +289,11 @@ namespace SaveState
 	std::string GenerateSaveSlotFilename(int slot, const char *extension)
 	{
 		char discID[256];
-		char temp[256];
-		sprintf(discID, "%s_%s",
+		char temp[2048];
+		snprintf(discID, sizeof(discID), "%s_%s",
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
 			g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.%s", discID, slot, extension);
+		snprintf(temp, sizeof(temp), "ms0:/PSP/PPSSPP_STATE/%s_%i.%s", discID, slot, extension);
 		std::string hostPath;
 		if (pspFileSystem.GetHostPath(std::string(temp), hostPath)) {
 			return hostPath;
@@ -306,8 +306,8 @@ namespace SaveState
 	{
 		I18NCategory *sy = GetI18NCategory("System");
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
-		char msg[30];
-		sprintf(msg, "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
+		char msg[128];
+		snprintf(msg, sizeof(msg), "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
 	}
 

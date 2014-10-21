@@ -129,7 +129,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GLES_GPU::Execute_ColorTestMask},
 
 	// These change the vertex shader so need flushing.
-	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},  // TODO: This one is actually processed during vertex decoding which is wrong.
+	{GE_CMD_REVERSENORMAL, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LIGHTINGENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LIGHTENABLE0, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LIGHTENABLE1, FLAG_FLUSHBEFOREONCHANGE},
@@ -397,6 +397,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	transformDraw_.SetFragmentTestCache(&fragmentTestCache_);
 	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
 	framebufferManager_.SetShaderManager(shaderManager_);
@@ -404,6 +405,7 @@ GLES_GPU::GLES_GPU()
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
+	fragmentTestCache_.SetTextureCache(&textureCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -423,7 +425,7 @@ GLES_GPU::GLES_GPU()
 		cmdInfo_[cmd].flags |= commandTable[i].flags;
 		cmdInfo_[cmd].func = commandTable[i].func;
 		if (!cmdInfo_[cmd].func) {
-			cmdInfo_[cmd].func = &GLES_GPU::ExecuteOpInternal;
+			cmdInfo_[cmd].func = &GLES_GPU::Execute_Generic;
 		}
 	}
 	// Find commands missing from the table.
@@ -447,6 +449,7 @@ GLES_GPU::~GLES_GPU() {
 	framebufferManager_.DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
+	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	glstate.SetVSyncInterval(0);
 }
@@ -484,6 +487,7 @@ void GLES_GPU::DeviceLost() {
 	// TransformDraw has registered as a GfxResourceHolder.
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
 	framebufferManager_.DeviceLost();
 
@@ -585,6 +589,7 @@ void GLES_GPU::BeginFrameInternal() {
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
+	fragmentTestCache_.Decimate();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -795,8 +800,6 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
-	// on platforms where draw calls are expensive like mobile and D3D
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	void *inds = 0;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -1137,7 +1140,7 @@ void GLES_GPU::Execute_ColorRef(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1177,7 +1180,7 @@ void GLES_GPU::Execute_WorldMtxData(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_ViewMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1217,7 +1220,7 @@ void GLES_GPU::Execute_ViewMtxData(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_ProjMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
 	const int end = 16 - (op & 0xF);
 	int i = 0;
@@ -1257,7 +1260,7 @@ void GLES_GPU::Execute_ProjMtxData(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_TgenMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1297,7 +1300,7 @@ void GLES_GPU::Execute_TgenMtxData(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_BoneMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
@@ -1362,7 +1365,7 @@ void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
-void GLES_GPU::ExecuteOpInternal(u32 op, u32 diff) {
+void GLES_GPU::Execute_Generic(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
@@ -2000,6 +2003,9 @@ void GLES_GPU::DoBlockTransfer() {
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
 #endif
+
+	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
@@ -2096,7 +2102,7 @@ bool GLES_GPU::PerformMemoryDownload(u32 dest, int size) {
 	// Cheat a bit to force a download of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return gpu->PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
 	}
 	return false;
 }
@@ -2105,7 +2111,7 @@ bool GLES_GPU::PerformMemoryUpload(u32 dest, int size) {
 	// Cheat a bit to force an upload of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
 	if (Memory::IsVRAMAddress(dest)) {
-		return gpu->PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
 	}
 	return false;
 }
@@ -2160,6 +2166,7 @@ void GLES_GPU::DoState(PointerWrap &p) {
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		framebufferManager_.DestroyAllFBOs();
+		shaderManager_->ClearCache(true);
 	}
 }
 

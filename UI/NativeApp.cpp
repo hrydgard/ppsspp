@@ -38,6 +38,7 @@
 #include "ext/jpge/jpge.h"
 #include "Windows/DSoundStream.h"
 #include "Windows/WndMainWindow.h"
+#include "Windows/D3D9Base.h"
 #endif
 
 #include "base/display.h"
@@ -48,7 +49,7 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gl_state.h"  // only for screenshot!
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/gl_lost_manager.h"
@@ -58,6 +59,7 @@
 #include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
+#include "thin3d/thin3d.h"
 #include "ui/ui.h"
 #include "ui/screen.h"
 #include "ui/ui_context.h"
@@ -80,9 +82,10 @@
 #include "ui_atlas.h"
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
-#include "UIShader.h"
 #include "HostTypes.h"
-
+#ifdef _WIN32
+#include "GPU/Directx9/helper/dx_state.h"
+#endif
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
@@ -112,7 +115,7 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-Texture *uiTexture;
+Thin3DTexture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -132,6 +135,7 @@ struct PendingMessage {
 
 static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
+static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
 std::thread *graphicsLoadThread;
@@ -242,7 +246,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 }
 
 void NativeInit(int argc, const char *argv[],
-								const char *savegame_directory, const char *external_directory, const char *installID) {
+								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -290,10 +294,10 @@ void NativeInit(int argc, const char *argv[],
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
-	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.memStickDirectory = std::string(external_directory) + "/";
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
-	g_Config.memCardDirectory = user_data_path;
+	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
@@ -304,7 +308,7 @@ void NativeInit(int argc, const char *argv[],
 	else // Just in case
 		config = "./config";
 
-	g_Config.memCardDirectory = config + "/ppsspp/";
+	g_Config.memStickDirectory = config + "/ppsspp/";
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
@@ -315,8 +319,8 @@ void NativeInit(int argc, const char *argv[],
 	LogManager *logman = LogManager::GetInstance();
 
 	g_Config.AddSearchPath(user_data_path);
-	g_Config.AddSearchPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.Load();
 	g_Config.externalDirectory = external_directory;
 #endif
@@ -324,10 +328,10 @@ void NativeInit(int argc, const char *argv[],
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit.
-	ILOG("Creating %s", (g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/SAVEDATA").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/GAME").c_str());
+	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -415,7 +419,7 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -450,7 +454,7 @@ void NativeInit(int argc, const char *argv[],
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0);
+	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
@@ -463,11 +467,22 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 	FPU_SetFastMode();
 
-	CheckGLExtensions();
+#ifndef _WIN32
+	// Force backend to GL
+	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+#endif
+
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		thin3d = T3DCreateGLContext();
+		CheckGLExtensions();
+	} else {
+#ifdef _WIN32
+		thin3d = D3D9_CreateThin3DContext();
+#endif
+	}
+
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
-
-	UIShader_Init();
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
@@ -486,18 +501,6 @@ void NativeInitGraphics() {
 	ui_theme.whiteImage = I_SOLIDWHITE;
 	ui_theme.sliderKnob = I_CIRCLE;
 	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
-
-	/*
-	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
-	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonStyle.image = I_BUTTON;
-	ui_theme.buttonFocusedStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFFe0e0e0);
-	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonDownStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON_SELECTED, 0xFFFFFFFF);
-	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
-	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
-	*/
 
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
@@ -526,27 +529,33 @@ void NativeInitGraphics() {
 	ui_theme.popupTitle.fgColor = 0xFF59BEE3;
 #endif
 
-	ui_draw2d.Init();
-	ui_draw2d_front.Init();
+	ui_draw2d.Init(thin3d);
+	ui_draw2d_front.Init(thin3d);
 
-	uiTexture = new Texture();
 #ifdef USING_QT_UI
-	if (!uiTexture->Load("ui_atlas_lowmem.zim")) {
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim", T3DImageType::ZIM);
+	if (!uiTexture) {
 #else
-	if (!uiTexture->Load("ui_atlas.zim")) {
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	if (!uiTexture) {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
+#ifdef _WIN32
+		UINT ExitCode = 0;
+		ExitProcess(ExitCode);
+#endif
 	}
-	uiTexture->Bind(0);
 
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
-	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
+
+	uiContext->Init(thin3d, thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), thin3d->GetShaderSetPreset(SS_COLOR_2D), uiTexture, &ui_draw2d, &ui_draw2d_front);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
 	screenManager->setUIContext(uiContext);
+	screenManager->setThin3DContext(thin3d);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -567,8 +576,7 @@ void NativeShutdownGraphics() {
 
 	g_gameInfoCache.Clear();
 
-	delete uiTexture;
-	uiTexture = NULL;
+	uiTexture->Release();
 
 	delete uiContext;
 	uiContext = NULL;
@@ -576,13 +584,19 @@ void NativeShutdownGraphics() {
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
 
-	UIShader_Shutdown();
+	thin3d->Release();
 }
 
 void TakeScreenshot() {
+	if (g_Config.iGPUBackend != GPU_BACKEND_OPENGL) {
+		// Not yet supported
+		return;
+	}
+
 	g_TakeScreenshot = false;
+
 #if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
+	mkDir(g_Config.memStickDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
 	int i = 0;
@@ -592,12 +606,12 @@ void TakeScreenshot() {
 		gameId = "MENU";
 	}
 
-	char filename[256];
+	char filename[2048];
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		else
-			sprintf(filename, "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		FileInfo info;
 		if (!getFileInfo(filename, &info))
 			break;
@@ -671,25 +685,46 @@ void DrawDownloadsOverlay(UIContext &dc) {
 void NativeRender() {
 	g_GameManager.Update();
 
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
 
-	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.Restore();
+	} else {
+#ifdef _WIN32
+		DX9::dxstate.depthWrite.set(true);
+		DX9::dxstate.colorMask.set(true, true, true, true);
+		DX9::dxstate.Restore();
+#endif
+	}
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
-	glstate.Restore();
+	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
 	float yres = dp_yres;
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		Matrix4x4 translation;
+		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
+		ortho = translation * ortho;
+	} else {
+		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+	}
 
-	glsl_bind(UIShader_Get());
-	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
+	ui_draw2d.SetDrawMatrix(ortho);
+	ui_draw2d_front.SetDrawMatrix(ortho);
 
 	screenManager->render();
 	if (screenManager->getUIContext()->Text()) {
@@ -885,8 +920,7 @@ void NativeResized() {
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 		static int dp_xres_old=dp_xres;
 		if (dp_xres != dp_xres_old) {
-			UIShader_Init();
-			uiTexture->Load("ui_atlas.zim");
+			// uiTexture->Load("ui_atlas.zim");
 			dp_xres_old = dp_xres;
 		}
 #endif

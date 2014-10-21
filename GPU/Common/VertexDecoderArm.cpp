@@ -20,7 +20,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 extern void DisassembleArm(const u8 *data, int size);
 
@@ -51,6 +51,7 @@ static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
 
 
 static const float by128 = 1.0f / 128.0f;
+static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;

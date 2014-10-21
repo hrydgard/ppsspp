@@ -55,13 +55,17 @@ namespace MIPSComp {
 		};
 
 		JitState()
-			: startDefaultPrefix(true),
+			: hasSetRounding(0),
+			lastSetRounding(0),
+			startDefaultPrefix(true),
 			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
 			prefixDFlag(PREFIX_UNKNOWN) {}
 
 		u32 compilerPC;
 		u32 blockStart;
+		u32 lastContinuedPC;
+		u32 initialBlockSize;
 		int nextExit;
 		bool cancel;
 		bool inDelaySlot;
@@ -71,6 +75,9 @@ namespace MIPSComp {
 		int numInstructions;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		JitBlock *curBlock;
+
+		u8 hasSetRounding;
+		u8 lastSetRounding;
 
 		// VFPU prefix magic
 		bool startDefaultPrefix;

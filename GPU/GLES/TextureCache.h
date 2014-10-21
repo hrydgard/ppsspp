@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "gfx_es2/fbo.h"
 #include "gfx_es2/gpu_features.h"
 
@@ -24,6 +26,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScaler.h"
+#include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 class FramebufferManager;
@@ -35,11 +38,6 @@ enum TextureFiltering {
 	NEAREST = 2,
 	LINEAR = 3,
 	LINEARFMV = 4,
-};
-
-enum BufferFilter {
-	SCALE_LINEAR = 1,
-	SCALE_NEAREST = 2,
 };
 
 enum FramebufferNotification {
@@ -56,13 +54,13 @@ inline bool UseBGRA8888() {
 	return false;
 }
 
-class TextureCache {
+class TextureCache : public TextureCacheCommon {
 public:
 	TextureCache();
 	~TextureCache();
 
 	void SetTexture(bool force = false);
-	bool SetOffsetTexture(u32 offset);
+	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
 	void StartFrame();
@@ -175,6 +173,7 @@ public:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
 private:
+	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -186,7 +185,7 @@ private:
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
-	TexCacheEntry::Status CheckAlpha(u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
+	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();

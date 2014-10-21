@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <WinUser.h>
+#include <shellapi.h>
 #include "Misc.h"
 #include "util/text/utf8.h"
 #include <commctrl.h>
@@ -90,6 +91,46 @@ namespace W32Util
 		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
+	static const wchar_t *RemoveExecutableFromCommandLine(const wchar_t *cmdline) {
+		if (!cmdline) {
+			return L"";
+		}
+
+		switch (cmdline[0]) {
+		case '"':
+			// We don't need to handle escaped quotes, since filenames can't have that.
+			cmdline = wcschr(cmdline + 1, '"');
+			if (cmdline) {
+				++cmdline;
+				if (cmdline[0] == ' ') {
+					++cmdline;
+				}
+			}
+			break;
+
+		default:
+			cmdline = wcschr(cmdline, ' ');
+			if (cmdline) {
+				++cmdline;
+			}
+			break;
+		}
+
+		return cmdline;
+	}
+
+	void ExitAndRestart() {
+		// This preserves arguments (for example, config file) and working directory.
+
+		wchar_t moduleFilename[MAX_PATH];
+		wchar_t workingDirectory[MAX_PATH];
+		GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+		const wchar_t *cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
+		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
+		ShellExecute(NULL, NULL, moduleFilename, cmdline, workingDirectory, SW_SHOW);
+
+		ExitProcess(0);
+	}
 }
 
 

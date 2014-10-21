@@ -39,6 +39,17 @@ enum {
 	ROTATION_LOCKED_VERTICAL180 = 4,
 };
 
+enum BufferFilter {
+	SCALE_LINEAR = 1,
+	SCALE_NEAREST = 2,
+};
+
+// Software is not among these because it will have one of these perform the blit to display.
+enum {
+	GPU_BACKEND_OPENGL = 0,
+	GPU_BACKEND_DIRECT3D9 = 1,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -71,6 +82,12 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
+
+	// Used for switching the GPU backend in GameSettingsScreen.
+	// Without this, PPSSPP instantly crashes if we edit iGPUBackend directly...
+	int iTempGPUBackend;
+
+	bool bRestartRequired;
 #endif
 
 	bool bPauseWhenMinimized;
@@ -86,6 +103,8 @@ public:
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
+	bool bSetRoundingMode;
+	bool bForceFlushToZero;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
@@ -100,8 +119,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
-
 	// GFX
+	int iGPUBackend;
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
@@ -149,6 +168,7 @@ public:
 	bool bAlphaMaskHack;
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
+	bool bFragmentTestCache;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	std::string sPostShaderName;  // Off for off.
 
@@ -312,7 +332,7 @@ public:
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
-	std::string memCardDirectory;
+	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
 

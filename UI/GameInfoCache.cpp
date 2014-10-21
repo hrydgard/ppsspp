@@ -24,6 +24,7 @@
 #include "base/stringutil.h"
 #include "file/file_util.h"
 #include "file/zip_read.h"
+#include "thin3d/thin3d.h"
 #include "thread/prioritizedworkqueue.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -444,6 +445,21 @@ handleELF:
 				}
 				break;
 
+			case FILETYPE_ARCHIVE_7Z:
+				info_->paramSFOLoaded = true;
+				{
+					// Read standard icon
+					size_t sz;
+					uint8_t *contents = VFSReadFile("7z.png", &sz);
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+						info_->iconDataLoaded = true;
+					}
+					delete[] contents;
+				}
+				break;
+
 			case FILETYPE_NORMAL_DIRECTORY:
 			default:
 				info_->paramSFOLoaded = true;
@@ -561,10 +577,8 @@ void GameInfoCache::FlushBGs() {
 	}
 }
 
-// This may run off-main-thread and we thus can't use the global
-// pspFileSystem (well, we could with synchronization but there might not
-// even be a game running).
-GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, int wantFlags) {
+// Runs on the main thread.
+GameInfo *GameInfoCache::GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
 	GameInfo *info = 0;
 
 	auto iter = info_.find(gamePath);
@@ -574,16 +588,16 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, int wantFlags) {
 			// Need to start over. We'll just add a new work item.
 			goto again;
 		}
-		if (info->iconDataLoaded) {
-			SetupTexture(info, info->iconTextureData, info->iconTexture, info->timeIconWasLoaded);
+		if (thin3d && info->iconDataLoaded) {
+			SetupTexture(info, info->iconTextureData, thin3d, info->iconTexture, info->timeIconWasLoaded);
 			info->iconDataLoaded = false;
 		}
-		if (info->pic0DataLoaded) {
-			SetupTexture(info, info->pic0TextureData, info->pic0Texture, info->timePic0WasLoaded);
+		if (thin3d && info->pic0DataLoaded) {
+			SetupTexture(info, info->pic0TextureData, thin3d, info->pic0Texture, info->timePic0WasLoaded);
 			info->pic0DataLoaded = false;
 		}
-		if (info->pic1DataLoaded) {
-			SetupTexture(info, info->pic1TextureData, info->pic1Texture, info->timePic1WasLoaded);
+		if (thin3d && info->pic1DataLoaded) {
+			SetupTexture(info, info->pic1TextureData, thin3d, info->pic1Texture, info->timePic1WasLoaded);
 			info->pic1DataLoaded = false;
 		}
 		iter->second->lastAccessedTime = time_now_d();
@@ -607,15 +621,12 @@ again:
 	return info;
 }
 
-void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Texture *&tex, double &loadTime) {
+void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime) {
 	if (textureData.size()) {
 		if (!tex) {
-			tex = new Texture();
-			if (tex->LoadPNG((const u8 *)textureData.data(), textureData.size(), false)) {
+			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::PNG);
+			if (tex) {
 				loadTime = time_now_d();
-			} else {
-				delete tex;
-				tex = 0;
 			}
 		}
 		textureData.clear();
