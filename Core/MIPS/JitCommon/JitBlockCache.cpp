@@ -221,7 +221,7 @@ void JitBlockCache::RemoveBlockMap(int block_num) {
 	}
 
 	const u32 pAddr = b.originalAddress & 0x1FFFFFFF;
-	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
+	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize, pAddr));
 	if (it != block_map_.end() && it->second == block_num) {
 		block_map_.erase(it);
 	} else {
@@ -599,8 +599,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	// So after destroying one, we start over.
 	while (true) {
 		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
-		// End is inclusive, so a matching end won't be included.
-		auto last = block_map_.lower_bound(std::make_pair(pEnd, 0));
+		auto last = block_map_.upper_bound(std::make_pair(pEnd, 0));
 		if (next == last) {
 			// It wasn't in the map at all (or anymore.)
 			// This includes if both were end(), which should be uncommon.
