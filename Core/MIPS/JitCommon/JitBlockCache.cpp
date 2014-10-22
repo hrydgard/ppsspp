@@ -597,14 +597,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 
 	// Blocks may start and end in overlapping ways, and destroying one invalidates iterators.
 	// So after destroying one, we start over.
-	while (true) {
+	do {
+	restart:
 		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
 		auto last = block_map_.upper_bound(std::make_pair(pEnd, 0));
-		if (next == last) {
-			// It wasn't in the map at all (or anymore.)
-			// This includes if both were end(), which should be uncommon.
-			break;
-		}
+		// Note that if next is end(), last will be end() too (equal.)
 		for (; next != last; ++next) {
 			const u32 blockStart = next->first.second;
 			const u32 blockEnd = next->first.first;
@@ -612,13 +609,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 				DestroyBlock(next->second, true);
 				// Our iterator is now invalid.  Break and search again.
 				// Most of the time there shouldn't be a bunch of matching blocks.
-				break;
+				goto restart;
 			}
 		}
-		if (next == last) {
-			break;
-		}
-	}
+		// We got here - it wasn't in the map at all (or anymore.)
+	} while (false);
 }
 
 int JitBlockCache::GetBlockExitSize() {
