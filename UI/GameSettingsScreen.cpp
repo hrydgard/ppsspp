@@ -54,9 +54,6 @@
 #include <io.h>
 #include <shlobj.h>
 #include "util/text/utf8.h"
-#include <iostream>
-#include <fstream>
-#include <stdio.h>
 using namespace std;
 
 bool installed;
