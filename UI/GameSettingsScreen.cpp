@@ -447,7 +447,6 @@ void GameSettingsScreen::CreateViews() {
 			}
 		}
 		inputFile.close();
-		//systemSettings->Add(new CheckBox(&installed, s->T("Save in Document", "Save in My Documents")))->OnClick.Handle(this, &GameSettingsScreen::OnSavePathDeleting);
 		}
 	}	
 #endif
@@ -587,6 +586,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	if (installed) {
 		File::Delete(PPSSPPpath + "installed.txt");
 		installed = false;
+		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
 		return UI::EVENT_DONE;
 	}
 	else {
@@ -615,6 +615,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	SavePathInMyDocumentChoice->SetEnabled(true);
 	otherinstalled = false;	
 	installed = false;
+	g_Config.memStickDirectory = PPSSPPpath + "memstick/";
 	return UI::EVENT_DONE;
 }
 
