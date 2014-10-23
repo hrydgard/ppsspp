@@ -593,7 +593,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		ofstream myfile;
 		myfile.open(PPSSPPpath + "installed.txt");
 		if (myfile.is_open()){
-			//myfile << "";
 			myfile.close();
 		}
 
