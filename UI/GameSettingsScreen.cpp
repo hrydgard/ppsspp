@@ -602,7 +602,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
 
-		//SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathDeleting);
 		installed = true;
 		return UI::EVENT_DONE;
 	}
