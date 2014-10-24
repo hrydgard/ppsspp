@@ -421,7 +421,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	CONDITIONAL_NICE_DELAYSLOT;
 
 	if (immBranch)
-		CompBranchExit(immBranchTaken, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, false);
+		CompBranchExit(immBranchTaken, targetAddr, js.compilerPC + 8, delaySlotIsNice, likely, andLink);
 	else
 	{
 		if (!likely && delaySlotIsNice)
