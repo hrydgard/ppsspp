@@ -424,27 +424,26 @@ void GameSettingsScreen::CreateViews() {
 	else {
 		if (installed && (result == S_OK))	{
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-		if (!inputFile.fail() && inputFile.is_open()) {
-			SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
-			std::string tempString;
-
-			std::getline(inputFile, tempString);
-
-			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-			if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-				tempString = tempString.substr(3);
-			if (tempString == ""){
-				SavePathInMyDocumentChoice->SetEnabled(true);
+			if (!inputFile.fail() && inputFile.is_open()) {
 				SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
+				std::string tempString;
+				std::getline(inputFile, tempString);
+
+				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
+				if (tempString == ""){
+					SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
+				}
+				else {
+					installed = false;
+					otherinstalled = true;
+					SavePathInOtherChoice->SetEnabled(true);
+				}
 			}
-			else {
-				installed = false;
-				otherinstalled = true;
-				SavePathInOtherChoice->SetEnabled(true);
-			}
+			inputFile.close();
 		}
-		inputFile.close();
-		}
+		else if (result != S_OK)
+			SavePathInMyDocumentChoice->SetEnabled(false);
 	}	
 #endif
 
