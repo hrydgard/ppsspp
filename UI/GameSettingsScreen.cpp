@@ -422,7 +422,6 @@ void GameSettingsScreen::CreateViews() {
 		if (installed && (result == S_OK)) {
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 			if (!inputFile.fail() && inputFile.is_open()) {
-				SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
 				std::string tempString;
 				std::getline(inputFile, tempString);
 
