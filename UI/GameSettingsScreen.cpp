@@ -400,6 +400,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 #if defined(_WIN32)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed, s->T("Save path in My Documents", "Save path in My Documents")));
+	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
 	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled, s->T("Save path in installed.txt", "Save path in installed.txt")));
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
@@ -414,9 +415,9 @@ void GameSettingsScreen::CreateViews() {
 		myfile.open(PPSSPPpath + "installedTEMP.txt");
 		if (myfile.is_open()){
 			myfile.close();
-			// Hide the setting whether cannot create & delete file
-			if (File::Delete(PPSSPPpath + "installedTEMP.txt"))
-				SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
+			// Disable the setting whether cannot create & delete file
+			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
+				SavePathInMyDocumentChoice->SetEnabled(false);
 		}
 		else
 			SavePathInMyDocumentChoice->SetEnabled(false);
@@ -431,10 +432,7 @@ void GameSettingsScreen::CreateViews() {
 
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
-				if (tempString == ""){
-					SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
-				}
-				else {
+				if (!(tempString == "")){					
 					installed = false;
 					otherinstalled = true;
 					SavePathInOtherChoice->SetEnabled(true);
