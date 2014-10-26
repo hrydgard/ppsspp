@@ -429,10 +429,10 @@ void GameSettingsScreen::CreateViews() {
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
 					tempString = tempString.substr(3);
-				if (!(tempString == "")){					
+				if (!(tempString == "")) {
+					SavePathInOtherChoice->SetEnabled(true);
 					installed = false;
 					otherinstalled = true;
-					SavePathInOtherChoice->SetEnabled(true);
 				}
 			}
 			inputFile.close();
@@ -568,18 +568,18 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 #ifdef _WIN32
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
-	otherinstalled = false;
-	SavePathInOtherChoice->SetEnabled(false);
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	const std::string path = File::GetExeDirectory();
 	installed = File::Exists(installedFile);
 	if (otherinstalled) {
+		const std::string PPSSPPpath = File::GetExeDirectory();
+		File::Delete(PPSSPPpath + "installed.txt");
+		SavePathInOtherChoice->SetEnabled(false);
+		SavePathInMyDocumentChoice->SetEnabled(true);
 		File::Delete(PPSSPPpath + "installed.txt");
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
-		SavePathInOtherChoice->SetEnabled(false);
 		otherinstalled = false;
-		installed = true;
 		wchar_t myDocumentsPath[MAX_PATH];
 		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
@@ -589,7 +589,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		File::Delete(PPSSPPpath + "installed.txt");
 		installed = false;
 		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
-		return UI::EVENT_DONE;
 	}
 	else {
 		ofstream myfile;
@@ -602,10 +601,9 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
-
 		installed = true;
-		return UI::EVENT_DONE;
 	}
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
