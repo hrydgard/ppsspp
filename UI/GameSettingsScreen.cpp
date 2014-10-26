@@ -51,7 +51,6 @@
 
 #if defined(_WIN32)
 #include "Windows/WndMainWindow.h"
-#include <io.h>
 #include <shlobj.h>
 #include "util/text/utf8.h"
 using namespace std;
@@ -411,10 +410,7 @@ void GameSettingsScreen::CreateViews() {
 	const std::string path = File::GetExeDirectory();
 	installed = File::Exists(installedFile);
 	if (!installed && result == S_OK) {
-		ofstream myfile;
-		myfile.open(PPSSPPpath + "installedTEMP.txt");
-		if (myfile.is_open()){
-			myfile.close();
+		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
 			// Disable the setting whether cannot create & delete file
 			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
 				SavePathInMyDocumentChoice->SetEnabled(false);
@@ -578,7 +574,18 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	const std::string path = File::GetExeDirectory();
 	installed = File::Exists(installedFile);
-	if (installed) {
+	if (otherinstalled) {
+		File::Delete(PPSSPPpath + "installed.txt");
+		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
+		SavePathInOtherChoice->SetEnabled(false);
+		otherinstalled = false;
+		installed = true;
+		wchar_t myDocumentsPath[MAX_PATH];
+		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+		g_Config.memStickDirectory = myDocsPath;
+	}
+	else if (installed) {
 		File::Delete(PPSSPPpath + "installed.txt");
 		installed = false;
 		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
