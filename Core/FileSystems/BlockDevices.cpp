@@ -131,7 +131,7 @@ typedef struct ciso_header
 CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 	: f(file)
 {
-	// CISO format is EXTREMELY crappy and incomplete. All tools make broken CISO.
+	// CISO format is fairly simple, but most tools do not write the header_size.
 
 	f = file;
 	CISO_H hdr;
@@ -150,18 +150,29 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 		//ARGH!
 	}
 
-	int hdrSize = hdr.header_size;
-	blockSize = hdr.block_size;
-	if (blockSize != 0x800)
-	{
-		ERROR_LOG(LOADER, "CSO Unsupported Block Size");
-	}
-	indexShift = hdr.align;
-	u64 totalSize = hdr.total_bytes;
-	numBlocks = (u32)(totalSize / blockSize);
-	VERBOSE_LOG(LOADER, "CSO hdrSize=%i numBlocks=%i align=%i", hdrSize, numBlocks, indexShift);
+	frameSize = hdr.block_size;
+	if ((frameSize & (frameSize - 1)) != 0)
+		ERROR_LOG(LOADER, "CSO block size %i unsupported, must be a power of two", frameSize);
+	else if (frameSize < 0x800)
+		ERROR_LOG(LOADER, "CSO block size %i unsupported, must be at least one sector", frameSize);
 
-	u32 indexSize = numBlocks + 1;
+	// Determine the translation from block to frame.
+	blockShift = 0;
+	for (u32 i = frameSize; i > 0x800; i >>= 1)
+		++blockShift;
+
+	indexShift = hdr.align;
+	const u64 totalSize = hdr.total_bytes;
+	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
+	numBlocks = (u32)(totalSize / GetBlockSize());
+	VERBOSE_LOG(LOADER, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
+
+	// We might read a bit of alignment too, so be prepared.
+	readBuffer = new u8[frameSize + (1 << indexShift)];
+	zlibBuffer = new u8[frameSize + (1 << indexShift)];
+	zlibBufferFrame = numFrames;
+
+	const u32 indexSize = numFrames + 1;
 
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
@@ -189,66 +200,82 @@ CISOFileBlockDevice::~CISOFileBlockDevice()
 {
 	fclose(f);
 	delete [] index;
+	delete [] readBuffer;
+	delete [] zlibBuffer;
 }
 
 bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
 	if ((u32)blockNumber >= numBlocks)
 	{
-		memset(outPtr, 0, 2048);
+		memset(outPtr, 0, GetBlockSize());
 		return false;
 	}
 
-	u32 idx = index[blockNumber];
-	u32 idx2 = index[blockNumber+1];
-	u8 inbuffer[4096]; //too big
+	const u32 frameNumber = blockNumber >> blockShift;
+	const u32 idx = index[frameNumber];
+	const u32 indexPos = idx & 0x7FFFFFFF;
+	const u32 nextIndexPos = index[frameNumber + 1] & 0x7FFFFFFF;
 	z_stream z;
 
-	int plain = idx & 0x80000000;
+	const u64 compressedReadPos = (u64)indexPos << indexShift;
+	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
+	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
+	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
 
-	u64 compressedReadPos = (u64)(idx & 0x7FFFFFFF) << indexShift;
-	size_t compressedReadSize = (size_t)(((u64)(idx2 & 0x7FFFFFFF) << indexShift) - compressedReadPos);
-
-	fseeko(f, compressedReadPos, SEEK_SET);
-	u32 readSize = (u32)fread(inbuffer, 1, compressedReadSize, f);
-
+	const int plain = idx & 0x80000000;
 	if (plain)
 	{
-		memset(outPtr, 0, 2048);
-		memcpy(outPtr, inbuffer, readSize);
+		fseeko(f, compressedReadPos + compressedOffset, SEEK_SET);
+		int readSize = (u32)fread(outPtr, 1, GetBlockSize(), f);
+		if (readSize < GetBlockSize())
+			memset(outPtr + readSize, 0, GetBlockSize() - readSize);
+	}
+	else if (zlibBufferFrame == frameNumber)
+	{
+		// We already have it.  Just apply the offset and copy.
+		memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());
 	}
 	else
 	{
-		memset(outPtr, 0, 2048);
+		fseeko(f, compressedReadPos, SEEK_SET);
+		const u32 readSize = (u32)fread(readBuffer, 1, compressedReadSize, f);
+
 		z.zalloc = Z_NULL;
 		z.zfree = Z_NULL;
 		z.opaque = Z_NULL;
 		if(inflateInit2(&z, -15) != Z_OK)
 		{
-			ERROR_LOG(LOADER, "deflateInit ERROR : %s\n", (z.msg) ? z.msg : "???");
+			ERROR_LOG(LOADER, "GetBlockSize() ERROR: %s\n", (z.msg) ? z.msg : "?");
 			return false;
 		}
 		z.avail_in = readSize;
-		z.next_out = outPtr;
-		z.avail_out = blockSize;
-		z.next_in = inbuffer;
+		z.next_out = frameSize == GetBlockSize() ? outPtr : zlibBuffer;
+		z.avail_out = frameSize;
+		z.next_in = readBuffer;
 
-		int status = inflate(&z, Z_FULL_FLUSH);
-		if(status != Z_STREAM_END)
-			//if (status != Z_OK)
+		int status = inflate(&z, Z_FINISH);
+		if (status != Z_STREAM_END)
 		{
-			ERROR_LOG(LOADER, "block %d:inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
+			ERROR_LOG(LOADER, "block %d: inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
 			inflateEnd(&z);
-			return 1;  // TODO: This seems like the wrong return value? Surely we are screwed here (corrupt CSO) ?
+			memset(outPtr, 0, GetBlockSize());
+			return false;
 		}
-		int cmp_size = blockSize - z.avail_out;
-		if (cmp_size != (int)blockSize)
+		if (z.total_out != frameSize)
 		{
-			ERROR_LOG(LOADER, "block %d : block size error %d != %d\n", blockNumber, cmp_size, blockSize);
+			ERROR_LOG(LOADER, "block %d: block size error %d != %d\n", blockNumber, z.total_out, frameSize);
 			inflateEnd(&z);
+			memset(outPtr, 0, GetBlockSize());
 			return false;
 		}
 		inflateEnd(&z);
+
+		if (frameSize != GetBlockSize())
+		{
+			zlibBufferFrame = frameNumber;
+			memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());
+		}
 	}
 	return true;
 }
