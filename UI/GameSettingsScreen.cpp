@@ -410,7 +410,7 @@ void GameSettingsScreen::CreateViews() {
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	const std::string path = File::GetExeDirectory();
 	installed = File::Exists(installedFile);
-	if (!installed && result == S_OK){
+	if (!installed && result == S_OK) {
 		ofstream myfile;
 		myfile.open(PPSSPPpath + "installedTEMP.txt");
 		if (myfile.is_open()){
@@ -423,7 +423,7 @@ void GameSettingsScreen::CreateViews() {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	}
 	else {
-		if (installed && (result == S_OK))	{
+		if (installed && (result == S_OK)) {
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 			if (!inputFile.fail() && inputFile.is_open()) {
 				SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
@@ -432,6 +432,7 @@ void GameSettingsScreen::CreateViews() {
 
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
+					tempString = tempString.substr(3);
 				if (!(tempString == "")){					
 					installed = false;
 					otherinstalled = true;
