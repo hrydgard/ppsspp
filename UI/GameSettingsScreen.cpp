@@ -574,7 +574,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	installed = File::Exists(installedFile);
 	if (otherinstalled) {
 		const std::string PPSSPPpath = File::GetExeDirectory();
-		File::Delete(PPSSPPpath + "installed.txt");
 		SavePathInOtherChoice->SetEnabled(false);
 		SavePathInMyDocumentChoice->SetEnabled(true);
 		File::Delete(PPSSPPpath + "installed.txt");
