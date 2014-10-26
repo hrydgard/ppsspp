@@ -47,9 +47,14 @@ public:
 private:
 	FILE *f;
 	u32 *index;
-	int indexShift;
-	u32 blockSize;
+	u8 *readBuffer;
+	u8 *zlibBuffer;
+	u32 zlibBufferFrame;
+	u8 indexShift;
+	u8 blockShift;
+	u32 frameSize;
 	u32 numBlocks;
+	u32 numFrames;
 };
 
 
