@@ -409,11 +409,14 @@ void GameSettingsScreen::CreateViews() {
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	const std::string path = File::GetExeDirectory();
 	installed = File::Exists(installedFile);
+	otherinstalled = false;
 	if (!installed && result == S_OK) {
 		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
 			// Disable the setting whether cannot create & delete file
 			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
 				SavePathInMyDocumentChoice->SetEnabled(false);
+			else
+				SavePathInOtherChoice->SetEnabled(true);			
 		}
 		else
 			SavePathInMyDocumentChoice->SetEnabled(false);
@@ -428,8 +431,8 @@ void GameSettingsScreen::CreateViews() {
 				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 				if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
 					tempString = tempString.substr(3);
+				SavePathInOtherChoice->SetEnabled(true);
 				if (!(tempString == "")) {
-					SavePathInOtherChoice->SetEnabled(true);
 					installed = false;
 					otherinstalled = true;
 				}
@@ -573,7 +576,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	installed = File::Exists(installedFile);
 	if (otherinstalled) {
 		const std::string PPSSPPpath = File::GetExeDirectory();
-		SavePathInOtherChoice->SetEnabled(false);
 		File::Delete(PPSSPPpath + "installed.txt");
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
 		otherinstalled = false;
@@ -581,6 +583,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
+		
 	}
 	else if (installed) {
 		File::Delete(PPSSPPpath + "installed.txt");
@@ -604,13 +607,28 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();
-	File::Delete(PPSSPPpath + "installed.txt");
-	SavePathInOtherChoice->SetEnabled(false);
-	SavePathInMyDocumentChoice->SetEnabled(true);
-	otherinstalled = false;	
-	installed = false;
-	g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+	const std::string PPSSPPpath = File::GetExeDirectory();	
+	if (otherinstalled) {
+		const size_t name_len = 256;
+		char savepath[name_len];
+		memset(savepath, 0, sizeof(savepath));				
+		if (System_InputBoxGetString("Enter a new PSP save path", g_Config.memStickDirectory.c_str(), savepath, name_len)) {
+			string savepathstr = string(savepath);
+			g_Config.memStickDirectory = savepathstr;
+			ofstream myfile;
+			myfile.open(PPSSPPpath + "installed.txt");
+			myfile << "\xEF\xBB\xBF" + savepathstr;
+			myfile.close();
+			installed = false;
+		}
+	}
+	else {
+		File::Delete(PPSSPPpath + "installed.txt");
+		SavePathInMyDocumentChoice->SetEnabled(true);
+		otherinstalled = false;
+		installed = false;
+		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
+	}
 	return UI::EVENT_DONE;
 }
 
