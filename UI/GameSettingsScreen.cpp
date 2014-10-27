@@ -583,7 +583,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
-		
 	}
 	else if (installed) {
 		File::Delete(PPSSPPpath + "installed.txt");
