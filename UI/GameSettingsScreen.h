@@ -49,8 +49,10 @@ private:
 	UI::Choice *postProcChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
+#ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice;
 	UI::CheckBox *SavePathInOtherChoice;
+#endif
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
