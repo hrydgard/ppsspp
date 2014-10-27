@@ -609,8 +609,8 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();	
 	if (otherinstalled) {
-		I18NCategory *m = GetI18NCategory("MainMenu");
-		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), m->T("Choose folder"));
+		I18NCategory *di = GetI18NCategory("Dialog");
+		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
 		if (folder.size()) {
 			ofstream myfile;
 			g_Config.memStickDirectory = folder;
