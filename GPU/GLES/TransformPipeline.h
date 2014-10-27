@@ -53,6 +53,13 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
+// Avoiding the full include of TextureDecoder.h.
+#ifdef _M_X64
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
+
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -77,7 +84,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	u32 hash;
+	ReliableHashType hash;
 	u32 minihash;
 
 	Status status;
@@ -188,7 +195,7 @@ private:
 	void FreeBuffer(GLuint buf);
 
 	u32 ComputeMiniHash();
-	u32 ComputeHash();  // Reads deferred vertex data.
+	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);

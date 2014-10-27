@@ -157,7 +157,8 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #ifndef _M_SSE
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
-ReliableHashFunc DoReliableHash = &XXH32;
+ReliableHash32Func DoReliableHash32 = &XXH32;
+ReliableHash64Func DoReliableHash64 = &XXH64;
 #endif
 
 // This has to be done after CPUDetect has done its magic.
@@ -168,7 +169,7 @@ void SetupTextureDecoder() {
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
 #ifndef IOS
 		// Not sure if this is safe on iOS, it's had issues with xxhash.
-		DoReliableHash = &ReliableHashNEON;
+		DoReliableHash32 = &ReliableHash32NEON;
 #endif
 	}
 #endif
