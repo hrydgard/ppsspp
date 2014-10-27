@@ -620,6 +620,8 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 			myfile.close();
 			installed = false;
 		}
+		else
+			otherinstalled = false;
 	}
 	else {
 		File::Delete(PPSSPPpath + "installed.txt");
