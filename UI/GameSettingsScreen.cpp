@@ -53,6 +53,7 @@
 #include "Windows/WndMainWindow.h"
 #include <shlobj.h>
 #include "util/text/utf8.h"
+#include "Windows/W32Util/ShellUtil.h"
 using namespace std;
 
 bool installed;
@@ -608,15 +609,13 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();	
 	if (otherinstalled) {
-		const size_t name_len = 256;
-		char savepath[name_len];
-		memset(savepath, 0, sizeof(savepath));				
-		if (System_InputBoxGetString("Enter a new PPSSPP save path", g_Config.memStickDirectory.c_str(), savepath, name_len)) {
-			string savepathstr = string(savepath);
-			g_Config.memStickDirectory = savepathstr;
+		I18NCategory *m = GetI18NCategory("MainMenu");
+		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), m->T("Choose folder"));
+		if (folder.size()) {
 			ofstream myfile;
+			g_Config.memStickDirectory = folder;
 			myfile.open(PPSSPPpath + "installed.txt");
-			myfile << "\xEF\xBB\xBF" + savepathstr;
+			myfile << "\xEF\xBB\xBF" + folder;
 			myfile.close();
 			installed = false;
 		}
