@@ -31,21 +31,21 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 #ifdef IOS
 		uint32x4_t cursor = vdupq_n_u32(0);
-		uint32x4_t cursor2 = vld1q_u32((const u32 *)QuickTexHashInitial);
-		uint32x4_t update = vdupq_n_u32(0x24552455U);
+		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
+		uint16x8_t update = vdupq_n_u16(0x2455U);
 
 		const u32 *p = (const u32 *)checkp;
 		for (u32 i = 0; i < size / 16; i += 4) {
-			cursor = vmlaq_u32(cursor, vld1q_u32(&p[4 * 0]), cursor2);
+			cursor = vreinterpretq_u32_u16(vmlaq_u16(vreinterpretq_u16_u32(cursor), vreinterpretq_u16_u32(vld1q_u32(&p[4 * 0])), cursor2));
 			cursor = veorq_u32(cursor, vld1q_u32(&p[4 * 1]));
 			cursor = vaddq_u32(cursor, vld1q_u32(&p[4 * 2]));
-			cursor = veorq_u32(cursor, vmulq_u32(vld1q_u32(&p[4 * 3]), cursor2));
-			cursor2 = vaddq_u32(cursor2, update);
+			cursor = veorq_u32(cursor, vreinterpretq_u32_u16(vmulq_u16(vreinterpretq_u16_u32(vld1q_u32(&p[4 * 3])), cursor2)));
+			cursor2 = vaddq_u16(cursor2, update);
 
 			p += 4 * 4;
 		}
 
-		cursor = vaddq_u32(cursor, cursor2);
+		cursor = vaddq_u32(cursor, vreinterpretq_u32_u16(cursor2));
 		check = vgetq_lane_u32(cursor, 0) + vgetq_lane_u32(cursor, 1) + vgetq_lane_u32(cursor, 2) + vgetq_lane_u32(cursor, 3);
 #else
 		// TODO: Why does this crash on iOS, but only certain devices?
@@ -82,12 +82,12 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 			"QuickTexHashNEON_next:\n"
 			"pld [%2, #0xc0]\n"
 			"vldmia %2!, {d16-d23}\n"
-			"vmla.i32 q0, q1, q8\n"
-			"vmul.i32 q11, q11, q1\n"
+			"vmla.i16 q0, q1, q8\n"
+			"vmul.i16 q11, q11, q1\n"
 			"veor.i32 q0, q0, q9\n"
 			"cmp %2, r0\n"
 			"vadd.i32 q0, q0, q10\n"
-			"vadd.i32 q1, q1, q2\n"
+			"vadd.i16 q1, q1, q2\n"
 			"veor.i32 q0, q0, q11\n"
 			"blo QuickTexHashNEON_next\n"
 
