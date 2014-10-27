@@ -611,7 +611,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 		const size_t name_len = 256;
 		char savepath[name_len];
 		memset(savepath, 0, sizeof(savepath));				
-		if (System_InputBoxGetString("Enter a new PSP save path", g_Config.memStickDirectory.c_str(), savepath, name_len)) {
+		if (System_InputBoxGetString("Enter a new PPSSPP save path", g_Config.memStickDirectory.c_str(), savepath, name_len)) {
 			string savepathstr = string(savepath);
 			g_Config.memStickDirectory = savepathstr;
 			ofstream myfile;
