@@ -22,7 +22,7 @@
 #error Should not be compiled on non-ARM.
 #endif
 
-static const u16 MEMORY_ALIGNED16(QuickTexHashInitial[8]) = {0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU};
+static const u16 MEMORY_ALIGNED16(QuickTexHashInitial[8]) = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
 
 u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	u32 check = 0;
