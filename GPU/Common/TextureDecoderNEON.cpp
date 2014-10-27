@@ -177,7 +177,7 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 #  define XXH_rotl32(x,r) ((x << r) | (x >> (32 - r)))
 #endif
 
-u32 ReliableHashNEON(const void *input, int len, u32 seed) {
+u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
 	const u8 *p = (const u8 *)input;
 	const u8 *const bEnd = p + len;
 	U32 h32;

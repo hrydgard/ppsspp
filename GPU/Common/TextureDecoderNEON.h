@@ -19,4 +19,4 @@
 
 u32 QuickTexHashNEON(const void *checkp, u32 size);
 void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
-u32 ReliableHashNEON(const void *input, int len, u32 seed);
+u32 ReliableHash32NEON(const void *input, size_t len, u32 seed);

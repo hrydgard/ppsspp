@@ -21,6 +21,12 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
+#ifdef _M_X64
+typedef u64 HashType;
+#else
+typedef u32 HashType;
+#endif
+
 enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };
 
 struct DisassemblyLineInfo
@@ -79,7 +85,7 @@ private:
 
 	u32 address;
 	u32 size;
-	u32 hash;
+	HashType hash;
 	std::vector<BranchLine> lines;
 	std::map<u32,DisassemblyEntry*> entries;
 	std::vector<u32> lineAddresses;
@@ -155,7 +161,7 @@ private:
 
 	u32 address;
 	u32 size;
-	u32 hash;
+	HashType hash;
 	DataType type;
 	std::map<u32,DataEntry> lines;
 	std::vector<u32> lineAddresses;
