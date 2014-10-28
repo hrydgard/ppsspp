@@ -711,7 +711,10 @@ void TransformDrawEngineDX9::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 						void * pVb;
-						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						int tempMaxIndex = indexGen.MaxIndex();
+						if (tempMaxIndex < 1)
+							tempMaxIndex = 1;
+						u32 size = dec_->GetDecVtxFmt().stride * tempMaxIndex;
 						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
 						vai->vbo->Lock(0, size, &pVb, 0);
 						memcpy(pVb, decoded, size);
