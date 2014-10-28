@@ -455,7 +455,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.numInstructions++;
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800)
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
 		{
 			FlushAll();
 			WriteExit(js.compilerPC, js.nextExit++);

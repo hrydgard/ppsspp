@@ -143,6 +143,10 @@ public:
 
 	static int GetBlockExitSize();
 
+	enum {
+		MAX_BLOCK_INSTRUCTIONS = 0x4000,
+	};
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);

@@ -600,7 +600,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	do {
 	restart:
 		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
-		auto last = block_map_.upper_bound(std::make_pair(pEnd, 0));
+		auto last = block_map_.upper_bound(std::make_pair(pEnd + MAX_BLOCK_INSTRUCTIONS, 0));
 		// Note that if next is end(), last will be end() too (equal.)
 		for (; next != last; ++next) {
 			const u32 blockStart = next->first.second;
