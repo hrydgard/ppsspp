@@ -42,6 +42,7 @@
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
+#include <algorithm>
 
 namespace DX9 {
 
