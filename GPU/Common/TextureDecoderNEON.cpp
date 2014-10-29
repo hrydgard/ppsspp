@@ -60,15 +60,15 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 			"vmov.i32 q0, #0\n"
 
 			// Initialize cursor2.
-			"movw r0, 0x0001\n"
-			"movt r0, 0x0083\n"
-			"movw r1, 0x4309\n"
-			"movt r1, 0x4d9b\n"
+			"movw r0, 0xc00b\n"
+			"movt r0, 0x9bd9\n"
+			"movw r1, 0x4b73\n"
+			"movt r1, 0xb651\n"
 			"vmov d2, r0, r1\n"
-			"movw r0, 0xb651\n"
-			"movt r0, 0x4b73\n"
-			"movw r1, 0x9bd9\n"
-			"movt r1, 0xc00b\n"
+			"movw r0, 0x4d9b\n"
+			"movt r0, 0x4309\n"
+			"movw r1, 0x0083\n"
+			"movt r1, 0x0001\n"
 			"vmov d3, r0, r1\n"
 
 			// Initialize update.
