@@ -204,7 +204,7 @@ private:
 		void *inds;
 		u32 vertType;
 		u8 indexType;
-		u8 prim;
+		s8 prim;
 		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
