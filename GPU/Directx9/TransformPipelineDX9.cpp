@@ -42,6 +42,7 @@
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
+#include <algorithm>
 
 namespace DX9 {
 
@@ -711,7 +712,7 @@ void TransformDrawEngineDX9::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 						void * pVb;
-						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						u32 size = dec_->GetDecVtxFmt().stride * std::max(indexGen.MaxIndex(), 1);
 						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
 						vai->vbo->Lock(0, size, &pVb, 0);
 						memcpy(pVb, decoded, size);
