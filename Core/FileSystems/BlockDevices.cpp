@@ -58,6 +58,21 @@ RAMBlockDevice::~RAMBlockDevice() {
 	delete[] image_;
 }
 
+bool RAMBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) {
+	if (blockNumber >= 0 && blockNumber < totalBlocks_) {
+		u32 blockSize = GetBlockSize();
+		memcpy(outPtr, image_ + blockSize * blockNumber, blockSize);
+		return true;
+	}
+	return false;
+}
+
+u32 RAMBlockDevice::GetNumBlocks() {
+	return totalBlocks_;
+}
+
+
+
 
 // Android NDK does not support 64-bit file I/O using C streams
 // so we fall back onto syscalls

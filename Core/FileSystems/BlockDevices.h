@@ -120,18 +120,8 @@ public:
 	RAMBlockDevice(BlockDevice *device);
 	~RAMBlockDevice();
 
-	bool ReadBlock(int blockNumber, u8 *outPtr) override {
-		if (blockNumber >= 0 && blockNumber < totalBlocks_) {
-			u32 blockSize = GetBlockSize();
-			memcpy(outPtr, image_ + blockSize * blockNumber, blockSize);
-			return true;
-		}
-		return false;
-	}
-
-	u32 GetNumBlocks() override {
-		return totalBlocks_;
-	}
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	u32 GetNumBlocks() override;
 
 private:
 	int totalBlocks_;
