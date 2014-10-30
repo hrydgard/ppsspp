@@ -302,7 +302,7 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
 		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
-	} else if (prim < GE_PRIM_KEEP_PREVIOUS) {
+	} else {
 		prevPrim_ = prim;
 	}
 
