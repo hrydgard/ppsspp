@@ -63,8 +63,8 @@ class FileBlockDevice : public BlockDevice
 public:
 	FileBlockDevice(FILE *file);
 	~FileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	u32 GetNumBlocks() override {return (u32)(filesize / GetBlockSize());}
 
 private:
 #ifdef ANDROID
@@ -91,8 +91,8 @@ public:
 	NPDRMDemoBlockDevice(FILE *file);
 	~NPDRMDemoBlockDevice();
 
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)lbaSize;}
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	u32 GetNumBlocks() override {return (u32)lbaSize;}
 
 private:
 	FILE *f;
@@ -110,6 +110,32 @@ private:
 	int currentBlock;
 	u8 *blockBuf;
 	u8 *tempBuf;
+};
+
+// This simply fully reads another block device and caches it in RAM.
+// A bit slow to initialize.
+class RAMBlockDevice : public BlockDevice
+{
+public:
+	RAMBlockDevice(BlockDevice *device);
+	~RAMBlockDevice();
+
+	bool ReadBlock(int blockNumber, u8 *outPtr) override {
+		if (blockNumber >= 0 && blockNumber < totalBlocks_) {
+			u32 blockSize = GetBlockSize();
+			memcpy(outPtr, image_ + blockSize * blockNumber, blockSize);
+			return true;
+		}
+		return false;
+	}
+
+	u32 GetNumBlocks() override {
+		return totalBlocks_;
+	}
+
+private:
+	int totalBlocks_;
+	u8 *image_;
 };
 
 

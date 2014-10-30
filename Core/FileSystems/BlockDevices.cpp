@@ -44,6 +44,20 @@ BlockDevice *constructBlockDevice(const char *filename) {
 		return new FileBlockDevice(f);
 }
 
+RAMBlockDevice::RAMBlockDevice(BlockDevice *device) {
+	totalBlocks_ = device->GetNumBlocks();
+	u32 blockSize = GetBlockSize();
+	image_ = new u8[totalBlocks_ * blockSize];
+	for (int i = 0; i < totalBlocks_; i++) {
+		device->ReadBlock(i, image_ + i * blockSize);
+	}
+	delete device;
+}
+
+RAMBlockDevice::~RAMBlockDevice() {
+	delete[] image_;
+}
+
 
 // Android NDK does not support 64-bit file I/O using C streams
 // so we fall back onto syscalls

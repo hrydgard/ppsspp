@@ -391,6 +391,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, s->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
 
+#if defined(_M_X64)
+	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, s->T("Cache ISO in RAM", "Cache full ISO in RAM (slow startup)")));
+#endif
+
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
