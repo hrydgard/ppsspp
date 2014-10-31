@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+#include "Globals.h"
 #include "Common/Common.h"
 
 #include "math/fast/fast_matrix.h"
@@ -968,7 +969,7 @@ __forceinline unsigned int Vec3<float>::ToRGB() const
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
 	return (clamp_u8((int)(r() * 255.f)) << 0) |
-			(clamp_u8(int)((g() * 255.f)) << 8) |
+			(clamp_u8((int)(g() * 255.f)) << 8) |
 			(clamp_u8((int)(b() * 255.f)) << 16);
 #endif
 }
