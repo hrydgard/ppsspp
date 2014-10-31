@@ -272,9 +272,9 @@ void SoftwareTransform(
 						c1[j] = litColor1[j];
 					}
 				} else {
-					// Summed color into c0
+					// Summed color into c0 (will clamp in ToRGBA().)
 					for (int j = 0; j < 4; j++) {
-						c0[j] = ((c0[j] + litColor1[j]) > 1.0f) ? 1.0f : (c0[j] + litColor1[j]);
+						c0[j] += litColor1[j];
 					}
 				}
 			} else {
