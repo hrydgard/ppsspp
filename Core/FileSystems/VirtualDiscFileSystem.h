@@ -41,6 +41,7 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	int  Flags() { return 0; }
+	u64  FreeSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations
 	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size);

@@ -895,34 +895,22 @@ int SavedataParam::BuildHash(unsigned char *output,
 	return 0;
 }
 
-std::string SavedataParam::GetSpaceText(int size)
+std::string SavedataParam::GetSpaceText(u64 size)
 {
+	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	char text[50];
 
-	if(size < 1024)
+	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
-		sprintf(text,"%d B",size);
-		return std::string(text);
+		if (size < 1024)
+		{
+			snprintf(text, sizeof(text), "%d %s", size, suffixes[i]);
+			return std::string(text);
+		}
+		size /= 1024;
 	}
 
-	size /= 1024;
-
-	if(size < 1024)
-	{
-		sprintf(text,"%d KB",size);
-		return std::string(text);
-	}
-
-	size /= 1024;
-
-	if(size < 1024)
-	{
-		sprintf(text,"%d MB",size);
-		return std::string(text);
-	}
-
-	size /= 1024;
-	sprintf(text,"%d GB",size);
+	snprintf(text, sizeof(text), "%d TB");
 	return std::string(text);
 }
 
@@ -936,10 +924,11 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 	if (param->msFree.IsValid())
 	{
+		const u64 freeBytes = MemoryStick_FreeSpace();
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
-		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
-		param->msFree->freeSpaceKB = (u32)(MemoryStick_FreeSpace() / 0x400);
-		const std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		param->msFree->freeClusters = (u32)(freeBytes / MemoryStick_SectorSize());
+		param->msFree->freeSpaceKB = (u32)(freeBytes / 0x400);
+		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
@@ -1184,14 +1173,15 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 
 	if (param->sizeInfo.IsValid())
 	{
+		const u64 freeBytes = MemoryStick_FreeSpace();
 		// TODO: Read the entries and count up the size vs. existing size?
 
 		param->sizeInfo->sectorSize = (int)MemoryStick_SectorSize();
-		param->sizeInfo->freeSectors = (int)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+		param->sizeInfo->freeSectors = (int)(freeBytes / MemoryStick_SectorSize());
 
 		// TODO: Is this after the specified files?  Before?
-		param->sizeInfo->freeKB = (int)(MemoryStick_FreeSpace() / 1024);
-		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		param->sizeInfo->freeKB = (int)(freeBytes / 1024);
+		std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
 		strncpy(param->sizeInfo->freeString, spaceTxt.c_str(), 8);
 		param->sizeInfo->freeString[7] = '\0';
 

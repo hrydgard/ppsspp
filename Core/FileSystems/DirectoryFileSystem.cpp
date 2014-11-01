@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <limits>
 #include "ChunkFile.h"
 #include "FileUtil.h"
 #include "DirectoryFileSystem.h"
@@ -719,6 +720,20 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	closedir(dp);
 #endif
 	return myVector;
+}
+
+u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
+#ifdef _WIN32
+	const std::wstring w32path = ConvertUTF8ToWString(GetLocalPath(path));
+	ULARGE_INTEGER free;
+	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
+		return free.QuadPart;
+#else
+	// TODO: Implement.
+#endif
+
+	// Just assume they're swimming in free disk space if we don't know otherwise.
+	return std::numeric_limits<u64>::max();
 }
 
 void DirectoryFileSystem::DoState(PointerWrap &p) {

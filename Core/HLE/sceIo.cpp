@@ -438,7 +438,7 @@ void __IoWakeManager() {
 }
 
 void __IoInit() {
-	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
+	MemoryStick_Init();
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
