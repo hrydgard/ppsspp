@@ -18,6 +18,7 @@ enum MemStickFatState {
 	PSP_FAT_MEMORYSTICK_STATE_ASSIGNED   = 1,
 };
 
+void MemoryStick_Init();
 void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();

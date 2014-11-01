@@ -109,6 +109,7 @@ public:
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	int Flags() { return flags; }
+	u64 FreeSpace(const std::string &path) override;
 
 private:
 	struct OpenFileEntry {
@@ -151,6 +152,7 @@ public:
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	int Flags() { return 0; }
+	u64 FreeSpace(const std::string &path) override { return 0; }
 
 private:
 	struct OpenFileEntry {

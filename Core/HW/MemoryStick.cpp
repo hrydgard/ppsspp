@@ -1,18 +1,26 @@
-#include "MemoryStick.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HW/MemoryStick.h"
+#include "Core/System.h"
 
 // MS and FatMS states.
-static MemStickState memStickState = PSP_MEMORYSTICK_STATE_DRIVER_READY;
-static MemStickFatState memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
+static MemStickState memStickState;
+static MemStickFatState memStickFatState;
+static u64 memStickSize;
 
 void MemoryStick_DoState(PointerWrap &p)
 {
-	auto s = p.Section("MemoryStick", 1);
+	auto s = p.Section("MemoryStick", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(memStickState);
 	p.Do(memStickFatState);
+	if (s >= 2)
+		p.Do(memStickSize);
+	else
+		memStickSize = 1ULL * 1024 * 1024 * 1024;
+
 }
 
 MemStickState MemoryStick_State()
@@ -32,10 +40,20 @@ u64 MemoryStick_SectorSize()
 
 u64 MemoryStick_FreeSpace()
 {
-	return 1ULL * 1024 * 1024 * 1024; // 1GB
+	u64 freeSpace = pspFileSystem.FreeSpace("ms0:/");
+	if (freeSpace < memStickSize)
+		return freeSpace;
+	return memStickSize;
 }
 
 void MemoryStick_SetFatState(MemStickFatState state)
 {
 	memStickFatState = state;
+}
+
+void MemoryStick_Init()
+{
+	memStickState = PSP_MEMORYSTICK_STATE_DRIVER_READY;
+	memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
+	memStickSize = 8ULL * 1024 * 1024 * 1024; // 8GB
 }

@@ -591,6 +591,17 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	return 0;
 }
 
+u64 MetaFileSystem::FreeSpace(const std::string &path)
+{
+	lock_guard guard(lock);
+	std::string of;
+	IFileSystem *system;
+	if (MapFilePath(path, of, &system))
+		return system->FreeSpace(of);
+	else
+		return 0;
+}
+
 void MetaFileSystem::DoState(PointerWrap &p)
 {
 	lock_guard guard(lock);
