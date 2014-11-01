@@ -293,7 +293,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 		}
 		if (z.total_out != frameSize)
 		{
-			ERROR_LOG(LOADER, "block %d: block size error %d != %d\n", blockNumber, z.total_out, frameSize);
+			ERROR_LOG(LOADER, "block %d: block size error %d != %d\n", blockNumber, (u32)z.total_out, frameSize);
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
