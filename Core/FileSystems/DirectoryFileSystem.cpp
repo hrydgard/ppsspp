@@ -31,6 +31,13 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#if defined(ANDROID)
+#include <sys/types.h>
+#include <sys/vfs.h>
+#define statvfs statfs
+#elif !defined(__SYMBIAN32__)
+#include <sys/statvfs.h>
+#endif
 #include <ctype.h>
 #include <fcntl.h>
 #endif
@@ -688,7 +695,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	if(dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
+	if (dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
 		localPath = GetLocalPath(path);
 		dp = opendir(localPath.c_str());
@@ -728,8 +735,28 @@ u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
 	ULARGE_INTEGER free;
 	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
 		return free.QuadPart;
-#else
-	// TODO: Implement.
+#elif !defined(__SYMBIAN32__)
+	std::string localPath = GetLocalPath(path);
+	struct statvfs diskstat;
+	int res = statvfs(localPath.c_str(), &diskstat);
+
+#if HOST_IS_CASE_SENSITIVE
+	std::string fixedCase = path;
+	if (res != 0 && FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
+		// May have failed due to case sensitivity, try again.
+		localPath = GetLocalPath(fixedCase);
+		res = statvfs(localPath.c_str(), &diskstat);
+	}
+#endif
+
+	if (res == 0) {
+#ifndef ANDROID
+		if (diskstat.f_flag & ST_RDONLY) {
+			return 0;
+		}
+#endif
+		return (u64)diskstat.f_bavail * (u64)diskstat.f_frsize;
+	}
 #endif
 
 	// Just assume they're swimming in free disk space if we don't know otherwise.
