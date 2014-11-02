@@ -92,7 +92,7 @@ namespace
 		size_t result = pspFileSystem.WriteFile(handle, data, dataSize);
 		pspFileSystem.CloseFile(handle);
 
-		return result != 0;
+		return result == dataSize;
 	}
 
 	bool PSPMatch(std::string text, std::string regexp)

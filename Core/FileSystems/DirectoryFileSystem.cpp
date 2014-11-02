@@ -290,10 +290,19 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 {
 	size_t bytesWritten = 0;
+	bool diskFull = false;
+
 #ifdef _WIN32
-	::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
+	BOOL success = ::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
+	if (success == FALSE) {
+		DWORD err = GetLastError();
+		diskFull = err == ERROR_DISK_FULL || err == ERROR_NOT_ENOUGH_QUOTA;
+	}
 #else
 	bytesWritten = write(hFile, pointer, size);
+	if (bytesWritten == (size_t)-1) {
+		diskFull = errno == ENOSPC;
+	}
 #endif
 	if (needsTrunc_ != -1) {
 		off_t off = (off_t)Seek(0, FILEMOVE_CURRENT);
@@ -301,6 +310,13 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 			needsTrunc_ = off;
 		}
 	}
+
+	if (diskFull) {
+		// Sign extend on 64-bit.
+		ERROR_LOG(FILESYS, "Disk full");
+		return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+	}
+
 	return bytesWritten;
 }
 

@@ -44,7 +44,7 @@ struct AsyncIOEvent {
 };
 
 // TODO: Something better.
-typedef size_t AsyncIOResult;
+typedef s64 AsyncIOResult;
 
 typedef ThreadEventQueue<NoBase, AsyncIOEvent, AsyncIOEventType, IO_EVENT_INVALID, IO_EVENT_SYNC, IO_EVENT_FINISH> IOThreadEventQueue;
 class AsyncIOManager : public IOThreadEventQueue {
