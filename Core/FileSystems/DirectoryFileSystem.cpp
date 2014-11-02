@@ -16,14 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits>
-#include "ChunkFile.h"
-#include "FileUtil.h"
-#include "DirectoryFileSystem.h"
-#include "ISOFileSystem.h"
+#include "file/zip_read.h"
+#include "i18n/i18n.h"
+#include "util/text/utf8.h"
+#include "Common/ChunkFile.h"
+#include "Common/FileUtil.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
-#include "file/zip_read.h"
-#include "util/text/utf8.h"
+#include "UI/OnScreenDisplay.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -168,9 +170,9 @@ std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string
 	return basePath + localpath;
 }
 
-bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, FileAccess access, u32 &err)
+bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, FileAccess access, u32 &error)
 {
-	err = 0;
+	error = 0;
 
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
@@ -218,7 +220,9 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		DWORD w32err = GetLastError();
 		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
 			// This is returned when the disk is full.
-			err = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Disk full while writing data"));
+			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 		}
 	}
 #else
@@ -271,7 +275,9 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		}
 	} else if (errno == ENOSPC) {
 		// This is returned when the disk is full.
-		err = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Disk full while writing data"));
+		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 	}
 #endif
 
@@ -327,6 +333,8 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	if (diskFull) {
 		// Sign extend on 64-bit.
 		ERROR_LOG(FILESYS, "Disk full");
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Disk full while writing data"));
 		// We only return an error when the disk is actually full.
 		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
 		if (MemoryStick_FreeSpace() == 0) {
