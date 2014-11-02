@@ -414,7 +414,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 
 			if (wideArgs[i].find(controlsOption) != std::wstring::npos && wideArgs[i].size() > controlsOption.size()) {
-				const std::wstring tempWide = wideArgs[i].substr(configOption.size());
+				const std::wstring tempWide = wideArgs[i].substr(controlsOption.size());
 				const std::string tempStr = ConvertWStringToUTF8(tempWide);
 				std::strncpy(controlsConfigFilename, tempStr.c_str(), MAX_PATH);
 			}
