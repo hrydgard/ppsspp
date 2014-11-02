@@ -49,6 +49,10 @@ private:
 	UI::Choice *postProcChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
+#ifdef _WIN32
+	UI::CheckBox *SavePathInMyDocumentChoice;
+	UI::CheckBox *SavePathInOtherChoice;
+#endif
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -77,6 +81,10 @@ private:
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+#ifdef _WIN32
+	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
+	UI::EventReturn OnSavePathOther(UI::EventParams &e);
+#endif
 	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
 	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
 
