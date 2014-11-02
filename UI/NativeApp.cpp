@@ -633,6 +633,7 @@ void TakeScreenshot() {
 	for (int y = 0; y < pixel_yres; y++) {
 		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
 	}
+	bool success = true;
 	if (g_Config.bScreenshotsAsPNG) {
 		png_image png;
 		memset(&png, 0, sizeof(png));
@@ -642,17 +643,24 @@ void TakeScreenshot() {
 		png.height = pixel_yres;
 		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
 		png_image_free(&png);
+
+		success = png.warning_or_error >= 2;
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
-		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		success = compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
 	delete [] flipbuffer;
 #endif
 
 	delete [] buffer;
 
-	osm.Show(filename);
+	if (success) {
+		osm.Show(filename);
+	} else {
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Could not save screenshot file"));
+	}
 #endif
 }
 
