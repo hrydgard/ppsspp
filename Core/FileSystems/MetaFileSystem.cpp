@@ -348,7 +348,13 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	MountPoint *mount;
 	if (MapFilePath(filename, of, &mount))
 	{
-		return mount->system->OpenFile(of, access, mount->prefix.c_str());
+		s32 res = mount->system->OpenFile(of, access, mount->prefix.c_str());
+		if (res < 0)
+		{
+			lastOpenError = res;
+			return 0;
+		}
+		return res;
 	}
 	else
 	{

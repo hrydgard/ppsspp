@@ -65,7 +65,13 @@ public:
 class SequentialHandleAllocator : public IHandleAllocator {
 public:
 	SequentialHandleAllocator() : handle_(1) {}
-	virtual u32 GetNewHandle() { return handle_++; }
+	virtual u32 GetNewHandle() {
+		u32 res = handle_++;
+		if (handle_ < 0) {
+			handle_ = 0;
+		}
+		return res;
+	}
 	virtual void FreeHandle(u32 handle) {}
 private:
 	int handle_;

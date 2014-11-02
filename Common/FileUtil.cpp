@@ -306,7 +306,7 @@ bool CreateFullPath(const std::string &fullPath)
 		if (position == fullPath.npos)
 		{
 			if (!File::Exists(fullPath))
-				File::CreateDir(fullPath);
+				return File::CreateDir(fullPath);
 			return true;
 		}
 		std::string subPath = fullPath.substr(0, position);

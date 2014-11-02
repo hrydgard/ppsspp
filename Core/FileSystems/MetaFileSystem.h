@@ -23,7 +23,7 @@
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
 private:
-	u32 current;
+	s32 current;
 	struct MountPoint
 	{
 		std::string prefix;
@@ -60,7 +60,13 @@ public:
 
 	void Shutdown();
 
-	u32 GetNewHandle() {return current++;}
+	u32 GetNewHandle() {
+		u32 res = current++;
+		if (current < 0) {
+			current = 0;
+		}
+		return res;
+	}
 	void FreeHandle(u32 handle) {}
 
 	virtual void DoState(PointerWrap &p);

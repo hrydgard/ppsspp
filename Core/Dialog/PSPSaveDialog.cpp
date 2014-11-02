@@ -1094,6 +1094,8 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE)) {
 			param.GetPspParam()->common.result = 0;
+		} else if (MemoryStick_FreeSpace() == 0) {
+			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL;
 		} else {
 			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 		}

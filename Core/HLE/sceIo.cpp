@@ -1193,12 +1193,17 @@ u32 sceIoOpen(const char *filename, int flags, int mode) {
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(SCEIO, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
+			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD, "no cwd", 10000);
+		}
+		else if (error != 0)
+		{
+			ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x)", error, filename, flags, mode);
+			return hleDelayResult(error, "file opened", 10000);
 		}
 		else
 		{
 			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 10000);
+			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
 		}
 	}
 
