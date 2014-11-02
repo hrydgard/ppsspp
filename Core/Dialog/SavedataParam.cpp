@@ -369,8 +369,12 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 
-	if (!pspFileSystem.GetFileInfo(dirPath).exists)
-		pspFileSystem.MkDir(dirPath);
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		if (!pspFileSystem.MkDir(dirPath)) {
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Unable to write savedata, disk may be full"));
+		}
+	}
 
 	u8* cryptedData = 0;
 	int cryptedSize = 0;
