@@ -904,13 +904,13 @@ std::string SavedataParam::GetSpaceText(u64 size)
 	{
 		if (size < 1024)
 		{
-			snprintf(text, sizeof(text), "%d %s", size, suffixes[i]);
+			snprintf(text, sizeof(text), "ll%d %s", size, suffixes[i]);
 			return std::string(text);
 		}
 		size /= 1024;
 	}
 
-	snprintf(text, sizeof(text), "%d TB");
+	snprintf(text, sizeof(text), "%lld TB", size);
 	return std::string(text);
 }
 
