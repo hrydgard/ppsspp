@@ -21,6 +21,7 @@
 #include "DirectoryFileSystem.h"
 #include "ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HW/MemoryStick.h"
 #include "file/zip_read.h"
 #include "util/text/utf8.h"
 
@@ -167,8 +168,10 @@ std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string
 	return basePath + localpath;
 }
 
-bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, FileAccess access)
+bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, FileAccess access, u32 &err)
 {
+	err = 0;
+
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
@@ -211,6 +214,13 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	//Let's do it!
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = hFile != INVALID_HANDLE_VALUE;
+	if (!success) {
+		DWORD w32err = GetLastError();
+		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
+			// This is returned when the disk is full.
+			err = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+		}
+	}
 #else
 	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
@@ -259,6 +269,9 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 			errno = EISDIR;
 			success = false;
 		}
+	} else if (errno == ENOSPC) {
+		// This is returned when the disk is full.
+		err = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 	}
 #endif
 
@@ -314,7 +327,11 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	if (diskFull) {
 		// Sign extend on 64-bit.
 		ERROR_LOG(FILESYS, "Disk full");
-		return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+		// We only return an error when the disk is actually full.
+		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
+		if (MemoryStick_FreeSpace() == 0) {
+			return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+		}
 	}
 
 	return bytesWritten;
@@ -521,7 +538,8 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
-	bool success = entry.hFile.Open(basePath,filename,access);
+	u32 err = 0;
+	bool success = entry.hFile.Open(basePath, filename, access, err);
 
 	if (!success) {
 #ifdef _WIN32
@@ -530,7 +548,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif
 		//wwwwaaaaahh!!
-		return 0;
+		return err;
 	} else {
 #ifdef _WIN32
 		if (access & FILEACCESS_APPEND)
@@ -810,7 +828,8 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			p.Do(key);
 			p.Do(entry.guestFilename);
 			p.Do(entry.access);
-			if (! entry.hFile.Open(basePath,entry.guestFilename,entry.access)) {
+			u32 err;
+			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
 				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}
