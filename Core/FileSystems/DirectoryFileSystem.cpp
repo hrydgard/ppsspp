@@ -35,7 +35,10 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 #define statvfs statfs
-#elif !defined(__SYMBIAN32__)
+#elif defined(__SYMBIAN32__)
+#include <mw/QSystemStorageInfo>
+QTM_USE_NAMESPACE
+#else
 #include <sys/statvfs.h>
 #endif
 #include <ctype.h>
@@ -735,7 +738,10 @@ u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
 	ULARGE_INTEGER free;
 	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
 		return free.QuadPart;
-#elif !defined(__SYMBIAN32__)
+#elif defined(__SYMBIAN32__)
+	QSystemStorageInfo storageInfo;
+	return (u64)storageInfo.availableDiskSpace("E");
+#else
 	std::string localPath = GetLocalPath(path);
 	struct statvfs diskstat;
 	int res = statvfs(localPath.c_str(), &diskstat);
