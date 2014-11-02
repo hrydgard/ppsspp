@@ -31,10 +31,11 @@ inline unsigned char getGreen(uint32_t val) { return getByte<1>(val); }
 inline unsigned char getBlue (uint32_t val) { return getByte<2>(val); }
 inline unsigned char getAlpha(uint32_t val) { return getByte<3>(val); }
 
+
 template <class T> inline
 T abs(T value)
 {
-	static_assert(std::numeric_limits<T>::is_signed, "abs performed on unsigned");
+	static_assert(std::numeric_limits<T>::is_signed, "abs() requires signed types");
 	return value < 0 ? -value : value;
 }
 
@@ -61,14 +62,6 @@ void alphaBlend(uint32_t& dst, uint32_t col) //blend color over destination with
 	uint8_t b = (((col &  blueMask)      ) * N + ((dst &  blueMask)      ) * (M - N) ) / M;
 
 	dst = (a << 24) | (r << 16) | (g << 8) | (b << 0); 
-}
-
-inline
-uint32_t alphaBlend2(uint32_t pix1, uint32_t pix2, double alpha)
-{
-	return (redMask   & static_cast<uint32_t>((pix1 & redMask  ) * alpha + (pix2 & redMask  ) * (1 - alpha))) |
-	       (greenMask & static_cast<uint32_t>((pix1 & greenMask) * alpha + (pix2 & greenMask) * (1 - alpha))) |
-	       (blueMask  & static_cast<uint32_t>((pix1 & blueMask ) * alpha + (pix2 & blueMask ) * (1 - alpha)));
 }
 
 
@@ -382,8 +375,10 @@ double distYCbCr(uint32_t pix1, uint32_t pix2, double lumaWeight)
 	const int g_diff = static_cast<int>(getGreen(pix1)) - getGreen(pix2); //
 	const int b_diff = static_cast<int>(getBlue (pix1)) - getBlue (pix2); //substraction for int is noticeable faster than for double!
 
-	const double k_b = 0.0722; //ITU-R BT.709 conversion
-	const double k_r = 0.2126; //
+	//const double k_b = 0.0722; //ITU-R BT.709 conversion
+	//const double k_r = 0.2126; //
+	const double k_b = 0.0593; //ITU-R BT.2020 conversion
+	const double k_r = 0.2627; //
 	const double k_g = 1 - k_b - k_r;
 
 	const double scale_b = 0.5 / (1 - k_b);
@@ -397,29 +392,21 @@ double distYCbCr(uint32_t pix1, uint32_t pix2, double lumaWeight)
 	return std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r));
 }
 
-// distance function taking alpha distance into account
+
 inline
-double distYCbCrA(uint32_t pix1, uint32_t pix2, double lumaWeight)
+double distYCbCrAlpha(uint32_t pix1, uint32_t pix2, double lumaWeight)
 {
-	//http://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion
-	//YCbCr conversion is a matrix multiplication => take advantage of linearity by subtracting first!
-	const int r_diff = static_cast<int>(getRed  (pix1)) - getRed  (pix2); //we may delay division by 255 to after matrix multiplication
-	const int g_diff = static_cast<int>(getGreen(pix1)) - getGreen(pix2); //
-	const int b_diff = static_cast<int>(getBlue (pix1)) - getBlue (pix2); //substraction for int is noticeable faster than for double!
+	const double a1 = getAlpha(pix1) / 255.0 ;
+	const double a2 = getAlpha(pix2) / 255.0 ;
 
-	const double k_b = 0.0722; //ITU-R BT.709 conversion
-	const double k_r = 0.2126; //
-	const double k_g = 1 - k_b - k_r;
+	/*
+	Requirements for a color distance handling alpha channel: with a1, a2 in [0, 1]
 
-	const double scale_b = 0.5 / (1 - k_b);
-	const double scale_r = 0.5 / (1 - k_r);
-
-	const double y   = k_r * r_diff + k_g * g_diff + k_b * b_diff; //[!], analog YCbCr!
-	const double c_b = scale_b * (b_diff - y);
-	const double c_r = scale_r * (r_diff - y);
-
-	//we skip division by 255 to have similar range like other distance functions
-	return std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r)+ square(static_cast<int>(getAlpha(pix1)) - getAlpha(pix2)));
+		1. if a1 = a2, distance should be: a1 * distYCbCr()
+		2. if a1 = 0,  distance should be: a2 * distYCbCr(black, white) = a2 * 255
+		3. if a1 = 1,  distance should be: 255 * (1 - a2) + a2 * distYCbCr()
+	*/
+	return std::min(a1, a2) * distYCbCr(pix1, pix2, lumaWeight) + 255 * abs(a1 - a2);
 }
 
 
@@ -447,30 +434,14 @@ double distYUV(uint32_t pix1, uint32_t pix2, double luminanceWeight)
 	double u = scale_u * (b_diff - y);					  //value range: 255 * 2 * u_max * [-1, 1]
 	double v = scale_v * (r_diff - y);					  //value range: 255 * 2 * v_max * [-1, 1]
 
-#ifndef NDEBUG
+#ifdef _DEBUG
 	const double eps = 0.5;
+	assert(abs(y) <= 255 + eps);
+	assert(abs(u) <= 255 * 2 * u_max + eps);
+	assert(abs(v) <= 255 * 2 * v_max + eps);
 #endif
-	assert(std::abs(y) <= 255 + eps);
-	assert(std::abs(u) <= 255 * 2 * u_max + eps);
-	assert(std::abs(v) <= 255 * 2 * v_max + eps);
 
 	return std::sqrt(square(luminanceWeight * y) + square(u) +  square(v));
-}
-
-
-inline
-double colorDist(uint32_t pix1, uint32_t pix2, double luminanceWeight)
-{
-	if (pix1 == pix2) //about 8% perf boost
-		return 0;
-
-	//return distHSL(pix1, pix2, luminanceWeight);
-	//return distRGB(pix1, pix2);
-	//return distLAB(pix1, pix2);
-	//return distNonLinearRGB(pix1, pix2);
-	//return distYUV(pix1, pix2, luminanceWeight);
-	//return distYCbCr(pix1, pix2, luminanceWeight);
-	return distYCbCrA(pix1, pix2, luminanceWeight);
 }
 
 
@@ -511,6 +482,7 @@ input kernel area naming convention:
 | M | N | O | P |
 -----------------
 */
+template <class ColorDistance>
 FORCE_INLINE //detect blend direction
 BlendResult preProcessCorners(const Kernel_4x4& ker, const xbrz::ScalerCfg& cfg) //result: F, G, J, K corners of "GradientType"
 {
@@ -522,7 +494,7 @@ BlendResult preProcessCorners(const Kernel_4x4& ker, const xbrz::ScalerCfg& cfg)
 		 ker.g == ker.k))
 		return result;
 
-	auto dist = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_); };
+	auto dist = [&](uint32_t col1, uint32_t col2) { return ColorDistance::dist(col1, col2, cfg.luminanceWeight_); };
 
 	const int weight = 4;
 	double jg = dist(ker.i, ker.f) + dist(ker.f, ker.c) + dist(ker.n, ker.k) + dist(ker.k, ker.h) + weight * dist(ker.j, ker.g);
@@ -603,7 +575,7 @@ template <> inline unsigned char rotateBlendInfo<ROT_180>(unsigned char b) { ret
 template <> inline unsigned char rotateBlendInfo<ROT_270>(unsigned char b) { return ((b << 6) | (b >> 2)) & 0xff; }
 
 
-#ifndef NDEBUG
+#ifdef _DEBUG
 int debugPixelX = -1;
 int debugPixelY = 84;
 bool breakIntoDebugger = false;
@@ -620,7 +592,7 @@ input kernel area naming convention:
 | G | H | I |
 -------------
 */
-template <class Scaler, RotationDegree rotDeg>
+template <class Scaler, class ColorDistance, RotationDegree rotDeg>
 FORCE_INLINE //perf: quite worth it!
 void scalePixel(const Kernel_3x3& ker,
 				uint32_t* target, int trgWidth,
@@ -637,23 +609,35 @@ void scalePixel(const Kernel_3x3& ker,
 #define h get_h<rotDeg>(ker)
 #define i get_i<rotDeg>(ker)
 
+#ifdef _DEBUG
+	if (breakIntoDebugger)
+		__debugbreak(); //__asm int 3;
+#endif
 
 	const unsigned char blend = rotateBlendInfo<rotDeg>(blendInfo);
 
 	if (getBottomR(blend) >= BLEND_NORMAL)
 	{
-		auto eq   = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_) < cfg.equalColorTolerance_; };
-		auto dist = [&](uint32_t col1, uint32_t col2) { return colorDist(col1, col2, cfg.luminanceWeight_); };
+		auto eq   = [&](uint32_t col1, uint32_t col2) { return ColorDistance::dist(col1, col2, cfg.luminanceWeight_) < cfg.equalColorTolerance_; };
+		auto dist = [&](uint32_t col1, uint32_t col2) { return ColorDistance::dist(col1, col2, cfg.luminanceWeight_); };
 
-		bool doLineBlend = true;
-		if (getBottomR(blend) < BLEND_DOMINANT)
+		const bool doLineBlend = [&]() -> bool
 		{
+			if (getBottomR(blend) >= BLEND_DOMINANT)
+				return true;
+
 			//make sure there is no second blending in an adjacent rotation for this pixel: handles insular pixels, mario eyes
-			if ((getTopR(blend) != BLEND_NONE && !eq(e, g)) || //but support double-blending for 90° corners
-				(getBottomL(blend) != BLEND_NONE && !eq(e, c)) ||
-				(eq(g, h) &&  eq(h , i) && eq(i, f) && eq(f, c) && !eq(e, i))) //no full blending for L-shapes; blend corner only
-				doLineBlend = false;
-		}
+			if (getTopR(blend) != BLEND_NONE && !eq(e, g)) //but support double-blending for 90° corners
+				return false;
+			if (getBottomL(blend) != BLEND_NONE && !eq(e, c))
+				return false;
+
+			//no full blending for L-shapes; blend corner only (handles "mario mushroom eyes")
+			if (eq(g, h) &&  eq(h , i) && eq(i, f) && eq(f, c) && !eq(e, i))
+				return false;
+
+			return true;
+		}();
 
 		const uint32_t px = dist(e, f) <= dist(e, h) ? f : h; //choose most similar color
 
@@ -698,7 +682,7 @@ void scalePixel(const Kernel_3x3& ker,
 }
 
 
-template <class Scaler> //scaler policy: see "Scaler2x" reference implementation
+template <class Scaler, class ColorDistance> //scaler policy: see "Scaler2x" reference implementation
 void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, const xbrz::ScalerCfg& cfg, int yFirst, int yLast)
 {
 	yFirst = std::max(yFirst, 0);
@@ -732,7 +716,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 			const int x_p1 = std::min(x + 1, srcWidth - 1);
 			const int x_p2 = std::min(x + 2, srcWidth - 1);
 
-			Kernel_4x4 ker = {}; //perf: initialization is negligable
+			Kernel_4x4 ker = {}; //perf: initialization is negligible
 			ker.a = s_m1[x_m1]; //read sequentially from memory as far as possible
 			ker.b = s_m1[x];
 			ker.c = s_m1[x_p1];
@@ -753,7 +737,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 			ker.o = s_p2[x_p1];
 			ker.p = s_p2[x_p2];
 
-			const BlendResult res = preProcessCorners(ker, cfg);
+			const BlendResult res = preProcessCorners<ColorDistance>(ker, cfg);
 			/*
 			preprocessing blend result:
 			---------
@@ -783,7 +767,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 
 		for (int x = 0; x < srcWidth; ++x, out += Scaler::scale)
 		{
-#ifndef NDEBUG
+#ifdef _DEBUG
 			breakIntoDebugger = debugPixelX == x && debugPixelY == y;
 #endif
 			//all those bounds checks have only insignificant impact on performance!
@@ -794,7 +778,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 			//evaluate the four corners on bottom-right of current pixel
 			unsigned char blend_xy = 0; //for current (x, y) position
 			{
-				Kernel_4x4 ker = {}; //perf: initialization is negligable
+				Kernel_4x4 ker = {}; //perf: initialization is negligible
 				ker.a = s_m1[x_m1]; //read sequentially from memory as far as possible
 				ker.b = s_m1[x];
 				ker.c = s_m1[x_p1];
@@ -815,7 +799,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 				ker.o = s_p2[x_p1];
 				ker.p = s_p2[x_p2];
 
-				const BlendResult res = preProcessCorners(ker, cfg);
+				const BlendResult res = preProcessCorners<ColorDistance>(ker, cfg);
 				/*
 				preprocessing blend result:
 				---------
@@ -843,7 +827,7 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 			//blend four corners of current pixel
 			if (blendingNeeded(blend_xy)) //good 20% perf-improvement
 			{
-				Kernel_3x3 ker = {}; //perf: initialization is negligable
+				Kernel_3x3 ker = {}; //perf: initialization is negligible
 
 				ker.a = s_m1[x_m1]; //read sequentially from memory as far as possible
 				ker.b = s_m1[x];
@@ -857,15 +841,16 @@ void scaleImage(const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
 				ker.h = s_p1[x];
 				ker.i = s_p1[x_p1];
 
-				scalePixel<Scaler, ROT_0  >(ker, out, trgWidth, blend_xy, cfg);
-				scalePixel<Scaler, ROT_90 >(ker, out, trgWidth, blend_xy, cfg);
-				scalePixel<Scaler, ROT_180>(ker, out, trgWidth, blend_xy, cfg);
-				scalePixel<Scaler, ROT_270>(ker, out, trgWidth, blend_xy, cfg);
+				scalePixel<Scaler, ColorDistance, ROT_0  >(ker, out, trgWidth, blend_xy, cfg);
+				scalePixel<Scaler, ColorDistance, ROT_90 >(ker, out, trgWidth, blend_xy, cfg);
+				scalePixel<Scaler, ColorDistance, ROT_180>(ker, out, trgWidth, blend_xy, cfg);
+				scalePixel<Scaler, ColorDistance, ROT_270>(ker, out, trgWidth, blend_xy, cfg);
 			}
 		}
 	}
 }
 
+//------------------------------------------------------------------------------------
 
 struct Scaler2x
 {
@@ -955,7 +940,7 @@ struct Scaler3x
 	{
 		//model a round corner
 		alphaBlend<45, 100>(out.template ref<2, 2>(), col); //exact: 0.4545939598
-		//alphaBlend<14, 1000>(out.template ref<2, 1>(), col); //0.01413008627 -> negligable
+		//alphaBlend<14, 1000>(out.template ref<2, 1>(), col); //0.01413008627 -> negligible
 		//alphaBlend<14, 1000>(out.template ref<1, 2>(), col); //0.01413008627
 	}
 };
@@ -1099,33 +1084,80 @@ struct Scaler5x
 		alphaBlend<86, 100>(out.template ref<4, 4>(), col); //exact: 0.8631434088
 		alphaBlend<23, 100>(out.template ref<4, 3>(), col); //0.2306749731
 		alphaBlend<23, 100>(out.template ref<3, 4>(), col); //0.2306749731
-		//alphaBlend<8, 1000>(out.template ref<4, 2>(), col); //0.008384061834 -> negligable
+		//alphaBlend<8, 1000>(out.template ref<4, 2>(), col); //0.008384061834 -> negligible
 		//alphaBlend<8, 1000>(out.template ref<2, 4>(), col); //0.008384061834
+	}
+};
+
+//------------------------------------------------------------------------------------
+
+struct ColorDistanceRGB
+{
+	static double dist(uint32_t pix1, uint32_t pix2, double luminanceWeight)
+	{
+		if (pix1 == pix2) //about 8% perf boost
+			return 0;
+		return distYCbCr(pix1, pix2, luminanceWeight);
+	}
+};
+
+struct ColorDistanceARGB
+{
+	static double dist(uint32_t pix1, uint32_t pix2, double luminanceWeight)
+	{
+		if (pix1 == pix2)
+			return 0;
+		return distYCbCrAlpha(pix1, pix2, luminanceWeight);
 	}
 };
 }
 
 
-void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, const xbrz::ScalerCfg& cfg, int yFirst, int yLast)
+void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, ColorFormat colFmt, const xbrz::ScalerCfg& cfg, int yFirst, int yLast)
 {
-	switch (factor)
+	switch (colFmt)
 	{
-		case 2:
-			return scaleImage<Scaler2x>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
-		case 3:
-			return scaleImage<Scaler3x>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
-		case 4:
-			return scaleImage<Scaler4x>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
-		case 5:
-			return scaleImage<Scaler5x>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+		case ColorFormat::ARGB:
+			switch (factor)
+			{
+				case 2:
+					return scaleImage<Scaler2x, ColorDistanceARGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 3:
+					return scaleImage<Scaler3x, ColorDistanceARGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 4:
+					return scaleImage<Scaler4x, ColorDistanceARGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 5:
+					return scaleImage<Scaler5x, ColorDistanceARGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+			}
+		case ColorFormat::RGB:
+			switch (factor)
+			{
+				case 2:
+					return scaleImage<Scaler2x, ColorDistanceRGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 3:
+					return scaleImage<Scaler3x, ColorDistanceRGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 4:
+					return scaleImage<Scaler4x, ColorDistanceRGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+				case 5:
+					return scaleImage<Scaler5x, ColorDistanceRGB>(src, trg, srcWidth, srcHeight, cfg, yFirst, yLast);
+			}
 	}
 	assert(false);
 }
 
 
-bool xbrz::equalColor(uint32_t col1, uint32_t col2, double luminanceWeight, double equalColorTolerance)
+bool xbrz::equalColorTest(uint32_t col1, uint32_t col2, ColorFormat colFmt, double luminanceWeight, double equalColorTolerance)
 {
-	return colorDist(col1, col2, luminanceWeight) < equalColorTolerance;
+	switch (colFmt)
+	{
+		case ColorFormat::ARGB:
+			return ColorDistanceARGB::dist(col1, col2, luminanceWeight) < equalColorTolerance;
+
+		case ColorFormat::RGB:
+			return ColorDistanceRGB::dist(col1, col2, luminanceWeight) < equalColorTolerance;
+	}
+	assert(false);
+	return false;
 }
 
 

@@ -609,7 +609,7 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 
 void TextureScalerDX9::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
-	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, cfg, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScalerDX9::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
