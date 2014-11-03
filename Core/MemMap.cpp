@@ -406,7 +406,7 @@ MemoryInitedLock Lock()
 	return MemoryInitedLock();
 }
 
-static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
+__forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst)
 {
 	if (!MIPS_IS_EMUHACK(inst.encoding)) {
 		return inst;
