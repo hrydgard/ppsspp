@@ -426,6 +426,8 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		block += frameBlocks;
 		outPtr += frameBlocks * GetBlockSize();
 	}
+
+	inflateEnd(&z);
 	return true;
 }
 
