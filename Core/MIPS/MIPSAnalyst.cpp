@@ -1040,6 +1040,7 @@ skip:
 
 		// Most of the time, functions from the same module will be contiguous in functions.
 		FunctionsVector::iterator prevMatch = functions.end();
+		size_t originalSize = functions.size();
 		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			const bool hadPrevMatch = prevMatch != functions.end();
 			const bool match = iter->start >= startAddr && iter->start <= endAddr;
@@ -1060,8 +1061,11 @@ skip:
 
 		RestoreReplacedInstructions(startAddr, endAddr);
 
-		// TODO: Also wipe them from hash->function map.
-		// It should be fine not to though, since a collision is not likely.
+		if (functions.empty()) {
+			hashToFunction.clear();
+		} else if (originalSize != functions.size()) {
+			UpdateHashToFunctionMap();
+		}
 	}
 
 	void ReplaceFunctions() {
