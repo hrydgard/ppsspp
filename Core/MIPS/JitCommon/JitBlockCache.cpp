@@ -222,12 +222,12 @@ void JitBlockCache::RemoveBlockMap(int block_num) {
 
 	const u32 pAddr = b.originalAddress & 0x1FFFFFFF;
 	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize, pAddr));
-	if (it != block_map_.end() && it->second == block_num) {
+	if (it != block_map_.end() && it->second == (u32)block_num) {
 		block_map_.erase(it);
 	} else {
 		// It wasn't in there, or it has the wrong key.  Let's search...
 		for (auto it = block_map_.begin(); it != block_map_.end(); ++it) {
-			if (it->second == block_num) {
+			if (it->second == (u32)block_num) {
 				block_map_.erase(it);
 				break;
 			}
@@ -253,7 +253,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
-				links_to_.insert(std::pair<u32, int>(b.exitAddress[i], block_num));
+				links_to_.insert(std::make_pair(b.exitAddress[i], block_num));
 				latestExit = std::max(latestExit, b.exitAddress[i]);
 			}
 		}
@@ -439,29 +439,25 @@ void JitBlockCache::LinkBlockExits(int i) {
 }
 
 void JitBlockCache::LinkBlock(int i) {
-	using namespace std;
 	LinkBlockExits(i);
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	// equal_range(b) returns pair<iterator,iterator> representing the range
 	// of element with key b
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		// PanicAlert("Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
 
 void JitBlockCache::UnlinkBlock(int i) {
-	using namespace std;
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		JitBlock &sourceBlock = blocks_[iter->second];
 		for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 			if (sourceBlock.exitAddress[e] == b.originalAddress)

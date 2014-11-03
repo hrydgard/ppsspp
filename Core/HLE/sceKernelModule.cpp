@@ -114,7 +114,7 @@ struct VarSymbolImport {
 
 struct VarSymbolExport {
 	bool Matches(const VarSymbolImport &other) const {
-		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
 	}
 
 	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
@@ -130,7 +130,7 @@ struct FuncSymbolImport {
 
 struct FuncSymbolExport {
 	bool Matches(const FuncSymbolImport &other) const {
-		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
 	}
 
 	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];

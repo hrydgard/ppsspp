@@ -31,6 +31,15 @@ class BlockDevice
 public:
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
+	virtual bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+		for (int b = 0; b < count; ++b) {
+			if (!ReadBlock(minBlock + b, outPtr)) {
+				return false;
+			}
+			outPtr += GetBlockSize();
+		}
+		return true;
+	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
 };
@@ -41,7 +50,8 @@ class CISOFileBlockDevice : public BlockDevice
 public:
 	CISOFileBlockDevice(FILE *file);
 	~CISOFileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() { return numBlocks;}
 
 private:
@@ -64,6 +74,7 @@ public:
 	FileBlockDevice(FILE *file);
 	~FileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() override {return (u32)(filesize / GetBlockSize());}
 
 private:
