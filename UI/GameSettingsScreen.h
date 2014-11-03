@@ -52,6 +52,9 @@ private:
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice;
 	UI::CheckBox *SavePathInOtherChoice;
+	// Used to enable/disable the above two options.
+	bool installed_;
+	bool otherinstalled_;
 #endif
 
 	// Event handlers
