@@ -305,7 +305,7 @@ public:
 					Do(first);
 					typename M::mapped_type second = default_val;
 					Do(second);
-					x.emplace(first, second);
+					x.insert(std::make_pair(first, second));
 					--number;
 				}
 			}

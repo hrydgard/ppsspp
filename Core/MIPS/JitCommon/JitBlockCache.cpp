@@ -200,7 +200,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
 	b.checkedEntry = codePtr;
-	proxyBlockMap_.emplace(startAddress, num_blocks_);
+	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
 	AddBlockMap(num_blocks_);
 
 	num_blocks_++; //commit the current block
@@ -253,7 +253,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
-				links_to_.emplace(b.exitAddress[i], block_num);
+				links_to_.insert(std::make_pair(b.exitAddress[i], block_num));
 				latestExit = std::max(latestExit, b.exitAddress[i]);
 			}
 		}

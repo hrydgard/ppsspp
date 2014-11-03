@@ -51,7 +51,12 @@ recursive_mutex functions_lock;
 
 // One function can appear in multiple copies in memory, and they will all have 
 // the same hash and should all be replaced if possible.
+#ifdef __SYMBIAN32__
+// Symbian does not have a functional unordered_multimap.
+static std::multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#else
 static std::unordered_multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#endif
 
 struct HashMapFunc {
 	char name[64];
@@ -662,11 +667,13 @@ namespace MIPSAnalyst {
 	void UpdateHashToFunctionMap() {
 		lock_guard guard(functions_lock);
 		hashToFunction.clear();
+#ifndef __SYMBIAN32__
 		hashToFunction.reserve(functions.size());
+#endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
-				hashToFunction.emplace(f.hash, &f);
+				hashToFunction.insert(std::make_pair(f.hash, &f));
 			}
 		}
 	}
