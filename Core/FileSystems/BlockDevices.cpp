@@ -20,6 +20,7 @@
 #include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 extern "C"
 {
@@ -99,6 +100,18 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	lseek64(fd, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
 	if (read(fd, outPtr, 2048) != 2048) {
 		ERROR_LOG(FILESYS, "Could not read() 2048 bytes from block");
+		return false;
+	}
+	return true;
+}
+
+bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr)
+{
+	lseek64(fd, (u64)minBlock * (u64)GetBlockSize(), SEEK_SET);
+	const s32 bytes = GetBlockSize() * count;
+	if (read(fd, outPtr, bytes) != bytes) {
+		ERROR_LOG(FILESYS, "Could not read() %d bytes from block", bytes);
+		return false;
 	}
 	return true;
 }
@@ -121,9 +134,21 @@ FileBlockDevice::~FileBlockDevice()
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
 	fseeko(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
-	if (fread(outPtr, 1, 2048, f) != 2048)
+	if (fread(outPtr, 1, 2048, f) != 2048) {
 		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
+		return false;
+	}
 
+	return true;
+}
+
+bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr)
+{
+	fseeko(f, (u64)minBlock * (u64)GetBlockSize(), SEEK_SET);
+	if (fread(outPtr, 2048, count, f) != count) {
+		ERROR_LOG(FILESYS, "Could not read %d bytes from block", 2048 * count);
+		return false;
+	}
 	return true;
 }
 
@@ -156,6 +181,8 @@ typedef struct ciso_header
 
 
 // TODO: Need much better error handling.
+
+static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
 
 CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 	: f(file)
@@ -197,7 +224,10 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 	VERBOSE_LOG(LOADER, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
 	// We might read a bit of alignment too, so be prepared.
-	readBuffer = new u8[frameSize + (1 << indexShift)];
+	if (frameSize + (1 << indexShift) < CSO_READ_BUFFER_SIZE)
+		readBuffer = new u8[CSO_READ_BUFFER_SIZE];
+	else
+		readBuffer = new u8[frameSize + (1 << indexShift)];
 	zlibBuffer = new u8[frameSize + (1 << indexShift)];
 	zlibBufferFrame = numFrames;
 
@@ -305,6 +335,96 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			zlibBufferFrame = frameNumber;
 			memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());
 		}
+	}
+	return true;
+}
+
+bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	if (count == 1) {
+		return ReadBlock(minBlock, outPtr);
+	}
+	if (minBlock >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize() * count);
+		return false;
+	}
+
+	const u32 lastBlock = std::min(minBlock + count, numBlocks) - 1;
+	const u32 missingBlocks = (lastBlock + 1 - minBlock) - count;
+	if (lastBlock < minBlock + count) {
+		memset(outPtr + GetBlockSize() * (count - missingBlocks), 0, GetBlockSize() * missingBlocks);
+	}
+
+	const u32 minFrameNumber = minBlock >> blockShift;
+	const u32 lastFrameNumber = lastBlock >> blockShift;
+	const u32 afterLastIndexPos = index[lastFrameNumber + 1] & 0x7FFFFFFF;
+	const u64 totalReadEnd = (u64)afterLastIndexPos << indexShift;
+
+	z_stream z;
+	z.zalloc = Z_NULL;
+	z.zfree = Z_NULL;
+	z.opaque = Z_NULL;
+	if (inflateInit2(&z, -15) != Z_OK) {
+		ERROR_LOG(LOADER, "Unable to initialize inflate: %s\n", (z.msg) ? z.msg : "?");
+		return false;
+	}
+
+	u64 readBufferStart = 0;
+	u64 readBufferEnd = 0;
+	u32 block = minBlock;
+	const u32 blocksPerFrame = 1 << blockShift;
+	for (u32 frame = minFrameNumber; frame <= lastFrameNumber; ++frame) {
+		const u32 idx = index[frame];
+		const u32 indexPos = idx & 0x7FFFFFFF;
+		const u32 nextIndexPos = index[frame + 1] & 0x7FFFFFFF;
+
+		const u64 frameReadPos = (u64)indexPos << indexShift;
+		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
+		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
+		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
+		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame) - frameBlockOffset;
+
+		if (frameReadEnd > readBufferEnd) {
+			const size_t maxNeeded = totalReadEnd - frameReadPos;
+			const size_t chunkSize = std::min(maxNeeded, (size_t)std::max(frameReadSize, CSO_READ_BUFFER_SIZE));
+
+			fseeko(f, frameReadPos, SEEK_SET);
+			const u32 readSize = (u32)fread(readBuffer, 1, chunkSize, f);
+			if (readSize < chunkSize) {
+				memset(readBuffer + readSize, 0, chunkSize - readSize);
+			}
+
+			readBufferStart = frameReadPos;
+			readBufferEnd = frameReadPos + readSize;
+		}
+
+		u8 *rawBuffer = &readBuffer[frameReadPos - readBufferStart];
+		const int plain = idx & 0x80000000;
+		if (plain) {
+			memcpy(outPtr, rawBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
+		} else {
+			z.avail_in = frameReadSize;
+			z.next_out = frameBlocks == blocksPerFrame ? outPtr : zlibBuffer;
+			z.avail_out = frameSize;
+			z.next_in = rawBuffer;
+
+			int status = inflate(&z, Z_FINISH);
+			if (status != Z_STREAM_END) {
+				ERROR_LOG(LOADER, "Inflate frame %d: failed - %s[%d]\n", frame, (z.msg) ? z.msg : "error", status);
+				memset(outPtr, 0, frameBlocks * GetBlockSize());
+			} else if (z.total_out != frameSize) {
+				ERROR_LOG(LOADER, "Inflate frame %d: block size error %d != %d\n", frame, (u32)z.total_out, frameSize);
+				memset(outPtr, 0, frameBlocks * GetBlockSize());
+			} else if (frameBlocks != blocksPerFrame) {
+				memcpy(outPtr, zlibBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
+				// In case we end up reusing it in a single read later.
+				zlibBufferFrame = frame;
+			}
+
+			inflateReset(&z);
+		}
+
+		block += frameBlocks;
+		outPtr += frameBlocks * GetBlockSize();
 	}
 	return true;
 }
