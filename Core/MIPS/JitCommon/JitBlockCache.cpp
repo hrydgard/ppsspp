@@ -200,7 +200,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
 	b.checkedEntry = codePtr;
-	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
+	proxyBlockMap_.emplace(startAddress, num_blocks_);
 	AddBlockMap(num_blocks_);
 
 	num_blocks_++; //commit the current block
@@ -253,7 +253,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
-				links_to_.insert(std::pair<u32, int>(b.exitAddress[i], block_num));
+				links_to_.emplace(b.exitAddress[i], block_num);
 				latestExit = std::max(latestExit, b.exitAddress[i]);
 			}
 		}
@@ -439,29 +439,25 @@ void JitBlockCache::LinkBlockExits(int i) {
 }
 
 void JitBlockCache::LinkBlock(int i) {
-	using namespace std;
 	LinkBlockExits(i);
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	// equal_range(b) returns pair<iterator,iterator> representing the range
 	// of element with key b
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		// PanicAlert("Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
 
 void JitBlockCache::UnlinkBlock(int i) {
-	using namespace std;
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		JitBlock &sourceBlock = blocks_[iter->second];
 		for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
