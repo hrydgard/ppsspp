@@ -31,6 +31,15 @@ class BlockDevice
 public:
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
+	virtual bool ReadBlocks(int minBlock, int count, u8 *outPtr) {
+		for (int b = 0; b < count; ++b) {
+			if (!ReadBlock(minBlock + b, outPtr)) {
+				return false;
+			}
+			outPtr += GetBlockSize();
+		}
+		return true;
+	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
 };
