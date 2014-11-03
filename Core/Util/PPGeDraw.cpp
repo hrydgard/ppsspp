@@ -194,7 +194,7 @@ void __PPGeInit()
 
 	// Palettize to 4-bit, the easy way.
 	for (int i = 0; i < width * height / 2; i++) {
-		// Each pixel is 16 bits, so this loads two bits.
+		// Each pixel is 16 bits, so this loads two pixels.
 		u32 c = imagePtr[i];
 		// It's white anyway, so we only look at one channel of each pixel.
 		int a1 = (c & 0x0000000F) >> 0;
