@@ -36,7 +36,8 @@
 using namespace MIPSCodeUtils;
 
 // Not in a namespace because MSVC's debugger doesn't like it
-static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+typedef std::vector<MIPSAnalyst::AnalyzedFunction> FunctionsVector;
+static FunctionsVector functions;
 recursive_mutex functions_lock;
 
 // TODO: Try multimap instead
@@ -1021,19 +1022,30 @@ skip:
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
 
-		// TODO: speedup
-		auto iter = functions.begin();
-		while (iter != functions.end()) {
-			if (iter->start >= startAddr && iter->start <= endAddr) {
-				iter = functions.erase(iter);
-			} else {
-				iter++;
+		// Most of the time, functions from the same module will be contiguous in functions.
+		FunctionsVector::iterator prevMatch = functions.end();
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
+			const bool hadPrevMatch = prevMatch != functions.end();
+			const bool match = iter->start >= startAddr && iter->start <= endAddr;
+
+			if (!hadPrevMatch && match) {
+				// Entering a range.
+				prevMatch = iter;
+			} else if (hadPrevMatch && !match) {
+				// Left a range.
+				iter = functions.erase(prevMatch, iter);
+				prevMatch = functions.end();
 			}
+		}
+		if (prevMatch != functions.end()) {
+			// Cool, this is the fastest way.
+			functions.erase(prevMatch, functions.end());
 		}
 
 		RestoreReplacedInstructions(startAddr, endAddr);
 
-		// TODO: Also wipe them from hash->function map
+		// TODO: Also wipe them from hash->function map.
+		// It should be fine not to though, since a collision is not likely.
 	}
 
 	void ReplaceFunctions() {
