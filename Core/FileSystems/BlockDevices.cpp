@@ -309,7 +309,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			return false;
 		}
 		z.avail_in = readSize;
-		z.next_out = frameSize == GetBlockSize() ? outPtr : zlibBuffer;
+		z.next_out = frameSize == (u32)GetBlockSize() ? outPtr : zlibBuffer;
 		z.avail_out = frameSize;
 		z.next_in = readBuffer;
 
@@ -330,7 +330,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 		}
 		inflateEnd(&z);
 
-		if (frameSize != GetBlockSize())
+		if (frameSize != (u32)GetBlockSize())
 		{
 			zlibBufferFrame = frameNumber;
 			memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());

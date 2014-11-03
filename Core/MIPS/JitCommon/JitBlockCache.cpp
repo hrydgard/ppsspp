@@ -222,12 +222,12 @@ void JitBlockCache::RemoveBlockMap(int block_num) {
 
 	const u32 pAddr = b.originalAddress & 0x1FFFFFFF;
 	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize, pAddr));
-	if (it != block_map_.end() && it->second == block_num) {
+	if (it != block_map_.end() && it->second == (u32)block_num) {
 		block_map_.erase(it);
 	} else {
 		// It wasn't in there, or it has the wrong key.  Let's search...
 		for (auto it = block_map_.begin(); it != block_map_.end(); ++it) {
-			if (it->second == block_num) {
+			if (it->second == (u32)block_num) {
 				block_map_.erase(it);
 				break;
 			}
