@@ -1602,6 +1602,21 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
+	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg), u8 sreg) {
+#ifdef _M_X64
+		MOVSS(XMM0, fpr.V(sreg));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)&sinCosFunc, 0));
+#else
+		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+		if (fpr.V(sreg).IsSimpleReg()) {
+			MOVD_xmm(R(EAX), fpr.VX(sreg));
+		} else {
+			MOV(32, R(EAX), fpr.V(sreg));
+		}
+		CallProtectedFunction((const void *)&sinCosFunc, R(EAX));
+#endif
+	};
+
 	// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
 	if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
 		return;
@@ -1695,35 +1710,11 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-#ifdef _M_X64
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ABI_CallFunction(thunks.ProtectFunction((const void *)&SinOnly, 0));
-#else
-			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			if (fpr.V(sregs[i]).IsSimpleReg()) {
-				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-			} else {
-				MOV(32, R(EAX), fpr.V(sregs[i]));
-			}
-			CallProtectedFunction((const void *)&SinOnly, R(EAX));
-#endif
-
+			trigCallHelper(&SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-#ifdef _M_X64
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ABI_CallFunction(thunks.ProtectFunction((const void *)&CosOnly, 0));
-#else
-			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			if (fpr.V(sregs[i]).IsSimpleReg()) {
-				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-			} else {
-				MOV(32, R(EAX), fpr.V(sregs[i]));
-			}
-			CallProtectedFunction((const void *)&CosOnly, R(EAX));
-#endif
-
+			trigCallHelper(&CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], M(&sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
@@ -1737,19 +1728,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], M(&noSignMask));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-#ifdef _M_X64
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ABI_CallFunction(thunks.ProtectFunction((const void *)&ASinScaled, 0));
-#else
-			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			if (fpr.V(sregs[i]).IsSimpleReg()) {
-				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-			} else {
-				MOV(32, R(EAX), fpr.V(sregs[i]));
-			}
-			CallProtectedFunction((const void *)&ASinScaled, R(EAX));
-#endif
-
+			trigCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
@@ -1758,19 +1737,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-#ifdef _M_X64
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ABI_CallFunction(thunks.ProtectFunction((const void *)&NegSinOnly, 0));
-#else
-			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			if (fpr.V(sregs[i]).IsSimpleReg()) {
-				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-			} else {
-				MOV(32, R(EAX), fpr.V(sregs[i]));
-			}
-			CallProtectedFunction((const void *)&NegSinOnly, R(EAX));
-#endif
-
+			trigCallHelper(&NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
