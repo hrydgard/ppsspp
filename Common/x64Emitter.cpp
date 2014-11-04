@@ -1812,8 +1812,8 @@ void XEmitter::PCMPGTB(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x64, dest, ar
 void XEmitter::PCMPGTW(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x65, dest, arg);}
 void XEmitter::PCMPGTD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x66, dest, arg);}
 
-void XEmitter::PEXTRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC5, dest, arg); Write8(subreg);}
-void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC4, dest, arg); Write8(subreg);}
+void XEmitter::PEXTRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC5, dest, arg, 1); Write8(subreg);}
+void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC4, dest, arg, 1); Write8(subreg);}
 
 void XEmitter::PMADDWD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0xF5, dest, arg); }
 void XEmitter::PSADBW(X64Reg dest, OpArg arg)   {WriteSSEOp(0x66, 0xF6, dest, arg);}
