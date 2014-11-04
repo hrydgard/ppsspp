@@ -667,7 +667,8 @@ namespace MIPSAnalyst {
 	void UpdateHashToFunctionMap() {
 		lock_guard guard(functions_lock);
 		hashToFunction.clear();
-#ifndef __SYMBIAN32__
+		// Really need to detect C++11 features with better defines.
+#if !defined(__SYMBIAN32__) && !defined(IOS)
 		hashToFunction.reserve(functions.size());
 #endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
