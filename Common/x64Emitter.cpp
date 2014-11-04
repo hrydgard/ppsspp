@@ -1771,6 +1771,11 @@ void XEmitter::PBLENDVB(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3810, dest
 void XEmitter::BLENDVPS(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3814, dest, arg);}
 void XEmitter::BLENDVPD(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3815, dest, arg);}
 
+void XEmitter::ROUNDSS(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A0A, dest, arg, 1); Write8(mode);}
+void XEmitter::ROUNDSD(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A0B, dest, arg, 1); Write8(mode);}
+void XEmitter::ROUNDPS(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A08, dest, arg, 1); Write8(mode);}
+void XEmitter::ROUNDPD(X64Reg dest, OpArg arg, u8 mode) {WriteSSE41Op(0x66, 0x3A09, dest, arg, 1); Write8(mode);}
+
 void XEmitter::PAND(X64Reg dest, OpArg arg)     {WriteSSEOp(0x66, 0xDB, dest, arg);}
 void XEmitter::PANDN(X64Reg dest, OpArg arg)    {WriteSSEOp(0x66, 0xDF, dest, arg);}
 void XEmitter::PXOR(X64Reg dest, OpArg arg)     {WriteSSEOp(0x66, 0xEF, dest, arg);}
@@ -1807,8 +1812,8 @@ void XEmitter::PCMPGTB(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x64, dest, ar
 void XEmitter::PCMPGTW(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x65, dest, arg);}
 void XEmitter::PCMPGTD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0x66, dest, arg);}
 
-void XEmitter::PEXTRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC5, dest, arg); Write8(subreg);}
-void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC4, dest, arg); Write8(subreg);}
+void XEmitter::PEXTRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC5, dest, arg, 1); Write8(subreg);}
+void XEmitter::PINSRW(X64Reg dest, OpArg arg, u8 subreg)    {WriteSSEOp(0x66, 0xC4, dest, arg, 1); Write8(subreg);}
 
 void XEmitter::PMADDWD(X64Reg dest, OpArg arg)  {WriteSSEOp(0x66, 0xF5, dest, arg); }
 void XEmitter::PSADBW(X64Reg dest, OpArg arg)   {WriteSSEOp(0x66, 0xF6, dest, arg);}

@@ -1331,6 +1331,8 @@ static const float half = 0.5f;
 static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
 static double minIntAsDouble = (double)(int)0x80000000;
 
+static u32 mxcsrTemp;
+
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
@@ -1342,15 +1344,30 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	int imm = (op >> 16) & 0x1f;
 	const double *mult = &mulTableVf2i[imm];
 
+	int setMXCSR = -1;
 	switch ((op >> 21) & 0x1f)
 	{
 	case 17:
 		break; //z - truncate. Easy to support.
 	case 16:
-	case 18:
-	case 19:
-		DISABLE;
+		setMXCSR = 0;
 		break;
+	case 18:
+		setMXCSR = 2;
+		break;
+	case 19:
+		setMXCSR = 1;
+		break;
+	}
+
+	// Except for truncate, we need to update MXCSR to our preferred rounding mode.
+	if (setMXCSR != -1) {
+		STMXCSR(M(&mxcsrTemp));
+		MOV(32, R(EAX), M(&mxcsrTemp));
+		AND(32, R(EAX), Imm32(~(3 << 13)));
+		OR(32, R(EAX), Imm32(setMXCSR << 13));
+		MOV(32, M(&mips_->temp), R(EAX));
+		LDMXCSR(M(&mips_->temp));
 	}
 
 	u8 sregs[4], dregs[4];
@@ -1380,11 +1397,12 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		}
 		MINSD(XMM0, M(&maxIntAsDouble));
 		MAXSD(XMM0, M(&minIntAsDouble));
+		// We've set the rounding mode above, so this part's easy.
 		switch ((op >> 21) & 0x1f) {
-		case 16: /* TODO */ break; //n
+		case 16: CVTSD2SI(EAX, R(XMM0)); break; //n
 		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
-		case 18: /* TODO */ break; //u
-		case 19: /* TODO */ break; //d
+		case 18: CVTSD2SI(EAX, R(XMM0)); break; //u
+		case 19: CVTSD2SI(EAX, R(XMM0)); break; //d
 		}
 		MOVD_xmm(fpr.VX(tempregs[i]), R(EAX));
 	}
@@ -1394,6 +1412,10 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
 		}
+	}
+
+	if (setMXCSR != -1) {
+		LDMXCSR(M(&mxcsrTemp));
 	}
 
 	ApplyPrefixD(dregs, sz);
@@ -1527,11 +1549,73 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+static float sincostemp[2];
+
+union u32float {
+	u32 u;
+	float f;
+
+	operator float() const {
+		return f;
+	}
+
+	inline u32float &operator *=(const float &other) {
+		f *= other;
+		return *this;
+	}
+};
+
+#ifdef _M_X64
+typedef float SinCosArg;
+#else
+typedef u32float SinCosArg;
+#endif
+
+void SinCos(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+}
+
+void SinOnly(SinCosArg angle) {
+	sincostemp[0] = vfpu_sin(angle);
+}
+
+void NegSinOnly(SinCosArg angle) {
+	sincostemp[0] = -vfpu_sin(angle);
+}
+
+void CosOnly(SinCosArg angle) {
+	sincostemp[1] = vfpu_cos(angle);
+}
+
+void ASinScaled(SinCosArg angle) {
+	sincostemp[0] = asinf(angle) / M_PI_2;
+}
+
+void SinCosNegSin(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+	sincostemp[0] = -sincostemp[0];
+}
+
 void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
 		DISABLE;
+
+	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg), u8 sreg) {
+#ifdef _M_X64
+		MOVSS(XMM0, fpr.V(sreg));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)&sinCosFunc, 0));
+#else
+		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+		if (fpr.V(sreg).IsSimpleReg()) {
+			MOVD_xmm(R(EAX), fpr.VX(sreg));
+		} else {
+			MOV(32, R(EAX), fpr.V(sreg));
+		}
+		CallProtectedFunction((const void *)&sinCosFunc, R(EAX));
+#endif
+	};
 
 	// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
 	if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
@@ -1626,10 +1710,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			DISABLE;
+			trigCallHelper(&SinOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			DISABLE;
+			trigCallHelper(&CosOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
 			DISABLE;
@@ -1641,8 +1727,9 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
 			ANDPS(tempxregs[i], M(&noSignMask));
 			break;
-		case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-			DISABLE;
+		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
+			trigCallHelper(&ASinScaled, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
 			MOVSS(XMM0, M(&minus_one));
@@ -1650,7 +1737,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			DISABLE;
+			trigCallHelper(&NegSinOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			DISABLE;
@@ -2150,37 +2238,6 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 
 	ApplyPrefixD(&dreg, V_Single);
 	fpr.ReleaseSpillLocks();
-}
-
-static float sincostemp[2];
-
-union u32float {
-	u32 u;
-	float f;
-
-	operator float() const {
-		return f;
-	}
-
-	inline u32float &operator *=(const float &other) {
-		f *= other;
-		return *this;
-	}
-};
-
-#ifdef _M_X64
-typedef float SinCosArg;
-#else
-typedef u32float SinCosArg;
-#endif
-
-void SinCos(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-}
-
-void SinCosNegSin(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-	sincostemp[0] = -sincostemp[0];
 }
 
 // Very heavily used by FF:CC

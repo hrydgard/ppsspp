@@ -141,6 +141,17 @@ enum FloatOp {
 	floatINVALID = -1,
 };
 
+enum FloatRound {
+	FROUND_NEAREST = 0,
+	FROUND_FLOOR = 1,
+	FROUND_CEIL = 2,
+	FROUND_ZERO = 3,
+	FROUND_MXCSR = 4,
+
+	FROUND_RAISE_PRECISION = 0,
+	FROUND_IGNORE_PRECISION = 8,
+};
+
 class XEmitter;
 
 // RIP addressing does not benefit from micro op fusion on Core arch
@@ -792,6 +803,32 @@ public:
 	void PBLENDVB(X64Reg dest, OpArg arg);
 	void BLENDVPS(X64Reg dest, OpArg arg);
 	void BLENDVPD(X64Reg dest, OpArg arg);
+
+	// SSE4: rounding (see FloatRound for mode or use ROUNDNEARSS, etc. helpers.)
+	void ROUNDSS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDSD(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPD(X64Reg dest, OpArg arg, u8 mode);
+
+	inline void ROUNDNEARSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_ZERO); }
 
 	// AVX
 	void VADDSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
