@@ -1605,7 +1605,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg), u8 sreg) {
 #ifdef _M_X64
 		MOVSS(XMM0, fpr.V(sreg));
-		ABI_CallFunction(thunks.ProtectFunction((const void *)&sinCosFunc, 0));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
 #else
 		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
 		if (fpr.V(sreg).IsSimpleReg()) {
@@ -1613,7 +1613,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		} else {
 			MOV(32, R(EAX), fpr.V(sreg));
 		}
-		CallProtectedFunction((const void *)&sinCosFunc, R(EAX));
+		CallProtectedFunction((const void *)sinCosFunc, R(EAX));
 #endif
 	};
 
