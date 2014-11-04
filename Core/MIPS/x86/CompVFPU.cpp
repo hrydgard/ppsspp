@@ -1331,6 +1331,8 @@ static const float half = 0.5f;
 static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
 static double minIntAsDouble = (double)(int)0x80000000;
 
+static u32 mxcsrTemp;
+
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
@@ -1342,15 +1344,30 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	int imm = (op >> 16) & 0x1f;
 	const double *mult = &mulTableVf2i[imm];
 
+	int setMXCSR = -1;
 	switch ((op >> 21) & 0x1f)
 	{
 	case 17:
 		break; //z - truncate. Easy to support.
 	case 16:
-	case 18:
-	case 19:
-		DISABLE;
+		setMXCSR = 0;
 		break;
+	case 18:
+		setMXCSR = 2;
+		break;
+	case 19:
+		setMXCSR = 1;
+		break;
+	}
+
+	// Except for truncate, we need to update MXCSR to our preferred rounding mode.
+	if (setMXCSR != -1) {
+		STMXCSR(M(&mxcsrTemp));
+		MOV(32, R(EAX), M(&mxcsrTemp));
+		AND(32, R(EAX), Imm32(~(3 << 13)));
+		OR(32, R(EAX), Imm32(setMXCSR << 13));
+		MOV(32, M(&mips_->temp), R(EAX));
+		LDMXCSR(M(&mips_->temp));
 	}
 
 	u8 sregs[4], dregs[4];
@@ -1380,11 +1397,12 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		}
 		MINSD(XMM0, M(&maxIntAsDouble));
 		MAXSD(XMM0, M(&minIntAsDouble));
+		// We've set the rounding mode above, so this part's easy.
 		switch ((op >> 21) & 0x1f) {
-		case 16: /* TODO */ break; //n
+		case 16: CVTSD2SI(EAX, R(XMM0)); break; //n
 		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
-		case 18: /* TODO */ break; //u
-		case 19: /* TODO */ break; //d
+		case 18: CVTSD2SI(EAX, R(XMM0)); break; //u
+		case 19: CVTSD2SI(EAX, R(XMM0)); break; //d
 		}
 		MOVD_xmm(fpr.VX(tempregs[i]), R(EAX));
 	}
@@ -1394,6 +1412,10 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
 		}
+	}
+
+	if (setMXCSR != -1) {
+		LDMXCSR(M(&mxcsrTemp));
 	}
 
 	ApplyPrefixD(dregs, sz);
