@@ -1700,8 +1700,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ABI_CallFunction(thunks.ProtectFunction((const void *)&SinOnly, 0));
 #else
 			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			MOVD_xmm(EAX, fpr.V(sregs[i]));
-			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&SinOnly, 1), R(EAX));
+			if (fpr.V(sregs[i]).IsSimpleReg()) {
+				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
+			} else {
+				MOV(32, R(EAX), fpr.V(sregs[i]));
+			}
+			CallProtectedFunction((const void *)&SinOnly, R(EAX));
 #endif
 
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
@@ -1712,8 +1716,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ABI_CallFunction(thunks.ProtectFunction((const void *)&CosOnly, 0));
 #else
 			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			MOVD_xmm(EAX, fpr.V(sregs[i]));
-			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&CosOnly, 1), R(EAX));
+			if (fpr.V(sregs[i]).IsSimpleReg()) {
+				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
+			} else {
+				MOV(32, R(EAX), fpr.V(sregs[i]));
+			}
+			CallProtectedFunction((const void *)&CosOnly, R(EAX));
 #endif
 
 			MOVSS(tempxregs[i], M(&sincostemp[1]));
@@ -1734,8 +1742,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ABI_CallFunction(thunks.ProtectFunction((const void *)&ASinScaled, 0));
 #else
 			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			MOVD_xmm(EAX, fpr.V(sregs[i]));
-			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&ASinScaled, 1), R(EAX));
+			if (fpr.V(sregs[i]).IsSimpleReg()) {
+				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
+			} else {
+				MOV(32, R(EAX), fpr.V(sregs[i]));
+			}
+			CallProtectedFunction((const void *)&ASinScaled, R(EAX));
 #endif
 
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
@@ -1751,8 +1763,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ABI_CallFunction(thunks.ProtectFunction((const void *)&NegSinOnly, 0));
 #else
 			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-			MOVD_xmm(EAX, fpr.V(sregs[i]));
-			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&NegSinOnly, 1), R(EAX));
+			if (fpr.V(sregs[i]).IsSimpleReg()) {
+				MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
+			} else {
+				MOV(32, R(EAX), fpr.V(sregs[i]));
+			}
+			CallProtectedFunction((const void *)&NegSinOnly, R(EAX));
 #endif
 
 			MOVSS(tempxregs[i], M(&sincostemp[0]));
