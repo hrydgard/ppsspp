@@ -1527,6 +1527,53 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+static float sincostemp[2];
+
+union u32float {
+	u32 u;
+	float f;
+
+	operator float() const {
+		return f;
+	}
+
+	inline u32float &operator *=(const float &other) {
+		f *= other;
+		return *this;
+	}
+};
+
+#ifdef _M_X64
+typedef float SinCosArg;
+#else
+typedef u32float SinCosArg;
+#endif
+
+void SinCos(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+}
+
+void SinOnly(SinCosArg angle) {
+	sincostemp[0] = vfpu_sin(angle);
+}
+
+void NegSinOnly(SinCosArg angle) {
+	sincostemp[0] = -vfpu_sin(angle);
+}
+
+void CosOnly(SinCosArg angle) {
+	sincostemp[1] = vfpu_cos(angle);
+}
+
+void ASinScaled(SinCosArg angle) {
+	sincostemp[0] = asinf(angle) / M_PI_2;
+}
+
+void SinCosNegSin(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+	sincostemp[0] = -sincostemp[0];
+}
+
 void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
@@ -1626,10 +1673,28 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			DISABLE;
+#ifdef _M_X64
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ABI_CallFunction(thunks.ProtectFunction((const void *)&SinOnly, 0));
+#else
+			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+			MOVD_xmm(EAX, fpr.V(sregs[i]));
+			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&SinOnly, 1), R(EAX));
+#endif
+
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			DISABLE;
+#ifdef _M_X64
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ABI_CallFunction(thunks.ProtectFunction((const void *)&CosOnly, 0));
+#else
+			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+			MOVD_xmm(EAX, fpr.V(sregs[i]));
+			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&CosOnly, 1), R(EAX));
+#endif
+
+			MOVSS(tempxregs[i], M(&sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
 			DISABLE;
@@ -1641,8 +1706,17 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
 			ANDPS(tempxregs[i], M(&noSignMask));
 			break;
-		case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-			DISABLE;
+		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
+#ifdef _M_X64
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ABI_CallFunction(thunks.ProtectFunction((const void *)&ASinScaled, 0));
+#else
+			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+			MOVD_xmm(EAX, fpr.V(sregs[i]));
+			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&ASinScaled, 1), R(EAX));
+#endif
+
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
 			MOVSS(XMM0, M(&minus_one));
@@ -1650,7 +1724,16 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			DISABLE;
+#ifdef _M_X64
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ABI_CallFunction(thunks.ProtectFunction((const void *)&NegSinOnly, 0));
+#else
+			// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+			MOVD_xmm(EAX, fpr.V(sregs[i]));
+			ABI_CallFunctionA(thunks.ProtectFunction((const void *)&NegSinOnly, 1), R(EAX));
+#endif
+
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			DISABLE;
@@ -2150,37 +2233,6 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 
 	ApplyPrefixD(&dreg, V_Single);
 	fpr.ReleaseSpillLocks();
-}
-
-static float sincostemp[2];
-
-union u32float {
-	u32 u;
-	float f;
-
-	operator float() const {
-		return f;
-	}
-
-	inline u32float &operator *=(const float &other) {
-		f *= other;
-		return *this;
-	}
-};
-
-#ifdef _M_X64
-typedef float SinCosArg;
-#else
-typedef u32float SinCosArg;
-#endif
-
-void SinCos(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-}
-
-void SinCosNegSin(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-	sincostemp[0] = -sincostemp[0];
 }
 
 // Very heavily used by FF:CC
