@@ -608,22 +608,20 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 	for (int i = 0; i < 4; i++) {
 		if (dirty & (DIRTY_LIGHT0 << i)) {
-			if (u_lightpos[i] != -1) {
-				if (gstate.isDirectionalLight(i)) {
-					// Prenormalize
-					float x = getFloat24(gstate.lpos[i * 3 + 0]);
-					float y = getFloat24(gstate.lpos[i * 3 + 1]);
-					float z = getFloat24(gstate.lpos[i * 3 + 2]);
-					float len = sqrtf(x*x + y*y + z*z);
-					if (len == 0.0f)
-						len = 1.0f;
-					else
-						len = 1.0f / len;
-					float vec[3] = { x * len, y * len, z * len };
-					glUniform3fv(u_lightpos[i], 1, vec);
-				} else {
-					SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
-				}
+			if (gstate.isDirectionalLight(i)) {
+				// Prenormalize
+				float x = getFloat24(gstate.lpos[i * 3 + 0]);
+				float y = getFloat24(gstate.lpos[i * 3 + 1]);
+				float z = getFloat24(gstate.lpos[i * 3 + 2]);
+				float len = sqrtf(x*x + y*y + z*z);
+				if (len == 0.0f)
+					len = 1.0f;
+				else
+					len = 1.0f / len;
+				float vec[3] = { x * len, y * len, z * len };
+				glUniform3fv(u_lightpos[i], 1, vec);
+			} else {
+				SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
 			}
 			if (u_lightdir[i] != -1) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
