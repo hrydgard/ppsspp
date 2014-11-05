@@ -85,9 +85,17 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (g_Config.bSoftwareRendering)
+	{
+		coreParam.gpuCore = GPU_SOFTWARE;
+	}
+	else if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9)
+	{
 		coreParam.gpuCore = GPU_DIRECTX9;
+	}
+	else
+	{
+		coreParam.gpuCore = GPU_GLES;;
 	}
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
