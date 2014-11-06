@@ -726,6 +726,9 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 		if (!(f->openMode & FILEACCESS_READ)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
+		} else if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
 			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
@@ -855,6 +858,10 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 		}
 		if (!(f->openMode & FILEACCESS_WRITE)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			return true;
+		}
+		if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		}
 
