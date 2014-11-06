@@ -566,28 +566,30 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 
 		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
 
-		if (firstBlockSize != 0)
+		const u8 *const start = pointer;
+		if (firstBlockSize > 0)
 		{
 			blockDevice->ReadBlock(secNum++, theSector);
 			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
 			pointer += firstBlockSize;
 		}
-		if (middleSize != 0)
+		if (middleSize > 0)
 		{
 			const u32 sectors = (u32)(middleSize / 2048);
 			blockDevice->ReadBlocks(secNum, sectors, pointer);
 			secNum += sectors;
 			pointer += middleSize;
 		}
-		if (lastBlockSize != 0)
+		if (lastBlockSize > 0)
 		{
 			blockDevice->ReadBlock(secNum++, theSector);
 			memcpy(pointer, theSector, lastBlockSize);
 			pointer += lastBlockSize;
 		}
 
-		e.seekPos += (unsigned int)size;
-		return (size_t)size;
+		size_t totalBytes = pointer - start;
+		e.seekPos += (unsigned int)totalBytes;
+		return (size_t)totalBytes;
 	}
 	else
 	{
