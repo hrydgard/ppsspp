@@ -1291,7 +1291,7 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 	}
 
 	// Unpack 16-bit words into 32-bit words, upper position, and we're done!
-	XORPS(XMM0, R(XMM0));
+	PXOR(XMM0, R(XMM0));
 	PUNPCKLWD(XMM0, R(XMM1));
 	
 	// Done! TODO: The rest of this should be possible to extract into a function.
@@ -1300,13 +1300,13 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 	// TODO: Could apply D-prefix in parallel here...
 
 	MOVSS(fpr.V(dregs[0]), XMM0);
-	SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+	PSRLDQ(XMM0, 4);
 	MOVSS(fpr.V(dregs[1]), XMM0);
 
 	if (sz != V_Single) {
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		PSRLDQ(XMM0, 4);
 		MOVSS(fpr.V(dregs[2]), XMM0);
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		PSRLDQ(XMM0, 4);
 		MOVSS(fpr.V(dregs[3]), XMM0);
 	}
 
