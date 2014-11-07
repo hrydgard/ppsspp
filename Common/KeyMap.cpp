@@ -650,6 +650,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
 	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
+
+	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;
@@ -919,5 +921,28 @@ const std::set<std::string> &GetSeenPads() {
 	return g_seenPads;
 }
 
+
+void SwapKeys(int btn1, int btn2) {
+	std::vector<KeyDef> keys1;
+	std::vector<KeyDef> keys2;
+	KeyFromPspButton(psp_button_names[btn1].key, &keys1);
+	KeyFromPspButton(psp_button_names[btn2].key, &keys2);
+	RemoveButtonMapping(psp_button_names[btn1].key);
+	RemoveButtonMapping(psp_button_names[btn2].key);
+	for (size_t j = 0; j < keys1.size(); j++) {
+		SetKeyMapping(psp_button_names[btn2].key, KeyDef(keys1[j].deviceId, keys1[j].keyCode), false);
+	}
+	for (size_t j = 0; j < keys2.size(); j++) {
+		SetKeyMapping(psp_button_names[btn1].key, KeyDef(keys2[j].deviceId, keys2[j].keyCode), false);
+	}
+}
+
+// Swap direction buttons and left analog axis
+void SwapAxis() {
+	SwapKeys(0, 12);
+	SwapKeys(1, 13);
+	SwapKeys(2, 14);
+	SwapKeys(3, 15);
+}
 
 }  // KeyMap
