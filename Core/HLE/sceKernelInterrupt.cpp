@@ -610,11 +610,13 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 	u8 c = fillc & 0xff;
 	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	bool skip = false;
-	if (Memory::IsVRAMAddress(addr)) {
-		skip = gpu->PerformMemorySet(addr, fillc, n);
-	}
-	if (!skip) {
-		Memory::Memset(addr, c, n);
+	if (n != 0) {
+		if (Memory::IsVRAMAddress(addr)) {
+			skip = gpu->PerformMemorySet(addr, fillc, n);
+		}
+		if (!skip) {
+			Memory::Memset(addr, c, n);
+		}
 	}
 	return addr;
 }
