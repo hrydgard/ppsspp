@@ -298,7 +298,7 @@ void GameSettingsScreen::CreateViews() {
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
-	if (PSP_IsInited())
+	if (PSP_IsInited() || g_Config.iGPUBackend != GPU_BACKEND_OPENGL)
 		softwareGPU->SetEnabled(false);
 
 	// Audio
