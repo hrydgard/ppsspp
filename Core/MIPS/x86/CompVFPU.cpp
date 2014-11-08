@@ -1805,9 +1805,15 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
-				fpr.MapRegV(imm, 0);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-				gpr.MapReg(rt, false, true);
-				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				if (fpr.V(imm).IsSimpleReg()) {
+					fpr.MapRegV(imm, 0);
+					gpr.MapReg(rt, false, true);
+					MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				} else {
+					// Let's not bother mapping the vreg.
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), fpr.V(imm));
+				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				if (imm - 128 == VFPU_CTRL_CC) {
 					if (gpr.IsImm(MIPS_REG_VFPUCC)) {
@@ -1834,8 +1840,8 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 
 	case 7: //mtv
 		if (imm < 128) { // VI(imm) = R(rt);
-			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-			gpr.MapReg(rt, true, false);
+			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+			// Let's not bother mapping rt if we don't have to.
 			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			if (imm - 128 == VFPU_CTRL_CC) {
