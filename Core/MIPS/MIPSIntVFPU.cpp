@@ -760,6 +760,8 @@ namespace MIPSInt
 			// Quad is the only option.
 			// This operation is weird. This particular way of working matches hw but does not 
 			// seem quite sane.
+			// I guess it's used for fixed-point math, and fills more bits to facilitate
+			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
 			{
 				u32 value = s[0];
 				u32 value2 = value / 2;
