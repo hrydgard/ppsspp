@@ -22,6 +22,7 @@
 #include "base/logging.h"
 #include "math/math_util.h"
 
+#include "Common/CPUDetect.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -1245,55 +1246,92 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+// The goal is to map (reversed byte order for clarity):
+// AABBCCDD -> 000000AA 000000BB 000000CC 000000DD
+static u8 MEMORY_ALIGNED16( vc2i_shuffle[16] ) = { -1, -1, -1, 0,  -1, -1, -1, 1,  -1, -1, -1, 2,  -1, -1, -1, 3 };
+// AABBCCDD -> AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD
+static u8 MEMORY_ALIGNED16( vuc2i_shuffle[16] ) = { 0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 2,  3, 3, 3, 3 };
+
 void Jit::Comp_Vx2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	switch ((op >> 16) & 3) {
-	case 0:  // vuc2i  
-	case 1:  // vc2i
-	case 2:  // vus2i
-		DISABLE;
+	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+	bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
 
-	case 3:  // vs2i - used heavily by GTA
-		break;
-	default:
-		DISABLE;
-	}
-
-	// OK this is vs2i. Unpacks pairs of 16-bit integers into 32-bit integers, with the values
-	// at the top.
+	// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+	// at the top.  vus2i shifts it an extra bit right afterward.
+	// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+	// at the top too.  vuc2i is a bit special (see below.)
 	// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
 	// then use it for both.
 
 	VectorSize sz = GetVecSize(op);
 	VectorSize outsize;
-	switch (sz) {
-	case V_Single:
-		outsize = V_Pair;
-		break;
-	case V_Pair:
+	if (bits == 8) {
 		outsize = V_Quad;
-		break;
-	default:
-		DISABLE;
+	} else {
+		switch (sz) {
+		case V_Single:
+			outsize = V_Pair;
+			break;
+		case V_Pair:
+			outsize = V_Quad;
+			break;
+		default:
+			DISABLE;
+		}
 	}
 
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, outsize, _VD);
 
-	MOVSS(XMM1, fpr.V(sregs[0]));
-	if (sz != V_Single) {
-		MOVSS(XMM0, fpr.V(sregs[1]));
-		PUNPCKLDQ(XMM1, R(XMM0));
+	if (bits == 16) {
+		MOVSS(XMM1, fpr.V(sregs[0]));
+		if (sz != V_Single) {
+			MOVSS(XMM0, fpr.V(sregs[1]));
+			PUNPCKLDQ(XMM1, R(XMM0));
+		}
+
+		// Unpack 16-bit words into 32-bit words, upper position, and we're done!
+		PXOR(XMM0, R(XMM0));
+		PUNPCKLWD(XMM0, R(XMM1));
+	} else if (bits == 8) {
+		if (unsignedOp) {
+			// vuc2i is a bit special.  It spreads out the bits like this:
+			// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
+			MOVSS(XMM0, fpr.V(sregs[0]));
+			if (cpu_info.bSSSE3) {
+				// Not really different speed.  Generates a bit less code.
+				PSHUFB(XMM0, M(vuc2i_shuffle));
+			} else {
+				// First, we change 0xDDCCBBAA to 0xDDDDCCCCBBBBAAAA.
+				PUNPCKLBW(XMM0, R(XMM0));
+				// Now, interleave each 16 bits so they're all 32 bits wide.
+				PUNPCKLWD(XMM0, R(XMM0));
+			}
+		} else {
+			if (cpu_info.bSSSE3) {
+				MOVSS(XMM0, fpr.V(sregs[0]));
+				PSHUFB(XMM0, M(vc2i_shuffle));
+			} else {
+				PXOR(XMM1, R(XMM1));
+				MOVSS(XMM0, fpr.V(sregs[0]));
+				PUNPCKLBW(XMM1, R(XMM0));
+				PXOR(XMM0, R(XMM0));
+				PUNPCKLWD(XMM0, R(XMM1));
+			}
+		}
 	}
 
-	// Unpack 16-bit words into 32-bit words, upper position, and we're done!
-	PXOR(XMM0, R(XMM0));
-	PUNPCKLWD(XMM0, R(XMM1));
-	
+	// At this point we have the regs in the 4 lanes.
+	// In the "u" mode, we need to shift it out of the sign bit.
+	if (unsignedOp) {
+		PSRLD(XMM0, 1);
+	}
+
 	// Done! TODO: The rest of this should be possible to extract into a function.
 	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
 
@@ -1303,7 +1341,7 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 	PSRLDQ(XMM0, 4);
 	MOVSS(fpr.V(dregs[1]), XMM0);
 
-	if (sz != V_Single) {
+	if (outsize != V_Pair) {
 		PSRLDQ(XMM0, 4);
 		MOVSS(fpr.V(dregs[2]), XMM0);
 		PSRLDQ(XMM0, 4);
