@@ -1659,6 +1659,7 @@ void XEmitter::PACKUSWB(X64Reg dest, OpArg arg) {WriteSSEOp(0x66, 0x67, dest, ar
 void XEmitter::PUNPCKLBW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x60, dest, arg);}
 void XEmitter::PUNPCKLWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x61, dest, arg);}
 void XEmitter::PUNPCKLDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x62, dest, arg);}
+void XEmitter::PUNPCKLQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6C, dest, arg);}
 
 void XEmitter::PSRLW(X64Reg reg, int shift)
 {
@@ -1711,28 +1712,15 @@ void XEmitter::PSLLDQ(X64Reg reg, int shift) {
 	Write8(shift);
 }
 
-
-// WARNING not REX compatible
 void XEmitter::PSRAW(X64Reg reg, int shift)
 {
-	if (reg > 7)
-		PanicAlert("The PSRAW-emitter does not support regs above 7");
-	Write8(0x66);
-	Write8(0x0f);
-	Write8(0x71);
-	Write8(0xE0 | reg);
+	WriteSSEOp(0x66, 0x71, (X64Reg)4, R(reg));
 	Write8(shift);
 }
 
-// WARNING not REX compatible
 void XEmitter::PSRAD(X64Reg reg, int shift)
 {
-	if (reg > 7)
-		PanicAlert("The PSRAD-emitter does not support regs above 7");
-	Write8(0x66);
-	Write8(0x0f);
-	Write8(0x72);
-	Write8(0xE0 | reg);
+	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
 	Write8(shift);
 }
 
@@ -1753,6 +1741,15 @@ void XEmitter::WriteSSE41Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int ex
 void XEmitter::PSHUFB(X64Reg dest, OpArg arg)   {WriteSSSE3Op(0x66, 0x3800, dest, arg);}
 void XEmitter::PTEST(X64Reg dest, OpArg arg)    {WriteSSE41Op(0x66, 0x3817, dest, arg);}
 void XEmitter::PACKUSDW(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x382b, dest, arg);}
+
+void XEmitter::PMINSB(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3838, dest, arg);}
+void XEmitter::PMINSD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3839, dest, arg);}
+void XEmitter::PMINUW(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383a, dest, arg);}
+void XEmitter::PMINUD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383b, dest, arg);}
+void XEmitter::PMAXSB(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383c, dest, arg);}
+void XEmitter::PMAXSD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383d, dest, arg);}
+void XEmitter::PMAXUW(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383e, dest, arg);}
+void XEmitter::PMAXUD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383f, dest, arg);}
 
 void XEmitter::PMOVSXBW(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3820, dest, arg);}
 void XEmitter::PMOVSXBD(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x3821, dest, arg);}

@@ -1122,15 +1122,15 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	if (*mult != 1.0f)
 		MOVSS(XMM1, M(mult));
 	for (int i = 0; i < n; i++) {
-		if (fpr.V(sregs[i]).IsSimpleReg())
-			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-		else
-			MOV(32, R(EAX), fpr.V(sregs[i]));
-		CVTSI2SS(XMM0, R(EAX));
+		fpr.MapRegV(tempregs[i], (sregs[i] == dregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		if (fpr.V(sregs[i]).IsSimpleReg()) {
+			CVTDQ2PS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+		} else {
+			MOVSS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+			CVTDQ2PS(fpr.VX(tempregs[i]), R(fpr.VX(tempregs[i])));
+		}
 		if (*mult != 1.0f)
-			MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(tempregs[i], MAP_DIRTY);
-		MOVSS(fpr.V(tempregs[i]), XMM0);
+			MULSS(fpr.VX(tempregs[i]), R(XMM1));
 	}
 
 	for (int i = 0; i < n; ++i) {
@@ -1805,9 +1805,15 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
-				fpr.MapRegV(imm, 0);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-				gpr.MapReg(rt, false, true);
-				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				if (fpr.V(imm).IsSimpleReg()) {
+					fpr.MapRegV(imm, 0);
+					gpr.MapReg(rt, false, true);
+					MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				} else {
+					// Let's not bother mapping the vreg.
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), fpr.V(imm));
+				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				if (imm - 128 == VFPU_CTRL_CC) {
 					if (gpr.IsImm(MIPS_REG_VFPUCC)) {
@@ -1834,8 +1840,9 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 
 	case 7: //mtv
 		if (imm < 128) { // VI(imm) = R(rt);
-			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-			gpr.MapReg(rt, true, false);
+			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+			// Let's not bother mapping rt if we don't have to.
+			gpr.KillImmediate(rt, true, false);
 			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			if (imm - 128 == VFPU_CTRL_CC) {
@@ -2222,20 +2229,177 @@ void Jit::Comp_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
+// The goal is to map (reversed byte order for clarity):
+// 000000AA 000000BB 000000CC 000000DD -> AABBCCDD
+static s8 MEMORY_ALIGNED16( vi2xc_shuffle[16] ) = { 3, 7, 11, 15,  -1, -1, -1, -1,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+// 0000AAAA 0000BBBB 0000CCCC 0000DDDD -> AAAABBBB CCCCDDDD
+static s8 MEMORY_ALIGNED16( vi2xs_shuffle[16] ) = { 2, 3, 6, 7,  10, 11, 14, 15,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+
 void Jit::Comp_Vi2x(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+	bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+	// These instructions pack pairs or quads of integers into 32 bits.
+	// The unsigned (u) versions skip the sign bit when packing.
+
+	VectorSize sz = GetVecSize(op);
+	VectorSize outsize;
+	if (bits == 8) {
+		outsize = V_Single;
+		if (sz != V_Quad) {
+			DISABLE;
+		}
+	} else {
+		switch (sz) {
+		case V_Pair:
+			outsize = V_Single;
+			break;
+		case V_Quad:
+			outsize = V_Pair;
+			break;
+		default:
+			DISABLE;
+		}
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	// First, let's assemble the sregs into lanes of a single xmm reg.
+	// For quad inputs, we need somewhere for the bottom regs.  Ideally dregs[0].
+	X64Reg dst0 = XMM0;
+	if (sz == V_Quad) {
+		int vreg = dregs[0];
+		if (!IsOverlapSafeAllowS(dregs[0], 0, 4, sregs)) {
+			// Will be discarded on release.
+			vreg = fpr.GetTempV();
+		}
+		fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.SpillLockV(vreg);
+		dst0 = fpr.VX(vreg);
+	} else {
+		// Pair, let's check if we should use dregs[0] directly.  No temp needed.
+		int vreg = dregs[0];
+		if (IsOverlapSafeAllowS(dregs[0], 0, 2, sregs)) {
+			fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.SpillLockV(vreg);
+			dst0 = fpr.VX(vreg);
+		}
+	}
+
+	if (!fpr.V(sregs[0]).IsSimpleReg(dst0)) {
+		MOVSS(dst0, fpr.V(sregs[0]));
+	}
+	MOVSS(XMM1, fpr.V(sregs[1]));
+	// With this, we have the lower half in dst0.
+	PUNPCKLDQ(dst0, R(XMM1));
+	if (sz == V_Quad) {
+		MOVSS(XMM0, fpr.V(sregs[2]));
+		MOVSS(XMM1, fpr.V(sregs[3]));
+		PUNPCKLDQ(XMM0, R(XMM1));
+		// Now we need to combine XMM0 into dst0.
+		PUNPCKLQDQ(dst0, R(XMM0));
+	} else {
+		// Otherwise, we need to zero out the top 2.
+		// We expect XMM1 to be zero below.
+		PXOR(XMM1, R(XMM1));
+		PUNPCKLQDQ(dst0, R(XMM1));
+	}
+
+	// For "u" type ops, we clamp to zero and shift off the sign bit first.
+	if (unsignedOp) {
+		if (cpu_info.bSSE4_1) {
+			if (sz == V_Quad) {
+				// Zeroed in the other case above.
+				PXOR(XMM1, R(XMM1));
+			}
+			PMAXSD(dst0, R(XMM1));
+			PSLLD(dst0, 1);
+		} else {
+			// Get a mask of the sign bit in dst0, then and in the values.  This clamps to 0.
+			MOVDQA(XMM1, R(dst0));
+			PSRAD(dst0, 31);
+			PSLLD(XMM1, 1);
+			PANDN(dst0, R(XMM1));
+		}
+	}
+
+	// At this point, everything is aligned in the high bits of our lanes.
+	if (cpu_info.bSSSE3) {
+		PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+	} else {
+		// Let's *arithmetically* shift in the sign so we can use saturating packs.
+		PSRAD(dst0, 32 - bits);
+		// XMM1 used for the high part just so there's no dependency.  It contains garbage or 0.
+		PACKSSDW(dst0, R(XMM1));
+		if (bits == 8) {
+			PACKSSWB(dst0, R(XMM1));
+		}
+	}
+
+	if (!fpr.V(dregs[0]).IsSimpleReg(dst0)) {
+		MOVSS(fpr.V(dregs[0]), dst0);
+	}
+	if (outsize == V_Pair) {
+		fpr.MapRegV(dregs[1], MAP_NOINIT | MAP_DIRTY);
+		MOVDQA(fpr.V(dregs[1]), dst0);
+		// Shift out the lower result to get the result we want.
+		PSRLDQ(fpr.VX(dregs[1]), 4);
+	}
+
+	ApplyPrefixD(dregs, outsize);
+	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vhoriz(MIPSOpcode op) {
-	DISABLE;
+static const float MEMORY_ALIGNED16( vavg_table[4] ) = {1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f};
 
-	// Do any games use these a noticable amount?
+void Jit::Comp_Vhoriz(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[1];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	X64Reg reg = XMM0;
+	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
+		fpr.MapRegV(dregs[0], (dregs[0] == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.SpillLockV(dregs[0]);
+		reg = fpr.VX(dregs[0]);
+	}
+
+	// We use a temp reg in case of overlap.
+	if (!fpr.V(sregs[0]).IsSimpleReg(reg)) {
+		MOVSS(reg, fpr.V(sregs[0]));
+	}
+	for (int i = 1; i < n; ++i) {
+		ADDSS(reg, fpr.V(sregs[i]));
+	}
+
 	switch ((op >> 16) & 31) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
+		MULSS(reg, M(&vavg_table[n]));
 		break;
 	}
+
+	if (reg == XMM0) {
+		MOVSS(fpr.V(dregs[0]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, V_Single);
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_Viim(MIPSOpcode op) {
