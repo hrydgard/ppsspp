@@ -1248,9 +1248,9 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 
 // The goal is to map (reversed byte order for clarity):
 // AABBCCDD -> 000000AA 000000BB 000000CC 000000DD
-static u8 MEMORY_ALIGNED16( vc2i_shuffle[16] ) = { -1, -1, -1, 0,  -1, -1, -1, 1,  -1, -1, -1, 2,  -1, -1, -1, 3 };
+static s8 MEMORY_ALIGNED16( vc2i_shuffle[16] ) = { -1, -1, -1, 0,  -1, -1, -1, 1,  -1, -1, -1, 2,  -1, -1, -1, 3 };
 // AABBCCDD -> AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD
-static u8 MEMORY_ALIGNED16( vuc2i_shuffle[16] ) = { 0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 2,  3, 3, 3, 3 };
+static s8 MEMORY_ALIGNED16( vuc2i_shuffle[16] ) = { 0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 2,  3, 3, 3, 3 };
 
 void Jit::Comp_Vx2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
