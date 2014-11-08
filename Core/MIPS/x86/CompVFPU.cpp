@@ -1122,15 +1122,15 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	if (*mult != 1.0f)
 		MOVSS(XMM1, M(mult));
 	for (int i = 0; i < n; i++) {
-		if (fpr.V(sregs[i]).IsSimpleReg())
-			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-		else
-			MOV(32, R(EAX), fpr.V(sregs[i]));
-		CVTSI2SS(XMM0, R(EAX));
+		fpr.MapRegV(tempregs[i], (sregs[i] == dregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		if (fpr.V(sregs[i]).IsSimpleReg()) {
+			CVTDQ2PS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+		} else {
+			MOVSS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+			CVTDQ2PS(fpr.VX(tempregs[i]), R(fpr.VX(tempregs[i])));
+		}
 		if (*mult != 1.0f)
-			MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(tempregs[i], MAP_DIRTY);
-		MOVSS(fpr.V(tempregs[i]), XMM0);
+			MULSS(fpr.VX(tempregs[i]), R(XMM1));
 	}
 
 	for (int i = 0; i < n; ++i) {
