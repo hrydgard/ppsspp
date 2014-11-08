@@ -305,7 +305,7 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 			(float)((color & 0xFF) >> 0),
 			(float)((color & 0xFF00) >> 8),
 			(float)((color & 0xFF0000) >> 16),
-			(float)alpha 
+			(float)alpha
 		};
 		glUniform4fv(uniform, 1, col);
 	}
@@ -388,6 +388,37 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
+
+		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
+		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
+		if (g_Config.bDepthRangeHack) {
+			float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+			float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+
+			// if far depth range < 0
+			if (zOff + zScale < 0.0f) {
+				// if perspective projection
+				if (flippedMatrix[11] < 0.0f) {
+					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
+					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
+
+					float a = flippedMatrix[10];
+					float b = flippedMatrix[14];
+
+					float n = b / (a - 1.0f);
+					float f = b / (a + 1.0f);
+
+					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
+
+					a = (n + f) / (n - f);
+					b = (2.0f * n * f) / (n - f);
+
+					flippedMatrix[10] = a;
+					flippedMatrix[14] = b;
+				}
+			}
+		}
+
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)

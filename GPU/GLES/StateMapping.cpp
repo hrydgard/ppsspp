@@ -93,7 +93,7 @@ static const GLushort cullingMode[] = {
 };
 
 static const GLushort ztests[] = {
-	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
+	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL,
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
@@ -732,7 +732,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorY2 = gstate.getScissorY2() + 1;
 
 	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 
+	if (scissorX1 == 0 && scissorY1 == 0
 		&& scissorX2 >= (int) gstate_c.curRTWidth
 		&& scissorY2 >= (int) gstate_c.curRTHeight) {
 		glstate.scissorTest.disable();
@@ -765,7 +765,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set(
-			renderX + (0 + regionX1) * renderWidthFactor, 
+			renderX + (0 + regionX1) * renderWidthFactor,
 			renderY + (0 - regionY1) * renderHeightFactor,
 			(regionX2 - regionX1) * renderWidthFactor,
 			(regionY2 - regionY1) * renderHeightFactor);
@@ -805,46 +805,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-
-		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
-			// if far depth range < 0
-			if (zOff + zScale < 0.0f) {
-				// if perspective projection
-				if (gstate.projMatrix[11] < 0.0f) {
-					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-					float a = gstate.projMatrix[10];
-					float b = gstate.projMatrix[14];
-
-					float n = b / (a - 1.0f);
-					float f = b / (a + 1.0f);
-
-					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
-
-					a = (n + f) / (n - f);
-					b = (2.0f * n * f) / (n - f);
-
-					gstate.projMatrix[10] = a;
-					gstate.projMatrix[14] = b;
-
-					shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-
-					zOff = (zOff - zScale) / 2.0f;
-					zScale = -zOff;
-
-					gstate.viewportz2 &= 0xFF000000;
-					gstate.viewportz2 |= toFloat24(zOff * 65535.0f);
-
-					gstate.viewportz1 &= 0xFF000000;
-					gstate.viewportz1 |= toFloat24(zScale * 65535.0f);
-				}
-			}
-		}
-
-		glstate.depthRange.set(zOff - zScale, zOff + zScale);
+		float depthRangeMin = zOff - zScale;
+		float depthRangeMax = zOff + zScale;
+		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 	}
 }
 
