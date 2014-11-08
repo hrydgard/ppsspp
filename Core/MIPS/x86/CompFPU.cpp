@@ -285,10 +285,14 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
-		// Store to memory so we can read it as an integer value.
-		fpr.StoreFromRegister(fs);
-		CVTSI2SS(XMM0, fpr.R(fs));
-		MOVSS(fpr.R(fd), XMM0);
+		fpr.MapReg(fd, fs == fd, true);
+		if (fpr.R(fs).IsSimpleReg()) {
+			CVTDQ2PS(fpr.RX(fd), fpr.R(fs));
+		} else {
+			// If fs was fd, we'd be in the case above since we mapped fd.
+			MOVSS(fpr.RX(fd), fpr.R(fs));
+			CVTDQ2PS(fpr.RX(fd), fpr.R(fd));
+		}
 		break;
 
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
