@@ -1659,6 +1659,7 @@ void XEmitter::PACKUSWB(X64Reg dest, OpArg arg) {WriteSSEOp(0x66, 0x67, dest, ar
 void XEmitter::PUNPCKLBW(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x60, dest, arg);}
 void XEmitter::PUNPCKLWD(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x61, dest, arg);}
 void XEmitter::PUNPCKLDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x62, dest, arg);}
+void XEmitter::PUNPCKLQDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0x6C, dest, arg);}
 
 void XEmitter::PSRLW(X64Reg reg, int shift)
 {
@@ -1711,28 +1712,15 @@ void XEmitter::PSLLDQ(X64Reg reg, int shift) {
 	Write8(shift);
 }
 
-
-// WARNING not REX compatible
 void XEmitter::PSRAW(X64Reg reg, int shift)
 {
-	if (reg > 7)
-		PanicAlert("The PSRAW-emitter does not support regs above 7");
-	Write8(0x66);
-	Write8(0x0f);
-	Write8(0x71);
-	Write8(0xE0 | reg);
+	WriteSSEOp(0x66, 0x71, (X64Reg)4, R(reg));
 	Write8(shift);
 }
 
-// WARNING not REX compatible
 void XEmitter::PSRAD(X64Reg reg, int shift)
 {
-	if (reg > 7)
-		PanicAlert("The PSRAD-emitter does not support regs above 7");
-	Write8(0x66);
-	Write8(0x0f);
-	Write8(0x72);
-	Write8(0xE0 | reg);
+	WriteSSEOp(0x66, 0x72, (X64Reg)4, R(reg));
 	Write8(shift);
 }
 
