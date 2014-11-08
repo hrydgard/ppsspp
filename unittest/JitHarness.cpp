@@ -39,7 +39,7 @@ InputState input_state;
 #endif
 
 void UnitTestTerminator() {
-	Core_Stop();
+	coreState = CORE_POWERDOWN;
 }
 
 HLEFunction UnitTestFakeSyscalls[] = {
