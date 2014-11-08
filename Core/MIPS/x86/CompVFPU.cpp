@@ -2226,16 +2226,51 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vhoriz(MIPSOpcode op) {
-	DISABLE;
+static const float MEMORY_ALIGNED16( vavg_table[4] ) = {1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f};
 
-	// Do any games use these a noticable amount?
+void Jit::Comp_Vhoriz(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[1];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	X64Reg reg = XMM0;
+	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
+		fpr.MapRegV(dregs[0], (dregs[0] == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.SpillLockV(dregs[0]);
+		reg = fpr.VX(dregs[0]);
+	}
+
+	// We use a temp reg in case of overlap.
+	if (!fpr.V(sregs[0]).IsSimpleReg(reg)) {
+		MOVSS(reg, fpr.V(sregs[0]));
+	}
+	for (int i = 1; i < n; ++i) {
+		ADDSS(reg, fpr.V(sregs[i]));
+	}
+
 	switch ((op >> 16) & 31) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
+		MOVSS(XMM1, M(&vavg_table[n]));
+		MULSS(reg, R(XMM1));
 		break;
 	}
+
+	if (reg == XMM0) {
+		MOVSS(fpr.V(dregs[0]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, V_Single);
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_Viim(MIPSOpcode op) {
