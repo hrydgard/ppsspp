@@ -2389,8 +2389,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
-		MOVSS(XMM1, M(&vavg_table[n]));
-		MULSS(reg, R(XMM1));
+		MULSS(reg, M(&vavg_table[n]));
 		break;
 	}
 
