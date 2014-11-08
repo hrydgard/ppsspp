@@ -2222,6 +2222,12 @@ void Jit::Comp_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
+// The goal is to map (reversed byte order for clarity):
+// 000000AA 000000BB 000000CC 000000DD -> AABBCCDD
+static s8 MEMORY_ALIGNED16( vi2xc_shuffle[16] ) = { 3, 7, 11, 15,  -1, -1, -1, -1,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+// 0000AAAA 0000BBBB 0000CCCC 0000DDDD -> AAAABBBB CCCCDDDD
+static s8 MEMORY_ALIGNED16( vi2xs_shuffle[16] ) = { 2, 3, 6, 7,  10, 11, 14, 15,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+
 void Jit::Comp_Vi2x(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
@@ -2293,27 +2299,40 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 		PUNPCKLQDQ(dst0, R(XMM0));
 	} else {
 		// Otherwise, we need to zero out the top 2.
-		// TODO: Maybe PAND would be better?
+		// We expect XMM1 to be zero below.
 		PXOR(XMM1, R(XMM1));
 		PUNPCKLQDQ(dst0, R(XMM1));
 	}
 
 	// For "u" type ops, we clamp to zero and shift off the sign bit first.
 	if (unsignedOp) {
-		// Get a mask of the sign bit in dst0, then and in the values.  This clamps to 0.
-		MOVDQA(XMM1, R(dst0));
-		PSRAD(dst0, 31);
-		PSLLD(XMM1, 1);
-		PANDN(dst0, R(XMM1));
+		if (cpu_info.bSSE4_1) {
+			if (sz == V_Quad) {
+				// Zeroed in the other case above.
+				PXOR(XMM1, R(XMM1));
+			}
+			PMAXSD(dst0, R(XMM1));
+			PSLLD(dst0, 1);
+		} else {
+			// Get a mask of the sign bit in dst0, then and in the values.  This clamps to 0.
+			MOVDQA(XMM1, R(dst0));
+			PSRAD(dst0, 31);
+			PSLLD(XMM1, 1);
+			PANDN(dst0, R(XMM1));
+		}
 	}
 
 	// At this point, everything is aligned in the high bits of our lanes.
-	// Let's *arithmetically* shift in the sign so we can use saturating packs.
-	PSRAD(dst0, 32 - bits);
-	// XMM1 used for the high part just so there's no dependency.  It contains garbage or 0.
-	PACKSSDW(dst0, R(XMM1));
-	if (bits == 8) {
-		PACKSSWB(dst0, R(XMM1));
+	if (cpu_info.bSSSE3) {
+		PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+	} else {
+		// Let's *arithmetically* shift in the sign so we can use saturating packs.
+		PSRAD(dst0, 32 - bits);
+		// XMM1 used for the high part just so there's no dependency.  It contains garbage or 0.
+		PACKSSDW(dst0, R(XMM1));
+		if (bits == 8) {
+			PACKSSWB(dst0, R(XMM1));
+		}
 	}
 
 	if (!fpr.V(dregs[0]).IsSimpleReg(dst0)) {

@@ -763,7 +763,15 @@ public:
 	void PMAXUB(X64Reg dest, OpArg arg);
 	void PMINSW(X64Reg dest, OpArg arg);
 	void PMINUB(X64Reg dest, OpArg arg);
-	// SSE4 has PMAXSB and PMINSB and PMAXUW and PMINUW too if we need them.
+	// SSE4: More MAX/MIN instructions.
+	void PMINSB(X64Reg dest, OpArg arg);
+	void PMINSD(X64Reg dest, OpArg arg);
+	void PMINUW(X64Reg dest, OpArg arg);
+	void PMINUD(X64Reg dest, OpArg arg);
+	void PMAXSB(X64Reg dest, OpArg arg);
+	void PMAXSD(X64Reg dest, OpArg arg);
+	void PMAXUW(X64Reg dest, OpArg arg);
+	void PMAXUD(X64Reg dest, OpArg arg);
 
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
