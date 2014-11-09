@@ -141,7 +141,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #endif
 }
 
-OpArg JitSafeMem::PrepareMemoryOpArg(ReadType type)
+OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 {
 	// We may not even need to move into EAX as a temporary.
 	bool needTemp = alignMask_ != 0xFFFFFFFF;
@@ -336,7 +336,7 @@ void JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitSafeMem::MemCheckImm(ReadType type)
+void JitSafeMem::MemCheckImm(MemoryOpType type)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
@@ -356,7 +356,7 @@ void JitSafeMem::MemCheckImm(ReadType type)
 	}
 }
 
-void JitSafeMem::MemCheckAsm(ReadType type)
+void JitSafeMem::MemCheckAsm(MemoryOpType type)
 {
 	const auto memchecks = CBreakPoints::GetMemCheckRanges();
 	bool possible = false;
