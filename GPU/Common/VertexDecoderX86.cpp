@@ -390,31 +390,99 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 
 void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
+
+#ifdef _M_X64
+	if (dec_->nweights > 4) {
+		// This reads 8 bytes, we split the top 4 so we can expand each set of 4.
+		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+		PSHUFD(XMM9, R(XMM8), _MM_SHUFFLE(1, 1, 1, 1));
+	} else {
+		MOVD_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+	}
+	if (cpu_info.bSSE4_1) {
+		PMOVZXBD(XMM8, R(XMM8));
+	} else {
+		PXOR(fpScratchReg, R(fpScratchReg));
+		PUNPCKLBW(XMM8, R(fpScratchReg));
+		PUNPCKLWD(XMM8, R(fpScratchReg));
+	}
+	if (dec_->nweights > 4) {
+		if (cpu_info.bSSE4_1) {
+			PMOVZXBD(XMM9, R(XMM9));
+		} else {
+			PUNPCKLBW(XMM9, R(fpScratchReg));
+			PUNPCKLWD(XMM9, R(fpScratchReg));
+		}
+	}
+	CVTDQ2PS(XMM8, R(XMM8));
+	if (dec_->nweights > 4)
+		CVTDQ2PS(XMM9, R(XMM9));
+	MULPS(XMM8, M(&by128));
+	if (dec_->nweights > 4)
+		MULPS(XMM9, M(&by128));
+
+	auto weightToAllLanes = [this](X64Reg dst, int lane) {
+		X64Reg src = lane < 4 ? XMM8 : XMM9;
+		if (dst != INVALID_REG && dst != src) {
+			MOVAPS(dst, R(src));
+		} else {
+			// INVALID_REG means ruin the existing src (it's not needed any more.)
+			dst = src;
+		}
+		SHUFPS(dst, R(dst), _MM_SHUFFLE(lane % 4, lane % 4, lane % 4, lane % 4));
+	};
+#endif
+
 	for (int j = 0; j < dec_->nweights; j++) {
+		X64Reg weight = XMM1;
+#ifdef _M_X64
+		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
+		if (j == 3 || j == dec_->nweights - 1) {
+			// In the previous iteration, we already spread this value to all lanes.
+			weight = weightSrc;
+			if (j == 0) {
+				// If there's only the one weight, no one shuffled it for us yet.
+				weightToAllLanes(weight, j);
+			}
+			// If we're on #3, prepare #4 if it's the last (and only for that reg, in fact.)
+			if (j == dec_->nweights - 2) {
+				weightToAllLanes(INVALID_REG, j + 1);
+			}
+		} else {
+			weightToAllLanes(weight, j);
+			// To improve latency, we shuffle in the last weight of the reg.
+			// If we're on slot #2, slot #3 will be the last.  Otherwise, nweights - 1 is last.
+			if ((j == 2 && dec_->nweights > 3) || (j == dec_->nweights - 2)) {
+				// Prepare the last one now for better latency.
+				weightToAllLanes(INVALID_REG, j + 1);
+			}
+		}
+#else
 		MOVZX(32, 8, tempReg1, MDisp(srcReg, dec_->weightoff + j));
-		CVTSI2SS(XMM1, R(tempReg1));
-		MULSS(XMM1, M(&by128));
-		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		CVTSI2SS(weight, R(tempReg1));
+		MULSS(weight, M(&by128));
+		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
+#endif
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
 			MOVAPS(XMM5, MDisp(tempReg2, 16));
 			MOVAPS(XMM6, MDisp(tempReg2, 32));
 			MOVAPS(XMM7, MDisp(tempReg2, 48));
-			MULPS(XMM4, R(XMM1));
-			MULPS(XMM5, R(XMM1));
-			MULPS(XMM6, R(XMM1));
-			MULPS(XMM7, R(XMM1));
+			MULPS(XMM4, R(weight));
+			MULPS(XMM5, R(weight));
+			MULPS(XMM6, R(weight));
+			MULPS(XMM7, R(weight));
 		} else {
 			MOVAPS(XMM2, MDisp(tempReg2, 0));
 			MOVAPS(XMM3, MDisp(tempReg2, 16));
-			MULPS(XMM2, R(XMM1));
-			MULPS(XMM3, R(XMM1));
+			MULPS(XMM2, R(weight));
+			MULPS(XMM3, R(weight));
 			ADDPS(XMM4, R(XMM2));
 			ADDPS(XMM5, R(XMM3));
 			MOVAPS(XMM2, MDisp(tempReg2, 32));
 			MOVAPS(XMM3, MDisp(tempReg2, 48));
-			MULPS(XMM2, R(XMM1));
-			MULPS(XMM3, R(XMM1));
+			MULPS(XMM2, R(weight));
+			MULPS(XMM3, R(weight));
 			ADDPS(XMM6, R(XMM2));
 			ADDPS(XMM7, R(XMM3));
 		}
@@ -424,31 +492,105 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 
 void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	MOV(PTRBITS, R(tempReg2), ImmPtr(&bones));
+
+#ifdef _M_X64
+	if (dec_->nweights > 6) {
+		// Since this is probably not aligned, two MOVQs are better than one MOVDQU.
+		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+		MOVQ_xmm(XMM9, MDisp(srcReg, dec_->weightoff + 8));
+	} else if (dec_->nweights > 4) {
+		// Since this is probably not aligned, two MOVQs are better than one MOVDQU.
+		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+		MOVD_xmm(XMM9, MDisp(srcReg, dec_->weightoff + 8));
+	} else if (dec_->nweights > 2) {
+		MOVQ_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+	} else {
+		MOVD_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
+	}
+	if (dec_->nweights > 4)
+		PSHUFD(XMM9, R(XMM8), _MM_SHUFFLE(3, 3, 3, 2));
+	if (cpu_info.bSSE4_1) {
+		PMOVZXWD(XMM8, R(XMM8));
+	} else {
+		PXOR(fpScratchReg, R(fpScratchReg));
+		PUNPCKLWD(XMM8, R(fpScratchReg));
+	}
+	if (dec_->nweights > 4) {
+		if (cpu_info.bSSE4_1) {
+			PMOVZXWD(XMM9, R(XMM9));
+		} else {
+			PUNPCKLWD(XMM9, R(fpScratchReg));
+		}
+	}
+	CVTDQ2PS(XMM8, R(XMM8));
+	if (dec_->nweights > 4)
+		CVTDQ2PS(XMM9, R(XMM9));
+	MULPS(XMM8, M(&by32768));
+	if (dec_->nweights > 4)
+		MULPS(XMM9, M(&by32768));
+
+	auto weightToAllLanes = [this](X64Reg dst, int lane) {
+		X64Reg src = lane < 4 ? XMM8 : XMM9;
+		if (dst != INVALID_REG && dst != src) {
+			MOVAPS(dst, R(src));
+		} else {
+			// INVALID_REG means ruin the existing src (it's not needed any more.)
+			dst = src;
+		}
+		SHUFPS(dst, R(dst), _MM_SHUFFLE(lane % 4, lane % 4, lane % 4, lane % 4));
+	};
+#endif
+
 	for (int j = 0; j < dec_->nweights; j++) {
+		X64Reg weight = XMM1;
+#ifdef _M_X64
+		X64Reg weightSrc = j < 4 ? XMM8 : XMM9;
+		if (j == 3 || j == dec_->nweights - 1) {
+			// In the previous iteration, we already spread this value to all lanes.
+			weight = weightSrc;
+			if (j == 0) {
+				// If there's only the one weight, no one shuffled it for us yet.
+				weightToAllLanes(weight, j);
+			}
+			// If we're on #3, prepare #4 if it's the last (and only for that reg, in fact.)
+			if (j == dec_->nweights - 2) {
+				weightToAllLanes(INVALID_REG, j + 1);
+			}
+		} else {
+			weightToAllLanes(weight, j);
+			// To improve latency, we shuffle in the last weight of the reg.
+			// If we're on slot #2, slot #3 will be the last.  Otherwise, nweights - 1 is last.
+			if ((j == 2 && dec_->nweights > 3) || (j == dec_->nweights - 2)) {
+				// Prepare the last one now for better latency.
+				weightToAllLanes(INVALID_REG, j + 1);
+			}
+		}
+#else
 		MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->weightoff + j * 2));
-		CVTSI2SS(XMM1, R(tempReg1));
-		MULSS(XMM1, M(&by32768));
-		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		CVTSI2SS(weight, R(tempReg1));
+		MULSS(weight, M(&by32768));
+		SHUFPS(weight, R(weight), _MM_SHUFFLE(0, 0, 0, 0));
+#endif
 		if (j == 0) {
 			MOVAPS(XMM4, MDisp(tempReg2, 0));
 			MOVAPS(XMM5, MDisp(tempReg2, 16));
 			MOVAPS(XMM6, MDisp(tempReg2, 32));
 			MOVAPS(XMM7, MDisp(tempReg2, 48));
-			MULPS(XMM4, R(XMM1));
-			MULPS(XMM5, R(XMM1));
-			MULPS(XMM6, R(XMM1));
-			MULPS(XMM7, R(XMM1));
+			MULPS(XMM4, R(weight));
+			MULPS(XMM5, R(weight));
+			MULPS(XMM6, R(weight));
+			MULPS(XMM7, R(weight));
 		} else {
 			MOVAPS(XMM2, MDisp(tempReg2, 0));
 			MOVAPS(XMM3, MDisp(tempReg2, 16));
-			MULPS(XMM2, R(XMM1));
-			MULPS(XMM3, R(XMM1));
+			MULPS(XMM2, R(weight));
+			MULPS(XMM3, R(weight));
 			ADDPS(XMM4, R(XMM2));
 			ADDPS(XMM5, R(XMM3));
 			MOVAPS(XMM2, MDisp(tempReg2, 32));
 			MOVAPS(XMM3, MDisp(tempReg2, 48));
-			MULPS(XMM2, R(XMM1));
-			MULPS(XMM3, R(XMM1));
+			MULPS(XMM2, R(weight));
+			MULPS(XMM3, R(weight));
 			ADDPS(XMM6, R(XMM2));
 			ADDPS(XMM7, R(XMM3));
 		}
