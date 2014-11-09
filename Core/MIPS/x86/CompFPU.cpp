@@ -333,20 +333,23 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_mxc1(MIPSOpcode op)
-{
+void Jit::Comp_mxc1(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;
 
-	switch((op >> 21) & 0x1f) 
-	{
+	switch ((op >> 21) & 0x1f) {
 	case 0: // R(rt) = FI(fs); break; //mfc1
 		if (rt != MIPS_REG_ZERO) {
-			fpr.MapReg(fs, true, false);  // TODO: Seems the V register becomes dirty here? It shouldn't.
 			gpr.MapReg(rt, false, true);
-			MOVD_xmm(gpr.R(rt), fpr.RX(fs));
+			// If fs is not mapped, most likely it's being abandoned.
+			// Just load from memory in that case.
+			if (fpr.R(fs).IsSimpleReg()) {
+				MOVD_xmm(gpr.R(rt), fpr.RX(fs));
+			} else {
+				MOV(32, gpr.R(rt), fpr.R(fs));
+			}
 		}
 		break;
 
@@ -381,7 +384,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.MapReg(rt, true, false);
+		gpr.KillImmediate(rt, true, false);
 		fpr.MapReg(fs, false, true);
 		MOVD_xmm(fpr.RX(fs), gpr.R(rt));
 		return;
