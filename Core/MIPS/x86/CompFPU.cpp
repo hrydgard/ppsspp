@@ -264,7 +264,6 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
 		{
 			fpr.SpillLock(fs, fd);
-			fpr.StoreFromRegister(fd);
 			CVTTSS2SI(EAX, fpr.R(fs));
 
 			// Did we get an indefinite integer value?
@@ -280,11 +279,13 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 			XOR(32, R(EAX), Imm32(0x7fffffff));
 
 			SetJumpTarget(skip);
+			fpr.DiscardR(fd);
 			MOV(32, fpr.R(fd), R(EAX));
 		}
 		break;
 
 	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
+		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fs == fd, true);
 		if (fpr.R(fs).IsSimpleReg()) {
 			CVTDQ2PS(fpr.RX(fd), fpr.R(fs));
@@ -297,8 +298,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 		{
-			fpr.SpillLock(fs, fd);
-			fpr.StoreFromRegister(fd);
+			fpr.SpillLock(fs);
 			CVTSS2SI(EAX, fpr.R(fs));
 
 			// Did we get an indefinite integer value?
@@ -314,6 +314,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 			XOR(32, R(EAX), Imm32(0x7fffffff));
 
 			SetJumpTarget(skip);
+			fpr.DiscardR(fd);
 			MOV(32, fpr.R(fd), R(EAX));
 		}
 		break;
