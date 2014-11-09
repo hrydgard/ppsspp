@@ -43,14 +43,14 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	static bool NeedsTempForSETcc(X64Reg reg) {
+	static bool HasLowSubregister(OpArg arg) {
 #ifndef _M_X64
 		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
-		if (reg != EAX && reg != EBX && reg != ECX && reg != EDX) {
-			return true;
+		if (!arg.IsSimpleReg(EAX) && !arg.IsSimpleReg(EBX) && !arg.IsSimpleReg(ECX) && !arg.IsSimpleReg(EDX)) {
+			return false;
 		}
 #endif
-		return false;
+		return arg.IsSimpleReg();
 	}
 
 	void Jit::CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
@@ -120,7 +120,7 @@ namespace MIPSComp
 				// This is often used before a branch.  If rs is not already mapped, let's leave it.
 				gpr.MapReg(rt, rt == rs, true);
 
-				bool needsTemp = NeedsTempForSETcc(gpr.RX(rt)) || rt == rs;
+				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(rs), Imm32(suimm));
 					SETcc(CC_L, R(EAX));
@@ -142,7 +142,7 @@ namespace MIPSComp
 				// This is often used before a branch.  If rs is not already mapped, let's leave it.
 				gpr.MapReg(rt, rt == rs, true);
 
-				bool needsTemp = NeedsTempForSETcc(gpr.RX(rt)) || rt == rs;
+				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(rs), Imm32(suimm));
 					SETcc(CC_B, R(EAX));
@@ -482,7 +482,7 @@ namespace MIPSComp
 					gpr.MapReg(lhs, true, false);
 				}
 
-				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
+				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
 					SETcc(cc, R(EAX));
@@ -522,7 +522,7 @@ namespace MIPSComp
 					gpr.MapReg(lhs, true, false);
 				}
 
-				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
+				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
 					SETcc(cc, R(EAX));
@@ -770,15 +770,13 @@ namespace MIPSComp
 
 			gpr.Lock(rd, rt);
 			gpr.MapReg(rd, rd == rt, true);
-#ifdef _M_IX86
-			// work around the byte-register addressing problem
-			if (!gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX))
+			// Work around the byte-register addressing problem.
+			if (gpr.R(rt).IsSimpleReg() && !HasLowSubregister(gpr.R(rt)))
 			{
 				MOV(32, R(EAX), gpr.R(rt));
 				MOVSX(32, 8, gpr.RX(rd), R(EAX));
 			}
 			else
-#endif
 			{
 				gpr.KillImmediate(rt, true, false);
 				MOVSX(32, 8, gpr.RX(rd), gpr.R(rt));
