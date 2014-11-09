@@ -45,8 +45,8 @@ namespace MIPSComp
 {
 	static bool NeedsTempForSETcc(X64Reg reg) {
 #ifndef _M_X64
-		// Can't use ESI or EDI, no 8-bit version.
-		if (reg != EDX && reg != ECX) {
+		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
+		if (reg != EAX && reg != EBX && reg != ECX && reg != EDX) {
 			return true;
 		}
 #endif
