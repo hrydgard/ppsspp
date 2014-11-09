@@ -215,11 +215,52 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	}
 }
 
+static u32 mxcsrTemp;
+
 void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	
 	int fs = _FS;
 	int fd = _FD;
+
+	auto execRounding = [&](void (XEmitter::*conv)(X64Reg, OpArg), int setMXCSR) {
+		fpr.SpillLock(fs);
+
+		// Small optimization: 0 is our default mode anyway.
+		if (setMXCSR == 0 && !js.hasSetRounding) {
+			setMXCSR = -1;
+		}
+		if (setMXCSR != -1) {
+			STMXCSR(M(&mxcsrTemp));
+			MOV(32, R(EAX), M(&mxcsrTemp));
+			AND(32, R(EAX), Imm32(~(3 << 13)));
+			OR(32, R(EAX), Imm32(setMXCSR << 13));
+			MOV(32, M(&mips_->temp), R(EAX));
+			LDMXCSR(M(&mips_->temp));
+		}
+
+		(this->*conv)(EAX, fpr.R(fs));
+
+		// Did we get an indefinite integer value?
+		CMP(32, R(EAX), Imm32(0x80000000));
+		FixupBranch skip = J_CC(CC_NE);
+		MOVSS(XMM0, fpr.R(fs));
+		XORPS(XMM1, R(XMM1));
+		CMPSS(XMM0, R(XMM1), CMP_LT);
+
+		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
+		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
+		MOVD_xmm(R(EAX), XMM0);
+		XOR(32, R(EAX), Imm32(0x7fffffff));
+
+		SetJumpTarget(skip);
+		fpr.DiscardR(fd);
+		MOV(32, fpr.R(fd), R(EAX));
+
+		if (setMXCSR != -1) {
+			LDMXCSR(M(&mxcsrTemp));
+		}
+	};
 
 	switch (op & 0x3f) {
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
@@ -256,26 +297,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
-		{
-			fpr.SpillLock(fs, fd);
-			CVTTSS2SI(EAX, fpr.R(fs));
-
-			// Did we get an indefinite integer value?
-			CMP(32, R(EAX), Imm32(0x80000000));
-			FixupBranch skip = J_CC(CC_NE);
-			MOVSS(XMM0, fpr.R(fs));
-			XORPS(XMM1, R(XMM1));
-			CMPSS(XMM0, R(XMM1), CMP_LT);
-
-			// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
-			// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-			MOVD_xmm(R(EAX), XMM0);
-			XOR(32, R(EAX), Imm32(0x7fffffff));
-
-			SetJumpTarget(skip);
-			fpr.DiscardR(fd);
-			MOV(32, fpr.R(fd), R(EAX));
-		}
+		execRounding(&XEmitter::CVTTSS2SI, -1);
 		break;
 
 	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
@@ -291,31 +313,19 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
-		{
-			fpr.SpillLock(fs);
-			CVTSS2SI(EAX, fpr.R(fs));
-
-			// Did we get an indefinite integer value?
-			CMP(32, R(EAX), Imm32(0x80000000));
-			FixupBranch skip = J_CC(CC_NE);
-			MOVSS(XMM0, fpr.R(fs));
-			XORPS(XMM1, R(XMM1));
-			CMPSS(XMM0, R(XMM1), CMP_LT);
-
-			// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
-			// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-			MOVD_xmm(R(EAX), XMM0);
-			XOR(32, R(EAX), Imm32(0x7fffffff));
-
-			SetJumpTarget(skip);
-			fpr.DiscardR(fd);
-			MOV(32, fpr.R(fd), R(EAX));
-		}
+		// Uses the current rounding mode.
+		execRounding(&XEmitter::CVTSS2SI, -1);
 		break;
 
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
+		execRounding(&XEmitter::CVTSS2SI, 0);
+		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
+		execRounding(&XEmitter::CVTSS2SI, 2);
+		break;
 	case 15: //FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
+		execRounding(&XEmitter::CVTSS2SI, 1);
+		break;
 	default:
 		DISABLE;
 		return;

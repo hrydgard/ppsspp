@@ -1398,12 +1398,18 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		break;
 	}
 
+	// Small optimization: 0 is our default mode anyway.
+	if (setMXCSR == 0 && !js.hasSetRounding) {
+		setMXCSR = -1;
+	}
 	// Except for truncate, we need to update MXCSR to our preferred rounding mode.
 	if (setMXCSR != -1) {
 		STMXCSR(M(&mxcsrTemp));
 		MOV(32, R(EAX), M(&mxcsrTemp));
 		AND(32, R(EAX), Imm32(~(3 << 13)));
-		OR(32, R(EAX), Imm32(setMXCSR << 13));
+		if (setMXCSR != 0) {
+			OR(32, R(EAX), Imm32(setMXCSR << 13));
+		}
 		MOV(32, M(&mips_->temp), R(EAX));
 		LDMXCSR(M(&mips_->temp));
 	}
