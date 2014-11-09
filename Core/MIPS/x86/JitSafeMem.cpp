@@ -145,9 +145,11 @@ OpArg JitSafeMem::PrepareMemoryOpArg(ReadType type)
 {
 	// We may not even need to move into EAX as a temporary.
 	bool needTemp = alignMask_ != 0xFFFFFFFF;
+
 #ifdef _M_IX86
+	bool needMask = true; // raddr_ != MIPS_REG_SP;    // Commented out this speedhack due to low impact
 	// We always mask on 32 bit in fast memory mode.
-	needTemp = needTemp || fast_;
+	needTemp = needTemp || (fast_ && needMask);
 #endif
 
 	if (jit_->gpr.R(raddr_).IsSimpleReg() && !needTemp)
@@ -177,7 +179,9 @@ OpArg JitSafeMem::PrepareMemoryOpArg(ReadType type)
 	else
 	{
 #ifdef _M_IX86
-		jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+		if (needMask) {
+			jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+		}
 #endif
 	}
 
