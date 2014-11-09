@@ -113,37 +113,47 @@ namespace MIPSComp
 			break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			if (gpr.IsImm(rs))
-			{
+			if (gpr.IsImm(rs)) {
 				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
-				break;
-			}
+			} else {
+				gpr.Lock(rt, rs);
+				// This is often used before a branch.  If rs is not already mapped, let's leave it.
+				gpr.MapReg(rt, rt == rs, true);
 
-			gpr.Lock(rt, rs);
-			gpr.MapReg(rs, true, false);
-			gpr.MapReg(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(simm));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+				bool needsTemp = NeedsTempForSETcc(gpr.RX(rt)) || rt == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_L, R(EAX));
+					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+				} else {
+					XOR(32, gpr.R(rt), gpr.R(rt));
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_L, gpr.R(rt));
+				}
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			if (gpr.IsImm(rs))
-			{
+			if (gpr.IsImm(rs)) {
 				gpr.SetImm(rt, gpr.GetImm(rs) < suimm);
-				break;
-			}
+			} else {
+				gpr.Lock(rt, rs);
+				// This is often used before a branch.  If rs is not already mapped, let's leave it.
+				gpr.MapReg(rt, rt == rs, true);
 
-			gpr.Lock(rt, rs);
-			gpr.MapReg(rs, true, false);
-			gpr.MapReg(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(suimm));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+				bool needsTemp = NeedsTempForSETcc(gpr.RX(rt)) || rt == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_B, R(EAX));
+					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+				} else {
+					XOR(32, gpr.R(rt), gpr.R(rt));
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_B, gpr.R(rt));
+				}
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 12: // R(rt) = R(rs) & uimm; break; //andi
@@ -447,33 +457,49 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
-			else
-			{
-				gpr.Lock(rt, rs, rd);
+			} else if (rs == rt) {
+				gpr.SetImm(rd, 0);
+			} else {
+				gpr.Lock(rd, rs, rt);
 				gpr.MapReg(rs, true, false);
-				gpr.MapReg(rd, rd == rt, true);
-				XOR(32, R(EAX), R(EAX));
-				CMP(32, gpr.R(rs), gpr.R(rt));
-				SETcc(CC_L, R(EAX));
-				MOV(32, gpr.R(rd), R(EAX));
+				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), gpr.R(rt));
+					SETcc(CC_L, R(EAX));
+					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+				} else {
+					XOR(32, gpr.R(rd), gpr.R(rd));
+					CMP(32, gpr.R(rs), gpr.R(rt));
+					SETcc(CC_L, gpr.R(rd));
+				}
 				gpr.UnlockAll();
 			}
 			break;
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
-			else
-			{
+			} else if (rs == rt) {
+				gpr.SetImm(rd, 0);
+			} else {
 				gpr.Lock(rd, rs, rt);
 				gpr.MapReg(rs, true, false);
-				gpr.MapReg(rd, rd == rt, true);
-				XOR(32, R(EAX), R(EAX));
-				CMP(32, gpr.R(rs), gpr.R(rt));
-				SETcc(CC_B, R(EAX));
-				MOV(32, gpr.R(rd), R(EAX));
+				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), gpr.R(rt));
+					SETcc(CC_B, R(EAX));
+					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+				} else {
+					XOR(32, gpr.R(rd), gpr.R(rd));
+					CMP(32, gpr.R(rs), gpr.R(rt));
+					SETcc(CC_B, gpr.R(rd));
+				}
 				gpr.UnlockAll();
 			}
 			break;
