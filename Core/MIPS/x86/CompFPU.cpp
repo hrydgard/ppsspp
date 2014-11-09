@@ -235,7 +235,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
-		MOVSS(fpr.RX(fd), fpr.R(fs));
+		if (fd != fs) {
+			MOVSS(fpr.RX(fd), fpr.R(fs));
+		}
 		PAND(fpr.RX(fd), M(ssNoSignMask));
 		break;
 
@@ -250,7 +252,9 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
-		MOVSS(fpr.RX(fd), fpr.R(fs));
+		if (fd != fs) {
+			MOVSS(fpr.RX(fd), fpr.R(fs));
+		}
 		PXOR(fpr.RX(fd), M(ssSignBits2));
 		break;
 
