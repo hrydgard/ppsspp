@@ -93,7 +93,7 @@ static const GLushort cullingMode[] = {
 };
 
 static const GLushort ztests[] = {
-	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL,
+	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
@@ -732,7 +732,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorY2 = gstate.getScissorY2() + 1;
 
 	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0
+	if (scissorX1 == 0 && scissorY1 == 0 
 		&& scissorX2 >= (int) gstate_c.curRTWidth
 		&& scissorY2 >= (int) gstate_c.curRTHeight) {
 		glstate.scissorTest.disable();
@@ -765,7 +765,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set(
-			renderX + (0 + regionX1) * renderWidthFactor,
+			renderX + (0 + regionX1) * renderWidthFactor, 
 			renderY + (0 - regionY1) * renderHeightFactor,
 			(regionX2 - regionX1) * renderWidthFactor,
 			(regionY2 - regionY1) * renderHeightFactor);

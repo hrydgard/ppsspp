@@ -305,7 +305,7 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 			(float)((color & 0xFF) >> 0),
 			(float)((color & 0xFF00) >> 8),
 			(float)((color & 0xFF0000) >> 16),
-			(float)alpha
+			(float)alpha 
 		};
 		glUniform4fv(uniform, 1, col);
 	}
@@ -413,8 +413,10 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 					a = (n + f) / (n - f);
 					b = (2.0f * n * f) / (n - f);
 
-					flippedMatrix[10] = a;
-					flippedMatrix[14] = b;
+					if (!my_isnan(a) && !my_isnan(b)) {
+						flippedMatrix[10] = a;
+						flippedMatrix[14] = b;
+					}
 				}
 			}
 		}
