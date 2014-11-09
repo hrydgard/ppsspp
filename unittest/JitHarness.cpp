@@ -22,6 +22,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MemMap.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -130,7 +131,6 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
-			if (i == 0) printf("%s\n", lines[j]);
 			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
 				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
 				compileSuccess = false;
@@ -141,6 +141,15 @@ bool TestJit() {
 
 	*p++ = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
 	*p++ = MIPS_MAKE_BREAK(1);
+
+	// Dogfood.
+	addr = currentMIPS->pc;
+	for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
+		char line[512];
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, line, true);
+		addr += 4;
+		printf("%s\n", line);
+	}
 
 	printf("\n");
 

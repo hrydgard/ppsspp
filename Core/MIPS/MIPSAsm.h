@@ -8,7 +8,7 @@ namespace MIPSAsm {
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address, u32& dest);
 
 enum eMipsImmediateType { MIPS_NOIMMEDIATE, MIPS_IMMEDIATE5,
-	MIPS_IMMEDIATE16, MIPS_IMMEDIATE20, MIPS_IMMEDIATE26 };
+	MIPS_IMMEDIATE16, MIPS_IMMEDIATE20, MIPS_IMMEDIATE26, MIPS_IMMEDIATE8 };
 
 typedef struct {
 	int rs;			// source reg
@@ -17,6 +17,7 @@ typedef struct {
 	eMipsImmediateType ImmediateType;
 	int Immediate;
 	int OriginalImmediate;
+	int Condition;
 } tMipsOpcodeVariables;
 
 class CMipsInstruction
