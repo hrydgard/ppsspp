@@ -43,14 +43,14 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	static bool NeedsTempForSETcc(X64Reg reg) {
+	static bool HasLowSubregister(OpArg arg) {
 #ifndef _M_X64
 		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
-		if (reg != EAX && reg != EBX && reg != ECX && reg != EDX) {
-			return true;
+		if (!arg.IsSimpleReg(EAX) && !arg.IsSimpleReg(EBX) && !arg.IsSimpleReg(ECX) && !arg.IsSimpleReg(EDX)) {
+			return false;
 		}
 #endif
-		return false;
+		return arg.IsSimpleReg();
 	}
 
 	void Jit::CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
@@ -113,37 +113,47 @@ namespace MIPSComp
 			break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			if (gpr.IsImm(rs))
-			{
+			if (gpr.IsImm(rs)) {
 				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
-				break;
-			}
+			} else {
+				gpr.Lock(rt, rs);
+				// This is often used before a branch.  If rs is not already mapped, let's leave it.
+				gpr.MapReg(rt, rt == rs, true);
 
-			gpr.Lock(rt, rs);
-			gpr.MapReg(rs, true, false);
-			gpr.MapReg(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(simm));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_L, R(EAX));
+					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+				} else {
+					XOR(32, gpr.R(rt), gpr.R(rt));
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_L, gpr.R(rt));
+				}
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			if (gpr.IsImm(rs))
-			{
+			if (gpr.IsImm(rs)) {
 				gpr.SetImm(rt, gpr.GetImm(rs) < suimm);
-				break;
-			}
+			} else {
+				gpr.Lock(rt, rs);
+				// This is often used before a branch.  If rs is not already mapped, let's leave it.
+				gpr.MapReg(rt, rt == rs, true);
 
-			gpr.Lock(rt, rs);
-			gpr.MapReg(rs, true, false);
-			gpr.MapReg(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(suimm));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_B, R(EAX));
+					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+				} else {
+					XOR(32, gpr.R(rt), gpr.R(rt));
+					CMP(32, gpr.R(rs), Imm32(suimm));
+					SETcc(CC_B, gpr.R(rt));
+				}
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 12: // R(rt) = R(rs) & uimm; break; //andi
@@ -447,33 +457,81 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
-			else
-			{
-				gpr.Lock(rt, rs, rd);
-				gpr.MapReg(rs, true, false);
-				gpr.MapReg(rd, rd == rt, true);
-				XOR(32, R(EAX), R(EAX));
-				CMP(32, gpr.R(rs), gpr.R(rt));
-				SETcc(CC_L, R(EAX));
-				MOV(32, gpr.R(rd), R(EAX));
+			} else if (rs == rt) {
+				gpr.SetImm(rd, 0);
+			} else {
+				gpr.Lock(rd, rs, rt);
+				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				// Let's try to avoid loading rs or if it's an imm, flushing it.
+				MIPSGPReg lhs = rs;
+				MIPSGPReg rhs = rt;
+				CCFlags cc = CC_L;
+				if (gpr.IsImm(lhs)) {
+					// rhs is guaranteed not to be an imm (handled above.)
+					std::swap(lhs, rhs);
+					cc = SwapCCFlag(cc);
+				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
+					// Let's try to pick which makes more sense to load.
+					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+						std::swap(lhs, rhs);
+						cc = SwapCCFlag(cc);
+					}
+					gpr.MapReg(lhs, true, false);
+				}
+
+				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, R(EAX));
+					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+				} else {
+					XOR(32, gpr.R(rd), gpr.R(rd));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, gpr.R(rd));
+				}
 				gpr.UnlockAll();
 			}
 			break;
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
-			else
-			{
+			} else if (rs == rt) {
+				gpr.SetImm(rd, 0);
+			} else {
 				gpr.Lock(rd, rs, rt);
-				gpr.MapReg(rs, true, false);
-				gpr.MapReg(rd, rd == rt, true);
-				XOR(32, R(EAX), R(EAX));
-				CMP(32, gpr.R(rs), gpr.R(rt));
-				SETcc(CC_B, R(EAX));
-				MOV(32, gpr.R(rd), R(EAX));
+				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				// Let's try to avoid loading rs or if it's an imm, flushing it.
+				MIPSGPReg lhs = rs;
+				MIPSGPReg rhs = rt;
+				CCFlags cc = CC_B;
+				if (gpr.IsImm(lhs)) {
+					// rhs is guaranteed not to be an imm (handled above.)
+					std::swap(lhs, rhs);
+					cc = SwapCCFlag(cc);
+				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
+					// Let's try to pick which makes more sense to load.
+					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+						std::swap(lhs, rhs);
+						cc = SwapCCFlag(cc);
+					}
+					gpr.MapReg(lhs, true, false);
+				}
+
+				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
+				if (needsTemp) {
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, R(EAX));
+					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+				} else {
+					XOR(32, gpr.R(rd), gpr.R(rd));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, gpr.R(rd));
+				}
 				gpr.UnlockAll();
 			}
 			break;
@@ -650,8 +708,13 @@ namespace MIPSComp
 			gpr.MapReg(rt, rs == rt, true);
 			if (rs != rt)
 				MOV(32, gpr.R(rt), gpr.R(rs));
-			SHR(32, gpr.R(rt), Imm8(pos));
-			AND(32, gpr.R(rt), Imm32(mask));
+			if (pos != 0) {
+				SHR(32, gpr.R(rt), Imm8(pos));
+			}
+			// Might not need to AND if we used a wall anyway.
+			if ((0xFFFFFFFF >> pos) != mask) {
+				AND(32, gpr.R(rt), Imm32(mask));
+			}
 			gpr.UnlockAll();
 			break;
 
@@ -675,13 +738,29 @@ namespace MIPSComp
 						OR(32, gpr.R(rt), Imm32(inserted));
 					gpr.UnlockAll();
 				}
+				else if (gpr.IsImm(rt))
+				{
+					// This happens.  We can skip the AND and a load.
+					gpr.Lock(rs, rt);
+					u32 rtImm = gpr.GetImm(rt) & destmask;
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), gpr.R(rs));
+					AND(32, gpr.R(rt), Imm32(sourcemask));
+					if (pos != 0) {
+						SHL(32, gpr.R(rt), Imm8(pos));
+					}
+					OR(32, gpr.R(rt), Imm32(rtImm));
+					gpr.UnlockAll();
+				}
 				else
 				{
 					gpr.Lock(rs, rt);
 					gpr.MapReg(rt, true, true);
 					MOV(32, R(EAX), gpr.R(rs));
 					AND(32, R(EAX), Imm32(sourcemask));
-					SHL(32, R(EAX), Imm8(pos));
+					if (pos != 0) {
+						SHL(32, R(EAX), Imm8(pos));
+					}
 					AND(32, gpr.R(rt), Imm32(destmask));
 					OR(32, gpr.R(rt), R(EAX));
 					gpr.UnlockAll();
@@ -712,15 +791,13 @@ namespace MIPSComp
 
 			gpr.Lock(rd, rt);
 			gpr.MapReg(rd, rd == rt, true);
-#ifdef _M_IX86
-			// work around the byte-register addressing problem
-			if (!gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX))
+			// Work around the byte-register addressing problem.
+			if (gpr.R(rt).IsSimpleReg() && !HasLowSubregister(gpr.R(rt)))
 			{
 				MOV(32, R(EAX), gpr.R(rt));
 				MOVSX(32, 8, gpr.RX(rd), R(EAX));
 			}
 			else
-#endif
 			{
 				gpr.KillImmediate(rt, true, false);
 				MOVSX(32, 8, gpr.RX(rd), gpr.R(rt));

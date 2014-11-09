@@ -130,7 +130,7 @@ void Jit::BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX)
 	SetJumpTarget(skip);
 }
 
-static CCFlags FlipCCFlag(CCFlags flag)
+CCFlags Jit::FlipCCFlag(CCFlags flag)
 {
 	switch (flag)
 	{
@@ -152,6 +152,32 @@ static CCFlags FlipCCFlag(CCFlags flag)
 	case CC_NLE: return CC_LE;
 	}
 	ERROR_LOG_REPORT(JIT, "FlipCCFlag: Unexpected CC flag: %d", flag);
+	return CC_O;
+}
+
+CCFlags Jit::SwapCCFlag(CCFlags flag)
+{
+	// This swaps the comparison for an lhs/rhs swap, but doesn't flip/invert the logic.
+	switch (flag)
+	{
+	case CC_O: return CC_O;
+	case CC_NO: return CC_NO;
+	case CC_B: return CC_A;
+	case CC_NB: return CC_NA;
+	case CC_Z: return CC_Z;
+	case CC_NZ: return CC_NZ;
+	case CC_BE: return CC_AE;
+	case CC_NBE: return CC_NAE;
+	case CC_S: return CC_S;
+	case CC_NS: return CC_NS;
+	case CC_P: return CC_P;
+	case CC_NP: return CC_NP;
+	case CC_L: return CC_G;
+	case CC_NL: return CC_NG;
+	case CC_LE: return CC_GE;
+	case CC_NLE: return CC_NGE;
+	}
+	ERROR_LOG_REPORT(JIT, "SwapCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 

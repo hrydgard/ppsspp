@@ -230,6 +230,8 @@ private:
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
 	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
 	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	static CCFlags FlipCCFlag(CCFlags flag);
+	static CCFlags SwapCCFlag(CCFlags flag);
 
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
