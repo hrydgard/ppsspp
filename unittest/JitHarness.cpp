@@ -41,7 +41,9 @@ InputState input_state;
 #endif
 
 void UnitTestTerminator() {
+	// Bails out of jit so we can time things.
 	coreState = CORE_POWERDOWN;
+	hleSkipDeadbeef();
 }
 
 HLEFunction UnitTestFakeSyscalls[] = {
@@ -102,7 +104,21 @@ bool TestJit() {
 	u32 *p = (u32 *)Memory::GetPointer(currentMIPS->pc);
 
 	// TODO: Smarter way of seeding in the code sequence.
+	static const char *lines[] = {
+		"abs.s f1, f1",
+		"cvt.w.s f1, f1",
+		"cvt.w.s f3, f1",
+		"cvt.w.s f0, f2",
+		"cvt.w.s f5, f1",
+		"cvt.w.s f6, f5",
+	};
+
+	bool compileSuccess = true;
+	u32 addr = currentMIPS->pc;
+	DebugInterface *dbg = currentDebugMIPS;
 	for (int i = 0; i < 100; ++i) {
+		/*
+		// VFPU ops aren't supported by MIPSAsm yet.
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15);
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
@@ -110,18 +126,27 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
+		*/
+		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
+			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
+				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
+				compileSuccess = false;
+			}
+			addr += 4;
+		}
 	}
 
 	*p++ = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
 	*p++ = MIPS_MAKE_BREAK(1);
 
-	double interp_speed = ExecCPUTest();
+	double jit_speed, interp_speed;
+	if (compileSuccess) {
+		interp_speed = ExecCPUTest();
+		mipsr4k.UpdateCore(CPU_JIT);
+		jit_speed = ExecCPUTest();
 
-	mipsr4k.UpdateCore(CPU_JIT);
-
-	double jit_speed = ExecCPUTest();
-
-	printf("Jit was %fx faster than interp.\n", jit_speed / interp_speed);
+		printf("Jit was %fx faster than interp.\n", jit_speed / interp_speed);
+	}
 
 	DestroyJitHarness();
 
