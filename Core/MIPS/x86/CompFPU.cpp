@@ -152,26 +152,26 @@ static const u64 MEMORY_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x0000
 static const u64 MEMORY_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
-void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
-{
+void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN) {
 	gpr.MapReg(MIPS_REG_FPCOND, false, true);
-	MOVSS(XMM0, fpr.R(lhs));
-	CMPSS(XMM0, fpr.R(rhs), compare);
-	MOVD_xmm(gpr.R(MIPS_REG_FPCOND), XMM0);
 
 	// This means that NaN also means true, e.g. !<> or !>, etc.
-	if (allowNaN)
-	{
+	if (allowNaN) {
 		MOVSS(XMM0, fpr.R(lhs));
-		CMPUNORDSS(XMM0, fpr.R(rhs));
+		MOVSS(XMM1, fpr.R(lhs));
+		CMPSS(XMM0, fpr.R(rhs), compare);
+		CMPUNORDSS(XMM1, fpr.R(rhs));
 
-		MOVD_xmm(R(EAX), XMM0);
-		OR(32, gpr.R(MIPS_REG_FPCOND), R(EAX));
+		POR(XMM0, R(XMM1));
+	} else {
+		MOVSS(XMM0, fpr.R(lhs));
+		CMPSS(XMM0, fpr.R(rhs), compare);
 	}
+
+	MOVD_xmm(gpr.R(MIPS_REG_FPCOND), XMM0);
 }
 
-void Jit::Comp_FPUComp(MIPSOpcode op)
-{
+void Jit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
