@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "base/timeutil.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -128,6 +130,7 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
+			if (i == 0) printf("%s\n", lines[j]);
 			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
 				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
 				compileSuccess = false;
@@ -139,14 +142,33 @@ bool TestJit() {
 	*p++ = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
 	*p++ = MIPS_MAKE_BREAK(1);
 
+	printf("\n");
+
 	double jit_speed, interp_speed;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPU_JIT);
 		jit_speed = ExecCPUTest();
 
-		printf("Jit was %fx faster than interp.\n", jit_speed / interp_speed);
+		// Disassemble
+		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
+		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
+#ifdef ARM
+		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
+#else
+		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
+#endif
+		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
+		// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
+		const int cutoff = 25;
+		for (int i = 0; i < std::min((int)lines.size(), cutoff); i++) {
+			printf("%s\n", lines[i].c_str());
+		}
+		if (lines.size() > cutoff)
+			printf("...\n");
 	}
+
+	printf("\n");
 
 	DestroyJitHarness();
 

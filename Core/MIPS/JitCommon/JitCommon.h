@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include "Common/Common.h"
 
 struct JitBlock;
@@ -56,3 +59,6 @@ struct JitBlock;
 namespace MIPSComp {
 	extern Jit *jit;
 }
+
+std::vector<std::string> DisassembleArm2(const u8 *data, int size);
+std::vector<std::string> DisassembleX86(const u8 *data, int size);

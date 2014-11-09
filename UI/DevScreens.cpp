@@ -24,8 +24,6 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "ext/disarm.h"
-#include "ext/udis86/udis86.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -432,37 +430,6 @@ void JitCompareScreen::CreateViews() {
 	OnCurrentBlock(ignore);
 }
 
-#ifdef ARM
-std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
-	std::vector<std::string> lines;
-
-	char temp[256];
-	for (int i = 0; i < size; i += 4) {
-		const u32 *codePtr = (const u32 *)(data + i);
-		u32 inst = codePtr[0];
-		u32 next = (i < size - 4) ? codePtr[1] : 0;
-		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
-		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
-			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
-			u32 hi = ((next & 0x000F0000) >> 4) | (next	 & 0x0FFF);
-			int reg0 = (inst & 0x0000F000) >> 12;
-			int reg1 = (next & 0x0000F000) >> 12;
-			if (reg0 == reg1) {
-				sprintf(temp, "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
-				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				lines.push_back(temp);
-				i += 4;
-				continue;
-			}
-		}
-		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
-		std::string buf = temp;
-		lines.push_back(buf);
-	}
-	return lines;
-}
-#endif
-
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();
 	rightDisasm_->Clear();
@@ -494,26 +461,12 @@ void JitCompareScreen::UpdateDisasm() {
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
+#else
+	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
+#endif
 	for (size_t i = 0; i < targetDis.size(); i++) {
 		rightDisasm_->Add(new TextView(targetDis[i]));
 	}
-#else
-	ud_t ud_obj;
-	ud_init(&ud_obj);
-#ifdef _M_X64
-	ud_set_mode(&ud_obj, 64);
-#else
-	ud_set_mode(&ud_obj, 32);
-#endif
-	ud_set_pc(&ud_obj, (intptr_t)block->normalEntry);
-	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
-	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
-
-	ud_set_input_buffer(&ud_obj, block->normalEntry, block->codeSize);
-	while (ud_disassemble(&ud_obj) != 0) {
-		rightDisasm_->Add(new TextView(ud_insn_asm(&ud_obj)));
-	}
-#endif
 }
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {

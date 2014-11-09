@@ -138,6 +138,10 @@ static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
+Thin3DContext *GetThin3D() {
+	return thin3d;
+}
+
 std::thread *graphicsLoadThread;
 
 class AndroidLogger : public LogListener {
