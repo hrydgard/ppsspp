@@ -463,18 +463,37 @@ namespace MIPSComp
 				gpr.SetImm(rd, 0);
 			} else {
 				gpr.Lock(rd, rs, rt);
-				gpr.MapReg(rs, true, false);
 				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				// Let's try to avoid loading rs or if it's an imm, flushing it.
+				MIPSGPReg lhs = rs;
+				MIPSGPReg rhs = rt;
+				CCFlags cc = CC_L;
+				if (gpr.IsImm(lhs)) {
+					// Hmm.  This is a bit confusing.  lhs may be ZERO, but its location may be memory.
+					// TODO: That's probably not a good thing, but changing it breaks more...
+					gpr.SetImm(lhs, gpr.GetImm(lhs));
+					// rhs is guaranteed not to be an imm (handled above.)
+					std::swap(lhs, rhs);
+					cc = SwapCCFlag(cc);
+				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
+					// Let's try to pick which makes more sense to load.
+					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+						std::swap(lhs, rhs);
+						cc = SwapCCFlag(cc);
+					}
+					gpr.MapReg(lhs, true, false);
+				}
 
 				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
-					CMP(32, gpr.R(rs), gpr.R(rt));
-					SETcc(CC_L, R(EAX));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, R(EAX));
 					MOVZX(32, 8, gpr.RX(rd), R(EAX));
 				} else {
 					XOR(32, gpr.R(rd), gpr.R(rd));
-					CMP(32, gpr.R(rs), gpr.R(rt));
-					SETcc(CC_L, gpr.R(rd));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, gpr.R(rd));
 				}
 				gpr.UnlockAll();
 			}
@@ -487,18 +506,37 @@ namespace MIPSComp
 				gpr.SetImm(rd, 0);
 			} else {
 				gpr.Lock(rd, rs, rt);
-				gpr.MapReg(rs, true, false);
 				gpr.MapReg(rd, rd == rt || rd == rs, true);
+
+				// Let's try to avoid loading rs or if it's an imm, flushing it.
+				MIPSGPReg lhs = rs;
+				MIPSGPReg rhs = rt;
+				CCFlags cc = CC_B;
+				if (gpr.IsImm(lhs)) {
+					// Hmm.  This is a bit confusing.  lhs may be ZERO, but its location may be memory.
+					// TODO: That's probably not a good thing, but changing it breaks more...
+					gpr.SetImm(lhs, gpr.GetImm(lhs));
+					// rhs is guaranteed not to be an imm (handled above.)
+					std::swap(lhs, rhs);
+					cc = SwapCCFlag(cc);
+				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
+					// Let's try to pick which makes more sense to load.
+					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+						std::swap(lhs, rhs);
+						cc = SwapCCFlag(cc);
+					}
+					gpr.MapReg(lhs, true, false);
+				}
 
 				bool needsTemp = NeedsTempForSETcc(gpr.RX(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
-					CMP(32, gpr.R(rs), gpr.R(rt));
-					SETcc(CC_B, R(EAX));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, R(EAX));
 					MOVZX(32, 8, gpr.RX(rd), R(EAX));
 				} else {
 					XOR(32, gpr.R(rd), gpr.R(rd));
-					CMP(32, gpr.R(rs), gpr.R(rt));
-					SETcc(CC_B, gpr.R(rd));
+					CMP(32, gpr.R(lhs), gpr.R(rhs));
+					SETcc(cc, gpr.R(rd));
 				}
 				gpr.UnlockAll();
 			}
