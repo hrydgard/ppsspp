@@ -42,32 +42,27 @@
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
-void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters)
-{
+void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters) {
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
 	fpr.SpillLock(fd, fs, ft);
 
-	if (fs == fd)
-	{
+	if (fs == fd) {
 		fpr.MapReg(fd, true, true);
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
-	}
-	else if (ft == fd && !orderMatters)
-	{
+	} else if (ft == fd && !orderMatters) {
 		fpr.MapReg(fd, true, true);
 		(this->*arith)(fpr.RX(fd), fpr.R(fs));
-	}
-	else if (ft != fd && fs != fd && ft != fs) {
+	} else if (ft != fd) {
+		// fs can't be fd (handled above.)
 		fpr.MapReg(fd, false, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
-	}
-	else {
+	} else {
+		// fd must be ft.
 		fpr.MapReg(fd, true, true);
 		MOVSS(XMM0, fpr.R(fs));
 		(this->*arith)(XMM0, fpr.R(ft));
@@ -76,8 +71,7 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_FPU3op(MIPSOpcode op)
-{ 
+void Jit::Comp_FPU3op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	switch (op & 0x3f) 
 	{
@@ -93,15 +87,13 @@ void Jit::Comp_FPU3op(MIPSOpcode op)
 
 static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
-void Jit::Comp_FPULS(MIPSOpcode op)
-{
+void Jit::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	s32 offset = _IMM16;
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
 
-	switch(op >> 26)
-	{
+	switch (op >> 26) {
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		{
 			gpr.Lock(rs);
@@ -177,8 +169,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	int fs = _FS;
 	int ft = _FT;
 
-	switch (op & 0xf)
-	{
+	switch (op & 0xf) {
 	case 0: //f
 	case 8: //sf
 		gpr.SetImm(MIPS_REG_FPCOND, 0);
@@ -230,8 +221,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	int fs = _FS;
 	int fd = _FD;
 
-	switch (op & 0x3f) 
-	{
+	switch (op & 0x3f) {
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
