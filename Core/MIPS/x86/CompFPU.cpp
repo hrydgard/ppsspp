@@ -384,9 +384,13 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.KillImmediate(rt, true, false);
 		fpr.MapReg(fs, false, true);
-		MOVD_xmm(fpr.RX(fs), gpr.R(rt));
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+			XORPS(fpr.RX(fs), fpr.R(fs));
+		} else {
+			gpr.KillImmediate(rt, true, false);
+			MOVD_xmm(fpr.RX(fs), gpr.R(rt));
+		}
 		return;
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1

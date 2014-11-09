@@ -1848,8 +1848,12 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		if (imm < 128) { // VI(imm) = R(rt);
 			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
 			// Let's not bother mapping rt if we don't have to.
-			gpr.KillImmediate(rt, true, false);
-			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
+			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+				XORPS(fpr.VX(imm), fpr.V(imm));
+			} else {
+				gpr.KillImmediate(rt, true, false);
+				MOVD_xmm(fpr.VX(imm), gpr.R(rt));
+			}
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			if (imm - 128 == VFPU_CTRL_CC) {
 				if (gpr.IsImm(rt)) {
