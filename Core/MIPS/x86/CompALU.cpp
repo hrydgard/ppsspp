@@ -708,8 +708,13 @@ namespace MIPSComp
 			gpr.MapReg(rt, rs == rt, true);
 			if (rs != rt)
 				MOV(32, gpr.R(rt), gpr.R(rs));
-			SHR(32, gpr.R(rt), Imm8(pos));
-			AND(32, gpr.R(rt), Imm32(mask));
+			if (pos != 0) {
+				SHR(32, gpr.R(rt), Imm8(pos));
+			}
+			// Might not need to AND if we used a wall anyway.
+			if ((0xFFFFFFFF >> pos) != mask) {
+				AND(32, gpr.R(rt), Imm32(mask));
+			}
 			gpr.UnlockAll();
 			break;
 
@@ -733,13 +738,29 @@ namespace MIPSComp
 						OR(32, gpr.R(rt), Imm32(inserted));
 					gpr.UnlockAll();
 				}
+				else if (gpr.IsImm(rt))
+				{
+					// This happens.  We can skip the AND and a load.
+					gpr.Lock(rs, rt);
+					u32 rtImm = gpr.GetImm(rt) & destmask;
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), gpr.R(rs));
+					AND(32, gpr.R(rt), Imm32(sourcemask));
+					if (pos != 0) {
+						SHL(32, gpr.R(rt), Imm8(pos));
+					}
+					OR(32, gpr.R(rt), Imm32(rtImm));
+					gpr.UnlockAll();
+				}
 				else
 				{
 					gpr.Lock(rs, rt);
 					gpr.MapReg(rt, true, true);
 					MOV(32, R(EAX), gpr.R(rs));
 					AND(32, R(EAX), Imm32(sourcemask));
-					SHL(32, R(EAX), Imm8(pos));
+					if (pos != 0) {
+						SHL(32, R(EAX), Imm8(pos));
+					}
 					AND(32, gpr.R(rt), Imm32(destmask));
 					OR(32, gpr.R(rt), R(EAX));
 					gpr.UnlockAll();
