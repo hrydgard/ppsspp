@@ -470,9 +470,6 @@ namespace MIPSComp
 				MIPSGPReg rhs = rt;
 				CCFlags cc = CC_L;
 				if (gpr.IsImm(lhs)) {
-					// Hmm.  This is a bit confusing.  lhs may be ZERO, but its location may be memory.
-					// TODO: That's probably not a good thing, but changing it breaks more...
-					gpr.SetImm(lhs, gpr.GetImm(lhs));
 					// rhs is guaranteed not to be an imm (handled above.)
 					std::swap(lhs, rhs);
 					cc = SwapCCFlag(cc);
@@ -513,9 +510,6 @@ namespace MIPSComp
 				MIPSGPReg rhs = rt;
 				CCFlags cc = CC_B;
 				if (gpr.IsImm(lhs)) {
-					// Hmm.  This is a bit confusing.  lhs may be ZERO, but its location may be memory.
-					// TODO: That's probably not a good thing, but changing it breaks more...
-					gpr.SetImm(lhs, gpr.GetImm(lhs));
 					// rhs is guaranteed not to be an imm (handled above.)
 					std::swap(lhs, rhs);
 					cc = SwapCCFlag(cc);

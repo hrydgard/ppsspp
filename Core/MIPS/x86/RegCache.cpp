@@ -65,9 +65,10 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		regs[i].location = base;
 		base.IncreaseOffset(sizeof(u32));
 	}
-	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+	for (int i = 32; i < NUM_MIPS_GPRS; i++) {
 		regs[i].location = GetDefaultLocation(MIPSGPReg(i));
 	}
+	SetImm(MIPS_REG_ZERO, 0);
 
 	// todo: sort to find the most popular regs
 	/*
@@ -109,6 +110,8 @@ void GPRRegCache::LockX(int x1, int x2, int x3, int x4) {
 void GPRRegCache::UnlockAll() {
 	for (int i = 0; i < NUM_MIPS_GPRS; i++)
 		regs[i].locked = false;
+	// In case it was stored, discard it now.
+	SetImm(MIPS_REG_ZERO, 0);
 }
 
 void GPRRegCache::UnlockAllX() {
@@ -181,7 +184,11 @@ void GPRRegCache::DiscardRegContentsIfCached(MIPSGPReg preg) {
 		xregs[xr].dirty = false;
 		xregs[xr].mipsReg = MIPS_REG_INVALID;
 		regs[preg].away = false;
-		regs[preg].location = GetDefaultLocation(preg);
+		if (preg == MIPS_REG_ZERO) {
+			regs[preg].location = Imm32(0);
+		} else {
+			regs[preg].location = GetDefaultLocation(preg);
+		}
 	}
 }
 
@@ -197,9 +204,7 @@ void GPRRegCache::SetImm(MIPSGPReg preg, u32 immValue) {
 }
 
 bool GPRRegCache::IsImm(MIPSGPReg preg) const {
-	// Always say yes for ZERO, even if it's in a temp reg.
-	if (preg == MIPS_REG_ZERO)
-		return true;
+	// Note that ZERO is generally always imm.
 	return regs[preg].location.IsImm();
 }
 
@@ -310,7 +315,8 @@ void GPRRegCache::Flush() {
 		if (xregs[i].allocLocked)
 			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
 	}
-	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+	SetImm(MIPS_REG_ZERO, 0);
+	for (int i = 1; i < NUM_MIPS_GPRS; i++) {
 		const MIPSGPReg r = MIPSGPReg(i);
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
