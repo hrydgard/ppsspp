@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include "JitCommon.h"
+#include "Common/StringUtils.h"
 
 #include "ext/disarm.h"
 #include "ext/udis86/udis86.h"
@@ -72,8 +73,22 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
 
 	ud_set_input_buffer(&ud_obj, data, size);
+
+	int int3_count = 0;
 	while (ud_disassemble(&ud_obj) != 0) {
-		lines.push_back(ud_insn_asm(&ud_obj));
+		std::string str = ud_insn_asm(&ud_obj);
+		if (str == "int3") {
+			int3_count++;
+		} else {
+			if (int3_count) {
+				lines.push_back(StringFromFormat("int3 (x%i)", int3_count));
+				int3_count = 0;
+			}
+			lines.push_back(str);
+		}
+	}
+	if (int3_count) {
+		lines.push_back(StringFromFormat("int3 (x%i)", int3_count));
 	}
 	return lines;
 }
