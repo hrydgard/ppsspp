@@ -65,6 +65,9 @@ const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFF
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+const u32 MEMORY_ALIGNED16( lowOnes[4] ) = {0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000};
+const u32 MEMORY_ALIGNED16( lowZeroes[4] ) = {0x00000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+const float MEMORY_ALIGNED16( solidZeroes[4] ) = {0, 0, 0, 0};
 const u32 MEMORY_ALIGNED16( fourinfnan[4] ) = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
 
 void Jit::Comp_VPFX(MIPSOpcode op)
@@ -893,6 +896,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 
 static float ssCompareTemp;
 
+static u32 MEMORY_ALIGNED16( vcmpResult[4] );
+
+static const u32 MEMORY_ALIGNED16( vcmpMask[4][4] ) = {
+	{0x00000031, 0x00000000, 0x00000000, 0x00000000},
+	{0x00000012, 0x00000011, 0x00000000, 0x00000000},
+	{0x00000014, 0x00000012, 0x00000011, 0x00000000},
+	{0x00000018, 0x00000014, 0x00000012, 0x00000011},
+};
+
 void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
@@ -939,34 +951,51 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		return;
 	}
 
-	gpr.FlushLockX(ECX);
+	if (n > 1)
+		gpr.FlushLockX(ECX);
+
+	// Start with zero in each lane for the compare to zero.
 	if (cond == VC_EZ || cond == VC_NZ)
-		XORPS(XMM0, R(XMM0));
+		XORPS(XMM1, R(XMM1));
+
+	bool inverse = false;
+
+	if (cond == VC_GE || cond == VC_GT) {
+		// We flip, and we need them in regs so we don't clear the high lanes.
+		fpr.MapRegsV(tregs, sz, 0);
+	} else {
+		fpr.MapRegsV(sregs, sz, 0);
+	}
 
 	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
 	for (int i = 0; i < n; ++i) {
-		fpr.MapRegV(sregs[i], 0);
+		if (i != 0) {
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(2, 1, 0, 3));
+		}
+
 		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
 		bool compareTwo = false;
 		bool compareToZero = false;
 		int comparison = -1;
 		bool flip = false;
-		bool inverse = false;
 
 		switch (cond) {
 		case VC_ES:
 			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
-			ANDPS(XMM1, M(&fourinfnan));
-			PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			MOVSS(XMM1, R(XMM0));
 			break;
 
 		case VC_NS:
 			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
-			ANDPS(XMM1, M(&fourinfnan));
-			PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
-			XORPS(XMM1, M(&solidOnes));
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			MOVSS(XMM1, R(XMM0));
+			// Note that we do this all at once at the end.
+			inverse = true;
 			break;
 
 		case VC_EN:
@@ -977,6 +1006,7 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		case VC_NN:
 			comparison = CMP_UNORD;
 			compareTwo = true;
+			// Note that we do this all at once at the end.
 			inverse = true;
 			break;
 
@@ -1036,41 +1066,38 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 					CMPSS(XMM1, fpr.V(sregs[i]), comparison);
 				}
 			} else if (compareToZero) {
-				MOVSS(XMM1, fpr.V(sregs[i]));
-				CMPSS(XMM1, R(XMM0), comparison);
-			}
-			if (inverse) {
-				XORPS(XMM1, M(&solidOnes));
+				CMPSS(XMM1, fpr.V(sregs[i]), comparison);
 			}
 		}
 
-		MOVSS(M(&ssCompareTemp), XMM1);
-		if (i == 0 && n == 1) {
-			MOV(32, R(EAX), M(&ssCompareTemp));
-			AND(32, R(EAX), Imm32(0x31));
-		} else if (i == 0) {
-			MOV(32, R(EAX), M(&ssCompareTemp));
-			AND(32, R(EAX), Imm32(1 << i));
-		} else {
-			MOV(32, R(ECX), M(&ssCompareTemp));
-			AND(32, R(ECX), Imm32(1 << i));
-			OR(32, R(EAX), R(ECX));
-		}
 		affected_bits |= 1 << i;
 	}
 
-	// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
-	// after all.
 	if (n > 1) {
-		CMP(32, R(EAX), Imm8(affected_bits & 0xF));
+		XOR(32, R(ECX), R(ECX));
+		if (inverse) {
+			XORPS(XMM1, M(&solidOnes));
+		}
+		ANDPS(XMM1, M(vcmpMask[n - 1]));
+		MOVAPS(M(vcmpResult), XMM1);
+
+		MOV(32, R(EAX), M(&vcmpResult[0]));
+		for (int i = 1; i < n; ++i) {
+			OR(32, R(EAX), M(&vcmpResult[i]));
+		}
+
+		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison,
+		// which is the most common after all.
+		CMP(32, R(EAX), Imm8(affected_bits & 0x1F));
 		SETcc(CC_E, R(ECX));
 		SHL(32, R(ECX), Imm8(5));
 		OR(32, R(EAX), R(ECX));
-
-		CMP(32, R(EAX), Imm8(0));
-		SETcc(CC_NZ, R(ECX));
-		SHL(32, R(ECX), Imm8(4));
-		OR(32, R(EAX), R(ECX));
+	} else {
+		MOVD_xmm(R(EAX), XMM1);
+		if (inverse) {
+			XOR(32, R(EAX), Imm32(0xFFFFFFFF));
+		}
+		AND(32, R(EAX), Imm32(0x31));
 	}
 	
 	gpr.UnlockAllX();
