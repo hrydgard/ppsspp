@@ -46,7 +46,7 @@ typedef struct {
 #define MO_VRT        0x04000000 // vector rt
 #define MO_VRTI       0x08000000 // vector rt, used with load/store encodings
 #define MO_VCOND      0x10000000 // vector condition
-#define MO_VIMM       0x10000000 // vector 3-8 bit imm
+#define MO_VIMM       0x20000000 // vector 3-8 bit imm
 
 #define BITFIELD(START,LENGTH,VALUE)	(unsigned int)(((VALUE) & ((1 << (LENGTH)) - 1)) << (START))
 #define MIPS_FUNC(VALUE)				BITFIELD(0,6,(VALUE))
