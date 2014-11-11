@@ -32,7 +32,6 @@
 #if !defined(ARM)
 #define ARM
 #endif
-#define _M_ARM32
 #endif
 
 // Force enable logging in the right modes. For some reason, something had changed
