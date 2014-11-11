@@ -50,6 +50,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #ifdef _M_SSE
 #include <xmmintrin.h>
 
+#ifndef ANDROID
 #define _XCR_XFEATURE_ENABLED_MASK 0
 static unsigned long long _xgetbv(unsigned int index)
 {
@@ -57,6 +58,7 @@ static unsigned long long _xgetbv(unsigned int index)
 	__asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
 	return ((unsigned long long)edx << 32) | eax;
 }
+#endif
 
 #else
 #define _XCR_XFEATURE_ENABLED_MASK 0
@@ -190,6 +192,9 @@ void CPUInfo::Detect() {
 			bFXSR = true;
 		}
 
+		// On Zenfone 4/5/6 with Android 4.3, it mistakenly believes that it can use xgetbv for some reason, and blows up.
+		// So let's just not bother with AVX on Android for now.
+#ifndef ANDROID
 		// AVX support requires 3 separate checks:
 		//  - Is the AVX bit set in CPUID?
 		//  - Is the XSAVE bit set in CPUID?
@@ -215,6 +220,7 @@ void CPUInfo::Detect() {
 			if ((cpu_id[1] >> 8) & 1)
 				bBMI2 = true;
 		}
+#endif
 	}
 	if (max_ex_fn >= 0x80000004) {
 		// Extract brand string
