@@ -50,7 +50,6 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #ifdef _M_SSE
 #include <xmmintrin.h>
 
-#ifndef ANDROID
 #define _XCR_XFEATURE_ENABLED_MASK 0
 static unsigned long long _xgetbv(unsigned int index)
 {
@@ -58,7 +57,6 @@ static unsigned long long _xgetbv(unsigned int index)
 	__asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
 	return ((unsigned long long)edx << 32) | eax;
 }
-#endif
 
 #else
 #define _XCR_XFEATURE_ENABLED_MASK 0
@@ -77,17 +75,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #elif !defined(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
-#ifdef ANDROID
-	// Use the /dev/cpu/%i/cpuid interface
-	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
-	if (f) {
-		lseek64(f, ((uint64_t)ecxval << 32) | cpuid_leaf, SEEK_SET);
-		read(f, (void *)regs, 16);
-		close(f);
-	} else {
-		ELOG("CPUID %08x failed!", cpuid_leaf);
-	}
-#elif defined(__i386__) && defined(__PIC__)
+#if defined(__i386__) && defined(__PIC__)
 	asm (
 		"xchgl %%ebx, %1;\n\t"
 		"cpuid;\n\t"
@@ -192,9 +180,6 @@ void CPUInfo::Detect() {
 			bFXSR = true;
 		}
 
-		// On Zenfone 4/5/6 with Android 4.3, it mistakenly believes that it can use xgetbv for some reason, and blows up.
-		// So let's just not bother with AVX on Android for now.
-#ifndef ANDROID
 		// AVX support requires 3 separate checks:
 		//  - Is the AVX bit set in CPUID? (>>28)
 		//  - Is the XSAVE bit set in CPUID? ( >>26)
@@ -221,7 +206,6 @@ void CPUInfo::Detect() {
 			if ((cpu_id[1] >> 8) & 1)
 				bBMI2 = true;
 		}
-#endif
 	}
 	if (max_ex_fn >= 0x80000004) {
 		// Extract brand string
