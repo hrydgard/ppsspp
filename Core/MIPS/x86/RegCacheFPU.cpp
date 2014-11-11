@@ -198,6 +198,7 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 		regs[i].lane = 0;
 		regs[i].away = true;
 	} else {
+		// TODO: If it's in a lane, need to pull it out.
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
 		xregs[RX(i)].dirty |= makeDirty;
 		_assert_msg_(JIT, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
