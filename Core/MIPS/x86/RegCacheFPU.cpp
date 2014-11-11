@@ -46,7 +46,7 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 
 void FPURegCache::SetupInitialRegs() {
 	for (int i = 0; i < NUM_X_FPREGS; i++) {
-		xregsInitial[i].mipsReg = -1;
+		memset(xregsInitial[i].mipsRegs, -1, sizeof(xregsInitial[i].mipsRegs));
 		xregsInitial[i].dirty = false;
 	}
 	memset(regsInitial, 0, sizeof(regsInitial));
@@ -104,6 +104,68 @@ void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	}
 }
 
+void FPURegCache::MapRegsVS(const u8 *r, VectorSize sz, int flags) {
+	SpillLockV(r, sz);
+	// TODO: Basically TryMapRegsVS, if that fails, flush hard and try again, or else die.
+}
+
+bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
+	const int n = GetNumVectorElements(vsz);
+
+	// First, check if it's already mapped.  Might be used in a row.
+	if (vregs[v[0]].lane != 0) {
+		const MIPSCachedFPReg &v0 = vregs[v[0]];
+		_dbg_assert_msg_(JIT, v0.away, "Must be away when lane != 0");
+		_dbg_assert_msg_(JIT, v0.location.IsSimpleReg(), "Must be is register when lane != 0");
+
+		// Already in another simd set.
+		if (v0.lane != 1) {
+			return false;
+		}
+
+		const X64Reg xr = VSX(v[0]);
+		// We have to check for extra regs too (might trash them.)
+		// TODO: Might be worth trying to store them off.
+		for (int i = 1; i < 4; ++i) {
+			if (i < n && xregs[xr].mipsRegs[i] != v[i] + 32) {
+				return false;
+			}
+			if (i >= n && xregs[xr].mipsRegs[i] != -1) {
+				return false;
+			}
+		}
+
+		// Already mapped then, perfect.  Just mark dirty.
+		if ((flags & MAP_DIRTY) != 0)
+			xregs[xr].dirty = true;
+		return true;
+	}
+
+	// Next, fail if any of the other regs are in simd currently.
+	// TODO: Only if locked?  Not sure if it will be worth breaking them anyway.
+	for (int i = 1; i < n; ++i) {
+		if (vregs[v[i]].lane != 0) {
+			return false;
+		}
+	}
+
+	// TODO: Single is easy, otherwise look for a cheap load.
+	// We can use free regs if there are any to assemble.
+	return false;
+}
+
+void FPURegCache::SimpleRegsV(const u8 *v, VectorSize vsz, int flags) {
+	// TODO
+}
+
+void FPURegCache::SimpleRegsV(const u8 *v, MatrixSize msz, int flags) {
+	// TODO
+}
+
+void FPURegCache::SimpleRegV(const u8 v, int flags) {
+	// TODO: If the reg has lane != 0, store or map it?  Discard if noinit?
+}
+
 void FPURegCache::ReleaseSpillLock(int mipsreg)
 {
 	regs[mipsreg].locked = false;
@@ -133,6 +195,7 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 			emit->MOVSS(xr, regs[i].location);
 		}
 		regs[i].location = newloc;
+		regs[i].lane = 0;
 		regs[i].away = true;
 	} else {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
@@ -147,6 +210,7 @@ void FPURegCache::StoreFromRegister(int i) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - store - invalid reg");
 		xregs[xr].dirty = false;
+		// TODO: Handle simd.  Need to store the rest.  Hmm messy.
 		xregs[xr].mipsReg = -1;
 		OpArg newLoc = GetDefaultLocation(i);
 		emit->MOVSS(newLoc, xr);
@@ -164,6 +228,7 @@ void FPURegCache::DiscardR(int i) {
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
 		xregs[xr].dirty = false;
+		// TODO: Handle simd.  Need to store the rest.  Hmm messy.
 		xregs[xr].mipsReg = -1;
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
@@ -251,7 +316,7 @@ const int *FPURegCache::GetAllocationOrder(int &count) {
 	return allocationOrder;
 }
 
-X64Reg FPURegCache::GetFreeXReg() {
+X64Reg FPURegCache::GetFreeXRegNoSpill() {
 	pendingFlush = true;
 	int aCount;
 	const int *aOrder = GetAllocationOrder(aCount);
@@ -261,9 +326,20 @@ X64Reg FPURegCache::GetFreeXReg() {
 			return (X64Reg)xr;
 		}
 	}
-	//Okay, not found :( Force grab one
+	return INVALID_REG;
+}
 
-	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
+X64Reg FPURegCache::GetFreeXReg() {
+	X64Reg noSpill = GetFreeXRegNoSpill();
+	if (noSpill != INVALID_REG) {
+		return noSpill;
+	}
+
+	// Okay, not found :(... Force grab one.
+	int aCount;
+	const int *aOrder = GetAllocationOrder(aCount);
+
+	// TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions.
 	for (int i = 0; i < aCount; i++) {
 		X64Reg xr = (X64Reg)aOrder[i];
 		int preg = xregs[xr].mipsReg;
@@ -272,9 +348,9 @@ X64Reg FPURegCache::GetFreeXReg() {
 			return xr;
 		}
 	}
-	//Still no dice? Die!
+	// Still no dice? Die!
 	_assert_msg_(JIT, 0, "Regcache ran out of regs");
-	return (X64Reg) -1;
+	return INVALID_REG;
 }
 
 void FPURegCache::FlushX(X64Reg reg) {

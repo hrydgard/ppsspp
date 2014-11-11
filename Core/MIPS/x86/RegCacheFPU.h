@@ -58,13 +58,17 @@ enum {
 #endif
 
 struct X64CachedFPReg {
-	int mipsReg;
+	union {
+		int mipsReg;
+		int mipsRegs[4];
+	};
 	bool dirty;
 };
 
 struct MIPSCachedFPReg {
 	OpArg location;
-	bool away;  // value not in source register
+	int lane;
+	bool away;  // value not in source register (memory)
 	bool locked;
 	// Only for temp regs.
 	bool tempLocked;
@@ -105,6 +109,7 @@ public:
 	int GetTempV() {
 		return GetTempR() - 32;
 	}
+	// TODO: GetTempVS?
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 
@@ -112,21 +117,39 @@ public:
 	int SanityCheck() const;
 
 	const OpArg &R(int freg) const {return regs[freg].location;}
-	const OpArg &V(int vreg) const {return regs[32 + vreg].location;}
+	const OpArg &V(int vreg) const {
+		if (vregs[vreg].lane != 0)
+			PanicAlert("SIMD reg %d used as V reg (use VS instead)", vreg);
+		return vregs[vreg].location;
+	}
+	const OpArg &VS(int vreg) const {
+		if (vregs[vreg].lane == 0)
+			PanicAlert("V reg %d used as VS reg (use V instead)", vreg);
+		return vregs[vreg].location;
+	}
 
-	X64Reg RX(int freg) const
-	{
-		if (regs[freg].away && regs[freg].location.IsSimpleReg()) 
-			return regs[freg].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - f%i", freg); 
+	X64Reg RX(int freg) const {
+		if (regs[freg].away && regs[freg].location.IsSimpleReg())
+			return regs[freg].location.GetSimpleReg();
+		PanicAlert("Not so simple - f%i", freg);
 		return (X64Reg)-1;
 	}
 
-	X64Reg VX(int vreg) const
-	{
-		if (regs[vreg + 32].away && regs[vreg + 32].location.IsSimpleReg()) 
-			return regs[vreg + 32].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - v%i", vreg); 
+	X64Reg VX(int vreg) const {
+		if (vregs[vreg].lane != 0)
+			PanicAlert("SIMD reg %d used as V reg (use VSX instead)", vreg);
+		if (vregs[vreg].away && vregs[vreg].location.IsSimpleReg())
+			return vregs[vreg].location.GetSimpleReg();
+		PanicAlert("Not so simple - v%i", vreg);
+		return (X64Reg)-1;
+	}
+
+	X64Reg VSX(int vreg) const {
+		if (vregs[vreg].lane == 0)
+			PanicAlert("V reg %d used as VS reg (use VX instead)", vreg);
+		if (vregs[vreg].away && vregs[vreg].location.IsSimpleReg())
+			return vregs[vreg].location.GetSimpleReg();
+		PanicAlert("Not so simple - v%i", vreg);
 		return (X64Reg)-1;
 	}
 
@@ -147,6 +170,17 @@ public:
 		ReleaseSpillLock(vreg + 32);
 	}
 
+	// Warning: may trash XMM0/XMM1.
+	void MapRegsVS(const u8 *v, VectorSize vsz, int flags);
+	// This won't trash them though.
+	bool TryMapRegsVS(const u8 *v, VectorSize vsz, int flags);
+	// TODO: Matrix versions?  Cols/Rows?
+	// No MapRegVS, that'd be silly.
+
+	void SimpleRegsV(const u8 *v, VectorSize vsz, int flags);
+	void SimpleRegsV(const u8 *v, MatrixSize msz, int flags);
+	void SimpleRegV(const u8 v, int flags);
+
 	void GetState(FPURegCacheState &state) const;
 	void RestoreState(const FPURegCacheState state);
 
@@ -158,6 +192,7 @@ public:
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
+	X64Reg GetFreeXRegNoSpill();
 
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
