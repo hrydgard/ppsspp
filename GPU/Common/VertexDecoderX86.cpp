@@ -507,8 +507,6 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 	} else {
 		MOVD_xmm(XMM8, MDisp(srcReg, dec_->weightoff));
 	}
-	if (dec_->nweights > 4)
-		PSHUFD(XMM9, R(XMM8), _MM_SHUFFLE(3, 3, 3, 2));
 	if (cpu_info.bSSE4_1) {
 		PMOVZXWD(XMM8, R(XMM8));
 	} else {
