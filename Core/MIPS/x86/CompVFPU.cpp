@@ -981,19 +981,13 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 
 		switch (cond) {
 		case VC_ES:
-			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ANDPS(XMM0, M(&fourinfnan));
-			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
-			MOVSS(XMM1, R(XMM0));
+			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
+			MOVSS(XMM1, fpr.V(sregs[i]));
 			break;
 
 		case VC_NS:
-			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM0, fpr.V(sregs[i]));
-			ANDPS(XMM0, M(&fourinfnan));
-			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
-			MOVSS(XMM1, R(XMM0));
+			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
+			MOVSS(XMM1, fpr.V(sregs[i]));
 			// Note that we do this all at once at the end.
 			inverse = true;
 			break;
@@ -1071,6 +1065,13 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		}
 
 		affected_bits |= 1 << i;
+	}
+
+	// Finalize the comparison for ES/NS.
+	if (cond == VC_ES || cond == VC_NS) {
+		ANDPS(XMM1, M(&fourinfnan));
+		PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
+		// It's inversed below for NS.
 	}
 
 	if (n > 1) {
