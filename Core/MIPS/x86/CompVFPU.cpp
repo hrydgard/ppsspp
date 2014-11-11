@@ -900,9 +900,9 @@ static u32 MEMORY_ALIGNED16( vcmpResult[4] );
 
 static const u32 MEMORY_ALIGNED16( vcmpMask[4][4] ) = {
 	{0x00000031, 0x00000000, 0x00000000, 0x00000000},
-	{0x00000012, 0x00000011, 0x00000000, 0x00000000},
-	{0x00000014, 0x00000012, 0x00000011, 0x00000000},
-	{0x00000018, 0x00000014, 0x00000012, 0x00000011},
+	{0x00000011, 0x00000012, 0x00000000, 0x00000000},
+	{0x00000011, 0x00000012, 0x00000014, 0x00000000},
+	{0x00000011, 0x00000012, 0x00000014, 0x00000018},
 };
 
 void Jit::Comp_Vcmp(MIPSOpcode op) {
@@ -955,8 +955,12 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		gpr.FlushLockX(ECX);
 
 	// Start with zero in each lane for the compare to zero.
-	if (cond == VC_EZ || cond == VC_NZ)
-		XORPS(XMM1, R(XMM1));
+	if (cond == VC_EZ || cond == VC_NZ) {
+		XORPS(XMM0, R(XMM0));
+		if (n > 1) {
+			XORPS(XMM1, R(XMM1));
+		}
+	}
 
 	bool inverse = false;
 
@@ -967,10 +971,14 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		fpr.MapRegsV(sregs, sz, 0);
 	}
 
+	// We go backwards because it's more convenient to put things in the right lanes.
 	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
-	for (int i = 0; i < n; ++i) {
-		if (i != 0) {
-			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(2, 1, 0, 3));
+	for (int i = n - 1; i >= 0; --i) {
+		// Alternate between XMM0 and XMM1
+		X64Reg reg = i == 1 || i == 3 ? XMM1 : XMM0;
+		if ((i == 0 || i == 1) && n > 2) {
+			// We need to swap lanes... this also puts them in the right place.
+			SHUFPS(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 1));
 		}
 
 		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
@@ -982,12 +990,12 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		switch (cond) {
 		case VC_ES:
 			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
+			MOVSS(reg, fpr.V(sregs[i]));
 			break;
 
 		case VC_NS:
 			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
+			MOVSS(reg, fpr.V(sregs[i]));
 			// Note that we do this all at once at the end.
 			inverse = true;
 			break;
@@ -1053,34 +1061,38 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		if (comparison != -1) {
 			if (compareTwo) {
 				if (!flip) {
-					MOVSS(XMM1, fpr.V(sregs[i]));
-					CMPSS(XMM1, fpr.V(tregs[i]), comparison);
+					MOVSS(reg, fpr.V(sregs[i]));
+					CMPSS(reg, fpr.V(tregs[i]), comparison);
 				} else {
-					MOVSS(XMM1, fpr.V(tregs[i]));
-					CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+					MOVSS(reg, fpr.V(tregs[i]));
+					CMPSS(reg, fpr.V(sregs[i]), comparison);
 				}
 			} else if (compareToZero) {
-				CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+				CMPSS(reg, fpr.V(sregs[i]), comparison);
 			}
 		}
 
 		affected_bits |= 1 << i;
 	}
 
-	// Finalize the comparison for ES/NS.
-	if (cond == VC_ES || cond == VC_NS) {
-		ANDPS(XMM1, M(&fourinfnan));
-		PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
-		// It's inversed below for NS.
-	}
-
 	if (n > 1) {
 		XOR(32, R(ECX), R(ECX));
-		if (inverse) {
-			XORPS(XMM1, M(&solidOnes));
+
+		// This combines them together.
+		UNPCKLPS(XMM0, R(XMM1));
+
+		// Finalize the comparison for ES/NS.
+		if (cond == VC_ES || cond == VC_NS) {
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			// It's inversed below for NS.
 		}
-		ANDPS(XMM1, M(vcmpMask[n - 1]));
-		MOVAPS(M(vcmpResult), XMM1);
+
+		if (inverse) {
+			XORPS(XMM0, M(&solidOnes));
+		}
+		ANDPS(XMM0, M(vcmpMask[n - 1]));
+		MOVAPS(M(vcmpResult), XMM0);
 
 		MOV(32, R(EAX), M(&vcmpResult[0]));
 		for (int i = 1; i < n; ++i) {
@@ -1094,7 +1106,14 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		SHL(32, R(ECX), Imm8(5));
 		OR(32, R(EAX), R(ECX));
 	} else {
-		MOVD_xmm(R(EAX), XMM1);
+		// Finalize the comparison for ES/NS.
+		if (cond == VC_ES || cond == VC_NS) {
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			// It's inversed below for NS.
+		}
+
+		MOVD_xmm(R(EAX), XMM0);
 		if (inverse) {
 			XOR(32, R(EAX), Imm32(0xFFFFFFFF));
 		}
