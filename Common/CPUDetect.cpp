@@ -196,10 +196,11 @@ void CPUInfo::Detect() {
 		// So let's just not bother with AVX on Android for now.
 #ifndef ANDROID
 		// AVX support requires 3 separate checks:
-		//  - Is the AVX bit set in CPUID?
-		//  - Is the XSAVE bit set in CPUID?
+		//  - Is the AVX bit set in CPUID? (>>28)
+		//  - Is the XSAVE bit set in CPUID? ( >>26)
+		//  - Is the OSXSAVE bit set in CPUID? ( >>27)
 		//  - XGETBV result has the XCR bit set.
-		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1))
+		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1) && ((cpu_id[2] >> 26) & 1))
 		{
 			if ((_xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0x6) == 0x6)
 			{

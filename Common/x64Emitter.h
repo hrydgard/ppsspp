@@ -22,11 +22,11 @@
 
 #include "Common.h"
 
-#ifdef _M_X64
+#if defined(_M_X64) && !defined(_ARCH_64)
 #define _ARCH_64
 #endif
 
-#ifdef _M_X64
+#ifdef _ARCH_64
 #define PTRBITS 64
 #else
 #define PTRBITS 32
