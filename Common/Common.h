@@ -32,9 +32,6 @@
 #if !defined(ARM)
 #define ARM
 #endif
-#endif
-
-#if defined(ARM)
 #define _M_ARM32
 #endif
 
@@ -106,13 +103,6 @@ private:
 #include <limits.h>
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
-#endif
-#ifdef _LP64
-#define _M_X64 1
-#else
-#ifndef _M_ARM32
-#define _M_IX86 1
-#endif
 #endif
 
 #define __forceinline inline __attribute__((always_inline))

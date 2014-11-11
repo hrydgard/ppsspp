@@ -6,6 +6,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
 
 add_definitions(-DPPSSPP)
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(_ARCH_64 1)
+	add_definitions(-D_ARCH_64=1)
+else()
+	set(_ARCH_32 1)
+	add_definitions(-D_ARCH_32=1)
+endif()
+
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
 	set(ARM ON)
@@ -14,6 +22,9 @@ endif()
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 	set(ARMV7 ON)
 endif()
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
+	set(X86 ON)
+endif()
 
 # Remove soon?
 set(USE_FFMPEG ON)
@@ -21,9 +32,6 @@ set(USE_FFMPEG ON)
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
-endif()
-if (NOT ARM) # Assume x86
-	set(X86 ON)
 endif()
 
 include(CheckIncludeFile)
@@ -54,7 +62,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if (X86 AND NOT MIPS)
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	if(_ARCH_64)
 		add_definitions(-D_M_X64)
 	else()
 		add_definitions(-D_M_IX86)

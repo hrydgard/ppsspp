@@ -31,8 +31,7 @@ template<> struct CompileTimeAssert<true> {};
 #include <unistd.h>
 #include <errno.h>
 
-// Assume !ARM && !MIPS = x86
-#if !defined(ARM) && !defined(MIPS)
+#if defined(_M_IX86) || defined(_M_X86)
 	#define Crash() {asm ("int $3");}
 #else
   #define Crash() {kill(getpid(), SIGINT);}
