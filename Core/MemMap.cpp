@@ -124,7 +124,7 @@ static MemoryView views[] =
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
 inline static bool CanIgnoreView(const MemoryView &view) {
-#if defined(_M_IX86) || defined(_M_ARM32)
+#ifdef _ARCH_32
 	// Basically, 32-bit platforms can ignore views that are masked out anyway.
 	return (view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~MEMVIEW32_MASK) != 0;
 #else
