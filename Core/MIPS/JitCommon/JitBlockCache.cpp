@@ -44,20 +44,15 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 #if defined(ARM)
-#include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
-using namespace ArmGen;
 #elif defined(_M_IX86) || defined(_M_X64)
-#include "Common/x64Emitter.h"
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
-using namespace Gen;
 #elif defined(PPC)
-#include "Common/ppcEmitter.h"
 #include "Core/MIPS/MIPS.h"
-using namespace PpcGen;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Core/MIPS/MIPS.h"
 #endif
 // #include "JitBase.h"
 

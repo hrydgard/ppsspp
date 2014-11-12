@@ -13,9 +13,13 @@ arm {
 		$$P/ext/disarm.cpp
 	HEADERS += $$P/Core/MIPS/ARM/*.h
 }
-else {
+else:i86 {
 	SOURCES += $$P/Core/MIPS/x86/*.cpp
 	HEADERS += $$P/Core/MIPS/x86/*.h
+}
+else {
+	SOURCES += $$P/Core/MIPS/fake/*.cpp
+	HEADERS += $$P/Core/MIPS/fake/*.h
 }
 
 SOURCES += $$P/Core/*.cpp \ # Core

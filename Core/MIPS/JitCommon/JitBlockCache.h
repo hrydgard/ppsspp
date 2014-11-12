@@ -50,7 +50,11 @@ namespace PpcGen { class PPCXEmitter; }
 using namespace PpcGen;
 typedef PpcGen::PPCXCodeBlock CodeBlock;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Common/FakeEmitter.h"
+namespace FakeGen { class FakeXEmitter; }
+using namespace FakeGen;
+typedef FakeGen::FakeXCodeBlock CodeBlock;
 #endif
 
 #if defined(ARM)
