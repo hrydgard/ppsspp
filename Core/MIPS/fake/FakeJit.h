@@ -229,9 +229,6 @@ private:
 	FakeJitOptions jo;
 	JitState js;
 
-//	FakeRegCache gpr;
-//	FakeRegCacheFPU fpr;
-
 	MIPSState *mips_;
 
 	int dontLogBlocks;

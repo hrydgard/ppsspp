@@ -9,8 +9,7 @@ INCLUDEPATH += $$P/ $$P/native $$P/Core/MIPS $$P/ext/xbrz
 !contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/native/ext/glew
 
 arm {
-	SOURCES += $$P/Core/MIPS/ARM/*.cpp \ #CoreARM
-		$$P/ext/disarm.cpp
+	SOURCES += $$P/Core/MIPS/ARM/*.cpp #CoreARM
 	HEADERS += $$P/Core/MIPS/ARM/*.h
 }
 else:i86 {
@@ -21,6 +20,7 @@ else {
 	SOURCES += $$P/Core/MIPS/fake/*.cpp
 	HEADERS += $$P/Core/MIPS/fake/*.h
 }
+SOURCES += $$P/ext/disarm.cpp
 
 SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/Debugger/*.cpp \
