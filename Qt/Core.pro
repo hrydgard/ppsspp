@@ -9,8 +9,7 @@ INCLUDEPATH += $$P/ $$P/native $$P/Core/MIPS $$P/ext/xbrz
 !contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/native/ext/glew
 
 arm {
-	SOURCES += $$P/Core/MIPS/ARM/*.cpp \ #CoreARM
-		$$P/ext/disarm.cpp
+	SOURCES += $$P/Core/MIPS/ARM/*.cpp  #CoreARM
 	HEADERS += $$P/Core/MIPS/ARM/*.h
 }
 else {
@@ -29,6 +28,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/MIPS/*.cpp \
 	$$P/Core/MIPS/JitCommon/*.cpp \
 	$$P/Core/Util/*.cpp \
+	$$P/ext/disarm.cpp \
 	$$P/ext/libkirk/*.c # Kirk
 
 HEADERS += $$P/Core/*.h \
