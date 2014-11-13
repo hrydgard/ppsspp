@@ -842,6 +842,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef _WIN32
 	iTempGPUBackend = iGPUBackend;
 #endif
+
+	// Fix Wrong MAC address by old version by "Change MAC address"
+	std::string str(sMACAddress.c_str());
+	if (str.length() != 17)
+		sMACAddress = CreateRandMAC();
 }
 
 void Config::Save() {
