@@ -112,7 +112,6 @@ void CwCheatScreen::onFinish(DialogResult result) {
 
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
 	std::fstream fs;
-	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 	for (int j = 0; j < (int)cheatList.size(); j++) {
