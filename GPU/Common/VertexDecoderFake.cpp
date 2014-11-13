@@ -91,12 +91,12 @@ static const JitLookup jitLookup[] = {
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
-	const u8 *start = AlignCode16();
+	//const u8 *start = AlignCode16();
 
 	bool prescaleStep = false;
 	bool skinning = false;
 
-	return (JittedVertexDecoder)start;
+	return nullptr;
 }
 
 void VertexDecoderJitCache::Jit_WeightsU8() {
