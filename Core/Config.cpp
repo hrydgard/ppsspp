@@ -239,9 +239,15 @@ const char *DefaultLangRegion() {
 
 const char *CreateRandMAC() {
 	std::stringstream randStream;
+	u32 value;
 	srand(time(0));
 	for(int i = 0; i < 6; i++) {
-		randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+		value = rand() % 256;
+		if (value >= 0 && value <= 9) {
+			randStream << '0' << value;
+		}
+		else
+			randStream << std::hex << value;
 		if (i<5) {
 			randStream << ':'; //we need a : between every octet
 		}
