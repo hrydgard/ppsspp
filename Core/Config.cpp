@@ -243,9 +243,8 @@ const char *CreateRandMAC() {
 	srand(time(0));
 	for(int i = 0; i < 6; i++) {
 		value = rand() % 256;
-		if (value >= 0 && value <= 9) {
+		if (value >= 0 && value <= 9)
 			randStream << '0' << value;
-		}
 		else
 			randStream << std::hex << value;
 		if (i<5) {
