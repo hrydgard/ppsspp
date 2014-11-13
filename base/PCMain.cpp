@@ -477,6 +477,11 @@ int main(int argc, char *argv[]) {
 			portrait = true;
 	}
 
+	// Is resolution is too low to run windowed
+	if (g_DesktopWidth < 480 * 2 && g_desktopHeight < 272 * 2) {
+		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+	}
+
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		pixel_xres = g_DesktopWidth;
 		pixel_yres = g_DesktopHeight;
