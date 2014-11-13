@@ -15,16 +15,16 @@ else()
 endif()
 
 # Detect CPU from CMAKE configuration. Toolchains should set this up
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
-	set(ARM ON)
-endif()
-
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
-	set(ARMV7 ON)
-elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
-	set(X86 ON)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
-	set(MIPS ON)
+if(CMAKE_SYSTEM_PROCESSOR)
+	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+		set(ARM ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
+		set(ARMV7 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
+		set(X86 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
+		set(MIPS ON)
+	endif()
 endif()
 
 # Remove soon?
@@ -308,7 +308,6 @@ elseif(X86)
 else()
 	set(CommonExtra ${CommonExtra}
 		Common/FakeCPUDetect.cpp
-		Common/FakeEmitter.cpp
 		Common/FakeEmitter.h)
 endif()
 # ARMEmitter is here for the unit tests and don't really hurt otherwise.
