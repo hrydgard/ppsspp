@@ -244,7 +244,7 @@ const char *CreateRandMAC() {
 	for(int i = 0; i < 6; i++) {
 		value = rand() % 256;
 		if (value >= 0 && value <= 15)
-			randStream << '0' << value;
+			randStream << '0' << std::hex << value;
 		else
 			randStream << std::hex << value;
 		if (i<5) {
