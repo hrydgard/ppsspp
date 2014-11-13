@@ -244,7 +244,7 @@ const char *CreateRandMAC() {
 	for(int i = 0; i < 6; i++) {
 		value = rand() % 256;
 		if (value >= 0 && value <= 15)
-			randStream << '0' << value;
+			randStream << '0' << std::hex << value;
 		else
 			randStream << std::hex << value;
 		if (i<5) {
@@ -842,6 +842,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef _WIN32
 	iTempGPUBackend = iGPUBackend;
 #endif
+
+	// Fix Wrong MAC address by old version by "Change MAC address"
+	std::string str(sMACAddress.c_str());
+	if (str.length() != 17)
+		sMACAddress = CreateRandMAC();
 }
 
 void Config::Save() {
