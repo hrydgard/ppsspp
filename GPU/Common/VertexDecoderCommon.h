@@ -25,8 +25,10 @@
 #include "GPU/ge_constants.h"
 #ifdef ARM
 #include "Common/ArmEmitter.h"
-#else
+#elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
+#else
+#include "Common/FakeEmitter.h"
 #endif
 #include "Globals.h"
 
@@ -575,8 +577,10 @@ public:
 
 #ifdef ARM
 class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
-#else
+#elif defined(_M_IX86) || defined(_M_X64)
 class VertexDecoderJitCache : public Gen::XCodeBlock {
+#else
+class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
 #endif
 public:
 	VertexDecoderJitCache();

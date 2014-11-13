@@ -324,13 +324,6 @@ struct FixupBranch
 	int type; //0 = B 1 = BL
 };
 
-struct LiteralPool
-{
-	intptr_t loc;
-	u8* ldr_address;
-	u32 val;
-};
-
 typedef const u8* JumpTarget;
 
 // XXX: Stop polluting the global namespace

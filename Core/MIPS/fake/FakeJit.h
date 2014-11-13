@@ -72,110 +72,72 @@ public:
 	void Comp_ReplacementFunc(MIPSOpcode op);
 
 	// Ops
-	void Comp_ITypeMem(MIPSOpcode op);
-	void Comp_Cache(MIPSOpcode op);
+	void Comp_ITypeMem(MIPSOpcode op) {}
+	void Comp_Cache(MIPSOpcode op) {}
 
-	void Comp_RelBranch(MIPSOpcode op);
-	void Comp_RelBranchRI(MIPSOpcode op);
-	void Comp_FPUBranch(MIPSOpcode op);
-	void Comp_FPULS(MIPSOpcode op);
-	void Comp_FPUComp(MIPSOpcode op);
-	void Comp_Jump(MIPSOpcode op);
-	void Comp_JumpReg(MIPSOpcode op);
-	void Comp_Syscall(MIPSOpcode op);
-	void Comp_Break(MIPSOpcode op);
+	void Comp_RelBranch(MIPSOpcode op) {}
+	void Comp_RelBranchRI(MIPSOpcode op) {}
+	void Comp_FPUBranch(MIPSOpcode op) {}
+	void Comp_FPULS(MIPSOpcode op) {}
+	void Comp_FPUComp(MIPSOpcode op) {}
+	void Comp_Jump(MIPSOpcode op) {}
+	void Comp_JumpReg(MIPSOpcode op) {}
+	void Comp_Syscall(MIPSOpcode op) {}
+	void Comp_Break(MIPSOpcode op) {}
 
-	void Comp_IType(MIPSOpcode op);
-	void Comp_RType2(MIPSOpcode op);
-	void Comp_RType3(MIPSOpcode op);
-	void Comp_ShiftType(MIPSOpcode op);
-	void Comp_Allegrex(MIPSOpcode op);
-	void Comp_Allegrex2(MIPSOpcode op);
-	void Comp_VBranch(MIPSOpcode op);
-	void Comp_MulDivType(MIPSOpcode op);
-	void Comp_Special3(MIPSOpcode op);
+	void Comp_IType(MIPSOpcode op) {}
+	void Comp_RType2(MIPSOpcode op) {}
+	void Comp_RType3(MIPSOpcode op) {}
+	void Comp_ShiftType(MIPSOpcode op) {}
+	void Comp_Allegrex(MIPSOpcode op) {}
+	void Comp_Allegrex2(MIPSOpcode op) {}
+	void Comp_VBranch(MIPSOpcode op) {}
+	void Comp_MulDivType(MIPSOpcode op) {}
+	void Comp_Special3(MIPSOpcode op) {}
 
-	void Comp_FPU3op(MIPSOpcode op);
-	void Comp_FPU2op(MIPSOpcode op);
-	void Comp_mxc1(MIPSOpcode op);
+	void Comp_FPU3op(MIPSOpcode op) {}
+	void Comp_FPU2op(MIPSOpcode op) {}
+	void Comp_mxc1(MIPSOpcode op) {}
 
-	void Comp_DoNothing(MIPSOpcode op);
+	void Comp_DoNothing(MIPSOpcode op) {}
 
-	void Comp_SV(MIPSOpcode op);
-	void Comp_SVQ(MIPSOpcode op);
-	void Comp_VPFX(MIPSOpcode op);
-	void Comp_VVectorInit(MIPSOpcode op);
-	void Comp_VMatrixInit(MIPSOpcode op);
-	void Comp_VDot(MIPSOpcode op);
-	void Comp_VecDo3(MIPSOpcode op);
-	void Comp_VV2Op(MIPSOpcode op);
-	void Comp_Mftv(MIPSOpcode op);
-	void Comp_Vmfvc(MIPSOpcode op);
-	void Comp_Vmtvc(MIPSOpcode op);
-	void Comp_Vmmov(MIPSOpcode op);
-	void Comp_VScl(MIPSOpcode op);
-	void Comp_Vmmul(MIPSOpcode op);
-	void Comp_Vmscl(MIPSOpcode op);
-	void Comp_Vtfm(MIPSOpcode op);
-	void Comp_VHdp(MIPSOpcode op);
-	void Comp_VCrs(MIPSOpcode op);
-	void Comp_VDet(MIPSOpcode op);
-	void Comp_Vi2x(MIPSOpcode op);
-	void Comp_Vx2i(MIPSOpcode op);
-	void Comp_Vf2i(MIPSOpcode op);
-	void Comp_Vi2f(MIPSOpcode op);
-	void Comp_Vh2f(MIPSOpcode op);
-	void Comp_Vcst(MIPSOpcode op);
-	void Comp_Vhoriz(MIPSOpcode op);
-	void Comp_VRot(MIPSOpcode op);
-	void Comp_VIdt(MIPSOpcode op);
-	void Comp_Vcmp(MIPSOpcode op);
-	void Comp_Vcmov(MIPSOpcode op);
-	void Comp_Viim(MIPSOpcode op);
-	void Comp_Vfim(MIPSOpcode op);
-	void Comp_VCrossQuat(MIPSOpcode op);
-	void Comp_Vsgn(MIPSOpcode op);
-	void Comp_Vocp(MIPSOpcode op);
+	void Comp_SV(MIPSOpcode op) {}
+	void Comp_SVQ(MIPSOpcode op) {}
+	void Comp_VPFX(MIPSOpcode op) {}
+	void Comp_VVectorInit(MIPSOpcode op) {}
+	void Comp_VMatrixInit(MIPSOpcode op) {}
+	void Comp_VDot(MIPSOpcode op) {}
+	void Comp_VecDo3(MIPSOpcode op) {}
+	void Comp_VV2Op(MIPSOpcode op) {}
+	void Comp_Mftv(MIPSOpcode op) {}
+	void Comp_Vmfvc(MIPSOpcode op) {}
+	void Comp_Vmtvc(MIPSOpcode op) {}
+	void Comp_Vmmov(MIPSOpcode op) {}
+	void Comp_VScl(MIPSOpcode op) {}
+	void Comp_Vmmul(MIPSOpcode op) {}
+	void Comp_Vmscl(MIPSOpcode op) {}
+	void Comp_Vtfm(MIPSOpcode op) {}
+	void Comp_VHdp(MIPSOpcode op) {}
+	void Comp_VCrs(MIPSOpcode op) {}
+	void Comp_VDet(MIPSOpcode op) {}
+	void Comp_Vi2x(MIPSOpcode op) {}
+	void Comp_Vx2i(MIPSOpcode op) {}
+	void Comp_Vf2i(MIPSOpcode op) {}
+	void Comp_Vi2f(MIPSOpcode op) {}
+	void Comp_Vh2f(MIPSOpcode op) {}
+	void Comp_Vcst(MIPSOpcode op) {}
+	void Comp_Vhoriz(MIPSOpcode op) {}
+	void Comp_VRot(MIPSOpcode op) {}
+	void Comp_VIdt(MIPSOpcode op) {}
+	void Comp_Vcmp(MIPSOpcode op) {}
+	void Comp_Vcmov(MIPSOpcode op) {}
+	void Comp_Viim(MIPSOpcode op) {}
+	void Comp_Vfim(MIPSOpcode op) {}
+	void Comp_VCrossQuat(MIPSOpcode op) {}
+	void Comp_Vsgn(MIPSOpcode op) {}
+	void Comp_Vocp(MIPSOpcode op) {}
 
-	// Non-NEON: VPFX
-
-	// NEON implementations of the VFPU ops.
-	void CompNEON_SV(MIPSOpcode op);
-	void CompNEON_SVQ(MIPSOpcode op);
-	void CompNEON_VVectorInit(MIPSOpcode op);
-	void CompNEON_VMatrixInit(MIPSOpcode op);
-	void CompNEON_VDot(MIPSOpcode op);
-	void CompNEON_VecDo3(MIPSOpcode op);
-	void CompNEON_VV2Op(MIPSOpcode op);
-	void CompNEON_Mftv(MIPSOpcode op);
-	void CompNEON_Vmfvc(MIPSOpcode op);
-	void CompNEON_Vmtvc(MIPSOpcode op);
-	void CompNEON_Vmmov(MIPSOpcode op);
-	void CompNEON_VScl(MIPSOpcode op);
-	void CompNEON_Vmmul(MIPSOpcode op);
-	void CompNEON_Vmscl(MIPSOpcode op);
-	void CompNEON_Vtfm(MIPSOpcode op);
-	void CompNEON_VHdp(MIPSOpcode op);
-	void CompNEON_VCrs(MIPSOpcode op);
-	void CompNEON_VDet(MIPSOpcode op);
-	void CompNEON_Vi2x(MIPSOpcode op);
-	void CompNEON_Vx2i(MIPSOpcode op);
-	void CompNEON_Vf2i(MIPSOpcode op);
-	void CompNEON_Vi2f(MIPSOpcode op);
-	void CompNEON_Vh2f(MIPSOpcode op);
-	void CompNEON_Vcst(MIPSOpcode op);
-	void CompNEON_Vhoriz(MIPSOpcode op);
-	void CompNEON_VRot(MIPSOpcode op);
-	void CompNEON_VIdt(MIPSOpcode op);
-	void CompNEON_Vcmp(MIPSOpcode op);
-	void CompNEON_Vcmov(MIPSOpcode op);
-	void CompNEON_Viim(MIPSOpcode op);
-	void CompNEON_Vfim(MIPSOpcode op);
-	void CompNEON_VCrossQuat(MIPSOpcode op);
-	void CompNEON_Vsgn(MIPSOpcode op);
-	void CompNEON_Vocp(MIPSOpcode op);
-
-	int Replace_fabsf();
+	int Replace_fabsf() { return 0; }
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 

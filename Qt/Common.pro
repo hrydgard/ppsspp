@@ -10,7 +10,7 @@ arm {
 	SOURCES += $$P/Common/ArmCPUDetect.cpp \
 		$$P/Common/ArmThunk.cpp
 }
-i86 {
+else:i86 {
 	SOURCES += $$P/Common/ABI.cpp \
 		$$P/Common/CPUDetect.cpp \
 		$$P/Common/Thunk.cpp \
@@ -20,6 +20,9 @@ i86 {
 		$$P/Common/Thunk.h \
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h
+}
+else {
+	SOURCES += $$P/Common/FakeCPUDetect.cpp
 }
 SOURCES += $$P/Common/ArmEmitter.cpp
 HEADERS += $$P/Common/ArmEmitter.h \

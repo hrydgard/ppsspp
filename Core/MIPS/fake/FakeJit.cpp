@@ -100,7 +100,6 @@ void Jit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
-	GenerateFixedCode();
 }
 
 void Jit::InvalidateCache()
@@ -165,7 +164,6 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	if (func)
 	{
 		SaveDowncount();
-		QuickCallFunction(R1, (void *)func);
 		RestoreDowncount();
 	}
 
@@ -217,8 +215,6 @@ void Jit::WriteExitDestInR(FakeReg Reg)
 void Jit::WriteSyscallExit()
 {
 }
-
-void Jit::Comp_DoNothing(MIPSOpcode op) { }
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
