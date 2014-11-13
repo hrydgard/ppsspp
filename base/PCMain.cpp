@@ -478,7 +478,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Is resolution is too low to run windowed
-	if (g_DesktopWidth < 480 * 2 && g_desktopHeight < 272 * 2) {
+	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 
