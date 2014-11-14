@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
+#include <xmmintrin.h>
 
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
@@ -197,11 +198,27 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 		regs[i].location = newloc;
 		regs[i].lane = 0;
 		regs[i].away = true;
+	} else if (regs[i].lane != 0) {
+		// Well, darn.  This means we need to flush it.
+		// TODO: This could be more optimal.  Also check flags.
+		StoreFromRegister(i);
+		MapReg(i, doLoad, makeDirty);
 	} else {
-		// TODO: If it's in a lane, need to pull it out.
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
 		xregs[RX(i)].dirty |= makeDirty;
 		_assert_msg_(JIT, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
+	}
+}
+
+static int MMShuffleSwapTo0(int lane) {
+	if (lane == 0) {
+		return _MM_SHUFFLE(3, 2, 1, 0);
+	} else if (lane == 1) {
+		return _MM_SHUFFLE(3, 2, 0, 1);
+	} else if (lane == 2) {
+		return _MM_SHUFFLE(3, 0, 1, 2);
+	} else if (lane == 3) {
+		return _MM_SHUFFLE(0, 2, 1, 3);
 	}
 }
 
@@ -210,12 +227,34 @@ void FPURegCache::StoreFromRegister(int i) {
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - store - invalid reg");
+		if (regs[i].lane != 0) {
+			// Store all of them.
+			// TODO: This could be more optimal.  Check if we can MOVUPS/MOVAPS, etc.
+			for (int j = 0; j < 4; ++j) {
+				int mr = xregs[xr].mipsRegs[j];
+				if (mr == -1) {
+					continue;
+				}
+				if (j != 0 && xregs[xr].dirty) {
+					emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+				}
+
+				OpArg newLoc = GetDefaultLocation(mr);
+				if (xregs[xr].dirty) {
+					emit->MOVSS(newLoc, xr);
+				}
+				regs[mr].location = newLoc;
+				regs[mr].away = false;
+				regs[mr].lane = 0;
+				xregs[xr].mipsRegs[j] = -1;
+			}
+		} else {
+			xregs[xr].mipsReg = -1;
+			OpArg newLoc = GetDefaultLocation(i);
+			emit->MOVSS(newLoc, xr);
+			regs[i].location = newLoc;
+		}
 		xregs[xr].dirty = false;
-		// TODO: Handle simd.  Need to store the rest.  Hmm messy.
-		xregs[xr].mipsReg = -1;
-		OpArg newLoc = GetDefaultLocation(i);
-		emit->MOVSS(newLoc, xr);
-		regs[i].location = newLoc;
 		regs[i].away = false;
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
@@ -228,15 +267,62 @@ void FPURegCache::DiscardR(int i) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		if (regs[i].lane != 0) {
+			// But we can't just discard all of them in SIMD, just the one lane.
+			// TODO: Potentially this could be more optimal (MOVQ or etc.)
+			xregs[xr].mipsRegs[regs[i].lane - 1] = -1;
+			regs[i].lane = 0;
+			for (int j = 0; j < 4; ++j) {
+				int mr = xregs[xr].mipsRegs[j];
+				if (mr == -1) {
+					continue;
+				}
+				if (j != 0 && xregs[xr].dirty) {
+					emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+				}
+
+				OpArg newLoc = GetDefaultLocation(mr);
+				if (xregs[xr].dirty) {
+					emit->MOVSS(newLoc, xr);
+				}
+				regs[mr].location = newLoc;
+				regs[mr].away = false;
+				regs[mr].lane = 0;
+				xregs[xr].mipsRegs[j] = -1;
+			}
+		} else {
+			xregs[xr].mipsReg = -1;
+		}
 		xregs[xr].dirty = false;
-		// TODO: Handle simd.  Need to store the rest.  Hmm messy.
-		xregs[xr].mipsReg = -1;
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
 		regs[i].tempLocked = false;
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
 		regs[i].tempLocked = false;
+	}
+}
+
+void FPURegCache::DiscardVS(int vreg) {
+	_assert_msg_(JIT, !vregs[vreg].location.IsImm(), "FPU can't handle imm yet.");
+
+	if (vregs[vreg].away) {
+		_assert_msg_(JIT, vregs[vreg].lane != 0, "VS expects a SIMD reg.");
+		X64Reg xr = vregs[vreg].location.GetSimpleReg();
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		for (int i = 0; i < 4; ++i) {
+			int mr = xregs[xr].mipsRegs[i];
+			if (mr != -1) {
+				regs[mr].location = GetDefaultLocation(mr);
+				regs[mr].away = false;
+				regs[mr].tempLocked = false;
+			}
+			xregs[xr].mipsRegs[i] = -1;
+		}
+		xregs[xr].dirty = false;
+	} else {
+		vregs[vreg].tempLocked = false;
 	}
 }
 

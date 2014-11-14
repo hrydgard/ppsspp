@@ -104,6 +104,7 @@ public:
 	void DiscardV(int vreg) {
 		DiscardR(vreg + 32);
 	}
+	void DiscardVS(int vreg);
 	bool IsTempX(X64Reg xreg);
 	int GetTempR();
 	int GetTempV() {
