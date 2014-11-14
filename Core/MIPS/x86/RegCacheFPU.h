@@ -171,10 +171,10 @@ public:
 		ReleaseSpillLock(vreg + 32);
 	}
 
-	// Warning: may trash XMM0/XMM1.
+	// TODO: This may trash XMM0/XMM1 some day.
 	void MapRegsVS(const u8 *v, VectorSize vsz, int flags);
-	// This won't trash them though.
 	bool TryMapRegsVS(const u8 *v, VectorSize vsz, int flags);
+	// TODO: If s/t overlap differently, need read-only copies?  Maybe finalize d?  Major design flaw...
 	// TODO: Matrix versions?  Cols/Rows?
 	// No MapRegVS, that'd be silly.
 
@@ -189,11 +189,11 @@ public:
 
 	void FlushX(X64Reg reg);
 	X64Reg GetFreeXReg();
+	int GetFreeXRegs(X64Reg *regs, int n, bool spill = true);
 
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
-	X64Reg GetFreeXRegNoSpill();
 
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
