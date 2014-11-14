@@ -167,7 +167,7 @@ struct OpArg
 		//if scale == 0 never mind offsetting
 		offset = _offset;
 	}
-	bool operator==(OpArg b)
+	bool operator==(const OpArg &b) const
 	{
 		return operandReg == b.operandReg && scale == b.scale && offsetOrBaseReg == b.offsetOrBaseReg &&
 		       indexReg == b.indexReg && offset == b.offset;
