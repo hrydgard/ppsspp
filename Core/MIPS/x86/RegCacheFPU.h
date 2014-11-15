@@ -154,6 +154,9 @@ public:
 		return (X64Reg)-1;
 	}
 
+	// Just to avoid coding mistakes, defined here to prevent compilation.
+	void R(X64Reg r);
+
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
 	void ReleaseSpillLock(int mipsrega);
