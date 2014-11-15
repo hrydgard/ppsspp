@@ -147,6 +147,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// Already mapped then, perfect.  Just mark dirty.
 		if ((flags & MAP_DIRTY) != 0)
 			xregs[xr].dirty = true;
+		Invariant();
 		return true;
 	}
 
@@ -175,6 +176,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
+		Invariant();
 		return true;
 	}
 
@@ -233,6 +235,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 	}
 	xregs[reg1].dirty = dirty;
 
+	Invariant();
 	return true;
 }
 
@@ -269,6 +272,7 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		xregs[VX(v)].dirty |= (flags & MAP_DIRTY) != 0;
 		_assert_msg_(JIT, vr.location.IsSimpleReg(), "not loaded and not simple.");
 	}
+	Invariant();
 }
 
 void FPURegCache::ReleaseSpillLock(int mipsreg)
@@ -312,6 +316,7 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 		xregs[RX(i)].dirty |= makeDirty;
 		_assert_msg_(JIT, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
 	}
+	Invariant();
 }
 
 static int MMShuffleSwapTo0(int lane) {
@@ -366,6 +371,7 @@ void FPURegCache::StoreFromRegister(int i) {
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
 	}
+	Invariant();
 }
 
 void FPURegCache::DiscardR(int i) {
@@ -408,6 +414,7 @@ void FPURegCache::DiscardR(int i) {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
 		regs[i].tempLocked = false;
 	}
+	Invariant();
 }
 
 void FPURegCache::DiscardVS(int vreg) {
@@ -431,6 +438,7 @@ void FPURegCache::DiscardVS(int vreg) {
 	} else {
 		vregs[vreg].tempLocked = false;
 	}
+	Invariant();
 }
 
 bool FPURegCache::IsTempX(X64Reg xr) {
@@ -471,6 +479,7 @@ void FPURegCache::Flush() {
 		}
 	}
 	pendingFlush = false;
+	Invariant();
 }
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
@@ -483,18 +492,67 @@ OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	}
 }
 
+void FPURegCache::Invariant() const {
+#ifdef _DEBUG
+	_dbg_assert_msg_(JIT, SanityCheck() == 0, "Sanity check failed: %d", SanityCheck());
+#endif
+}
+
 int FPURegCache::SanityCheck() const {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
-		if (regs[i].away) {
-			if (regs[i].location.IsSimpleReg()) {
-				Gen::X64Reg simple = regs[i].location.GetSimpleReg();
+		const MIPSCachedFPReg &mr = regs[i];
+
+		// FPR can never have imms.
+		if (mr.location.IsImm())
+			return 1;
+
+		bool reallyAway = mr.location.IsSimpleReg();
+		if (reallyAway != mr.away)
+			return 2;
+
+		if (mr.lane < 0 || mr.lane > 4)
+			return 3;
+		if (mr.lane != 0 && !reallyAway)
+			return 4;
+
+		if (mr.away) {
+			Gen::X64Reg simple = mr.location.GetSimpleReg();
+			if (mr.lane == 0) {
 				if (xregs[simple].mipsReg != i)
-					return 2;
+					return 5;
+				for (int j = 1; j < 4; ++j) {
+					if (xregs[simple].mipsRegs[j] != -1)
+						return 6;
+				}
+			} else {
+				if (xregs[simple].mipsRegs[mr.lane - 1] != i)
+					return 7;
 			}
-			else if (regs[i].location.IsImm())
-				return 3;
 		}
 	}
+
+	for (int i = 0; i < NUM_X_FPREGS; ++i) {
+		const X64CachedFPReg &xr = xregs[i];
+		bool hasReg = xr.mipsReg != -1;
+		if (!hasReg && xr.dirty)
+			return 8;
+
+		bool hasMoreRegs = hasReg;
+		for (int j = 0; j < 4; ++j) {
+			if (xr.mipsRegs[j] == -1) {
+				hasMoreRegs = false;
+				continue;
+			}
+			// We can't have a hole in the middle / front.
+			if (!hasMoreRegs)
+				return 9;
+
+			const MIPSCachedFPReg &mr = regs[xr.mipsRegs[j]];
+			if (!mr.location.IsSimpleReg(X64Reg(i)))
+				return 10;
+		}
+	}
+
 	return 0;
 }
 

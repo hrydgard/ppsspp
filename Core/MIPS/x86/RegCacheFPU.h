@@ -194,6 +194,8 @@ public:
 	X64Reg GetFreeXReg();
 	int GetFreeXRegs(X64Reg *regs, int n, bool spill = true);
 
+	void Invariant() const;
+
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
