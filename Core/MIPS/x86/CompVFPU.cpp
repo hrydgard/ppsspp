@@ -823,6 +823,86 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 	GetVectorRegsPrefixT(tregs, sz, _VT);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	if (fpr.TryMapDirtyInInVS(dregs, sz, sregs, sz, tregs, sz)) {
+		void (XEmitter::*opFunc)(X64Reg, OpArg) = nullptr;
+		bool symmetric = false;
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+				opFunc = &XEmitter::ADDPS;
+				symmetric = true;
+				break;
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				opFunc = &XEmitter::SUBPS;
+				break;
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				opFunc = &XEmitter::DIVPS;
+				break;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7)
+			{
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				opFunc = &XEmitter::MULPS;
+				symmetric = true;
+				break;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 7)
+			{
+			case 2:  // vmin
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				MINPS(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 3:  // vmax
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				MAXPS(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 6:  // vsge
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				CMPPS(XMM1, fpr.VS(tregs[0]), CMP_NLT);
+				ANDPS(XMM1, M(&oneOneOneOne));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 7:  // vslt
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				CMPPS(XMM1, fpr.VS(tregs[0]), CMP_LT);
+				ANDPS(XMM1, M(&oneOneOneOne));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			}
+			break;
+		}
+
+		if (opFunc != nullptr) {
+			if (fpr.VSX(dregs[0]) != fpr.VSX(tregs[0])) {
+				if (fpr.VSX(dregs[0]) != fpr.VSX(sregs[0])) {
+					MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+				}
+				(this->*opFunc)(fpr.VSX(dregs[0]), fpr.VS(tregs[0]));
+			} else if (symmetric) {
+				// We already know d = t.
+				(this->*opFunc)(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+			} else {
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				(this->*opFunc)(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
 	fpr.SimpleRegsV(tregs, sz, 0);

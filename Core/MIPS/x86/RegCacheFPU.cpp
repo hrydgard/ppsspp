@@ -246,6 +246,8 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 }
 
 bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad) {
+	// TODO: Ideally, don't map any unless they're all mappable.
+	// Need to simplify this stuff.
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
 		SpillLockV(vs, vssz);
