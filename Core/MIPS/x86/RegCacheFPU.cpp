@@ -85,6 +85,12 @@ void FPURegCache::SpillLockV(int vec, VectorSize sz) {
 	SpillLockV(r, sz);
 }
 
+void FPURegCache::ReleaseSpillLockV(const u8 *vec, VectorSize sz) {
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		vregs[vec[i]].locked = false;
+	}
+}
+
 void FPURegCache::MapRegV(int vreg, int flags) {
 	MapReg(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
 }
@@ -237,6 +243,22 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 
 	Invariant();
 	return true;
+}
+
+bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad) {
+	bool success = TryMapRegsVS(vs, vssz, 0);
+	if (success) {
+		SpillLockV(vs, vssz);
+		success = TryMapRegsVS(vt, vtsz, 0);
+	}
+	if (success) {
+		SpillLockV(vt, vtsz);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+	}
+	ReleaseSpillLockV(vs, vssz);
+	ReleaseSpillLockV(vt, vtsz);
+
+	return success;
 }
 
 void FPURegCache::SimpleRegsV(const u8 *v, VectorSize vsz, int flags) {
