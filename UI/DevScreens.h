@@ -106,11 +106,16 @@ private:
 	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
+	UI::EventReturn OnPrevBlock(UI::EventParams &e);
+	UI::EventReturn OnNextBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
+	UI::EventReturn OnAddressChange(UI::EventParams &e);
 
 	int currentBlock_;
 
-	UI::TextView *blockName_;	
+	UI::TextView *blockName_;
+	UI::TextEdit *blockAddr_;
+	UI::TextView *blockStats_;
 
 	UI::LinearLayout *leftDisasm_;	
 	UI::LinearLayout *rightDisasm_;	
