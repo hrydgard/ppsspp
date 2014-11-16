@@ -186,63 +186,130 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		return true;
 	}
 
-	// TODO: This could definitely be more optimal:
-	// Could use free regs if they would not spill.
-	// Could take advantage of regs currently away.
-	// Could maybe lock the source regs before spilling, or avoid spilling others.
-	X64Reg res[2];
-	int obtained = GetFreeXRegs(res, 2, true);
-	_dbg_assert_msg_(JIT, obtained == 2, "Ran out of fp regs for loading simd regs with.");
-	_dbg_assert_msg_(JIT, res[0] != res[1], "Regs for simd load are the same, bad things await.");
-	X64Reg reg1 = res[0];
-	X64Reg reg2 = res[1];
-
+	X64Reg xr;
 	if ((flags & MAP_NOINIT) == 0) {
-		if (n == 2) {
-			emit->MOVSS(reg1, vregs[v[0]].location);
-			emit->MOVSS(reg2, vregs[v[1]].location);
-			emit->UNPCKLPS(reg1, Gen::R(reg2));
-		} else if (n == 3) {
-			emit->MOVSS(reg2, vregs[v[2]].location);
-			emit->MOVSS(reg1, vregs[v[1]].location);
-			emit->SHUFPS(reg1, Gen::R(reg2), _MM_SHUFFLE(3, 0, 0, 0));
-			emit->MOVSS(reg2, vregs[v[0]].location);
-			emit->MOVSS(reg1, Gen::R(reg2));
-		} else if (n == 4) {
-			emit->MOVSS(reg2, vregs[v[2]].location);
-			emit->MOVSS(reg1, vregs[v[3]].location);
-			emit->UNPCKLPS(reg2, Gen::R(reg1));
-			emit->MOVSS(reg1, vregs[v[1]].location);
-			emit->SHUFPS(reg1, Gen::R(reg2), _MM_SHUFFLE(1, 0, 0, 3));
-			emit->MOVSS(reg2, vregs[v[0]].location);
-			emit->MOVSS(reg1, Gen::R(reg2));
-		}
+		xr = LoadRegsVS(v, n);
+	} else {
+		xr = GetFreeXReg();
 	}
 
 	// Victory, now let's clean up everything.
-	OpArg newloc = Gen::R(reg1);
+	OpArg newloc = Gen::R(xr);
 	bool dirty = (flags & MAP_DIRTY) != 0;
 	for (int i = 0; i < n; ++i) {
 		MIPSCachedFPReg &vr = vregs[v[i]];
 		if (vr.away) {
 			// Clear the xreg it was in before.
-			X64Reg xr = vregs[v[i]].location.GetSimpleReg();
-			xregs[xr].mipsReg = -1;
-			if (xregs[xr].dirty) {
-				// Inherit the "dirtiness" (set below.)
+			X64Reg oldXReg = vr.location.GetSimpleReg();
+			xregs[oldXReg].mipsReg = -1;
+			if (xregs[oldXReg].dirty) {
+				// Inherit the "dirtiness" (ultimately set below for all regs.)
 				dirty = true;
-				xregs[xr].dirty = false;
+				xregs[oldXReg].dirty = false;
 			}
 		}
-		xregs[reg1].mipsRegs[i] = v[i] + 32;
+		xregs[xr].mipsRegs[i] = v[i] + 32;
 		vr.location = newloc;
 		vr.lane = i + 1;
 		vr.away = true;
 	}
-	xregs[reg1].dirty = dirty;
+	xregs[xr].dirty = dirty;
 
 	Invariant();
 	return true;
+}
+
+X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
+	int regsAvail = 0;
+	int regsLoaded = 0;
+	X64Reg xrs[4] = {INVALID_REG, INVALID_REG, INVALID_REG};
+	bool xrsLoaded[4] = {false, false, false, false};
+
+	_dbg_assert_msg_(JIT, n >= 2 && n <= 4, "LoadRegsVS is only implemented for simd loads.");
+
+	for (int i = 0; i < n; ++i) {
+		const MIPSCachedFPReg &mr = vregs[v[i]];
+		if (mr.away && (mr.lane == 0 || xregs[mr.location.GetSimpleReg()].mipsRegs[1] == -1)) {
+			// Okay, there's nothing else in this reg, so we can use it.
+			xrsLoaded[i] = true;
+			xrs[i] = mr.location.GetSimpleReg();
+			++regsLoaded;
+			++regsAvail;
+		} else if (mr.away && mr.lane != 0) {
+			_dbg_assert_msg_(JIT, false, "LoadRegsVS is not able to handle simd remapping yet, store first.");
+		}
+	}
+
+	if (regsAvail < n) {
+		// Try to grab some without spilling.
+		X64Reg xrFree[4];
+		int obtained = GetFreeXRegs(xrFree, n - regsAvail, false);
+		int pos = 0;
+		for (int i = 0; i < n && pos < obtained; ++i) {
+			if (xrs[i] == INVALID_REG) {
+				// Okay, it's not loaded but we have a reg for this slot.
+				xrs[i] = xrFree[pos++];
+				++regsAvail;
+			}
+		}
+	}
+
+	// Did we end up with enough regs?
+	// TODO: Not handling the case of some regs avail and some loaded right now.
+	if (regsAvail < n) {
+		regsAvail = GetFreeXRegs(xrs, 2, true);
+		_dbg_assert_msg_(JIT, regsAvail >= 2, "Ran out of fp regs for loading simd regs with.");
+		_dbg_assert_msg_(JIT, xrs[0] != xrs[1], "Regs for simd load are the same, bad things await.");
+		// We spilled, so we assume that all our regs are screwed up now anyway.
+		for (int i = 0; i < 4; ++i) {
+			xrsLoaded[i] = false;
+		}
+		regsLoaded = 0;
+	}
+
+	if (regsAvail >= n) {
+		// Have enough regs, potentially all in regs.
+		auto loadXR = [&](int l) {
+			if (!xrsLoaded[l] && n >= l + 1) {
+				emit->MOVSS(xrs[l], vregs[v[l]].location);
+			}
+		};
+		// The order here is intentional.
+		loadXR(3);
+		loadXR(1);
+		loadXR(2);
+		loadXR(0);
+		if (n == 4) {
+			// This gives us [w, y] in the y reg.
+			emit->UNPCKLPS(xrs[1], Gen::R(xrs[3]));
+		}
+		if (n >= 3) {
+			// This gives us [z, x].  Then we combine with y.
+			emit->UNPCKLPS(xrs[0], Gen::R(xrs[2]));
+		}
+		if (n >= 2) {
+			emit->UNPCKLPS(xrs[0], Gen::R(xrs[1]));
+		}
+	} else {
+		_dbg_assert_msg_(JIT, n > 2, "2 should not be possible here.");
+		if (n == 3) {
+			emit->MOVSS(xrs[1], vregs[v[2]].location);
+			emit->MOVSS(xrs[0], vregs[v[1]].location);
+			emit->SHUFPS(xrs[0], Gen::R(xrs[1]), _MM_SHUFFLE(3, 0, 0, 0));
+			emit->MOVSS(xrs[1], vregs[v[0]].location);
+			emit->MOVSS(xrs[0], Gen::R(xrs[1]));
+		} else if (n == 4) {
+			emit->MOVSS(xrs[1], vregs[v[2]].location);
+			emit->MOVSS(xrs[0], vregs[v[3]].location);
+			emit->UNPCKLPS(xrs[1], Gen::R(xrs[0]));
+			emit->MOVSS(xrs[0], vregs[v[1]].location);
+			emit->SHUFPS(xrs[0], Gen::R(xrs[1]), _MM_SHUFFLE(1, 0, 0, 3));
+			emit->MOVSS(xrs[1], vregs[v[0]].location);
+			emit->MOVSS(xrs[0], Gen::R(xrs[1]));
+		}
+	}
+
+	return xrs[0];
 }
 
 bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad) {

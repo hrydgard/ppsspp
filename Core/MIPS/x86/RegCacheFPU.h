@@ -202,6 +202,8 @@ private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
 
+	X64Reg LoadRegsVS(const u8 *v, int n);
+
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
