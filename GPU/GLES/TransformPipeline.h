@@ -38,8 +38,6 @@ class LinkedShader;
 class ShaderManager;
 class TextureCache;
 class FramebufferManager;
-class VertexDecoder;
-class VertexDecoderJitCache;
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 class FragmentTestCache;

@@ -26,16 +26,12 @@
 
 using namespace ArmGen;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), js_(js), jo_(jo), vr(mr + 32), initialReady(false) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
 	if (cpu_info.bNEON) {
 		numARMFpuReg_ = 32;
 	} else {
 		numARMFpuReg_ = 16;
 	}
-}
-
-void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
-	emit_ = emitter;
 }
 
 void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
