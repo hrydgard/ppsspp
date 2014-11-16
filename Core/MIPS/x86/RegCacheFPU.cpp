@@ -291,7 +291,30 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		regsLoaded = 0;
 	}
 
-	if (regsAvail >= n) {
+	// Let's also check if the memory addresses are sequential.
+	int sequential = 1;
+	for (int i = 1; i < n; ++i) {
+		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
+			break;
+		}
+		++sequential;
+	}
+
+	// If they're sequential, and we wouldn't need to store them all, use a single load.
+	// But if they're already loaded, we'd have to store, not worth it.
+	if (sequential == n && regsLoaded < n) {
+		// TODO: What should we do if some are in regs?  Better to assemble?
+		for (int i = 0; i < n; ++i) {
+			StoreFromRegisterV(v[i]);
+		}
+		float *f = &mips->v[voffset[v[0]]];
+		if (((intptr_t)f & 0xf) == 0) {
+			// On modern processors, MOVUPS on aligned is fast, but maybe not on older ones.
+			emit->MOVAPS(xrs[0], vregs[v[0]].location);
+		} else {
+			emit->MOVUPS(xrs[0], vregs[v[0]].location);
+		}
+	} else if (regsAvail >= n) {
 		// Have enough regs, potentially all in regs.
 		auto loadXR = [&](int l) {
 			if (!xrsLoaded[l] && n >= l + 1) {
