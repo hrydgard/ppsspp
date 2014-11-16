@@ -436,7 +436,14 @@ namespace MIPSComp
 
 		case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
-			CompTriArith(op, &XEmitter::ADD, &RType3_ImmAdd);
+			if (rd != rs && rd != rt && gpr.R(rs).IsSimpleReg() && gpr.R(rt).IsSimpleReg()) {
+				gpr.Lock(rt, rs, rd);
+				gpr.MapReg(rd, false, true);
+				LEA(32, gpr.RX(rd), MRegSum(gpr.RX(rs), gpr.RX(rt)));
+				gpr.UnlockAll();
+			} else {
+				CompTriArith(op, &XEmitter::ADD, &RType3_ImmAdd);
+			}
 			break;
 		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
 		case 35: //R(rd) = R(rs) - R(rt);		break; //subu
