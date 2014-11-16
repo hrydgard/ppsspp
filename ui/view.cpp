@@ -613,16 +613,6 @@ void TextEdit::Draw(UIContext &dc) {
 
 	float textX = bounds_.x;
 	float w, h;
-	// Hack to find the caret position. Might want to find a better way...
-	dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
-	float caretX = w;
-
-	if (caretX > bounds_.w) {
-		// Scroll text to the left if the caret won't fit. Not ideal but looks better than not scrolling it.
-		textX -= caretX - bounds_.w;
-	}
-
-	caretX += textX;
 
 	Bounds textBounds = bounds_;
 	textBounds.x = textX;
@@ -635,7 +625,18 @@ void TextEdit::Draw(UIContext &dc) {
 		dc.DrawTextRect(text_.c_str(), textBounds, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
 	}
 
-	dc.FillRect(UI::Drawable(0xFFFFFFFF), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+	if (HasFocus()) {
+		// Hack to find the caret position. Might want to find a better way...
+		dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
+		float caretX = w;
+		caretX += textX;
+
+		if (caretX > bounds_.w) {
+			// Scroll text to the left if the caret won't fit. Not ideal but looks better than not scrolling it.
+			textX -= caretX - bounds_.w;
+		}
+		dc.FillRect(UI::Drawable(0xFFFFFFFF), Bounds(caretX - 1, bounds_.y + 2, 3, bounds_.h - 4));
+	}
 	dc.PopScissor();
 }
 
@@ -669,6 +670,7 @@ void TextEdit::Touch(const TouchInput &touch) {
 void TextEdit::Key(const KeyInput &input) {
 	if (!HasFocus())
 		return;
+	bool textChanged = false;
 	// Process navigation keys. These aren't chars.
 	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
@@ -696,6 +698,7 @@ void TextEdit::Key(const KeyInput &input) {
 				u8_inc(text_.c_str(), &endCaret);
 				undo_ = text_;
 				text_.erase(text_.begin() + caret_, text_.begin() + endCaret);
+				textChanged = true;
 			}
 			break;
 		case NKCODE_DEL:
@@ -705,6 +708,7 @@ void TextEdit::Key(const KeyInput &input) {
 				undo_ = text_;
 				text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
 				caret_--;
+				textChanged = true;
 			}
 			break;
 		}
@@ -737,6 +741,7 @@ void TextEdit::Key(const KeyInput &input) {
 							clipText = clipText.substr(0, end);
 						}
 						InsertAtCaret(clipText.c_str());
+						textChanged = true;
 					}
 				}
 				break;
@@ -773,8 +778,15 @@ void TextEdit::Key(const KeyInput &input) {
 			if (strlen(buf) + text_.size() < maxLen_) {
 				undo_ = text_;
 				InsertAtCaret(buf);
+				textChanged = true;
 			}
 		}
+	}
+
+	if (textChanged) {
+		UI::EventParams e;
+		e.v = this;
+		OnTextChange.Trigger(e);
 	}
 }
 

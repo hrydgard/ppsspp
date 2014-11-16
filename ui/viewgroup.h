@@ -64,7 +64,7 @@ public:
 
 	virtual void Clear();
 	View *GetViewByIndex(int index) { return views_[index]; }
-
+	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 
 	void Lock() { modifyLock_.lock(); }

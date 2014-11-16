@@ -680,6 +680,8 @@ public:
 	virtual void Key(const KeyInput &key) override;
 	virtual void Touch(const TouchInput &touch) override;
 
+	Event OnTextChange;
+
 private:
 	void InsertAtCaret(const char *text);
 
