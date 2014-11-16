@@ -171,7 +171,8 @@ public:
 	bool IsMappedVS(int v) {
 		return vregs[v].lane != 0 && VS(v).IsSimpleReg();
 	}
-	bool IsMappedVS(u8 *r, VectorSize vsz);
+	bool IsMappedVS(const u8 *v, VectorSize vsz);
+	bool CanMapVS(const u8 *v, VectorSize vsz);
 
 	void MapRegV(int vreg, int flags);
 	void MapRegsV(int vec, VectorSize vsz, int flags);

@@ -111,14 +111,28 @@ void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	}
 }
 
-bool FPURegCache::IsMappedVS(u8 *r, VectorSize vsz) {
+bool FPURegCache::IsMappedVS(const u8 *v, VectorSize vsz) {
 	const int n = GetNumVectorElements(vsz);
-	if (!IsMappedVS(r[0]))
+
+	// Make sure the first reg is at least mapped in the right place.
+	if (!IsMappedVS(v[0]))
 		return false;
-	X64Reg xr = VSX(r[0]);
-	for (int i = 0; i < n; ++i) {
-		if (!IsMappedVS(r[i]) || VSX(r[i]) != xr)
+	if (vregs[v[0]].lane != 1)
+		return false;
+
+	// And make sure the rest are mapped to the same reg in the right positions.
+	X64Reg xr = VSX(v[0]);
+	for (int i = 1; i < n; ++i) {
+		if (!IsMappedVS(v[i]) || VSX(v[i]) != xr)
 			return false;
+		if (vregs[v[i]].lane != i + 1)
+			return false;
+	}
+	// TODO: Optimize this case?  It happens.
+	for (int i = n; i < 4; ++i) {
+		if (xregs[xr].mipsRegs[i] != -1) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -136,37 +150,18 @@ void FPURegCache::MapRegsVS(const u8 *r, VectorSize vsz, int flags) {
 	}
 }
 
-bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
+bool FPURegCache::CanMapVS(const u8 *v, VectorSize vsz) {
 	const int n = GetNumVectorElements(vsz);
 
-	// First, check if it's already mapped.  Might be used in a row.
-	if (vregs[v[0]].lane != 0) {
+	if (IsMappedVS(v, vsz)) {
+		return true;
+	} else if (vregs[v[0]].lane != 0) {
 		const MIPSCachedFPReg &v0 = vregs[v[0]];
 		_dbg_assert_msg_(JIT, v0.away, "Must be away when lane != 0");
 		_dbg_assert_msg_(JIT, v0.location.IsSimpleReg(), "Must be is register when lane != 0");
 
-		// Already in another simd set.
-		if (v0.lane != 1) {
-			return false;
-		}
-
-		const X64Reg xr = VSX(v[0]);
-		// We have to check for extra regs too (might trash them.)
-		// TODO: Might be worth trying to store them off.
-		for (int i = 1; i < 4; ++i) {
-			if (i < n && xregs[xr].mipsRegs[i] != v[i] + 32) {
-				return false;
-			}
-			if (i >= n && xregs[xr].mipsRegs[i] != -1) {
-				return false;
-			}
-		}
-
-		// Already mapped then, perfect.  Just mark dirty.
-		if ((flags & MAP_DIRTY) != 0)
-			xregs[xr].dirty = true;
-		Invariant();
-		return true;
+		// Already in a different simd set.
+		return false;
 	}
 
 	if (vregs[v[0]].locked) {
@@ -184,7 +179,24 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		if (vregs[v[i]].locked) {
 			return false;
 		}
-		_assert_msg_(JIT, !vregs[v[i]].location.IsImm(), "Cannot handle imms.");
+		_assert_msg_(JIT, !vregs[v[i]].location.IsImm(), "Cannot handle imms in fp cache.");
+	}
+
+	return true;
+}
+
+bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
+	const int n = GetNumVectorElements(vsz);
+
+	if (!CanMapVS(v, vsz)) {
+		return false;
+	}
+
+	if (IsMappedVS(v, vsz)) {
+		// Already mapped then, perfect.  Just mark dirty.
+		if ((flags & MAP_DIRTY) != 0)
+			xregs[VSX(v[0])].dirty = true;
+		return true;
 	}
 
 	// At this point, some or all are in single regs or memory, and they're not locked there.
@@ -325,8 +337,11 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 }
 
 bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad) {
-	// TODO: Ideally, don't map any unless they're all mappable.
-	// Need to simplify this stuff.
+	// Don't waste time mapping if some will for sure fail.
+	if (!CanMapVS(vd, vdsz) || !CanMapVS(vs, vssz) || !CanMapVS(vt, vtsz)) {
+		return false;
+	}
+	// But, they could still fail based on overlap.  Hopefully not common...
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
 		SpillLockV(vs, vssz);
