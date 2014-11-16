@@ -449,7 +449,7 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	switch ((op >> 16) & 0xF)
 	{
 	case 6: // v=zeros; break;  //vzero
-		MOVSS(XMM0, M(&zero));
+		XORPS(XMM0, R(XMM0));
 		break;
 	case 7: // v=ones; break;   //vone
 		MOVSS(XMM0, M(&one));

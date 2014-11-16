@@ -340,19 +340,21 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 
 	switch ((op >> 21) & 0x1f) {
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		if (rt != MIPS_REG_ZERO) {
-			gpr.MapReg(rt, false, true);
-			// If fs is not mapped, most likely it's being abandoned.
-			// Just load from memory in that case.
-			if (fpr.R(fs).IsSimpleReg()) {
-				MOVD_xmm(gpr.R(rt), fpr.RX(fs));
-			} else {
-				MOV(32, gpr.R(rt), fpr.R(fs));
-			}
+		if (rt == MIPS_REG_ZERO)
+			return;
+		gpr.MapReg(rt, false, true);
+		// If fs is not mapped, most likely it's being abandoned.
+		// Just load from memory in that case.
+		if (fpr.R(fs).IsSimpleReg()) {
+			MOVD_xmm(gpr.R(rt), fpr.RX(fs));
+		} else {
+			MOV(32, gpr.R(rt), fpr.R(fs));
 		}
 		break;
 
 	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
+		if (rt == MIPS_REG_ZERO)
+			return;
 		if (fs == 31) {
 			bool wasImm = gpr.IsImm(MIPS_REG_FPCOND);
 			if (!wasImm) {
