@@ -162,6 +162,17 @@ public:
 	void ReleaseSpillLock(int mipsrega);
 	void ReleaseSpillLocks();
 
+	bool IsMapped(int r) {
+		return R(r).IsSimpleReg();
+	}
+	bool IsMappedV(int v) {
+		return vregs[v].lane == 0 && V(v).IsSimpleReg();
+	}
+	bool IsMappedVS(int v) {
+		return vregs[v].lane != 0 && VS(v).IsSimpleReg();
+	}
+	bool IsMappedVS(u8 *r, VectorSize vsz);
+
 	void MapRegV(int vreg, int flags);
 	void MapRegsV(int vec, VectorSize vsz, int flags);
 	void MapRegsV(const u8 *v, VectorSize vsz, int flags);

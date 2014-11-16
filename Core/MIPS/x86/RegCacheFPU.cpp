@@ -111,6 +111,18 @@ void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	}
 }
 
+bool FPURegCache::IsMappedVS(u8 *r, VectorSize vsz) {
+	const int n = GetNumVectorElements(vsz);
+	if (!IsMappedVS(r[0]))
+		return false;
+	X64Reg xr = VSX(r[0]);
+	for (int i = 0; i < n; ++i) {
+		if (!IsMappedVS(r[i]) || VSX(r[i]) != xr)
+			return false;
+	}
+	return true;
+}
+
 void FPURegCache::MapRegsVS(const u8 *r, VectorSize vsz, int flags) {
 	const int n = GetNumVectorElements(vsz);
 	if (!TryMapRegsVS(r, vsz, flags)) {
