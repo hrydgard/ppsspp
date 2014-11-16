@@ -640,12 +640,11 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		SUBSS(XMM0, R(XMM1));
 		MOVSS(fpr.V(dregs[2]), XMM0);
 	} else if (sz == V_Quad) {
-		// Quaternion product  vqmul.q  untested
-		DISABLE;
-
+		// Quaternion product  vqmul.q
 		fpr.MapRegsV(sregs, sz, 0);
 
 		// Compute X
+		// d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
 		MOVSS(XMM0, fpr.V(sregs[0]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -660,6 +659,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[0]), XMM0);
 
 		// Compute Y
+		//d[1] = s[1] * t[3] + s[2] * t[0] + s[3] * t[1] - s[0] * t[2];
 		MOVSS(XMM0, fpr.V(sregs[1]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[2]));
@@ -674,6 +674,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[1]), XMM0);
 
 		// Compute Z
+		//d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
 		MOVSS(XMM0, fpr.V(sregs[0]));
 		MULSS(XMM0, fpr.V(tregs[1]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -688,6 +689,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[2]), XMM0);
 
 		// Compute W
+		//d[3] = -s[0] * t[0] - s[1] * t[1] - s[2] * t[2] + s[3] * t[3];
 		MOVSS(XMM0, fpr.V(sregs[3]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -695,7 +697,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		SUBSS(XMM0, R(XMM1));
 		MOVSS(XMM1, fpr.V(sregs[2]));
 		MULSS(XMM1, fpr.V(tregs[2]));
-		ADDSS(XMM0, R(XMM1));
+		SUBSS(XMM0, R(XMM1));
 		MOVSS(XMM1, fpr.V(sregs[0]));
 		MULSS(XMM1, fpr.V(tregs[0]));
 		SUBSS(XMM0, R(XMM1));
