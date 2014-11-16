@@ -192,15 +192,16 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// This is mostly proof of concept.
 	int boneCount = 0;
 	if (dec.weighttype && g_Config.bSoftwareSkinning) {
+		MOVAPS(XMM4, M(&threeMasks));
 		for (int i = 0; i < 8; i++) {
 			MOVUPS(XMM0, M((gstate.boneMatrix + 12 * i)));
 			MOVUPS(XMM1, M((gstate.boneMatrix + 12 * i + 3)));
 			MOVUPS(XMM2, M((gstate.boneMatrix + 12 * i + 3 * 2)));
 			MOVUPS(XMM3, M((gstate.boneMatrix + 12 * i + 3 * 3)));
-			ANDPS(XMM0, M(&threeMasks));
-			ANDPS(XMM1, M(&threeMasks));
-			ANDPS(XMM2, M(&threeMasks));
-			ANDPS(XMM3, M(&threeMasks));
+			ANDPS(XMM0, R(XMM4));
+			ANDPS(XMM1, R(XMM4));
+			ANDPS(XMM2, R(XMM4));
+			ANDPS(XMM3, R(XMM4));
 			ORPS(XMM3, M(&aOne));
 			MOVAPS(M((bones + 16 * i)), XMM0);
 			MOVAPS(M((bones + 16 * i + 4)), XMM1);
