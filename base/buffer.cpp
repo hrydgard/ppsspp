@@ -139,7 +139,7 @@ bool Buffer::FlushToFile(const char *filename) {
 
 bool Buffer::FlushSocket(uintptr_t sock) {
 	for (size_t pos = 0, end = data_.size(); pos < end; ) {
-		int sent = send(sock, &data_[pos], end - pos, 0);
+		int sent = send(sock, &data_[pos], (int)(end - pos), 0);
 		if (sent < 0) {
 			ELOG("FlushSocket failed");
 			return false;
@@ -194,7 +194,7 @@ int Buffer::Read(int fd, size_t sz) {
 	char buf[1024];
 	int retval;
 	size_t received = 0;
-	while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), 0)) > 0) {
+	while ((retval = recv(fd, buf, (int)std::min(sz, sizeof(buf)), 0)) > 0) {
 		if (retval < 0) {
 			return retval;
 		}
@@ -205,7 +205,7 @@ int Buffer::Read(int fd, size_t sz) {
 		if (sz == 0)
 			return 0;
 	}
-	return received;
+	return (int)received;
 }
 
 void Buffer::PeekAll(std::string *dest) {
