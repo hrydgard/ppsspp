@@ -23,6 +23,8 @@
 #include "ge_constants.h"
 #include "Common/Common.h"
 
+class PointerWrap;
+
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
 // This is used for light positions, transform matrices, you name it.
 inline float getFloat24(unsigned int data)
@@ -181,7 +183,7 @@ struct GPUgstate
 				maxz,
 				colortest,
 				colorref,
-				colormask,
+				colortestmask,
 				alphatest,
 				stenciltest,
 				stencilop,
@@ -213,13 +215,13 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
-	// Framebuffer
-	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF) | ((fbwidth & 0xFF0000) << 8); }
+	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
+	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
 	// 0x44000000 is uncached VRAM.
 	u32 getFrameBufAddress() const { return 0x44000000 | getFrameBufRawAddress(); }
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7FC; }
-	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF) | ((zbwidth & 0xFF0000) << 8); }
+	u32 getDepthBufRawAddress() const { return (zbptr & 0xFFFFFF); }
 	u32 getDepthBufAddress() const { return 0x44000000 | getDepthBufRawAddress(); }
 	int DepthBufStride() const { return zbwidth&0x7FC; }
 
@@ -282,7 +284,7 @@ struct GPUgstate
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
 	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
-	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
+	u32 getColorTestMask() const { return colortestmask & 0xFFFFFF; }
 
 	// Texturing
 	// TODO: Verify getTextureAddress() alignment?
@@ -290,6 +292,7 @@ struct GPUgstate
 	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
+	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
@@ -310,6 +313,7 @@ struct GPUgstate
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
+	int getTextureMaxLevel() const { return (texmode >> 16) & 0x7; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -415,6 +419,7 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
 	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
 	SKIPDRAW_BAD_FB_TEXTURE = 4,
+	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
@@ -432,6 +437,12 @@ struct UVScale {
 	float uOff, vOff;
 };
 
+enum TextureChangeReason {
+	TEXCHANGE_UNCHANGED = 0x00,
+	TEXCHANGE_UPDATED = 0x01,
+	TEXCHANGE_PARAMSONLY = 0x02,
+};
+
 struct GPUStateCache
 {
 	u32 vertexAddr;
@@ -439,8 +450,9 @@ struct GPUStateCache
 
 	u32 offsetAddr;
 
-	bool textureChanged;
+	u8 textureChanged;
 	bool textureFullAlpha;
+	bool textureSimpleAlpha;
 	bool vertexFullAlpha;
 	bool framebufChanged;
 
@@ -448,26 +460,31 @@ struct GPUStateCache
 
 	UVScale uv;
 	bool flipTexture;
+	bool bgraTexture;
+	bool needShaderTexClamp;
+	bool allowShaderBlend;
 
-	float lightpos[4][3];
-	float lightdir[4][3];
-	float lightatt[4][3];
-	float lightColor[3][4][3];  // Ambient Diffuse Specular
-	float lightangle[4]; // spotlight cone angle (cosine)
-	float lightspotCoef[4]; // spotlight dropoff
 	float morphWeights[8];
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
 	u32 actualTextureHeight;
+	// Only applied when needShaderTexClamp = true.
+	u32 curTextureXOffset;
+	u32 curTextureYOffset;
 
 	float vpWidth;
 	float vpHeight;
+	float vpDepth;
 
 	u32 curRTWidth;
 	u32 curRTHeight;
+	u32 curRTRenderWidth;
+	u32 curRTRenderHeight;
+	u32 cutRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
+	void DoState(PointerWrap &p);
 };
 
 // TODO: Implement support for these.

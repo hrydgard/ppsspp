@@ -29,155 +29,121 @@ const char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
-char *GetCPUString()
+std::string GetCPUString()
 {
-	const char marker[] = "Hardware\t: ";
-	char *cpu_string = 0;
-	// Count the number of processor lines in /proc/cpuinfo
-	char buf[1024];
-	FILE *fp;
-
-	fp = fopen(procfile, "r");
-	if (!fp)
-		return 0;
+	std::string line, marker = "Hardware\t: ";
+	std::string cpu_string = "Unknown";
+	std::fstream file;
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+		return cpu_string;
 	
-	while (fgets(buf, sizeof(buf), fp))
+	while (std::getline(file, line))
 	{
-		if (strncmp(buf, marker, sizeof(marker) - 1))
-			continue;
-		cpu_string = buf + sizeof(marker) - 1;
-		cpu_string = strndup(cpu_string, strlen(cpu_string) - 1); // Strip the newline
-		// INFO_LOG(BOOT, "CPU: %s", cpu_string);
-		break;
+		if (line.find(marker) != std::string::npos)
+		{
+			cpu_string = line.substr(marker.length());
+			cpu_string.pop_back(); // Drop the new-line character
+		}
 	}
-	
-	fclose(fp);
+
 	return cpu_string;
 }
 
 unsigned char GetCPUImplementer()
 {
-	const char marker[] = "CPU implementer\t: ";
-	char *implementer_string = 0;
+	std::string line, marker = "CPU implementer\t: ";
 	unsigned char implementer = 0;
-	char buf[1024];
+	std::fstream file;
 
-	File::IOFile file(procfile, "r");
-	auto const fp = file.GetHandle();
-	if (!fp)
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
 		return 0;
 
-	while (fgets(buf, sizeof(buf), fp))
+	while (std::getline(file, line))
 	{
-		if (strncmp(buf, marker, sizeof(marker) - 1))
-			continue;
-		implementer_string = buf + sizeof(marker) - 1;
-		implementer_string = strndup(implementer_string, strlen(implementer_string) - 1); // Strip the newline
-		sscanf(implementer_string, "0x%02hhx", &implementer);
-		break;
+		if (line.find(marker) != std::string::npos)
+		{
+			line = line.substr(marker.length());
+			sscanf(line.c_str(), "0x%02hhx", &implementer);
+			break;
+		}
 	}
-
-	free(implementer_string);
 
 	return implementer;
 }
 
 unsigned short GetCPUPart()
 {
-	const char marker[] = "CPU part\t: ";
-	char *part_string = 0;
+	std::string line, marker = "CPU part\t: ";
 	unsigned short part = 0;
-	char buf[1024];
+	std::fstream file;
 
-	File::IOFile file(procfile, "r");
-	auto const fp = file.GetHandle();
-	if (!fp)
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
 		return 0;
 
-	while (fgets(buf, sizeof(buf), fp))
+	while (std::getline(file, line))
 	{
-		if (strncmp(buf, marker, sizeof(marker) - 1))
-			continue;
-		part_string = buf + sizeof(marker) - 1;
-		part_string = strndup(part_string, strlen(part_string) - 1); // Strip the newline
-		sscanf(part_string, "0x%03hx", &part);
-		break;
+		if (line.find(marker) != std::string::npos)
+		{
+			line = line.substr(marker.length());
+			sscanf(line.c_str(), "0x%03hx", &part);
+			break;
+		}
 	}
-
-	free(part_string);
 
 	return part;
 }
 
-bool CheckCPUFeature(const char *feature)
+bool CheckCPUFeature(const std::string& feature)
 {
-	const char marker[] = "Features\t: ";
-	char buf[1024];
-	FILE *fp;
+	std::string line, marker = "Features\t: ";
+	std::fstream file;
 
-	fp = fopen(procfile, "r");
-	if (!fp)
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
 		return 0;
 	
-	while (fgets(buf, sizeof(buf), fp))
+	while (std::getline(file, line))
 	{
-		if (strncmp(buf, marker, sizeof(marker) - 1))
-			continue;
-		char *featurestring = buf + sizeof(marker) - 1;
-		char *token = strtok(featurestring, " ");
-		while (token != NULL)
+		if (line.find(marker) != std::string::npos)
 		{
-			if (strstr(token, feature))
+			std::stringstream line_stream(line);
+			std::string token;
+			while (std::getline(line_stream, token, ' '))
 			{
-				fclose(fp);
-				return true; 
+				if (token == feature)
+					return true;
 			}
-			token = strtok(NULL, " ");
 		}
 	}
 	
-	fclose(fp);
 	return false;
 }
 
 int GetCoreCount()
 {
-	const char marker[] = "processor\t: ";
-	int cores = 0;
-	char buf[1024];
-	FILE *fp;
+	std::string line, marker = "processor\t: ";
+	int cores = 1;
+	std::fstream file;
 
-	fp = fopen(syscpupresentfile, "r");
-	if (fp)
+	if (File::OpenCPPFile(file, syscpupresentfile, std::ios::in))
 	{
-		fgets(buf, sizeof(buf), fp);
-		fclose(fp);
-
-		int low, high;
-		// Technically, this could be "1-2,4,8-23" but for ARM devices that seems unlikely.
-		int found = sscanf(buf, "%d-%d", &low, &high);
-
-		// Only a single number, so just one slot/core (actually threads.)
+		int low, high, found;
+		std::getline(file, line);
+		found = sscanf(line.c_str(), "%d-%d", &low, &high);
 		if (found == 1)
 			return 1;
 		if (found == 2)
 			return high - low + 1;
-
-		// Okay, let's fall back.
 	}
 
-	fp = fopen(procfile, "r");
-	if (!fp)
-		return 0;
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+		return 1;
 	
-	while (fgets(buf, sizeof(buf), fp))
+	while (std::getline(file, line))
 	{
-		if (strncmp(buf, marker, sizeof(marker) - 1))
-			continue;
-		++cores;
+		if (line.find(marker) != std::string::npos)
+			++cores;
 	}
 	
-	fclose(fp);
 	return cores;
 }
 #endif
@@ -192,11 +158,16 @@ CPUInfo::CPUInfo() {
 void CPUInfo::Detect()
 {
 	// Set some defaults here
-	// When ARMv8 cpus come out, these need to be updated.
 	HTT = false;
+#ifdef _M_ARM_64
+	OS64bit = true;
+	CPU64bit = true;
+	Mode64bit = true;
+#else
 	OS64bit = false;
 	CPU64bit = false;
-	Mode64bit = false;				 
+	Mode64bit = false;
+#endif
 	vendor = VENDOR_ARM;
 	
 	// Get the information about the CPU 
@@ -245,7 +216,7 @@ void CPUInfo::Detect()
 	bFP = false;
 	bASIMD = false;
 #else // __linux__
-	strncpy(cpu_string, GetCPUString(), sizeof(cpu_string));
+	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
 	bThumb = CheckCPUFeature("thumb");
@@ -291,6 +262,7 @@ std::string CPUInfo::Summarize()
 	if (bNEON) sum += ", NEON";
 	if (bIDIVa) sum += ", IDIVa";
 	if (bIDIVt) sum += ", IDIVt";
+	if (CPU64bit) sum += ", 64-bit";
 
 	return sum;
 }

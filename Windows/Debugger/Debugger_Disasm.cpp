@@ -127,6 +127,17 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 		ShowWindow(statusBarWnd,SW_HIDE);
 	}
 
+	// set it to use two parts
+	RECT statusBarRect;
+	GetClientRect(statusBarWnd,&statusBarRect);
+	
+	int parts[2];
+	parts[1] = statusBarRect.right-statusBarRect.left;
+	parts[0] = parts[1]*2./3.;
+
+	SendMessage(statusBarWnd, SB_SETPARTS, (WPARAM) 2, (LPARAM) parts);
+
+	// init other controls
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
@@ -492,6 +503,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						}
 					}
 					break;
+				case CBN_SELCHANGE:
+					{
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
+						int n = ListBox_GetCurSel(lb);
+
+						wchar_t buffer[512];
+						ListBox_GetText(lb,n,buffer);
+						SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM) buffer);
+					}
 				};
 				break;
 
@@ -644,7 +664,17 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DEB_SETSTATUSBARTEXT:
 		if (!keepStatusBarText)
-			SetWindowText(statusBarWnd, ConvertUTF8ToWString((const char *)lParam).c_str());
+		{
+			if (wParam == 0)
+			{
+				// erase the second part if the first is set
+				SendMessage(statusBarWnd,SB_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)L"");
+			} else if (wParam == 1)
+			{
+				SendMessage(statusBarWnd,SB_SETTEXT,1,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+			}
+		}
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
@@ -691,11 +721,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 void CDisasm::updateThreadLabel(bool clear)
 {
 	char label[512];
-	if (clear)
-	{
-		sprintf(label,"Thread: -");
+	if (clear) {
+		snprintf(label, sizeof(label), "Thread: -");
 	} else {
-		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
+		snprintf(label, sizeof(label), "Thread: %s", threadList->getCurrentThreadName());
 	}
 
 	SetDlgItemText(m_hDlg, IDC_THREADNAME, ConvertUTF8ToWString(label).c_str());
@@ -786,7 +815,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	HWND hDlg = m_hDlg;
 
 	// Update Dialog Windows
-	if (_bDebug && globalUIState == UISTATE_INGAME && PSP_IsInited())
+	if (_bDebug && GetUIState() == UISTATE_INGAME && PSP_IsInited())
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
@@ -797,11 +826,13 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		updateThreadLabel(false);
 
 		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
-		EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEP), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
 		if (switchPC)
@@ -819,20 +850,22 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	{
 		updateThreadLabel(true);
 		
-		if (globalUIState == UISTATE_INGAME && PSP_IsInited())
+		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
-			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), TRUE);
+			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		}
 		else
 		{
 			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
-			EnableWindow( GetDlgItem(hDlg, IDC_STOPGO), FALSE);
+			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), FALSE);
 		}
-		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEP), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOPC), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_GOTOLR), FALSE);
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
 	}

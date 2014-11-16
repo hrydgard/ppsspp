@@ -460,23 +460,23 @@ bool ARMXEmitter::TryEORI2R(ARMReg rd, ARMReg rs, u32 val)
 
 void ARMXEmitter::FlushLitPool()
 {
-	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
+	for (LiteralPool& pool : currentLitPool) {
 		// Search for duplicates
-		for(std::vector<LiteralPool>::iterator old_it = currentLitPool.begin(); old_it != it; ++old_it) {
-			if ((*old_it).val == (*it).val)
-				(*it).loc = (*old_it).loc;
+		for (LiteralPool& old_pool : currentLitPool) {
+			if (old_pool.val == pool.val)
+				pool.loc = old_pool.loc;
 		}
 
 		// Write the constant to Literal Pool
-		if (!(*it).loc)
+		if (!pool.loc)
 		{
-			(*it).loc = (intptr_t)code;
-			Write32((*it).val);
+			pool.loc = (intptr_t)code;
+			Write32(pool.val);
 		}
-		intptr_t offset = (*it).loc - (intptr_t)(*it).ldr_address - 8;
+		s32 offset = (s32)(pool.loc - (intptr_t)pool.ldr_address - 8);
 
 		// Backpatch the LDR
-		*(u32*)(*it).ldr_address |= (offset >= 0) << 23 | abs(offset);
+		*(u32*)pool.ldr_address |= (offset >= 0) << 23 | abs(offset);
 	}
 	// TODO: Save a copy of previous pools in case they are still in range.
 	currentLitPool.clear();
@@ -541,7 +541,6 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-
 static const char *armRegStrings[] = {
 	"r0","r1","r2","r3",
 	"r4","r5","r6","r7",
@@ -580,11 +579,11 @@ const char *ARMRegAsString(ARMReg reg) {
 	return armRegStrings[(int)reg];
 }
 
-void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
+void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	if (BLInRange(func)) {
 		BL(func);
 	} else {
-		MOVI2R(reg, (u32)(uintptr_t)(func));
+		MOVP2R(reg, func);
 		BL(reg);
 	}
 }
@@ -1208,8 +1207,7 @@ void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegLi
 void ARMXEmitter::WriteVRegStoreOp(u32 op, ARMReg Rn, bool Double, bool WriteBack, ARMReg Vd, u8 numregs)
 {
 	_dbg_assert_msg_(JIT, !WriteBack || Rn != R_PC, "VLDM/VSTM cannot use WriteBack with PC (PC is deprecated anyway.)");
-	ARMReg Dest = SubBase(Vd);
-	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | ((Dest & 0x1) << 22) | ((Dest & 0x1E) << 11) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
+	Write32(condition | (op << 20) | (WriteBack << 21) | (Rn << 16) | EncodeVd(Vd) | ((0xA | (int)Double) << 8) | (numregs << (int)Double));
 }
 void ARMXEmitter::STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...)
 {

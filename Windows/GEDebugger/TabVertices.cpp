@@ -16,10 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+#include "Core/System.h"
 #include "Windows/resource.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabVertices.h"
-#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -175,6 +176,12 @@ void CtrlVertexList::FormatVertCol(wchar_t *dest, const GPUDebugVertex &vert, in
 }
 
 void CtrlVertexList::FormatVertColRaw(wchar_t *dest, int row, int col) {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		wcscpy(dest, L"Invalid");
+		return;
+	}
+
 	// We could use the vertex decoder and reader, but those already do some minor adjustments.
 	// There's only a few values - let's just go after them directly.
 	const u8 *vert = Memory::GetPointer(gpuDebug->GetVertexAddress()) + row * decoder->size;
@@ -255,6 +262,11 @@ void CtrlVertexList::FormatVertColRawColor(wchar_t *dest, const void *data, int 
 }
 
 int CtrlVertexList::GetRowCount() {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited()) {
+		return 0;
+	}
+
 	if (!gpuDebug || !Memory::IsValidAddress(gpuDebug->GetVertexAddress())) {
 		rowCount_ = 0;
 		return rowCount_;
@@ -276,7 +288,10 @@ int CtrlVertexList::GetRowCount() {
 	if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}
-	decoder->SetVertexType(state.vertType);
+	VertexDecoderOptions options;
+	memset(&options, 0, sizeof(options));
+	options.expandAllUVtoFloat = false;
+	decoder->SetVertexType(state.vertType, options);
 	return rowCount_;
 }
 
@@ -343,7 +358,7 @@ CtrlMatrixList::CtrlMatrixList(HWND hwnd)
 }
 
 void CtrlMatrixList::GetColumnText(wchar_t *dest, int row, int col) {
-	if (row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT) {
+	if (!gpuDebug || row < 0 || row >= MATRIXLIST_ROW_COUNT || col < 0 || col >= MATRIXLIST_COL_COUNT) {
 		wcscpy(dest, L"Invalid");
 		return;
 	}

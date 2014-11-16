@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cstdio>
 #include <ctype.h>
+#include <algorithm>
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
@@ -299,9 +300,8 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)
 {
-	if (path.length() == 0)
-	{
-		//Ah, the device!	"umd0:"
+	if (path.length() == 0) {
+		// Ah, the device!	"umd0:"
 		return &entireISO;
 	}
 
@@ -310,9 +310,6 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 
 	if (path[0] == '/')
 		path.erase(0,1);
-
-	if (path == "umd0")
-		return &entireISO;
 
 	TreeEntry *e = treeroot;
 	if (path.length() == 0)
@@ -498,10 +495,10 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			u32 size = (u32)desc.pathTableLengthLE;
 			u8 *out = Memory::GetPointer(outdataPtr);
 
-			while (size >= 2048) {
-				blockDevice->ReadBlock(block++, out);
-				out += 2048;
-			}
+			int blocks = size / blockDevice->GetBlockSize();
+			blockDevice->ReadBlocks(block, blocks, out);
+			size -= blocks * blockDevice->GetBlockSize();
+			out += blocks * blockDevice->GetBlockSize();
 
 			// The remaining (or, usually, only) partial sector.
 			if (size > 0) {
@@ -531,12 +528,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		if (e.isBlockSectorMode)
 		{
 			// Whole sectors! Shortcut to this simple code.
-			for (int i = 0; i < size; i++)
-			{
-				blockDevice->ReadBlock(e.seekPos, pointer + i * 2048);
-				e.seekPos++;
-			}
-			return (size_t)size;
+			blockDevice->ReadBlocks(e.seekPos, (int)size, pointer);
+			e.seekPos += (int)size;
+			return (int)size;
 		}
 
 		u32 positionOnIso;
@@ -563,29 +557,39 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		}
 		//okay, we have size and position, let's rock
 
-		u32 totalRead = 0;
+		const int firstBlockOffset = positionOnIso & 2047;
+		const int firstBlockSize = firstBlockOffset == 0 ? 0 : (int)std::min(size, 2048LL - firstBlockOffset);
+		const int lastBlockSize = (size - firstBlockSize) & 2047;
+		const s64 middleSize = size - firstBlockSize - lastBlockSize;
 		int secNum = positionOnIso / 2048;
-		int posInSector = positionOnIso & 2047;
-		s64 remain = size;		
-
 		u8 theSector[2048];
 
-		while (remain > 0)
-		{
-			blockDevice->ReadBlock(secNum, theSector);
-			size_t bytesToCopy = 2048 - posInSector;
-			if ((s64)bytesToCopy > remain)
-				bytesToCopy = (size_t)remain;
+		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
 
-			memcpy(pointer, theSector + posInSector, bytesToCopy);
-			totalRead += (u32)bytesToCopy;
-			pointer += bytesToCopy;
-			remain -= bytesToCopy;
-			posInSector = 0;
-			secNum++;
+		const u8 *const start = pointer;
+		if (firstBlockSize > 0)
+		{
+			blockDevice->ReadBlock(secNum++, theSector);
+			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
+			pointer += firstBlockSize;
 		}
-		e.seekPos += (unsigned int)size;
-		return totalRead;
+		if (middleSize > 0)
+		{
+			const u32 sectors = (u32)(middleSize / 2048);
+			blockDevice->ReadBlocks(secNum, sectors, pointer);
+			secNum += sectors;
+			pointer += middleSize;
+		}
+		if (lastBlockSize > 0)
+		{
+			blockDevice->ReadBlock(secNum++, theSector);
+			memcpy(pointer, theSector, lastBlockSize);
+			pointer += lastBlockSize;
+		}
+
+		size_t totalBytes = pointer - start;
+		e.seekPos += (unsigned int)totalBytes;
+		return (size_t)totalBytes;
 	}
 	else
 	{
@@ -724,6 +728,12 @@ std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
 	}
 
 	return path;
+}
+
+ISOFileSystem::TreeEntry::~TreeEntry() {
+	for (size_t i = 0; i < children.size(); ++i)
+		delete children[i];
+	children.clear();
 }
 
 void ISOFileSystem::DoState(PointerWrap &p)

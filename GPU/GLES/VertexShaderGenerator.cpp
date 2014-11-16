@@ -29,6 +29,7 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include "GPU/GLES/VertexShaderGenerator.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
 // special treatment in the shader generator.
@@ -46,13 +47,6 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-int TranslateNumBones(int bones) {
-	if (!bones) return 0;
-	if (bones < 4) return 4;
-	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
-	return bones;
-}
-
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -65,58 +59,65 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
-	memset(id->d, 0, sizeof(id->d));
-	id->d[0] = lmode & 1;
-	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
-	id->d[0] |= ((int)enableFog) << 2;
-	id->d[0] |= (doTexture & 1) << 3;
-	id->d[0] |= (hasColor & 1) << 4;
+	int id0 = 0;
+	int id1 = 0;
+
+	id0 = lmode & 1;
+	id0 |= (gstate.isModeThrough() & 1) << 1;
+	id0 |= (enableFog & 1) << 2;
+	id0 |= (hasColor & 1) << 3;
 	if (doTexture) {
-		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
-		id->d[0] |= (doTextureProjection & 1) << 6;
+		id0 |= 1 << 4;
+		id0 |= (gstate_c.flipTexture & 1) << 5;
+		id0 |= (doTextureProjection & 1) << 6;
 	}
 
 	if (useHWTransform) {
-		id->d[0] |= 1 << 8;
-		id->d[0] |= (hasNormal & 1) << 9;
+		id0 |= 1 << 8;
+		id0 |= (hasNormal & 1) << 9;
 
 		// UV generation mode
-		id->d[0] |= gstate.getUVGenMode() << 16;
+		id0 |= gstate.getUVGenMode() << 16;
 
 		// The next bits are used differently depending on UVgen mode
 		if (doTextureProjection) {
-			id->d[0] |= gstate.getUVProjMode() << 18;
+			id0 |= gstate.getUVProjMode() << 18;
 		} else if (doShadeMapping) {
-			id->d[0] |= gstate.getUVLS0() << 18;
-			id->d[0] |= gstate.getUVLS1() << 20;
+			id0 |= gstate.getUVLS0() << 18;
+			id0 |= gstate.getUVLS1() << 20;
 		}
 
 		// Bones
 		if (vertTypeIsSkinningEnabled(vertType))
-			id->d[0] |= (TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
+			id0 |= (TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= gstate.getLightComputation(i) << (i * 4);
-				id->d[1] |= gstate.getLightType(i) << (i * 4 + 2);
+				id1 |= gstate.getLightComputation(i) << (i * 4);
+				id1 |= gstate.getLightType(i) << (i * 4 + 2);
 			}
-			id->d[1] |= (gstate.materialupdate & 7) << 16;
+			id1 |= (gstate.materialupdate & 7) << 16;
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
+				id1 |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
 			}
+			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
+			id1 |= 1 << 24;
 		}
-		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
-		id->d[1] |= gstate.areNormalsReversed() << 26;
+		// 2 bits.
+		id1 |= (vertTypeGetWeightMask(vertType) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id1 |= (gstate.areNormalsReversed() & 1) << 27;
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id->d[1] |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 27;  // two bits
+			id1 |= ((vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT) << 28;  // two bits
 		} else {
-			id->d[1] |= (hasTexcoord & 1) << 27;
+			id1 |= (hasTexcoord & 1) << 28;
 		}
 	}
+
+	id->d[0] = id0;
+	id->d[1] = id1;
 }
 
 static const char * const boneWeightAttrDecl[9] = {
@@ -179,6 +180,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		WRITE(p, "#version 130\n");
 		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
@@ -205,7 +209,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
@@ -517,14 +521,15 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			bool doSpecular = gstate.isUsingSpecularLight(i);
 			bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(i);
 
+			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
 			if (poweredDiffuse) {
-				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
-				// Ugly NaN check.  pow(0.0, 0.0) may be undefined, but PSP seems to treat it as 1.0.
+				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (!(dot%i < 1.0) && !(dot%i > 0.0))\n", i, i);
+				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
-			} else {
-				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "  }\n");
 			}
 
 			const char *timesLightScale = " * lightScale";
@@ -551,7 +556,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * dot%i;\n", i, diffuseStr, i);
 			if (doSpecular) {
 				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
@@ -654,7 +659,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			if (flipV)
+			// Will flip in the fragment for GE_TEXMAP_TEXTURE_MATRIX.
+			if (flipV && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX)
 				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
 		}
 

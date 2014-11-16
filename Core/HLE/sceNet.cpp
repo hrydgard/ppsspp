@@ -30,6 +30,8 @@
 #include "sceKernelMutex.h"
 #include "sceUtility.h"
 
+#include "Core/HLE/sceNetAdhoc.h"
+
 static bool netInited;
 static bool netInetInited;
 static bool netApctlInited;
@@ -119,9 +121,22 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netMallocStat);
 }
 
+u32 sceNetTerm() {
+	//May also need to Terminate netAdhocctl and netAdhoc since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit+sceNetAdhocInit
+	if (netAdhocctlInited) sceNetAdhocctlTerm();
+	if (netAdhocInited) sceNetAdhocTerm();
+
+	WARN_LOG(SCENET, "UNTESTED sceNetTerm()");
+	netInited = false;
+	return 0;
+}
+
 // TODO: should that struct actually be initialized here?
 u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
-	ERROR_LOG(SCENET,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", poolSize, calloutPri, calloutStack, netinitPri, netinitStack);
+	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
+	if (netInited) sceNetTerm();
+
+	ERROR_LOG(SCENET, "UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
 	netMallocStat.maximum = poolSize;
 	netMallocStat.free = poolSize;
@@ -130,18 +145,11 @@ u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u
 	return 0;
 }
 
-u32 sceNetTerm() {
-	ERROR_LOG(SCENET,"UNIMPL sceNetTerm()");
-	netInited = false;
-
-	return 0;
-}
-
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
   // Read MAC Address from config
 	uint8_t mac[6] = {0};
-	if (!ParseMacAddress(g_Config.localMacAddress.c_str(), mac)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.localMacAddress.c_str());
+	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
 	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
@@ -366,6 +374,12 @@ int sceNetApctlDisconnect() {
 	return 0;
 }
 
+int sceNetResolverInit()
+{
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return 0;
+}
+
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
@@ -381,7 +395,7 @@ const HLEFunction sceNetResolver[] = {
 	{0x224c5f44, 0, "sceNetResolverStartNtoA"},
 	{0x244172af, 0, "sceNetResolverCreate"},
 	{0x94523e09, 0, "sceNetResolverDelete"},
-	{0xf3370e61, 0, "sceNetResolverInit"},
+	{0xf3370e61, WrapI_V<sceNetResolverInit>, "sceNetResolverInit"},
 	{0x808F6063, 0, "sceNetResolverStop"},
 	{0x6138194A, 0, "sceNetResolverTerm"},
 	{0x629e2fb7, 0, "sceNetResolverStartAtoN"},

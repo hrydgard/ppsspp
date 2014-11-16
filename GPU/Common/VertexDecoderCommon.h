@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,6 +23,14 @@
 #include "Common/CommonTypes.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
+#ifdef ARM
+#include "Common/ArmEmitter.h"
+#elif defined(_M_IX86) || defined(_M_X64)
+#include "Common/x64Emitter.h"
+#else
+#include "Common/FakeEmitter.h"
+#endif
+#include "Globals.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -79,11 +87,6 @@ struct TransformedVertex
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
-enum {
-	STAT_VERTSSUBMITTED = 0,
-	NUM_VERTEX_DECODER_STATS = 1
-};
-
 inline int RoundUp4(int x) {
 	return (x + 3) & ~3;
 }
@@ -118,7 +121,7 @@ public:
 					pos[2] = u[2] * (1.0f / 65535.0f);
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.f / 32767.f);
+						pos[i] = s[i] * (1.0f / 32768.0f);
 				}
 			}
 			break;
@@ -130,10 +133,10 @@ public:
 				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
 						pos[i] = b[i];
-					pos[2] = u[2] / 255.0f;
+					pos[2] = u[2] * (1.0f / 255.0f);
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.f / 127.f);
+						pos[i] = b[i] * (1.0f / 128.0f);
 				}
 			}
 			break;
@@ -168,7 +171,7 @@ public:
 					pos[2] = u[2];
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = s[i] * (1.f / 32767.f);
+						pos[i] = s[i] * (1.0f / 32768.0f);
 					// TODO: Does depth need conversion?
 				}
 			}
@@ -184,7 +187,7 @@ public:
 					pos[2] = u[2];
 				} else {
 					for (int i = 0; i < 3; i++)
-						pos[i] = b[i] * (1.f / 127.f);
+						pos[i] = b[i] * (1.0f / 128.0f);
 					// TODO: Does depth need conversion?
 				}
 			}
@@ -203,7 +206,7 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = f[i] ;
+					nrm[i] = f[i];
 			}
 			break;
 		case DEC_S16_3:
@@ -410,3 +413,259 @@ private:
 // Debugging utilities
 void PrintDecodedVertex(VertexReader &vtx);
 
+
+class VertexDecoder;
+class VertexDecoderJitCache;
+
+typedef void (VertexDecoder::*StepFunction)() const;
+typedef void (VertexDecoderJitCache::*JitStepFunction)();
+
+struct JitLookup {
+	StepFunction func;
+	JitStepFunction jitFunc;
+};
+
+// Collapse to less skinning shaders to reduce shader switching, which is expensive.
+int TranslateNumBones(int bones);
+
+typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
+
+struct VertexDecoderOptions {
+	bool expandAllUVtoFloat;
+	bool expandAllWeightsToFloat;
+	bool expand8BitNormalsToFloat;
+};
+
+class VertexDecoder
+{
+public:
+	VertexDecoder();
+
+	// A jit cache is not mandatory, we don't use it in the sw renderer
+	void SetVertexType(u32 vtype, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache = 0);
+
+	u32 VertexType() const { return fmt_; }
+
+	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
+
+	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
+
+	bool hasColor() const { return col != 0; }
+	bool hasTexcoord() const { return tc != 0; }
+	int VertexSize() const { return size; }  // PSP format size
+
+	void Step_WeightsU8() const;
+	void Step_WeightsU16() const;
+	void Step_WeightsU8ToFloat() const;
+	void Step_WeightsU16ToFloat() const;
+	void Step_WeightsFloat() const;
+
+	void Step_WeightsU8Skin() const;
+	void Step_WeightsU16Skin() const;
+	void Step_WeightsFloatSkin() const;
+
+	void Step_TcU8() const;
+	void Step_TcU16() const;
+	void Step_TcU8ToFloat() const;
+	void Step_TcU16ToFloat() const;
+	void Step_TcFloat() const;
+
+	void Step_TcU8Prescale() const;
+	void Step_TcU16Prescale() const;
+	void Step_TcFloatPrescale() const;
+
+	void Step_TcU16Double() const;
+	void Step_TcU16Through() const;
+	void Step_TcU16ThroughDouble() const;
+	void Step_TcU16DoubleToFloat() const;
+	void Step_TcU16ThroughToFloat() const;
+	void Step_TcU16ThroughDoubleToFloat() const;
+	void Step_TcFloatThrough() const;
+
+	void Step_Color4444() const;
+	void Step_Color565() const;
+	void Step_Color5551() const;
+	void Step_Color8888() const;
+
+	void Step_Color4444Morph() const;
+	void Step_Color565Morph() const;
+	void Step_Color5551Morph() const;
+	void Step_Color8888Morph() const;
+
+	void Step_NormalS8() const;
+	void Step_NormalS8ToFloat() const;
+	void Step_NormalS16() const;
+	void Step_NormalFloat() const;
+
+	void Step_NormalS8Skin() const;
+	void Step_NormalS16Skin() const;
+	void Step_NormalFloatSkin() const;
+
+	void Step_NormalS8Morph() const;
+	void Step_NormalS16Morph() const;
+	void Step_NormalFloatMorph() const;
+
+	void Step_PosS8() const;
+	void Step_PosS16() const;
+	void Step_PosFloat() const;
+
+	void Step_PosS8Skin() const;
+	void Step_PosS16Skin() const;
+	void Step_PosFloatSkin() const;
+
+	void Step_PosS8Morph() const;
+	void Step_PosS16Morph() const;
+	void Step_PosFloatMorph() const;
+
+	void Step_PosS8Through() const;
+	void Step_PosS16Through() const;
+	void Step_PosFloatThrough() const;
+
+	// output must be big for safety.
+	// Returns number of chars written.
+	// Ugly for speed.
+	int ToString(char *output) const;
+
+	// Mutable decoder state
+	mutable u8 *decoded_;
+	mutable const u8 *ptr_;
+
+	JittedVertexDecoder jitted_;
+
+	// "Immutable" state, set at startup
+
+	// The decoding steps. Never more than 5.
+	StepFunction steps_[5];
+	int numSteps_;
+
+	u32 fmt_;
+	DecVtxFormat decFmt;
+
+	bool throughmode;
+	u8 size;
+	u8 onesize_;
+
+	u8 weightoff;
+	u8 tcoff;
+	u8 coloff;
+	u8 nrmoff;
+	u8 posoff;
+
+	u8 tc;
+	u8 col;
+	u8 nrm;
+	u8 pos;
+	u8 weighttype;
+	u8 idx;
+	u8 morphcount;
+	u8 nweights;
+
+	friend class VertexDecoderJitCache;
+};
+
+
+// A compiled vertex decoder takes the following arguments (C calling convention):
+// u8 *src, u8 *dst, int count
+//
+// x86:
+//   src is placed in esi and dst in edi
+//   for every vertex, we step esi and edi forwards by the two vertex sizes
+//   all movs are done relative to esi and edi
+//
+// that's it!
+
+
+#ifdef ARM
+class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
+#elif defined(_M_IX86) || defined(_M_X64)
+class VertexDecoderJitCache : public Gen::XCodeBlock {
+#else
+class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
+#endif
+public:
+	VertexDecoderJitCache();
+
+	// Returns a pointer to the code to run.
+	JittedVertexDecoder Compile(const VertexDecoder &dec);
+	void Clear();
+
+	void Jit_WeightsU8();
+	void Jit_WeightsU16();
+	void Jit_WeightsU8ToFloat();
+	void Jit_WeightsU16ToFloat();
+	void Jit_WeightsFloat();
+
+	void Jit_WeightsU8Skin();
+	void Jit_WeightsU16Skin();
+	void Jit_WeightsFloatSkin();
+
+	void Jit_TcU8();
+	void Jit_TcU8ToFloat();
+	void Jit_TcU16();
+	void Jit_TcU16ToFloat();
+	void Jit_TcFloat();
+
+	void Jit_TcU8Prescale();
+	void Jit_TcU16Prescale();
+	void Jit_TcFloatPrescale();
+
+	void Jit_TcU16Double();
+	void Jit_TcU16ThroughDouble();
+
+	void Jit_TcU16Through();
+	void Jit_TcU16ThroughToFloat();
+	void Jit_TcFloatThrough();
+
+	void Jit_Color8888();
+	void Jit_Color4444();
+	void Jit_Color565();
+	void Jit_Color5551();
+
+	void Jit_NormalS8();
+	void Jit_NormalS8ToFloat();
+	void Jit_NormalS16();
+	void Jit_NormalFloat();
+
+	void Jit_NormalS8Skin();
+	void Jit_NormalS16Skin();
+	void Jit_NormalFloatSkin();
+
+	void Jit_PosS8();
+	void Jit_PosS8ToFloat();
+	void Jit_PosS16();
+	void Jit_PosFloat();
+	void Jit_PosS8Through();
+	void Jit_PosS16Through();
+
+	void Jit_PosS8Skin();
+	void Jit_PosS16Skin();
+	void Jit_PosFloatSkin();
+
+	void Jit_NormalS8Morph();
+	void Jit_NormalS16Morph();
+	void Jit_NormalFloatMorph();
+
+	void Jit_PosS8Morph();
+	void Jit_PosS16Morph();
+	void Jit_PosFloatMorph();
+
+	void Jit_Color8888Morph();
+	void Jit_Color4444Morph();
+	void Jit_Color565Morph();
+	void Jit_Color5551Morph();
+
+private:
+	bool CompileStep(const VertexDecoder &dec, int i);
+	void Jit_ApplyWeights();
+	void Jit_WriteMatrixMul(int outOff, bool pos);
+	void Jit_WriteMorphColor(int outOff, bool checkAlpha = true);
+	void Jit_AnyS8ToFloat(int srcoff);
+	void Jit_AnyS16ToFloat(int srcoff);
+	void Jit_AnyU8ToFloat(int srcoff, u32 bits = 32);
+	void Jit_AnyU16ToFloat(int srcoff, u32 bits = 64);
+	void Jit_AnyS8Morph(int srcoff, int dstoff);
+	void Jit_AnyS16Morph(int srcoff, int dstoff);
+	void Jit_AnyFloatMorph(int srcoff, int dstoff);
+
+	const VertexDecoder *dec_;
+};

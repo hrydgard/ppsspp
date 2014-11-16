@@ -462,6 +462,7 @@ u32 sceUmdGetErrorStat()
 void __UmdReplace(std::string filepath) {
 	// Only get system from disc0 seems have been enough.
 	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
+	IFileSystem* currentISOBlock = pspFileSystem.GetSystem("umd0:");
 	if (!currentUMD)
 		return;
 
@@ -476,8 +477,14 @@ void __UmdReplace(std::string filepath) {
 		if (!bd)
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
-
 		pspFileSystem.Remount(currentUMD, umd2);
+
+		if (currentUMD != currentISOBlock) {
+			// We mounted an ISO block system separately.
+			IFileSystem *iso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
+			pspFileSystem.Remount(currentISOBlock, iso);
+			delete currentISOBlock;
+		}
 	}
 	delete currentUMD;
 

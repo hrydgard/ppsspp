@@ -68,6 +68,7 @@
 #include "sceUtility.h"
 #include "sceVaudio.h"
 #include "sceMt19937.h"
+#include "sceUsbGps.h"
 
 #define N(s) s
 
@@ -326,7 +327,8 @@ void RegisterAllModules() {
 	Register_SysclibForKernel();
 	Register_sceCtrl_driver();
 	Register_sceDisplay_driver();
-
-
+	Register_sceMpegbase();
+	Register_sceUsbGps();
+	Register_sceLibFttt();
 }
 

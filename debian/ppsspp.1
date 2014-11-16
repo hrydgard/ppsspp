@@ -1,0 +1,67 @@
+.TH "PPSSPP" "1" "July 2014" "PPSSPP" "User Commands"
+
+.SH "NAME"
+
+PPSSPP \- PSP emulator.
+
+.SH "SYNOPSIS"
+
+\FBppsspp\fR [FILE] [OPTIONS]...
+
+.SH "DESCRIPTION"
+
+\fBPPSSPP\fR is a PSP emulator written in C++. It translates PSP CPU instructions directly into optimized x86, x64 and ARM machine code, using JIT recompilers (dynarecs).
+It can thus run on quite low-spec hardware, including stronger ARM-based phones and tablets, as long as there's OpenGL ES 2.0 support.
+.PP
+It can run your PSP games in full HD resolution and it can even upscale textures that would otherwise be too blurry as they were made for the small screen of the original PSP.
+.PP
+See http://www.ppsspp.org/ for more information.
+
+
+.SH "EXAMPLE COMMANDLINES"
+
+.TP
+\fBLoad a game immediately:\fR
+ppsspp ~/path/to/the/game-legally-own.iso
+
+.TP
+\fBEnable debug logging and write log information into file test.txt:\fR
+ppsspp -d --log=test.txt
+
+.TP
+\fBLoad a game immediately and write log information into file test.txt:\fR
+ppsspp ~/path/to/the/game-legally-own.iso --log=test.txt
+
+.SH "GENERAL OPTIONS"
+
+.TP
+\fB[FILE]\fR
+Load file immediately (runs based on config / -s.)
+
+.TP
+\fB[-d]\fR
+Enable debug logging (non-Windows only, must be compiled in on Android/etc.)
+
+.TP
+\fB[-g]\fR
+Enable graphics logging.
+
+.TP
+\fB[-j]\fR
+Use the jit.
+
+.TP
+\fB[-i]\fR
+Use the interpreter.
+
+.TP
+\fB[--log=FILE]\fR
+Write log info to FILE.
+
+.TP
+\fB[--state=FILE]\fR
+Load savestate from FILE at game start.
+
+.TP
+\fB[--escape-exit]\fR
+Exit PPSSPP with ESC key.

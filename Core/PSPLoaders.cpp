@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef __SYMBIAN32__
+#include <sys/param.h>
+#endif
+
 #include "file/file_util.h"
 
 #include "Common/StringUtils.h"
@@ -56,6 +60,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 	FileInfo info;
 	if (!getFileInfo(fileToStart.c_str(), &info)) return;
 
+	bool actualIso = false;
 	if (info.isDirectory)
 	{
 		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
@@ -66,16 +71,33 @@ void InitMemoryForGameISO(std::string fileToStart) {
 		// Can't init anything without a block device...
 		if (!bd)
 			return;
+
+#ifdef _M_X64
+		if (g_Config.bCacheFullIsoInRam) {
+			// The constructor destroys the original block device object after reading it.
+			bd = new RAMBlockDevice(bd);
+		}
+#endif
+
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+		actualIso = true;
 	}
 
 	// Parse PARAM.SFO
 
 	//pspFileSystem.Mount("host0:",umd2);
-	pspFileSystem.Mount("umd0:", umd2);
-	pspFileSystem.Mount("umd1:", umd2);
+
+	IFileSystem *entireIso = 0;
+	if (actualIso) {
+		entireIso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
+	} else {
+		entireIso = umd2;
+	}
+
+	pspFileSystem.Mount("umd0:", entireIso);
+	pspFileSystem.Mount("umd1:", entireIso);
 	pspFileSystem.Mount("disc0:", umd2);
-	pspFileSystem.Mount("umd:", umd2);
+	pspFileSystem.Mount("umd:", entireIso);
 
 	std::string gameID;
 
@@ -162,7 +184,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
 		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
 	}
-
+	if (id == "NPJH00100" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL").exists) {
+		bootpath = "disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL";
+	}
 
 	bool hasEncrypted = false;
 	u32 fd;
@@ -183,6 +207,20 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
+}
+
+static std::string NormalizePath(const std::string &path)
+{
+#ifdef _WIN32
+	char buf[512] = {0};
+	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
+		return "";
+#else
+	char buf[PATH_MAX + 1];
+	if (realpath(path.c_str(), buf) == NULL)
+		return "";
+#endif
+	return buf;
 }
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
@@ -206,6 +244,25 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 #ifdef _WIN32
 	path = ReplaceAll(path, "/", "\\");
 #endif
+
+	if (!PSP_CoreParameter().mountRoot.empty())
+	{
+		// We don't want to worry about .. and cwd and such.
+		const std::string rootNorm = NormalizePath(PSP_CoreParameter().mountRoot + "/");
+		const std::string pathNorm = NormalizePath(path + "/");
+
+		// If root is not a subpath of path, we can't boot the game.
+		if (!startsWith(pathNorm, rootNorm))
+		{
+			*error_string = "Cannot boot ELF located outside mountRoot.";
+			return false;
+		}
+
+		const std::string filepath = ReplaceAll(pathNorm.substr(rootNorm.size()), "\\", "/");
+		file = filepath + "/" + file;
+		path = rootNorm + "/";
+		pspFileSystem.SetStartingDirectory(filepath);
+	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
 	pspFileSystem.Mount("umd0:", fs);

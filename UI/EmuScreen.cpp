@@ -50,7 +50,6 @@
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
-#include "UI/UIShader.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
@@ -61,14 +60,15 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: booted_(false), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	memset(axisState_, 0, sizeof(axisState_));
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
-		booted_ = PSP_InitUpdate(&error_string);
-		if (booted_) {
+		bootPending_ = !PSP_InitUpdate(&error_string);
+		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
 				errorMessage_ = error_string;
@@ -86,9 +86,13 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		coreParam.gpuCore = GPU_DIRECTX9;
+	}
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
+	coreParam.mountRoot = "";
 	coreParam.startPaused = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
@@ -107,17 +111,16 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParam, &error_string)) {
-		booted_ = true;
+		bootPending_ = false;
 		invalid_ = true;
 		errorMessage_ = error_string;
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		System_SendMessage("event", "failstartgame");
-		return;
 	}
 }
 
 void EmuScreen::bootComplete() {
-	globalUIState = UISTATE_INGAME;
+	UpdateUIState(UISTATE_INGAME);
 	host->BootDone();
 	host->UpdateDisassembly();
 
@@ -135,9 +138,13 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
-	const char *renderer = (const char*)glGetString(GL_RENDERER);
-	if (strstr(renderer, "Chainfire3D") != 0) {
-		osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		const char *renderer = (const char*)glGetString(GL_RENDERER);
+		if (strstr(renderer, "Chainfire3D") != 0) {
+			osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		} else if (strstr(renderer, "GLTools") != 0) {
+			osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+		}
 	}
 
 	System_SendMessage("event", "startgame");
@@ -162,6 +169,11 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
+static void AfterStateLoad(bool success, void *ignored) {
+	Core_EnableStepping(false);
+	host->UpdateDisassembly();
+}
+
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (!strcmp(message, "pause")) {
@@ -169,27 +181,31 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "stop")) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
+		bootPending_ = false;
+		invalid_ = true;
+		host->UpdateDisassembly();
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
+		bootPending_ = true;
+		invalid_ = true;
+		host->UpdateDisassembly();
+
 		std::string resetError;
-		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
 			screenManager()->switchScreen(new MainScreen());
 			System_SendMessage("event", "failstartgame");
 			return;
 		}
-		host->BootDone();
-		host->UpdateDisassembly();
-#ifndef MOBILE_DEVICE
-		if (g_Config.bAutoRun) {
-			Core_EnableStepping(false);
-		} else {
-			Core_EnableStepping(true);
-		}
-#endif
 	} else if (!strcmp(message, "boot")) {
-		PSP_Shutdown();
-		bootGame(value);
+		const char *ext = strrchr(value, '.');
+		if (!strcmp(ext, ".ppst")) {
+			SaveState::Load(value, &AfterStateLoad);
+		} else {
+			PSP_Shutdown();
+			bootPending_ = true;
+			bootGame(value);
+		}
 	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
@@ -208,6 +224,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "clear jit")) {
 		if (MIPSComp::jit) {
 			MIPSComp::jit->ClearCache();
+		}
+		if (PSP_IsInited()) {
+			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
+		}
+	} else if (!strcmp(message, "window minimized")) {
+		if (!strcmp(value, "true")) {
+			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
+		} else {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
 	}
 }
@@ -233,9 +258,13 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void EmuScreen::touch(const TouchInput &touch) {
-	if (root_)
+bool EmuScreen::touch(const TouchInput &touch) {
+	if (root_) {
 		root_->Touch(touch);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
@@ -276,6 +305,13 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
+		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		break;
+
+	case VIRTKEY_ANALOG_LIGHTLY:
+		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
@@ -327,40 +363,56 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 
+	case VIRTKEY_ANALOG_LIGHTLY:
+		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
+		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
+		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
+		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		break;
+
 	default:
 		break;
 	}
 }
 
 inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax) {
+	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 	float axis = 0.0f;
 	// The down events can repeat, so just trust the virtKeys array.
 	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= 1.0f;
+		axis -= value;
 	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += 1.0f;
+		axis += value;
 	__CtrlSetAnalogX(axis, stick);
 }
 
 inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax) {
+	const float value = virtKeys[VIRTKEY_ANALOG_LIGHTLY - VIRTKEY_FIRST] ? g_Config.fAnalogLimiterDeadzone : 1.0f;
 	float axis = 0.0f;
 	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
-		axis -= 1.0f;
+		axis -= value;
 	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
-		axis += 1.0f;
+		axis += value;
 	__CtrlSetAnalogY(axis, stick);
 }
 
-void EmuScreen::key(const KeyInput &key) {
+bool EmuScreen::key(const KeyInput &key) {
 	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
 		pauseTrigger_ = true;
 	}
 
 	std::vector<int> pspKeys;
 	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
+
+	if (pspKeys.size() && (key.flags & KEY_IS_REPEAT)) {
+		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
+		return true;
+	}
+
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(pspKeys[i], key.flags);
 	}
+	return pspKeys.size() > 0;
 }
 
 void EmuScreen::pspKey(int pspKeyCode, int flags) {
@@ -383,24 +435,46 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 	}
 }
 
-void EmuScreen::axis(const AxisInput &axis) {
+bool EmuScreen::axis(const AxisInput &axis) {
 	if (axis.value > 0) {
 		processAxis(axis, 1);
+		return true;
 	} else if (axis.value < 0) {
 		processAxis(axis, -1);
+		return true;
 	} else if (axis.value == 0) {
 		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
 		processAxis(axis, 1);
 		processAxis(axis, -1);
+		return true;
+	}
+	return false;
+}
+
+inline bool IsAnalogStickKey(int key) {
+	switch (key) {
+	case VIRTKEY_AXIS_X_MIN:
+	case VIRTKEY_AXIS_X_MAX:
+	case VIRTKEY_AXIS_Y_MIN:
+	case VIRTKEY_AXIS_Y_MAX:
+	case VIRTKEY_AXIS_RIGHT_X_MIN:
+	case VIRTKEY_AXIS_RIGHT_X_MAX:
+	case VIRTKEY_AXIS_RIGHT_Y_MIN:
+	case VIRTKEY_AXIS_RIGHT_Y_MAX:
+		return true;
+	default:
+		return false;
 	}
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
+	// Sanity check
+	if (axis.axisId < 0 || axis.axisId >= JOYSTICK_AXIS_MAX) {
+		return;
+	}
+
 	std::vector<int> results;
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction, &results);
-	std::vector<int> resultsOpposite;
-	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
-
 	for (size_t i = 0; i < results.size(); i++) {
 		int result = results[i];
 		switch (result) {
@@ -429,24 +503,42 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 		case VIRTKEY_AXIS_RIGHT_Y_MAX:
 			__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
 			break;
+		}
+	}
 
-		default:
-			if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
-				pspKey(result, KEY_DOWN);
+	std::vector<int> resultsOpposite;
+	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
-				// Also unpress the other direction.
-				std::vector<int> opposite;
-				KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1, &opposite);
-				for (size_t i = 0; i < opposite.size(); i++) {
-					pspKey(opposite[i], KEY_UP);
-				}
-				// Hm, why do we use a different way below?
-			} else {
-				// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
-				pspKey(result, KEY_UP);
-				for (size_t i = 0; i < resultsOpposite.size(); i++) {
+	int axisState = 0;
+	if ((direction == 1 && axis.value >= AXIS_BIND_THRESHOLD)) {
+		axisState = 1;
+	} else if (direction == -1 && axis.value <= -AXIS_BIND_THRESHOLD) {
+		axisState = -1;
+	} else {
+		axisState = 0;
+	}
+
+	if (axisState != axisState_[axis.axisId]) {
+		axisState_[axis.axisId] = axisState;
+		if (axisState != 0) {
+			for (size_t i = 0; i < results.size(); i++) {
+				if (!IsAnalogStickKey(results[i]))
+					pspKey(results[i], KEY_DOWN);
+			}
+			// Also unpress the other direction.
+			for (size_t i = 0; i < resultsOpposite.size(); i++) {
+				if (!IsAnalogStickKey(resultsOpposite[i]))
 					pspKey(resultsOpposite[i], KEY_UP);
-				}
+			}
+		} else if (axisState == 0) {
+			// Release both directions, trying to deal with some erratic controllers that can cause it to stick.
+			for (size_t i = 0; i < results.size(); i++) {
+				if (!IsAnalogStickKey(results[i]))
+					pspKey(results[i], KEY_UP);
+			}
+			for (size_t i = 0; i < resultsOpposite.size(); i++) {
+				if (!IsAnalogStickKey(resultsOpposite[i]))
+					pspKey(resultsOpposite[i], KEY_UP);
 			}
 		}
 	}
@@ -467,7 +559,7 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 }
 
 void EmuScreen::update(InputState &input) {
-	if (!booted_)
+	if (bootPending_)
 		bootGame(gamePath_);
 
 	UIScreen::update(input);
@@ -479,7 +571,9 @@ void EmuScreen::update(InputState &input) {
 	PSP_CoreParameter().pixelWidth = pixel_xres * bounds.w / dp_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 
-	UpdateUIState(UISTATE_INGAME);
+	if (!invalid_) {
+		UpdateUIState(UISTATE_INGAME);
+	}
 
 	if (errorMessage_.size()) {
 		// Special handling for ZIP files. It's not very robust to check an error message but meh,
@@ -559,9 +653,25 @@ void EmuScreen::update(InputState &input) {
 	}
 }
 
+void EmuScreen::checkPowerDown() {
+	if (coreState == CORE_POWERDOWN && !PSP_IsIniting()) {
+		if (PSP_IsInited()) {
+			PSP_Shutdown();
+		}
+		ILOG("SELF-POWERDOWN!");
+		screenManager()->switchScreen(new MainScreen());
+		bootPending_ = false;
+		invalid_ = true;
+	}
+}
+
 void EmuScreen::render() {
-	if (invalid_)
+	if (invalid_) {
+		// It's possible this might be set outside PSP_RunLoopFor().
+		// In this case, we need to double check it here.
+		checkPowerDown();
 		return;
+	}
 
 	if (PSP_CoreParameter().freezeNext) {
 		PSP_CoreParameter().frozen = true;
@@ -589,28 +699,31 @@ void EmuScreen::render() {
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
-	} else if (coreState == CORE_POWERDOWN)	{
-		PSP_Shutdown();
-		ILOG("SELF-POWERDOWN!");
-		screenManager()->switchScreen(new MainScreen());
-		invalid_ = true;
 	}
+	checkPowerDown();
 
 	if (invalid_)
 		return;
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering)
+	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
-	UIShader_Prepare();
+	screenManager()->getUIContext()->RebindTexture();
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
-	uiTexture->Bind(0);
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
+	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetScissorEnabled(false);
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
-	glstate.viewport.restore();
-
-	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
+	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
@@ -623,10 +736,7 @@ void EmuScreen::render() {
 
 	if (g_Config.bShowDebugStats) {
 		char statbuf[4096] = {0};
-		__DisplayGetDebugStats(statbuf);
-		if (statbuf[4095]) {
-			ELOG("Statbuf too small! :(");
-		}
+		__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 		ui_draw2d.SetFontScale(.7f, .7f);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
@@ -639,11 +749,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
 		case 2:
-			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+			snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
 		default:
 			return;
 		}
@@ -655,7 +765,6 @@ void EmuScreen::render() {
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
-	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
 	ui_draw2d.Flush();
 
@@ -682,5 +791,6 @@ void EmuScreen::autoLoad() {
 	int lastSlot = SaveState::GetNewestSlot();
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
 		SaveState::LoadSlot(lastSlot, 0, 0);
+		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }

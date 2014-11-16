@@ -3,7 +3,7 @@
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
     <filename>PPSSPPBlackberry</filename>
-    <versionNumber>0.9.80</versionNumber>
+    <versionNumber>0.9.91</versionNumber>
     <buildId>1</buildId>
     <description>Playstation Portable emulator.</description>
 
@@ -14,14 +14,15 @@
         <aspectRatio>landscape</aspectRatio>
         <autoOrients>false</autoOrients>
         <systemChrome>none</systemChrome>
-        <transparent>false</transparent>
     </initialWindow>
 
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
     <asset path="../assets/icon-114.png">icon-114.png</asset>
-    <asset path="../android/assets">assets</asset>
-    <asset path="../assets/langregion.ini">assets/langregion.ini</asset>
-    <asset path="../assets/shaders">assets/shaders</asset>
+    <asset path="../assets" dest="assets">
+        <include name="*.png"/>
+        <include name="*.ini"/>
+        <include name="*atlas.zim"/>
+    </asset>
     <asset path="../lang">assets/lang</asset>
     <asset path="../flash0">assets/flash0</asset>
     
@@ -29,9 +30,8 @@
     <icon>
         <image>icon-114.png</image>
     </icon>
-    <splashscreen>icon-114.png</splashscreen>
 
-	<invoke-target id="com.Qtness.PPSSPP.openrom">
+    <invoke-target id="com.Qtness.PPSSPP.openrom">
         <invoke-target-name>Open PSP ROM</invoke-target-name>
         <invoke-target-type>application</invoke-target-type>
         <icon><image>icon-114.png</image></icon>

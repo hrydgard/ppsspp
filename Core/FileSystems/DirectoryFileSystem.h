@@ -77,7 +77,7 @@ struct DirectoryFileHandle
 	}
 
 	std::string GetLocalPath(std::string& basePath, std::string localpath);
-	bool Open(std::string& basePath, std::string& fileName, FileAccess access);
+	bool Open(std::string& basePath, std::string& fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
 	size_t Seek(s32 position, FileMove type);
@@ -86,7 +86,7 @@ struct DirectoryFileHandle
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags = 0);
 	~DirectoryFileSystem();
 
 	void CloseAll();
@@ -108,6 +108,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	int Flags() { return flags; }
+	u64 FreeSpace(const std::string &path) override;
 
 private:
 	struct OpenFileEntry {
@@ -120,7 +122,7 @@ private:
 	EntryMap entries;
 	std::string basePath;
 	IHandleAllocator *hAlloc;
-
+	int flags;
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
 };
@@ -149,6 +151,8 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	int Flags() { return 0; }
+	u64 FreeSpace(const std::string &path) override { return 0; }
 
 private:
 	struct OpenFileEntry {

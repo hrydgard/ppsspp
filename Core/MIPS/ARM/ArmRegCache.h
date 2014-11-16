@@ -25,12 +25,16 @@ using namespace ArmGen;
 
 #define CTXREG (R10)
 #define MEMBASEREG (R11)
+#define SCRATCHREG1 (R0)
+#define SCRATCHREG2 (R14)
 #define DOWNCOUNTREG (R7)
 
-// R2 to R8: mapped MIPS regs
+// R1 to R6: mapped MIPS regs
+// R8 = flags (maybe we could do better here?)
 // R9 = code pointers
 // R10 = MIPS context
 // R11 = base pointer
+// R14 = scratch (actually LR)
 
 enum {
 	TOTAL_MAPPABLE_MIPSREGS = 36,

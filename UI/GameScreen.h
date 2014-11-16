@@ -29,7 +29,8 @@
 
 class GameScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	GameScreen(const std::string &gamePath);
+	~GameScreen();
 
 	virtual void update(InputState &input);
 
@@ -51,7 +52,7 @@ private:
 	UI::EventReturn OnShowInFolder(UI::EventParams &e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextureView *texvGameIcon_;
+	UI::Thin3DTextureView *texvGameIcon_;
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;

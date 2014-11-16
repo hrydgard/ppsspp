@@ -45,9 +45,9 @@ enum PSPDirectories {
 	DIRECTORY_DUMP,
 };
 
-extern GlobalUIState globalUIState;
 
 void UpdateUIState(GlobalUIState newState);
+GlobalUIState GetUIState();
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);

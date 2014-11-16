@@ -57,8 +57,8 @@ namespace MIPSComp
 		} else {
 			gpr.MapDirtyIn(rt, rs);
 			if (!(this->*tryArithI2R)(gpr.R(rt), gpr.R(rs), uimm)) {
-				gpr.SetRegImm(R0, uimm);
-				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
+				gpr.SetRegImm(SCRATCHREG1, uimm);
+				(this->*arith)(gpr.R(rt), gpr.R(rs), SCRATCHREG1);
 			}
 		}
 	}
@@ -101,8 +101,8 @@ namespace MIPSComp
 				}
 				gpr.MapDirtyIn(rt, rs);
 				if (!TryCMPI2R(gpr.R(rs), simm)) {
-					gpr.SetRegImm(R0, simm);
-					CMP(gpr.R(rs), R0);
+					gpr.SetRegImm(SCRATCHREG1, simm);
+					CMP(gpr.R(rs), SCRATCHREG1);
 				}
 				SetCC(CC_LT);
 				MOVI2R(gpr.R(rt), 1);
@@ -120,8 +120,8 @@ namespace MIPSComp
 				}
 				gpr.MapDirtyIn(rt, rs);
 				if (!TryCMPI2R(gpr.R(rs), suimm)) {
-					gpr.SetRegImm(R0, suimm);
-					CMP(gpr.R(rs), R0);
+					gpr.SetRegImm(SCRATCHREG1, suimm);
+					CMP(gpr.R(rs), SCRATCHREG1);
 				}
 				SetCC(CC_LO);
 				MOVI2R(gpr.R(rt), 1);
@@ -181,8 +181,8 @@ namespace MIPSComp
 				break;
 			}
 			gpr.MapDirtyIn(rd, rs);
-			MVN(R0, gpr.R(rs));
-			CLZ(gpr.R(rd), R0);
+			MVN(SCRATCHREG1, gpr.R(rs));
+			CLZ(gpr.R(rd), SCRATCHREG1);
 			break;
 		default:
 			DISABLE;
@@ -488,8 +488,8 @@ namespace MIPSComp
 			return;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
-		AND(R0, gpr.R(rs), Operand2(0x1F));
-		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
+		AND(SCRATCHREG1, gpr.R(rs), Operand2(0x1F));
+		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, SCRATCHREG1));
 	}
 
 	void Jit::Comp_ShiftType(MIPSOpcode op)
@@ -546,7 +546,7 @@ namespace MIPSComp
 			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 #else
 			MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
-			ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
+			ANDI2R(gpr.R(rt), gpr.R(rt), mask, SCRATCHREG1);
 #endif
 			break;
 
@@ -562,18 +562,18 @@ namespace MIPSComp
 					}
 
 					gpr.MapReg(rt, MAP_DIRTY);
-					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R0);
+					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, SCRATCHREG1);
 					if (inserted != 0) {
-						ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
+						ORI2R(gpr.R(rt), gpr.R(rt), inserted, SCRATCHREG1);
 					}
 				} else {
 					gpr.MapDirtyIn(rt, rs, false);
 #ifdef HAVE_ARMV7
 					BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
 #else
-					ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
-					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, pos));
+					ANDI2R(SCRATCHREG1, gpr.R(rs), sourcemask, SCRATCHREG2);
+					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, SCRATCHREG2);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(SCRATCHREG1, ST_LSL, pos));
 #endif
 				}
 			}
@@ -739,8 +739,8 @@ namespace MIPSComp
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
-				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
+				MUL(SCRATCHREG1, gpr.R(rt), gpr.R(MIPS_REG_LO));
+				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(SCRATCHREG1));
 			} else {
 				DISABLE;
 			}
@@ -757,7 +757,7 @@ namespace MIPSComp
 				} else {
 					gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
 					// Remainder is just an AND, neat.
-					ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, R0);
+					ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, SCRATCHREG1);
 					int shift = 0;
 					while (denominator != 0) {
 						++shift;
@@ -774,13 +774,13 @@ namespace MIPSComp
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-				MUL(R0, gpr.R(rt), gpr.R(MIPS_REG_LO));
-				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(R0));
+				MUL(SCRATCHREG1, gpr.R(rt), gpr.R(MIPS_REG_LO));
+				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(SCRATCHREG1));
 			} else {
 				// If rt is 0, we either caught it above, or it's not an imm.
 				bool skipZero = gpr.IsImm(rt);
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
-				MOV(R0, gpr.R(rt));
+				MOV(SCRATCHREG1, gpr.R(rt));
 
 				FixupBranch skipper;
 				if (!skipZero) {
@@ -788,28 +788,28 @@ namespace MIPSComp
 					skipper = B_CC(CC_EQ);
 				}
 
-				// Double R0 until it would be (but isn't) bigger than the numerator.
-				CMP(R0, Operand2(gpr.R(rs), ST_LSR, 1));
+				// Double SCRATCHREG1 until it would be (but isn't) bigger than the numerator.
+				CMP(SCRATCHREG1, Operand2(gpr.R(rs), ST_LSR, 1));
 				const u8 *doubleLoop = GetCodePtr();
 					SetCC(CC_LS);
-					MOV(R0, Operand2(R0, ST_LSL, 1));
+					MOV(SCRATCHREG1, Operand2(SCRATCHREG1, ST_LSL, 1));
 					SetCC(CC_AL);
-					CMP(R0, Operand2(gpr.R(rs), ST_LSR, 1));
+					CMP(SCRATCHREG1, Operand2(gpr.R(rs), ST_LSR, 1));
 				B_CC(CC_LS, doubleLoop);
 
 				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 				MOV(gpr.R(MIPS_REG_LO), 0);
 
-				// Subtract and halve R0 (doubling and adding the result) until it's below the denominator.
+				// Subtract and halve SCRATCHREG1 (doubling and adding the result) until it's below the denominator.
 				const u8 *subLoop = GetCodePtr();
-					CMP(gpr.R(MIPS_REG_HI), R0);
+					CMP(gpr.R(MIPS_REG_HI), SCRATCHREG1);
 					SetCC(CC_HS);
-					SUB(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R0);
+					SUB(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), SCRATCHREG1);
 					SetCC(CC_AL);
 					// Carry will be set if we subtracted.
 					ADC(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO));
-					MOV(R0, Operand2(R0, ST_LSR, 1));
-					CMP(R0, gpr.R(rt));
+					MOV(SCRATCHREG1, Operand2(SCRATCHREG1, ST_LSR, 1));
+					CMP(SCRATCHREG1, gpr.R(rt));
 				B_CC(CC_HS, subLoop);
 
 				// We didn't change rt.  If it was 0, then clear HI and LO.
@@ -836,16 +836,16 @@ namespace MIPSComp
 
 		case 46: // msub
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
-			SMULL(R0, R1, gpr.R(rs), gpr.R(rt));
-			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), R0);
-			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R1);
+			SMULL(SCRATCHREG1, SCRATCHREG2, gpr.R(rs), gpr.R(rt));
+			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), SCRATCHREG1);
+			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), SCRATCHREG2);
 			break;
 
 		case 47: // msubu
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
-			UMULL(R0, R1, gpr.R(rs), gpr.R(rt));
-			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), R0);
-			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), R1);
+			UMULL(SCRATCHREG1, SCRATCHREG2, gpr.R(rs), gpr.R(rt));
+			SUBS(gpr.R(MIPS_REG_LO), gpr.R(MIPS_REG_LO), SCRATCHREG1);
+			SBC(gpr.R(MIPS_REG_HI), gpr.R(MIPS_REG_HI), SCRATCHREG2);
 			break;
 
 		default:

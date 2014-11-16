@@ -20,6 +20,8 @@
 #include <vector>
 #include <map>
 
+#include "base/compat.h"
+
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -438,6 +440,11 @@ void __KernelMemoryInit()
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VPL, __KernelVplBeginCallback, __KernelVplEndCallback);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_FPL, __KernelFplBeginCallback, __KernelFplEndCallback);
+
+	// The kernel statically allocates this memory, which has some code in it.
+	// It appears this is used for some common funcs in Kernel_Library (memcpy, lwmutex, suspend intr, etc.)
+	// Allocating this block is necessary to have the same memory semantics as real firmware.
+	userMemory.AllocAt(PSP_GetUserMemoryBase(), 0x4000, "usersystemlib");
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
@@ -517,9 +524,9 @@ void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Suspending fpl wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
 }
@@ -648,6 +655,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 
 int sceKernelDeleteFpl(SceUID uid)
 {
+	hleEatCycles(600);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
@@ -684,10 +692,10 @@ void __KernelSetFplTimeout(u32 timeoutPtr)
 	// TODO: test for fpls.
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 
@@ -828,6 +836,8 @@ retry:
 
 int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 {
+	hleEatCycles(600);
+
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
@@ -883,15 +893,6 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
 //////////////////////////////////////////////////////////////////////////
 //00:49:12 <TyRaNiD> ector, well the partitions are 1 = kernel, 2 = user, 3 = me, 4 = kernel mirror :)
 
-enum MemblockType
-{
-	PSP_SMEM_Low = 0,
-	PSP_SMEM_High = 1,
-	PSP_SMEM_Addr = 2,
-	PSP_SMEM_LowAligned = 3,
-	PSP_SMEM_HighAligned = 4,
-};
-
 class PartitionMemoryBlock : public KernelObject
 {
 public:
@@ -900,7 +901,7 @@ public:
 	void GetQuickInfo(char *ptr, int size)
 	{
 		int sz = alloc->GetBlockSizeFromAddress(address);
-		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
+		snprintf(ptr, size, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_PMB; }
@@ -1136,7 +1137,7 @@ int sceKernelPrintf(const char *formatString)
 		result.resize(result.size() - 1);
 
 	if (supported)
-		INFO_LOG(SCEKERNEL, "sceKernelPrintf: %s", result.c_str())
+		INFO_LOG(SCEKERNEL, "sceKernelPrintf: %s", result.c_str());
 	else
 		ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 	return 0;
@@ -1381,9 +1382,9 @@ void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Suspending vpl wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: wait not found to pause for callback")
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: wait not found to pause for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
 }
@@ -1596,10 +1597,10 @@ void __KernelSetVplTimeout(u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 5)
-		micro = 10;
+		micro = 20;
 	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
 	else if (micro == 7)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 215)
 		micro = 250;
 
@@ -1818,11 +1819,22 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	}
 }
 
-u32 SysMemUserForUser_D8DE5C1E(){
-	ERROR_LOG(SCEKERNEL,"HACKIMPL SysMemUserForUser_D8DE5C1E Returning 0");
-	return 0; //according to jpcsp always returns 0
+u32 SysMemUserForUser_D8DE5C1E() {
+	// Called by Evangelion Jo and return 0 here to go in-game.
+	ERROR_LOG(SCEKERNEL,"UNIMPL SysMemUserForUser_D8DE5C1E()");
+	return 0; 
 }
-// These aren't really in sysmem, but they are memory related?
+
+u32 SysMemUserForUser_ACBD88CA() {
+	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, SCEKERNEL, "UNIMPL SysMemUserForUser_ACBD88CA()");
+	return 0; 
+}
+
+u32 SysMemUserForUser_945E45DA() {
+	// Called by Evangelion Jo and expected return 0 here.
+	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, SCEKERNEL, "UNIMPL SysMemUserForUser_945E45DA()");
+	return 0; 
+}
 
 enum
 {
@@ -2139,11 +2151,11 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x358ca1bb,&WrapI_I<sceKernelSetCompiledSdkVersion606>,"sceKernelSetCompiledSdkVersion606"},
 	{0xfc114573,&WrapI_V<sceKernelGetCompiledSdkVersion>,"sceKernelGetCompiledSdkVersion"},
 	{0x2a3e5280,0,"sceKernelQueryMemoryInfo"},
-	{0xacbd88ca,0,"SysMemUserForUser_ACBD88CA"},
-	{0x945e45da,0,"SysMemUserForUser_945E45DA"},
+	{0xacbd88ca,WrapU_V<SysMemUserForUser_ACBD88CA>,"SysMemUserForUser_ACBD88CA"},
+	{0x945e45da,WrapU_V<SysMemUserForUser_945E45DA>,"SysMemUserForUser_945E45DA"},
 	{0xa6848df8,0,"sceKernelSetUsersystemLibWork"},
 	{0x6231a71d,0,"sceKernelSetPTRIG"},
-	{0x39f49610,0,"sceKernelGetPTRIG"},
+	{0x39f49610,0,"sceKernelGetPTRIG"}, 
 	// Obscure raw block API
 	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock

@@ -21,9 +21,9 @@
 #include <string>
 
 #include "GPU/GPUState.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceGe.h"
+#include "Core/MemMap.h"
 
+struct PspGeListArgs;
 class PointerWrap;
 
 enum DisplayListStatus {
@@ -98,6 +98,12 @@ enum GPUState
 	GPUSTATE_ERROR = 4,
 };
 
+enum GPUSyncType
+{
+	GPU_SYNC_DRAW,
+	GPU_SYNC_LIST,
+};
+
 // Used for debug
 struct FramebufferInfo
 {
@@ -136,6 +142,7 @@ struct DisplayList
 	PSPPointer<u32_le> context;
 	u32 offsetAddr;
 	bool bboxResult;
+	u32 stackAddr;
 };
 
 enum GPUInvalidationType {
@@ -157,6 +164,10 @@ enum GPUEventType {
 	GPU_EVENT_INVALIDATE_CACHE,
 	GPU_EVENT_FINISH_EVENT_LOOP,
 	GPU_EVENT_SYNC_THREAD,
+	GPU_EVENT_FB_MEMCPY,
+	GPU_EVENT_FB_MEMSET,
+	GPU_EVENT_FB_STENCIL_UPLOAD,
+	GPU_EVENT_REINITIALIZE,
 };
 
 struct GPUEvent {
@@ -169,6 +180,23 @@ struct GPUEvent {
 			int size;
 			GPUInvalidationType type;
 		} invalidate_cache;
+		// GPU_EVENT_FB_MEMCPY
+		struct {
+			u32 dst;
+			u32 src;
+			int size;
+		} fb_memcpy;
+		// GPU_EVENT_FB_MEMSET
+		struct {
+			u32 dst;
+			u8 v;
+			int size;
+		} fb_memset;
+		// GPU_EVENT_FB_STENCIL_UPLOAD
+		struct {
+			u32 dst;
+			int size;
+		} fb_stencil_upload;
 	};
 
 	operator GPUEventType() const {
@@ -203,7 +231,7 @@ public:
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
-	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads) = 0;
+	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
@@ -221,7 +249,11 @@ public:
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
-	virtual void UpdateMemory(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
+	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
+	virtual bool PerformMemoryDownload(u32 dest, int size) = 0;
+	virtual bool PerformMemoryUpload(u32 dest, int size) = 0;
+	virtual bool PerformStencilUpload(u32 dest, int size) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;
@@ -239,6 +271,7 @@ public:
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized() = 0;
 	virtual void ClearShaderCache() = 0;
+	virtual void CleanupBeforeUI() = 0;
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;

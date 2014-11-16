@@ -193,6 +193,8 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_ARCHIVE_RAR;
 	} else if (!strcasecmp(extension.c_str(),".r01")) {
 		return FILETYPE_ARCHIVE_RAR;
+	} else if (!strcasecmp(extension.substr(1).c_str(), ".7z")) {
+		return FILETYPE_ARCHIVE_7Z;
 	}
 	return FILETYPE_UNKNOWN;
 }
@@ -265,6 +267,14 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 		*error_string = "ZIP file detected (Require WINRAR)";
 #else
 		*error_string = "ZIP file detected (Require UnRAR)";
+#endif
+		break;
+
+	case FILETYPE_ARCHIVE_7Z:
+#ifdef WIN32
+		*error_string = "7z file detected (Require 7-Zip)";
+#else
+		*error_string = "7z file detected (Require 7-Zip)";
 #endif
 		break;
 

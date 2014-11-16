@@ -6,9 +6,15 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-!mobile_platform: {
+# To support Sailfish which is stuck on GCC 4.6
+linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
+
+INCLUDEPATH += $$P/native
+
+!contains(DEFINES,USING_GLES2) {
 	SOURCES += $$P/native/ext/glew/glew.c
 	HEADERS += $$P/native/ext/glew/GL/*.h
+	INCLUDEPATH += $$P/native/ext/glew
 }
 
 # RG_ETC1
@@ -40,6 +46,12 @@ SOURCES += $$P/ext/snappy/*.cpp
 HEADERS += $$P/ext/snappy/*.h
 INCLUDEPATH += $$P/ext/snappy
 
+# udis86
+
+SOURCES += $$P/ext/udis86/*.c
+HEADERS += $$P/ext/udis86/*.h
+INCLUDEPATH += $$P/ext/udis86
+
 # VJSON
 
 SOURCES += $$P/native/ext/vjson/json.cpp \
@@ -58,18 +70,13 @@ win32|contains(QT_CONFIG, no-zlib) {
 SOURCES += $$P/native/ext/libzip/*.c
 HEADERS += $$P/native/ext/libzip/*.h
 
-# Libpng
-SOURCES += $$P/native/ext/libpng16/*.c
-HEADERS += $$P/native/ext/libpng16/*.h
-INCLUDEPATH += $$P/native/ext
-
-
 # Native
 
 SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/base/backtrace.cpp \
 	$$P/native/base/buffer.cpp \
 	$$P/native/base/colorutil.cpp \
+	$$P/native/base/compat.cpp \
 	$$P/native/base/display.cpp \
 	$$P/native/base/error_context.cpp \
 	$$P/native/base/fastlist_test.cpp \
@@ -91,10 +98,11 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/math/expression_parser.cpp \
 	$$P/native/math/math_util.cpp \
 	$$P/native/math/lin/*.cpp \
-	$$P/native/math/fast/fast_math.c \
-	$$P/native/math/fast/fast_matrix.c \
+	$$P/native/math/fast/*.c \
 	$$P/native/net/*.cpp \
 	$$P/native/profiler/profiler.cpp \
+	$$P/native/thin3d/thin3d.cpp \
+	$$P/native/thin3d/thin3d_gl.cpp \
 	$$P/native/thread/*.cpp \
 	$$P/native/ui/*.cpp \
 	$$P/native/util/bits/*.cpp \
@@ -103,12 +111,7 @@ SOURCES +=  $$P/native/audio/*.cpp \
 	$$P/native/util/text/utf8.cpp \
 	$$P/native/util/text/parsers.cpp
 
-x86 {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_sse.c)
-}
-arm:!symbian {
-	SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
-}
+armv7: SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
 
 
 HEADERS +=  $$P/native/audio/*.h \
@@ -136,6 +139,7 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/input/*.h \
 	$$P/native/math/*.h \
 	$$P/native/math/lin/*.h \
+	$$P/native/math/fast/*.h \
 	$$P/native/net/*.h \
 	$$P/native/profiler/profiler.h \
 	$$P/native/thread/*.h \
@@ -145,6 +149,3 @@ HEADERS +=  $$P/native/audio/*.h \
 	$$P/native/util/random/*.h \
 	$$P/native/util/text/utf8.h \
 	$$P/native/util/text/parsers.h
-
-INCLUDEPATH += $$P/native
-

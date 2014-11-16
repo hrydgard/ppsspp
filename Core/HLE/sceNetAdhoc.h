@@ -27,3 +27,9 @@ void __NetAdhocDoState(PointerWrap &p);
 
 // I have to call this from netdialog
 int sceNetAdhocctlCreate(const char * groupName);
+
+// May need to use these from sceNet.cpp
+extern bool netAdhocInited;
+extern bool netAdhocctlInited;
+int sceNetAdhocctlTerm();
+int sceNetAdhocTerm();

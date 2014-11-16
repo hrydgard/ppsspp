@@ -67,19 +67,20 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(NULL), tex_(0), flags_(0), zoom_(false),
-	  dragging_(false), offsetX_(0), offsetY_(0) {
+	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), tex_(0), flags_(0), zoom_(false),
+	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
 }
 
 SimpleGLWindow::~SimpleGLWindow() {
-	if (drawProgram_ != NULL) {
+	if (drawProgram_ != nullptr) {
 		glsl_destroy(drawProgram_);
 	}
 	if (tex_) {
 		glDeleteTextures(1, &tex_);
 		glDeleteTextures(1, &checker_);
 	}
+	delete [] reformatBuf_;
 };
 
 void SimpleGLWindow::Initialize(u32 flags) {
@@ -204,17 +205,32 @@ void SimpleGLWindow::DrawChecker() {
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 }
 
-void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
+void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt) {
 	wglMakeCurrent(hDC_, hGLRC_);
 
 	GLint components = GL_RGBA;
+	GLint memComponents = 0;
 	GLenum glfmt;
+	const u8 *finalData = data;
 	if (fmt == FORMAT_8888) {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		glfmt = GL_UNSIGNED_BYTE;
+	} else if (fmt == FORMAT_8888_BGRA) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+		glfmt = GL_UNSIGNED_BYTE;
+		memComponents = GL_BGRA;
 	} else if (fmt == FORMAT_FLOAT) {
 		glfmt = GL_FLOAT;
 		components = GL_RED;
+	} else if (fmt == FORMAT_24BIT_8X) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24X_8BIT) {
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glfmt = GL_UNSIGNED_BYTE;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
 	} else {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
 		if (fmt == FORMAT_4444) {
@@ -231,10 +247,17 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		} else if (fmt == FORMAT_565_REV) {
 			glfmt = GL_UNSIGNED_SHORT_5_6_5_REV;
 			components = GL_RGB;
+		} else if (fmt == FORMAT_5551_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+			memComponents = GL_BGRA;
+		} else if (fmt == FORMAT_4444_BGRA_REV) {
+			glfmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+			memComponents = GL_BGRA;
 		} else if (fmt == FORMAT_16BIT) {
 			glfmt = GL_UNSIGNED_SHORT;
 			components = GL_RED;
 		} else if (fmt == FORMAT_8BIT) {
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 			glfmt = GL_UNSIGNED_BYTE;
 			components = GL_RED;
 		} else {
@@ -242,8 +265,12 @@ void SimpleGLWindow::Draw(u8 *data, int w, int h, bool flipped, Format fmt) {
 		}
 	}
 
+	if (memComponents == 0) {
+		memComponents = components;
+	}
+
 	glBindTexture(GL_TEXTURE_2D, tex_);
-	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, glfmt, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, memComponents, glfmt, finalData);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -405,6 +432,28 @@ bool SimpleGLWindow::ToggleZoom() {
 	Redraw();
 
 	return true;
+}
+
+const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
+	if (!reformatBuf_ || reformatBufSize_ < numPixels) {
+		delete [] reformatBuf_;
+		reformatBuf_ = new u32[numPixels];
+		reformatBufSize_ = numPixels;
+	}
+
+	const u32 *data32 = (const u32 *)data;
+	if (fmt == FORMAT_24BIT_8X) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			reformatBuf_[i] = (data32[i] << 8) | ((data32[i] >> 16) & 0xFF);
+		}
+	} else if (fmt == FORMAT_24X_8BIT) {
+		u8 *buf8 = (u8 *)reformatBuf_;
+		for (u32 i = 0; i < numPixels; ++i) {
+			u32 v = (data32[i] >> 24) & 0xFF;
+			buf8[i] = v;
+		}
+	}
+	return (const u8 *)reformatBuf_;
 }
 
 SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {

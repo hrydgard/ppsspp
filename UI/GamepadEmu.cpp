@@ -17,6 +17,7 @@
 
 #include "GamepadEmu.h"
 #include "base/colorutil.h"
+#include "base/display.h"
 #include "base/NativeApp.h"
 #include "math/math_util.h"
 #include "ui/virtual_input.h"
@@ -136,7 +137,7 @@ void PSPDpad::Touch(const TouchInput &input) {
 
 void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	float stick_size = spacing_ * D_pad_Radius * scale_;
-	float inv_stick_size = 1.0f / (stick_size * scale_);
+	float inv_stick_size = 1.0f / stick_size;
 	const float deadzone = 0.17f;
 
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
@@ -339,7 +340,10 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
-	const int bottom_key_spacing = 100 * scale;
+	float bottom_key_spacing = 100;
+	if (dp_xres < 750) {
+		bottom_key_spacing *= 0.8f;
+	}
 
 	int start_key_X = xres / 2 + (bottom_key_spacing) * scale;
 	int start_key_Y = yres - 60 * scale;
@@ -461,7 +465,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 		if (g_Config.bShowTouchPause)
 #endif
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);

@@ -1,0 +1,9 @@
+tar-ignore = ".git/*"
+
+tar-ignore = "build-qt/"
+
+tar-ignore = "build-qt/.obj/"
+
+tar-ignore = "Qt/languages/*.qm"
+
+tar-ignore = "pspautotests/demos/*"

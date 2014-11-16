@@ -9,10 +9,11 @@
 #include "ConsoleListener.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "debugger_disasm.h"
-#include "debugger_memory.h"
-#include "debugger_memorytex.h"
-#include "debugger_displaylist.h"
+#include "Core/System.h"
+#include "Debugger/debugger_disasm.h"
+#include "Debugger/debugger_memory.h"
+#include "Debugger/debugger_memorytex.h"
+#include "Debugger/debugger_displaylist.h"
 #include "base/QtMain.h"
 
 extern bool g_TakeScreenshot;
@@ -25,7 +26,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = 0);
+	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
@@ -38,6 +39,14 @@ public:
 	void updateMenus();
 
 protected:
+	void changeEvent(QEvent *e)
+	{
+		QMainWindow::changeEvent(e);
+		// Does not work on Linux for Qt5.2 or Qt5.3 (Qt bug)
+		if(e->type() == QEvent::WindowStateChange)
+			Core_NotifyWindowHidden(isMinimized());
+	}
+
 	void closeEvent(QCloseEvent *) { exitAct(); }
 
 signals:
@@ -100,6 +109,7 @@ private slots:
 	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
 
 	void fullscrAct();
+	void raiseTopMost();
 	void statsAct() { g_Config.bShowDebugStats = !g_Config.bShowDebugStats; }
 	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
 
@@ -119,6 +129,7 @@ private slots:
 
 	// Help
 	void websiteAct();
+	void forumAct();
 	void aboutAct();
 
 	// Others
@@ -206,9 +217,9 @@ public slots:
 		if (_eventCheck)
 			setChecked(*_eventCheck);
 		if (_stateEnable >= 0)
-			setEnabled(globalUIState == _stateEnable);
+			setEnabled(GetUIState() == _stateEnable);
 		if (_stateDisable >= 0)
-			setEnabled(globalUIState != _stateDisable);
+			setEnabled(GetUIState() != _stateDisable);
 		if (_enableStepping && Core_IsStepping())
 			setEnabled(true);
 	}
@@ -230,7 +241,7 @@ public:
 		QListIterator<int> i(valueList);
 		QListIterator<int> k(keyList);
 		foreach(QString name, nameList) {
-			new MenuAction(parent, this, i.next(), name, k.next());
+			new MenuAction(parent, this, i.next(), name, keyList.size() ? k.next() : 0);
 		}
 		connect(this, SIGNAL(triggered(QAction *)), parent, callback);
 		menu->addActions(this->actions());

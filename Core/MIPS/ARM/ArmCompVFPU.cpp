@@ -150,7 +150,7 @@ namespace MIPSComp
 			} else {
 				fpr.MapRegV(vregs[i], MAP_DIRTY | MAP_NOINIT);
 				fpr.SpillLockV(vregs[i]);
-				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0, negate);
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], SCRATCHREG1, negate);
 			}
 		}
 	}
@@ -182,13 +182,17 @@ namespace MIPSComp
 
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
+<<<<<<< HEAD
+=======
+				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
+>>>>>>> master
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				
-				MOVI2F(S0, 0.0f, R0);
-				MOVI2F(S1, 1.0f, R0);
+				MOVI2F(S0, 0.0f, SCRATCHREG1);
+				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LE);
+				SetCC(CC_LS);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -197,13 +201,14 @@ namespace MIPSComp
 				VMOV(fpr.V(vregs[i]), S1);
 				SetCC(CC_AL);
 			} else if (sat == 3) {
+				// clamped = x < -1 ? (x > 1 ? 1 : x) : x [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 
-				MOVI2F(S0, -1.0f, R0);
-				MOVI2F(S1, 1.0f, R0);
+				MOVI2F(S0, -1.0f, SCRATCHREG1);
+				MOVI2F(S1, 1.0f, SCRATCHREG1);
 				VCMP(fpr.V(vregs[i]), S0);
 				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-				SetCC(CC_LT);
+				SetCC(CC_LO);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);
@@ -245,7 +250,7 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, offset, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
@@ -264,7 +269,7 @@ namespace MIPSComp
 				VLDR(fpr.V(vt), R0, 0);
 				if (doCheck) {
 					SetCC(CC_EQ);
-					MOVI2F(fpr.V(vt), 0.0f, R0);
+					MOVI2F(fpr.V(vt), 0.0f, SCRATCHREG1);
 					SetCC(CC_AL);
 				}
 #endif
@@ -290,7 +295,7 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetR0ToEffectiveAddress(rs, offset);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, offset, R1);
+						SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
@@ -347,7 +352,7 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetR0ToEffectiveAddress(rs, imm);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, imm, SCRATCHREG2);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
@@ -388,9 +393,9 @@ namespace MIPSComp
 
 				if (doCheck) {
 					SetCC(CC_EQ);
-					MOVI2R(R0, 0);
+					MOVI2R(SCRATCHREG1, 0);
 					for (int i = 0; i < 4; i++)
-						VMOV(fpr.V(vregs[i]), R0);
+						VMOV(fpr.V(vregs[i]), SCRATCHREG1);
 					SetCC(CC_AL);
 				}
 #endif
@@ -412,7 +417,7 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetR0ToEffectiveAddress(rs, imm);
 					} else {
-						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						SetCCAndR0ForSafeAddress(rs, imm, SCRATCHREG2);
 						doCheck = true;
 					}
 					ADD(R0, R0, MEMBASEREG);
@@ -477,10 +482,10 @@ namespace MIPSComp
 		switch ((op >> 16) & 0xF)
 		{
 		case 6: // v=zeros; break;  //vzero
-			MOVI2F(S0, 0.0f, R0);
+			MOVI2F(S0, 0.0f, SCRATCHREG1);
 			break;
 		case 7: // v=ones; break;   //vone
-			MOVI2F(S0, 1.0f, R0);
+			MOVI2F(S0, 1.0f, SCRATCHREG1);
 			break;
 		default:
 			DISABLE;
@@ -513,8 +518,8 @@ namespace MIPSComp
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		MOVI2F(S0, 0.0f, R0);
-		MOVI2F(S1, 1.0f, R0);
+		MOVI2F(S0, 0.0f, SCRATCHREG1);
+		MOVI2F(S1, 1.0f, SCRATCHREG1);
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
@@ -557,8 +562,8 @@ namespace MIPSComp
 
 		switch ((op >> 16) & 0xF) {
 		case 3: // vmidt
-			MOVI2F(S0, 0.0f, R0);
-			MOVI2F(S1, 1.0f, R0);
+			MOVI2F(S0, 0.0f, SCRATCHREG1);
+			MOVI2F(S1, 1.0f, SCRATCHREG1);
 			for (int a = 0; a < n; a++) {
 				for (int b = 0; b < n; b++) {
 					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
@@ -567,7 +572,7 @@ namespace MIPSComp
 			}
 			break;
 		case 6: // vmzero
-			MOVI2F(S0, 0.0f, R0);
+			MOVI2F(S0, 0.0f, SCRATCHREG1);
 			for (int a = 0; a < n; a++) {
 				for (int b = 0; b < n; b++) {
 					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
@@ -576,7 +581,7 @@ namespace MIPSComp
 			}
 			break;
 		case 7: // vmone
-			MOVI2F(S1, 1.0f, R0);
+			MOVI2F(S1, 1.0f, SCRATCHREG1);
 			for (int a = 0; a < n; a++) {
 				for (int b = 0; b < n; b++) {
 					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
@@ -737,41 +742,75 @@ namespace MIPSComp
 			case 27: //VFPU3
 				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
+				{
 					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 					VMRS_APSR();
+					FixupBranch skipNAN = B_CC(CC_VC);
+					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
+					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
+					// If both are negative, we reverse the comparison.  We want the highest mantissa then.
+					// Also, between -NAN and -5.0, we want -NAN to be less.
+					TST(SCRATCHREG1, SCRATCHREG2);
+					FixupBranch cmpPositive = B_CC(CC_PL);
+					CMP(SCRATCHREG2, SCRATCHREG1);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCHREG1, SCRATCHREG2);
+					SetJumpTarget(skipPositive);
+					SetCC(CC_AL);
+					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
+				}
 				case 3:  // vmax
+				{
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					FixupBranch skipNAN = B_CC(CC_VC);
+					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
+					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
+					// If both are negative, we reverse the comparison.  We want the lowest mantissa then.
+					// Also, between -NAN and -5.0, we want -5.0 to be greater.
+					TST(SCRATCHREG2, SCRATCHREG1);
+					FixupBranch cmpPositive = B_CC(CC_PL);
+					CMP(SCRATCHREG1, SCRATCHREG2);
+					FixupBranch skipPositive = B();
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCHREG2, SCRATCHREG1);
+					SetJumpTarget(skipPositive);
+					SetCC(CC_AL);
+					SetJumpTarget(skipNAN);
 					SetCC(CC_LT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 					SetCC(CC_GE);
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
+				}
 				case 6:  // vsge
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
+					// Unordered is always 0.
 					SetCC(CC_GE);
-					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
 					SetCC(CC_LT);
-					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, SCRATCHREG1);
 					SetCC(CC_AL);
 					break;
 				case 7:  // vslt
 					DISABLE;  // pending testing
 					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
 					VMRS_APSR();
-					SetCC(CC_LT);
-					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
-					SetCC(CC_GE);
-					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					// Unordered is always 0.
+					SetCC(CC_LO);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, SCRATCHREG1);
+					SetCC(CC_HS);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, SCRATCHREG1);
 					SetCC(CC_AL);
 					break;
 				}
@@ -882,33 +921,50 @@ namespace MIPSComp
 			case 2: // d[i] = -s[i]; break; //vneg
 				VNEG(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
-
-			/*  These are probably just as broken as the prefix.
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
-				MOVI2F(S0, 0.5f, R0);
-				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
-				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
-				VSUB(fpr.V(tempregs[i]), S1, fpr.V(tempregs[i])); // v[i] = S1 - S2 + 0.5f
-				VADD(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
+				if (i == 0) {
+					MOVI2F(S0, 0.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
+				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_LS);
+				VMOV(fpr.V(tempregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(sregs[i]), S1);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				SetCC(CC_GT);
+				VMOV(fpr.V(tempregs[i]), S1);
+				SetCC(CC_AL);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				fpr.MapDirtyInV(tempregs[i], sregs[i]);
-				MOVI2F(S0, 1.0f, R0);
-				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
-				VABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
-				VSUB(fpr.V(tempregs[i]), S1, fpr.V(tempregs[i])); // v[i] = S1 - S2
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+					MOVI2F(S1, 1.0f, SCRATCHREG1);
+				}
+				VCMP(fpr.V(sregs[i]), S0);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_LO);
+				VMOV(fpr.V(tempregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(sregs[i]), S1);
+				VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+				SetCC(CC_GT);
+				VMOV(fpr.V(tempregs[i]), S1);
+				SetCC(CC_AL);
 				break;
-				*/
-
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				MOVI2F(S0, 1.0f, R0);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				MOVI2F(S0, 1.0f, R0);
+				if (i == 0) {
+					MOVI2F(S0, 1.0f, SCRATCHREG1);
+				}
 				VSQRT(S1, fpr.V(sregs[i]));
 				VDIV(fpr.V(tempregs[i]), S0, S1);
 				break;
@@ -920,21 +976,20 @@ namespace MIPSComp
 				// Seems to work well enough but can disable if it becomes a problem.
 				// Should be easy enough to translate to NEON. There we can load all the constants
 				// in one go of course.
-				MOVI2F(S0, 0.0f, R0);
-				VCMP(fpr.V(sregs[i]), S0);       // flags = sign(sregs[i])
+				VCMP(fpr.V(sregs[i]));       // flags = sign(sregs[i])
 				VMRS_APSR();
-				MOVI2F(S0, 1.0f, R0);
+				MOVI2F(S0, 1.0f, SCRATCHREG1);
 				VABS(t4, fpr.V(sregs[i]));   // t4 = |sregs[i]|
 				VSUB(t3, S0, t4);
 				VSQRT(t3, t3);               // t3 = sqrt(1 - |sregs[i]|)
-				MOVI2F(S1, -0.0187293f, R0);
-				MOVI2F(t2, 0.0742610f, R0);
+				MOVI2F(S1, -0.0187293f, SCRATCHREG1);
+				MOVI2F(t2, 0.0742610f, SCRATCHREG1);
 				VMLA(t2, t4, S1);
-				MOVI2F(S1, -0.2121144f, R0);
+				MOVI2F(S1, -0.2121144f, SCRATCHREG1);
 				VMLA(S1, t4, t2);
-				MOVI2F(t2, 1.5707288f, R0);
+				MOVI2F(t2, 1.5707288f, SCRATCHREG1);
 				VMLA(t2, t4, S1);
-				MOVI2F(fpr.V(tempregs[i]), M_PI / 2, R0);
+				MOVI2F(fpr.V(tempregs[i]), M_PI / 2, SCRATCHREG1);
 				VMLS(fpr.V(tempregs[i]), t2, t3);    // tr[i] = M_PI / 2 - t2 * t3
 				{
 					FixupBranch br = B_CC(CC_GE);
@@ -942,11 +997,13 @@ namespace MIPSComp
 					SetJumpTarget(br);
 				}
 				// Correction factor for PSP range. Could be baked into the calculation above?
-				MOVI2F(S1, 1.0f / (M_PI / 2), R0);
+				MOVI2F(S1, 1.0f / (M_PI / 2), SCRATCHREG1);
 				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				MOVI2F(S0, -1.0f, R0);
+				if (i == 0) {
+					MOVI2F(S0, -1.0f, SCRATCHREG1);
+				}
 				VDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 				break;
 			default:
@@ -995,7 +1052,7 @@ namespace MIPSComp
 		}
 
 		if (mult != 1.0f)
-			MOVI2F(S0, mult, R0);
+			MOVI2F(S0, mult, SCRATCHREG1);
 
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
@@ -1117,12 +1174,12 @@ namespace MIPSComp
 		}
 
 		if (mult != 1.0f)
-			MOVI2F(S1, mult, R0);
+			MOVI2F(S1, mult, SCRATCHREG1);
 
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
 			switch ((op >> 21) & 0x1f) {
-			case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+			case 16: /* TODO */ break; //n
 			case 17:
 				if (mult != 1.0f) {
 					VMUL(S0, fpr.V(sregs[i]), S1);
@@ -1162,12 +1219,16 @@ namespace MIPSComp
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 					VMOV(gpr.R(rt), fpr.V(imm));
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-					// In case we have a saved prefix.
-					FlushPrefixV();
 					if (imm - 128 == VFPU_CTRL_CC) {
-						gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
-						MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						if (gpr.IsImm(MIPS_REG_VFPUCC)) {
+							gpr.SetImm(rt, gpr.GetImm(MIPS_REG_VFPUCC));
+						} else {
+							gpr.MapDirtyIn(rt, MIPS_REG_VFPUCC);
+							MOV(gpr.R(rt), gpr.R(MIPS_REG_VFPUCC));
+						}
 					} else {
+						// In case we have a saved prefix.
+						FlushPrefixV();
 						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
 						LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 					}
@@ -1185,14 +1246,16 @@ namespace MIPSComp
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
-					gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-					MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					if (gpr.IsImm(rt)) {
+						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+					} else {
+						gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
+						MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+					}
 				} else {
 					gpr.MapReg(rt);
 					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 				}
-				//gpr.BindToRegister(rt, true, false);
-				//MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
 
 				// TODO: Optimization if rt is Imm?
 				// Set these BEFORE disable!
@@ -1216,6 +1279,25 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vmfvc(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
+		CONDITIONAL_DISABLE;
+
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			fpr.MapRegV(vs);
+			if (imm - 128 == VFPU_CTRL_CC) {
+				gpr.MapReg(MIPS_REG_VFPUCC, 0);
+				VMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+			} else {
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				VLDR(fpr.V(vs), SCRATCHREG1, 0);
+			}
+			fpr.ReleaseSpillLocksAndDiscardTemps();
+		}
+	}
+
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
@@ -1224,8 +1306,13 @@ namespace MIPSComp
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 			fpr.MapRegV(vs);
-			ADDI2R(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, R1);
-			VSTR(fpr.V(vs), R0, 0);
+			if (imm - 128 == VFPU_CTRL_CC) {
+				gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY | MAP_NOINIT);
+				VMOV(gpr.R(MIPS_REG_VFPUCC), fpr.V(vs));
+			} else {
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				VSTR(fpr.V(vs), SCRATCHREG1, 0);
+			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
@@ -1288,7 +1375,8 @@ namespace MIPSComp
 
 		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, _VS);
-		GetVectorRegs(&treg, V_Single, _VT);
+		// TODO: Prefixes seem strange...
+		GetVectorRegsPrefixT(&treg, V_Single, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		// Move to S0 early, so we don't have to worry about overlap with scale.
@@ -1534,7 +1622,6 @@ namespace MIPSComp
 
 		case VC_EZ:
 		case VC_NZ:
-			MOVI2F(S0, 0.0f, R0);
 			break;
 		default:
 			;
@@ -1543,7 +1630,7 @@ namespace MIPSComp
 		// First, let's get the trivial ones.
 		int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
 
-		MOVI2R(R0, 0);
+		MOVI2R(SCRATCHREG1, 0);
 		for (int i = 0; i < n; ++i) {
 			// Let's only handle the easy ones, and fall back on the interpreter for the rest.
 			CCFlags flag = CC_AL;
@@ -1554,12 +1641,12 @@ namespace MIPSComp
 			case VC_TR: // c = 1
 				if (i == 0) {
 					if (n == 1) {
-						MOVI2R(R0, 0x31);
+						MOVI2R(SCRATCHREG1, 0x31);
 					} else {
-						MOVI2R(R0, 1 << i);
+						MOVI2R(SCRATCHREG1, 1 << i);
 					}
 				} else {
-					ORR(R0, R0, 1 << i);
+					ORR(SCRATCHREG1, SCRATCHREG1, 1 << i);
 				}
 				break;
 
@@ -1567,15 +1654,15 @@ namespace MIPSComp
 			case VC_NS: // c = !(my_isnan(s[i]) || my_isinf(s[i])); break;
 				// For these, we use the integer ALU as there is no support on ARM for testing for INF.
 				// Testing for nan or inf is the same as testing for &= 0x7F800000 == 0x7F800000.
-				// We need an extra temporary register so we store away R0.
-				STR(R0, CTXREG, offsetof(MIPSState, temp));
+				// We need an extra temporary register so we store away SCRATCHREG1.
+				STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, temp));
 				fpr.MapRegV(sregs[i], 0);
-				MOVI2R(R0, 0x7F800000);
-				VMOV(R1, fpr.V(sregs[i]));
-				AND(R1, R1, R0);
-				CMP(R1, R0);   // (R1 & 0x7F800000) == 0x7F800000
+				MOVI2R(SCRATCHREG1, 0x7F800000);
+				VMOV(SCRATCHREG2, fpr.V(sregs[i]));
+				AND(SCRATCHREG2, SCRATCHREG2, SCRATCHREG1);
+				CMP(SCRATCHREG2, SCRATCHREG1);   // (SCRATCHREG2 & 0x7F800000) == 0x7F800000
 				flag = cond == VC_ES ? CC_EQ : CC_NEQ;
-				LDR(R0, CTXREG, offsetof(MIPSState, temp));
+				LDR(SCRATCHREG1, CTXREG, offsetof(MIPSState, temp));
 				break;
 
 			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
@@ -1605,14 +1692,14 @@ namespace MIPSComp
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 				VMRS_APSR();
-				flag = CC_LT;
+				flag = CC_LO;
 				break;
 
 			case VC_LE: // c = s[i] <= t[i]; 
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 				VMRS_APSR();
-				flag = CC_LE;
+				flag = CC_LS;
 				break;
 
 			case VC_NE: // c = s[i] != t[i]
@@ -1638,14 +1725,14 @@ namespace MIPSComp
 
 			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]), S0);
+				VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
 				VMRS_APSR();
 				flag = CC_EQ;
 				break;
 
 			case VC_NZ: // c = s[i] != 0
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]), S0);
+				VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
 				VMRS_APSR();
 				flag = CC_NEQ;
 				break;
@@ -1657,12 +1744,12 @@ namespace MIPSComp
 				SetCC(flag);
 				if (i == 0) {
 					if (n == 1) {
-						MOVI2R(R0, 0x31);
+						MOVI2R(SCRATCHREG1, 0x31);
 					} else {
-						MOVI2R(R0, 1);  // 1 << i, but i == 0
+						MOVI2R(SCRATCHREG1, 1);  // 1 << i, but i == 0
 					}
 				} else {
-					ORR(R0, R0, 1 << i);
+					ORR(SCRATCHREG1, SCRATCHREG1, 1 << i);
 				}
 				SetCC(CC_AL);
 			}
@@ -1673,20 +1760,20 @@ namespace MIPSComp
 		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
 		// after all.
 		if (n > 1) {
-			CMP(R0, affected_bits & 0xF);
+			CMP(SCRATCHREG1, affected_bits & 0xF);
 			SetCC(CC_EQ);
-			ORR(R0, R0, 1 << 5);
+			ORR(SCRATCHREG1, SCRATCHREG1, 1 << 5);
 			SetCC(CC_AL);
 
-			CMP(R0, 0);
+			CMP(SCRATCHREG1, 0);
 			SetCC(CC_NEQ);
-			ORR(R0, R0, 1 << 4);
+			ORR(SCRATCHREG1, SCRATCHREG1, 1 << 4);
 			SetCC(CC_AL);
 		}
 
 		gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
 		BIC(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), affected_bits);
-		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), R0);
+		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), SCRATCHREG1);
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
@@ -1751,7 +1838,7 @@ namespace MIPSComp
 
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-		MOVI2F(fpr.V(dreg), (float)imm, R0);
+		MOVI2F(fpr.V(dreg), (float)imm, SCRATCHREG1);
 
 		ApplyPrefixD(&dreg, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -1771,7 +1858,7 @@ namespace MIPSComp
 		half.u = op & 0xFFFF;
 		FP32 fval = half_to_float_fast5(half);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-		MOVI2F(fpr.V(dreg), fval.f, R0);
+		MOVI2F(fpr.V(dreg), fval.f, SCRATCHREG1);
 
 		ApplyPrefixD(&dreg, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -1794,8 +1881,8 @@ namespace MIPSComp
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
-		gpr.SetRegImm(R0, (u32)(void *)&cst_constants[conNum]);
-		VLDR(S0, R0, 0);
+		gpr.SetRegImm(SCRATCHREG1, (u32)(void *)&cst_constants[conNum]);
+		VLDR(S0, SCRATCHREG1, 0);
 		for (int i = 0; i < n; ++i)
 			VMOV(fpr.V(dregs[i]), S0);
 
@@ -1803,26 +1890,19 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	static float sincostemp[2];
-
-	void SinCos(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-		angle *= (float)M_PI_2;
-		sincostemp[0] = sinf(angle);
-		sincostemp[1] = cosf(angle);
-	}
-
 	// sincosf is unavailable in the Android NDK:
 	// https://code.google.com/p/android/issues/detail?id=38423
-	void SinCosNegSin(float angle) {
-#ifndef M_PI_2
-#define M_PI_2     1.57079632679489661923
-#endif
-		angle *= (float)M_PI_2;
-		sincostemp[0] = -sinf(angle);
-		sincostemp[1] = cosf(angle);
+	double SinCos(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
+		return sincos.out;
+	}
+
+	double SinCosNegSin(float angle) {
+		union { struct { float sin; float cos; }; double out; } sincos;
+		vfpu_sincos(angle, sincos.sin, sincos.cos);
+		sincos.sin = -sincos.sin;
+		return sincos.out;
 	}
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
@@ -1855,12 +1935,18 @@ namespace MIPSComp
 		bool negSin = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
-		// Silly Android calling conventions, not passing arguments in float regs! (no hardfloat!)
 		// We should write a custom pure-asm function instead.
+#if defined(__ARM_PCS_VFP) // Hardfp
+		VMOV(S0, fpr.V(sreg));
+#else                      // Softfp
 		VMOV(R0, fpr.V(sreg));
+#endif
+		// FlushBeforeCall saves R1.
 		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
-		gpr.SetRegImm(R0, (u32)(&sincostemp[0]));
-		VLDMIA(R0, false, S0, 2);
+#if !defined(__ARM_PCS_VFP)
+		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
+		VMOV(D0, R0, R1);
+#endif
 
 		char what[4] = {'0', '0', '0', '0'};
 		if (((imm >> 2) & 3) == (imm & 3)) {
@@ -1877,7 +1963,7 @@ namespace MIPSComp
 			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
 			case '0':
 				{
-					MOVI2F(fpr.V(dregs[i]), 0.0f, R0);
+					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
 					break;
 				}
 			default:
@@ -1926,20 +2012,16 @@ namespace MIPSComp
 
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			// Let's do it integer registers for now. NEON later.
-			// There's gotta be a shorter way, can't find one though that takes
-			// care of NaNs like the interpreter (ignores them and just operates on the bits).
-			MOVI2F(S0, 0.0f, R0);
-			VCMP(fpr.V(sregs[i]), S0);
-			VMOV(R0, fpr.V(sregs[i]));
+			VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
+			VMOV(SCRATCHREG1, fpr.V(sregs[i]));
 			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 			SetCC(CC_NEQ);
-			AND(R0, R0, AssumeMakeOperand2(0x80000000));
-			ORR(R0, R0, AssumeMakeOperand2(0x3F800000));
+			AND(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(0x80000000));
+			ORR(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(0x3F800000));
 			SetCC(CC_EQ);
-			MOV(R0, AssumeMakeOperand2(0x0));
+			MOV(SCRATCHREG1, AssumeMakeOperand2(0x0));
 			SetCC(CC_AL);
-			VMOV(fpr.V(tempregs[i]), R0);
+			VMOV(fpr.V(tempregs[i]), SCRATCHREG1);
 		}
 
 		for (int i = 0; i < n; ++i) {
@@ -1979,7 +2061,7 @@ namespace MIPSComp
 			}
 		}
 
-		MOVI2F(S0, 1.0f, R0);
+		MOVI2F(S0, 1.0f, SCRATCHREG1);
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
 			// Let's do it integer registers for now. NEON later.

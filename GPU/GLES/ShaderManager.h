@@ -73,14 +73,23 @@ public:
 #endif
 	int numBones;
 
+	// Shader blending.
+	int u_fbotex;
+	int u_blendFixA;
+	int u_blendFixB;
+	int u_fbotexSize;
+
 	// Fragment processing inputs
 	int u_alphacolorref;
-	int u_colormask;
+	int u_alphacolormask;
+	int u_testtex;
 	int u_fogcolor;
 	int u_fogcoef;
 
 	// Texturing
 	int u_uvscaleoffset;
+	int u_texclamp;
+	int u_texclampoff;
 
 	// Lighting
 	int u_ambient;
@@ -98,9 +107,7 @@ public:
 	int u_lightambient[4];  // attenuation
 };
 
-// Will reach 32 bits soon :P
-enum
-{
+enum {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR	 = (1 << 2),
@@ -111,7 +118,7 @@ enum
 	// 1 << 6 is free! Wait, not anymore...
 	DIRTY_STENCILREPLACEVALUE = (1 << 6),
 
-	DIRTY_COLORMASK	 = (1 << 7),
+	DIRTY_ALPHACOLORMASK = (1 << 7),
 	DIRTY_LIGHT0 = (1 << 8),
 	DIRTY_LIGHT1 = (1 << 9),
 	DIRTY_LIGHT2 = (1 << 10),
@@ -123,9 +130,10 @@ enum
 	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
 
-	// 1 << 17 is free!
+	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+	DIRTY_TEXCLAMP = (1 << 19),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
@@ -199,8 +207,7 @@ private:
 
 	LinkedShaderCache linkedShaderCache_;
 
-	FragmentShaderID FSID_;
-	bool lastShaderSame_;
+	bool lastVShaderSame_;
 
 	FragmentShaderID lastFSID_;
 	VertexShaderID lastVSID_;

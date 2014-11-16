@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -32,12 +33,12 @@ static const int allocationOrder[] =
 	// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
 #ifdef _M_X64
 #ifdef _WIN32
-	RSI, RDI, R13, R14, R8, R9, R10, R11, R12,
+	RSI, RDI, R13, R8, R9, R10, R11, R12,
 #else
-	RBP, R13, R14, R8, R9, R10, R11, R12,
+	RBP, R13, R8, R9, R10, R11, R12,
 #endif
 #elif _M_IX86
-	ESI, EDI, EBP, EDX, ECX,  // Let's try to free up EBX as well.
+	ESI, EDI, EDX, ECX, EBX,
 #endif
 };
 
@@ -60,10 +61,14 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	}
 	memset(regs, 0, sizeof(regs));
 	OpArg base = GetDefaultLocation(MIPS_REG_ZERO);
-	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+	for (int i = 0; i < 32; i++) {
 		regs[i].location = base;
 		base.IncreaseOffset(sizeof(u32));
 	}
+	for (int i = 32; i < NUM_MIPS_GPRS; i++) {
+		regs[i].location = GetDefaultLocation(MIPSGPReg(i));
+	}
+	SetImm(MIPS_REG_ZERO, 0);
 
 	// todo: sort to find the most popular regs
 	/*
@@ -105,6 +110,8 @@ void GPRRegCache::LockX(int x1, int x2, int x3, int x4) {
 void GPRRegCache::UnlockAll() {
 	for (int i = 0; i < NUM_MIPS_GPRS; i++)
 		regs[i].locked = false;
+	// In case it was stored, discard it now.
+	SetImm(MIPS_REG_ZERO, 0);
 }
 
 void GPRRegCache::UnlockAllX() {
@@ -177,7 +184,11 @@ void GPRRegCache::DiscardRegContentsIfCached(MIPSGPReg preg) {
 		xregs[xr].dirty = false;
 		xregs[xr].mipsReg = MIPS_REG_INVALID;
 		regs[preg].away = false;
-		regs[preg].location = GetDefaultLocation(preg);
+		if (preg == MIPS_REG_ZERO) {
+			regs[preg].location = Imm32(0);
+		} else {
+			regs[preg].location = GetDefaultLocation(preg);
+		}
 	}
 }
 
@@ -193,9 +204,7 @@ void GPRRegCache::SetImm(MIPSGPReg preg, u32 immValue) {
 }
 
 bool GPRRegCache::IsImm(MIPSGPReg preg) const {
-	// Always say yes for ZERO, even if it's in a temp reg.
-	if (preg == MIPS_REG_ZERO)
-		return true;
+	// Note that ZERO is generally always imm.
 	return regs[preg].location.IsImm();
 }
 
@@ -214,7 +223,22 @@ const int *GPRRegCache::GetAllocationOrder(int &count) {
 
 
 OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
-	return M(&mips->r[reg]);
+	if (reg < 32) {
+		return MDisp(CTXREG, -128 + reg * 4);
+	}
+	switch (reg) {
+	case MIPS_REG_HI:
+		return M(&mips->hi);
+	case MIPS_REG_LO:
+		return M(&mips->lo);
+	case MIPS_REG_FPCOND:
+		return M(&mips->fpcond);
+	case MIPS_REG_VFPUCC:
+		return M(&mips->vfpuCtrl[VFPU_CTRL_CC]);
+	default:
+		ERROR_LOG_REPORT(JIT, "bad mips register %i", reg);
+		return M(&mips->r[0]);
+	}
 }
 
 
@@ -291,7 +315,8 @@ void GPRRegCache::Flush() {
 		if (xregs[i].allocLocked)
 			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
 	}
-	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+	SetImm(MIPS_REG_ZERO, 0);
+	for (int i = 1; i < NUM_MIPS_GPRS; i++) {
 		const MIPSGPReg r = MIPSGPReg(i);
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);

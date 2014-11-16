@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include "Core/HLE/HLE.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -128,7 +129,7 @@ namespace MIPSDis
 		off += imm + 4;
 
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, ->$%08x",name,RN(rs),off);
+		sprintf(out, "%s\t%s, ->$%08x", name, RN(rs), off);
 	}
 
 	void Dis_Syscall(MIPSOpcode op, char *out)
@@ -163,11 +164,11 @@ namespace MIPSDis
 		const char *name = MIPSGetName(op);
 		int o = op>>26;
 		if (o==4 && rs == rt)//beq
-			sprintf(out,"b\t->$%08x",off);
+			sprintf(out, "b\t->$%08x", off);
 		else if (o==20 && rs == rt)//beql
-			sprintf(out,"bl\t->$%08x",off);
+			sprintf(out, "bl\t->$%08x", off);
 		else
-			sprintf(out, "%s\t%s, %s, ->$%08x",name,RN(rt),RN(rs),off);
+			sprintf(out, "%s\t%s, %s, ->$%08x", name, RN(rs), RN(rt), off);
 	}
 
 	void Dis_IType(MIPSOpcode op, char *out)
@@ -365,16 +366,23 @@ namespace MIPSDis
 
 	void Dis_Emuhack(MIPSOpcode op, char *out)
 	{
+		auto resolved = Memory::Read_Instruction(disPC, true);
+		char disasm[256];
+		if (MIPS_IS_EMUHACK(resolved)) {
+			strcpy(disasm, "(invalid emuhack)");
+		} else {
+			MIPSDisAsm(resolved, disPC, disasm, true);
+		}
+
 		switch (op.encoding >> 24) {
 		case 0x68:
-			strcpy(out, "* jitblock");
+			snprintf(out, 256, "* jitblock: %s", disasm);
 			break;
 		case 0x6a:
-			strcpy(out, "* replacement");
+			snprintf(out, 256, "* replacement: %s", disasm);
 			break;
 		default:
-			out[0]='*';
-			out[1]=0;
+			snprintf(out, 256, "* (invalid): %s", disasm);
 			break;
 		}
 	}

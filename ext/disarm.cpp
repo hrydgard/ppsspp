@@ -1436,22 +1436,22 @@ const char *ArmRegName(int r) {
 	return reg_names[r];
 }
 
-void ArmDis(unsigned int addr, unsigned int w, char *output, bool includeWord) {
+void ArmDis(unsigned int addr, unsigned int w, char *output, int bufsize, bool includeWord) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
 	char temp[256];
 	if (includeWord) {
-		sprintf(output, "%08x\t%s", w, instr->text);
+		snprintf(output, bufsize, "%08x\t%s", w, instr->text);
 	} else {
-		sprintf(output, "%s", instr->text);
+		snprintf(output, bufsize, "%s", instr->text);
 	}
 	if (instr->undefined || instr->badbits || instr->oddbits) {
-		if (instr->undefined) sprintf(output, "%08x\t[undefined instr]", w);
-		if (instr->badbits) sprintf(output, "%08x\t[illegal bits]", w);
+		if (instr->undefined) snprintf(output, bufsize, "%08x\t[undefined instr]", w);
+		if (instr->badbits) snprintf(output, bufsize, "%08x\t[illegal bits]", w);
 
 		// HUH? LDR and STR gets this a lot
 		// strcat(output, " ? (extra bits)");  
 		if (instr->oddbits) {
-			sprintf(temp, " [unexpected bits %08x]", w);
+			snprintf(temp, sizeof(temp), " [unexpected bits %08x]", w);
 			strcat(output, temp);
 		}
 	}

@@ -19,17 +19,17 @@
 
 #include "Globals.h"
 
+// TODO: Bench both ways. Result may be different on old vs new hardware though..
+// #define DX9_USE_HW_ALPHA_TEST 1
+
 namespace DX9 {
 
-struct FragmentShaderIDDX9
-{
-	FragmentShaderIDDX9() {d[0] = 0xFFFFFFFF;}
-	void clear() {d[0] = 0xFFFFFFFF;}
-	u32 d[1];
-	bool operator < (const FragmentShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+struct FragmentShaderIDDX9 {
+	FragmentShaderIDDX9() {clear();}
+	void clear() {d[0] = 0xFFFFFFFF; d[1] = 0xFFFFFFFF;}
+	u32 d[2];
+	bool operator < (const FragmentShaderIDDX9 &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -37,10 +37,8 @@ struct FragmentShaderIDDX9
 		}
 		return false;
 	}
-	bool operator == (const FragmentShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
+	bool operator == (const FragmentShaderIDDX9 &other) const {
+		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}
@@ -48,9 +46,56 @@ struct FragmentShaderIDDX9
 	}
 };
 
-
 void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
-
 void GenerateFragmentShaderDX9(char *buffer);
+
+enum StencilValueType {
+	STENCIL_VALUE_UNIFORM,
+	STENCIL_VALUE_ZERO,
+	STENCIL_VALUE_ONE,
+	STENCIL_VALUE_KEEP,
+	STENCIL_VALUE_INVERT,
+	STENCIL_VALUE_INCR_4,
+	STENCIL_VALUE_INCR_8,
+	STENCIL_VALUE_DECR_4,
+	STENCIL_VALUE_DECR_8,
+};
+
+enum ReplaceAlphaType {
+	REPLACE_ALPHA_NO = 0,
+	REPLACE_ALPHA_YES = 1,
+	REPLACE_ALPHA_DUALSOURCE = 2,
+};
+
+enum ReplaceBlendType {
+	REPLACE_BLEND_NO,
+	REPLACE_BLEND_STANDARD,
+	REPLACE_BLEND_PRE_SRC,
+	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
+	REPLACE_BLEND_2X_ALPHA,
+	REPLACE_BLEND_2X_SRC,
+	REPLACE_BLEND_COPY_FBO,
+};
+
+bool IsAlphaTestAgainstZero();
+bool IsAlphaTestTriviallyTrue();
+bool IsColorTestTriviallyTrue();
+StencilValueType ReplaceAlphaWithStencilType();
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
+ReplaceBlendType ReplaceBlendWithShader();
+
+#define CONST_PS_TEXENV 0
+#define CONST_PS_ALPHACOLORREF 1
+#define CONST_PS_ALPHACOLORMASK 2
+#define CONST_PS_FOGCOLOR 3
+#define CONST_PS_STENCILREPLACE 4
+#define CONST_PS_BLENDFIXA 5
+#define CONST_PS_BLENDFIXB 6
+#define CONST_PS_FBOTEXSIZE 7
+#define CONST_PS_TEXCLAMP 8
+#define CONST_PS_TEXCLAMPOFF 9
+
+// For stencil upload
+#define CONST_PS_STENCILVALUE 10
 
 };

@@ -15,7 +15,7 @@
 #include "GPU/GPUInterface.h"
 #include "UI/GamepadEmu.h"
 
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
@@ -25,6 +25,14 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+	QDesktopWidget *desktop = QApplication::desktop();
+	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
+	
+	// Move window to top left coordinate of selected screen
+	QRect rect = desktop->screenGeometry(screenNum);
+	move(rect.topLeft());
+
+	SetGameTitle("");
 	emugl = new MainUI(this);
 
 	setCentralWidget(emugl);
@@ -32,6 +40,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	updateMenus();
 
 	SetZoom(g_Config.iInternalResolution);
+	
+	if(fullscreen)
+	  fullscrAct();
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -51,8 +62,8 @@ inline float clamp1(float x) {
 
 void MainWindow::newFrame()
 {
-	if (lastUIState != globalUIState) {
-		lastUIState = globalUIState;
+	if (lastUIState != GetUIState()) {
+		lastUIState = GetUIState();
 		if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !QApplication::overrideCursor() && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 		if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen && QApplication::overrideCursor())
@@ -255,9 +266,12 @@ void MainWindow::lmapAct()
 	dialog.setAcceptMode(QFileDialog::AcceptOpen);
 	QStringList fileNames;
 	if (dialog.exec())
-	{
 		fileNames = dialog.selectedFiles();
-		symbolMap.LoadSymbolMap(fileNames[0].toStdString().c_str());
+
+	if (fileNames.count() > 0)
+	{
+		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
+		symbolMap.LoadSymbolMap(fileName.toStdString().c_str());
 		notifyMapsLoaded();
 	}
 }
@@ -325,6 +339,15 @@ void MainWindow::stretchAct()
 		gpu->Resized();
 }
 
+void MainWindow::raiseTopMost()
+{
+	
+	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+	raise();  
+	activateWindow(); 
+	
+}
+
 void MainWindow::fullscrAct()
 {
 	if(isFullScreen()) {
@@ -335,7 +358,7 @@ void MainWindow::fullscrAct()
 		showNormal();
 		SetZoom(g_Config.iInternalResolution);
 		InitPadLayout(dp_xres, dp_yres);
-		if (globalUIState == UISTATE_INGAME && QApplication::overrideCursor())
+		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
 	else {
@@ -351,10 +374,12 @@ void MainWindow::fullscrAct()
 		if (gpu)
 			gpu->Resized();
 		InitPadLayout(dp_xres, dp_yres);
-		if (globalUIState == UISTATE_INGAME && !g_Config.bShowTouchControls)
+		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 
 	}
+	
+	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
 void MainWindow::websiteAct()
@@ -362,9 +387,24 @@ void MainWindow::websiteAct()
 	QDesktopServices::openUrl(QUrl("http://www.ppsspp.org/"));
 }
 
+void MainWindow::forumAct()
+{
+	QDesktopServices::openUrl(QUrl("http://forums.ppsspp.org/"));
+}
+
 void MainWindow::aboutAct()
 {
-	QMessageBox::about(this, "PPSSPP Qt", QString::fromUtf8("Created by Henrik Rydg\xc3\xa5rd"));
+	QMessageBox::about(this, "About", QString::fromUtf8("PPSSPP Qt " PPSSPP_GIT_VERSION "\n\n"
+	                                                    "PSP emulator and debugger\n\n"
+	                                                    "Copyright (c) by Henrik Rydg\xc3\xa5rd and the PPSSPP Project 2012-\n"
+	                                                    "Qt port maintained by xSacha\n\n"
+	                                                    "Additional credits:\n"
+	                                                    "    PSPSDK by #pspdev (freenode)\n"
+	                                                    "    CISO decompression code by BOOSTER\n"
+	                                                    "    zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)\n"
+	                                                    "    Qt project by Digia\n\n"
+	                                                    "All trademarks are property of their respective owners.\n"
+	                                                    "The emulator is for educational and development purposes only and it may not be used to play games you do not legally own."));
 }
 
 /* Private functions */
@@ -384,7 +424,7 @@ void MainWindow::SetZoom(int zoom) {
 
 void MainWindow::SetGameTitle(QString text)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION);
+	QString title = "PPSSPP " PPSSPP_GIT_VERSION;
 	if (text != "")
 		title += QString(" - %1").arg(text);
 
@@ -395,14 +435,15 @@ void MainWindow::loadLanguage(const QString& language, bool translate)
 {
 	if (currentLanguage != language)
 	{
-		currentLanguage = language;
-		QLocale::setDefault(QLocale(currentLanguage));
+		QLocale::setDefault(QLocale(language));
 		QApplication::removeTranslator(&translator);
+
+		currentLanguage = language;
 		if (translator.load(QString(":/languages/ppsspp_%1.qm").arg(language))) {
 			QApplication::installTranslator(&translator);
-			if (translate)
-				emit retranslate();
 		}
+		if (translate)
+			emit retranslate();
 	}
 }
 
@@ -454,8 +495,9 @@ void MainWindow::createMenus()
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
-		->addDisableState(UISTATE_MENU);
+	//commented out until someone bothers to maintain it
+	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
+	//	->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))
@@ -576,7 +618,8 @@ void MainWindow::createMenus()
 	
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
-	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("&Go to official website"), QKeySequence::HelpContents));
+	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
+	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("Official &forum")));
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();

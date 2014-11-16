@@ -18,4 +18,4 @@
 #include "Common/CommonTypes.h"
 
 void GeDescribeVertexType(u32 op, char *buffer, int len = 256);
-void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer);
+void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize);

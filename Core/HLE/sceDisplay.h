@@ -33,11 +33,14 @@ typedef void (*VblankCallback)();
 // Listen for vblank events.  Only register during init.
 void __DisplayListenVblank(VblankCallback callback);
 
-void __DisplayGetDebugStats(char stats[2048]);
+void __DisplayGetDebugStats(char stats[], size_t bufsize);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
 void __DisplayGetVPS(float *out_vps);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 int __DisplayGetVCount();
 int __DisplayGetFlipCount();
+
+// Call this when resuming to avoid a small speedup burst
+void __DisplaySetWasPaused();
 
 void Register_sceDisplay_driver();

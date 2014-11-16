@@ -736,6 +736,10 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
+void Jit::CompNEON_Vmfvc(MIPSOpcode op) {
+	DISABLE;
+}
+
 void Jit::CompNEON_Vmtvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 

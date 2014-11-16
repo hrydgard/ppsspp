@@ -6,10 +6,7 @@
 
 namespace DX9 {
 
-// OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
-// as GL state changes can be expensive on some hardware.
-class DirectxState
-{
+class DirectxState {
 private:
 	template<D3DRENDERSTATETYPE cap, bool init>
 	class BoolState {
@@ -20,8 +17,10 @@ private:
         }
 
 		inline void set(bool value) {
-			_value = value;
-			pD3Ddevice->SetRenderState(cap, value);
+			if (_value != value) {
+				_value = value;
+				pD3Ddevice->SetRenderState(cap, value);
+			}
 		}
 		inline void enable() {
 			set(true);
@@ -50,11 +49,57 @@ private:
         }
 
 		inline void set(DWORD newp1) {
-			p1 = newp1;
-			pD3Ddevice->SetRenderState(_state1, p1);
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetRenderState(_state1, p1);
+			}
 		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
+		}
+	};
+
+	template<D3DSAMPLERSTATETYPE state1, DWORD p1def>
+	class DxSampler0State1 {
+		D3DSAMPLERSTATETYPE _state1;
+		DWORD p1;
+	public:
+		DxSampler0State1() : _state1(state1), p1(p1def) {
+			DirectxState::state_count++;
+		}
+
+		inline void set(DWORD newp1) {
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetSamplerState(0, _state1, p1);
+			}
+		}
+		void restore() {
+			pD3Ddevice->SetSamplerState(0, _state1, p1);
+		}
+	};
+
+	// Can't have FLOAT template parameters...
+	template<D3DSAMPLERSTATETYPE state1, DWORD p1def>
+	class DxSampler0State1Float {
+		D3DSAMPLERSTATETYPE _state1;
+		union {
+			FLOAT p1;
+			DWORD p1d;
+		};
+	public:
+		DxSampler0State1Float() : _state1(state1), p1d(p1def) {
+			DirectxState::state_count++;
+		}
+
+		inline void set(FLOAT newp1) {
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetSamplerState(0, _state1, p1d);
+			}
+		}
+		void restore() {
+			pD3Ddevice->SetSamplerState(0, _state1, p1d);
 		}
 	};
 
@@ -70,10 +115,14 @@ private:
         }
 
 		inline void set(DWORD newp1, DWORD newp2) {
-			p1 = newp1;
-			p2 = newp2;
-			pD3Ddevice->SetRenderState(_state1, p1);
-			pD3Ddevice->SetRenderState(_state2, p2);
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetRenderState(_state1, p1);
+			}
+			if (p2 != newp2) {
+				p2 = newp2;
+				pD3Ddevice->SetRenderState(_state2, p2);
+			}
 		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
@@ -96,20 +145,68 @@ private:
         }
 
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3) {
-			p1 = newp1;
-			p2 = newp2;
-			p3 = newp3;
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetRenderState(_state1, p1);
+			}
+			if (p2 != newp2) {
+				p2 = newp2;
+				pD3Ddevice->SetRenderState(_state2, p2);
+			}
+			if (p3 != newp3) {
+				p3 = newp3;
+				pD3Ddevice->SetRenderState(_state3, p3);
+			}
+		}
+		void restore() {
+		  pD3Ddevice->SetRenderState(_state1, p1);
+		  pD3Ddevice->SetRenderState(_state2, p2);
+		  pD3Ddevice->SetRenderState(_state3, p3);
+		}
+	};
+
+	template<D3DRENDERSTATETYPE state1, DWORD p1def, D3DRENDERSTATETYPE state2, DWORD p2def, D3DRENDERSTATETYPE state3, DWORD p3def, D3DRENDERSTATETYPE state4, DWORD p4def>
+	class DxState4 {
+		D3DRENDERSTATETYPE _state1;
+		D3DRENDERSTATETYPE _state2;
+		D3DRENDERSTATETYPE _state3;
+		D3DRENDERSTATETYPE _state4;
+		DWORD p1;
+		DWORD p2;
+		DWORD p3;
+		DWORD p4;
+	public:
+		DxState4() : _state1(state1), _state2(state2), _state3(state3), _state4(state4),
+			p1(p1def), p2(p2def), p3(p3def), p4(p4def) {
+			//	DirectxState::state_count++;
+		}
+
+		inline void set(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {
+			if (p1 != newp1) {
+				p1 = newp1;
+				pD3Ddevice->SetRenderState(_state1, p1);
+			}
+			if (p2 != newp2) {
+				p2 = newp2;
+				pD3Ddevice->SetRenderState(_state2, p2);
+			}
+			if (p3 != newp3) {
+				p3 = newp3;
+				pD3Ddevice->SetRenderState(_state3, p3);
+			}
+			if (p4 != newp4) {
+				p4 = newp4;
+				pD3Ddevice->SetRenderState(_state4, p4);
+			}
+		}
+		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
 			pD3Ddevice->SetRenderState(_state2, p2);
 			pD3Ddevice->SetRenderState(_state3, p3);
-		}
-		void restore() {
-		//	pD3Ddevice->SetRenderState(_state1, p1);
-		//	pD3Ddevice->SetRenderState(_state2, p2);
-		//	pD3Ddevice->SetRenderState(_state3, p2);
+			pD3Ddevice->SetRenderState(_state3, p4);
 		}
 	};
-	
+
 	
 	class SavedBlendFactor {
 		DWORD c;
@@ -119,8 +216,11 @@ private:
 			DirectxState::state_count++;
 		}
 		inline void set(const float v[4]) {
-			c = D3DCOLOR_COLORVALUE(v[0], v[1], v[2], v[3]);			
-			pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
+			DWORD newc = D3DCOLOR_COLORVALUE(v[0], v[1], v[2], v[3]);
+			if (c != newc) {
+				c = newc;
+				pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
+			}
 		}
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
@@ -131,30 +231,28 @@ private:
 		DWORD mask;
 	public:
 		SavedColorMask() {
-#ifdef _XBOX
-			// Is this the same as OR-ing them? Probably.
-			mask = D3DCOLORWRITEENABLE_ALL;
-#else
 			mask = D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA;
-#endif
 			DirectxState::state_count++;
 		}
 
 		inline void set(bool r, bool g, bool b, bool a) {
-			mask = 0;
+			DWORD newmask = 0;
 			if (r) {
-				mask |= D3DCOLORWRITEENABLE_RED;
+				newmask |= D3DCOLORWRITEENABLE_RED;
 			}
 			if (g) {
-				mask |= D3DCOLORWRITEENABLE_GREEN;
+				newmask |= D3DCOLORWRITEENABLE_GREEN;
 			}
 			if (b) {
-				mask |= D3DCOLORWRITEENABLE_BLUE;
+				newmask |= D3DCOLORWRITEENABLE_BLUE;
 			}
 			if (a) {
-				mask |= D3DCOLORWRITEENABLE_ALPHA;
+				newmask |= D3DCOLORWRITEENABLE_ALPHA;
 			}
-			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
+			if (mask != newmask) {
+				mask = newmask;
+				pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
+			}
 			
 		}
 		inline void restore() {
@@ -187,23 +285,18 @@ private:
 	D3DVIEWPORT9 viewport;
 	public:
 		inline void set(int x, int y, int w, int h,  float n = 0.f, float f = 1.f) {
-			viewport.X=x;
-			viewport.Y=y;
-			viewport.Width=w;
-			viewport.Height=h;	
-			/*
-			if (f > n) {
-				viewport.MinZ=n;
-				viewport.MaxZ=f;
-			} else {
-				viewport.MinZ=f;
-				viewport.MaxZ=n;
-			}
-			*/
-			viewport.MinZ=n;
-			viewport.MaxZ=f;
+			D3DVIEWPORT9 newviewport;
+			newviewport.X = x;
+			newviewport.Y = y;
+			newviewport.Width = w;
+			newviewport.Height = h;
+			newviewport.MinZ = n;
+			newviewport.MaxZ = f;
 
-			pD3Ddevice->SetViewport(&viewport);
+			if (memcmp(&viewport, &newviewport, sizeof(viewport))) {
+				viewport = newviewport;
+				pD3Ddevice->SetViewport(&viewport);
+			}
 		}
 
 		inline void restore() {
@@ -212,32 +305,41 @@ private:
 	};
 
 	class StateScissor {
-		
+		RECT rect;
 	public:
 		inline void set(int x1, int y1, int x2, int y2)  {
-			RECT rect = {x1, y1, x2, y2};
-			pD3Ddevice->SetScissorRect(&rect);
+			RECT newrect = {x1, y1, x2, y2};
+			if (memcmp(&rect, &newrect, sizeof(rect))) {
+				rect = newrect;
+				pD3Ddevice->SetScissorRect(&rect);
+			}
 		}
 
 		inline void restore() {
+			pD3Ddevice->SetScissorRect(&rect);
 		}
 	};
 
 	class CullMode {
 		DWORD cull;
 	public:
-		inline void set(int wantcull, int cullmode) {
-			if (!wantcull) {
-				// disable
-				cull = D3DCULL_NONE;
-			} else {
-				// add front face ...
-				cull = cullmode==0?D3DCULL_CW:D3DCULL_CCW;
-			}
-			
-			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
+		CullMode() : cull (D3DCULL_NONE) {
 		}
 
+		inline void set(int wantcull, int cullmode) {
+			DWORD newcull;
+			if (!wantcull) {
+				// disable
+				newcull = D3DCULL_NONE;
+			} else {
+				// add front face ...
+				newcull = cullmode==0 ? D3DCULL_CW:D3DCULL_CCW;
+			}
+			if (cull != newcull) {
+				cull = newcull;
+				pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
+			}
+		}
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
 		}
@@ -253,8 +355,9 @@ public:
 
 	// When adding a state here, don't forget to add it to DirectxState::Restore() too
 	BoolState<D3DRS_ALPHABLENDENABLE, false> blend;
-	DxState2<D3DRS_SRCBLEND, D3DBLEND_SRCALPHA, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA> blendFunc;
-	DxState1<D3DRS_BLENDOP, D3DBLENDOP_ADD> blendEquation;
+	BoolState<D3DRS_SEPARATEALPHABLENDENABLE, false> blendSeparate;
+	DxState4<D3DRS_SRCBLEND, D3DBLEND_SRCALPHA, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA, D3DRS_SRCBLENDALPHA, D3DBLEND_ONE, D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO> blendFunc;
+	DxState2<D3DRS_BLENDOP, D3DBLENDOP_ADD, D3DRS_BLENDOPALPHA, D3DBLENDOP_ADD> blendEquation;
 	SavedBlendFactor blendColor;
 
 	BoolState<D3DRS_SCISSORTESTENABLE, false> scissorTest;
@@ -264,6 +367,10 @@ public:
 	CullMode cullMode;
 
 	BoolState<D3DRS_ZENABLE, false> depthTest;
+
+	DxState1<D3DRS_ALPHAFUNC, D3DCMP_ALWAYS> alphaTestFunc;
+	DxState1<D3DRS_ALPHAREF, 0> alphaTestRef;
+	BoolState<D3DRS_ALPHATESTENABLE, false> alphaTest;
 
 	DxState1<D3DRS_ZFUNC, D3DCMP_LESSEQUAL> depthFunc;
 	DxState1<D3DRS_ZWRITEENABLE, TRUE> depthWrite;
@@ -277,6 +384,14 @@ public:
 
 	DxState3<D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP> stencilOp;
 	DxState3<D3DRS_STENCILFUNC, D3DCMP_ALWAYS, D3DRS_STENCILREF, 0, D3DRS_STENCILMASK, 0xFFFFFFFF> stencilFunc;
+	DxState1<D3DRS_STENCILWRITEMASK, 0xFFFFFFFF> stencilMask;
+
+	DxSampler0State1<D3DSAMP_MINFILTER, D3DTEXF_POINT> texMinFilter;
+	DxSampler0State1<D3DSAMP_MAGFILTER, D3DTEXF_POINT> texMagFilter;
+	DxSampler0State1<D3DSAMP_MIPFILTER, D3DTEXF_NONE> texMipFilter;
+	DxSampler0State1Float<D3DSAMP_MIPMAPLODBIAS, 0> texMipLodBias;
+	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
+	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

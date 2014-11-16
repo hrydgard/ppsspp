@@ -10,6 +10,7 @@ namespace W32Util
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text);
 	BOOL CopyTextToClipboard(HWND hwnd, const std::wstring &wtext);
 	void MakeTopMost(HWND hwnd, bool topMost);
+	void ExitAndRestart();
 }
 
 struct GenericListViewColumn

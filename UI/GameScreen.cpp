@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
@@ -30,11 +31,21 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
+#include "UI/BackgroundAudio.h"
+
 #include "Core/Host.h"
 #include "Core/Config.h"
 
+GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+	SetBackgroundAudioGame(gamePath);
+}
+
+GameScreen::~GameScreen() {
+	SetBackgroundAudioGame("");
+}
+
 void GameScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
@@ -53,7 +64,7 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		// This one doesn't need to be updated.
 		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)));
@@ -72,7 +83,10 @@ void GameScreen::CreateViews() {
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
 	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData); 
+	std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
+	if (saveDirs.size()) {
+		rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	}
 	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
 		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
@@ -91,13 +105,24 @@ void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+
+	GameInfo *info = g_gameInfoCache.GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_)
 		tvTitle_->SetText(info->title + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
 		texvGameIcon_->SetTexture(info->iconTexture);
-		uint32_t color = whiteAlpha(ease((time_now_d() - info->timeIconWasLoaded) * 3));
+		// Fade the icon with the background.
+		double loadTime = info->timeIconWasLoaded;
+		if (info->pic1Texture) {
+			loadTime = std::max(loadTime, info->timePic1WasLoaded);
+		}
+		if (info->pic0Texture) {
+			loadTime = std::max(loadTime, info->timePic0WasLoaded);
+		}
+		uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
 		texvGameIcon_->SetColor(color);
 	}
 
@@ -144,7 +169,7 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID));
@@ -155,11 +180,15 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
-		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
-			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+		// Check that there's any savedata to delete
+		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
+		if (saveDirs.size()) {
+			screenManager()->push(
+				new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+		}
 	}
 
 	RecreateViews();
@@ -167,7 +196,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 	if (yes) {
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
@@ -178,7 +207,7 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
 			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), d->T("Cancel"),
@@ -189,7 +218,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 	if (yes) {
 		info->DeleteGame();
 		g_gameInfoCache.Clear();
@@ -198,7 +227,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 	if (info) {
 		host->CreateDesktopShortcut(gamePath_, info->title);
 	}
@@ -206,6 +235,9 @@ UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 }
 
 bool GameScreen::isRecentGame(const std::string &gamePath) {
+	if (g_Config.iMaxRecent <= 0)
+		return false;
+
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))
@@ -218,6 +250,8 @@ bool GameScreen::isRecentGame(const std::string &gamePath) {
 }
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
+	if (g_Config.iMaxRecent <= 0)
+		return UI::EVENT_DONE;
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/")) {

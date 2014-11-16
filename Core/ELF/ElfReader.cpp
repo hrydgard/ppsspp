@@ -17,14 +17,18 @@
 
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "../MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "ElfReader.h"
-#include "../Debugger/SymbolMap.h"
-#include "../HLE/sceKernelMemory.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelModule.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
 
-const char *ElfReader::GetSectionName(int section)
-{
+const char *ElfReader::GetSectionName(int section) const {
 	if (sections[section].sh_type == SHT_NULL)
 		return 0;
 
@@ -92,7 +96,7 @@ bool ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			continue;
 		}
 
-		u32 op = Memory::Read_Instruction(addr).encoding;
+		u32 op = Memory::Read_Instruction(addr, true).encoding;
 
 		const bool log = false;
 		//log=true;
@@ -305,7 +309,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				ERROR_LOG_REPORT(LOADER, "Rel2: invalid lo16 type! %x", flag);
 			}
 
-			op = Memory::Read_Instruction(rel_offset).encoding;
+			op = Memory::Read_Instruction(rel_offset, true).encoding;
 			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){
@@ -347,7 +351,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 }
 
 
-int ElfReader::LoadInto(u32 loadAddress)
+int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 {
 	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
 
@@ -375,6 +379,27 @@ int ElfReader::LoadInto(u32 loadAddress)
 	// Should we relocate?
 	bRelocate = (header->e_type != ET_EXEC);
 
+	// Look for the module info - we need to know whether this is kernel or user.
+	const PspModuleInfo *modInfo = 0;
+	for (int i = 0; i < GetNumSections(); i++) {
+		Elf32_Shdr *s = &sections[i];
+		const char *name = GetSectionName(i);
+		if (name && !strcmp(name, ".rodata.sceModuleInfo")) {
+			modInfo = (const PspModuleInfo *)GetPtr(s->sh_offset);
+		}
+	}
+	if (!modInfo && GetNumSegments() >= 1) {
+		modInfo = (const PspModuleInfo *)GetPtr(segments[0].p_paddr & 0x7FFFFFFF);
+	}
+
+	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
+	BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+	std::string modName = "ELF";
+	if (modInfo) {
+		size_t n = strnlen(modInfo->name, 28);
+		modName = "ELF/" + std::string(modInfo->name, n);
+	}
+
 	entryPoint = header->e_entry;
 	u32 totalStart = 0xFFFFFFFF;
 	u32 totalEnd = 0;
@@ -391,17 +416,17 @@ int ElfReader::LoadInto(u32 loadAddress)
 	if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts
-		vaddr = userMemory.AllocAt(totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(totalStart, totalSize, modName.c_str());
 	}
 	else if (loadAddress)
 	{
 		// Binary needs to be relocated: add loadAddress to the binary start address
-		vaddr = userMemory.AllocAt(loadAddress + totalStart, totalSize, "ELF");
+		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, modName.c_str());
 	}
 	else
 	{
 		// Just put it where there is room
-		vaddr = userMemory.Alloc(totalSize, false, "ELF");
+		vaddr = memblock.Alloc(totalSize, fromTop, modName.c_str());
 	}
 
 	if (vaddr == (u32)-1) {
@@ -442,10 +467,11 @@ int ElfReader::LoadInto(u32 loadAddress)
 			}
 
 			memcpy(dst, src, srcSize);
+			CBreakPoints::ExecMemCheck(writeAddr, true, dstSize, currentMIPS->pc);
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
-	userMemory.ListBlocks();
+	memblock.ListBlocks();
 
 	DEBUG_LOG(LOADER,"%i sections:", header->e_shnum);
 
@@ -566,6 +592,37 @@ SectionID ElfReader::GetSectionByName(const char *name, int firstSection)
 		}
 	}
 	return -1;
+}
+
+u32 ElfReader::GetTotalTextSize() const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_STRINGS)) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
+u32 ElfReader::GetTotalDataSize() const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		if ((sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_MASKPROC)) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
+}
+
+u32 ElfReader::GetTotalSectionSizeByPrefix(const std::string &prefix) const {
+	u32 total = 0;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		const char *secname = GetSectionName(i);
+		if (secname && !strncmp(secname, prefix.c_str(), prefix.length())) {
+			total += sections[i].sh_size;
+		}
+	}
+	return total;
 }
 
 bool ElfReader::LoadSymbols()

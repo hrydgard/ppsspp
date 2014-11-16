@@ -32,9 +32,11 @@ bool AsyncIOManager::HasOperation(u32 handle) {
 }
 
 void AsyncIOManager::ScheduleOperation(AsyncIOEvent ev) {
-	lock_guard guard(resultsLock_);
-	if (!resultsPending_.insert(ev.handle).second) {
-		ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+	{
+		lock_guard guard(resultsLock_);
+		if (!resultsPending_.insert(ev.handle).second) {
+			ERROR_LOG_REPORT(SCEIO, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+		}
 	}
 	ScheduleEvent(ev);
 }
@@ -94,7 +96,8 @@ void AsyncIOManager::Read(u32 handle, u8 *buf, size_t bytes) {
 }
 
 void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
-	size_t result = pspFileSystem.WriteFile(handle, buf, bytes);
+	// We want to sign extend this on 32-bit.
+	AsyncIOResult result = (ssize_t)pspFileSystem.WriteFile(handle, buf, bytes);
 	EventResult(handle, result);
 }
 

@@ -27,6 +27,7 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 namespace DX9 {
 
@@ -82,13 +83,27 @@ static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_ZERO,
 	D3DSTENCILOP_REPLACE,
 	D3DSTENCILOP_INVERT,
-	D3DSTENCILOP_INCR,
-	D3DSTENCILOP_DECR,  // don't know if these should be wrap or not
+	D3DSTENCILOP_INCRSAT,
+	D3DSTENCILOP_DECRSAT,
 	D3DSTENCILOP_KEEP, // reserved
 	D3DSTENCILOP_KEEP, // reserved
 };
 
-static u32 blendColor2Func(u32 fix) {
+static D3DBLEND toDualSource(D3DBLEND blendfunc) {
+	switch (blendfunc) {
+		// TODO
+#if 0
+	case D3DBLEND_SRCALPHA:
+		return D3DBLEND_SRCCOLOR2;
+	case D3DBLEND_INVSRCALPHA:
+		return D3DBLEND_INVSRCCOLOR2;
+#endif
+	default:
+		return blendfunc;
+	}
+}
+
+static D3DBLEND blendColor2Func(u32 fix) {
 	if (fix == 0xFFFFFF)
 		return D3DBLEND_ONE;
 	if (fix == 0)
@@ -102,99 +117,418 @@ static u32 blendColor2Func(u32 fix) {
 	return D3DBLEND_UNK;
 }
 
-static bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margin = 0.1f) {
+static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margin = 0.1f) {
 	const Vec3f diff = a - b;
 	if (fabsf(diff.x) <= margin && fabsf(diff.y) <= margin && fabsf(diff.z) <= margin)
 		return true;
 	return false;
 }
 
+bool TransformDrawEngineDX9::ApplyShaderBlending() {
+	bool skipBlit = false;
+
+	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
+
+	static int lastFrameBlit = -1;
+	static int blitsThisFrame = 0;
+	if (lastFrameBlit != gpuStats.numFlips) {
+		if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME) {
+			WARN_LOG_REPORT_ONCE(blendingBlit, G3D, "Lots of blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		}
+		blitsThisFrame = 0;
+		lastFrameBlit = gpuStats.numFlips;
+	}
+	++blitsThisFrame;
+	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
+		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
+		ResetShaderBlending();
+		return false;
+	}
+
+	framebufferManager_->BindFramebufferColor(1, nullptr, false);
+	// If we are rendering at a higher resolution, linear is probably best for the dest color.
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	fboTexBound_ = true;
+
+	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+	return true;
+}
+
+inline void TransformDrawEngineDX9::ResetShaderBlending() {
+	if (fboTexBound_) {
+		pD3Ddevice->SetTexture(1, nullptr);
+		fboTexBound_ = false;
+	}
+}
+
+void TransformDrawEngineDX9::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0, but the logic op may have us do differently.
+	D3DBLEND srcBlend = D3DBLEND_ONE;
+	D3DBLEND dstBlend = D3DBLEND_ZERO;
+	D3DBLENDOP blendOp = D3DBLENDOP_ADD;
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp())
+		{
+		case GE_LOGIC_CLEAR:
+			srcBlend = D3DBLEND_ZERO;
+			break;
+		case GE_LOGIC_AND:
+		case GE_LOGIC_AND_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_COPY:
+			// This is the same as off.
+			break;
+		case GE_LOGIC_COPY_INVERTED:
+			// Handled in the shader.
+			break;
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			// Handled in the shader.
+			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_INVERTED:
+			srcBlend = D3DBLEND_ONE;
+			dstBlend = D3DBLEND_ONE;
+			blendOp = D3DBLENDOP_SUBTRACT;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_NOOP:
+			srcBlend = D3DBLEND_ZERO;
+			dstBlend = D3DBLEND_ONE;
+			break;
+		case GE_LOGIC_XOR:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR:
+		case GE_LOGIC_OR_INVERTED:
+			// Inverted in shader.
+			dstBlend = D3DBLEND_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_OR_REVERSE:
+			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			break;
+		case GE_LOGIC_SET:
+			dstBlend = D3DBLEND_ONE;
+			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			break;
+		}
+	}
+
+	// We're not blending, but we may still want to blend for stencil.
+	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
+	switch (stencilType) {
+	case STENCIL_VALUE_INCR_4:
+	case STENCIL_VALUE_INCR_8:
+		// We'll add the incremented value output by the shader.
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_ADD);
+		dxstate.blend.enable();
+		dxstate.blendSeparate.enable();
+		break;
+
+	case STENCIL_VALUE_DECR_4:
+	case STENCIL_VALUE_DECR_8:
+		// We'll subtract the incremented value output by the shader.
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_SUBTRACT);
+		dxstate.blend.enable();
+		dxstate.blendSeparate.enable();
+		break;
+
+	case STENCIL_VALUE_INVERT:
+		// The shader will output one, and reverse subtracting will essentially invert.
+		dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ONE);
+		dxstate.blendEquation.set(blendOp, D3DBLENDOP_REVSUBTRACT);
+		dxstate.blend.enable();
+		dxstate.blendSeparate.enable();
+		break;
+
+	default:
+		if (srcBlend == D3DBLEND_ONE && dstBlend == D3DBLEND_ZERO && blendOp == D3DBLENDOP_ADD) {
+			dxstate.blend.disable();
+		} else {
+			dxstate.blendFunc.set(srcBlend, dstBlend, D3DBLEND_ONE, D3DBLEND_ZERO);
+			dxstate.blendEquation.set(blendOp, D3DBLENDOP_ADD);
+			dxstate.blend.enable();
+			dxstate.blendSeparate.enable();
+		}
+		break;
+	}
+}
+
+void TransformDrawEngineDX9::ApplyBlendState() {
+	// Blending is a bit complex to emulate.  This is due to several reasons:
+	//
+	//  * Doubled blend modes (src, dst, inversed) aren't supported in Direct3D.
+	//    If possible, we double the src color or src alpha in the shader to account for these.
+	//    These may clip incorrectly, so we avoid unfortunately.
+	//  * Direct3D only has one arbitrary fixed color.  We premultiply the other in the shader.
+	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
+	//  * We try to apply logical operations through blending.
+	//
+	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
+
+	// Unfortunately, we can't really do this in Direct3D 9...
+	gstate_c.allowShaderBlend = false;
+
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
+	bool usePreSrc = false;
+
+	switch (replaceBlend) {
+	case REPLACE_BLEND_NO:
+		ResetShaderBlending();
+		// We may still want to do something about stencil -> alpha.
+		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
+		return;
+
+	case REPLACE_BLEND_COPY_FBO:
+		if (ApplyShaderBlending()) {
+			// We may still want to do something about stencil -> alpha.
+			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
+			return;
+		}
+		// Until next time, force it off.
+		gstate_c.allowShaderBlend = false;
+		break;
+
+	case REPLACE_BLEND_PRE_SRC:
+	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
+		usePreSrc = true;
+		break;
+
+	case REPLACE_BLEND_STANDARD:
+	case REPLACE_BLEND_2X_ALPHA:
+	case REPLACE_BLEND_2X_SRC:
+		break;
+	}
+
+	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+		WARN_LOG_REPORT_ONCE(logicOpBlend, G3D, "Logic op and blend enabled, unsupported.");
+	}
+
+	dxstate.blend.enable();
+	dxstate.blendSeparate.enable();
+	ResetShaderBlending();
+
+	GEBlendMode blendFuncEq = gstate.getBlendEq();
+	int blendFuncA  = gstate.getBlendFuncA();
+	int blendFuncB  = gstate.getBlendFuncB();
+	if (blendFuncA > GE_SRCBLEND_FIXA)
+		blendFuncA = GE_SRCBLEND_FIXA;
+	if (blendFuncB > GE_DSTBLEND_FIXB)
+		blendFuncB = GE_DSTBLEND_FIXB;
+
+	float constantAlpha = 1.0f;
+	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_UNIFORM:
+			constantAlpha = (float) gstate.getStencilTestRef() * (1.0f / 255.0f);
+			break;
+
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_DECR_4:
+			constantAlpha = 1.0f / 15.0f;
+			break;
+
+		case STENCIL_VALUE_INCR_8:
+		case STENCIL_VALUE_DECR_8:
+			constantAlpha = 1.0f / 255.0f;
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	// Shortcut by using D3DBLEND_ONE where possible, no need to set blendcolor
+	D3DBLEND glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
+	D3DBLEND glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
+
+	if (usePreSrc) {
+		glBlendFuncA = D3DBLEND_ONE;
+		// Need to pull in the fixed color.
+		if (blendFuncA == GE_SRCBLEND_FIXA) {
+			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		}
+	}
+
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
+		glBlendFuncA = toDualSource(glBlendFuncA);
+		glBlendFuncB = toDualSource(glBlendFuncB);
+	}
+
+	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
+		Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
+		Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+		if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB != D3DBLEND_UNK) {
+			// Can use blendcolor trivially.
+			const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+			dxstate.blendColor.set(blendColor);
+			glBlendFuncA = D3DBLEND_BLENDFACTOR;
+		} else if (glBlendFuncA != D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
+			// Can use blendcolor trivially.
+			const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+			dxstate.blendColor.set(blendColor);
+			glBlendFuncB = D3DBLEND_BLENDFACTOR;
+		} else if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
+			if (blendColorSimilar(fixA, Vec3f::AssignToAll(constantAlpha) - fixB)) {
+				glBlendFuncA = D3DBLEND_BLENDFACTOR;
+				glBlendFuncB = D3DBLEND_INVBLENDFACTOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				dxstate.blendColor.set(blendColor);
+			} else if (blendColorSimilar(fixA, fixB)) {
+				glBlendFuncA = D3DBLEND_BLENDFACTOR;
+				glBlendFuncB = D3DBLEND_BLENDFACTOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				dxstate.blendColor.set(blendColor);
+			} else {
+				static bool didReportBlend = false;
+				if (!didReportBlend)
+					Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+				didReportBlend = true;
+
+				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+				// Let's approximate, at least.  Close is better than totally off.
+				const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
+				const bool nearZeroB = blendColorSimilar(fixB, Vec3f::AssignToAll(0.0f), 0.25f);
+				if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
+					glBlendFuncA = nearZeroA ? D3DBLEND_ZERO : D3DBLEND_ONE;
+					glBlendFuncB = D3DBLEND_BLENDFACTOR;
+					const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+					dxstate.blendColor.set(blendColor);
+				// We need to pick something.  Let's go with A as the fixed color.
+				} else {
+					glBlendFuncA = D3DBLEND_BLENDFACTOR;
+					glBlendFuncB = nearZeroB ? D3DBLEND_ZERO : D3DBLEND_ONE;
+					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+					dxstate.blendColor.set(blendColor);
+				}
+			}
+		} else {
+			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
+			// For now let's just pick whichever was fixed instead of checking error.
+			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc) {
+				glBlendFuncA = D3DBLEND_BLENDFACTOR;
+				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
+				dxstate.blendColor.set(blendColor);
+			} else {
+				glBlendFuncB = D3DBLEND_BLENDFACTOR;
+				const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
+				dxstate.blendColor.set(blendColor);
+			}
+		}
+	} else if (constantAlpha < 1.0f) {
+		const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
+		dxstate.blendColor.set(blendColor);
+	}
+
+	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
+
+	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
+	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
+	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
+	// the factors to zero). So let's do that.
+	D3DBLENDOP alphaEq = D3DBLENDOP_ADD;
+	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
+		// Let the fragment shader take care of it.
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_INCR_8:
+			// We'll add the increment value.
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ONE);
+			break;
+
+		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_DECR_8:
+			// Like add with a small value, but subtracting.
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ONE);
+			alphaEq = D3DBLENDOP_SUBTRACT;
+			break;
+
+		case STENCIL_VALUE_INVERT:
+			// This will subtract by one, effectively inverting the bits.
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ONE);
+			alphaEq = D3DBLENDOP_REVSUBTRACT;
+			break;
+
+		default:
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
+			break;
+		}
+	} else if (gstate.isStencilTestEnabled()) {
+		switch (ReplaceAlphaWithStencilType()) {
+		case STENCIL_VALUE_KEEP:
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ZERO, D3DBLEND_ONE);
+			break;
+		case STENCIL_VALUE_ONE:
+			// This won't give one but it's our best shot...
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ONE);
+			break;
+		case STENCIL_VALUE_ZERO:
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ZERO, D3DBLEND_ZERO);
+			break;
+		case STENCIL_VALUE_UNIFORM:
+			// This won't give a correct value (it multiplies) but it may be better than random values.
+			if (constantAlpha < 1.0f) {
+				// TODO: Does this work as the alpha component of the fixed blend factor?
+				dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ZERO);
+			} else {
+				dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
+			}
+			break;
+		case STENCIL_VALUE_INCR_4:
+		case STENCIL_VALUE_INCR_8:
+			// This won't give a correct value always, but it will try to increase at least.
+			// TODO: Does this work as the alpha component of the fixed blend factor?
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ONE);
+			break;
+		case STENCIL_VALUE_DECR_4:
+		case STENCIL_VALUE_DECR_8:
+			// This won't give a correct value always, but it will try to decrease at least.
+			// TODO: Does this work as the alpha component of the fixed blend factor?
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ONE);
+			alphaEq = D3DBLENDOP_SUBTRACT;
+			break;
+		case STENCIL_VALUE_INVERT:
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ONE);
+			// If the output alpha is near 1, this will basically invert.  It's our best shot.
+			alphaEq = D3DBLENDOP_REVSUBTRACT;
+			break;
+		}
+	} else {
+		// Retain the existing value when stencil testing is off.
+		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ZERO, D3DBLEND_ONE);
+	}
+
+	dxstate.blendEquation.set(eqLookup[blendFuncEq], alphaEq);
+}
+
 void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
-	if (gstate_c.textureChanged) {
-		if (gstate.isTextureMapEnabled()) {
-			textureCache_->SetTexture();
+	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		if (gstate_c.needShaderTexClamp) {
+			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
+			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
+			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
 		}
-		gstate_c.textureChanged = false;
 	}
 
-	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
-	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
-
-	// Set blend
-	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
-	dxstate.blend.set(wantBlend);
-	if (wantBlend) {
-		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
-		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-
-		// Examples of seen unimplementable blend states:
-		// Mortal Kombat Unchained: FixA=0000ff FixB=000080 FuncA=10 FuncB=10
-
-		int blendFuncA  = gstate.getBlendFuncA();
-		int blendFuncB  = gstate.getBlendFuncB();
-		int blendFuncEq = gstate.getBlendEq();
-		if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
-		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
-
-		// Shortcut by using D3DBLEND_ONE where possible, no need to set blendcolor
-		u32 glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
-		u32 glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
-		if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
-			Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
-			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
-			if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB != D3DBLEND_UNK) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
-				dxstate.blendColor.set(blendColor);
-				glBlendFuncA = D3DBLEND_BLENDFACTOR;
-			} else if (glBlendFuncA != D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
-				dxstate.blendColor.set(blendColor);
-				glBlendFuncB = D3DBLEND_BLENDFACTOR;
-			} else if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
-				if (blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f) - fixB)) {
-					glBlendFuncA = D3DBLEND_BLENDFACTOR;
-					glBlendFuncB = D3DBLEND_INVBLENDFACTOR;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
-					dxstate.blendColor.set(blendColor);
-				} else if (blendColorSimilar(fixA, fixB)) {
-					glBlendFuncA = D3DBLEND_BLENDFACTOR;
-					glBlendFuncB = D3DBLEND_BLENDFACTOR;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
-					dxstate.blendColor.set(blendColor);
-				} else {
-					static bool didReportBlend = false;
-					if (!didReportBlend)
-						Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					didReportBlend = true;
-
-					DEBUG_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					// Let's approximate, at least.  Close is better than totally off.
-					const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
-					const bool nearZeroB = blendColorSimilar(fixB, Vec3f::AssignToAll(0.0f), 0.25f);
-					if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
-						glBlendFuncA = nearZeroA ? D3DBLEND_ZERO : D3DBLEND_ONE;
-						glBlendFuncB = D3DBLEND_BLENDFACTOR;
-						const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
-						dxstate.blendColor.set(blendColor);
-					// We need to pick something.  Let's go with A as the fixed color.
-					} else {
-						glBlendFuncA = D3DBLEND_BLENDFACTOR;
-						glBlendFuncB = nearZeroB ? D3DBLEND_ZERO : D3DBLEND_ONE;
-						const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
-						dxstate.blendColor.set(blendColor);
-					}
-				}
-			}
-		}
-
-		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
-		dxstate.blendEquation.set(eqLookup[blendFuncEq]);
-	}
+	// Set blend - unless we need to do it in the shader.
+	ApplyBlendState();
 
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
@@ -213,10 +547,13 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
 		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
+		if (gstate.isClearModeDepthMask()) {
+			framebufferManager_->SetDepthUpdated();
+		}
 
 		// Color Test
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool colorMask = gstate.isClearModeColorMask();
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
@@ -224,12 +561,12 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilTest.enable();
 			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0xFF);
+			dxstate.stencilMask.set(0xFF);
 		} else {
-			dxstate.depthTest.disable();
+			dxstate.stencilTest.disable();
 		}
 
 	} else {
-		
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		dxstate.cullMode.set(wantCull, gstate.getCullMode());	
@@ -239,8 +576,12 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.depthTest.enable();
 			dxstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			dxstate.depthWrite.set(gstate.isDepthWriteEnabled());
-		} else 
+			if (gstate.isDepthWriteEnabled()) {
+				framebufferManager_->SetDepthUpdated();
+			}
+		} else {
 			dxstate.depthTest.disable();
+		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
@@ -248,6 +589,31 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
+
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
+#ifndef MOBILE_DEVICE
+		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
+		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
+		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
+		if ((rbits != 0 && rbits != 0xFF) || (gbits != 0 && gbits != 0xFF) || (bbits != 0 && bbits != 0xFF)) {
+			WARN_LOG_REPORT_ONCE(rgbmask, G3D, "Unsupported RGB mask: r=%02x g=%02x b=%02x", rbits, gbits, bbits);
+		}
+		if (abits != 0 && abits != 0xFF) {
+			// The stencil part of the mask is supported.
+			WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
+		}
+#endif
+
+		// Let's not write to alpha if stencil isn't enabled.
+		if (!gstate.isStencilTestEnabled()) {
+			amask = false;
+		} else {
+			// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
+			if (ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+				amask = false;
+			}
+		}
+
 		dxstate.colorMask.set(rmask, gmask, bmask, amask);
 		
 		// Stencil Test
@@ -259,10 +625,24 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+			dxstate.stencilMask.set(~abits);
 		} else {
 			dxstate.stencilTest.disable();
 		}
 	}
+
+#if defined(DX9_USE_HW_ALPHA_TEST)
+	// Older hardware (our target for DX9) often has separate alpha testing hardware that
+	// is generally faster than using discard/clip. Let's use it.
+	if (gstate.alphaTestEnable) {
+		dxstate.alphaTest.enable();
+		GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+		dxstate.alphaTestFunc.set(ztests[alphaTestFunc]);
+		dxstate.alphaTestRef.set(gstate.getAlphaTestRef());
+	} else {
+		dxstate.alphaTest.disable();
+	}
+#endif
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
@@ -273,8 +653,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
@@ -283,6 +663,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
+
+	renderX += gstate_c.cutRTOffsetX * renderWidthFactor;
 
 	bool throughmode = gstate.isModeThrough();
 
@@ -302,7 +684,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.scissorRect.set(
 			renderX + scissorX1 * renderWidthFactor,
 			renderY + scissorY1 * renderHeightFactor,
-			renderY + scissorX2 * renderWidthFactor,
+			renderX + scissorX2 * renderWidthFactor,
 			renderY + scissorY2 * renderHeightFactor);
 	}
 
@@ -317,34 +699,34 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	int regionX2 = gstate_c.curRTWidth;
 	int regionY2 = gstate_c.curRTHeight;
 
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+	float offsetX = gstate.getOffsetX();
+	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		dxstate.viewport.set(
 			renderX + (0 + regionX1) * renderWidthFactor, 
-			renderY + (0 - regionY1) * renderHeightFactor,
+			renderY + (0 + regionY1) * renderHeightFactor,
 			(regionX2 - regionX1) * renderWidthFactor,
 			(regionY2 - regionY1) * renderHeightFactor,
 			0.f, 1.f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXa = getFloat24(gstate.viewportx1);
-		float vpXb = getFloat24(gstate.viewportx2);
-		float vpYa = getFloat24(gstate.viewporty1);
-		float vpYb = getFloat24(gstate.viewporty2);
+		float vpXScale = getFloat24(gstate.viewportx1);
+		float vpXCenter = getFloat24(gstate.viewportx2);
+		float vpYScale = getFloat24(gstate.viewporty1);
+		float vpYCenter = getFloat24(gstate.viewporty2);
 
 		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXb + vpXa * Xview
-		// Yscreen = -offsetY + vpYb + vpYa * Yview
-		// Zscreen = vpZb + vpZa * Zview
+		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
+		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
+		// Zscreen = vpZCenter + vpZScale * Zview
 
 		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXb - offsetX - vpXa;
-		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2.0f;
-		gstate_c.vpHeight = -vpYa * 2.0f;
+		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
+		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);
+		gstate_c.vpWidth = vpXScale * 2.0f;
+		gstate_c.vpHeight = vpYScale * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
@@ -353,20 +735,27 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
-
-		vpX0 = (vpXb - offsetX - fabsf(vpXa)) * renderWidthFactor;
-		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
 		
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRangeMin = zOff - zScale;
-		float depthRangeMax = zOff + zScale;
 
-		dxstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight, depthRangeMin, depthRangeMax);
+		float depthRangeMin = zOff - fabsf(zScale);
+		float depthRangeMax = zOff + fabsf(zScale);
+
+		gstate_c.vpDepth = zScale * 2;
+
+		// D3D doesn't like viewports partially outside the target. Clamp the viewport for now. Should also adjust
+		// the projection matrix to compensate, really.
+		float left = std::max(0.0f, vpX0 + renderX);
+		float top = std::max(0.0f, vpY0 + renderY);
+		float right = std::min(left + vpWidth, renderWidth);
+		float bottom = std::min(top + vpHeight, renderHeight);
+		depthRangeMin = std::max(0.0f, depthRangeMin);
+		depthRangeMax = std::min(1.0f, depthRangeMax);
+
+		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
 	}
 }
 

@@ -30,62 +30,12 @@
 
 #include "../Globals.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 struct GLSLProgram;
 class TextureCache;
-
-enum {
-	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
-	FB_USAGE_RENDERTARGET = 2,
-	FB_USAGE_TEXTURE = 4,
-};
-
-enum {
-	FB_NON_BUFFERED_MODE = 0,
-	FB_BUFFERED_MODE = 1,
-
-	// Hm, it's unfortunate that GPU has ended up as two separate values in GL and GLES.
-#ifndef USING_GLES2
-	FB_READFBOMEMORY_CPU = 2,
-	FB_READFBOMEMORY_GPU = 3,
-#else
-	FB_READFBOMEMORY_GPU = 2,
-#endif
-	FBO_READFBOMEMORY_MIN = 2
-};
-
-struct VirtualFramebuffer {
-	int last_frame_used;
-	int last_frame_render;
-	bool memoryUpdated;
-	bool depthUpdated;
-
-	u32 fb_address;
-	u32 z_address;
-	int fb_stride;
-	int z_stride;
-
-	// There's also a top left of the drawing region, but meh...
-
-	// width/height: The detected size of the current framebuffer.
-	u16 width;
-	u16 height;
-	// renderWidth/renderHeight: The actual size we render at. May be scaled to render at higher resolutions.
-	u16 renderWidth;
-	u16 renderHeight;
-	// bufferWidth/bufferHeight: The actual (but non scaled) size of the buffer we render to. May only be bigger than width/height.
-	u16 bufferWidth;
-	u16 bufferHeight;
-
-	u16 usageFlags;
-
-	GEBufferFormat format;  // virtual, right now they are all RGBA8888
-	FBOColorDepth colorDepth;
-	FBO *fbo;
-
-	bool dirtyAfterDisplay;
-	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
-};
+class TransformDrawEngine;
+class ShaderManager;
 
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
@@ -106,9 +56,7 @@ struct AsyncPBO {
 
 #endif
 
-class ShaderManager;
-
-class FramebufferManager {
+class FramebufferManager : public FramebufferManagerCommon {
 public:
 	FramebufferManager();
 	~FramebufferManager();
@@ -119,75 +67,66 @@ public:
 	void SetShaderManager(ShaderManager *sm) {
 		shaderManager_ = sm;
 	}
+	void SetTransformDrawEngine(TransformDrawEngine *td) {
+		transformDraw_ = td;
+	}
 
-	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize, bool applyPostShader = false);
+	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
+	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
 	// If texture != 0, will bind it.
-	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
+	// x,y,w,h are relative to destW, destH which fill out the target completely.
+	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f, GLSLProgram *program = 0);
 
 	void DrawPlainColor(u32 color);
 
 	void DestroyAllFBOs();
-	void DecimateFBOs();
 
-	void BeginFrame();
+	virtual void Init() override;
 	void EndFrame();
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
-	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
-	void UpdateFromMemory(u32 addr, int size, bool safe);
 	void SetLineWidth();
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
-	void BindFramebufferDepth(VirtualFramebuffer *sourceframebuffer, VirtualFramebuffer *targetframebuffer);
+	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(VirtualFramebuffer *framebuffer);
+	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy = false);
 
-	// Just for logging right now.  Might remove/change.
-	void NotifyBlockTransfer(u32 dst, u32 src);
-
-#ifdef USING_GLES2
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
-#else
-  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
-#endif 
-
-	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetVFBAt(u32 addr);
-	VirtualFramebuffer *GetDisplayVFB() {
-		return GetVFBAt(displayFramebufPtr_);
-	}
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
-	size_t NumVFBs() const { return vfbs_.size(); }
+	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
+	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
-	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }
-	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
-	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
-
-	u32 PrevDisplayFramebufAddr() {
-		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
-	}
-	u32 DisplayFramebufAddr() {
-		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
-	}
-
-	void SetDepthUpdated() {
-		if (currentRenderVfb_) {
-			currentRenderVfb_->depthUpdated = true;
-		}
-	}
-
-	void NotifyFramebufferCopy(u32 src, u32 dest, int size);
+	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false);
 
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
+	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+
+	virtual void RebindFramebuffer() override;
+
+	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+
+protected:
+	virtual void DisableState() override;
+	virtual void ClearBuffer() override;
+	virtual void ClearDepthBuffer() override;
+	virtual void FlushBeforeCopy() override;
+	virtual void DecimateFBOs() override;
+
+	// Used by ReadFramebufferToMemory and later framebuffer block copies
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) override;
+
+	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) override;
+	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 
 private:
 	void CompileDraw2DProgram();
@@ -195,39 +134,31 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	u32 displayFramebufPtr_;
-	u32 displayStride_;
-	GEBufferFormat displayFormat_;
+	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
 
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
-	int frameLastFramebufUsed;
-
-	std::vector<VirtualFramebuffer *> vfbs_;
-
-	VirtualFramebuffer *currentRenderVfb_;
-
-	// Used by ReadFramebufferToMemory
-	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
-	void PackFramebufferSync_(VirtualFramebuffer *vfb);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
+	int drawPixelsTexW_;
+	int drawPixelsTexH_;
 
-	u8 *convBuf;
+	u8 *convBuf_;
+	u32 convBufSize_;
 	GLSLProgram *draw2dprogram_;
 	GLSLProgram *plainColorProgram_;
 	GLSLProgram *postShaderProgram_;
+	GLSLProgram *stencilUploadProgram_;
 	int plainColorLoc_;
 	int timeLoc_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
+	TransformDrawEngine *transformDraw_;
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
 
@@ -235,17 +166,18 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool useBufferedRendering_;
+	bool gameUsesSequentialCopies_;
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-	std::map<std::pair<int, int>, FBO *> renderCopies_;
+	struct TempFBO {
+		FBO *fbo;
+		int last_frame_used;
+	};
 
-	std::set<std::pair<u32, u32>> knownFramebufferCopies_;
+	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
+	std::map<u64, TempFBO> tempFBOs_;
 
 #ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 #endif
-
-	std::set<std::pair<u32, u32>> reportedBlits_;
 };

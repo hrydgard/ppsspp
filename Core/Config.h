@@ -27,7 +27,6 @@
 extern const char *PPSSPP_GIT_VERSION;
 #endif
 
-const int MAX_CONFIG_VOLUME = 8;
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
@@ -38,6 +37,17 @@ enum {
 	ROTATION_LOCKED_VERTICAL = 2,
 	ROTATION_LOCKED_HORIZONTAL180 = 3,
 	ROTATION_LOCKED_VERTICAL180 = 4,
+};
+
+enum BufferFilter {
+	SCALE_LINEAR = 1,
+	SCALE_NEAREST = 2,
+};
+
+// Software is not among these because it will have one of these perform the blit to display.
+enum {
+	GPU_BACKEND_OPENGL = 0,
+	GPU_BACKEND_DIRECT3D9 = 1,
 };
 
 namespace http {
@@ -72,13 +82,29 @@ public:
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-	bool bEscapeExitsEmulator;
+
+	// Used for switching the GPU backend in GameSettingsScreen.
+	// Without this, PPSSPP instantly crashes if we edit iGPUBackend directly...
+	int iTempGPUBackend;
+
+	bool bRestartRequired;
 #endif
+
+	bool bPauseWhenMinimized;
+
+#if !defined(MOBILE_DEVICE)
+	bool bPauseExitsEmulator;
+#endif
+
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
 	bool bCheckForNewVersion;
+	bool bForceLagSync;
+	bool bFuncReplacements;
+	bool bSetRoundingMode;
+	bool bForceFlushToZero;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
@@ -86,6 +112,7 @@ public:
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	bool bCacheFullIsoInRam;
 	int iScreenRotation;
 
 	std::string sReportHost;
@@ -93,14 +120,15 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
-
 	// GFX
+	int iGPUBackend;
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
+	int iBufFilter; // 1 = linear, 2 = nearest
 	bool bPartialStretch;
 	bool bStretchToDisplay;
 	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
@@ -139,14 +167,18 @@ public:
 	bool bAlwaysDepthWrite;
 	bool bTimerHack;
 	bool bAlphaMaskHack;
-	bool bLowQualitySplineBezier;
+	bool bBlockTransferGPU;
+	bool bDisableSlowFramebufEffects;
+	bool bFragmentTestCache;
+	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	std::string sPostShaderName;  // Off for off.
 
 	// Sound
 	bool bEnableSound;
-	bool bLowLatencyAudio;
-	int iSFXVolume;
-	int iBGMVolume;
+	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
+
+	// Audio Hack
+	bool bSoundSpeedHack;
 
 	// UI
 	bool bShowDebuggerOnLoad;
@@ -229,12 +261,13 @@ public:
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
 
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;
 #endif
 
 	bool bHapticFeedback;
 
+	float fAnalogLimiterDeadzone;
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
 	// proper options when good enough.
 	// PrescaleUV:
@@ -247,13 +280,16 @@ public:
 	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
 	// End GLES hacks.
 
+	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
+	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
+
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
 	// SystemParam
 	std::string sNickName;
 	std::string proAdhocServer;
-	std::string localMacAddress;
+	std::string sMACAddress;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -297,7 +333,7 @@ public:
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
-	std::string memCardDirectory;
+	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
 
@@ -326,7 +362,8 @@ public:
 	void ResetControlLayout();
 
 	void GetReportingInfo(UrlEncoder &data);
-
+	
+	
 private:
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
@@ -335,6 +372,7 @@ private:
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+const char *CreateRandMAC();
 
 // TODO: Find a better place for this.
 extern http::Downloader g_DownloadManager;

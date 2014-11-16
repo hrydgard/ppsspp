@@ -49,6 +49,7 @@ struct FSTEntry
 
 // Mostly to handle utf-8 filenames better on Windows.
 FILE *OpenCFile(const std::string &filename, const char *mode);
+bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode);
 
 // Returns true if file filename exists
 bool Exists(const std::string &filename);

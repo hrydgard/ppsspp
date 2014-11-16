@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+#include "Globals.h"
 #include "Common/Common.h"
 
 #include "math/fast/fast_matrix.h"
@@ -171,9 +172,9 @@ public:
 	const T& t() const { return y; }
 
 	// swizzlers - create a subvector of specific components
-	Vec2 yx() const { return Vec2(y, x); }
-	Vec2 vu() const { return Vec2(y, x); }
-	Vec2 ts() const { return Vec2(y, x); }
+	const Vec2 yx() const { return Vec2(y, x); }
+	const Vec2 vu() const { return Vec2(y, x); }
+	const Vec2 ts() const { return Vec2(y, x); }
 };
 
 typedef Vec2<float> Vec2f;
@@ -331,7 +332,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, a4, b4) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -494,7 +495,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, a4, b4) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -652,7 +653,7 @@ public:
 	// swizzlers - create a subvector of specific components
 	// e.g. Vec2 uv() { return Vec2(x,y); }
 	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
-#define _DEFINE_SWIZZLER2(a, b, name) Vec2<T> name() const { return Vec2<T>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, name) const Vec2<T> name() const { return Vec2<T>(a, b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2) \
 	_DEFINE_SWIZZLER2(a, b, a##b); \
 	_DEFINE_SWIZZLER2(a, b, a2##b2); \
@@ -668,7 +669,7 @@ public:
 #undef DEFINE_SWIZZLER2
 #undef _DEFINE_SWIZZLER2
 
-#define _DEFINE_SWIZZLER3(a, b, c, name) Vec3<T> name() const { return Vec3<T>(a, b, c); }
+#define _DEFINE_SWIZZLER3(a, b, c, name) const Vec3<T> name() const { return Vec3<T>(a, b, c); }
 #define DEFINE_SWIZZLER3(a, b, c, a2, b2, c2) \
 	_DEFINE_SWIZZLER3(a, b, c, a##b##c); \
 	_DEFINE_SWIZZLER3(a, c, b, a##c##b); \
@@ -852,6 +853,47 @@ inline void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
 	m4x4[15] = 1.0f;
 }
 
+inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[3];
+	m4x4[2] = m4x3[6];
+	m4x4[3] = m4x3[9];
+	m4x4[4] = m4x3[1];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[7];
+	m4x4[7] = m4x3[10];
+	m4x4[8] = m4x3[2];
+	m4x4[9] = m4x3[5];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = m4x3[11];
+	m4x4[12] = 0.0f;
+	m4x4[13] = 0.0f;
+	m4x4[14] = 0.0f;
+	m4x4[15] = 1.0f;
+}
+
+inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[3];
+	m4x4[2] = m4x3[6];
+	m4x4[3] = m4x3[9];
+	m4x4[4] = m4x3[1];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[7];
+	m4x4[7] = m4x3[10];
+	m4x4[8] = m4x3[2];
+	m4x4[9] = m4x3[5];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = m4x3[11];
+}
+
+inline void Transpose4x4(float out[16], const float in[16]) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			out[i * 4 + j] = in[j * 4 + i];
+		}
+	}
+}
 
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {
@@ -926,9 +968,9 @@ __forceinline unsigned int Vec3<float>::ToRGB() const
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
-	return ((unsigned int)(r()*255.f) << 0) |
-			((unsigned int)(g()*255.f) << 8) |
-			((unsigned int)(b()*255.f) << 16);
+	return (clamp_u8((int)(r() * 255.f)) << 0) |
+			(clamp_u8((int)(g() * 255.f)) << 8) |
+			(clamp_u8((int)(b() * 255.f)) << 16);
 #endif
 }
 
@@ -939,7 +981,7 @@ __forceinline unsigned int Vec3<int>::ToRGB() const
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #else
-	return (r()&0xFF) | ((g()&0xFF)<<8) | ((b()&0xFF)<<16);
+	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16);
 #endif
 }
 
@@ -980,10 +1022,10 @@ __forceinline unsigned int Vec4<float>::ToRGBA() const
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
-	return ((unsigned int)(r()*255.f) << 0) |
-			((unsigned int)(g()*255.f) << 8) |
-			((unsigned int)(b()*255.f) << 16) |
-			((unsigned int)(a()*255.f) << 24);
+	return (clamp_u8((int)(r() * 255.f)) << 0) |
+			(clamp_u8((int)(g() * 255.f)) << 8) |
+			(clamp_u8((int)(b() * 255.f)) << 16) |
+			(clamp_u8((int)(a() * 255.f)) << 24);
 #endif
 }
 
@@ -994,7 +1036,7 @@ __forceinline unsigned int Vec4<int>::ToRGBA() const
 	__m128i c16 = _mm_packs_epi32(ivec, ivec);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #else
-	return (r()&0xFF) | ((g()&0xFF)<<8) | ((b()&0xFF)<<16) | ((a()&0xFF)<<24);
+	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16) | (clamp_u8(a()) << 24);
 #endif
 }
 

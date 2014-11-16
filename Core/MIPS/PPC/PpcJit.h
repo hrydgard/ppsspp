@@ -215,6 +215,7 @@ namespace MIPSComp
 		void Comp_VecDo3(MIPSOpcode op);
 		void Comp_VV2Op(MIPSOpcode op);
 		void Comp_Mftv(MIPSOpcode op);
+		void Comp_Vmfvc(MIPSOpcode op);
 		void Comp_Vmtvc(MIPSOpcode op);
 		void Comp_Vmmov(MIPSOpcode op);
 		void Comp_VScl(MIPSOpcode op);
@@ -286,7 +287,8 @@ namespace MIPSComp
 		void WriteSyscallExit();
 
 		void ClearCache();
-		void ClearCacheAt(u32 em_address, int length = 4);
+		void InvalidateCache();
+		void InvalidateCacheAt(u32 em_address, int length = 4);
 
 		void RunLoopUntil(u64 globalticks);
 		void GenerateFixedCode();

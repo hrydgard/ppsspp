@@ -203,6 +203,10 @@ COLORREF scaleColor(COLORREF color, float factor)
 
 bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels, bool showData)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return false;
+
 	if (displaySymbols)
 	{
 		const std::string addressSymbol = symbolMap.GetLabelString(address);
@@ -226,10 +230,11 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		if (showData)
-			sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
-		else
-			sprintf(dest,"%08X",address);
+		if (showData) {
+			sprintf(dest, "%08X %08X", address, Memory::Read_Instruction(address, true).encoding);
+		} else {
+			sprintf(dest, "%08X", address);
+		}
 		return false;
 	}
 }
@@ -256,6 +261,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
 	u32 encoded;
 
+	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
@@ -298,7 +304,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		Memory::Write_U32(encoded, address);
 		// In case this is a delay slot or combined instruction, clear cache above it too.
 		if (MIPSComp::jit)
-			MIPSComp::jit->ClearCacheAt(address - 4, 8);
+			MIPSComp::jit->InvalidateCacheAt(address - 4, 8);
 		scanFunctions();
 
 		if (address == curAddress)
@@ -637,7 +643,7 @@ void CtrlDisAsmView::followBranch()
 		} else if (line.info.hasRelevantAddress)
 		{
 			// well, not  exactly a branch, but we can do something anyway
-			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.relevantAddress,0);
 			SetFocus(wnd);
 		}
 	} else if (line.type == DISTYPE_DATA)
@@ -899,12 +905,12 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *temp = new char[space];
 
 		char *p = temp, *end = temp + space;
-		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
 			// Don't leave a trailing newline.
-			if (pos + instructionSize < endAddr)
+			if (pos + instructionSize < endAddr && p < end)
 				p += snprintf(p, end - p, "\r\n");
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);
@@ -1085,6 +1091,10 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::updateStatusBarText()
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	char text[512];
 	DisassemblyLineInfo line;
 	manager.getLine(curAddress,true,line);
@@ -1096,15 +1106,15 @@ void CtrlDisAsmView::updateStatusBarText()
 		{
 			if (!Memory::IsValidAddress(line.info.dataAddress))
 			{
-				sprintf(text,"Invalid address %08X",line.info.dataAddress);
+				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
 			} else {
 				switch (line.info.dataSize)
 				{
 				case 1:
-					sprintf(text,"[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 					break;
 				case 2:
-					sprintf(text,"[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
+					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 					break;
 				case 4:
 					// TODO: Could also be a float...
@@ -1113,9 +1123,9 @@ void CtrlDisAsmView::updateStatusBarText()
 						const std::string addressSymbol = symbolMap.GetLabelString(data);
 						if (!addressSymbol.empty())
 						{
-							sprintf(text,"[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
+							snprintf(text, sizeof(text), "[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
 						} else {
-							sprintf(text,"[%08X] = %08X",line.info.dataAddress,data);
+							snprintf(text, sizeof(text), "[%08X] = %08X",line.info.dataAddress,data);
 						}
 						break;
 					}
@@ -1131,13 +1141,12 @@ void CtrlDisAsmView::updateStatusBarText()
 			const std::string addressSymbol = symbolMap.GetLabelString(line.info.branchTarget);
 			if (addressSymbol.empty())
 			{
-				sprintf(text,"%08X",line.info.branchTarget);
+				snprintf(text, sizeof(text), "%08X", line.info.branchTarget);
 			} else {
-				sprintf(text,"%08X = %s",line.info.branchTarget,addressSymbol.c_str());
+				snprintf(text, sizeof(text), "%08X = %s",line.info.branchTarget,addressSymbol.c_str());
 			}
 		}
-	} else if (line.type == DISTYPE_DATA)
-	{
+	} else if (line.type == DISTYPE_DATA) {
 		u32 start = symbolMap.GetDataStart(curAddress);
 		if (start == -1)
 			start = curAddress;
@@ -1145,21 +1154,25 @@ void CtrlDisAsmView::updateStatusBarText()
 		u32 diff = curAddress-start;
 		const std::string label = symbolMap.GetLabelString(start);
 
-		if (!label.empty())
-		{
+		if (!label.empty()) {
 			if (diff != 0)
-				sprintf(text,"%08X (%s) + %08X",start,label.c_str(),diff);
+				snprintf(text, sizeof(text), "%08X (%s) + %08X",start,label.c_str(),diff);
 			else
-				sprintf(text,"%08X (%s)",start,label.c_str());
+				snprintf(text, sizeof(text), "%08X (%s)",start,label.c_str());
 		} else {
 			if (diff != 0)
-				sprintf(text,"%08X + %08X",start,diff);
+				snprintf(text, sizeof(text), "%08X + %08X",start,diff);
 			else
-				sprintf(text,"%08X",start);
+				snprintf(text, sizeof(text), "%08X",start);
 		}
 	}
 
 	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+
+	const std::string label = symbolMap.GetLabelString(line.info.opcodeAddress);
+	if (!label.empty()) {
+		SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,1,(LPARAM)label.c_str());
+	}
 }
 
 u32 CtrlDisAsmView::yToAddress(int y)
@@ -1357,12 +1370,12 @@ void CtrlDisAsmView::disassembleToFile()
 	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
 }
 
-void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
+void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)
 {
 	DisassemblyLineInfo line;
 	address = manager.getStartAddress(address);
 	manager.getLine(address,displaySymbols,line);
-	sprintf(dest,"%s  %s",line.name.c_str(),line.params.c_str());
+	snprintf(dest, bufsize, "%s  %s",line.name.c_str(),line.params.c_str());
 }
 
 void CtrlDisAsmView::scrollStepping(u32 newPc)

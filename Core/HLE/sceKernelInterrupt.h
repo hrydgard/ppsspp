@@ -139,11 +139,11 @@ bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler);
-SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 &error);
+SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg, u32 &error);
 int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber);
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
-int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber);
+u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber);
 
 void Register_Kernel_Library();

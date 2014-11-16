@@ -17,7 +17,8 @@ LOCAL_C_INCLUDES := \
 LOCAL_STATIC_LIBRARIES := native libzip
 LOCAL_LDLIBS := -lz -lGLESv2 -lEGL -ldl -llog
 
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavformat.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavcodec.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswresample.a
@@ -25,7 +26,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A -DARMV7
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -DARM -DARMEABI_V7A
 endif
 ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavformat.a
@@ -35,7 +36,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv6/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI -march=armv6
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -DARM -DARMEABI -march=armv6
 endif
 ifeq ($(TARGET_ARCH_ABI),x86)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavformat.a
@@ -45,7 +46,7 @@ ifeq ($(TARGET_ARCH_ABI),x86)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3
 endif
 
 # Compile with profiling.

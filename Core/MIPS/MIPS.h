@@ -19,6 +19,7 @@
 
 #include "util/random/rng.h"
 #include "Common/CommonTypes.h"
+#include "Core/CoreParameter.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
@@ -36,9 +37,11 @@ enum MIPSGPReg {
 	MIPS_REG_A1=5,
 	MIPS_REG_A2=6,
 	MIPS_REG_A3=7,
-	MIPS_REG_A4=8,	// Seems to be N32 register calling convention - there are 8 args instead of 4.
+	MIPS_REG_A4=8,
 	MIPS_REG_A5=9,
 
+	MIPS_REG_T2=10,
+	MIPS_REG_T3=11,
 	MIPS_REG_T4=12,
 	MIPS_REG_T5=13,
 	MIPS_REG_T6=14,
@@ -61,19 +64,16 @@ enum MIPSGPReg {
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	// ID for mipscall "callback" is stored here - from JPCSP
-	MIPS_REG_CALL_ID=MIPS_REG_S0,
-	MIPS_REG_INVALID=-1,
-
 	// Not real regs, just for convenience/jit mapping.
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
 	MIPS_REG_FPCOND = 34,
 	MIPS_REG_VFPUCC = 35,
+
+	MIPS_REG_INVALID=-1,
 };
 
-enum
-{
+enum {
 	VFPU_CTRL_SPREFIX,
 	VFPU_CTRL_TPREFIX,
 	VFPU_CTRL_DPREFIX,
@@ -130,6 +130,7 @@ public:
 	void Init();
 	void Shutdown();
 	void Reset();
+	void UpdateCore(CPUCore desired);
 
 	void DoState(PointerWrap &p);
 
@@ -175,15 +176,14 @@ public:
 
 	static const u32 FCR0_VALUE = 0x00003351;
 
-	void WriteFCR(int reg, int value);
-	u32 ReadFCR(int reg);
-
 	u8 VfpuWriteMask() const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
 	}
 	bool VfpuWriteMask(int i) const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
 	}
+
+	bool HasDefaultPrefix() const;
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);

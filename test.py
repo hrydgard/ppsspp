@@ -100,6 +100,7 @@ tests_good = [
   "font/optimum",
   "font/shadowimagerect",
   "gpu/callbacks/ge_callbacks",
+  "gpu/commands/blocktransfer",
   "gpu/ge/context",
   "gpu/ge/edram",
   "gpu/ge/queue",
@@ -135,6 +136,7 @@ tests_good = [
   "threads/callbacks/refer",
   "threads/events/events",
   "threads/events/cancel/cancel",
+  "threads/events/clear/clear",
   "threads/events/create/create",
   "threads/events/delete/delete",
   "threads/events/poll/poll",
@@ -207,6 +209,8 @@ tests_good = [
   "threads/threads/start",
   "threads/threads/suspend",
   "threads/threads/threadend",
+  "threads/threads/threadmanidlist",
+  "threads/threads/threadmanidtype",
   "threads/threads/threads",
   "threads/wakeup/wakeup",
   "threads/vpl/allocate",
@@ -227,6 +231,7 @@ tests_good = [
   "threads/vtimers/gettime",
   "threads/vtimers/interrupt",
   "threads/vtimers/refer",
+  "threads/vtimers/sethandler",
   "threads/vtimers/settime",
   "threads/vtimers/start",
   "threads/vtimers/stop",
@@ -240,12 +245,12 @@ tests_good = [
   "power/volatile/unlock",
   "umd/register",
   "umd/callbacks/umd",
-  "umd/wait/wait",
   "io/directory/directory",
   "video/mpeg/ringbuffer/construct",
   "video/mpeg/ringbuffer/destruct",
   "video/mpeg/ringbuffer/memsize",
   "video/mpeg/ringbuffer/packnum",
+  "video/psmfplayer/getvideodata",
 ]
 
 tests_next = [
@@ -264,12 +269,10 @@ tests_next = [
   "threads/callbacks/cancel",
   "threads/callbacks/count",
   "threads/callbacks/notify",
-  "threads/events/clear/clear",
   "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
   "threads/threads/create",
   "threads/threads/terminate",
-  "threads/vtimers/sethandler",
   "threads/vpl/create",
   "utility/savedata/getsize",
   "utility/savedata/idlist",
@@ -277,7 +280,7 @@ tests_next = [
   "utility/msgdialog/abort",
   "utility/msgdialog/dialog",
   "gpu/commands/basic",
-  "gpu/commands/blocktransfer",
+  "gpu/commands/blend",
   "gpu/commands/material",
   "gpu/complex/complex",
   "gpu/displaylist/state",
@@ -285,8 +288,12 @@ tests_next = [
   "gpu/ge/get",
   "gpu/reflection/reflection",
   "gpu/rendertarget/rendertarget",
+  "gpu/signals/continue",
   "gpu/signals/jumps",
+  "gpu/signals/pause",
   "gpu/signals/simple",
+  "gpu/signals/suspend",
+  "gpu/signals/sync",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
   "font/fonttest",
@@ -306,7 +313,9 @@ tests_next = [
   "io/file/rename",
   "io/io/io",
   "io/iodrv/iodrv",
-  "modules/loadexec/loader",
+  # Doesn't work on a PSP for security reasons, hangs in PPSSPP currently.
+  # Commented out to make tests run much faster.
+  #"modules/loadexec/loader",
   "net/http/http",
   "net/primary/ether",
   "power/cpu",
@@ -317,6 +326,7 @@ tests_next = [
   "sysmem/partition",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
+  "umd/wait/wait",
   "video/mpeg/basic",
   "video/mpeg/ringbuffer/avail",
   "video/pmf/pmf",
@@ -356,7 +366,7 @@ def init():
     PPSSPP_EXE = None
 
   if not PPSSPP_EXE:
-    print("PPSSPP executable missing, please build one.")
+    print("PPSSPPHeadless executable missing, please build one.")
     sys.exit(1)
 
 def tcprint(arg):
@@ -381,7 +391,7 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--compare', '--timeout=' + str(TIMEOUT), '@-']
+    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout=' + str(TIMEOUT), '@-']
     cmdline.extend([i for i in args if i not in ['-g', '-m']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
@@ -409,6 +419,8 @@ def main():
       tests = tests_good
     else:
       tests = tests_next + tests_good
+  elif '-m' in args and '-g' in args:
+    tests = [i for i in tests_good if i.startswith(tests[0])]
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 

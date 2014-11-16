@@ -11,6 +11,7 @@ else()
 	set (CMAKE_LIBRARY_PATH $ENV{QNX_TARGET}/armle-v7 $ENV{QNX_TARGET}/armle-v7/usr)
 endif()
 set (UNIX True)
+set (CMAKE_DL_LIBS)
 
 set (CMAKE_FIND_ROOT_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_LIBRARY_PATH} CACHE string  "Blackberry find search path root")
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
@@ -30,4 +31,12 @@ set (CMAKE_CXX_COMPILER_VERSION ${GCC_VERSION})
 set (CMAKE_CROSSCOMPILING TRUE)
 set (CMAKE_C_COMPILER_WORKS TRUE)
 set (CMAKE_CXX_COMPILER_WORKS TRUE)
+
+add_definitions(-D_QNX_SOURCE -D__STDC_CONSTANT_MACROS)
+
+if( CMAKE_BINARY_DIR AND EXISTS "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeSystem.cmake" )
+ # really dirty hack
+ # it is not possible to change CMAKE_SYSTEM_PROCESSOR after the first run...
+ file( APPEND "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeSystem.cmake" "SET(CMAKE_SYSTEM_PROCESSOR \"${CMAKE_SYSTEM_PROCESSOR}\")\n" )
+endif()
 

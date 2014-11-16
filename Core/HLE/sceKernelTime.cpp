@@ -79,7 +79,7 @@ u32 sceKernelGetSystemTimeLow()
 u64 sceKernelGetSystemTimeWide()
 {
 	u64 t = CoreTiming::GetGlobalTimeUsScaled();
-	DEBUG_LOG(SCEKERNEL,"%i=sceKernelGetSystemTimeWide()",(u32)t);
+	VERBOSE_LOG(SCEKERNEL,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
 	hleReSchedule("system time");
 	return t;
@@ -87,7 +87,7 @@ u64 sceKernelGetSystemTimeWide()
 
 int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 {
-	DEBUG_LOG(SCEKERNEL,"sceKernelUSec2SysClock(%i, %08x)", usec, clockPtr);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelUSec2SysClock(%i, %08x)", usec, clockPtr);
 	if (Memory::IsValidAddress(clockPtr))
 		Memory::Write_U64((usec & 0xFFFFFFFFL), clockPtr);
 	hleEatCycles(165);
@@ -96,7 +96,7 @@ int sceKernelUSec2SysClock(u32 usec, u32 clockPtr)
 
 u64 sceKernelUSec2SysClockWide(u32 usec)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelUSec2SysClockWide(%i)", usec);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelUSec2SysClockWide(%i)", usec);
 	hleEatCycles(150);
 	return usec; 
 }

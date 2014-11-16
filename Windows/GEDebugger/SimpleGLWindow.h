@@ -25,17 +25,22 @@ struct SimpleGLWindow {
 	static const PTCHAR windowClass;
 
 	enum Format {
-		FORMAT_565_REV = 0,
-		FORMAT_5551_REV = 1,
-		FORMAT_4444_REV = 2,
-		FORMAT_8888 = 3,
-		FORMAT_565 = 4,
-		FORMAT_5551 = 5,
-		FORMAT_4444 = 6,
+		FORMAT_565_REV = 0x00,
+		FORMAT_5551_REV = 0x01,
+		FORMAT_4444_REV = 0x02,
+		FORMAT_8888 = 0x03,
+		FORMAT_565 = 0x04,
+		FORMAT_5551 = 0x05,
+		FORMAT_4444 = 0x06,
+		FORMAT_5551_BGRA_REV = 0x09,
+		FORMAT_4444_BGRA_REV = 0x0A,
+		FORMAT_8888_BGRA = 0x0B,
 
 		FORMAT_FLOAT = 0x10,
 		FORMAT_16BIT = 0x11,
 		FORMAT_8BIT = 0x12,
+		FORMAT_24BIT_8X = 0x13,
+		FORMAT_24X_8BIT = 0x14,
 	};
 
 	enum Flags {
@@ -51,7 +56,7 @@ struct SimpleGLWindow {
 	~SimpleGLWindow();
 
 	void Clear();
-	void Draw(u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
+	void Draw(const u8 *data, int w, int h, bool flipped = false, Format = FORMAT_8888);
 	void Redraw(bool andSwap = true);
 	void Initialize(u32 flags);
 	static SimpleGLWindow *GetFrom(HWND hwnd);
@@ -98,6 +103,7 @@ protected:
 	bool DragContinue(int mouseX, int mouseY);
 	bool DragEnd(int mouseX, int mouseY);
 	bool ToggleZoom();
+	const u8 *Reformat(const u8 *data, Format fmt, u32 numPixels);
 
 	HWND hWnd_;
 	HDC hDC_;
@@ -124,4 +130,6 @@ protected:
 	// Offset to position the texture is drawn at.
 	int offsetX_;
 	int offsetY_;
+	u32 *reformatBuf_;
+	u32 reformatBufSize_;
 };

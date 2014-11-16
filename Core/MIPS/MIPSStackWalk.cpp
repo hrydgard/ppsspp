@@ -67,7 +67,7 @@ namespace MIPSStackWalk {
 		// It ought to be pretty close.
 		u32 stop = pc - 32 * 4;
 		for (; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
-			MIPSOpcode op = Memory::Read_Instruction(pc);
+			MIPSOpcode op = Memory::Read_Instruction(pc, true);
 
 			// We're looking for a "mov fp, sp" close by a "addiu sp, sp, -N".
 			if (IsMovRegsInstr(op) && _RD == MIPS_REG_FP && (_RS == MIPS_REG_SP || _RT == MIPS_REG_SP)) {
@@ -78,12 +78,27 @@ namespace MIPSStackWalk {
 	}
 
 	bool ScanForEntry(StackFrame &frame, u32 entry, u32 &ra) {
+		// Let's hope there are no > 1MB functions on the PSP, for the sake of humanity...
+		const u32 LONGEST_FUNCTION = 1024 * 1024;
 		// TODO: Check if found entry is in the same symbol?  Might be wrong sometimes...
 
 		int ra_offset = -1;
-		u32 stop = entry == INVALIDTARGET ? 0 : entry;
-		for (u32 pc = frame.pc; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
-			MIPSOpcode op = Memory::Read_Instruction(pc);
+		const u32 start = frame.pc;
+		u32 stop = entry;
+		if (entry == INVALIDTARGET) {
+			if (start >= PSP_GetUserMemoryBase()) {
+				stop = PSP_GetUserMemoryBase();
+			} else if (start >= PSP_GetKernelMemoryBase()) {
+				stop = PSP_GetKernelMemoryBase();
+			} else if (start >= PSP_GetScratchpadMemoryBase()) {
+				stop = PSP_GetScratchpadMemoryBase();
+			}
+		}
+		if (stop < start - LONGEST_FUNCTION) {
+			stop = start - LONGEST_FUNCTION;
+		}
+		for (u32 pc = start; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
+			MIPSOpcode op = Memory::Read_Instruction(pc, true);
 
 			// Here's where they store the ra address.
 			if (IsSWInstr(op) && _RT == MIPS_REG_RA && _RS == MIPS_REG_SP) {

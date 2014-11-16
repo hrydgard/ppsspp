@@ -19,6 +19,7 @@
 // It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
+#include "Common/KeyMap.h"
 
 #include <map>
 #include <string>
@@ -32,6 +33,7 @@
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
@@ -132,6 +134,9 @@ namespace MainWindow
 	static std::vector<std::string> availableShaders;
 	static W32Util::AsyncBrowseDialog *browseDialog;
 	static bool browsePauseAfter;
+	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
+	static int g_WindowState;
+
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -157,7 +162,7 @@ namespace MainWindow
 		//Register classes
 		WNDCLASSEX wcex;
 		wcex.cbSize = sizeof(WNDCLASSEX); 
-		wcex.style			= CS_HREDRAW | CS_VREDRAW;
+		wcex.style = CS_PARENTDC;
 		wcex.lpfnWndProc	= (WNDPROC)WndProc;
 		wcex.cbClsExtra		= 0;
 		wcex.cbWndExtra		= 0;
@@ -167,7 +172,7 @@ namespace MainWindow
 		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
-		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
+		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
 		RegisterClassEx(&wcex);
 
 		wcex.style = CS_HREDRAW | CS_VREDRAW;
@@ -181,7 +186,8 @@ namespace MainWindow
 	}
 
 	void SavePosition() {
-		if (g_Config.bFullScreen) return;
+		if (g_Config.bFullScreen)
+			return;
 
 		WINDOWPLACEMENT placement;
 		GetWindowPlacement(hwndMain, &placement);
@@ -210,14 +216,16 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-
 	static void ShowScreenResolution() {
 		I18NCategory *g = GetI18NCategory("Graphics");
-		char message[256];
-		sprintf(message, "%s: %ix%i  %s: %ix%i",
-			g->T("Internal Resolution"), PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight,
-			g->T("Window Size"), PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		osm.Show(g->T(message), 2.0f);
+
+		std::ostringstream messageStream;
+		messageStream << g->T("Internal Resolution") << ": ";
+		messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
+		messageStream << g->T("Window Size") << ": ";
+		messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
+
+		osm.Show(messageStream.str(), 2.0f);
 	}
 
 	static void UpdateRenderResolution() {
@@ -227,6 +235,8 @@ namespace MainWindow
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
 			zoom = (rc.right - rc.left + 479) / 480;
+		if (zoom <= 1)
+			zoom = 1;
 
 		// Actually, auto mode should be more granular...
 		PSP_CoreParameter().renderWidth = 480 * zoom;
@@ -234,6 +244,7 @@ namespace MainWindow
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
+		AssertCurrentThreadName("Main");
 		int width = 0, height = 0;
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
@@ -257,6 +268,7 @@ namespace MainWindow
 	}
 
 	void SetWindowSize(int zoom) {
+		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
 		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
@@ -284,7 +296,7 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		bool autoHide = g_Config.bFullScreen && !mouseButtonDown && GetUIState() == UISTATE_INGAME;
 		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
@@ -298,67 +310,67 @@ namespace MainWindow
 		}
 	}
 
-	void _ViewNormal(HWND hWnd) {
-		// Put caption and border styles back.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
-		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+	void ToggleFullscreen(HWND hWnd, bool goingFullscreen = false) {
+		// Make sure no rendering is happening during the switch.
+		Core_NotifyWindowHidden(true);
+		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
 
-		// Put back the menu bar.
-		::SetMenu(hWnd, menu);
+		DWORD dwOldStyle;
+		DWORD dwNewStyle;
 
-		// Resize to normal view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = g_normalRC.left;
-		const int y = g_normalRC.top;
-		const int cx = g_normalRC.right - g_normalRC.left;
-		const int cy = g_normalRC.bottom - g_normalRC.top;
-		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		if (!goingFullscreen) {
+			// Put caption and border styles back.
+			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 
-		// Reset full screen indicator.
-		g_Config.bFullScreen = false;
-		CorrectCursor();
+			dwOldStyle &= ~WS_POPUP;
 
-		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
-		if (showOSM) {
-			ShowScreenResolution();
+			dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+			
+			// Put back the menu bar.
+			::SetMenu(hWnd, menu);
+		} else {
+			// If the window was maximized before going fullscreen, make sure to restore first
+			// in order not to have the taskbar show up on top of PPSSPP.
+			if (g_WindowState == SIZE_MAXIMIZED) {
+				ShowWindow(hwndMain, SW_RESTORE);
+			}
+			// Remember the normal window rectangle.
+			::GetWindowRect(hWnd, &g_normalRC);
+
+			// Remove caption and border styles.
+			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+			dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
+
+			// Add WS_POPUP
+			dwNewStyle |= WS_POPUP;
 		}
-		ShowOwnedPopups(hwndMain, TRUE);
-		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
-	}
 
-	void _ViewFullScreen(HWND hWnd) {
-		// Keep in mind normal window rectangle.
-		::GetWindowRect(hWnd, &g_normalRC);
-
-		// Remove caption and border styles.
-		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
 		// Remove the menu bar.
-		::SetMenu(hWnd, NULL);
+		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
 
-		// Resize to full screen view.
-		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
-		const int x = 0;
-		const int y = 0;
-		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
-		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		// Resize to the appropriate view.
+		// If we're returning to window mode, re-apply the appropriate size setting.
+		if (goingFullscreen) {
+			ShowWindow(hwndMain, SW_MAXIMIZE);
+		} else {
+			ShowWindow(hwndMain, g_WindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
+		}
 
-		// Set full screen indicator.
-		g_Config.bFullScreen = true;
+		g_Config.bFullScreen = goingFullscreen;
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(true);
+		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
+		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		ShowOwnedPopups(hwndMain, FALSE);
+		g_inModeSwitch = false;
+		Core_NotifyWindowHidden(false);
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -429,6 +441,8 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_EMULATION_SWITCH_UMD, umdSwitchEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOADMAPFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVEMAPFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOADSYMFILE, menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 	}
@@ -451,10 +465,12 @@ namespace MainWindow
 		SUBMENU_CUSTOM_SHADERS = 10,
 		SUBMENU_RENDERING_RESOLUTION = 11,
 		SUBMENU_WINDOW_SIZE = 12,
-		SUBMENU_RENDERING_MODE = 13,
-		SUBMENU_FRAME_SKIPPING = 14,
-		SUBMENU_TEXTURE_FILTERING = 15,
-		SUBMENU_TEXTURE_SCALING = 16,
+		SUBMENU_RENDERING_BACKEND = 13,
+		SUBMENU_RENDERING_MODE = 14,
+		SUBMENU_FRAME_SKIPPING = 15,
+		SUBMENU_TEXTURE_FILTERING = 16,
+		SUBMENU_BUFFER_FILTER = 17,
+		SUBMENU_TEXTURE_SCALING = 18,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -501,10 +517,6 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
-		if(g_Config.sLanguageIni == "zh_CN" || g_Config.sLanguageIni == "zh_TW") {
-			const std::wstring visitChineseForum = ConvertUTF8ToWString(des->T("PPSSPP Chinese Forum"));
-			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
-		}
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
@@ -608,6 +620,8 @@ namespace MainWindow
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE);
+		TranslateMenuItem(ID_DEBUG_LOADSYMFILE);
+		TranslateMenuItem(ID_DEBUG_SAVESYMFILE);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME);
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT,  L"\tF12");
@@ -636,6 +650,9 @@ namespace MainWindow
 		// Skip rendering resolution 2x-5x..
 		TranslateSubMenu("Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		// Skip window size 1x-4x..
+		TranslateSubMenu("Backend", MENU_OPTIONS, SUBMENU_RENDERING_BACKEND);
+		TranslateMenuItem(ID_OPTIONS_DIRECTX);
+		TranslateMenuItem(ID_OPTIONS_OPENGL);
 		TranslateSubMenu("Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING);
 		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING);
@@ -650,6 +667,9 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG);
+		TranslateSubMenu("Screen Scaling Filter", MENU_OPTIONS, SUBMENU_BUFFER_FILTER);
+		TranslateMenuItem(ID_OPTIONS_BUFLINEARFILTER);
+		TranslateMenuItem(ID_OPTIONS_BUFNEARESTFILTER);
 		TranslateSubMenu("Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 		TranslateMenuItem(ID_TEXTURESCALING_OFF);
 		// Skip texture scaling 2x-5x...
@@ -669,7 +689,7 @@ namespace MainWindow
 
 		// TODO: Urgh! Why do we need this here?
 		// The menu is supposed to enable/disable this stuff directly afterward.
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 
 		DrawMenuBar(hwndMain);
 		UpdateMenus();
@@ -682,6 +702,10 @@ namespace MainWindow
 
 	void setTexFiltering(int type) {
 		g_Config.iTexFiltering = type;
+	}
+
+	void setBufFilter(int type) {
+		g_Config.iBufFilter = type;
 	}
 
 	void setTexScalingType(int type) {
@@ -733,22 +757,16 @@ namespace MainWindow
 		}
 
 		I18NCategory *g = GetI18NCategory("Graphics");
-		const char *frameskipStr = g->T("Frame Skipping");
-		const char *offStr = g->T("Off");
 
-		char message[256];
-		memset(message, 0, sizeof(message));
+		std::ostringstream messageStream;
+		messageStream << g->T("Frame Skipping") << ":" << " ";
 
-		switch(g_Config.iFrameSkip) {
-		case FRAMESKIP_OFF:
-			sprintf(message, "%s: %s", frameskipStr, offStr);
-			break;
-		default:
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
-			break;
-		}
+		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
+			messageStream << g->T("Off");
+		else
+			messageStream << g_Config.iFrameSkip;
 
-		osm.Show(message); 
+		osm.Show(messageStream.str()); 
 	} 
 
 	void enableCheats(bool cheats) {
@@ -764,7 +782,7 @@ namespace MainWindow
 		windowTitle = title;
 	}
 
-	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
+	BOOL Show(HINSTANCE hInstance) {
 		hInst = hInstance; // Store instance handle in our global variable.
 		RECT rc = DetermineWindowRectangle();
 
@@ -805,8 +823,8 @@ namespace MainWindow
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-		
-		ShowWindow(hwndMain, nCmdShow);
+
+		ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -815,9 +833,6 @@ namespace MainWindow
 		WindowsRawInput::Init();
 
 		SetFocus(hwndMain);
-
-		if (g_Config.bFullScreen)
-			_ViewFullScreen(hwndMain);
 
 		return TRUE;
 	}
@@ -859,7 +874,7 @@ namespace MainWindow
 		}
 
 		browsePauseAfter = false;
-		if (globalUIState == UISTATE_INGAME) {
+		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
 			if (!browsePauseAfter)
 				Core_EnableStepping(true);
@@ -880,7 +895,7 @@ namespace MainWindow
 				Core_EnableStepping(false);
 			}
 		} else {
-			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
@@ -924,6 +939,8 @@ namespace MainWindow
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 		// Only apply a factor > 1 in windowed mode.
 		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+		static bool firstErase = true;
+
 
 		switch (message) {
 		case WM_ACTIVATE:
@@ -935,15 +952,17 @@ namespace MainWindow
 		case WM_SETFOCUS:
 			break;
 
-		case WM_SIZE:
-			break;
-
 		case WM_ERASEBKGND:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+			if (firstErase) {
+				firstErase = false;
+				// Paint black on first erase while OpenGL stuff is loading
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+			// Then never erase, let the OpenGL drawing take care of everything.
+			return 1;
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
-
 		case WM_LBUTTONDOWN:
 			if (!touchHandler.hasTouch() ||
 				(GetMessageExtraInfo() & MOUSEEVENTF_MASK_PLUS_PENTOUCH) != MOUSEEVENTF_FROMTOUCH_NOPEN)
@@ -1030,9 +1049,6 @@ namespace MainWindow
 				return 0;
 			}
 
-		case WM_PAINT:
-			return DefWindowProc(hWnd, message, wParam, lParam);
-
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -1048,6 +1064,18 @@ namespace MainWindow
 		case WM_CREATE:
 			break;
 			
+		case WM_GETMINMAXINFO:
+			{
+				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
+				RECT rc = { 0 };
+				rc.right = 480;
+				rc.bottom = 272;
+				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+				minmax->ptMinTrackSize.x = rc.right - rc.left;
+				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+			}
+			return 0;
+
 		case WM_ACTIVATE:
 			{
 				bool pause = true;
@@ -1055,7 +1083,7 @@ namespace MainWindow
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
 				}
-				if (!noFocusPause && g_Config.bPauseOnLostFocus && globalUIState == UISTATE_INGAME) {
+				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools
 						if (disasmWindow[0])
 							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
@@ -1070,16 +1098,39 @@ namespace MainWindow
 			}
 			break;
 
+    case WM_ERASEBKGND:
+      // This window is always covered by DisplayWindow. No reason to erase.
+			return 1;
+
 		case WM_MOVE:
 			SavePosition();
 			break;
 
 		case WM_SIZE:
-			SavePosition();
-			ResizeDisplay();
-			break;
+			if (!g_inModeSwitch) {
+				switch (wParam) {
+				case SIZE_MAXIMIZED:
+				case SIZE_RESTORED:
+					Core_NotifyWindowHidden(false);
+					if (!g_Config.bPauseWhenMinimized) {
+						NativeMessageReceived("window minimized", "false");
+					}
+					SavePosition();
+					ResizeDisplay();
+					g_WindowState = wParam;
+					break;
+				case SIZE_MINIMIZED:
+					Core_NotifyWindowHidden(true);
+					if (!g_Config.bPauseWhenMinimized) {
+						NativeMessageReceived("window minimized", "true");
+					}
+					break;
+				default:
+					break;
+				}
+			}
 
-		case WM_TIMER:
+    case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
 			switch (wParam) {
 			case TIMER_CURSORUPDATE:
@@ -1136,11 +1187,11 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_MEMSTICK:
-					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memCardDirectory).c_str(), 0, 0, SW_SHOW);
+					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memStickDirectory).c_str(), 0, 0, SW_SHOW);
 					break;
 
 				case ID_TOGGLE_PAUSE:
-					if (globalUIState == UISTATE_PAUSEMENU) {
+					if (GetUIState() == UISTATE_PAUSEMENU) {
 						// Causes hang
 						//NativeMessageReceived("run", "");
 
@@ -1175,6 +1226,7 @@ namespace MainWindow
 					NativeMessageReceived("reset", "");
 					Core_EnableStepping(false);
 					break;
+
 				case ID_EMULATION_SWITCH_UMD:
 					UmdSwitchAction();
 					break;
@@ -1204,6 +1256,15 @@ namespace MainWindow
 					break;
 				}
 
+				case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].begin() == KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].end())
+					{ 
+						SaveState::NextSlot();
+					}
+					break;
+				}
+
 				case ID_FILE_SAVESTATE_SLOT_1: g_Config.iCurrentStateSlot = 0; break;
 				case ID_FILE_SAVESTATE_SLOT_2: g_Config.iCurrentStateSlot = 1; break;
 				case ID_FILE_SAVESTATE_SLOT_3: g_Config.iCurrentStateSlot = 2; break;
@@ -1211,14 +1272,37 @@ namespace MainWindow
 				case ID_FILE_SAVESTATE_SLOT_5: g_Config.iCurrentStateSlot = 4; break;
 
 				case ID_FILE_QUICKLOADSTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
 
+				case ID_FILE_QUICKLOADSTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					}
+					break;
+				}
 				case ID_FILE_QUICKSAVESTATE:
+				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
+				}
+
+				case ID_FILE_QUICKSAVESTATE_HC:
+				{
+					if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].end())
+					{
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+						break;
+					}
+				}
 
 				case ID_OPTIONS_LANGUAGE:
 					NativeMessageReceived("language screen", "");
@@ -1276,6 +1360,18 @@ namespace MainWindow
 					NativeMessageReceived("gpu clear cache", "");
 					break;
 
+				case ID_OPTIONS_DIRECTX:
+					g_Config.iTempGPUBackend = GPU_BACKEND_DIRECT3D9;
+					g_Config.bRestartRequired = true;
+					PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+					break;
+
+				case ID_OPTIONS_OPENGL:
+					g_Config.iTempGPUBackend = GPU_BACKEND_OPENGL;
+					g_Config.bRestartRequired = true;
+					PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+					break;
+
 				case ID_OPTIONS_NONBUFFEREDRENDERING:   setRenderingMode(FB_NON_BUFFERED_MODE); break;
 				case ID_OPTIONS_BUFFEREDRENDERING:      setRenderingMode(FB_BUFFERED_MODE); break;
 				case ID_OPTIONS_READFBOTOMEMORYCPU:     setRenderingMode(FB_READFBOMEMORY_CPU); break;
@@ -1316,7 +1412,7 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_EXIT:
-					DestroyWindow(hWnd);
+					PostMessage(hwndMain, WM_CLOSE, 0, 0);
 					break;
 
 				case ID_DEBUG_RUNONLOAD:
@@ -1342,6 +1438,23 @@ namespace MainWindow
 				case ID_DEBUG_SAVEMAPFILE:
 					if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap",0,L"Maps\0*.ppmap\0All files\0*.*\0\0",L"ppmap",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
+					break;
+					
+				case ID_DEBUG_LOADSYMFILE:
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn)) {
+						symbolMap.LoadNocashSym(fn.c_str());
+
+						if (disasmWindow[0])
+							disasmWindow[0]->NotifyMapLoaded();
+
+						if (memoryWindow[0])
+							memoryWindow[0]->NotifyMapLoaded();
+					}
+					break;
+
+				case ID_DEBUG_SAVESYMFILE:
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym",0,L"Symbols\0*.sym\0All files\0*.*\0\0",L"sym",fn))
+						symbolMap.SaveNocashSym(fn.c_str());
 					break;
 
 				case ID_DEBUG_RESETSYMBOLTABLE:
@@ -1414,10 +1527,7 @@ namespace MainWindow
 				case ID_OPTIONS_FULLSCREEN:
 					g_Config.bFullScreen = !g_Config.bFullScreen;
 
-					if (g_Config.bFullScreen)
-						_ViewFullScreen(hWnd);
-					else
-						_ViewNormal(hWnd);
+					ToggleFullscreen(hwndMain, g_Config.bFullScreen);
 
 					break;
 
@@ -1433,6 +1543,9 @@ namespace MainWindow
 				case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(NEAREST); break;
 				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(LINEAR); break;
 				case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(LINEARFMV); break;
+
+				case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
+				case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
 
 				case ID_OPTIONS_TOPMOST:
 					g_Config.bTopMost = !g_Config.bTopMost;
@@ -1471,10 +1584,6 @@ namespace MainWindow
 					ShellExecute(NULL, L"open", L"http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
-				case ID_HELP_CHINESE_FORUM:
-					ShellExecute(NULL, L"open", L"http://tieba.baidu.com/f?ie=utf-8&kw=ppsspp", NULL, NULL, SW_SHOWNORMAL);
-					break;
-
 				case ID_HELP_ABOUT:
 					DialogManager::EnableAll(FALSE);
 					DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
@@ -1510,6 +1619,10 @@ namespace MainWindow
 			return WindowsRawInput::Process(hWnd, wParam, lParam);
 
 		// TODO: Could do something useful with WM_INPUT_DEVICE_CHANGE?
+
+		// Not sure why we are actually getting WM_CHAR even though we use RawInput, but alright..
+		case WM_CHAR:
+			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
@@ -1656,6 +1769,13 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 
+		// Disable Vertex Cache when HW T&L is disabled.
+		if (!g_Config.bHardwareTransform) {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_GRAYED);
+		} else {
+			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_ENABLED);
+		}
+		
 		static const int zoomitems[11] = {
 			ID_OPTIONS_SCREENAUTO,
 			ID_OPTIONS_SCREEN1X,
@@ -1752,6 +1872,20 @@ namespace MainWindow
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		static const int bufferfilteritems[] = {
+			ID_OPTIONS_BUFLINEARFILTER,
+			ID_OPTIONS_BUFNEARESTFILTER,
+		};
+		if (g_Config.iBufFilter < SCALE_LINEAR)
+			g_Config.iBufFilter = SCALE_LINEAR;
+
+		else if (g_Config.iBufFilter > SCALE_NEAREST)
+			g_Config.iBufFilter = SCALE_NEAREST;
+
+		for (int i = 0; i < ARRAY_SIZE(bufferfilteritems); i++) {
+			CheckMenuItem(menu, bufferfilteritems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iBufFilter ? MF_CHECKED : MF_UNCHECKED));
+		}
+
 		static const int renderingmode[] = {
 			ID_OPTIONS_NONBUFFEREDRENDERING,
 			ID_OPTIONS_BUFFEREDRENDERING,
@@ -1807,6 +1941,17 @@ namespace MainWindow
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | (( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_GRAYED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECTX, MF_CHECKED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+		} else {
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
+			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_ENABLED);
+		}
+
+
 		UpdateDynamicMenuCheckmarks();
 		UpdateCommands();
 	}
@@ -1815,18 +1960,18 @@ namespace MainWindow
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
 
-		if (lastGlobalUIState == globalUIState && lastCoreState == coreState)
+		if (lastGlobalUIState == GetUIState() && lastCoreState == coreState)
 			return;
 
 		lastCoreState = coreState;
-		lastGlobalUIState = globalUIState;
+		lastGlobalUIState = GetUIState();
 
 		HMENU menu = GetMenu(GetHWND());
 
-		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		bool isPaused = Core_IsStepping() && GetUIState() == UISTATE_INGAME;
 		TranslateMenuItem(ID_TOGGLE_PAUSE, L"\tF8", isPaused ? "Run" : "Pause");
 
-		SetIngameMenuItemStates(globalUIState);
+		SetIngameMenuItemStates(GetUIState());
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
@@ -1837,9 +1982,9 @@ namespace MainWindow
 			{
 				W32Util::CenterWindow(hDlg);
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
-				char temp[256];
-				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowTextA(versionBox, temp);
+				std::string windowText = "PPSSPP ";
+				windowText.append(PPSSPP_GIT_VERSION);
+				SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
 			}
 			return TRUE;
 

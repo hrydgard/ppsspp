@@ -66,13 +66,15 @@ public:
 };
 
 struct InputState;
-// Temporary hack around annoying linking error.
+// Temporary hacks around annoying linking errors.
+void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 
@@ -80,7 +82,7 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 InputState input_state;
 #endif
 
-void printUsage(const char *progname, const char *reason)
+int printUsage(const char *progname, const char *reason)
 {
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
@@ -88,10 +90,11 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
 	fprintf(stderr, "Usage: %s file.elf... [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
-	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
+	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd1:\n");
+	fprintf(stderr, "  -r, --root some/path  mount path on host0: (elfs must be in here)\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
 
-#if HEADLESSHOST_CLASS != HeadlessHost
+#if defined(HEADLESSHOST_CLASS)
 	{
 		fprintf(stderr, "  --graphics=BACKEND    use the full gpu backend (slower)\n");
 		fprintf(stderr, "                        options: gles, software, directx9\n");
@@ -105,18 +108,25 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
+
+	return 1;
 }
 
-static HeadlessHost * getHost(GPUCore gpuCore) {
-	switch(gpuCore) {
+static HeadlessHost *getHost(GPUCore gpuCore) {
+	switch (gpuCore) {
 	case GPU_NULL:
 		return new HeadlessHost();
 #ifdef _WIN32
 	case GPU_DIRECTX9:
 		return new WindowsHeadlessHostDx9();
 #endif
+#ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
+#else
+	default:
+		return new HeadlessHost();
+#endif
 	}
 }
 
@@ -205,20 +215,24 @@ int main(int argc, const char* argv[])
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
+	const char *mountRoot = 0;
 	const char *screenshotFilename = 0;
-	bool readMount = false;
 	float timeout = std::numeric_limits<float>::infinity();
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (readMount)
-		{
-			mountIso = argv[i];
-			readMount = false;
-			continue;
-		}
 		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount"))
-			readMount = true;
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -m");
+			mountIso = argv[i];
+		}
+		else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
+		{
+			if (++i >= argc)
+				return printUsage(argv[0], "Missing argument after -r");
+			mountRoot = argv[i];
+		}
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
@@ -241,10 +255,7 @@ int main(int argc, const char* argv[])
 			else if (!strcasecmp(gpuName, "null"))
 				gpuCore = GPU_NULL;
 			else
-			{
-				printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
-				return 1;
-			}
+				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
@@ -258,10 +269,7 @@ int main(int argc, const char* argv[])
 		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 			stateToLoad = argv[i] + strlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-		{
-			printUsage(argv[0], NULL);
-			return 1;
-		}
+			return printUsage(argv[0], NULL);
 		else
 			testFilenames.push_back(argv[i]);
 	}
@@ -277,22 +285,14 @@ int main(int argc, const char* argv[])
 			testFilenames.push_back(temp);
 	}
 
-	if (readMount)
-	{
-		printUsage(argv[0], "Missing argument after -m");
-		return 1;
-	}
 	if (testFilenames.empty())
-	{
-		printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
-		return 1;
-	}
+		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
-	bool glWorking = host->InitGL(&error_string);
+	bool glWorking = host->InitGraphics(&error_string);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -312,6 +312,7 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
+	coreParameter.mountRoot = mountRoot ? mountRoot : "";
 	coreParameter.startPaused = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
@@ -327,7 +328,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = 0;
+	g_Config.iRenderingMode = 1;
 	g_Config.bHardwareTransform = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
@@ -348,10 +349,10 @@ int main(int argc, const char* argv[])
 	g_Config.bFrameSkipUnthrottle = false;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
-	g_Config.iBGMVolume = MAX_CONFIG_VOLUME;
-	g_Config.iSFXVolume = MAX_CONFIG_VOLUME;
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
+	g_Config.bBlockTransferGPU = true;
+	g_Config.bSetRoundingMode = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
@@ -360,7 +361,7 @@ int main(int argc, const char* argv[])
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)
-	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
@@ -422,7 +423,7 @@ int main(int argc, const char* argv[])
 		}
 	}
 
-	host->ShutdownGL();
+	host->ShutdownGraphics();
 	delete host;
 	host = NULL;
 	headlessHost = NULL;

@@ -28,7 +28,7 @@ inline Tilt dampTilt(const Tilt &tilt, float deadzone, float xSensitivity, float
 	//multiply sensitivity by 2 so that "overshoot" is possible. I personally prefer a
 	//sensitivity >1 for kingdom hearts and < 1 for Gods Eater. so yes, overshoot is nice
 	//to have. 
-	return Tilt(tiltInputCurve(tilt.x_, deadzone, 2.0 * xSensitivity), tiltInputCurve(tilt.y_, deadzone, 2.0 * ySensitivity));
+	return Tilt(tiltInputCurve(tilt.x_, deadzone, 2.0f * xSensitivity), tiltInputCurve(tilt.y_, deadzone, 2.0f * ySensitivity));
 }
 
 inline float clamp(float f) {
@@ -44,7 +44,7 @@ Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
 		// Values are in metres per second. Divide by 9.8 to get 'g' value
 		float maxX = 9.8f, maxY = 9.8f;
 	#else
-		float maxX = 1.0, maxY = 1.0;
+		float maxX = 1.0f, maxY = 1.0f;
 	#endif
 
 	return Tilt(tilt.x_ / maxX, tilt.y_ / maxY);
@@ -58,11 +58,11 @@ Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, 
 
 	//invert x and y axes if needed
 	if (invertX) {
-		transformedTilt.x_ *= -1.0;
+		transformedTilt.x_ *= -1.0f;
 	}
 
 	if (invertY) {
-		transformedTilt.y_ *= -1.0;
+		transformedTilt.y_ *= -1.0f;
 	}
 
 	//next, normalize the tilt values
@@ -98,7 +98,7 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	}
 
 	int ctrlMask = 0;
-	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2 * M_PI) * 8) + 0.5f)) & 7;
+	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 8.0f) + 0.5f)) & 7;
 	switch (direction) {
 	case 0: ctrlMask |= CTRL_RIGHT; break;
 	case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
@@ -135,7 +135,7 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 		return;
 	}
 
-	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2 * M_PI) * 4) + 0.5f)) & 3;
+	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
 	__CtrlButtonDown(buttons[direction]);
 }; 
 

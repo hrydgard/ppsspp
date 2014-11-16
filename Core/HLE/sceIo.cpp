@@ -22,6 +22,7 @@
 #include "native/thread/threadutil.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -135,19 +136,13 @@ enum {
 	TYPE_FILE = 0x20
 };
 
-#ifdef __SYMBIAN32__
-#undef st_ctime
-#undef st_atime
-#undef st_mtime
-#endif
-
 struct SceIoStat {
 	SceMode_le st_mode;
 	u32_le st_attr;
 	SceOff_le st_size;
-	ScePspDateTime st_ctime;
-	ScePspDateTime st_atime;
-	ScePspDateTime st_mtime;
+	ScePspDateTime st_c_time;
+	ScePspDateTime st_a_time;
+	ScePspDateTime st_m_time;
 	u32_le st_private[6];
 };
 
@@ -156,15 +151,6 @@ struct SceIoDirEnt {
 	char d_name[256];
 	u32_le d_private;
 };
-#ifndef __SYMBIAN32__
-struct dirent {
-	u32 unk0;
-	u32 type;
-	u32 size;
-	u32 unk[19];
-	char name[0x108];
-};
-#endif
 
 class FileNode : public KernelObject {
 public:
@@ -380,7 +366,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitBeginCallback<FileNode, WAITTYPE_ASYNCIO, SceUID>(threadID, prevCallbackId, -1);
 	if (result == HLEKernel::WAIT_CB_SUCCESS) {
-		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback")
+		DEBUG_LOG(SCEIO, "sceIoWaitAsync: Suspending wait for callback");
 	} else if (result == HLEKernel::WAIT_CB_BAD_WAIT_ID) {
 		WARN_LOG_REPORT(SCEIO, "sceIoWaitAsync: beginning callback with bad wait id?");
 	}
@@ -439,7 +425,7 @@ static VFSFileSystem *flash0System = NULL;
 #endif
 
 void __IoManagerThread() {
-	setCurrentThreadName("IOThread");
+	setCurrentThreadName("IO");
 	while (ioManagerThreadEnabled && coreState != CORE_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
@@ -452,12 +438,12 @@ void __IoWakeManager() {
 }
 
 void __IoInit() {
-	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
+	MemoryStick_Init();
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memCardDirectory);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FILESYSTEM_SIMULATE_FAT32);
 #if defined(USING_WIN_UI) || defined(APPLE)
 	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #else
@@ -567,22 +553,16 @@ u32 sceIoUnassign(const char *alias)
 }
 
 u32 sceKernelStdin() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdin()", PSP_STDIN);
 	return PSP_STDIN;
 }
 
 u32 sceKernelStdout() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStdout()", PSP_STDOUT);
 	return PSP_STDOUT;
 }
 
 u32 sceKernelStderr() {
-	// fix Buzz Ultimate Music Quiz Crash Sporadically,issue#4497
-	hleEatCycles(1);
 	DEBUG_LOG(SCEIO, "%d=sceKernelStderr()", PSP_STDERR);
 	return PSP_STDERR;
 }
@@ -629,9 +609,9 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
-	__IoCopyDate(stat->st_atime, info.atime);
-	__IoCopyDate(stat->st_ctime, info.ctime);
-	__IoCopyDate(stat->st_mtime, info.mtime);
+	__IoCopyDate(stat->st_a_time, info.atime);
+	__IoCopyDate(stat->st_c_time, info.ctime);
+	__IoCopyDate(stat->st_m_time, info.mtime);
 	stat->st_private[0] = info.startSector;
 }
 
@@ -716,7 +696,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 			memcpy(data, pgd->block_buf+offset, copy_size);
 			block += 1;
 			offset = 0;
-		}else{
+		} else {
 			copy_size = remain_size;
 			memcpy(data, pgd->block_buf+offset, copy_size);
 		}
@@ -732,7 +712,8 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 bool __IoRead(int &result, int id, u32 data_addr, int size) {
 	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
-		return 0; //stdin
+		result = 0; //stdin
+		return true;
 	}
 
 	u32 error;
@@ -745,7 +726,11 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 		if (!(f->openMode & FILEACCESS_READ)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
+		} else if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
+			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
@@ -875,6 +860,12 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
 		}
+		if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
+		}
+
+		CBreakPoints::ExecMemCheck(data_addr, false, size, currentMIPS->pc);
 
 		bool useThread = __KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE;
 		if (useThread) {
@@ -933,6 +924,11 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
 		if (__KernelIsDispatchEnabled()) {
+			// If we wrote to stdout, return an error (even though we did log it) rather than delaying.
+			// On actual hardware, it would just return this... we just want the log output.
+			if (__IsInInterrupt()) {
+				return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			}
 			return hleDelayResult(result, "io write", us);
 		} else {
 			return result;
@@ -1204,12 +1200,17 @@ u32 sceIoOpen(const char *filename, int flags, int mode) {
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(SCEIO, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
+			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD, "no cwd", 10000);
+		}
+		else if (error != 0)
+		{
+			ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x)", error, filename, flags, mode);
+			return hleDelayResult(error, "file opened", 10000);
 		}
 		else
 		{
 			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 10000);
+			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
 		}
 	}
 
@@ -1920,6 +1921,19 @@ u32 sceIoDopen(const char *path) {
 	return id;
 }
 
+// For some reason strncpy will fill up the entire output buffer. No reason to do that,
+// so we use this trivial replacement.
+static void strcpy_limit(char *dest, const char *src, int limit) {
+	int i;
+	for (i = 0; i < limit - 1; i++) {
+		if (!src[i])
+			break;
+		dest[i] = src[i];
+	}
+	// Always null terminate.
+	dest[i] = 0;
+}
+
 u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
@@ -1937,7 +1951,40 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
-		entry->d_private = 0xC0DEBABE;
+		
+		bool isFAT = false;
+		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(dir->name);
+		if (sys && (sys->Flags() & FILESYSTEM_SIMULATE_FAT32))
+			isFAT = true;
+		else
+			isFAT = false;
+
+		// Only write d_private for memory stick
+		if (isFAT) {
+			// write d_private for supporting Custom BGM
+			// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
+			if (Memory::IsValidAddress(entry->d_private)){
+				if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
+					// d_private is pointing to an area of unknown size
+					// - [0..12] "8.3" file name (null-terminated), could be empty.
+					// - [13..???] long file name (null-terminated)
+
+					// Hm, so currently we don't write the short name at all to d_private? TODO
+					strcpy_limit((char*)Memory::GetPointer(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+				}
+				else {
+					// d_private is pointing to an area of total size 1044
+					// - [0..3] size of area
+					// - [4..19] "8.3" file name (null-terminated), could be empty.
+					// - [20..???] long file name (null-terminated)
+					auto size = Memory::Read_U32(entry->d_private);
+					// Hm, so currently we don't write the short name at all to d_private? TODO
+					if (size >= 1044) {
+						strcpy_limit((char*)Memory::GetPointer(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+					}
+				}
+			}
+		}
 		DEBUG_LOG(SCEIO, "sceIoDread( %d %08x ) = %s", id, dirent_addr, entry->d_name);
 
 		// TODO: Improve timing.  Only happens on the *first* entry read, ms and umd.

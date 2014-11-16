@@ -89,6 +89,7 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	int coef1 = f[predict_nr][0];
 	int coef2 = -f[predict_nr][1];
 
+	// TODO: Unroll once more and interleave the unpacking with the decoding more?
 	for (int i = 0; i < 28; i += 2) {
 		u8 d = *readp++;
 		int sample1 = (short)((d & 0xf) << 12) >> shift_factor;
@@ -115,11 +116,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
-	u8 *readp = Memory::GetPointer(read_);
-	if (!readp) {
+	if (!Memory::IsValidAddress(read_)) {
 		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
+	u8 *readp = Memory::GetPointerUnchecked(read_);
 	u8 *origp = readp;
 
 	for (int i = 0; i < numSamples; i++) {
@@ -188,7 +189,7 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 		u32 numSamples = 0;
 		int remains = 0;
 		static s16 buf[0x800];
-		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
+		_AtracDecodeData(atracID, (u8*)buf, 0, &numSamples, &finish, &remains);
 		if (numSamples > 0)
 			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
 		else
@@ -198,9 +199,9 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 	return finish;
 }
 
-int SasAtrac3::addStreamData(u8* buf, u32 addbytes) {
+int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
 	if (atracID > 0) {
-		_AtracAddStreamData(atracID, buf, addbytes);
+		_AtracAddStreamData(atracID, bufPtr, addbytes);
 	}
 	return 0;
 }
@@ -483,8 +484,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		u32 sampleFrac = voice.sampleFrac;
 		// We need to shift by 12 anyway, so combine that with the volume shift.
-		int volumeShift = (12 + MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
-		if (volumeShift < 0) volumeShift = 0;
 		for (int i = 0; i < grainSize; i++) {
 			// For now: nearest neighbour, not even using the resample history at all.
 			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
@@ -502,10 +501,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			// We mix into this 32-bit temp buffer and clip in a second loop
 			// Ideally, the shift right should be there too but for now I'm concerned about
 			// not overflowing.
-			mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
-			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
-			sendBuffer[i * 2] += sample * voice.effectLeft >> volumeShift;
-			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> volumeShift;
+			mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> 12;
+			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
+			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
+			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
 			voice.envelope.Step();
 		}
 

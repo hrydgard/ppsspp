@@ -71,7 +71,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -91,7 +91,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -117,7 +117,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -151,7 +151,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -169,6 +169,12 @@
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="..\git-version.cpp" />
+    <ClCompile Include="..\ext\udis86\decode.c" />
+    <ClCompile Include="..\ext\udis86\itab.c" />
+    <ClCompile Include="..\ext\udis86\syn-att.c" />
+    <ClCompile Include="..\ext\udis86\syn-intel.c" />
+    <ClCompile Include="..\ext\udis86\syn.c" />
+    <ClCompile Include="..\ext\udis86\udis86.c" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CoreTiming.cpp" />
@@ -183,6 +189,7 @@
     <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\PSPScreenshotDialog.cpp" />
     <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
     <ClCompile Include="ELF\ParamSFO.cpp" />
@@ -198,6 +205,7 @@
     <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HDRemaster.cpp" />
     <ClCompile Include="HLE\HLE.cpp" />
+    <ClCompile Include="HLE\HLEHelperThread.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
     <ClCompile Include="HLE\proAdhoc.cpp" />
     <ClCompile Include="HLE\ReplaceTables.cpp" />
@@ -253,17 +261,17 @@
     <ClCompile Include="HLE\sceSsl.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUsb.cpp" />
+    <ClCompile Include="HLE\sceUsbGps.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
-    <ClCompile Include="HW\SimpleAT3Dec.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="HW\AsyncIOManager.cpp" />
-    <ClCompile Include="HW\SimpleMp3Dec.cpp" />
+    <ClCompile Include="HW\SimpleAudioDec.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -403,6 +411,7 @@
     <ClCompile Include="MIPS\x86\CompLoadStore.cpp" />
     <ClCompile Include="MIPS\x86\CompReplace.cpp" />
     <ClCompile Include="MIPS\x86\CompVFPU.cpp" />
+    <ClCompile Include="MIPS\x86\JitSafeMem.cpp" />
     <ClCompile Include="MIPS\x86\RegCacheFPU.cpp" />
     <ClCompile Include="MIPS\x86\Jit.cpp" />
     <ClCompile Include="MIPS\x86\RegCache.cpp" />
@@ -439,6 +448,13 @@
     <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
     <ClInclude Include="..\ext\snappy\snappy-stubs-public.h" />
     <ClInclude Include="..\ext\snappy\snappy.h" />
+    <ClInclude Include="..\ext\udis86\decode.h" />
+    <ClInclude Include="..\ext\udis86\extern.h" />
+    <ClInclude Include="..\ext\udis86\itab.h" />
+    <ClInclude Include="..\ext\udis86\syn.h" />
+    <ClInclude Include="..\ext\udis86\types.h" />
+    <ClInclude Include="..\ext\udis86\udint.h" />
+    <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="CoreParameter.h" />
@@ -455,6 +471,7 @@
     <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\PSPScreenshotDialog.h" />
     <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
@@ -471,6 +488,7 @@
     <ClInclude Include="HDRemaster.h" />
     <ClInclude Include="HLE\FunctionWrappers.h" />
     <ClInclude Include="HLE\HLE.h" />
+    <ClInclude Include="HLE\HLEHelperThread.h" />
     <ClInclude Include="HLE\HLETables.h" />
     <ClInclude Include="HLE\KernelWaitHelpers.h" />
     <ClInclude Include="HLE\proAdhoc.h" />
@@ -526,19 +544,19 @@
     <ClInclude Include="HLE\sceSsl.h" />
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUsb.h" />
+    <ClInclude Include="HLE\sceUsbGps.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\BufferQueue.h" />
-    <ClInclude Include="HW\SimpleAT3Dec.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="HW\AsyncIOManager.h" />
-    <ClInclude Include="HW\SimpleMp3Dec.h" />
+    <ClInclude Include="HW\SimpleAudioDec.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">
@@ -600,6 +618,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Asm.h" />
+    <ClInclude Include="MIPS\x86\JitSafeMem.h" />
     <ClInclude Include="MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="MIPS\x86\Jit.h" />
     <ClInclude Include="MIPS\x86\RegCache.h" />

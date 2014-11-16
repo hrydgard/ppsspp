@@ -11,7 +11,7 @@ bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
 	memcpy(&instr, emit.GetCodePtr() - 4, 4);
 	char disasm[512];
-	ArmDis(0, instr, disasm);
+	ArmDis(0, instr, disasm, sizeof(disasm), true);
 	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
 	return true;
 }
@@ -21,7 +21,7 @@ void DisassembleARMBetween(const u8 *start, const u8 *end) {
 		char disasm[512];
 		uint32_t instr;
 		memcpy(&instr, start, 4);
-		ArmDis(0, instr, disasm);
+		ArmDis(0, instr, disasm, sizeof(disasm), true);
 		printf("%s\n", disasm);
 		start += 4;
 	}

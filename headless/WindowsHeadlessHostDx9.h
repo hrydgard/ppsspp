@@ -18,6 +18,7 @@
 #pragma once
 
 #include "StubHost.h"
+#include "WindowsHeadlessHost.h"
 
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS WindowsHeadlessHost
@@ -25,27 +26,14 @@
 #include "Common/CommonWindows.h"
 
 // TODO: Get rid of this junk
-class WindowsHeadlessHostDx9 : public HeadlessHost
+class WindowsHeadlessHostDx9 : public WindowsHeadlessHost
 {
 public:
-	virtual bool InitGL(std::string *error_message);
-	virtual void ShutdownGL();
+	bool InitGraphics(std::string *error_message) override;
+	void ShutdownGraphics() override;
 
-	virtual void SwapBuffers();
-
-	virtual void SendDebugOutput(const std::string &output);
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
-	virtual void SetComparisonScreenshot(const std::string &filename);
-
-	virtual bool ShouldSkipUI() { return false; }
+	void SwapBuffers() override;
 
 private:
-	bool ResizeGL();
-	void LoadNativeAssets();
-
-	HWND hWnd;
-	HDC hDC;
-	HGLRC hRC;
-	FILE *out;
-	std::string comparisonScreenshot;
+	bool ResizeGL() override;
 };

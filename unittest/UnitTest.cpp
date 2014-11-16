@@ -48,21 +48,20 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Config.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
+
+#include "unittest/JitHarness.h"
 
 #include "UnitTest.h"
 
 struct InputState;
-// Temporary hack around annoying linking error.
-void GL_SwapBuffers() { }
-void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
-void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
-void System_SendMessage(const char *command, const char *parameter) {}
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
+int System_GetPropertyInt(SystemProperty prop) { return -1; }
 
 #define M_PI_2     1.57079632679489661923
+
+// asin acos atan: https://github.com/michaldrobot/ShaderFastLibs/blob/master/ShaderFastMathLib.h
 
 // TODO:
 // Fast approximate sincos for NEON
@@ -81,7 +80,6 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 // Unfortunately this is very serial.
 // At least there are only 8 constants needed - load them into two low quads and go to town.
 // For every step, VDUP the constant into a new register (out of two alternating), then VMLA or VFMA into it.
-
 
 // http://www.ecse.rpi.edu/~wrf/Research/Short_Notes/arcsin/
 // minimax polynomial rational approx, pretty good, get four digits consistently.
@@ -326,6 +324,55 @@ void TestVFPUUtil() {
 	TestGetMatrix(GetMatrixName(5, sz, 0, 1, true), sz);
 }
 
+bool TestVFPUSinCos() {
+	float sine, cosine;
+	vfpu_sincos(0.0f, sine, cosine);
+	/*
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(1.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(2.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 0.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, -1.0f);
+	vfpu_sincos(3.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, -1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+	vfpu_sincos(4.0f, sine, cosine);
+	EXPECT_EQ_FLOAT(sine, 0.0f);
+	EXPECT_EQ_FLOAT(cosine, 1.0f);
+	vfpu_sincos(5.0f, sine, cosine);
+	EXPECT_APPROX_EQ_FLOAT(sine, 1.0f);
+	EXPECT_APPROX_EQ_FLOAT(cosine, 0.0f);
+
+	for (float angle = -10.0f; angle < 10.0f; angle++) {
+		vfpu_sincos(angle, sine, cosine);
+		EXPECT_APPROX_EQ_FLOAT(sine, sinf(angle * M_PI_2));
+		EXPECT_APPROX_EQ_FLOAT(cosine, cosf(angle * M_PI_2));
+	}
+	*/
+	return true;
+}
+
+typedef bool (*TestFunc)();
+struct TestItem {
+	const char *name;
+	TestFunc func;
+};
+
+#define TEST_ITEM(name) { #name, &Test ##name, }
+
+TestItem availableTests[] = {
+	TEST_ITEM(Asin),
+	TEST_ITEM(SinCos),
+	TEST_ITEM(ArmEmitter),
+	TEST_ITEM(VFPUSinCos),
+	TEST_ITEM(MathUtil),
+	TEST_ITEM(Parsers),
+ 	TEST_ITEM(Jit),
+};
+
 int main(int argc, const char *argv[]) {
 	// Set ARM features that the ARM emitter might check. We test the ARM emitter in x86 sometimes.
 	cpu_info.bNEON = true;
@@ -333,11 +380,51 @@ int main(int argc, const char *argv[]) {
 	cpu_info.bVFPv3 = true;
 	cpu_info.bVFPv4 = true;
 	g_Config.bEnableLogging = true;
-	//TestAsin();
-	//TestSinCos();
-	TestArmEmitter();
-	TestVFPUUtil();
-	//TestMathUtil();
-	//TestParsers();
+
+	bool allTests = false;
+	TestFunc testFunc = nullptr;
+	if (argc >= 2) {
+		if (!strcasecmp(argv[1], "all")) {
+			allTests = true;
+		}
+		for (auto f : availableTests) {
+			if (!strcasecmp(argv[1], f.name)) {
+				testFunc = f.func;
+				break;
+			}
+		}
+	}
+
+	if (allTests) {
+		int passes = 0;
+		int fails = 0;
+		for (auto f : availableTests) {
+			if (f.func()) {
+				++passes;
+			} else {
+				printf("%s: FAILED\n", f.name);
+				++fails;
+			}
+		}
+		if (passes > 0) {
+			printf("%d tests passed.\n", passes);
+		}
+		if (fails > 0) {
+			return 2;
+		}
+	} else if (testFunc == nullptr) {
+		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Available tests:\n");
+		for (auto f : availableTests) {
+			fprintf(stderr, "  * %s\n", f.name);
+		}
+		return 1;
+	} else {
+		if (!testFunc()) {
+			return 2;
+		}
+	}
+
 	return 0;
 }

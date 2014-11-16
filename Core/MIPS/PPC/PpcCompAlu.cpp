@@ -146,7 +146,7 @@ namespace MIPSComp
 		case 11: //sltiu
 			if (gpr.IsImm(rs))
 			{
-				gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
+				gpr.SetImm(rt, gpr.GetImm(rs) < suimm);
 				break;
 			} else {
 				//DISABLE;
@@ -154,7 +154,7 @@ namespace MIPSComp
 
 				PPCReg ppc_rt = gpr.R(rt);
 
-				ADDI(SREG, R0, uimm);
+				ADDI(SREG, R0, suimm);
 				SUBFC(ppc_rt, SREG, gpr.R(rs));
 				SUBFE(ppc_rt, ppc_rt, ppc_rt);
 				NEG(ppc_rt, ppc_rt);

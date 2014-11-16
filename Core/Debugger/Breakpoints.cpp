@@ -83,7 +83,7 @@ void MemCheck::JitCleanup()
 
 	// Here's the tricky part: would this have changed memory?
 	// Note that it did not actually get written.
-	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr);
+	bool changed = MIPSAnalyst::OpWouldChangeMemory(lastPC, lastAddr, lastSize);
 	if (changed)
 	{
 		++numHits;
@@ -102,13 +102,21 @@ void MemCheck::JitCleanup()
 
 size_t CBreakPoints::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
 {
+	size_t found = INVALID_BREAKPOINT;
 	for (size_t i = 0; i < breakPoints_.size(); ++i)
 	{
-		if (breakPoints_[i].addr == addr && (!matchTemp || breakPoints_[i].temporary == temp))
-			return i;
+		const auto &bp = breakPoints_[i];
+		if (bp.addr == addr && (!matchTemp || bp.temporary == temp))
+		{
+			if (bp.enabled)
+				return i;
+			// Hold out until the first enabled one.
+			if (found == INVALID_BREAKPOINT)
+				found = i;
+		}
 	}
 
-	return INVALID_BREAKPOINT;
+	return found;
 }
 
 size_t CBreakPoints::FindMemCheck(u32 start, u32 end)
@@ -407,15 +415,15 @@ void CBreakPoints::Update(u32 addr)
 		if (Core_IsStepping() == false)
 		{
 			Core_EnableStepping(true);
-			Core_WaitInactive();
+			Core_WaitInactive(200);
 			resume = true;
 		}
 		
 		// In case this is a delay slot, clear the previous instruction too.
 		if (addr != 0)
-			MIPSComp::jit->ClearCacheAt(addr - 4, 8);
+			MIPSComp::jit->InvalidateCacheAt(addr - 4, 8);
 		else
-			MIPSComp::jit->ClearCache();
+			MIPSComp::jit->InvalidateCache();
 
 		if (resume)
 			Core_EnableStepping(false);

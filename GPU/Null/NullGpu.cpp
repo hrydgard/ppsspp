@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-#include "NullGpu.h"
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "../../Core/MemMap.h"
-#include "../../Core/HLE/sceKernelInterrupt.h"
-#include "../../Core/HLE/sceGe.h"
+#include "GPU/Null/NullGpu.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceGe.h"
 
 NullGPU::NullGPU() { }
 NullGPU::~NullGPU() { }
@@ -214,7 +216,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -226,7 +228,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -306,15 +308,43 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. If not, this should just be a block transfer within
-			// GPU memory which could be implemented by a copy loop.
+			u32 srcBasePtr = gstate.getTransferSrcAddress();
+			u32 srcStride = gstate.getTransferSrcStride();
+
+			u32 dstBasePtr = gstate.getTransferDstAddress();
+			u32 dstStride = gstate.getTransferDstStride();
+
+			int srcX = gstate.getTransferSrcX();
+			int srcY = gstate.getTransferSrcY();
+
+			int dstX = gstate.getTransferDstX();
+			int dstY = gstate.getTransferDstY();
+
+			int width = gstate.getTransferWidth();
+			int height = gstate.getTransferHeight();
+
+			int bpp = gstate.getTransferBpp();
+
+			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+
+			for (int y = 0; y < height; y++) {
+				const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+				memcpy(dst, src, width * bpp);
+			}
+
+#ifndef MOBILE_DEVICE
+			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
+			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
+#endif
+
+			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
+			cyclesExecuted += ((height * width * bpp) * 16) / 10;
 			break;
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -385,7 +415,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate_c.lightpos[l][c] = val;
 		}
 		break;
 
@@ -399,7 +428,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate_c.lightdir[l][c] = val;
 		}
 		break;
 
@@ -413,7 +441,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate_c.lightatt[l][c] = val;
 		}
 		break;
 
@@ -428,10 +455,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l][0] = r;
-			gstate_c.lightColor[t][l][1] = g;
-			gstate_c.lightColor[t][l][2] = b;
-		}
+			// DEBUG_LOG(G3D, "DL Light color %i %c att: %f", l, c + 'X', val);
+	}
 		break;
 
 	case GE_CMD_VIEWPORTX1:
@@ -662,7 +687,30 @@ void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
-void NullGPU::UpdateMemory(u32 dest, u32 src, int size) {
+bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemorySet(u32 dest, u8 v, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryDownload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
+	// Nothing to update.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool NullGPU::PerformStencilUpload(u32 dest, int size) {
+	return false;
 }

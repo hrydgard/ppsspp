@@ -109,13 +109,6 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 
 	glLinkProgram(program);
 
-	// Detaching shaders is annoying when debugging with gDebugger
-	// so let's not do that on Windows.
-#ifdef USING_GLES
-	glDetachShader(program, vs->shader);
-	glDetachShader(program, fs->shader);
-#endif
-
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
 	if (linkStatus != GL_TRUE) {
@@ -152,8 +145,14 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
-	u_colormask = glGetUniformLocation(program, "u_colormask");
+	u_alphacolormask = glGetUniformLocation(program, "u_alphacolormask");
 	u_stencilReplaceValue = glGetUniformLocation(program, "u_stencilReplaceValue");
+	u_testtex = glGetUniformLocation(program, "testtex");
+
+	u_fbotex = glGetUniformLocation(program, "fbotex");
+	u_blendFixA = glGetUniformLocation(program, "u_blendFixA");
+	u_blendFixB = glGetUniformLocation(program, "u_blendFixB");
+	u_fbotexSize = glGetUniformLocation(program, "u_fbotexSize");
 
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
@@ -181,6 +180,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_matspecular = glGetUniformLocation(program, "u_matspecular");
 	u_matemissive = glGetUniformLocation(program, "u_matemissive");
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
+	u_texclamp = glGetUniformLocation(program, "u_texclamp");
+	u_texclampoff = glGetUniformLocation(program, "u_texclampoff");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
@@ -216,21 +217,31 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_proj_through != -1) availableUniforms |= DIRTY_PROJTHROUGHMATRIX;
 	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
 	if (u_alphacolorref != -1) availableUniforms |= DIRTY_ALPHACOLORREF;
-	if (u_colormask != -1) availableUniforms |= DIRTY_COLORMASK;
+	if (u_alphacolormask != -1) availableUniforms |= DIRTY_ALPHACOLORMASK;
 	if (u_fogcolor != -1) availableUniforms |= DIRTY_FOGCOLOR;
 	if (u_fogcoef != -1) availableUniforms |= DIRTY_FOGCOEF;
 	if (u_texenv != -1) availableUniforms |= DIRTY_TEXENV;
 	if (u_uvscaleoffset != -1) availableUniforms |= DIRTY_UVSCALEOFFSET;
+	if (u_texclamp != -1) availableUniforms |= DIRTY_TEXCLAMP;
 	if (u_world != -1) availableUniforms |= DIRTY_WORLDMATRIX;
 	if (u_view != -1) availableUniforms |= DIRTY_VIEWMATRIX;
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
+	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
+#ifdef USE_BONE_ARRAY
+	if (u_bone != -1) {
+		for (int i = 0; i < numBones; i++) {
+			availableUniforms |= DIRTY_BONEMATRIX0 << i;
+		}
+	}
+#else
 	for (int i = 0; i < numBones; i++) {
 		if (u_bone[i] != -1)
 			availableUniforms |= DIRTY_BONEMATRIX0 << i;
 	}
+#endif
 	if (u_ambient != -1) availableUniforms |= DIRTY_AMBIENT;
 	if (u_matambientalpha != -1) availableUniforms |= DIRTY_MATAMBIENTALPHA;
 	if (u_matdiffuse != -1) availableUniforms |= DIRTY_MATDIFFUSE;
@@ -247,6 +258,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 
 	// Default uniform values
 	glUniform1i(u_tex, 0);
+	glUniform1i(u_fbotex, 1);
+	glUniform1i(u_testtex, 2);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
 	use(vertType, previous);
@@ -281,7 +294,7 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
 		const float col[4] = {
-			(float)((color & 0xFF)) * (1.0f / 255.0f),
+			(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
 			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
 			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 			(float)alpha * (1.0f / 255.0f)
@@ -289,13 +302,23 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 		glUniform4fv(uniform, 1, col);
 	} else {
 		const float col[4] = {
-			(float)((color & 0xFF)) ,
-			(float)((color & 0xFF00) >> 8) ,
-			(float)((color & 0xFF0000) >> 16) ,
+			(float)((color & 0xFF) >> 0),
+			(float)((color & 0xFF00) >> 8),
+			(float)((color & 0xFF0000) >> 16),
 			(float)alpha 
 		};
 		glUniform4fv(uniform, 1, col);
 	}
+}
+
+static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha) {
+	const int col[4] = {
+		(int)((color & 0xFF) >> 0),
+		(int)((color & 0xFF00) >> 8),
+		(int)((color & 0xFF0000) >> 16),
+		(int)alpha,
+	};
+	glUniform4iv(uniform, 1, col);
 }
 
 static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
@@ -306,6 +329,13 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
 		extra
 	};
 	glUniform4fv(uniform, 1, col);
+}
+
+static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
+	const u32 col[3] = {
+		data[0] << 8, data[1] << 8, data[2] << 8
+	};
+	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
 }
 
 static void SetMatrix4x3(int uniform, const float *m4x3) {
@@ -370,10 +400,10 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
-	if (dirty & DIRTY_COLORMASK) {
-		SetColorUniform3(u_colormask, gstate.colormask);
+	if (dirty & DIRTY_ALPHACOLORMASK) {
+		SetColorUniform3iAlpha(u_alphacolormask, gstate.colortestmask, gstate.getAlphaTestMask());
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);
@@ -386,8 +416,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		if (my_isinf(fogcoef[1])) {
 			// not really sure what a sensible value might be.
 			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
-		}
-		if (my_isnan(fogcoef[1]))	{
+		} else if (my_isnan(fogcoef[1])) {
 			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
 			// Just put the fog far away at a large finite distance.
 			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
@@ -395,6 +424,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			fogcoef[0] = 100000.0f;
 			fogcoef[1] = 1.0f;
 		}
+#ifndef MOBILE_DEVICE
+		else if (my_isnanorinf(fogcoef[1]) || my_isnanorinf(fogcoef[0])) {
+			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
+		}
+#endif
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 
@@ -464,6 +498,31 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
+	if (dirty & DIRTY_TEXCLAMP) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		// First wrap xy, then half texel xy (for clamp.)
+		const float texclamp[4] = {
+			widthFactor,
+			heightFactor,
+			invW * 0.5f,
+			invH * 0.5f,
+		};
+		const float texclampoff[2] = {
+			gstate_c.curTextureXOffset * invW,
+			gstate_c.curTextureYOffset * invH,
+		};
+		glUniform4fv(u_texclamp, 1, texclamp);
+		if (u_texclampoff != -1) {
+			glUniform2fv(u_texclampoff, 1, texclampoff);
+		}
+	}
+
 	// Transform
 	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(u_world, gstate.worldMatrix);
@@ -513,6 +572,23 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 #endif
 
+	if (dirty & DIRTY_SHADERBLEND) {
+		if (u_blendFixA != -1) {
+			SetColorUniform3(u_blendFixA, gstate.getFixA());
+		}
+		if (u_blendFixB != -1) {
+			SetColorUniform3(u_blendFixB, gstate.getFixB());
+		}
+
+		const float fbotexSize[2] = {
+			1.0f / (float)gstate_c.curRTRenderWidth,
+			1.0f / (float)gstate_c.curRTRenderHeight,
+		};
+		if (u_fbotexSize != -1) {
+			glUniform2fv(u_fbotexSize, 1, fbotexSize);
+		}
+	}
+
 	// Lighting
 	if (dirty & DIRTY_AMBIENT) {
 		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
@@ -534,26 +610,26 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		if (dirty & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
-				float x = gstate_c.lightpos[i][0];
-				float y = gstate_c.lightpos[i][1];
-				float z = gstate_c.lightpos[i][2];
-				float len = sqrtf(x*x+y*y+z*z);
+				float x = getFloat24(gstate.lpos[i * 3 + 0]);
+				float y = getFloat24(gstate.lpos[i * 3 + 1]);
+				float z = getFloat24(gstate.lpos[i * 3 + 2]);
+				float len = sqrtf(x*x + y*y + z*z);
 				if (len == 0.0f)
 					len = 1.0f;
 				else
 					len = 1.0f / len;
 				float vec[3] = { x * len, y * len, z * len };
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, vec);
+				glUniform3fv(u_lightpos[i], 1, vec);
 			} else {
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+				SetFloat24Uniform3(u_lightpos[i], &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
-			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
-			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);
-			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], gstate_c.lightspotCoef[i]);
-			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
-			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
-			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
+			if (u_lightdir[i] != -1) SetFloat24Uniform3(u_lightdir[i], &gstate.ldir[i * 3]);
+			if (u_lightatt[i] != -1) SetFloat24Uniform3(u_lightatt[i], &gstate.latt[i * 3]);
+			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], getFloat24(gstate.lcutoff[i]));
+			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
+			if (u_lightambient[i] != -1) SetColorUniform3(u_lightambient[i], gstate.lcolor[i * 3]);
+			if (u_lightdiffuse[i] != -1) SetColorUniform3(u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
+			if (u_lightspecular[i] != -1) SetColorUniform3(u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }
@@ -594,7 +670,7 @@ void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
-	lastShader_ = 0;
+	DirtyLastShader();
 	globalDirty_ = 0xFFFFFFFF;
 	shaderSwitchDirty_ = 0;
 }
@@ -622,19 +698,16 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	VertexShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
-	ComputeFragmentShaderID(&FSID_);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_ && FSID_ == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType);
-		lastShaderSame_ = true;
+	if (lastShader_ != 0 && VSID == lastVSID_) {
+		lastVShaderSame_ = true;
 		return lastShader_->vs_;	// Already all set.
 	} else {
-		lastShaderSame_ = false;
+		lastVShaderSame_ = false;
 	}
 
 	lastVSID_ = VSID;
-	lastFSID_ = FSID_;
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
 	Shader *vs;
@@ -665,16 +738,22 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 }
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	if (lastShaderSame_)
+	FragmentShaderID FSID;
+	ComputeFragmentShaderID(&FSID);
+	if (lastVShaderSame_ && FSID == lastFSID_) {
+		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
+	}
 
-	FSCache::iterator fsIter = fsCache_.find(FSID_);
+	lastFSID_ = FSID;
+
+	FSCache::iterator fsIter = fsCache_.find(FSID);
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
-		fsCache_[FSID_] = fs;
+		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
 	}

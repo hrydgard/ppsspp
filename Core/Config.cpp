@@ -15,14 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdlib>
+#include <ctime>
+
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
-#ifndef _XBOX
 #include "gfx_es2/gpu_features.h"
-#endif
 #include "net/http_client.h"
 #include "util/text/parsers.h"
 #include "net/url.h"
@@ -236,6 +237,24 @@ const char *DefaultLangRegion() {
 	return defaultLangRegion.c_str();
 }
 
+const char *CreateRandMAC() {
+	std::stringstream randStream;
+	u32 value;
+	srand(time(0));
+	for(int i = 0; i < 6; i++) {
+		value = rand() % 256;
+		if (value >= 0 && value <= 15)
+			randStream << '0' << std::hex << value;
+		else
+			randStream << std::hex << value;
+		if (i<5) {
+			randStream << ':'; //we need a : between every octet
+		}
+	}
+  // It's ok to strdup, this runs once and will be freed by exiting the process anyway
+	return strdup(randStream.str().c_str()); //no need for creating a new string, just return this
+}
+
 static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
@@ -243,8 +262,10 @@ static int DefaultNumWorkers() {
 static bool DefaultJit() {
 #ifdef IOS
 	return iosCanUseJit;
-#else
+#elif defined(ARM) || defined(_M_IX86) || defined(_M_X64)
 	return true;
+#else
+	return false;
 #endif
 }
 
@@ -265,6 +286,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
+	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false),
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false),
@@ -280,6 +302,7 @@ static ConfigSetting generalSettings[] = {
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false),
+	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false),
 
 #ifdef ANDROID
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
@@ -293,9 +316,18 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("WindowHeight", &g_Config.iWindowHeight, 0),
 	ConfigSetting("PauseOnLostFocus", &g_Config.bPauseOnLostFocus, false),
 #endif
+	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false),
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false),
 	ConfigSetting(false),
 };
+
+static bool DefaultForceFlushToZero() {
+#ifdef ARM
+	return true;
+#else
+	return false;
+#endif
+}
 
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit),
@@ -304,7 +336,10 @@ static ConfigSetting cpuSettings[] = {
 
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true),
+	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0),
+	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true),
+	ReportedConfigSetting("ForceFlushToZero", &g_Config.bForceFlushToZero, &DefaultForceFlushToZero),
 
 	ConfigSetting(false),
 };
@@ -342,19 +377,46 @@ static bool DefaultTimerHack() {
 #endif
 }
 
+static int DefaultAndroidHwScale() {
+#ifdef ANDROID
+	// Get the real resolution as passed in during startup, not dp_xres and stuff
+	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
+	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);
+
+	if (xres < 960) {
+		// Smaller than the PSP*2, let's go native.
+		return 0;
+	} else if (xres <= 480 * 3) {  // 720p xres
+		// Small-ish screen, we should default to 2x
+		return 2 + 1;
+	} else {
+		// Large or very large screen. Default to 3x psp resolution.
+		return 3 + 1;
+	}
+	return 0;
+#else
+	return 1;
+#endif
+}
+
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0),
+	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode),
 	ConfigSetting("SoftwareRendering", &g_Config.bSoftwareRendering, false),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true),
 	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true),
 	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1),
+	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution),
+	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false),
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false),
+	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
+	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
@@ -379,7 +441,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SmallDisplay", &g_Config.bSmallDisplay, false),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false),
 
-	ConfigSetting("TrueColor", &g_Config.bTrueColor, true),
+	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true),
 
 	ReportedConfigSetting("MipMap", &g_Config.bMipMap, true),
 
@@ -393,17 +455,20 @@ static ConfigSetting graphicsSettings[] = {
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack),
 	ReportedConfigSetting("AlphaMaskHack", &g_Config.bAlphaMaskHack, false),
-	ReportedConfigSetting("LowQualitySplineBezier", &g_Config.bLowQualitySplineBezier, false),
+	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off"),
+
+	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true),
+	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false),
+	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true),
 
 	ConfigSetting(false),
 };
 
 static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true),
-	ConfigSetting("VolumeBGM", &g_Config.iBGMVolume, 7),
-	ConfigSetting("VolumeSFX", &g_Config.iSFXVolume, 7),
-	ConfigSetting("LowLatency", &g_Config.bLowLatencyAudio, false),
+	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1),
+	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false),
 
 	ConfigSetting(false),
 };
@@ -436,8 +501,14 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
-#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MEEGO_EDITION_HARMATTAN)
+#if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
+#if defined(_WIN32)
+	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
+	// sense to default this to on.
+	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, true),
+#else
 	ConfigSetting("ShowTouchPause", &g_Config.bShowTouchPause, false),
+#endif
 #endif
 #if defined(USING_WIN_UI)
 	ConfigSetting("IgnoreWindowsKey", &g_Config.bIgnoreWindowsKey, false),
@@ -489,6 +560,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f),
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale),
+	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f),
 
 	ConfigSetting(false),
 };
@@ -525,7 +597,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP"),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost"),
-	ConfigSetting("MacAddress", &g_Config.localMacAddress, "01:02:03:04:05:06"),
+	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD),
@@ -642,8 +714,11 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
-	iniFilename_ = FindConfigFile(iniFileName != NULL ? iniFileName : "ppsspp.ini");
-	controllerIniFilename_ = FindConfigFile(controllerIniFilename != NULL ? controllerIniFilename : "controls.ini");
+	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+
+	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -669,19 +744,22 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	recent->Get("MaxRecent", &iMaxRecent, 30);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
-	if (iMaxRecent == 0)
+	// -1 is okay, though. We'll just ignore recent stuff if it is.
+	 if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
-	recentIsos.clear();
-	for (int i = 0; i < iMaxRecent; i++) {
-		char keyName[64];
-		std::string fileName;
+	 if (iMaxRecent > 0) {
+		 recentIsos.clear();
+		 for (int i = 0; i < iMaxRecent; i++) {
+			 char keyName[64];
+			 std::string fileName;
 
-		sprintf(keyName, "FileName%d", i);
-		if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-			recentIsos.push_back(fileName);
-		}
-	}
+			 snprintf(keyName, sizeof(keyName), "FileName%d", i);
+			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
+				 recentIsos.push_back(fileName);
+			 }
+		 }
+	 }
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
@@ -725,7 +803,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		fAnalogStickY /= screen_height;
 	}
 	
-	if (dismissedVersion == upgradeVersion) {
+	const char *gitVer = PPSSPP_GIT_VERSION;
+	Version installed(gitVer);
+	Version upgrade(upgradeVersion);
+	const bool versionsValid = installed.IsValid() && upgrade.IsValid();
+
+	// Do this regardless of iRunCount to prevent a silly bug where one might use an older
+	// build of PPSSPP, receive an upgrade notice, then start a newer version, and still receive the upgrade notice,
+	// even if said newer version is >= the upgrade found online.
+	if ((dismissedVersion == upgradeVersion) || (versionsValid && (installed >= upgrade))) {
 		upgradeMessage = "";
 	}
 
@@ -752,6 +838,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
+
+#ifdef _WIN32
+	iTempGPUBackend = iGPUBackend;
+#endif
+
+	// Fix Wrong MAC address by old version by "Change MAC address"
+	std::string str(sMACAddress.c_str());
+	if (str.length() != 17)
+		sMACAddress = CreateRandMAC();
 }
 
 void Config::Save() {
@@ -777,7 +872,7 @@ void Config::Save() {
 
 		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
-			sprintf(keyName,"FileName%d",i);
+			snprintf(keyName, sizeof(keyName), "FileName%d", i);
 			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
 			} else {
@@ -874,6 +969,10 @@ void Config::DismissUpgrade() {
 }
 
 void Config::AddRecent(const std::string &file) {
+	// Don't bother with this if the user disabled recents (it's -1).
+	if (iMaxRecent <= 0)
+		return;
+
 	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
 #ifdef _WIN32
 		if (!strcmpIgnore((*str).c_str(), file.c_str(), "\\", "/")) {

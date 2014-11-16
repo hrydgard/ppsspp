@@ -39,6 +39,7 @@
 #include "__sceAudio.h"
 #include "sceAtrac.h"
 #include "sceAudio.h"
+#include "sceAudiocodec.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -77,6 +78,7 @@
 #include "sceVaudio.h"
 #include "sceHeap.h"
 #include "sceDmac.h"
+#include "sceMp4.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -136,6 +138,8 @@ void __KernelInit()
 	__CheatInit();
 	__HeapInit();
 	__DmacInit();
+	__AudioCodecInit();
+	__VideoPmpInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -159,6 +163,9 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__AudioCodecShutdown();
+	__VideoPmpShutdown();
+	__AACShutdown();
 	__NetShutdown();
 	__NetAdhocShutdown();
 	__FontShutdown();
@@ -257,6 +264,9 @@ void __KernelDoState(PointerWrap &p)
 
 		__PPGeDoState(p);
 		__CheatDoState(p);
+		__sceAudiocodecDoState(p);
+		__VideoPmpDoState(p);
+		__AACDoState(p);
 	}
 
 	{
@@ -354,11 +364,8 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 }
 
 int sceKernelIcacheInvalidateRange(u32 addr, int size) {
-	DEBUG_LOG(CPU,"sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
-	// TODO: Make the JIT hash and compare the touched blocks.
-	if(MIPSComp::jit){
-		MIPSComp::jit->ClearCacheAt(addr, size);
-	}
+	DEBUG_LOG(CPU, "sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
+	currentMIPS->InvalidateICache(addr, size);
 	return 0;
 }
 
@@ -371,6 +378,7 @@ int sceKernelDcacheWritebackAll()
 	// to zap the whole texture cache.
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
 	hleEatCycles(3524);
+	hleReSchedule("dcache writeback all");
 	return 0;
 }
 
@@ -409,6 +417,7 @@ int sceKernelDcacheWritebackInvalidateAll()
 #endif
 	gpu->InvalidateCache(0, -1, GPU_INVALIDATE_ALL);
 	hleEatCycles(1165);
+	hleReSchedule("dcache invalidate all");
 	return 0;
 }
 
@@ -611,6 +620,7 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 	case SCE_KERNEL_TMID_VTimer:
 		return __KernelVTimerObject();
 	case SCE_KERNEL_TMID_Tlspl:
+	case SCE_KERNEL_TMID_Tlspl_v0:
 		return __KernelTlsplObject();
 	case PPSSPP_KERNEL_TMID_File:
 		return __KernelFileNodeObject();

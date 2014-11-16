@@ -80,6 +80,8 @@ public:
 	ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
 	~ArmRegCacheFPU() {}
 
+	void Init(ARMXEmitter *emitter);
+
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
@@ -178,6 +180,8 @@ private:
 	int QGetFreeQuad(int start, int count, const char *reason);
 	int GetNumARMFPURegs();
 
+	void SetupInitialRegs();
+
 	MIPSState *mips_;
 	ARMXEmitter *emit_;
 	MIPSComp::JitState *js_;
@@ -198,4 +202,9 @@ private:
 	FPURegMIPS mr[NUM_MIPSFPUREG];
 	FPURegQuad qr[MAX_ARMQUADS];
 	FPURegMIPS *vr;
+
+	bool pendingFlush;
+	bool initialReady;
+	FPURegARM arInitial[MAX_ARMFPUREG];
+	FPURegMIPS mrInitial[NUM_MIPSFPUREG];
 };

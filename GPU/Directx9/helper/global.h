@@ -9,12 +9,15 @@
 #define D3DFMT(x) x
 #endif
 
+#include <string>
+#include <d3d9.h>
+
+struct ID3DXConstantTable;
+
 namespace DX9 {
 
-#include <d3d9.h>
-#include <d3dx9.h>
-
 extern LPDIRECT3DDEVICE9 pD3Ddevice;
+extern LPDIRECT3DDEVICE9EX pD3DdeviceEx;
 
 extern LPDIRECT3DVERTEXSHADER9      pFramebufferVertexShader; // Vertex Shader
 extern LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader;  // Pixel Shader
@@ -22,10 +25,12 @@ extern LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader;  // Pixel Shader
 extern IDirect3DVertexDeclaration9* pFramebufferVertexDecl;
 extern IDirect3DVertexDeclaration9* pSoftVertexDecl;
 
-bool CompilePixelShader(const char * code, LPDIRECT3DPIXELSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable);
-bool CompileVertexShader(const char * code, LPDIRECT3DVERTEXSHADER9 * pShader, LPD3DXCONSTANTTABLE * pShaderTable);
+bool CompileShaders(std::string &errorMessage);
+bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
+bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
+void DestroyShaders();
 void DirectxInit(HWND window);
 
-#define D3DBLEND_UNK	D3DSTENCILOP_FORCE_DWORD
+#define D3DBLEND_UNK	D3DBLEND_FORCE_DWORD
 
 };

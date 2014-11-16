@@ -34,6 +34,11 @@
 #undef max
 #endif
 
+//initialize static members of DinputDevice
+unsigned int                  DinputDevice::pInstances = 0;
+LPDIRECTINPUT8                DinputDevice::pDI = NULL;
+std::vector<DIDEVICEINSTANCE> DinputDevice::devices;
+
 // In order from 0.  There can be 128, but most controllers do not have that many.
 static const int dinput_buttons[] = {
 	NKCODE_BUTTON_1,
@@ -80,9 +85,50 @@ bool IsXInputDevice( const GUID* pGuidProductFromDirectInput ) {
     return false;
 }
 
-DinputDevice::DinputDevice() {
+LPDIRECTINPUT8 DinputDevice::getPDI()
+{
+	if (pDI == NULL)
+	{
+		if (FAILED(DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&pDI, NULL)))
+		{
+			pDI = NULL;
+		}
+	}
+	return pDI;
+}
+
+BOOL CALLBACK DinputDevice::DevicesCallback(
+	LPCDIDEVICEINSTANCE lpddi,
+	LPVOID pvRef
+	)
+{
+	//check if a device with the same Instance guid is already saved
+	auto res = std::find_if(devices.begin(), devices.end(), 
+		[lpddi](const DIDEVICEINSTANCE &to_consider){
+			return lpddi->guidInstance == to_consider.guidInstance;
+		});
+	if (res == devices.end()) //not yet in the devices list
+	{
+		// Ignore if device supports XInput
+		if (!IsXInputDevice(&lpddi->guidProduct)) {
+			devices.push_back(*lpddi);
+		}
+	}
+	return DIENUM_CONTINUE;
+}
+
+void DinputDevice::getDevices()
+{
+	if (devices.empty())
+	{
+		getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
+	}
+}
+
+DinputDevice::DinputDevice(int devnum) {
+	pInstances++;
+	pDevNum = devnum;
 	pJoystick = NULL;
-	pDI = NULL;
 	memset(lastButtons_, 0, sizeof(lastButtons_));
 	memset(lastPOV_, 0, sizeof(lastPOV_));
 	last_lX_ = 0;
@@ -92,29 +138,26 @@ DinputDevice::DinputDevice() {
 	last_lRy_ = 0;
 	last_lRz_ = 0;
 
-	if(FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,IID_IDirectInput8,(void**)&pDI,NULL)))
-		return;
-
-	if(FAILED(pDI->CreateDevice(GUID_Joystick, &pJoystick, NULL ))) {
-		pDI->Release();
-		pDI = NULL;
+	if (getPDI() == NULL)
+	{
 		return;
 	}
 
-	if(FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {
-		pJoystick->Release();
-		pJoystick = NULL;
+	if (devnum >= MAX_NUM_PADS)
+	{
 		return;
 	}
 
-	// Ignore if device supports XInput
-	DIDEVICEINSTANCE dinfo = {0};
-	pJoystick->GetDeviceInfo(&dinfo);
-	if (IsXInputDevice(&dinfo.guidProduct))	{
-		pDI->Release();
-		pDI = NULL;
+	getDevices();
+	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
+	{
+		return;
+	}
+
+	if (FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {
 		pJoystick->Release();
 		pJoystick = NULL;
+		return;
 	}
 
 	DIPROPRANGE diprg; 
@@ -146,7 +189,13 @@ DinputDevice::~DinputDevice() {
 		pJoystick = NULL;
 	}
 
-	if (pDI) {
+	pInstances--;
+
+	//the whole instance counter is obviously highly thread-unsafe
+	//but I don't think creation and destruction operations will be
+	//happening at the same time and other values like pDI are
+	//unsafe as well anyway
+	if (pInstances == 0 && pDI) {
 		pDI->Release();
 		pDI = NULL;
 	}
@@ -182,17 +231,26 @@ int DinputDevice::UpdateState(InputState &input_state) {
 
 	if (analog)	{
 		AxisInput axis;
-		axis.deviceId = DEVICE_ID_PAD_0;
+		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lX, last_lX_, JOYSTICK_AXIS_X);
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lY, last_lY_, JOYSTICK_AXIS_Y);
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lRx, last_lRx_, JOYSTICK_AXIS_RX);
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lRy, last_lRy_, JOYSTICK_AXIS_RY);
-		SendNativeAxis(DEVICE_ID_PAD_0, js.lRz, last_lRz_, JOYSTICK_AXIS_RZ);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lRx, last_lRx_, JOYSTICK_AXIS_RX);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lRy, last_lRy_, JOYSTICK_AXIS_RY);
+		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lRz, last_lRz_, JOYSTICK_AXIS_RZ);
 	}
 
-	return UPDATESTATE_SKIP_PAD;
+	//check if the values have changed from last time and skip polling the rest of the dinput devices if they did
+	//this doesn't seem to quite work if only the axis have changed
+	if ((memcmp(js.rgbButtons, pPrevState.rgbButtons, sizeof(BYTE) * 128) != 0)
+		|| (memcmp(js.rgdwPOV, pPrevState.rgdwPOV, sizeof(DWORD) * 4) != 0)
+		|| js.lVX != 0 || js.lVY != 0 || js.lVZ != 0 || js.lVRx != 0 || js.lVRy != 0 || js.lVRz != 0)
+	{
+		pPrevState = js;
+		return UPDATESTATE_SKIP_PAD;
+	}
+	return -1;
 }
 
 static float NormalizedDeadzoneFilter(short value) {
@@ -215,7 +273,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 
 		bool down = (state.rgbButtons[i] & downMask) == downMask;
 		KeyInput key;
-		key.deviceId = DEVICE_ID_PAD_0;
+		key.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 		key.flags = down ? KEY_DOWN : KEY_UP;
 		key.keyCode = dinput_buttons[i];
 		NativeKey(key);
@@ -227,7 +285,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 	if (LOWORD(state.rgdwPOV[0]) != lastPOV_[0]) {
 		KeyInput dpad[4];
 		for (int i = 0; i < 4; ++i) {
-			dpad[i].deviceId = DEVICE_ID_PAD_0;
+			dpad[i].deviceId = DEVICE_ID_PAD_0 + pDevNum;
 			dpad[i].flags = KEY_UP;
 		}
 		dpad[0].keyCode = NKCODE_DPAD_UP;
@@ -260,3 +318,11 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 	}
 }
 
+size_t DinputDevice::getNumPads()
+{
+	if (devices.empty())
+	{
+		getDevices();
+	}
+	return devices.size();
+}

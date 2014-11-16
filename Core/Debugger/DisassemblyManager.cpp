@@ -42,7 +42,11 @@ bool isInInterval(u32 start, u32 size, u32 value)
 
 static u32 computeHash(u32 address, u32 size)
 {
-	return XXH32(Memory::GetPointer(address),size,0xBACD7814);
+#ifdef _M_X64
+	return XXH64(Memory::GetPointer(address), size, 0xBACD7814BACD7814LL);
+#else
+	return XXH32(Memory::GetPointer(address), size, 0xBACD7814);
+#endif
 }
 
 
@@ -168,7 +172,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 
 			u32 next = symbolMap.GetNextSymbolAddress(address,ST_ALL);
 
-			if ((next % 4) && next != -1)
+			if ((next % 4) && next != (u32)-1)
 			{
 				u32 alignedNext = next & ~3;
 
@@ -204,6 +208,8 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 				entries[info.address] = data;
 				address = info.address+info.size;
 			}
+			break;
+		default:
 			break;
 		}
 	}
@@ -340,13 +346,21 @@ void DisassemblyManager::clear()
 
 DisassemblyFunction::DisassemblyFunction(u32 _address, u32 _size): address(_address), size(_size)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	hash = computeHash(address,size);
 	load();
 }
 
 void DisassemblyFunction::recheck()
 {
-	u32 newHash = computeHash(address,size);
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
+	HashType newHash = computeHash(address,size);
 	if (hash != newHash)
 	{
 		hash = newHash;
@@ -521,6 +535,8 @@ void DisassemblyFunction::load()
 		case LINE_UP:
 			branchTargets.insert(lines[i].first);
 			break;
+		default:
+			break;
 		}
 	}
 	
@@ -622,6 +638,8 @@ void DisassemblyFunction::load()
 					case MEMTYPE_VQUAD:
 						dataSize = 16;
 						break;
+					default:
+						return;
 					}
 
 					macro->setMacroMemory(MIPSGetName(next),immediate,rt,dataSize);
@@ -758,7 +776,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.params = buffer;
 		
 		dest.info.hasRelevantAddress = true;
-		dest.info.releventAddress = immediate;
+		dest.info.relevantAddress = immediate;
 		break;
 	case MACRO_MEMORYIMM:
 		dest.name = name;
@@ -778,7 +796,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.info.dataSize = dataSize;
 
 		dest.info.hasRelevantAddress = true;
-		dest.info.releventAddress = immediate;
+		dest.info.relevantAddress = immediate;
 		break;
 	default:
 		return false;
@@ -791,13 +809,21 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 
 DisassemblyData::DisassemblyData(u32 _address, u32 _size, DataType _type): address(_address), size(_size), type(_type)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	hash = computeHash(address,size);
 	createLines();
 }
 
 void DisassemblyData::recheck()
 {
-	u32 newHash = computeHash(address,size);
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
+	HashType newHash = computeHash(address,size);
 	if (newHash != hash)
 	{
 		hash = newHash;
@@ -937,7 +963,7 @@ void DisassemblyData::createLines()
 	} else {
 		while (pos < end)
 		{
-			char buffer[64];
+			char buffer[256];
 			u32 value;
 
 			u32 currentPos = pos;
@@ -946,12 +972,12 @@ void DisassemblyData::createLines()
 			{
 			case DATATYPE_BYTE:
 				value = Memory::Read_U8(pos);
-				sprintf(buffer,"0x%02X",value);
+				snprintf(buffer, sizeof(buffer), "0x%02X", value);
 				pos++;
 				break;
 			case DATATYPE_HALFWORD:
 				value = Memory::Read_U16(pos);
-				sprintf(buffer,"0x%04X",value);
+				snprintf(buffer, sizeof(buffer), "0x%04X", value);
 				pos += 2;
 				break;
 			case DATATYPE_WORD:
@@ -959,11 +985,13 @@ void DisassemblyData::createLines()
 					value = Memory::Read_U32(pos);
 					const std::string label = symbolMap.GetLabelString(value);
 					if (!label.empty())
-						sprintf(buffer,"%s",label.c_str());
+						snprintf(buffer, sizeof(buffer), "%s", label.c_str());
 					else
-						sprintf(buffer,"0x%08X",value);
+						snprintf(buffer, sizeof(buffer), "0x%08X", value);
 					pos += 4;
 				}
+				break;
+			default:
 				break;
 			}
 
@@ -983,8 +1011,7 @@ void DisassemblyData::createLines()
 			currentLine += buffer;
 		}
 
-		if (currentLine.size() != 0)
-		{
+		if (currentLine.size() != 0) {
 			DataEntry entry = {currentLine,pos-currentLineStart,lineCount++};
 			lines[currentLineStart] = entry;
 			lineAddresses.push_back(currentLineStart);

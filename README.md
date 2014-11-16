@@ -1,4 +1,4 @@
-PPSSPP - a fast and portable PSP emulator
+﻿PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -17,6 +17,31 @@ To contribute, see [the development page](http://www.ppsspp.org/development.html
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
+
+What's new in 0.9.9.1
+-------------------
+A few issues have been discovered in the release that need fixing, the Star Ocean fix had a bug and there are some unexpected slowdowns.
+
+Improved sceMpegRingbufferAvailableSize -  UFC© Undisputed​™ 2010 now playable
+
+Improved ISO File System - Bleach Soul Carnival 2 now in-game (but freeze when in menu)
+
+What's new in 0.9.9
+-------------------
+* CLUT (paletted) texturing from framebuffers supported, fixing many graphical issues
+  like the shadows in Final Fantasy: Type-0
+* More types of framebuffer copies are now handled correctly, fixing a variety of graphical
+  issues, like the sun in Burnout and many more
+* Better savedata compatibility with the real PSP
+* Support for more codecs used by "Custom BGM" and sometimes regular music in games: MP3, AAC
+* PMP video format support
+* Implemented some strange blending modes like ABSDIFF as shaders, fixing the outlines in DBZ Tag Team and more.
+* Emulation of the vrot CPU instruction improved - it caused cracks in FF3 graphics before
+* Many bugfixes around the UI, touch D-pad now works better when scaled large
+* Workaround implemented to support Star Ocean's stencil trickery as efficiently as possible on all platforms
+* Major corrections to module loading and memory management, fixing further games
+* Bulgarian and Thai language translations were contributed
+* Many, many more game fixes and bug fixes
 
 What's new in 0.9.8
 -------------------

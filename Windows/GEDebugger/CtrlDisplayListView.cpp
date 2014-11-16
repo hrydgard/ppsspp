@@ -152,7 +152,8 @@ void CtrlDisplayListView::redraw()
 
 void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	if (!validDisplayList) return;
+	if (!validDisplayList || !gpuDebug)
+		return;
 
 	PAINTSTRUCT ps;
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -313,7 +314,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *temp = new char[space];
 
 				char *p = temp, *end = temp + space;
-				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 				{
 					GPUDebugOp op = gpuDebug->DissassembleOp(pos);
 					p += snprintf(p, end - p, "%s\r\n", op.desc.c_str());
@@ -350,7 +351,7 @@ void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				char *temp = new char[space];
 
 				char *p = temp, *end = temp + space;
-				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd && p < end; pos += instructionSize)
 					p += snprintf(p, end - p, "%08X\r\n", Memory::ReadUnchecked_U32(pos));
 
 				W32Util::CopyTextToClipboard(wnd, temp);

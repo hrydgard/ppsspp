@@ -11,6 +11,9 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
+LOCAL_C_INCLUDES := \
+		$(LOCAL_PATH)/$(NATIVE) \
+		$(LOCAL_PATH)
 LOCAL_LDLIBS := -lOpenSLES -llog
 		
 include $(BUILD_SHARED_LIBRARY)
@@ -42,12 +45,14 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/CompReplace.cpp \
   $(SRC)/Core/MIPS/x86/Asm.cpp \
   $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderX86.cpp
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
 endif
 
-ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
@@ -65,7 +70,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderArm.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 endif
 
@@ -85,7 +90,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
-  $(SRC)/GPU/GLES/VertexDecoderArm.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 endif
 
@@ -114,6 +119,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
+  $(SRC)/ext/udis86/decode.c \
+  $(SRC)/ext/udis86/itab.c \
+  $(SRC)/ext/udis86/syn-att.c \
+  $(SRC)/ext/udis86/syn-intel.c \
+  $(SRC)/ext/udis86/syn.c \
+  $(SRC)/ext/udis86/udis86.c \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Crypto/md5.cpp \
@@ -133,36 +144,42 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
+  $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
+  $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
+  $(SRC)/GPU/Common/SplineCommon.cpp.arm \
+  $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
+  $(SRC)/GPU/Common/TransformCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureDecoder.cpp \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
+  $(SRC)/GPU/GLES/DepalettizeShader.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
+  $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
-  $(SRC)/GPU/GLES/SoftwareTransform.cpp.arm \
   $(SRC)/GPU/GLES/StateMapping.cpp.arm \
-  $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManager.cpp.arm \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
+  $(SRC)/GPU/GLES/FragmentTestCache.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
   $(SRC)/GPU/GLES/Spline.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
-  $(SRC)/GPU/Software/Rasterizer.cpp \
+  $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/SoftGpu.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
-  $(SRC)/Core/HW/SimpleAT3Dec.cpp \
-  $(SRC)/Core/HW/SimpleMp3Dec.cpp \
+  $(SRC)/Core/HW/SimpleAudioDec.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
@@ -189,10 +206,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPNetconfDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
+  $(SRC)/Core/Dialog/PSPScreenshotDialog.cpp \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
   $(SRC)/Core/Font/PGF.cpp \
+  $(SRC)/Core/HLE/HLEHelperThread.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
@@ -202,7 +221,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
-  $(SRC)/Core/HLE/sceCtrl.cpp \
+  $(SRC)/Core/HLE/sceCtrl.cpp.arm \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
@@ -246,6 +265,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
+  $(SRC)/Core/HLE/sceUsbGps.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
   $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
@@ -272,12 +292,13 @@ LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(EXEC_AND_LIB_FILES) \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
+  $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/Store.cpp \
-  $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \

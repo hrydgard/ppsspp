@@ -1,4 +1,3 @@
-QT += opengl
 QT -= gui
 TARGET = Common
 TEMPLATE = lib
@@ -9,26 +8,34 @@ include(Settings.pri)
 # CPU
 arm {
 	SOURCES += $$P/Common/ArmCPUDetect.cpp \
-		$$P/Common/ArmEmitter.cpp \
 		$$P/Common/ArmThunk.cpp
-	HEADERS += $$P/Common/ArmEmitter.h
 }
-x86 {
+else:i86 {
 	SOURCES += $$P/Common/ABI.cpp \
 		$$P/Common/CPUDetect.cpp \
 		$$P/Common/Thunk.cpp \
 		$$P/Common/x64Analyzer.cpp \
 		$$P/Common/x64Emitter.cpp
-	HEADERS +=  $$P/Common/ABI.h \
+	HEADERS += $$P/Common/ABI.h \
 		$$P/Common/Thunk.h \
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h
 }
-HEADERS += $$P/Common/CPUDetect.h
+else {
+	SOURCES += $$P/Common/FakeCPUDetect.cpp
+}
+SOURCES += $$P/Common/ArmEmitter.cpp
+HEADERS += $$P/Common/ArmEmitter.h \
+	$$P/Common/CPUDetect.h
 
 win32 {
 	SOURCES += $$P/Common/stdafx.cpp
 	HEADERS += $$P/Common/stdafx.h
+}
+
+!symbian {
+	SOURCES += $$P/Common/MemArena.cpp
+	HEADERS += $$P/Common/MemArena.h
 }
 
 SOURCES += $$P/Common/ChunkFile.cpp \
@@ -36,7 +43,6 @@ SOURCES += $$P/Common/ChunkFile.cpp \
 	$$P/Common/FileUtil.cpp \
 	$$P/Common/LogManager.cpp \
 	$$P/Common/KeyMap.cpp \
-	$$P/Common/MemArena.cpp \
 	$$P/Common/MemoryUtil.cpp \
 	$$P/Common/Misc.cpp \
 	$$P/Common/MsgHandler.cpp \
@@ -49,7 +55,6 @@ HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/FileUtil.h \
 	$$P/Common/LogManager.h \
 	$$P/Common/KeyMap.h \
-	$$P/Common/MemArena.h \
 	$$P/Common/MemoryUtil.h \
 	$$P/Common/MsgHandler.h \
 	$$P/Common/StringUtils.h \

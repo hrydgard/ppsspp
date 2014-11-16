@@ -5,7 +5,6 @@
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
-    <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
       <Filter>Screens</Filter>
@@ -47,12 +46,15 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="Store.cpp" />
+    <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="ReportScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="ui_atlas.h" />
-    <ClInclude Include="UIShader.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
@@ -94,6 +96,11 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Store.h" />
+    <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="ReportScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

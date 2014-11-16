@@ -73,9 +73,9 @@ BEGIN
     "L",            ID_DEBUG_LOG,           VIRTKEY, CONTROL, NOINVERT
     "M",            ID_DEBUG_MEMORYVIEW,    VIRTKEY, CONTROL, NOINVERT
     "R",            ID_DEBUG_REGISTERS,     VIRTKEY, CONTROL, NOINVERT
-    VK_F3,          ID_FILE_SAVESTATE_NEXT_SLOT, VIRTKEY, NOINVERT
-    VK_F2,          ID_FILE_QUICKSAVESTATE, VIRTKEY, NOINVERT
-    VK_F4,          ID_FILE_QUICKLOADSTATE, VIRTKEY, NOINVERT
+    VK_F3,          ID_FILE_SAVESTATE_NEXT_SLOT_HC, VIRTKEY, NOINVERT
+    VK_F2,          ID_FILE_QUICKSAVESTATE_HC, VIRTKEY, NOINVERT
+    VK_F4,          ID_FILE_QUICKLOADSTATE_HC, VIRTKEY, NOINVERT
     "1",            ID_OPTIONS_RESOLUTIONDUMMY,    VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_OPTIONS_BUFFEREDRENDERINGDUMMY, VIRTKEY, NOINVERT
     VK_F7,          ID_OPTIONS_FRAMESKIPDUMMY, VIRTKEY, NOINVERT
@@ -183,7 +183,9 @@ BEGIN
     CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,480,180
     EDITTEXT        IDC_GEDBG_FRAMEBUFADDR,148,192,128,12,ES_READONLY | NOT WS_BORDER
     EDITTEXT        IDC_GEDBG_TEXADDR,10,152,128,12,ES_READONLY | NOT WS_BORDER
-    PUSHBUTTON      "Break on Te&xture...",IDC_GEDBG_BREAKTEX,24,172,100,14
+    PUSHBUTTON      "Break on Te&xture...",IDC_GEDBG_BREAKTEX,24,168,100,14
+    PUSHBUTTON      "Level -",IDC_GEDBG_TEXLEVELDOWN,24,188,40,14
+    PUSHBUTTON      "Level +",IDC_GEDBG_TEXLEVELUP,84,188,40,14
     CONTROL         "",IDC_GEDBG_FBTABS,"SysTabControl32",TCS_BUTTONS | TCS_FOCUSNEVER,384,192,110,12
 END
 
@@ -415,6 +417,8 @@ BEGIN
     BEGIN
         MENUITEM "Load Map File...",                        ID_DEBUG_LOADMAPFILE
         MENUITEM "Save Map File...",                        ID_DEBUG_SAVEMAPFILE
+        MENUITEM "Load .sym File...",                       ID_DEBUG_LOADSYMFILE
+        MENUITEM "Save .sym File...",                       ID_DEBUG_SAVESYMFILE
         MENUITEM "Reset Symbol Table",                      ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM SEPARATOR
         MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
@@ -465,34 +469,47 @@ BEGIN
             MENUITEM "&3x",                                 ID_OPTIONS_WINDOW3X
             MENUITEM "&4x",                                 ID_OPTIONS_WINDOW4X
         END
-				POPUP "Rendering Mode"
-				BEGIN
-					MENUITEM "Non-Buffered Rendering",				ID_OPTIONS_NONBUFFEREDRENDERING
-					MENUITEM "Buffered Rendering",					ID_OPTIONS_BUFFEREDRENDERING
-					MENUITEM "Read Framebuffers To Memory (CPU)",	ID_OPTIONS_READFBOTOMEMORYCPU
-					MENUITEM "Read Framebuffers To Memory (GPU)",	ID_OPTIONS_READFBOTOMEMORYGPU
-				END
-				POPUP "Frame Skipping"
-				BEGIN
-					MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
-					MENUITEM SEPARATOR
-					MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
-					MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
-					MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
-					MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
-					MENUITEM "&4",									ID_OPTIONS_FRAMESKIP_4
-					MENUITEM "&5",									ID_OPTIONS_FRAMESKIP_5
-					MENUITEM "&6",									ID_OPTIONS_FRAMESKIP_6
-					MENUITEM "&7",									ID_OPTIONS_FRAMESKIP_7
-					MENUITEM "&8",									ID_OPTIONS_FRAMESKIP_8
-				END
-				POPUP "Texture Filtering"
-						BEGIN
-								MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
-								MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
-								MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
-								MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
-				END
+
+		POPUP "Backend"
+		BEGIN
+			MENUITEM "Direct3D9" ID_OPTIONS_DIRECTX
+			MENUITEM "OpenGL" ID_OPTIONS_OPENGL
+		END
+
+		POPUP "Rendering Mode"
+		BEGIN
+			MENUITEM "Non-Buffered Rendering",				ID_OPTIONS_NONBUFFEREDRENDERING
+			MENUITEM "Buffered Rendering",					ID_OPTIONS_BUFFEREDRENDERING
+			MENUITEM "Read Framebuffers To Memory (CPU)",	ID_OPTIONS_READFBOTOMEMORYCPU
+			MENUITEM "Read Framebuffers To Memory (GPU)",	ID_OPTIONS_READFBOTOMEMORYGPU
+		END
+		POPUP "Frame Skipping"
+		BEGIN
+			MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
+			MENUITEM SEPARATOR
+			MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
+			MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
+			MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
+			MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
+			MENUITEM "&4",									ID_OPTIONS_FRAMESKIP_4
+			MENUITEM "&5",									ID_OPTIONS_FRAMESKIP_5
+			MENUITEM "&6",									ID_OPTIONS_FRAMESKIP_6
+			MENUITEM "&7",									ID_OPTIONS_FRAMESKIP_7
+			MENUITEM "&8",									ID_OPTIONS_FRAMESKIP_8
+		END
+		POPUP "Texture Filtering"
+		BEGIN
+			MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
+			MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
+			MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
+			MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
+		END
+		POPUP "Screen Scaling Filter"
+		BEGIN
+			MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
+			MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
+		END
+
         POPUP "Texture Scaling"
         BEGIN
             MENUITEM "Off",                             ID_TEXTURESCALING_OFF

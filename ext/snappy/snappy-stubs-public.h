@@ -58,6 +58,11 @@ typedef std::string string;
   void operator=(const TypeName&)
 #endif
 
+struct iovec {
+	void* iov_base;
+	size_t iov_len;
+};
+
 }  // namespace snappy
 
 #endif  // UTIL_SNAPPY_OPENSOURCE_SNAPPY_STUBS_PUBLIC_H_

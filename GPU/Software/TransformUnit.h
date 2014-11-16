@@ -31,6 +31,8 @@ typedef Vec3<float> WorldCoords;
 typedef Vec3<float> ViewCoords;
 typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
+struct SplinePatch;
+
 struct ScreenCoords
 {
 	ScreenCoords() {}
@@ -123,4 +125,7 @@ public:
 	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead);
 
 	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+
+	static SplinePatch *patchBuffer_;
+	static int patchBufferSize_;
 };

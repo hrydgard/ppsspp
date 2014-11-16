@@ -9,6 +9,7 @@ set(SRCS
   Dialog/PSPOskDialog.cpp
   Dialog/PSPGamedataInstallDialog.cpp
   Dialog/PSPNetconfDialog.cpp
+  Dialog/PSPScreenshotDialog.cpp
   MIPS/MIPS.cpp
   MIPS/MIPSAnalyst.cpp
   MIPS/MIPSCodeUtils.cpp
@@ -26,6 +27,7 @@ set(SRCS
   ELF/PrxDecrypter.cpp
   Font/PGF.cpp
   HLE/HLE.cpp
+  HLE/HLEHelperThread.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
   HLE/__sceAudio.cpp
@@ -71,6 +73,7 @@ set(SRCS
   HLE/sceSas.cpp
   HLE/sceUmd.cpp
   HLE/sceUsb.cpp
+  HLE/sceUsbGps.cpp
   HLE/sceUtility.cpp
   HLE/sceParseUri.cpp
   HLE/sceSsl.cpp

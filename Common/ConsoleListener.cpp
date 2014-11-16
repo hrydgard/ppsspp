@@ -20,6 +20,7 @@
 #include <string> // System: To be able to add strings with "+"
 #include <math.h>
 #ifdef _WIN32
+#include <process.h>
 #include "CommonWindows.h"
 #include <array>
 #else
@@ -293,7 +294,7 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 
 unsigned int WINAPI ConsoleListener::RunThread(void *lpParam)
 {
-	setCurrentThreadName("ConsoleThread");
+	setCurrentThreadName("Console");
 	ConsoleListener *consoleLog = (ConsoleListener *)lpParam;
 	consoleLog->LogWriterThread();
 	return 0;

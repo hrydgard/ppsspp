@@ -189,7 +189,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	};
 
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, frameWindow->TexWidth() * scale[0], frameWindow->TexHeight() * scale[1], 0, -1, 1);
+	ortho.setOrtho(-(float)gstate_c.cutRTOffsetX, (frameWindow->TexWidth() - (int)gstate_c.cutRTOffsetX) * scale[0], frameWindow->TexHeight() * scale[1], 0, -1, 1);
 	glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glEnableVertexAttribArray(previewProgram->a_position);
 	glVertexAttribPointer(previewProgram->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data() + 2);

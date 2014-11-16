@@ -17,16 +17,17 @@
 
 #include <algorithm>
 
+#include "base/compat.h"
 #include "gfx_es2/gl_state.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "UI/MiscScreens.h"
-#include "UI/DevScreens.h"
-#include "UI/GameSettingsScreen.h"
+
 #include "Common/LogManager.h"
+#include "Common/CPUDetect.h"
+
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -35,8 +36,9 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "ext/disarm.h"
-#include "Common/CPUDetect.h"
+#include "UI/MiscScreens.h"
+#include "UI/DevScreens.h"
+#include "UI/GameSettingsScreen.h"
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -58,16 +60,19 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new LogConfigScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
 	screenManager()->push(new JitCompareScreen());
 	return UI::EVENT_DONE;
 }
@@ -180,6 +185,20 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	}
 }
 
+const char *GetCompilerABI() {
+#ifdef HAVE_ARMV7
+	return "armeabi-v7a";
+#elif defined(ARM)
+	return "armeabi";
+#elif defined(_M_IX86)
+	return "x86";
+#elif defined(_M_X64)
+	return "x86-64";
+#else
+	return "other";
+#endif
+}
+
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *d = GetI18NCategory("Dialog");
@@ -204,6 +223,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("System Information"));
 	deviceSpecs->Add(new InfoItem("Name", System_GetProperty(SYSPROP_NAME)));
 	deviceSpecs->Add(new InfoItem("Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
+	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
 #ifdef ARM
@@ -214,13 +234,26 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Threads", cores));
 #endif
 	deviceSpecs->Add(new ItemHeader("GPU Information"));
-	deviceSpecs->Add(new InfoItem("Vendor", (char *)glGetString(GL_VENDOR)));
-	deviceSpecs->Add(new InfoItem("Model", (char *)glGetString(GL_RENDERER)));
-	deviceSpecs->Add(new ItemHeader("OpenGL Version Information"));
-	std::string openGL = (char *)glGetString(GL_VERSION);
-	openGL.resize(30);
-	deviceSpecs->Add(new InfoItem("OpenGL", openGL));
-	deviceSpecs->Add(new InfoItem("GLSL", (char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+
+	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(T3DInfo::APINAME)));
+	deviceSpecs->Add(new InfoItem("Vendor", thin3d->GetInfoString(T3DInfo::VENDOR)));
+	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
+#ifdef _WIN32
+	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+#endif
+	deviceSpecs->Add(new ItemHeader("Version Information"));
+	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+	apiVersion.resize(30);
+	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
+	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
+
+#ifdef ANDROID
+	char temp[256];
+	sprintf(temp, "%dx%d", System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
+	deviceSpecs->Add(new InfoItem("Display resolution", temp));
+#endif
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
@@ -259,18 +292,24 @@ void SystemInfoScreen::CreateViews() {
 		oglExtensions->Add(new TextView(exts[i]));
 	}
 
-	ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
-	eglExtensions->SetSpacing(0);
-	eglExtensionsScroll->Add(eglExtensions);
-	tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
-
-	eglExtensions->Add(new ItemHeader("EGL Extensions"));
 	exts.clear();
 	SplitString(g_all_egl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
-	for (size_t i = 0; i < exts.size(); i++) {
-		eglExtensions->Add(new TextView(exts[i]));
+
+	// If there aren't any EGL extensions, no need to show the tab.
+	if (exts.size() > 0) {
+		ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
+		eglExtensions->SetSpacing(0);
+		eglExtensionsScroll->Add(eglExtensions);
+
+		tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
+
+		eglExtensions->Add(new ItemHeader("EGL Extensions"));
+
+		for (size_t i = 0; i < exts.size(); i++) {
+			eglExtensions->Add(new TextView(exts[i]));
+		}
 	}
 }
 
@@ -338,7 +377,7 @@ void AddressPromptScreen::UpdatePreviewDigits() {
 	}
 }
 
-void AddressPromptScreen::key(const KeyInput &key) {
+bool AddressPromptScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode >= NKCODE_0 && key.keyCode <= NKCODE_9) {
 			AddDigit(key.keyCode - NKCODE_0);
@@ -350,13 +389,13 @@ void AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_ENTER) {
 			OnCompleted(DR_OK);
 			screenManager()->finishDialog(this, DR_OK);
-			return;
 		} else {
-			UIDialogScreen::key(key);
+			return UIDialogScreen::key(key);
 		}
 	} else {
-		UIDialogScreen::key(key);
+		return UIDialogScreen::key(key);
 	}
+	return true;
 }
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
@@ -386,38 +425,10 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView("no block"));
-}
 
-#ifdef ARM
-std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
-	std::vector<std::string> lines;
-
-	char temp[256];
-	for (int i = 0; i < size; i += 4) {
-		const u32 *codePtr = (const u32 *)(data + i);
-		u32 inst = codePtr[0];
-		u32 next = (i < size - 4) ? codePtr[1] : 0;
-		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
-		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
-			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
-			u32 hi = ((next & 0x000F0000) >> 4) | (next	 & 0x0FFF);
-			int reg0 = (inst & 0x0000F000) >> 12;
-			int reg1 = (next & 0x0000F000) >> 12;
-			if (reg0 == reg1) {
-				sprintf(temp, "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
-				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				lines.push_back(temp);
-				i += 4;
-				continue;
-			}
-		}
-		ArmDis((u32)(intptr_t)codePtr, inst, temp, false);
-		std::string buf = temp;
-		lines.push_back(buf);
-	}
-	return lines;
+	EventParams ignore = {0};
+	OnCurrentBlock(ignore);
 }
-#endif
 
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();
@@ -435,7 +446,7 @@ void JitCompareScreen::UpdateDisasm() {
 	JitBlock *block = blockCache->GetBlock(currentBlock_);
 
 	char temp[256];
-	sprintf(temp, "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
+	snprintf(temp, sizeof(temp), "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
 	blockName_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
@@ -450,12 +461,12 @@ void JitCompareScreen::UpdateDisasm() {
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
+#else
+	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
+#endif
 	for (size_t i = 0; i < targetDis.size(); i++) {
 		rightDisasm_->Add(new TextView(targetDis[i]));
 	}
-#else
-	rightDisasm_->Add(new TextView("No x86 disassembler available"));
-#endif
 }
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
@@ -500,7 +511,7 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 				if (MIPSGetInfo(opcode) & IS_VFPU) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp)
+					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
 					anyVFPU = true;
 					break;
 				}

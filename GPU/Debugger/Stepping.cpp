@@ -31,7 +31,7 @@ enum PauseAction {
 	PAUSE_GETTEX,
 	PAUSE_SETCMDVALUE,
 };
-	
+
 static bool isStepping;
 
 static recursive_mutex pauseLock;
@@ -40,7 +40,7 @@ static PauseAction pauseAction = PAUSE_CONTINUE;
 static recursive_mutex actionLock;
 static condition_variable actionWait;
 // In case of accidental wakeup.
-static bool actionComplete;
+static volatile bool actionComplete;
 
 // Many things need to run on the GPU thread.  For example, reading the framebuffer.
 // A message system is used to achieve this (temporarily "unpausing" the thread.)
@@ -51,6 +51,7 @@ static GPUDebugBuffer bufferFrame;
 static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
+static int bufferLevel;
 static u32 pauseSetCmdValue;
 
 static void SetPauseAction(PauseAction act, bool waitComplete = true) {
@@ -92,7 +93,7 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_GETTEX:
-		bufferResult = gpuDebug->GetCurrentTexture(bufferTex);
+		bufferResult = gpuDebug->GetCurrentTexture(bufferTex, bufferLevel);
 		break;
 
 	case PAUSE_SETCMDVALUE:
@@ -118,6 +119,8 @@ bool EnterStepping(std::function<void()> callback) {
 		return false;
 	}
 
+	gpuDebug->NotifySteppingEnter();
+
 	// Just to be sure.
 	if (pauseAction == PAUSE_CONTINUE) {
 		pauseAction = PAUSE_BREAK;
@@ -131,8 +134,13 @@ bool EnterStepping(std::function<void()> callback) {
 		pauseWait.wait(pauseLock);
 	} while (pauseAction != PAUSE_CONTINUE);
 
+	gpuDebug->NotifySteppingExit();
 	isStepping = false;
 	return true;
+}
+
+bool IsStepping() {
+	return isStepping;
 }
 
 static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPUDebugBuffer &resultBuffer) {
@@ -157,7 +165,8 @@ bool GPU_GetCurrentStencilbuffer(const GPUDebugBuffer *&buffer) {
 	return GetBuffer(buffer, PAUSE_GETSTENCILBUF, bufferStencil);
 }
 
-bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer) {
+bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer, int level) {
+	bufferLevel = level;
 	return GetBuffer(buffer, PAUSE_GETTEX, bufferTex);
 }
 

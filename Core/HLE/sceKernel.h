@@ -30,6 +30,7 @@ enum
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
 	SCE_KERNEL_ERROR_OUT_OF_MEMORY                    = 0x80000022,
+	SCE_KERNEL_ERROR_PRIV_REQUIRED                    = 0x80000023,
 	SCE_KERNEL_ERROR_INVALID_ID                       = 0x80000100,
 	SCE_KERNEL_ERROR_INVALID_NAME                     = 0x80000101,
 	SCE_KERNEL_ERROR_INVALID_INDEX                    = 0x80000102,
@@ -306,6 +307,8 @@ enum
 
 	SCE_KERNEL_ERROR_CACHE_ALIGNMENT                  = 0x8002044c,
 	SCE_KERNEL_ERROR_ERRORMAX                         = 0x8002044d,
+
+	SCE_KERNEL_ERROR_POWER_VMEM_IN_USE                = 0x802b0200,
 };
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
@@ -324,12 +327,13 @@ enum TMIDPurpose
 	SCE_KERNEL_TMID_VTimer             = 11,
 	SCE_KERNEL_TMID_Mutex              = 12,
 	SCE_KERNEL_TMID_LwMutex            = 13,
+	SCE_KERNEL_TMID_Tlspl              = 14,
 	SCE_KERNEL_TMID_SleepThread        = 64,
 	SCE_KERNEL_TMID_DelayThread        = 65,
 	SCE_KERNEL_TMID_SuspendThread      = 66,
 	SCE_KERNEL_TMID_DormantThread      = 67,
-	// No idea what the correct value is here or how to find out.
-	SCE_KERNEL_TMID_Tlspl              = 0x1001,
+	// This is kept for old savestates.  Not the real value.
+	SCE_KERNEL_TMID_Tlspl_v0           = 0x1001,
 
 	// Not official, but need ids for save states.
 	PPSSPP_KERNEL_TMID_Module          = 0x100001,
@@ -485,11 +489,9 @@ public:
 	}
 
 	template <class T, typename ArgT>
-	void Iterate(bool func(T *, ArgT), ArgT arg)
-	{
+	void Iterate(bool func(T *, ArgT), ArgT arg) {
 		int type = T::GetStaticIDType();
-		for (int i = 0; i < maxCount; i++)
-		{
+		for (int i = 0; i < maxCount; i++) {
 			if (!occupied[i])
 				continue;
 			T *t = static_cast<T *>(pool[i]);
@@ -498,6 +500,22 @@ public:
 					break;
 			}
 		}
+	}
+
+	int ListIDType(int type, SceUID *uids, int count) const {
+		int total = 0;
+		for (int i = 0; i < maxCount; i++) {
+			if (!occupied[i]) {
+				continue;
+			}
+			if (pool[i]->GetIDType() == type) {
+				if (total < count) {
+					*uids++ = pool[i]->GetUID();
+				}
+				++total;
+			}
+		}
+		return total;
 	}
 
 	bool GetIDType(SceUID handle, int *type) const

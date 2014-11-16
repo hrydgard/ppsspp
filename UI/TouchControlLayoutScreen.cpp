@@ -214,7 +214,7 @@ TouchControlLayoutScreen::TouchControlLayoutScreen() {
 	pickedControl_ = 0;
 };
 
-void TouchControlLayoutScreen::touch(const TouchInput &touch) {
+bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 	UIScreen::touch(touch);
 
 	using namespace UI;
@@ -275,6 +275,7 @@ void TouchControlLayoutScreen::touch(const TouchInput &touch) {
 		pickedControl_->SavePosition();
 		pickedControl_ = 0;
 	}
+	return true;
 };
 
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {

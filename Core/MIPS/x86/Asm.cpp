@@ -72,12 +72,14 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
-	MOV(64, R(RBX), Imm64((u64)Memory::base));
-	MOV(64, R(R15), Imm64((u64)jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(RBX), ImmPtr(Memory::base));
+	MOV(64, R(R15), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
 #endif
 
 	outerLoop = GetCodePtr();
+		jit->RestoreRoundingMode(true, this);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
+		jit->ApplyRoundingMode(true, this);
 		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
@@ -101,6 +103,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			dispatcherNoCheck = GetCodePtr();
 
+			// TODO: Find a less costly place to put this (or multiple..)?
+			// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+			MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
+
 			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
@@ -113,7 +119,6 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
 			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
 			FixupBranch notfound = J_CC(CC_NZ);
-				// IDEA - we have 24 bits, why not just use offsets from base of code?
 				if (enableDebug)
 				{
 					ADD(32, M(&mips->debugCount), Imm8(1));
@@ -129,8 +134,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
+			jit->RestoreRoundingMode(true, this);
 			ABI_CallFunction(&Jit);
-			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
+			jit->ApplyRoundingMode(true, this);
+			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
@@ -139,10 +146,12 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
+	jit->RestoreRoundingMode(true, this);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
 	breakpointBailout = GetCodePtr();
+	jit->RestoreRoundingMode(true, this);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 }

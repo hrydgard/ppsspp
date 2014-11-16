@@ -362,6 +362,10 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	if (KeyDownAsync(VK_CONTROL) || wParam == VK_TAB) return;
 
 	if (!Memory::IsValidAddress(curAddress))
@@ -602,6 +606,10 @@ void CtrlMemView::scrollCursor(int bytes)
 
 void CtrlMemView::search(bool continueSearch)
 {
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
 	u32 searchAddress;
 	if (continueSearch == false || searchQuery[0] == 0)
 	{

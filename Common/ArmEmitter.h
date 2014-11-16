@@ -24,11 +24,9 @@
 #include <stdint.h>
 
 #include "Common.h"
-#if defined(__SYMBIAN32__) || defined(PANDORA)
-#include <signal.h>
-#endif
+#include "MsgHandler.h"
 
-#undef R0
+// TODO: Check if Pandora still needs signal.h/kill here. Symbian doesn't.
 
 // VCVT flags
 #define TO_FLOAT      0
@@ -866,7 +864,10 @@ public:
 	void VMRS(ARMReg Rt);
 	void VMSR(ARMReg Rt);
 
-	void QuickCallFunction(ARMReg scratchreg, void *func);
+	void QuickCallFunction(ARMReg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(ARMReg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
+	}
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
@@ -877,6 +878,14 @@ public:
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
 		MOVI2R(reg, (u32)(intptr_t)(void *)val);
+	}
+
+	void MOVIU2F(ARMReg dest, u32 val, ARMReg tempReg, bool negate = false) {
+		union {
+			u32 u;
+			float f;
+		} v = {val};
+		MOVI2F(dest, v.f, tempReg, negate);
 	}
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);

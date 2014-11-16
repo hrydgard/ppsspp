@@ -18,6 +18,15 @@
 #pragma once
 
 #include <map>
+#ifdef IOS
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+	using std::tr1::unordered_multimap;
+}
+#else
+#include <unordered_map>
+#endif
 #include <vector>
 #include <string>
 
@@ -39,7 +48,11 @@ namespace PpcGen { class PPCXEmitter; }
 using namespace PpcGen;
 typedef PpcGen::PPCXCodeBlock CodeBlock;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Common/FakeEmitter.h"
+namespace FakeGen { class FakeXEmitter; }
+using namespace FakeGen;
+typedef FakeGen::FakeXCodeBlock CodeBlock;
 #endif
 
 #if defined(ARM)
@@ -75,13 +88,17 @@ struct JitBlock {
 #ifdef USE_VTUNE
 	char blockName[32];
 #endif
-	std::vector<u32> proxyFor;
+
+	// By having a pointer, we avoid a constructor/destructor being generated and dog slow
+	// performance in debug.
+	std::vector<u32> *proxyFor;
 
 	bool IsPureProxy() const {
-		return originalFirstOpcode.encoding == 0;
+		return originalFirstOpcode.encoding == 0x68FF0000;
 	}
 	void SetPureProxy() {
-		originalFirstOpcode.encoding = 0;
+		// Magic number that won't be a real opcode.
+		originalFirstOpcode.encoding = 0x68FF0000;
 	}
 };
 
@@ -122,6 +139,8 @@ public:
 
 	MIPSOpcode GetOriginalFirstOp(int block_num);
 
+	bool RangeMayHaveEmuHacks(u32 start, u32 end) const;
+
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
@@ -133,21 +152,38 @@ public:
 
 	int GetNumBlocks() const { return num_blocks_; }
 
+	static int GetBlockExitSize();
+
+	enum {
+		MAX_BLOCK_INSTRUCTIONS = 0x4000,
+	};
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
+
+	void AddBlockMap(int block_num);
+	void RemoveBlockMap(int block_num);
 
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
 	CodeBlock *codeBlock_;
 	JitBlock *blocks_;
-	std::vector<int> proxyBlockIndices_;
+	std::unordered_multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_;
-	std::multimap<u32, int> links_to_;
+	std::unordered_multimap<u32, int> links_to_;
 	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
+
+	enum {
+		JITBLOCK_RANGE_SCRATCH = 0,
+		JITBLOCK_RANGE_RAMBOTTOM = 1,
+		JITBLOCK_RANGE_RAMTOP = 2,
+		JITBLOCK_RANGE_COUNT = 3,
+	};
+	std::pair<u32, u32> blockMemRanges_[3];
 
 	enum {
 		MAX_NUM_BLOCKS = 65536*2

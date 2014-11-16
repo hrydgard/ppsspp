@@ -18,6 +18,12 @@
 #pragma once
 
 #include <cstring>
+#ifdef __SYMBIAN32__
+#include <e32std.h>
+#endif
+#ifndef offsetof
+#include <stddef.h>
+#endif
 
 // Includes
 #include "Common/Common.h"
@@ -72,40 +78,65 @@ extern u8 *m_pVRAM;
 extern u8 *m_pPhysicalRAM;
 extern u8 *m_pUncachedRAM;
 
-extern u8 *m_pPhysicalVRAM;
-extern u8 *m_pUncachedVRAM;
-
-// These replace RAM_NORMAL_SIZE and RAM_NORMAL_MASK, respectively.
+// This replaces RAM_NORMAL_SIZE at runtime.
 extern u32 g_MemorySize;
-extern u32 g_MemoryMask;
 extern u32 g_PSPModel;
 
 enum
 {
 	// This may be adjusted by remaster games.
 	RAM_NORMAL_SIZE = 0x02000000,
-	RAM_NORMAL_MASK = RAM_NORMAL_SIZE - 1,
-
 	// Used if the PSP model is PSP-2000 (Slim).
 	RAM_DOUBLE_SIZE = RAM_NORMAL_SIZE * 2,
 
-	VRAM_SIZE       = 0x200000,
-	VRAM_MASK       = VRAM_SIZE - 1,
+	VRAM_SIZE       = 0x00200000,
 
-	SCRATCHPAD_SIZE = 0x4000,
-	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
+	SCRATCHPAD_SIZE = 0x00004000,
 
-#if defined(_M_IX86) || defined(_M_ARM32) || defined(_XBOX)
+#ifdef _ARCH_32
 	// This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
 };
+
+enum {
+	MV_MIRROR_PREVIOUS = 1,
+	// MV_FAKE_VMEM = 2,
+	// MV_WII_ONLY = 4,
+	MV_IS_PRIMARY_RAM = 0x100,
+	MV_IS_EXTRA1_RAM = 0x200,
+	MV_IS_EXTRA2_RAM = 0x400,
+};
+
+struct MemoryView
+{
+	u8 **out_ptr_low;
+	u8 **out_ptr;
+	u32 virtual_address;
+	u32 size;
+	u32 flags;
+};
+
+// Uses a memory arena to set up an emulator-friendly memory map
+void MemoryMap_Setup(u32 flags);
+void MemoryMap_Shutdown(u32 flags);
 
 // Init and Shutdown
 void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
+
+class MemoryInitedLock
+{
+public:
+	MemoryInitedLock();
+	~MemoryInitedLock();
+};
+
+// This doesn't lock memory access or anything, it just makes sure memory isn't freed.
+// Use it when accessing PSP memory from external threads.
+MemoryInitedLock Lock();
 
 // used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
@@ -116,7 +147,7 @@ void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
 
-u8	Read_U8(const u32 _Address);
+u8  Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);
@@ -126,7 +157,7 @@ u64 Read_U64(const u32 _Address);
 #endif
 
 inline u8* GetPointerUnchecked(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32)
+#ifdef _ARCH_32
 	return (u8 *)(base + (address & MEMVIEW32_MASK));
 #else
 	return (u8 *)(base + address);
@@ -144,7 +175,7 @@ void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 #else
 
 inline u32 ReadUnchecked_U32(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u32_le *)(base + address);
@@ -152,7 +183,7 @@ inline u32 ReadUnchecked_U32(const u32 address) {
 }
 
 inline u16 ReadUnchecked_U16(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u16_le *)(base + address);
@@ -160,7 +191,7 @@ inline u16 ReadUnchecked_U16(const u32 address) {
 }
 
 inline u8 ReadUnchecked_U8(const u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	return (*(u8 *)(base + (address & MEMVIEW32_MASK))); 
 #else
 	return (*(u8 *)(base + address));
@@ -168,7 +199,7 @@ inline u8 ReadUnchecked_U8(const u32 address) {
 }
 
 inline void WriteUnchecked_U32(u32 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u32_le *)(base + address) = data;
@@ -176,7 +207,7 @@ inline void WriteUnchecked_U32(u32 data, u32 address) {
 }
 
 inline void WriteUnchecked_U16(u16 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	*(u16_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u16_le *)(base + address) = data;
@@ -184,7 +215,7 @@ inline void WriteUnchecked_U16(u16 data, u32 address) {
 }
 
 inline void WriteUnchecked_U8(u8 data, u32 address) {
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 	(*(u8 *)(base + (address & MEMVIEW32_MASK))) = data;
 #else
 	(*(u8 *)(base + address)) = data;
@@ -220,6 +251,7 @@ inline void Write_Float(float f, u32 address)
 u8* GetPointer(const u32 address);
 bool IsRAMAddress(const u32 address);
 bool IsVRAMAddress(const u32 address);
+bool IsScratchpadAddress(const u32 address);
 
 inline const char* GetCharPointer(const u32 address) {
 	return (const char *)GetPointer(address);
@@ -293,7 +325,7 @@ struct PSPPointer
 
 	inline T &operator*() const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 		return *(T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return *(T *)(Memory::base + ptr);
@@ -302,7 +334,7 @@ struct PSPPointer
 
 	inline T &operator[](int i) const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
 #else
 		return *((T *)(Memory::base + ptr) + i);
@@ -311,7 +343,7 @@ struct PSPPointer
 
 	inline T *operator->() const
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
@@ -380,10 +412,19 @@ struct PSPPointer
 
 	inline operator T*()
 	{
-#if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
+#ifdef _ARCH_32
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
+#endif
+	}
+
+	inline operator const T*() const
+	{
+#ifdef _ARCH_32
+		return (const T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
+#else
+		return (const T *)(Memory::base + ptr);
 #endif
 	}
 
@@ -411,7 +452,7 @@ inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
 
-inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
+inline u32 PSP_GetDefaultLoadAddress() { return 0;}
 //inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
 inline u32 PSP_GetVidMemEnd() { return 0x04800000;}

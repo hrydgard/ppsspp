@@ -94,6 +94,8 @@ const tMipsRegister MipsFloatRegister[] = {
 	n	negative 16 bit immediate (for subi/u aliases)
 	b	26 bit immediate
 	a	5 bit immediate
+	V   prefix for S, D, T indicating vector register
+	C   vector compare condition (EQ, etc.)
 */
 
 const tMipsOpcode MipsOpcodes[] = {
@@ -255,14 +257,14 @@ const tMipsOpcode MipsOpcodes[] = {
 	{ "blezl",	"s,I",		0x58000000,	O_RS|O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
 	// OPCODE 17 - BGTZL	MIPS 2
 	{ "bgtzl",	"s,I",		0x5c000000,	O_RS|O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
-	// OPCODE 18 - UNDEF
-	// OPCODE 19 - UNDEF
+	// OPCODE 18 - VFPU0
+	// OPCODE 19 - VFPU1
 	// OPCODE 1A - UNDEF
-	// OPCODE 1B - UNDEF
-	// OPCODE 1C - UNDEF
+	// OPCODE 1B - VFPU3
+	// OPCODE 1C - SPECIAL2
 	// OPCODE 1D - UNDEF
 	// OPCODE 1E - UNDEF
-	// OPCODE 1F - UNDEF
+	// OPCODE 1F - SPECIAL3
 	// OPCODE 20 - LB
 	{ "lb",		"t,i(s)",	0x80000000,	O_RT|O_I16|O_RS|MO_DELAYRT },
 	{ "lb",		"t,(s)",	0x80000000,	O_RT|O_RS|MO_DELAYRT },
@@ -302,23 +304,49 @@ const tMipsOpcode MipsOpcodes[] = {
 	// OPCODE 2E - SWR
 	{ "swr",	"t,i(s)",	0xb8000000,	O_RT|O_I16|O_RS },
 	{ "swr",	"t,(s)",	0xb8000000,	O_RT|O_RS },
-	// OPCODE 2F - UNDEF
-	// OPCODE 30 - UNDEF
+	// OPCODE 2F - CACHE
+	// OPCODE 30 - LL
+	{ "ll",		"t,i(s)",	0xc0000000,	O_RT|O_I16|O_RS|MO_DELAYRT },
+	{ "ll",		"t,(s)",	0xc0000000,	O_RT|O_RS|MO_DELAYRT },
 	// OPCODE 31 - LWC1
-	// OPCODE 32 - LWC2
+	{ "lwc1",	"T,i(s)",	0xc4000000, MO_FRT|O_I16|O_RS },
+	{ "lwc1",	"T,(s)",	0xc4000000, MO_FRT|O_RS },
+	// OPCODE 32 - LVS - VVVVVV SSSSS TTTTT IIIIIIIIIIIIII TT
+	{ "lwc2",	"VT,i(s)",	0xc8000000, MO_VRTI|O_I16|O_RS },
+	{ "lwc2",	"VT,(s)",	0xc8000000, MO_VRTI|O_RS },
+	{ "lv.s",	"VT,i(s)",	0xc8000000, MO_VRTI|O_I16|O_RS },
+	{ "lv.s",	"VT,(s)",	0xc8000000, MO_VRTI|O_RS },
 	// OPCODE 33 - LWC3
-	// OPCODE 34 - UNDEF
-	// OPCODE 35 - UNDEF
-	// OPCODE 36 - UNDEF
-	// OPCODE 37 - UNDEF
-	// OPCODE 38 - UNDEF
+	// OPCODE 34 - VFPU4
+	// OPCODE 35 - ULVQ - VVVVVV SSSSS TTTTT IIIIIIIIIIIIII TT (WARNING: reportedly buggy on PSP-1000)
+	{ "ulv.q",	"VT,i(s)",	0xd4000000, MO_VRTI|O_I16|O_RS },
+	{ "lvl.q",	"VT,i(s)",	0xd4000000, MO_VRTI|O_I16|O_RS },
+	{ "lvr.q",	"VT,i(s)",	0xd4000002, MO_VRTI|O_I16|O_RS },
+	// OPCODE 36 - LVQ
+	{ "lv.q",	"VT,i(s)",	0xd8000000, MO_VRTI|O_I16|O_RS },
+	{ "lv.q",	"VT,(s)",	0xd8000000, MO_VRTI|O_RS },
+	// OPCODE 37 - VFPU5
+	// OPCODE 38 - SC
+	{ "sc",	"t,i(s)",		0xe0000000,	O_RT|O_I16|O_RS },
+	{ "sc",	"t,(s)",		0xe0000000,	O_RT|O_RS },
 	// OPCODE 39 - SWC1
-	// OPCODE 3A - SWC2
+	{ "swc1",	"T,i(s)",	0xe4000000, MO_FRT|O_I16|O_RS },
+	{ "swc1",	"T,(s)",	0xe4000000, MO_FRT|O_I16|O_RS },
+	// OPCODE 3A - SVS - VVVVVV SSSSS TTTTT IIIIIIIIIIIIII TT
+	{ "swc2",	"VT,i(s)",	0xe8000000, MO_VRTI|O_I16|O_RS },
+	{ "swc2",	"VT,(s)",	0xe8000000, MO_VRTI|O_RS },
+	{ "sv.s",	"VT,i(s)",	0xe8000000, MO_VRTI|O_I16|O_RS },
+	{ "sv.s",	"VT,(s)",	0xe8000000, MO_VRTI|O_RS },
 	// OPCODE 3B - SWC3
-	// OPCODE 3C - UNDEF
-	// OPCODE 3D - UNDEF
-	// OPCODE 3E - UNDEF
-	// OPCODE 3F - UNDEF
+	// OPCODE 3C - VFPU6
+	// OPCODE 3D - USVQ - VVVVVV SSSSS TTTTT IIIIIIIIIIIIII TT
+	{ "usv.q",	"VT,i(s)",	0xf4000000, MO_VRTI|O_I16|O_RS },
+	{ "svl.q",	"VT,i(s)",	0xf4000000, MO_VRTI|O_I16|O_RS },
+	{ "svr.q",	"VT,i(s)",	0xf4000002, MO_VRTI|O_I16|O_RS },
+	// OPCODE 3E - SVQ - VVVVVV SSSSS TTTTT IIIIIIIIIIIIII TT
+	{ "sv.q",	"VT,i(s)",	0xf8000000, MO_VRTI|O_I16|O_RS },
+	{ "sv.q",	"VT,(s)",	0xf8000000, MO_VRTI|O_RS },
+	// OPCODE 3F - VFPU7
 
 
 //     31-------26------21---------------------------------------------0
@@ -412,7 +440,277 @@ const tMipsOpcode MipsOpcodes[] = {
 //  hi |-------|-------|-------|-------|-------|-------|-------|-------|
 	{ "cvt.s.w",	"D,S",		0x46800020,	MO_FRD|MO_FRS },
 
+//     31-------26------21---------------------------------------------0
+//     |=    COP2|  rs  |                                              |
+//     -----6-------5---------------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 |  ---  |  ---  |  ---  |  MFV  |  ---  |  ---  |  ---  |  MTV  |
+//  01 |  BC*  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  10 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  11 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  hi |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVVVV ttttt -------- C DDDDDDD
+	{ "mfv",	"t,VD",		MIPS_COP2(3), MO_VRD|O_RT },
+	{ "mfvc",	"t,i",		MIPS_COP2(3) | 0x80, O_I16|O_RT },
+	{ "mtv",	"t,VD",		MIPS_COP2(7), MO_VRD|O_RT },
+	{ "mtvc",	"t,i",		MIPS_COP2(7) | 0x80, O_I16|O_RT },
 
+//     COP2BC: ? indicates any, * indicates all
+//     31---------21-------16------------------------------------------0
+//     |=    COP2BC|  rt   |                                           |
+//     ------11---------5-----------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 |  BVFx |  BVTx | BVFLx | BVTLx |  BVFy |  BVTy | BVFLy | BVTLy |
+//  01 |  BVFz |  BVTz | BVFLz | BVTLz |  BVFw |  BVTw | BVFLw | BVTLw |
+//  10 |  BVF? |  BVT? | BVFL? | BVTL? |  BVF* |  BVT* | BVFL* | BVTL* |
+//  11 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  hi |-------|-------|-------|-------|-------|-------|-------|-------|
+	// TODO: Multiple immediates (format: bvf 0, label)...?  We'll just use .x for now.
+	// VVVVVV VVVVV iii L C IIIIIIIIIIIIIIII
+	{ "bvf.x",		"I",		MIPS_COP2BC(0x00),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.x",		"I",		MIPS_COP2BC(0x01),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.x",		"I",		MIPS_COP2BC(0x02),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.x",		"I",		MIPS_COP2BC(0x03),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvf.y",		"I",		MIPS_COP2BC(0x04),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.y",		"I",		MIPS_COP2BC(0x05),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.y",		"I",		MIPS_COP2BC(0x06),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.y",		"I",		MIPS_COP2BC(0x07),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvf.z",		"I",		MIPS_COP2BC(0x08),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.z",		"I",		MIPS_COP2BC(0x09),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.z",		"I",		MIPS_COP2BC(0x0a),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.z",		"I",		MIPS_COP2BC(0x0b),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvf.w",		"I",		MIPS_COP2BC(0x0c),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.w",		"I",		MIPS_COP2BC(0x0d),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.w",		"I",		MIPS_COP2BC(0x0e),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.w",		"I",		MIPS_COP2BC(0x0f),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvf.any",	"I",		MIPS_COP2BC(0x10),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.any",	"I",		MIPS_COP2BC(0x11),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.any",	"I",		MIPS_COP2BC(0x12),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.any",	"I",		MIPS_COP2BC(0x13),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvf.all",	"I",		MIPS_COP2BC(0x14),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvt.all",	"I",		MIPS_COP2BC(0x15),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvfl.all",	"I",		MIPS_COP2BC(0x16),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+	{ "bvtl.all",	"I",		MIPS_COP2BC(0x17),	O_I16|O_IPCR|MO_DELAY|MO_NODELAY },
+
+//     31-------26-----23----------------------------------------------0
+//     |=   VFPU0|  f  |                                               |
+//     -----6-------3---------------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--|
+//     |  VADD |  VSUB |  VSBN |  ---  |  ---  |  ---  |  ---  |  VDIV |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVV TTTTTTT z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vadd", "VD,VS,VT", MIPS_VFPU0(0), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vsub", "VD,VS,VT", MIPS_VFPU0(1), MO_VRD|MO_VRS|MO_VRT),
+	// Including encodings that may work but aren't technically valid/sane for easy testing.
+	// TODO: Could remove or warn?
+	MIPS_VFPU_ALLSIZES("vsbn", "VD,VS,VT", MIPS_VFPU0(2), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vdiv", "VD,VS,VT", MIPS_VFPU0(7), MO_VRD|MO_VRS|MO_VRT),
+
+//     31-------26-----23----------------------------------------------0
+//     |=   VFPU1|  f  |                                               |
+//     -----6-------3---------------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--|
+//     |  VMUL |  VDOT |  VSCL |  ---  |  VHDP |  VDET |  VCRS |  ---  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVV TTTTTTT z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vmul", "VD,VS,VT", MIPS_VFPU1(0), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vdot", "VD,VS,VT", MIPS_VFPU1(1), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vscl", "VD,VS,VT", MIPS_VFPU1(2), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vhdp", "VD,VS,VT", MIPS_VFPU1(4), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vdet", "VD,VS,VT", MIPS_VFPU1(5), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vcrs", "VD,VS,VT", MIPS_VFPU1(6), MO_VRD|MO_VRS|MO_VRT),
+
+//     31-------26-----23----------------------------------------------0
+//     |=   VFPU3|  f  |                                               |
+//     -----6-------3---------------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--|
+//     |  VCMP |  ---  |  VMIN |  VMAX |  ---  | VSCMP |  VSGE |  VSLT |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVV TTTTTTT z SSSSSSS z --- CCCC
+	MIPS_VFPU_ALLSIZES("vcmp", "C,VS,VT", MIPS_VFPU3(0), MO_VRS|MO_VRT|MO_VCOND),
+	// VVVVVV VVV TTTTTTT z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vmin", "VD,VS,VT", MIPS_VFPU3(2), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vmax", "VD,VS,VT", MIPS_VFPU3(3), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vscmp", "VD,VS,VT", MIPS_VFPU3(5), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vsge", "VD,VS,VT", MIPS_VFPU3(6), MO_VRD|MO_VRS|MO_VRT),
+	MIPS_VFPU_ALLSIZES("vslt", "VD,VS,VT", MIPS_VFPU3(7), MO_VRD|MO_VRS|MO_VRT),
+
+//     31-------26--------------------------------------------5--------0
+//     |=SPECIAL3|                                           | function|
+//     -----11----------------------------------------------------6-----
+//     -----6-------5---------------------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+// 000 |  EXT  |  ---  |  ---  |  ---  |  INS  |  ---  |  ---  |  ---  |
+// 001 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 010 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 011 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 100 |ALLEGRE|  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 101 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 110 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+// 110 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  hi |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV sssss ttttt zzzzz ppppp VVVVVV
+	// TODO: This has two immediates, size (z) and pos (p)...
+
+//     31-------26----------------------------------10--------5--------0
+//     |=SPECIAL3|                                 | secfunc |ALLEGREX0|
+//     ------11---------5-------------------------------5---------6-----
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 |  ---  |  ---  | WSBH  | WSBW  |  ---  |  ---  |  ---  |  ---  |
+//  01 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  10 |  SEB  |  ---  |  ---  |  ---  |BITREV |  ---  |  ---  |  ---  |
+//  11 |  SEH  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  hi |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV ----- ttttt ddddd VVVVV VVVVVV
+	{ "wsbh",	"d,t",			MIPS_ALLEGREX0(0x02), O_RD|O_RT },
+	{ "wsbh",	"d",			MIPS_ALLEGREX0(0x02), O_RDT },
+	{ "wsbw",	"d,t",			MIPS_ALLEGREX0(0x03), O_RD|O_RT },
+	{ "wsbw",	"d",			MIPS_ALLEGREX0(0x03), O_RDT },
+	{ "seb",	"d,t",			MIPS_ALLEGREX0(0x10), O_RD|O_RT },
+	{ "seb",	"d",			MIPS_ALLEGREX0(0x10), O_RDT },
+	{ "bitrev",	"d,t",			MIPS_ALLEGREX0(0x14), O_RD|O_RT },
+	{ "bitrev",	"d",			MIPS_ALLEGREX0(0x14), O_RDT },
+	{ "seh",	"d,t",			MIPS_ALLEGREX0(0x18), O_RD|O_RT },
+	{ "seh",	"d",			MIPS_ALLEGREX0(0x18), O_RDT },
+
+//     VFPU4: This one is a bit messy.
+//     31-------26------21---------------------------------------------0
+//     |=   VFPU4|  rs  |                                              |
+//     -----6-------5---------------------------------------------------
+//  hi |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 |VF4-1.1|VF4-1.2|VF4-1.3| VCST  |  ---  |  ---  |  ---  |  ---  |
+//  01 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  10 | VF2IN | VF2IZ | VF2IU | VF2ID | VI2F  | VCMOV |  ---  |  ---  |
+//  11 | VWBN  | VWBN  | VWBN  | VWBN  | VWBN  | VWBN  | VWBN  | VWBN  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVVVV iiiii z ------- z DDDDDDD
+	// Technically these also have names (as the second arg.)
+	MIPS_VFPU_ALLSIZES("vcst", "VD,i", MIPS_VFPU4(0x03), MO_VRD|MO_VIMM),
+	// VVVVVV VVVVV iiiii z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vf2in", "VD,VS,i", MIPS_VFPU4(0x10), MO_VRD|MO_VRS|MO_VIMM),
+	MIPS_VFPU_ALLSIZES("vf2iz", "VD,VS,i", MIPS_VFPU4(0x11), MO_VRD|MO_VRS|MO_VIMM),
+	MIPS_VFPU_ALLSIZES("vf2iu", "VD,VS,i", MIPS_VFPU4(0x12), MO_VRD|MO_VRS|MO_VIMM),
+	MIPS_VFPU_ALLSIZES("vf2id", "VD,VS,i", MIPS_VFPU4(0x13), MO_VRD|MO_VRS|MO_VIMM),
+	MIPS_VFPU_ALLSIZES("vi2f", "VD,VS,i", MIPS_VFPU4(0x14), MO_VRD|MO_VRS|MO_VIMM),
+	// VVVVVV VVVVV - C iii z SSSSSSS z DDDDDDD
+	// This is arguably a horrible syntax but it's the common one.
+	MIPS_VFPU_ALLSIZES("vcmovt", "VD,VS,i", MIPS_VFPU4(0x15) | 0x00000000, MO_VRD|MO_VRS|MO_VIMM),
+	MIPS_VFPU_ALLSIZES("vcmovf", "VD,VS,i", MIPS_VFPU4(0x15) | 0x00080000, MO_VRD|MO_VRS|MO_VIMM),
+	// VVVVVV VV iiiiiiii z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vwbn", "VD,VS,i", MIPS_VFPU4(0x18), MO_VRD|MO_VRS|MO_VIMM),
+
+//     31-------------21-------16--------------------------------------0
+//     |= VF4-1.1      |   rt  |                                       |
+//     --------11----------5--------------------------------------------
+//  hi |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 | VMOV  | VABS  | VNEG  | VIDT  | VSAT0 | VSAT1 | VZERO | VONE  |
+//  01 |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  10 | VRCP  | VRSQ  | VSIN  | VCOS  | VEXP2 | VLOG2 | VSQRT | VASIN |
+//  11 | VNRCP |  ---  | VNSIN |  ---  |VREXP2 |  ---  |  ---  |  ---  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVVVV VVVVV z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vmov", "VD,VS", MIPS_VFPU4_11(0x00), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vabs", "VD,VS", MIPS_VFPU4_11(0x01), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vneg", "VD,VS", MIPS_VFPU4_11(0x02), MO_VRD|MO_VRS),
+	// VVVVVV VVVVV VVVVV z ------- z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vidt", "VD", MIPS_VFPU4_11(0x03), MO_VRD),
+	// VVVVVV VVVVV VVVVV z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vsat0", "VD,VS", MIPS_VFPU4_11(0x04), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsat1", "VD,VS", MIPS_VFPU4_11(0x05), MO_VRD|MO_VRS),
+	// VVVVVV VVVVV VVVVV z ------- z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vzero", "VD", MIPS_VFPU4_11(0x06), MO_VRD),
+	MIPS_VFPU_ALLSIZES("vone", "VD", MIPS_VFPU4_11(0x07), MO_VRD),
+	// VVVVVV VVVVV VVVVV z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vrcp", "VD,VS", MIPS_VFPU4_11(0x10), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vrsq", "VD,VS", MIPS_VFPU4_11(0x11), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsin", "VD,VS", MIPS_VFPU4_11(0x12), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vcos", "VD,VS", MIPS_VFPU4_11(0x13), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vexp2", "VD,VS", MIPS_VFPU4_11(0x14), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vlog2", "VD,VS", MIPS_VFPU4_11(0x15), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsqrt", "VD,VS", MIPS_VFPU4_11(0x16), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vasin", "VD,VS", MIPS_VFPU4_11(0x17), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vnrcp", "VD,VS", MIPS_VFPU4_11(0x18), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vnsin", "VD,VS", MIPS_VFPU4_11(0x1a), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vrexp2", "VD,VS", MIPS_VFPU4_11(0x1c), MO_VRD|MO_VRS),
+
+//     VFPU4 1.2: TODO: Unsure where VSBZ goes, no one uses it.
+//     31-------------21-------16--------------------------------------0
+//     |= VF4-1.2      |   rt  |                                       |
+//     --------11----------5--------------------------------------------
+//  hi |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 | VRNDS | VRNDI |VRNDF1 |VRNDF2 |  ---  |  ---  |  ---  |  ---  |
+//  01 |  ---  |  ---  |  ---  |  ---  | VSBZ? |  ---  |  ---  |  ---  |
+//  10 |  ---  |  ---  | VF2H  | VH2F  |  ---  |  ---  | VSBZ? | VLGB  |
+//  11 | VUC2I | VC2I  | VUS2I | VS2I  | VI2UC | VI2C  | VI2US | VI2S  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVVVV VVVVV z ------- z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vrnds", "VD", MIPS_VFPU4_12(0x00), MO_VRD),
+	MIPS_VFPU_ALLSIZES("vrndi", "VD", MIPS_VFPU4_12(0x01), MO_VRD),
+	MIPS_VFPU_ALLSIZES("vrndf1", "VD", MIPS_VFPU4_12(0x02), MO_VRD),
+	MIPS_VFPU_ALLSIZES("vrndf2", "VD", MIPS_VFPU4_12(0x03), MO_VRD),
+	// VVVVVV VVVVV VVVVV z SSSSSSS z DDDDDDD
+	// TODO: VSBZ?
+	MIPS_VFPU_ALLSIZES("vf2h", "VD,VS", MIPS_VFPU4_12(0x12), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vh2f", "VD,VS", MIPS_VFPU4_12(0x13), MO_VRD|MO_VRS),
+	// TODO: VSBZ?
+	MIPS_VFPU_ALLSIZES("vlgb", "VD,VS", MIPS_VFPU4_12(0x17), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vuc2i", "VD,VS", MIPS_VFPU4_12(0x18), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vc2i", "VD,VS", MIPS_VFPU4_12(0x19), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vus2i", "VD,VS", MIPS_VFPU4_12(0x1a), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vs2i", "VD,VS", MIPS_VFPU4_12(0x1b), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vi2uc", "VD,VS", MIPS_VFPU4_12(0x1c), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vi2c", "VD,VS", MIPS_VFPU4_12(0x1d), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vi2us", "VD,VS", MIPS_VFPU4_12(0x1e), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vi2s", "VD,VS", MIPS_VFPU4_12(0x1f), MO_VRD|MO_VRS),
+
+//     31--------------21------16--------------------------------------0
+//     |= VF4-1.3      |   rt  |                                       |
+//     --------11----------5--------------------------------------------
+//  hi |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//  00 | VSRT1 | VSRT2 | VBFY1 | VBFY2 | VOCP  | VSOCP | VFAD  | VAVG  |
+//  01 | VSRT3 | VSRT4 | VSGN  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  10 | VMFVC | VMTVC |  ---  |  ---  |  ---  |  ---  |  ---  |  ---  |
+//  11 |  ---  |VT4444 |VT5551 |VT5650 |  ---  |  ---  |  ---  |  ---  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VVVVV VVVVV z SSSSSSS z DDDDDDD
+	MIPS_VFPU_ALLSIZES("vsrt1", "VD,VS", MIPS_VFPU4_13(0x00), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsrt2", "VD,VS", MIPS_VFPU4_13(0x01), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vbfy1", "VD,VS", MIPS_VFPU4_13(0x02), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vbfy2", "VD,VS", MIPS_VFPU4_13(0x03), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vocp", "VD,VS", MIPS_VFPU4_13(0x04), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsocp", "VD,VS", MIPS_VFPU4_13(0x05), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vfad", "VD,VS", MIPS_VFPU4_13(0x06), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vavg", "VD,VS", MIPS_VFPU4_13(0x07), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsrt3", "VD,VS", MIPS_VFPU4_13(0x08), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsrt4", "VD,VS", MIPS_VFPU4_13(0x09), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vsgn", "VD,VS", MIPS_VFPU4_13(0x0a), MO_VRD|MO_VRS),
+	// VVVVVV VVVVV VVVVV z SSSSSSS iiiiiiii
+	// TODO: Actually a 7-bit imm (top bit is control register flag.)
+	// TODO: Not 100% sure about syntax, or if vmfv is even valid.
+	MIPS_VFPU_ALLSIZES("vmfv", "VS,i", MIPS_VFPU4_13(0x10) | 0x00, MO_VRS|O_I16),
+	MIPS_VFPU_ALLSIZES("vmtv", "VS,i", MIPS_VFPU4_13(0x11) | 0x00, MO_VRD|O_I16),
+	MIPS_VFPU_ALLSIZES("vmfvc", "VS,i", MIPS_VFPU4_13(0x10) | 0x80, MO_VRS|O_I16),
+	MIPS_VFPU_ALLSIZES("vmtvc", "VS,i", MIPS_VFPU4_13(0x11) | 0x80, MO_VRD|O_I16),
+
+	MIPS_VFPU_ALLSIZES("vt4444", "VD,VS", MIPS_VFPU4_13(0x19), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vt5551", "VD,VS", MIPS_VFPU4_13(0x1a), MO_VRD|MO_VRS),
+	MIPS_VFPU_ALLSIZES("vt5650", "VD,VS", MIPS_VFPU4_13(0x1b), MO_VRD|MO_VRS),
+
+//     31-------26-----23----------------------------------------------0
+//     |=   VFPU5|  f  |                                               |
+//     -----6-------3---------00----------------------------------------
+//     |--000--|--001--|--010--|--011--|--100--|--101--|--110--|--111--| lo
+//     | VPFXS | VPFXS | VPFXT | VPFXT | VPFXD | VPFXD | VIIM  | VFIM  |
+//     |-------|-------|-------|-------|-------|-------|-------|-------|
+	// VVVVVV VV -------- iiiiiiiiiiiiiiii
+	// TODO: This is a whole world of complication for proper syntax.  Will allow integer directly for now.
+	{ "vpfxs",	"i",			MIPS_VFPU5(0), O_I16 },
+	{ "vpfxt",	"i",			MIPS_VFPU5(2), O_I16 },
+	{ "vpfxd",	"i",			MIPS_VFPU5(4), O_I16 },
+	// VVVVVV VVV TTTTTTT iiiiiiiiiiiiiiii
+	{ "viim.s",	"VT,i",			MIPS_VFPU5(6), MO_VRT|O_I16 },
+	// TODO: This should actually encode a half-float, not integer...
+	{ "vfim.s",	"VT,i",			MIPS_VFPU5(7), MO_VRT|O_I16 },
 
 
 	// END

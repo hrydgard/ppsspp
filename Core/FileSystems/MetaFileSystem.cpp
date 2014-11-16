@@ -23,6 +23,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
@@ -197,7 +198,13 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
-		inpath = inpath.substr(strlen("host0:"));
+		// However, this causes trouble when running tests, since our test framework uses host0:.
+		// Maybe it's really just supposed to map to umd0 or something?
+		if (PSP_CoreParameter().headLess) {
+			inpath = "umd0:" + inpath.substr(strlen("host0:"));
+		} else {
+			inpath = inpath.substr(strlen("host0:"));
+		}
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
@@ -255,6 +262,10 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	if (startsWith(prefix, "host"))
 		prefix = "host0:";
 
+	// Should we simply make this case insensitive?
+	if (prefix == "DISC0:")
+		prefix = "disc0:";
+
 	return prefix;
 }
 
@@ -282,6 +293,13 @@ void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
 			it->system = newSystem;
 		}
 	}
+}
+
+IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
+	size_t prefixPos = filename.find(':');
+	if (prefixPos == filename.npos)
+		return 0;
+	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 
 IFileSystem *MetaFileSystem::GetSystem(const std::string &prefix) {
@@ -330,7 +348,13 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	MountPoint *mount;
 	if (MapFilePath(filename, of, &mount))
 	{
-		return mount->system->OpenFile(of, access, mount->prefix.c_str());
+		s32 res = mount->system->OpenFile(of, access, mount->prefix.c_str());
+		if (res < 0)
+		{
+			lastOpenError = res;
+			return 0;
+		}
+		return res;
 	}
 	else
 	{
@@ -571,6 +595,17 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
 	return 0;
+}
+
+u64 MetaFileSystem::FreeSpace(const std::string &path)
+{
+	lock_guard guard(lock);
+	std::string of;
+	IFileSystem *system;
+	if (MapFilePath(path, of, &system))
+		return system->FreeSpace(of);
+	else
+		return 0;
 }
 
 void MetaFileSystem::DoState(PointerWrap &p)

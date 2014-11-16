@@ -17,10 +17,20 @@
 
 #pragma once
 
-#include <map>
+#if defined(IOS)
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+}
+#else
+#include <unordered_map>
+#endif
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
@@ -30,6 +40,10 @@ class TextureCache;
 class FramebufferManager;
 class VertexDecoder;
 class VertexDecoderJitCache;
+class FramebufferManagerCommon;
+class TextureCacheCommon;
+class FragmentTestCache;
+struct TransformedVertex;
 
 struct DecVtxFormat;
 struct TransformedVertex;
@@ -49,6 +63,13 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
+// Avoiding the full include of TextureDecoder.h.
+#ifdef _M_X64
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
+
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -56,7 +77,6 @@ public:
 		status = VAI_NEW;
 		vbo = 0;
 		ebo = 0;
-		numDCs = 0;
 		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
@@ -74,7 +94,8 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	u32 hash;
+	ReliableHashType hash;
+	u32 minihash;
 
 	Status status;
 
@@ -87,7 +108,6 @@ public:
 	s8 prim;
 
 	// ID information
-	u8 numDCs;
 	int numDraws;
 	int numFrames;
 	int lastFrame;  // So that we can forget.
@@ -96,7 +116,7 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine : public GfxResourceHolder {
+class TransformDrawEngine : public DrawEngineCommon, public GfxResourceHolder {
 public:
 	TransformDrawEngine();
 	virtual ~TransformDrawEngine();
@@ -104,9 +124,6 @@ public:
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
 	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
-	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
-
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -117,17 +134,49 @@ public:
 	void SetFramebufferManager(FramebufferManager *fbManager) {
 		framebufferManager_ = fbManager;
 	}
+	void SetFragmentTestCache(FragmentTestCache *testCache) {
+		fragmentTestCache_ = testCache;
+	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 	void GLLost();
+	void Resized();
 
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
 
 	void SetupVertexDecoder(u32 vertType);
+	inline void SetupVertexDecoderInternal(u32 vertType);
 
 	// This requires a SetupVertexDecoder call first.
-	int EstimatePerVertexCost();
+	int EstimatePerVertexCost() {
+		// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
+		// runs in parallel with transform.
+
+		// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
+
+		// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
+		// went too fast and starts doing all the work over again).
+
+		int cost = 20;
+		if (gstate.isLightingEnabled()) {
+			cost += 10;
+
+			for (int i = 0; i < 4; i++) {
+				if (gstate.isLightChanEnabled(i))
+					cost += 10;
+			}
+		}
+
+		if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
+			cost += 20;
+		}
+		if (dec_ && dec_->morphcount > 1) {
+			cost += 5 * dec_->morphcount;
+		}
+
+		return cost;
+	}
 
 	// So that this can be inlined
 	void Flush() {
@@ -136,27 +185,28 @@ public:
 		DoFlush();
 	}
 
-	VertexDecoderJitCache *GetVertexDecoderJitCache() {
-		return decJitCache_;
-	}
+	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
-	// Really just for convenience to share with softgpu.
-	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
+protected:
+	// Preprocessing for spline/bezier
+	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
 
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
 	void DoFlush();
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
-	bool IsReallyAClear(int numVerts) const;
+	void ApplyDrawStateLate();
+	void ApplyBlendState();
+	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
+	bool ApplyShaderBlending();
+	inline void ResetShaderBlending();
+	GLuint AllocateBuffer();
+	void FreeBuffer(GLuint buf);
 
-	// Preprocessing for spline/bezier
-	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
-
-	// drawcall ID
-	u32 ComputeFastDCID();
-	u32 ComputeHash();  // Reads deferred vertex data.
+	u32 ComputeMiniHash();
+	ReliableHashType ComputeHash();  // Reads deferred vertex data.
+	void MarkUnreliable(VertexArrayInfo *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -167,7 +217,7 @@ private:
 		void *inds;
 		u32 vertType;
 		u8 indexType;
-		u8 prim;
+		s8 prim;
 		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
@@ -179,34 +229,28 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
-	
-	// Vertex collector buffers
-	u8 *decoded;
-	u16 *decIndex;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfo *> vai_;
+	std::unordered_map<u32, VertexArrayInfo *> vai_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
 
 	// Vertex buffer objects
 	// Element buffer objects
-	enum { NUM_VBOS = 128 };
-	GLuint vbo_[NUM_VBOS];
-	GLuint ebo_[NUM_VBOS];
-	int curVbo_;
+	std::vector<GLuint> bufferNameCache_;
 
 	// Other
 	ShaderManager *shaderManager_;
 	TextureCache *textureCache_;
 	FramebufferManager *framebufferManager_;
+	FragmentTestCache *fragmentTestCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
@@ -218,42 +262,7 @@ private:
 	u32 dcid_;
 
 	UVScale *uvScale;
-};
 
-// Only used by SW transform
-struct Color4 {
-	float r, g, b, a;
-
-	Color4() : r(0), g(0), b(0), a(0) { }
-	Color4(float _r, float _g, float _b, float _a=1.0f)
-		: r(_r), g(_g), b(_b), a(_a) {
-	}
-	Color4(const float in[4]) {r=in[0];g=in[1];b=in[2];a=in[3];}
-	Color4(const float in[3], float alpha) {r=in[0];g=in[1];b=in[2];a=alpha;}
-
-	const float &operator [](int i) const {return *(&r + i);}
-
-	Color4 operator *(float f) const {
-		return Color4(f*r,f*g,f*b,f*a);
-	}
-	Color4 operator *(const Color4 &c) const {
-		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
-	}
-	Color4 operator +(const Color4 &c) const {
-		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
-	}
-	void operator +=(const Color4 &c) {
-		r+=c.r;
-		g+=c.g;
-		b+=c.b;
-		a+=c.a;
-	}
-	void GetFromRGB(u32 col) {
-		b = ((col>>16) & 0xff)/255.0f;
-		g = ((col>>8) & 0xff)/255.0f;
-		r = ((col>>0) & 0xff)/255.0f;
-	}
-	void GetFromA(u32 col) {
-		a = (col&0xff)/255.0f;
-	}
+	bool fboTexBound_;
+	VertexDecoderOptions decOptions_;
 };

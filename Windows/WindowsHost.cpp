@@ -42,6 +42,7 @@
 #include "WindowsHost.h"
 #include "WndMainWindow.h"
 #include "OpenGLBase.h"
+#include "D3D9Base.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -58,21 +59,10 @@
 
 static const int numCPUs = 1;
 
-static PMixer *curMixer;
+extern PMixer *g_mixer;
 
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
-
-int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
-{
-	if (curMixer && !Core_IsStepping())
-		return curMixer->Mix(buffer, numSamples);
-	else
-	{
-		memset(buffer,0,numSamples*sizeof(short)*2);
-		return numSamples;
-	}
-}
 
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
 {
@@ -86,43 +76,57 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
-#define PUSH_BACK(Cls) do { list.push_back(std::shared_ptr<InputDevice>(new Cls())); } while (0)
-
+	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
-	input.push_back(std::shared_ptr<InputDevice>(new DinputDevice()));
+	//find all connected DInput devices of class GamePad
+	size_t numDInputDevs = DinputDevice::getNumPads();
+	for (size_t i = 0; i < numDInputDevs; i++) {
+		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
+	}
 	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
 	input.push_back(keyboard);
 
 	SetConsolePosition();
 }
 
-bool WindowsHost::InitGL(std::string *error_message)
-{
-	return GL_Init(MainWindow::GetDisplayHWND(), error_message);
+bool WindowsHost::InitGraphics(std::string *error_message) {
+	switch (g_Config.iGPUBackend) {
+	case GPU_BACKEND_OPENGL:
+		return GL_Init(displayWindow_, error_message);
+	case GPU_BACKEND_DIRECT3D9:
+		return D3D9_Init(displayWindow_, true, error_message);
+	default:
+		return false;
+	}
 }
 
-void WindowsHost::ShutdownGL()
-{
-	GL_Shutdown();
-	PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
+void WindowsHost::ShutdownGraphics() {
+	switch (g_Config.iGPUBackend) {
+	case GPU_BACKEND_OPENGL:
+		GL_Shutdown();
+		break;
+	case GPU_BACKEND_DIRECT3D9:
+		D3D9_Shutdown();
+		break;
+	}
+	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
 	std::wstring winTitle = ConvertUTF8ToWString(std::string("PPSSPP ") + PPSSPP_GIT_VERSION);
-	if(message != nullptr) {
+	if (message != nullptr) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
 		winTitle.append(ConvertUTF8ToWString(message));
 	}
 
 	MainWindow::SetWindowTitle(winTitle.c_str());
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
 void WindowsHost::InitSound(PMixer *mixer)
 {
-	curMixer = mixer;
-	DSound::DSound_StartSound(MainWindow::GetHWND(), MyMix);
+	g_mixer = mixer;
 }
 
 void WindowsHost::UpdateSound()
@@ -132,32 +136,31 @@ void WindowsHost::UpdateSound()
 
 void WindowsHost::ShutdownSound()
 {
-	DSound::DSound_StopSound();
-	if (curMixer != NULL)
-		delete curMixer;
-	curMixer = 0;
+	if (g_mixer)
+		delete g_mixer;
+	g_mixer = 0;
 }
 
 void WindowsHost::UpdateUI()
 {
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 void WindowsHost::UpdateScreen()
 {
-	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
+	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
 }
 
 void WindowsHost::UpdateMemView() 
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
 		if (memoryWindow[i])
 			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
 }
 
 void WindowsHost::UpdateDisassembly()
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
 }
@@ -165,10 +168,8 @@ void WindowsHost::UpdateDisassembly()
 void WindowsHost::SetDebugMode(bool mode)
 {
 	for (int i = 0; i < numCPUs; i++)
-	{
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
-	}
 }
 
 void WindowsHost::PollControllers(InputState &input_state)
@@ -205,7 +206,7 @@ void WindowsHost::PollControllers(InputState &input_state)
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
-	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+	SendMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
 	Core_EnableStepping(!g_Config.bAutoRun);
@@ -315,6 +316,10 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	return hres; 
 }
 
+bool WindowsHost::CanCreateShortcut() { 
+	return false;  // Turn on when below function fixed
+}
+
 bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
 	// TODO: not working correctly
 	return false;
@@ -348,10 +353,7 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 }
 
 void WindowsHost::GoFullscreen(bool viewFullscreen) {
-	if (viewFullscreen)
-		MainWindow::_ViewFullScreen(MainWindow::GetHWND());
-	else
-		MainWindow::_ViewNormal(MainWindow::GetHWND());
+	MainWindow::ToggleFullscreen(mainWindow_, viewFullscreen);
 }
 
 void WindowsHost::ToggleDebugConsoleVisibility() {

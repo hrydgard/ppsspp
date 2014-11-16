@@ -45,10 +45,18 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_5551_REV = 5,
 	GPU_DBG_FORMAT_4444_REV = 6,
 
+	// 565 is just reversed, the others have B and R swapped.
+	GPU_DBG_FORMAT_565_BGRA = 0x04,
+	GPU_DBG_FORMAT_5551_BGRA = 0x09,
+	GPU_DBG_FORMAT_4444_BGRA = 0x0A,
+	GPU_DBG_FORMAT_8888_BGRA = 0x0B,
+
 	// These don't, they're for depth/stencil buffers.
 	GPU_DBG_FORMAT_FLOAT = 0x10,
 	GPU_DBG_FORMAT_16BIT = 0x11,
 	GPU_DBG_FORMAT_8BIT = 0x12,
+	GPU_DBG_FORMAT_24BIT_8X = 0x13,
+	GPU_DBG_FORMAT_24X_8BIT = 0x14,
 };
 
 inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
@@ -131,11 +139,23 @@ struct GPUDebugBuffer {
 		fmt_ = fmt;
 		flipped_ = flipped;
 
-		u32 pixelSize = 2;
-		if (fmt == GPU_DBG_FORMAT_8888 || fmt == GPU_DBG_FORMAT_FLOAT) {
+		u32 pixelSize;
+		switch (fmt) {
+		case GPU_DBG_FORMAT_8888:
+		case GPU_DBG_FORMAT_8888_BGRA:
+		case GPU_DBG_FORMAT_FLOAT:
+		case GPU_DBG_FORMAT_24BIT_8X:
+		case GPU_DBG_FORMAT_24X_8BIT:
 			pixelSize = 4;
-		} else if (fmt == GPU_DBG_FORMAT_8BIT) {
+			break;
+
+		case GPU_DBG_FORMAT_8BIT:
 			pixelSize = 1;
+			break;
+
+		default:
+			pixelSize = 2;
+			break;
 		}
 
 		data_ = new u8[pixelSize * stride * height];
@@ -148,7 +168,11 @@ struct GPUDebugBuffer {
 		data_ = NULL;
 	}
 
-	u8 *GetData() const {
+	u8 *GetData() {
+		return data_;
+	}
+
+	const u8 *GetData() const {
 		return data_;
 	}
 
@@ -200,6 +224,10 @@ public:
 	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op) = 0;
 	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) = 0;
 
+	// Enter/exit stepping mode.  Mainly for better debug stats on time taken.
+	virtual void NotifySteppingEnter() = 0;
+	virtual void NotifySteppingExit() = 0;
+
 	virtual u32 GetRelativeAddress(u32 data) = 0;
 	virtual u32 GetVertexAddress() = 0;
 	virtual u32 GetIndexAddress() = 0;
@@ -229,8 +257,8 @@ public:
 		return false;
 	}
 
-	// Similar to GetCurrentFramebuffer().
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer) {
+	// Similar to GetCurrentFramebuffer(), with texture level specification.
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 		return false;
 	}
 

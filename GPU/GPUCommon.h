@@ -23,7 +23,7 @@ public:
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
-	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads);
+	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads);
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}
@@ -52,6 +52,14 @@ public:
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
 
+	void Execute_OffsetAddr(u32 op, u32 diff);
+	void Execute_Origin(u32 op, u32 diff);
+	void Execute_Jump(u32 op, u32 diff);
+	void Execute_BJump(u32 op, u32 diff);
+	void Execute_Call(u32 op, u32 diff);
+	void Execute_Ret(u32 op, u32 diff);
+	void Execute_End(u32 op, u32 diff);
+
 	virtual u64 GetTickEstimate() {
 #if defined(_M_X64) || defined(ANDROID)
 		return curTickEst_;
@@ -77,11 +85,49 @@ public:
 		return false;
 	}
 
+	// From GPUDebugInterface.
+	virtual bool GetCurrentDisplayList(DisplayList &list);
+	virtual std::vector<DisplayList> ActiveDisplayLists();
+	virtual void ResetListPC(int listID, u32 pc);
+	virtual void ResetListStall(int listID, u32 stall);
+	virtual void ResetListState(int listID, DisplayListState state);
+
+	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op);
+	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc);
+
+	virtual void NotifySteppingEnter();
+	virtual void NotifySteppingExit();
+
+	virtual u32 GetRelativeAddress(u32 data);
+	virtual u32 GetVertexAddress();
+	virtual u32 GetIndexAddress();
+	virtual GPUgstate GetGState();
+	virtual void SetCmdValue(u32 op);
+
+	virtual DisplayList* getList(int listid) {
+		return &dls[listid];
+	}
+
+	const std::list<int>& GetDisplayLists() {
+		return dlQueue;
+	}
+	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
+		return false;
+	}
+	std::vector<FramebufferInfo> GetFramebufferList() {
+		return std::vector<FramebufferInfo>();
+	}
+	virtual void ClearShaderCache() {}
+	virtual void CleanupBeforeUI() {}
+
 protected:
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);
-	void UpdatePC(u32 currentPC, u32 newPC = 0);
+	void UpdatePC(u32 currentPC, u32 newPC);
+	void UpdatePC(u32 currentPC) {
+		UpdatePC(currentPC, currentPC);
+	}
 	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
@@ -151,39 +197,7 @@ private:
 #endif
 	}
 
-public:
-	// From GPUDebugInterface.
-	virtual bool GetCurrentDisplayList(DisplayList &list);
-	virtual std::vector<DisplayList> ActiveDisplayLists();
-	virtual void ResetListPC(int listID, u32 pc);
-	virtual void ResetListStall(int listID, u32 stall);
-	virtual void ResetListState(int listID, DisplayListState state);
-
-	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op);
-	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc);
-
-	virtual u32 GetRelativeAddress(u32 data);
-	virtual u32 GetVertexAddress();
-	virtual u32 GetIndexAddress();
-	virtual GPUgstate GetGState();
-	virtual void SetCmdValue(u32 op);
-
-	virtual DisplayList* getList(int listid)
-	{
-		return &dls[listid];
-	}
-
-	const std::list<int>& GetDisplayLists()
-	{
-		return dlQueue;
-	}
-	virtual bool DecodeTexture(u8* dest, GPUgstate state)
-	{
-		return false;
-	}
-	std::vector<FramebufferInfo> GetFramebufferList()
-	{
-		return std::vector<FramebufferInfo>();
-	}
-	virtual void ClearShaderCache() {}
+	// Debug stats.
+	double timeSteppingStarted_;
+	double timeSpentStepping_;
 };

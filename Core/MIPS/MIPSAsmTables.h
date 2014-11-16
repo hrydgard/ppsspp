@@ -40,6 +40,56 @@ typedef struct {
 #define MO_FRST       0x00400000 // float rs + rt
 #define MO_FRDT       0x00800000 // float rt + rd
 
+// TODO: Ideally we should specify the sizes thereof, matrices, etc... too many bits.
+#define MO_VRS        0x01000000 // vector rs
+#define MO_VRD        0x02000000 // vector rd
+#define MO_VRT        0x04000000 // vector rt
+#define MO_VRTI       0x08000000 // vector rt, used with load/store encodings
+#define MO_VCOND      0x10000000 // vector condition
+#define MO_VIMM       0x20000000 // vector 3-8 bit imm
+
+#define BITFIELD(START,LENGTH,VALUE)	(unsigned int)(((VALUE) & ((1 << (LENGTH)) - 1)) << (START))
+#define MIPS_FUNC(VALUE)				BITFIELD(0,6,(VALUE))
+#define MIPS_SA(VALUE)					BITFIELD(6,5,(VALUE))
+#define MIPS_SECFUNC(VALUE)				MIPS_SA((VALUE))
+#define MIPS_OP(VALUE)					BITFIELD(26,6,(VALUE))
+
+#define MIPS_RS(VALUE)					BITFIELD(21,5,(VALUE))
+#define MIPS_RT(VALUE)					BITFIELD(16,5,(VALUE))
+#define MIPS_RD(VALUE)					BITFIELD(11,5,(VALUE))
+#define MIPS_FS(VALUE)					MIPS_RD((VALUE))
+#define MIPS_FT(VALUE)					MIPS_RT((VALUE))
+#define MIPS_FD(VALUE)					MIPS_SA((VALUE))
+
+#define MIPS_SPECIAL(VALUE)				(MIPS_OP(0x00) | MIPS_FUNC(VALUE))
+#define MIPS_REGIMM(VALUE)				(MIPS_OP(0x01) | MIPS_RT(VALUE))
+#define MIPS_COP0(VALUE)				(MIPS_OP(0x10) | MIPS_RS(VALUE))
+#define MIPS_COP1(VALUE)				(MIPS_OP(0x11) | MIPS_RS(VALUE))
+#define MIPS_COP1BC(VALUE)				(MIPS_COP1(0x08) | MIPS_RT(VALUE))
+#define MIPS_COP1S(VALUE)				(MIPS_COP1(0x10) | MIPS_FUNC(VALUE))
+#define MIPS_COP1W(VALUE)				(MIPS_COP1(0x14) | MIPS_FUNC(VALUE))
+
+#define MIPS_VFPUSIZE(VALUE)			( (((VALUE) & 1) << 7) | (((VALUE) & 2) << 14) )
+#define MIPS_VFPUFUNC(VALUE)			BITFIELD(23, 3, (VALUE))
+#define MIPS_COP2(VALUE)				(MIPS_OP(0x12) | MIPS_RS(VALUE))
+#define MIPS_COP2BC(VALUE)				(MIPS_COP2(0x08) | MIPS_RT(VALUE))
+#define MIPS_VFPU0(VALUE)				(MIPS_OP(0x18) | MIPS_VFPUFUNC(VALUE))
+#define MIPS_VFPU1(VALUE)				(MIPS_OP(0x19) | MIPS_VFPUFUNC(VALUE))
+#define MIPS_VFPU3(VALUE)				(MIPS_OP(0x1b) | MIPS_VFPUFUNC(VALUE))
+#define MIPS_SPECIAL3(VALUE)			(MIPS_OP(0x1f) | MIPS_FUNC(VALUE))
+#define MIPS_ALLEGREX0(VALUE)			(MIPS_SPECIAL3(0x20) | MIPS_SECFUNC(VALUE))
+#define MIPS_VFPU4(VALUE)				(MIPS_OP(0x34) | MIPS_RS(VALUE))
+#define MIPS_VFPU4_11(VALUE)			(MIPS_VFPU4(0x00) | MIPS_RT(VALUE))
+#define MIPS_VFPU4_12(VALUE)			(MIPS_VFPU4(0x01) | MIPS_RT(VALUE))
+#define MIPS_VFPU4_13(VALUE)			(MIPS_VFPU4(0x02) | MIPS_RT(VALUE))
+#define MIPS_VFPU5(VALUE)				(MIPS_OP(0x37) | MIPS_VFPUFUNC(VALUE))
+
+#define MIPS_VFPU_ALLSIZES(name, args, code, flags) \
+	{ name ".s",	args,	(unsigned int)((code) | MIPS_VFPUSIZE(0)), flags }, \
+	{ name ".p",	args,	(unsigned int)((code) | MIPS_VFPUSIZE(1)), flags }, \
+	{ name ".t",	args,	(unsigned int)((code) | MIPS_VFPUSIZE(2)), flags }, \
+	{ name ".q",	args,	(unsigned int)((code) | MIPS_VFPUSIZE(3)), flags }
+
 extern const tMipsRegister MipsRegister[];
 extern const tMipsRegister MipsFloatRegister[];
 extern const tMipsOpcode MipsOpcodes[];

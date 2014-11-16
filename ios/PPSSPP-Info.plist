@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>PPSSPP</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.rock88dev.PPSSPP</string>
+	<string>org.ppsspp.ppsspp</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

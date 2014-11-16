@@ -24,8 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "")
-		: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "");
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -36,10 +35,12 @@ protected:
 	virtual void CreateViews();
 	virtual void sendMessage(const char *message, const char *value);
 	void CallbackRestoreDefaults(bool yes);
+	void CallbackRenderingBackend(bool yes);
+	bool UseVerticalLayout() const;
 
 private:
 	std::string gameID_;
-
+	bool lastVertical_;
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
@@ -48,6 +49,13 @@ private:
 	UI::Choice *postProcChoice_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
+#ifdef _WIN32
+	UI::CheckBox *SavePathInMyDocumentChoice;
+	UI::CheckBox *SavePathInOtherChoice;
+	// Used to enable/disable the above two options.
+	bool installed_;
+	bool otherinstalled_;
+#endif
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -60,17 +68,28 @@ private:
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
 	UI::EventReturn OnLanguageChange(UI::EventParams &e);
+	UI::EventReturn OnAutoFrameskip(UI::EventParams &e);
 	UI::EventReturn OnPostProcShader(UI::EventParams &e);
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
+	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
+	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
-	UI::EventReturn OnFrameSkipChange(UI::EventParams &e);
+	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+#ifdef _WIN32
+	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
+	UI::EventReturn OnSavePathOther(UI::EventParams &e);
+#endif
+	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
+	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
 
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
@@ -79,7 +98,11 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
-	bool showDebugStats_;
+
+	// Cached booleans
+	bool vtxCacheEnable_;
+	bool postProcEnable_;
+	bool resolutionEnable_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
@@ -98,4 +121,33 @@ private:
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
+	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+};
+
+class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+public:
+	ProAdhocServerScreen() {}	
+
+protected:
+	virtual void CreateViews();
+
+private:	
+	std::string tempProAdhocServer;
+	UI::TextView *addrView_;
+	UI::EventReturn OnBack(UI::EventParams &e);
+	UI::EventReturn On0Click(UI::EventParams &e);
+	UI::EventReturn On1Click(UI::EventParams &e);
+	UI::EventReturn On2Click(UI::EventParams &e);
+	UI::EventReturn On3Click(UI::EventParams &e);
+	UI::EventReturn On4Click(UI::EventParams &e);
+	UI::EventReturn On5Click(UI::EventParams &e);
+	UI::EventReturn On6Click(UI::EventParams &e);
+	UI::EventReturn On7Click(UI::EventParams &e);
+	UI::EventReturn On8Click(UI::EventParams &e);
+	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnPointClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnOKClick(UI::EventParams &e);
+	UI::EventReturn OnCancelClick(UI::EventParams &e);
 };

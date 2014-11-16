@@ -46,7 +46,7 @@ bool IndexGenerator::PrimCompatible(int prim1, int prim2) {
 }
 
 bool IndexGenerator::PrimCompatible(int prim) {
-	if (prim_ == -1)
+	if (prim_ == GE_PRIM_INVALID)
 		return true;
 	return indexedPrimitiveType[prim] == prim_;
 }

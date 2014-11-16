@@ -32,12 +32,14 @@
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPSTables.h"
 
-#if defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(PPC)
+#if defined(PPC)
 #include "PPC/PpcJit.h"
-#else
+#elif defined(ARM)
+#include "ARM/ArmJit.h"
+#elif defined(_M_IX86) || defined(_M_X64)
 #include "x86/Jit.h"
+#else
+#include "fake/FakeJit.h"
 #endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
@@ -58,7 +60,10 @@ u8 fromvoffset[128];
 #define M_LN10     2.30258509299404568402f
 #undef M_PI
 #define M_PI       3.14159265358979323846f
+
+#ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923f
+#endif
 #define M_PI_4     0.785398163397448309616f
 #define M_1_PI     0.318309886183790671538f
 #define M_2_PI     0.636619772367581343076f
@@ -177,9 +182,6 @@ void MIPSState::Reset() {
 }
 
 void MIPSState::Init() {
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
-		MIPSComp::jit = new MIPSComp::Jit(this);
-
 	memset(r, 0, sizeof(r));
 	memset(f, 0, sizeof(f));
 	memset(v, 0, sizeof(v));
@@ -190,6 +192,7 @@ void MIPSState::Init() {
 	vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
 	vfpuCtrl[VFPU_CTRL_CC] = 0x3f;
 	vfpuCtrl[VFPU_CTRL_INF4] = 0;
+	vfpuCtrl[VFPU_CTRL_REV] = 0x7772ceab;
 	vfpuCtrl[VFPU_CTRL_RCX0] = 0x3f800001;
 	vfpuCtrl[VFPU_CTRL_RCX1] = 0x3f800002;
 	vfpuCtrl[VFPU_CTRL_RCX2] = 0x3f800004;
@@ -212,6 +215,33 @@ void MIPSState::Init() {
 	downcount = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
+
+	if (PSP_CoreParameter().cpuCore == CPU_JIT)
+		MIPSComp::jit = new MIPSComp::Jit(this);
+}
+
+bool MIPSState::HasDefaultPrefix() const {
+	return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
+}
+
+void MIPSState::UpdateCore(CPUCore desired) {
+	if (PSP_CoreParameter().cpuCore == desired) {
+		return;
+	}
+
+	PSP_CoreParameter().cpuCore = desired;
+	switch (PSP_CoreParameter().cpuCore) {
+	case CPU_JIT:
+		if (!MIPSComp::jit) {
+			MIPSComp::jit = new MIPSComp::Jit(this);
+		}
+		break;
+
+	case CPU_INTERPRETER:
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+		break;
+	}
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -276,33 +306,8 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	return 1;
 }
 
-void MIPSState::WriteFCR(int reg, int value) {
-	if (reg == 31) {
-		fcr31 = value & 0x0181FFFF;
-		fpcond = (value >> 23) & 1;
-	} else {
-		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
-}
-
-u32 MIPSState::ReadFCR(int reg) {
-	DEBUG_LOG(CPU,"FCR%i read",reg);
-	if (reg == 31) {
-		fcr31 = (fcr31 & ~(1<<23)) | ((fpcond & 1)<<23);
-		return fcr31;
-	} else if (reg == 0) {
-		return FCR0_VALUE;
-	} else {
-		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	return 0;
-}
-
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
-		MIPSComp::jit->ClearCacheAt(address, length);
+		MIPSComp::jit->InvalidateCacheAt(address, length);
 }

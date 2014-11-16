@@ -993,20 +993,14 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &colo
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-#if defined(_M_SSE)
-		// ToRGBA() on SSE automatically clamps.
+		// ToRGBA() always automatically clamps.
 		new_color = AlphaBlendingResult(prim_color, dst).ToRGB();
 		new_color |= stencil << 24;
-#else
-		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
-#endif
 	} else {
 #if defined(_M_SSE)
 		new_color = Vec3<int>(prim_color.ivec).ToRGB();
 		new_color |= stencil << 24;
 #else
-		if (!clearMode)
-			prim_color = prim_color.Clamp(0, 255);
 		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 #endif
 	}
@@ -1171,7 +1165,7 @@ void DrawTriangleSlice(
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -1193,7 +1187,10 @@ void DrawTriangleSlice(
 		for (int i = 0; i <= maxTexLevel; i++) {
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
-			texptr[i] = Memory::GetPointer(texaddr);
+			if (Memory::IsValidAddress(texaddr))
+				texptr[i] = Memory::GetPointerUnchecked(texaddr);
+			else
+				texptr[i] = 0;
 		}
 	}
 
@@ -1311,12 +1308,12 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int range = (maxY - minY) / 16 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24)
+		if (range >= 24 && (maxX - minX) >= 24 * 16)
 			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 		else
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 	} else {
-		if (range >= 24)
+		if (range >= 24 && (maxX - minX) >= 24 * 16)
 			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
 		else
 			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
@@ -1343,7 +1340,7 @@ void DrawPoint(const VertexData &v0)
 	if (gstate.isTextureMapEnabled() && !clearMode) {
 		int texbufwidthbits[8] = {0};
 
-		int maxTexLevel = (gstate.texmode >> 16) & 7;
+		int maxTexLevel = gstate.getTextureMaxLevel();
 		u8 *texptr[8] = {NULL};
 
 		int magFilt = (gstate.texfilter>>8) & 1;
@@ -1427,7 +1424,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 	int texbufwidthbits[8] = {0};
 
-	int maxTexLevel = (gstate.texmode >> 16) & 7;
+	int maxTexLevel = gstate.getTextureMaxLevel();
 	u8 *texptr[8] = {NULL};
 
 	int magFilt = (gstate.texfilter>>8) & 1;
@@ -1521,21 +1518,25 @@ bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 	return true;
 }
 
-bool GetCurrentTexture(GPUDebugBuffer &buffer)
+bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	if (!gstate.isTextureMapEnabled()) {
+		return false;
+	}
+
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
 	GETextureFormat texfmt = gstate.getTextureFormat();
-	u32 texaddr = gstate.getTextureAddress(0);
-	int texbufwidthbits = GetTextureBufw(0, texaddr, texfmt) * 8;
+	u32 texaddr = gstate.getTextureAddress(level);
+	int texbufwidthbits = GetTextureBufw(level, texaddr, texfmt) * 8;
 	u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
-			row[x] = SampleNearest<1>(0, &x, &y, texptr, texbufwidthbits);
+			row[x] = SampleNearest<1>(level, &x, &y, texptr, texbufwidthbits);
 		}
 		row += w;
 	}

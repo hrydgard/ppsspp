@@ -31,7 +31,7 @@
 # Standard settings
 set (CMAKE_SYSTEM_NAME Darwin)
 set (CMAKE_SYSTEM_VERSION 1)
-set (CMAKE_SYSTEM_PROCESSOR arm)
+set (CMAKE_SYSTEM_PROCESSOR armv7)
 set (UNIX True)
 set (APPLE True)
 set (IOS True)
@@ -49,6 +49,8 @@ endif (CMAKE_UNAME)
 include (CMakeForceCompiler)
 CMAKE_FORCE_C_COMPILER (gcc gcc)
 CMAKE_FORCE_CXX_COMPILER (g++ g++)
+CMAKE_FORCE_C_COMPILER (/usr/bin/clang Apple)
+CMAKE_FORCE_CXX_COMPILER (/usr/bin/clang++ Apple)
 
 # Skip the platform compiler checks for cross compiling
 set (CMAKE_CROSSCOMPILING TRUE)

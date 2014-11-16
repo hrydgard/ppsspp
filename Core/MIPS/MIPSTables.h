@@ -25,14 +25,14 @@ struct MIPSInfo {
 		value = 0;
 	}
 
-	explicit MIPSInfo(u32 v) : value(v) {
+	explicit MIPSInfo(u64 v) : value(v) {
 	}
 
-	u32 operator & (const u32 &arg) const {
+	u64 operator & (const u32 &arg) const {
 		return value & arg;
 	}
 
-	u32 value;
+	u64 value;
 };
 
 #define CONDTYPE_MASK   0x00000007
@@ -49,44 +49,59 @@ struct MIPSInfo {
 // as long as the other flags are checked,
 // there is no way to misinterpret these
 // as CONDTYPE_X
-#define MEMTYPE_MASK    0x00000007
-#define MEMTYPE_BYTE    0x00000001
-#define MEMTYPE_HWORD   0x00000002
-#define MEMTYPE_WORD    0x00000003
-#define MEMTYPE_FLOAT   0x00000004
-#define MEMTYPE_VQUAD   0x00000005
+#define MEMTYPE_MASK    0x00000007ULL
+#define MEMTYPE_BYTE    0x00000001ULL
+#define MEMTYPE_HWORD   0x00000002ULL
+#define MEMTYPE_WORD    0x00000003ULL
+#define MEMTYPE_FLOAT   0x00000004ULL
+#define MEMTYPE_VQUAD   0x00000005ULL
 
-#define IS_CONDMOVE     0x00000008
-#define DELAYSLOT       0x00000010
-#define BAD_INSTRUCTION 0x00000020
-#define LIKELY          0x00000040
-#define IS_CONDBRANCH   0x00000080
-#define IS_JUMP         0x00000100
+#define IS_CONDMOVE     0x00000008ULL
+#define DELAYSLOT       0x00000010ULL
+#define BAD_INSTRUCTION 0x00000020ULL
+#define LIKELY          0x00000040ULL
+#define IS_CONDBRANCH   0x00000080ULL
+#define IS_JUMP         0x00000100ULL
 
-#define IN_RS           0x00000200
-#define IN_RS_ADDR      (0x00000400 | IN_RS)
-#define IN_RS_SHIFT     (0x00000800 | IN_RS)
-#define IN_RT           0x00001000
-#define IN_SA           0x00002000
-#define IN_IMM16        0x00004000
-#define IN_IMM26        0x00008000
-#define IN_MEM          0x00010000
-#define IN_OTHER        0x00020000
-#define IN_FPUFLAG      0x00040000
-#define IN_VFPU_CC      0x00080000
+#define IN_RS           0x00000200ULL
+#define IN_RS_ADDR      (0x00000400ULL | IN_RS)
+#define IN_RS_SHIFT     (0x00000800ULL | IN_RS)
+#define IN_RT           0x00001000ULL
+#define IN_SA           0x00002000ULL
+#define IN_IMM16        0x00004000ULL
+#define IN_IMM26        0x00008000ULL
+#define IN_MEM          0x00010000ULL
+#define IN_OTHER        0x00020000ULL
+#define IN_FPUFLAG      0x00040000ULL
+#define IN_VFPU_CC      0x00080000ULL
 
-#define OUT_RT          0x00100000
-#define OUT_RD          0x00200000
-#define OUT_RA          0x00400000
-#define OUT_MEM         0x00800000
-#define OUT_OTHER       0x01000000
-#define OUT_FPUFLAG     0x02000000
-#define OUT_VFPU_CC     0x04000000
-#define OUT_EAT_PREFIX  0x08000000
+#define OUT_RT          0x00100000ULL
+#define OUT_RD          0x00200000ULL
+#define OUT_RA          0x00400000ULL
+#define OUT_MEM         0x00800000ULL
+#define OUT_OTHER       0x01000000ULL
+#define OUT_FPUFLAG     0x02000000ULL
+#define OUT_VFPU_CC     0x04000000ULL
+#define OUT_EAT_PREFIX  0x08000000ULL
 
-#define VFPU_NO_PREFIX  0x10000000
-#define IS_VFPU         0x20000000
-#define IS_FPU          0x40000000
+#define VFPU_NO_PREFIX  0x10000000ULL
+#define IS_VFPU         0x20000000ULL
+#define IS_FPU          0x40000000ULL
+
+#define IN_FS           0x000100000000ULL
+#define IN_FT           0x000200000000ULL
+#define IN_LO           0x000400000000ULL
+#define IN_HI           0x000800000000ULL
+
+#define OUT_FD          0x001000000000ULL
+#define OUT_FS          0x002000000000ULL
+#define OUT_LO          0x004000000000ULL
+#define OUT_HI          0x008000000000ULL
+
+#define IN_VS           0x010000000000ULL
+#define IN_VT           0x020000000000ULL
+
+#define OUT_VD          0x100000000000ULL
 
 #ifndef CDECL
 #define CDECL

@@ -28,6 +28,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
@@ -117,6 +118,7 @@ public:
 	void Comp_VecDo3(MIPSOpcode op);
 	void Comp_VV2Op(MIPSOpcode op);
 	void Comp_Mftv(MIPSOpcode op);
+	void Comp_Vmfvc(MIPSOpcode op);
 	void Comp_Vmtvc(MIPSOpcode op);
 	void Comp_Vmmov(MIPSOpcode op);
 	void Comp_VScl(MIPSOpcode op);
@@ -163,11 +165,20 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
+	void RestoreRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void ApplyRoundingMode(bool force = false, XEmitter *emitter = NULL);
+	void UpdateRoundingMode(XEmitter *emitter = NULL);
+
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
-	void ClearCacheAt(u32 em_address, int length = 4);
+	void InvalidateCache();
+	inline void InvalidateCacheAt(u32 em_address, int length = 4) {
+		if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+			blocks.InvalidateICache(em_address, length);
+		}
+	}
 
 private:
 	void GetStateAndFlushAll(RegCacheState &state);
@@ -182,6 +193,7 @@ private:
 		CompileDelaySlot(flags, &state);
 	}
 	void EatInstruction(MIPSOpcode op);
+	void AddContinuedBlock(u32 dest);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(X64Reg reg);
@@ -201,7 +213,7 @@ private:
 
 	// Utilities to reduce duplicated code
 	void CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &));
-	void CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32));
+	void CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32), bool invertResult = false);
 	void CompShiftImm(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
 	void CompShiftVar(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
 	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc);
@@ -217,6 +229,9 @@ private:
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
 	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
 	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	static CCFlags FlipCCFlag(CCFlags flag);
+	static CCFlags SwapCCFlag(CCFlags flag);
 
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
@@ -247,12 +262,31 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
-	bool CanContinueBranch() {
+	bool CanContinueBranch(u32 targetAddr) {
 		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
 		}
 		// Need at least 2 exits left over.
 		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 2) {
+			return false;
+		}
+		// Sometimes we predict wrong and get into impossible conditions where games have jumps to 0.
+		if (!targetAddr) {
+			return false;
+		}
+		return true;
+	}
+	bool CanContinueJump(u32 targetAddr) {
+		if (!jo.continueJumps || js.numInstructions >= jo.continueMaxInstructions) {
+			return false;
+		}
+		if (!targetAddr) {
+			return false;
+		}
+		return true;
+	}
+	bool CanContinueImmBranch(u32 targetAddr) {
+		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
 		}
 		return true;
@@ -267,75 +301,12 @@ private:
 
 	AsmRoutineManager asm_;
 	ThunkManager thunks;
+	JitSafeMemFuncs safeMemFuncs;
 
 	MIPSState *mips_;
 
-	class JitSafeMem {
-	public:
-		JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
-
-		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
-		bool PrepareWrite(OpArg &dest, int size);
-		// Emit code proceeding a slow write call, returns true if slow write is needed.
-		bool PrepareSlowWrite();
-		// Emit a slow write from src.
-		void DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset = 0);
-		template <typename T>
-		void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const OpArg src, int suboffset = 0) {
-			DoSlowWrite((const void *)safeFunc, src, suboffset);
-		}
-
-		// Emit code necessary for a memory read, returns true if MOV from src is needed.
-		bool PrepareRead(OpArg &src, int size);
-		// Emit code for a slow read call, and returns true if result is in EAX.
-		bool PrepareSlowRead(const void *safeFunc);
-		template <typename T>
-		bool PrepareSlowRead(T (*safeFunc)(u32 addr)) {
-			return PrepareSlowRead((const void *)safeFunc);
-		}
-		
-		// Cleans up final code for the memory access.
-		void Finish();
-
-		// Use this before anything else if you're gonna use the below.
-		void SetFar();
-		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-		OpArg NextFastAddress(int suboffset);
-		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-		void NextSlowRead(const void *safeFunc, int suboffset);
-		template <typename T>
-		void NextSlowRead(T (*safeFunc)(u32 addr), int suboffset) {
-			NextSlowRead((const void *)safeFunc, suboffset);
-		}
-
-	private:
-		enum ReadType {
-			MEM_READ,
-			MEM_WRITE,
-		};
-
-		OpArg PrepareMemoryOpArg(ReadType type);
-		void PrepareSlowAccess();
-		void MemCheckImm(ReadType type);
-		void MemCheckAsm(ReadType type);
-		bool ImmValid();
-
-		Jit *jit_;
-		MIPSGPReg raddr_;
-		s32 offset_;
-		int size_;
-		bool needsCheck_;
-		bool needsSkip_;
-		bool far_;
-		bool fast_;
-		u32 alignMask_;
-		u32 iaddr_;
-		X64Reg xaddr_;
-		FixupBranch tooLow_, tooHigh_, skip_;
-		std::vector<FixupBranch> skipChecks_;
-		const u8 *safe_;
-	};
 	friend class JitSafeMem;
+	friend class JitSafeMemFuncs;
 };
 
 typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);

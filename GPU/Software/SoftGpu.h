@@ -59,7 +59,11 @@ public:
 	virtual void CopyDisplayToOutput();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual void UpdateMemory(u32 dest, u32 src, int size);
+	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size);
+	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
+	virtual bool PerformMemoryDownload(u32 dest, int size);
+	virtual bool PerformMemoryUpload(u32 dest, int size);
+	virtual bool PerformStencilUpload(u32 dest, int size);
 	virtual void ClearCacheNextFrame() {};
 
 	virtual void DeviceLost() {}
@@ -80,7 +84,7 @@ public:
 	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	virtual bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer);
+	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 protected:

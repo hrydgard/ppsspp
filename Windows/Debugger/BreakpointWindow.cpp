@@ -1,6 +1,10 @@
+#include <stdio.h>
+
+#include "base/compat.h"
+
 #include "BreakpointWindow.h"
 #include "../resource.h"
-#include <stdio.h>
+
 
 BreakpointWindow* BreakpointWindow::bp;
 
@@ -29,11 +33,11 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 		
 		if (bp->address != -1)
 		{
-			sprintf(str,"0x%08X",bp->address);
+			snprintf(str, sizeof(str), "0x%08X", bp->address);
 			SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str);
 		}
 
-		sprintf(str,"0x%08X",bp->size);
+		snprintf(str, sizeof(str), "0x%08X", bp->size);
 		SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str);
 		
 		SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),bp->condition);
@@ -123,14 +127,14 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
 	if (cpu->initExpression(str,exp) == false)
 	{
-		sprintf(errorMessage,"Invalid expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
 
 	if (cpu->parseExpression(exp,address) == false)
 	{
-		sprintf(errorMessage,"Invalid expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
@@ -141,14 +145,14 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 		GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str,256);
 		if (cpu->initExpression(str,exp) == false)
 		{
-			sprintf(errorMessage,"Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
 
 		if (cpu->parseExpression(exp,size) == false)
 		{
-			sprintf(errorMessage,"Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
@@ -161,7 +165,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	{
 		if (cpu->initExpression(condition,compiledCondition) == false)
 		{
-			sprintf(errorMessage,"Invalid expression \"%s\".",str);
+			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\".",str);
 			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}

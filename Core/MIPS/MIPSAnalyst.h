@@ -77,7 +77,8 @@ namespace MIPSAnalyst
 
 	AnalysisResults Analyze(u32 address);
 
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr);
+	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
 
 	struct AnalyzedFunction {
 		u32 start;
@@ -107,11 +108,12 @@ namespace MIPSAnalyst
 	void CompileLeafs();
 
 	void SetHashMapFilename(std::string filename = "");
+	void LoadBuiltinHashMap();
 	void LoadHashMap(std::string filename);
 	void StoreHashMap(std::string filename = "");
 
-	const char *LookupHash(u64 hash, int funcSize);
-	void ReplaceFunctions(const ReplacementTableEntry *e, int numEntries);
+	const char *LookupHash(u64 hash, u32 funcSize);
+	void ReplaceFunctions();
 
 	void UpdateHashMap();
 	void ApplyHashMap();
@@ -126,7 +128,7 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);
 
-	bool OpWouldChangeMemory(u32 pc, u32 addr);
+	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
 
 	void Shutdown();
 	
@@ -153,7 +155,7 @@ namespace MIPSAnalyst
 		u32 dataAddress;
 
 		bool hasRelevantAddress;
-		u32 releventAddress;
+		u32 relevantAddress;
 	} MipsOpcodeInfo;
 
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);

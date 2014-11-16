@@ -17,6 +17,15 @@
 
 #include <algorithm>
 #include <map>
+#ifdef IOS
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+	using std::tr1::unordered_multimap;
+}
+#else
+#include <unordered_map>
+#endif
 #include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
@@ -155,7 +164,7 @@ struct LwMutex : public KernelObject
 static int mutexWaitTimer = -1;
 static int lwMutexWaitTimer = -1;
 // Thread -> Mutex locks for thread end.
-typedef std::multimap<SceUID, SceUID> MutexMap;
+typedef std::unordered_multimap<SceUID, SceUID> MutexMap;
 static MutexMap mutexHeldLocks;
 
 void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId);
@@ -204,7 +213,7 @@ void __KernelMutexShutdown()
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
 #if defined(_DEBUG)
-	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(thread);
+	auto locked = mutexHeldLocks.equal_range(thread);
 	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
 		_dbg_assert_msg_(SCEKERNEL, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
 #endif
@@ -293,7 +302,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockMutexCB: beginning callback with bad wait id?");
 }
@@ -499,7 +508,7 @@ void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -896,7 +905,7 @@ void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 
 	// This happens to be how the hardware seems to time things.
 	if (micro <= 3)
-		micro = 15;
+		micro = 25;
 	else if (micro <= 249)
 		micro = 250;
 
@@ -915,7 +924,7 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<LwMutex, WAITTYPE_LWMUTEX, SceUID>(threadID, prevCallbackId, lwMutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Suspending lock wait for callback");
 	else
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
 }
