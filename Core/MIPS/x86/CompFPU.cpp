@@ -231,17 +231,17 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		}
 		if (setMXCSR != -1) {
 			STMXCSR(M(&mxcsrTemp));
-			MOV(32, R(EAX), M(&mxcsrTemp));
-			AND(32, R(EAX), Imm32(~(3 << 13)));
-			OR(32, R(EAX), Imm32(setMXCSR << 13));
-			MOV(32, M(&mips_->temp), R(EAX));
+			MOV(32, R(TEMPREG), M(&mxcsrTemp));
+			AND(32, R(TEMPREG), Imm32(~(3 << 13)));
+			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
+			MOV(32, M(&mips_->temp), R(TEMPREG));
 			LDMXCSR(M(&mips_->temp));
 		}
 
-		(this->*conv)(EAX, fpr.R(fs));
+		(this->*conv)(TEMPREG, fpr.R(fs));
 
 		// Did we get an indefinite integer value?
-		CMP(32, R(EAX), Imm32(0x80000000));
+		CMP(32, R(TEMPREG), Imm32(0x80000000));
 		FixupBranch skip = J_CC(CC_NE);
 		MOVSS(XMM0, fpr.R(fs));
 		XORPS(XMM1, R(XMM1));
@@ -249,12 +249,12 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 
 		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
 		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-		MOVD_xmm(R(EAX), XMM0);
-		XOR(32, R(EAX), Imm32(0x7fffffff));
+		MOVD_xmm(R(TEMPREG), XMM0);
+		XOR(32, R(TEMPREG), Imm32(0x7fffffff));
 
 		SetJumpTarget(skip);
 		fpr.DiscardR(fd);
-		MOV(32, fpr.R(fd), R(EAX));
+		MOV(32, fpr.R(fd), R(TEMPREG));
 
 		if (setMXCSR != -1) {
 			LDMXCSR(M(&mxcsrTemp));
@@ -371,10 +371,10 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 				}
 			} else {
 				AND(32, gpr.R(rt), Imm32(~(1 << 23)));
-				MOV(32, R(EAX), gpr.R(MIPS_REG_FPCOND));
-				AND(32, R(EAX), Imm32(1));
-				SHL(32, R(EAX), Imm8(23));
-				OR(32, gpr.R(rt), R(EAX));
+				MOV(32, R(TEMPREG), gpr.R(MIPS_REG_FPCOND));
+				AND(32, R(TEMPREG), Imm32(1));
+				SHL(32, R(TEMPREG), Imm8(23));
+				OR(32, gpr.R(rt), R(TEMPREG));
 			}
 			gpr.UnlockAll();
 		} else if (fs == 0) {

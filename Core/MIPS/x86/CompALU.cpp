@@ -123,8 +123,8 @@ namespace MIPSComp
 				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_L, R(EAX));
-					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+					SETcc(CC_L, R(TEMPREG));
+					MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
 				} else {
 					XOR(32, gpr.R(rt), gpr.R(rt));
 					CMP(32, gpr.R(rs), Imm32(suimm));
@@ -145,8 +145,8 @@ namespace MIPSComp
 				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_B, R(EAX));
-					MOVZX(32, 8, gpr.RX(rt), R(EAX));
+					SETcc(CC_B, R(TEMPREG));
+					MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
 				} else {
 					XOR(32, gpr.R(rt), gpr.R(rt));
 					CMP(32, gpr.R(rs), Imm32(suimm));
@@ -218,11 +218,11 @@ namespace MIPSComp
 			{
 				gpr.Lock(rd, rs);
 				gpr.MapReg(rd, rd == rs, true);
-				BSR(32, EAX, gpr.R(rs));
+				BSR(32, TEMPREG, gpr.R(rs));
 				FixupBranch notFound = J_CC(CC_Z);
 
 				MOV(32, gpr.R(rd), Imm32(31));
-				SUB(32, gpr.R(rd), R(EAX));
+				SUB(32, gpr.R(rd), R(TEMPREG));
 				FixupBranch skip = J();
 
 				SetJumpTarget(notFound);
@@ -249,13 +249,13 @@ namespace MIPSComp
 			{
 				gpr.Lock(rd, rs);
 				gpr.MapReg(rd, rd == rs, true);
-				MOV(32, R(EAX), gpr.R(rs));
-				NOT(32, R(EAX));
-				BSR(32, EAX, R(EAX));
+				MOV(32, R(TEMPREG), gpr.R(rs));
+				NOT(32, R(TEMPREG));
+				BSR(32, TEMPREG, R(TEMPREG));
 				FixupBranch notFound = J_CC(CC_Z);
 
 				MOV(32, gpr.R(rd), Imm32(31));
-				SUB(32, gpr.R(rd), R(EAX));
+				SUB(32, gpr.R(rd), R(TEMPREG));
 				FixupBranch skip = J();
 
 				SetJumpTarget(notFound);
@@ -356,13 +356,13 @@ namespace MIPSComp
 				NOT(32, gpr.R(rd));
 			}
 		} else {
-			// Use EAX as a temporary if we'd overwrite it.
+			// Use TEMPREG as a temporary if we'd overwrite it.
 			if (rd == rt)
-				MOV(32, R(EAX), gpr.R(rt));
+				MOV(32, R(TEMPREG), gpr.R(rt));
 			gpr.MapReg(rd, rs == rd, true);
 			if (rs != rd)
 				MOV(32, gpr.R(rd), gpr.R(rs));
-			(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
+			(this->*arith)(32, gpr.R(rd), rd == rt ? R(TEMPREG) : gpr.R(rt));
 			if (invertResult) {
 				NOT(32, gpr.R(rd));
 			}
@@ -485,8 +485,8 @@ namespace MIPSComp
 				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
-					SETcc(cc, R(EAX));
-					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+					SETcc(cc, R(TEMPREG));
+					MOVZX(32, 8, gpr.RX(rd), R(TEMPREG));
 				} else {
 					XOR(32, gpr.R(rd), gpr.R(rd));
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
@@ -525,8 +525,8 @@ namespace MIPSComp
 				bool needsTemp = !HasLowSubregister(gpr.R(rd)) || rd == rt || rd == rs;
 				if (needsTemp) {
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
-					SETcc(cc, R(EAX));
-					MOVZX(32, 8, gpr.RX(rd), R(EAX));
+					SETcc(cc, R(TEMPREG));
+					MOVZX(32, 8, gpr.RX(rd), R(TEMPREG));
 				} else {
 					XOR(32, gpr.R(rd), gpr.R(rd));
 					CMP(32, gpr.R(lhs), gpr.R(rhs));
@@ -756,13 +756,13 @@ namespace MIPSComp
 				{
 					gpr.Lock(rs, rt);
 					gpr.MapReg(rt, true, true);
-					MOV(32, R(EAX), gpr.R(rs));
-					AND(32, R(EAX), Imm32(sourcemask));
+					MOV(32, R(TEMPREG), gpr.R(rs));
+					AND(32, R(TEMPREG), Imm32(sourcemask));
 					if (pos != 0) {
-						SHL(32, R(EAX), Imm8(pos));
+						SHL(32, R(TEMPREG), Imm8(pos));
 					}
 					AND(32, gpr.R(rt), Imm32(destmask));
-					OR(32, gpr.R(rt), R(EAX));
+					OR(32, gpr.R(rt), R(TEMPREG));
 					gpr.UnlockAll();
 				}
 			}
@@ -794,8 +794,8 @@ namespace MIPSComp
 			// Work around the byte-register addressing problem.
 			if (gpr.R(rt).IsSimpleReg() && !HasLowSubregister(gpr.R(rt)))
 			{
-				MOV(32, R(EAX), gpr.R(rt));
-				MOVSX(32, 8, gpr.RX(rd), R(EAX));
+				MOV(32, R(TEMPREG), gpr.R(rt));
+				MOVSX(32, 8, gpr.RX(rd), R(TEMPREG));
 			}
 			else
 			{
@@ -829,31 +829,31 @@ namespace MIPSComp
 			if (rd != rt)
 				MOV(32, gpr.R(rd), gpr.R(rt));
 
-			LEA(32, EAX, MScaled(gpr.RX(rd), 2, 0));
+			LEA(32, TEMPREG, MScaled(gpr.RX(rd), 2, 0));
 			SHR(32, gpr.R(rd), Imm8(1));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 			AND(32, gpr.R(rd), Imm32(0x55555555));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 
-			LEA(32, EAX, MScaled(gpr.RX(rd), 4, 0));
+			LEA(32, TEMPREG, MScaled(gpr.RX(rd), 4, 0));
 			SHR(32, gpr.R(rd), Imm8(2));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 			AND(32, gpr.R(rd), Imm32(0x33333333));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 
-			MOV(32, R(EAX), gpr.R(rd));
-			SHL(32, R(EAX), Imm8(4));
+			MOV(32, R(TEMPREG), gpr.R(rd));
+			SHL(32, R(TEMPREG), Imm8(4));
 			SHR(32, gpr.R(rd), Imm8(4));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 			AND(32, gpr.R(rd), Imm32(0x0F0F0F0F));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 
-			MOV(32, R(EAX), gpr.R(rd));
-			SHL(32, R(EAX), Imm8(8));
+			MOV(32, R(TEMPREG), gpr.R(rd));
+			SHL(32, R(TEMPREG), Imm8(8));
 			SHR(32, gpr.R(rd), Imm8(8));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 			AND(32, gpr.R(rd), Imm32(0x00FF00FF));
-			XOR(32, gpr.R(rd), R(EAX));
+			XOR(32, gpr.R(rd), R(TEMPREG));
 
 			ROL(32, gpr.R(rd), Imm8(16));
 
@@ -959,6 +959,7 @@ namespace MIPSComp
 			gpr.KillImmediate(MIPS_REG_HI, false, true);
 			gpr.KillImmediate(MIPS_REG_LO, false, true);
 			gpr.KillImmediate(rt, true, false);
+			// Mul, this must be EAX!
 			MOV(32, R(EAX), gpr.R(rs));
 			IMUL(32, gpr.R(rt));
 			MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
