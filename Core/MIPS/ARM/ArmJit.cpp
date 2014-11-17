@@ -235,6 +235,10 @@ void ArmJit::RunLoopUntil(u64 globalticks)
 	((void (*)())enterCode)();
 }
 
+u32 ArmJit::GetCompilerPC() {
+	return 0;  // TODO
+}
+
 const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;

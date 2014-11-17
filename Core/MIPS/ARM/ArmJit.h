@@ -211,6 +211,7 @@ public:
 	void EatPrefix() { js.EatPrefix(); }
 
 private:
+	u32 GetCompilerPC();
 	void GenerateFixedCode();
 	void FlushAll();
 	void FlushPrefixV();

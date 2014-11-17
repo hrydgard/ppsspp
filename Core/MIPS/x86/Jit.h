@@ -32,6 +32,7 @@
 #include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
+#include "Core/MIPS/IR.h"
 
 class PointerWrap;
 
@@ -77,6 +78,8 @@ public:
 
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
+
+	IRBlock *GetIRBlock() { return &irblock; }
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
@@ -185,6 +188,8 @@ public:
 	}
 
 private:
+	u32 GetCompilerPC();
+	MIPSOpcode GetOffsetInstruction(int offset);
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState state);
 	void FlushAll();
@@ -267,6 +272,7 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
+	/*
 	bool CanContinueBranch(u32 targetAddr) {
 		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
@@ -289,17 +295,13 @@ private:
 			return false;
 		}
 		return true;
-	}
-	bool CanContinueImmBranch(u32 targetAddr) {
-		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		return true;
-	}
+	}*/
 
 	JitBlockCache blocks;
 	JitOptions jo;
 	JitState js;
+
+	IRBlock irblock;
 
 	GPRRegCache gpr;
 	FPURegCache fpr;

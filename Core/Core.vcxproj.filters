@@ -63,6 +63,9 @@
     <ClCompile Include="Mips\MIPS.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="Mips\IR.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -538,6 +541,9 @@
       <Filter>ELF</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSDebugInterface.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="Mips\IR.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="Mips\MIPS.h">

@@ -77,11 +77,6 @@ namespace MIPSAnalyst
 
 	AnalysisResults Analyze(u32 address);
 
-	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
-	// This tells us if the reg is clobbered within intrs of addr (e.g. it is surely not used.)
-	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs);
-
 	struct AnalyzedFunction {
 		u32 start;
 		u32 end;
@@ -98,7 +93,6 @@ namespace MIPSAnalyst
 
 	void Reset();
 
-	bool IsRegisterUsed(u32 reg, u32 addr);
 	// This will not only create a database of "AnalyzedFunction" structs, it also
 	// will insert all the functions it finds into the symbol map, if insertSymbols is true.
 

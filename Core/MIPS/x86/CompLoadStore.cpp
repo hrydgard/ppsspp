@@ -313,7 +313,7 @@ namespace MIPSComp {
 
 		case 34: //lwl
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for lwr rd, offset-3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
@@ -329,7 +329,7 @@ namespace MIPSComp {
 
 		case 38: //lwr
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for lwl rd, offset+3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
@@ -345,7 +345,7 @@ namespace MIPSComp {
 
 		case 42: //swl
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for swr rd, offset-3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
@@ -361,7 +361,7 @@ namespace MIPSComp {
 
 		case 46: //swr
 			{
-				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = GetOffsetInstruction(1);
 				// Looking for swl rd, offset+3(rs) which makes a pair.
 				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)

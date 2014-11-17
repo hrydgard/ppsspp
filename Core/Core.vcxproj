@@ -345,6 +345,7 @@
     </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
+    <ClCompile Include="Mips\IR.cpp" />
     <ClCompile Include="Mips\MIPS.cpp" />
     <ClCompile Include="Mips\MIPSAnalyst.cpp" />
     <ClCompile Include="MIPS\MIPSAsm.cpp" />
@@ -541,6 +542,7 @@
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="MIPS\JitCommon\NativeJit.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />
+    <ClInclude Include="Mips\IR.h" />
     <ClInclude Include="Mips\MIPS.h" />
     <ClInclude Include="Mips\MIPSAnalyst.h" />
     <ClInclude Include="MIPS\MIPSAsm.h" />

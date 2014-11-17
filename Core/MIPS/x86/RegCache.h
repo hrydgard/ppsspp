@@ -20,6 +20,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/IR.h"
 
 namespace X64JitConstants {
 #ifdef _M_X64
