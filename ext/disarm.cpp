@@ -357,11 +357,6 @@ static bool DisasmNeonLDST(uint32_t op, char *text) {
 	return true;
 }
 
-static bool DisasmNeonF3(uint32_t op, char *text) {
-	sprintf(text, "NEON F3");
-	return true;
-}
-
 static bool DisasmNeonF2F3(uint32_t op, char *text) {
 	sprintf(text, "NEON F2");
 	if (((op >> 20) & 0xFFC) == 0xF20 || ((op >> 20) & 0xFFC) == 0xF30) {
@@ -727,6 +722,11 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				mnemonic = "BL";
 				format = "0";
 				break;
+			} else if ((instr & 0x0FF000F0) == 0x01200070) {
+				int imm = ((instr & 0xFFF00) >> 4) | (instr & 0xF);
+				snprintf(result.text, sizeof(result.text), "BKPT %d", imm);
+				result.undefined = 0;
+				return &result;
 			}
     case 3:
 			if (instr >> 24 == 0xF3) {
