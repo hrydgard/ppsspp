@@ -73,7 +73,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		if (bits != 32 || rt != MIPS_REG_ZERO)
+		if (rt != MIPS_REG_ZERO)
 			gpr.MapReg(rt, true, false);
 
 #ifdef _M_IX86
@@ -95,8 +95,12 @@ namespace MIPSComp
 				MOV(bits, dest, R(EDX));
 			}
 			else {
-				if (bits == 32 && rt == MIPS_REG_ZERO) {
-					MOV(bits, dest, Imm32(0));
+				if (rt == MIPS_REG_ZERO) {
+					switch (bits) {
+					case 8: MOV(8, dest, Imm8(0)); break;
+					case 16: MOV(16, dest, Imm16(0)); break;
+					case 32: MOV(32, dest, Imm32(0)); break;
+					}
 				} else {
 					MOV(bits, dest, gpr.R(rt));
 				}

@@ -447,7 +447,7 @@ public:
 	void YIELD();
 
 	// Do nothing
-	void NOP(int count = 1); //nop padding - TODO: fast nop slides, for amd and intel (check their manuals)
+	void NOP(int count = 1);
 
 #ifdef CALL
 #undef CALL
