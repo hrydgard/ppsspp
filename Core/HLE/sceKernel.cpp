@@ -287,8 +287,6 @@ bool __KernelIsRunning() {
 void sceKernelExitGame()
 {
 	INFO_LOG(SCEKERNEL, "sceKernelExitGame");
-	if (!PSP_CoreParameter().headLess)
-		PanicAlert("Game exited");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
@@ -296,8 +294,6 @@ void sceKernelExitGame()
 void sceKernelExitGameWithStatus()
 {
 	INFO_LOG(SCEKERNEL, "sceKernelExitGameWithStatus");
-	if (!PSP_CoreParameter().headLess)
-		PanicAlert("Game exited (with status)");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
@@ -318,6 +314,7 @@ u32 sceKernelRegisterKprintfHandler()
 	ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelRegisterKprintfHandler()");
 	return 0;
 }
+
 void sceKernelRegisterDefaultExceptionHandler()
 {
 	ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelRegisterDefaultExceptionHandler()");
