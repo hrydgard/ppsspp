@@ -61,7 +61,7 @@ JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	// If raddr_ is going to get loaded soon, load it now for more optimal code.
 	// We assume that it was already locked.
 	const int LOOKAHEAD_OPS = 3;
-	if (!jit_->gpr.R(raddr_).IsImm() && MIPSAnalyst::IsRegisterUsed(raddr_, jit_->GetCompilerPC() + 4, LOOKAHEAD_OPS))
+	if (!jit_->gpr.R(raddr_).IsImm() && jit_->GetIRBlock()->IsRegisterUsed(raddr_, jit_->js.irBlockPos + 1, LOOKAHEAD_OPS))
 		jit_->gpr.MapReg(raddr_, true, false);
 }
 

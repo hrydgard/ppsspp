@@ -22,6 +22,8 @@
 
 struct JitBlock;
 
+class IRBlock;
+
 namespace MIPSComp {
 
 	enum CompileDelaySlotFlags
@@ -62,7 +64,8 @@ namespace MIPSComp {
 			prefixTFlag(PREFIX_UNKNOWN),
 			prefixDFlag(PREFIX_UNKNOWN) {}
 
-		u32 compilerPC;
+		IRBlock *irBlock;
+		u32 irBlockPos;
 		u32 blockStart;
 		u32 lastContinuedPC;
 		u32 initialBlockSize;

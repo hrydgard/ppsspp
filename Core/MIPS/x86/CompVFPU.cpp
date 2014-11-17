@@ -3397,7 +3397,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	u32 nextOp = GetOffsetInstruction(1).encoding;
 	int vd2 = -1;
 	int imm2 = -1;
-	if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+	if (false && (nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
 		// Pair of vrot with the same angle argument. Let's join them (can share sin/cos results).
 		vd2 = MIPS_GET_VD(nextOp);
 		imm2 = (nextOp >> 16) & 0x1f;
@@ -3436,7 +3436,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 		// If the negsin setting differs between the two joint invocations, we need to flip the second one.
 		bool negSin2 = (imm2 & 0x10) ? true : false;
 		CompVrotShuffle(dregs2, imm2, n, negSin1 != negSin2);
-		js.compilerPC += 4;
+		// TODO later in merge: irblock.entries[js.irBlockPos + 1].skipped = true
 	}
 	fpr.ReleaseSpillLocks();
 }

@@ -102,7 +102,6 @@ void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOp
 	jo_ = jo;
 }
 
-
 // these are MIPS reg indices
 void GPRRegCache::Lock(MIPSGPReg p1, MIPSGPReg p2, MIPSGPReg p3, MIPSGPReg p4) {
 	regs[p1].locked = true;
@@ -149,13 +148,13 @@ X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 			continue;
 
 		// Awesome, a clobbered reg.  Let's use it.
-		if (MIPSAnalyst::IsRegisterClobbered(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (js_->irBlock->IsRegisterClobbered(xregs[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			*clobbered = true;
 			return reg;
 		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (unusedOnly && js_->irBlock->IsRegisterUsed(xregs[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			continue;
 		}
 
@@ -178,7 +177,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 		}
 	}
 
-	//Okay, not found :( Force grab one
+	// Okay, not found :( Force grab one
 	bool clobbered;
 	X64Reg bestToSpill = FindBestToSpill(true, &clobbered);
 	if (bestToSpill == INVALID_REG) {

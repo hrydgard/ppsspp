@@ -651,11 +651,11 @@ static int MMShuffleSwapTo0(int lane) {
 
 void FPURegCache::StoreFromRegister(int i) {
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::StoreFromRegister - it's an imm");
-	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::StoreFromRegister - invalid mipsreg %i PC=%08x", i, js_->compilerPC);
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::StoreFromRegister - invalid mipsreg %i PC=%08x", i, mips->pc);
 
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, mips->pc);
 		if (regs[i].lane != 0) {
 			const int *mri = xregs[xr].mipsRegs;
 			int seq = 1;

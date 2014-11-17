@@ -32,6 +32,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/IR.h"
 #include "Core/HLE/ReplaceTables.h"
 
 #include "RegCache.h"
@@ -341,7 +342,7 @@ void Jit::EatInstruction(MIPSOpcode op)
 
 	CheckJitBreakpoint(GetCompilerPC() + 4, 0);
 	js.numInstructions++;
-	js.compilerPC += 4;
+	js.irBlockPos++;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
@@ -389,17 +390,17 @@ void Jit::RunLoopUntil(u64 globalticks)
 }
 
 u32 Jit::GetCompilerPC() {
-	return js.compilerPC;
+	return irblock.entries[js.irBlockPos].origAddress;
 }
 
 MIPSOpcode Jit::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	return irblock.entries[js.irBlockPos + offset].op;
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = mips_->pc;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
@@ -420,17 +421,21 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	b->normalEntry = GetCodePtr();
 
-	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
+	ExtractIR(em_address, &irblock);
 
-	gpr.Start(mips_, &js, &jo, analysis);
-	fpr.Start(mips_, &js, &jo, analysis);
+	gpr.Start(mips_, &js, &jo, irblock.analysis);
+	fpr.Start(mips_, &js, &jo, irblock.analysis);
 
 	js.numInstructions = 0;
-	while (js.compiling) {
+	js.irBlockPos = 0;
+	js.irBlock = &irblock;
+	// - 1 to avoid the final delay slot.
+	while (js.irBlockPos < irblock.entries.size() - 1 && js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
-		CheckJitBreakpoint(GetCompilerPC(), 0);
+		u32 compilerAddr = irblock.entries[js.irBlockPos].origAddress;
+		CheckJitBreakpoint(compilerAddr, 0);
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = irblock.entries[js.irBlockPos].op;
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -445,9 +450,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+				MOV(32, M(&mips_->pc), Imm32(compilerAddr));
 			else
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+				MOV(32, M(&mips_->pc), Imm32(irblock.entries[js.irBlockPos + 1].origAddress));
 			WriteSyscallExit();
 			SetJumpTarget(skipCheck);
 
@@ -457,29 +462,23 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
 
-		js.compilerPC += 4;
+		js.irBlockPos++;
 		js.numInstructions++;
-
-		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
-			FlushAll();
-			WriteExit(GetCompilerPC(), js.nextExit++);
-			js.compiling = false;
-		}
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	if (js.lastContinuedPC == 0)
-		b->originalSize = js.numInstructions;
-	else
+
+	
+	b->originalSize = js.numInstructions;
+	
+	/*
 	{
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
-	}
+	}*/
 	return b->normalEntry;
 }
 
@@ -560,7 +559,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		ApplyRoundingMode();
 	}
 
-	js.compilerPC += 4;
+	js.irBlockPos++;
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
