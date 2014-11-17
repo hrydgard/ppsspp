@@ -32,12 +32,14 @@
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 
-#if defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(PPC)
+#if defined(PPC)
 #include "PPC/PpcJit.h"
-#else
+#elif defined(ARM)
+#include "ARM/ArmJit.h"
+#elif defined(_M_IX86) || defined(_M_X64)
 #include "x86/Jit.h"
+#else
+#include "fake/FakeJit.h"
 #endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"

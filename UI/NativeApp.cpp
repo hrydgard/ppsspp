@@ -138,6 +138,10 @@ static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
+Thin3DContext *GetThin3D() {
+	return thin3d;
+}
+
 std::thread *graphicsLoadThread;
 
 class AndroidLogger : public LogListener {
@@ -623,10 +627,11 @@ void TakeScreenshot() {
 
 	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 
+	bool success = true;
 #ifdef USING_QT_UI
 	QImage image(buffer, pixel_xres, pixel_yres, QImage::Format_RGB888);
 	image = image.mirrored();
-	image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
+	success = image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
 #else
 	// Silly openGL reads upside down, we flip to another buffer for simplicity.
 	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
@@ -642,17 +647,24 @@ void TakeScreenshot() {
 		png.height = pixel_yres;
 		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
 		png_image_free(&png);
+
+		success = png.warning_or_error >= 2;
 	} else {
 		jpge::params params;
 		params.m_quality = 90;
-		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		success = compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
 	}
 	delete [] flipbuffer;
 #endif
 
 	delete [] buffer;
 
-	osm.Show(filename);
+	if (success) {
+		osm.Show(filename);
+	} else {
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Could not save screenshot file"));
+	}
 #endif
 }
 

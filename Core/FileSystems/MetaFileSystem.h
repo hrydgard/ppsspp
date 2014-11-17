@@ -23,7 +23,7 @@
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
 private:
-	u32 current;
+	s32 current;
 	struct MountPoint
 	{
 		std::string prefix;
@@ -60,7 +60,13 @@ public:
 
 	void Shutdown();
 
-	u32 GetNewHandle() {return current++;}
+	u32 GetNewHandle() {
+		u32 res = current++;
+		if (current < 0) {
+			current = 0;
+		}
+		return res;
+	}
 	void FreeHandle(u32 handle) {}
 
 	virtual void DoState(PointerWrap &p);
@@ -108,6 +114,7 @@ public:
 	virtual int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 	virtual int  DevType(u32 handle);
 	virtual int  Flags() { return 0; }
+	virtual u64  FreeSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);

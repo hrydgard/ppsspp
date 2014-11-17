@@ -44,20 +44,15 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 #if defined(ARM)
-#include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
-using namespace ArmGen;
 #elif defined(_M_IX86) || defined(_M_X64)
-#include "Common/x64Emitter.h"
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
-using namespace Gen;
 #elif defined(PPC)
-#include "Common/ppcEmitter.h"
 #include "Core/MIPS/MIPS.h"
-using namespace PpcGen;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Core/MIPS/MIPS.h"
 #endif
 // #include "JitBase.h"
 
@@ -221,13 +216,13 @@ void JitBlockCache::RemoveBlockMap(int block_num) {
 	}
 
 	const u32 pAddr = b.originalAddress & 0x1FFFFFFF;
-	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize - 1, pAddr));
-	if (it != block_map_.end() && it->second == block_num) {
+	auto it = block_map_.find(std::make_pair(pAddr + 4 * b.originalSize, pAddr));
+	if (it != block_map_.end() && it->second == (u32)block_num) {
 		block_map_.erase(it);
 	} else {
 		// It wasn't in there, or it has the wrong key.  Let's search...
 		for (auto it = block_map_.begin(); it != block_map_.end(); ++it) {
-			if (it->second == block_num) {
+			if (it->second == (u32)block_num) {
 				block_map_.erase(it);
 				break;
 			}
@@ -253,7 +248,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
-				links_to_.insert(std::pair<u32, int>(b.exitAddress[i], block_num));
+				links_to_.insert(std::make_pair(b.exitAddress[i], block_num));
 				latestExit = std::max(latestExit, b.exitAddress[i]);
 			}
 		}
@@ -439,29 +434,25 @@ void JitBlockCache::LinkBlockExits(int i) {
 }
 
 void JitBlockCache::LinkBlock(int i) {
-	using namespace std;
 	LinkBlockExits(i);
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	// equal_range(b) returns pair<iterator,iterator> representing the range
 	// of element with key b
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		// PanicAlert("Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
 
 void JitBlockCache::UnlinkBlock(int i) {
-	using namespace std;
 	JitBlock &b = blocks_[i];
-	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
-	ppp = links_to_.equal_range(b.originalAddress);
+	auto ppp = links_to_.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
 		JitBlock &sourceBlock = blocks_[iter->second];
 		for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
@@ -597,15 +588,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 
 	// Blocks may start and end in overlapping ways, and destroying one invalidates iterators.
 	// So after destroying one, we start over.
-	while (true) {
+	do {
+	restart:
 		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
-		// End is inclusive, so a matching end won't be included.
-		auto last = block_map_.lower_bound(std::make_pair(pEnd, 0));
-		if (next == last) {
-			// It wasn't in the map at all (or anymore.)
-			// This includes if both were end(), which should be uncommon.
-			break;
-		}
+		auto last = block_map_.upper_bound(std::make_pair(pEnd + MAX_BLOCK_INSTRUCTIONS, 0));
+		// Note that if next is end(), last will be end() too (equal.)
 		for (; next != last; ++next) {
 			const u32 blockStart = next->first.second;
 			const u32 blockEnd = next->first.first;
@@ -613,13 +600,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 				DestroyBlock(next->second, true);
 				// Our iterator is now invalid.  Break and search again.
 				// Most of the time there shouldn't be a bunch of matching blocks.
-				break;
+				goto restart;
 			}
 		}
-		if (next == last) {
-			break;
-		}
-	}
+		// We got here - it wasn't in the map at all (or anymore.)
+	} while (false);
 }
 
 int JitBlockCache::GetBlockExitSize() {

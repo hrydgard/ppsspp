@@ -189,15 +189,16 @@ void __PPGeInit()
 		palette[i] = (val << 12) | 0xFFF;
 	}
 
-	u16_le *imagePtr = (u16_le *)imageData;
+	const u32_le *imagePtr = (u32_le *)imageData;
 	u8 *ramPtr = (u8 *)Memory::GetPointer(atlasPtr);
 
 	// Palettize to 4-bit, the easy way.
 	for (int i = 0; i < width * height / 2; i++) {
-		u16 c1 = imagePtr[i*2];
-		u16 c2 = imagePtr[i*2+1];
-		int a1 = c1 & 0xF;
-		int a2 = c2 & 0xF;
+		// Each pixel is 16 bits, so this loads two pixels.
+		u32 c = imagePtr[i];
+		// It's white anyway, so we only look at one channel of each pixel.
+		int a1 = (c & 0x0000000F) >> 0;
+		int a2 = (c & 0x000F0000) >> 16;
 		u8 cval = (a2 << 4) | a1;
 		ramPtr[i] = cval;
 	}

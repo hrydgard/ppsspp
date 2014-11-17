@@ -105,6 +105,81 @@ int MipsGetFloatRegister(const char* source, int& RetLen)
 	return -1;
 }
 
+int MipsGetVectorRegister(const char* source, int& RetLen)
+{
+	// Syntax: <type> <matrix> <col> <row>
+	int transpose;
+	switch (source[0])
+	{
+	case 's':
+	case 'S':
+	case 'c':
+	case 'C':
+	case 'm':
+	case 'M':
+		transpose = 0;
+		break;
+	case 'r':
+	case 'R':
+	case 'e':
+	case 'E':
+		transpose = 1;
+		break;
+	default:
+		return -1;
+	}
+
+	if (source[1] < '0' || source[1] > '7')
+		return -1;
+	if (source[2] < '0' || source[2] > '3')
+		return -1;
+	if (source[3] < '0' || source[3] > '3')
+		return -1;
+
+	if (source[4] == ',' || source[4] == '\n'  || source[4] == 0
+		|| source[4] == ')'  || source[4] == '(' || source[4] == '-')	// one of these HAS TO come after a register
+	{
+		RetLen = 4;
+		// Now to encode it.
+		int mtx = source[1] - '0';
+		int col = source[2] - '0';
+		int row = source[3] - '0';
+		// Encoding: S: RRMMMCC, anything else: RTMMMCC (T indicates tranposem swao CC and R.)
+		// More could be done to verify these are valid, though (and against the opcode.)
+		// For example, S must be used for S regs, but also C033 is not ever valid.
+		if (source[0] == 'S')
+			return (row << 5) | (mtx << 2) | col;
+		else if (transpose)
+			return ((col != 0) << 6) | (1 << 5) | (mtx << 2) | row;
+		else
+			return ((row != 0) << 6) | (0 << 5) | (mtx << 2) | col;
+	}
+
+	return -1;
+}
+
+int MIPSGetVectorCondition(const char* source, int& RetLen)
+{
+	if (source[0] == 0 || source[1] == 0)
+		return -1;
+
+	if (source[2] == ',' || source[2] == '\n'  || source[2] == 0
+		|| source[2] == ')'  || source[2] == '(' || source[2] == '-')
+	{
+		static const char *conditions[] = {"FL", "EQ", "LT", "LE", "TR", "NE", "GE", "GT", "EZ", "EN", "EI", "ES", "NZ", "NN", "NI", "NS"};
+		for (int i = 0; i < (int)ARRAY_SIZE(conditions); ++i)
+		{
+			if (source[0] == conditions[i][0] && source[1] == conditions[i][1])
+			{
+				RetLen = 2;
+				return i;
+			}
+		}
+	}
+
+	return -1;
+}
+
 bool MipsCheckImmediate(const char* Source, char* Dest, int& RetLen)
 {
 	int BufferPos = 0;
@@ -198,6 +273,7 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 
 	int RetLen;
 	bool Immediate = false;
+	bool NextVector = false;
 
 	const char *SourceEncoding = SourceOpcode.encoding;
 	char* OriginalLine = Line;
@@ -213,18 +289,28 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 
 			switch (*SourceEncoding)
 			{
+			case 'V':	// vector prefix
+				NextVector = true;
+				SourceEncoding++;
+				break;
 			case 'T':	// float reg
-				if ((Vars.rt = MipsGetFloatRegister(Line,RetLen)) == -1) return false;
+				Vars.rt = NextVector ? MipsGetVectorRegister(Line, RetLen) : MipsGetFloatRegister(Line, RetLen);
+				NextVector = false;
+				if (Vars.rt == -1) return false;
 				Line += RetLen;
 				SourceEncoding++;
 				break;
 			case 'D':	// float reg
-				if ((Vars.rd = MipsGetFloatRegister(Line,RetLen)) == -1) return false;
+				Vars.rd = NextVector ? MipsGetVectorRegister(Line, RetLen) : MipsGetFloatRegister(Line, RetLen);
+				NextVector = false;
+				if (Vars.rd == -1) return false;
 				Line += RetLen;
 				SourceEncoding++;
 				break;
 			case 'S':	// float reg
-				if ((Vars.rs = MipsGetFloatRegister(Line,RetLen)) == -1) return false;
+				Vars.rs = NextVector ? MipsGetVectorRegister(Line, RetLen) : MipsGetFloatRegister(Line, RetLen);
+				NextVector = false;
+				if (Vars.rs == -1) return false;
 				Line += RetLen;
 				SourceEncoding++;
 				break;
@@ -256,6 +342,11 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 				if (MipsGetRegister(Line,RetLen) != *(SourceEncoding+1)) return false;
 				Line += RetLen;
 				SourceEncoding += 2;
+				break;
+			case 'C':
+				if ((Vars.Condition = MIPSGetVectorCondition(Line, RetLen)) == -1) return false;
+				Line += RetLen;
+				SourceEncoding++;
 				break;
 			default:	// everything else
 				if (*SourceEncoding++ != *Line++) return false;
@@ -290,6 +381,9 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 		} else if (Opcode.flags & O_I26)
 		{
 			Vars.ImmediateType = MIPS_IMMEDIATE26;
+		} else if (Opcode.flags & MO_VIMM)
+		{
+			Vars.ImmediateType = MIPS_IMMEDIATE8;
 		}
 	} else {
 		Vars.ImmediateType = MIPS_NOIMMEDIATE;
@@ -359,6 +453,15 @@ bool CMipsInstruction::Validate()
 			}
 			Vars.Immediate &= 0x03FFFFFF;
 			break;
+		case MIPS_IMMEDIATE8:
+			// TODO: Validate better, or more types.
+			if (abs(Vars.Immediate) > 0x000000FF)
+			{
+				SetAssembleError("Immediate value %08X out of range",Vars.OriginalImmediate);
+				return false;
+			}
+			Vars.Immediate &= 0x000000FF;
+			break;
 		case MIPS_NOIMMEDIATE:
 			break;
 		}
@@ -392,7 +495,7 @@ void CMipsInstruction::Encode()
 
 	if (Opcode.flags & MO_FRT) encoding |= (Vars.rt << 16);	// float target
 	if (Opcode.flags & MO_FRS) encoding |= (Vars.rs << 11);	// float source
-	if (Opcode.flags & MO_FRD) encoding |= (Vars.rd << 6);	// float target
+	if (Opcode.flags & MO_FRD) encoding |= (Vars.rd << 6);	// float dest
 	if (Opcode.flags & MO_FRSD)	// s = d & s
 	{
 		encoding |= (Vars.rs << 6);
@@ -409,6 +512,12 @@ void CMipsInstruction::Encode()
 		encoding |= (Vars.rd << 16);
 	}
 
+	if (Opcode.flags & MO_VRT) encoding |= (Vars.rt << 16);	// vector target
+	if (Opcode.flags & MO_VRS) encoding |= (Vars.rs << 8);	// vector source
+	if (Opcode.flags & MO_VRD) encoding |= (Vars.rd << 0);	// vector dest
+	if (Opcode.flags & MO_VRTI) encoding |= ((Vars.rt & 0x1f) << 16) | (Vars.rt >> 5);
+	if (Opcode.flags & MO_VCOND) encoding |= (Vars.Condition << 0);	// vector dest
+
 	switch (Vars.ImmediateType)
 	{
 	case MIPS_IMMEDIATE5:
@@ -422,6 +531,9 @@ void CMipsInstruction::Encode()
 		break;
 	case MIPS_IMMEDIATE26:
 		encoding |= (Vars.Immediate & 0x03FFFFFF);
+		break;
+	case MIPS_IMMEDIATE8:
+		encoding |= (Vars.Immediate & 0x000000FF) << 16;
 		break;
 	case MIPS_NOIMMEDIATE:
 		break;

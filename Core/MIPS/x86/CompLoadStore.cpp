@@ -73,7 +73,8 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		gpr.MapReg(rt, true, false);
+		if (bits != 32 || rt != MIPS_REG_ZERO)
+			gpr.MapReg(rt, true, false);
 
 #ifdef _M_IX86
 		// We use EDX so we can have DL for 8-bit ops.
@@ -93,8 +94,13 @@ namespace MIPSComp
 				MOV(32, R(EDX), gpr.R(rt));
 				MOV(bits, dest, R(EDX));
 			}
-			else
-				MOV(bits, dest, gpr.R(rt));
+			else {
+				if (bits == 32 && rt == MIPS_REG_ZERO) {
+					MOV(bits, dest, Imm32(0));
+				} else {
+					MOV(bits, dest, gpr.R(rt));
+				}
+			}
 		}
 		if (safe.PrepareSlowWrite())
 			safe.DoSlowWrite(safeFunc, gpr.R(rt));

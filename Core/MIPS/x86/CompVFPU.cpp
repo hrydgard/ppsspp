@@ -22,6 +22,7 @@
 #include "base/logging.h"
 #include "math/math_util.h"
 
+#include "Common/CPUDetect.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -64,6 +65,9 @@ const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFF
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+const u32 MEMORY_ALIGNED16( lowOnes[4] ) = {0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000};
+const u32 MEMORY_ALIGNED16( lowZeroes[4] ) = {0x00000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+const float MEMORY_ALIGNED16( solidZeroes[4] ) = {0, 0, 0, 0};
 const u32 MEMORY_ALIGNED16( fourinfnan[4] ) = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
 
 void Jit::Comp_VPFX(MIPSOpcode op)
@@ -445,7 +449,7 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	switch ((op >> 16) & 0xF)
 	{
 	case 6: // v=zeros; break;  //vzero
-		MOVSS(XMM0, M(&zero));
+		XORPS(XMM0, R(XMM0));
 		break;
 	case 7: // v=ones; break;   //vone
 		MOVSS(XMM0, M(&one));
@@ -636,12 +640,11 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		SUBSS(XMM0, R(XMM1));
 		MOVSS(fpr.V(dregs[2]), XMM0);
 	} else if (sz == V_Quad) {
-		// Quaternion product  vqmul.q  untested
-		DISABLE;
-
+		// Quaternion product  vqmul.q
 		fpr.MapRegsV(sregs, sz, 0);
 
 		// Compute X
+		// d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
 		MOVSS(XMM0, fpr.V(sregs[0]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -656,6 +659,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[0]), XMM0);
 
 		// Compute Y
+		//d[1] = s[1] * t[3] + s[2] * t[0] + s[3] * t[1] - s[0] * t[2];
 		MOVSS(XMM0, fpr.V(sregs[1]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[2]));
@@ -670,6 +674,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[1]), XMM0);
 
 		// Compute Z
+		//d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
 		MOVSS(XMM0, fpr.V(sregs[0]));
 		MULSS(XMM0, fpr.V(tregs[1]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -684,6 +689,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		MOVSS(fpr.V(dregs[2]), XMM0);
 
 		// Compute W
+		//d[3] = -s[0] * t[0] - s[1] * t[1] - s[2] * t[2] + s[3] * t[3];
 		MOVSS(XMM0, fpr.V(sregs[3]));
 		MULSS(XMM0, fpr.V(tregs[3]));
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -691,7 +697,7 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		SUBSS(XMM0, R(XMM1));
 		MOVSS(XMM1, fpr.V(sregs[2]));
 		MULSS(XMM1, fpr.V(tregs[2]));
-		ADDSS(XMM0, R(XMM1));
+		SUBSS(XMM0, R(XMM1));
 		MOVSS(XMM1, fpr.V(sregs[0]));
 		MULSS(XMM1, fpr.V(tregs[0]));
 		SUBSS(XMM0, R(XMM1));
@@ -892,6 +898,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 
 static float ssCompareTemp;
 
+static u32 MEMORY_ALIGNED16( vcmpResult[4] );
+
+static const u32 MEMORY_ALIGNED16( vcmpMask[4][4] ) = {
+	{0x00000031, 0x00000000, 0x00000000, 0x00000000},
+	{0x00000011, 0x00000012, 0x00000000, 0x00000000},
+	{0x00000011, 0x00000012, 0x00000014, 0x00000000},
+	{0x00000011, 0x00000012, 0x00000014, 0x00000018},
+};
+
 void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
@@ -938,34 +953,53 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		return;
 	}
 
-	gpr.FlushLockX(ECX);
-	if (cond == VC_EZ || cond == VC_NZ)
-		XORPS(XMM0, R(XMM0));
+	if (n > 1)
+		gpr.FlushLockX(ECX);
 
+	// Start with zero in each lane for the compare to zero.
+	if (cond == VC_EZ || cond == VC_NZ) {
+		XORPS(XMM0, R(XMM0));
+		if (n > 1) {
+			XORPS(XMM1, R(XMM1));
+		}
+	}
+
+	bool inverse = false;
+
+	if (cond == VC_GE || cond == VC_GT) {
+		// We flip, and we need them in regs so we don't clear the high lanes.
+		fpr.MapRegsV(tregs, sz, 0);
+	} else {
+		fpr.MapRegsV(sregs, sz, 0);
+	}
+
+	// We go backwards because it's more convenient to put things in the right lanes.
 	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
-	for (int i = 0; i < n; ++i) {
-		fpr.MapRegV(sregs[i], 0);
+	for (int i = n - 1; i >= 0; --i) {
+		// Alternate between XMM0 and XMM1
+		X64Reg reg = i == 1 || i == 3 ? XMM1 : XMM0;
+		if ((i == 0 || i == 1) && n > 2) {
+			// We need to swap lanes... this also puts them in the right place.
+			SHUFPS(reg, R(reg), _MM_SHUFFLE(3, 2, 0, 1));
+		}
+
 		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
 		bool compareTwo = false;
 		bool compareToZero = false;
 		int comparison = -1;
 		bool flip = false;
-		bool inverse = false;
 
 		switch (cond) {
 		case VC_ES:
-			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
-			ANDPS(XMM1, M(&fourinfnan));
-			PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
+			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
+			MOVSS(reg, fpr.V(sregs[i]));
 			break;
 
 		case VC_NS:
-			comparison = -1;  // We will do the compare up here. XMM1 will have the bits.
-			MOVSS(XMM1, fpr.V(sregs[i]));
-			ANDPS(XMM1, M(&fourinfnan));
-			PCMPEQD(XMM1, M(&fourinfnan));  // Integer comparison
-			XORPS(XMM1, M(&solidOnes));
+			comparison = -1;  // We will do the compare at the end. XMM1 will have the bits.
+			MOVSS(reg, fpr.V(sregs[i]));
+			// Note that we do this all at once at the end.
+			inverse = true;
 			break;
 
 		case VC_EN:
@@ -976,6 +1010,7 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		case VC_NN:
 			comparison = CMP_UNORD;
 			compareTwo = true;
+			// Note that we do this all at once at the end.
 			inverse = true;
 			break;
 
@@ -1028,54 +1063,69 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 		if (comparison != -1) {
 			if (compareTwo) {
 				if (!flip) {
-					MOVSS(XMM1, fpr.V(sregs[i]));
-					CMPSS(XMM1, fpr.V(tregs[i]), comparison);
+					MOVSS(reg, fpr.V(sregs[i]));
+					CMPSS(reg, fpr.V(tregs[i]), comparison);
 				} else {
-					MOVSS(XMM1, fpr.V(tregs[i]));
-					CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+					MOVSS(reg, fpr.V(tregs[i]));
+					CMPSS(reg, fpr.V(sregs[i]), comparison);
 				}
 			} else if (compareToZero) {
-				MOVSS(XMM1, fpr.V(sregs[i]));
-				CMPSS(XMM1, R(XMM0), comparison);
-			}
-			if (inverse) {
-				XORPS(XMM1, M(&solidOnes));
+				CMPSS(reg, fpr.V(sregs[i]), comparison);
 			}
 		}
 
-		MOVSS(M(&ssCompareTemp), XMM1);
-		if (i == 0 && n == 1) {
-			MOV(32, R(EAX), M(&ssCompareTemp));
-			AND(32, R(EAX), Imm32(0x31));
-		} else if (i == 0) {
-			MOV(32, R(EAX), M(&ssCompareTemp));
-			AND(32, R(EAX), Imm32(1 << i));
-		} else {
-			MOV(32, R(ECX), M(&ssCompareTemp));
-			AND(32, R(ECX), Imm32(1 << i));
-			OR(32, R(EAX), R(ECX));
-		}
 		affected_bits |= 1 << i;
 	}
 
-	// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
-	// after all.
 	if (n > 1) {
-		CMP(32, R(EAX), Imm8(affected_bits & 0xF));
+		XOR(32, R(ECX), R(ECX));
+
+		// This combines them together.
+		UNPCKLPS(XMM0, R(XMM1));
+
+		// Finalize the comparison for ES/NS.
+		if (cond == VC_ES || cond == VC_NS) {
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			// It's inversed below for NS.
+		}
+
+		if (inverse) {
+			XORPS(XMM0, M(&solidOnes));
+		}
+		ANDPS(XMM0, M(vcmpMask[n - 1]));
+		MOVAPS(M(vcmpResult), XMM0);
+
+		MOV(32, R(TEMPREG), M(&vcmpResult[0]));
+		for (int i = 1; i < n; ++i) {
+			OR(32, R(TEMPREG), M(&vcmpResult[i]));
+		}
+
+		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison,
+		// which is the most common after all.
+		CMP(32, R(TEMPREG), Imm8(affected_bits & 0x1F));
 		SETcc(CC_E, R(ECX));
 		SHL(32, R(ECX), Imm8(5));
-		OR(32, R(EAX), R(ECX));
+		OR(32, R(TEMPREG), R(ECX));
+	} else {
+		// Finalize the comparison for ES/NS.
+		if (cond == VC_ES || cond == VC_NS) {
+			ANDPS(XMM0, M(&fourinfnan));
+			PCMPEQD(XMM0, M(&fourinfnan));  // Integer comparison
+			// It's inversed below for NS.
+		}
 
-		CMP(32, R(EAX), Imm8(0));
-		SETcc(CC_NZ, R(ECX));
-		SHL(32, R(ECX), Imm8(4));
-		OR(32, R(EAX), R(ECX));
+		MOVD_xmm(R(TEMPREG), XMM0);
+		if (inverse) {
+			XOR(32, R(TEMPREG), Imm32(0xFFFFFFFF));
+		}
+		AND(32, R(TEMPREG), Imm32(0x31));
 	}
 	
 	gpr.UnlockAllX();
 	gpr.MapReg(MIPS_REG_VFPUCC, true, true);
 	AND(32, gpr.R(MIPS_REG_VFPUCC), Imm32(~affected_bits));
-	OR(32, gpr.R(MIPS_REG_VFPUCC), R(EAX));
+	OR(32, gpr.R(MIPS_REG_VFPUCC), R(TEMPREG));
 
 	fpr.ReleaseSpillLocks();
 }
@@ -1121,15 +1171,15 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	if (*mult != 1.0f)
 		MOVSS(XMM1, M(mult));
 	for (int i = 0; i < n; i++) {
-		if (fpr.V(sregs[i]).IsSimpleReg())
-			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
-		else
-			MOV(32, R(EAX), fpr.V(sregs[i]));
-		CVTSI2SS(XMM0, R(EAX));
+		fpr.MapRegV(tempregs[i], (sregs[i] == dregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		if (fpr.V(sregs[i]).IsSimpleReg()) {
+			CVTDQ2PS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+		} else {
+			MOVSS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
+			CVTDQ2PS(fpr.VX(tempregs[i]), R(fpr.VX(tempregs[i])));
+		}
 		if (*mult != 1.0f)
-			MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(tempregs[i], MAP_DIRTY);
-		MOVSS(fpr.V(tempregs[i]), XMM0);
+			MULSS(fpr.VX(tempregs[i]), R(XMM1));
 	}
 
 	for (int i = 0; i < n; ++i) {
@@ -1245,68 +1295,105 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+// The goal is to map (reversed byte order for clarity):
+// AABBCCDD -> 000000AA 000000BB 000000CC 000000DD
+static s8 MEMORY_ALIGNED16( vc2i_shuffle[16] ) = { -1, -1, -1, 0,  -1, -1, -1, 1,  -1, -1, -1, 2,  -1, -1, -1, 3 };
+// AABBCCDD -> AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD
+static s8 MEMORY_ALIGNED16( vuc2i_shuffle[16] ) = { 0, 0, 0, 0,  1, 1, 1, 1,  2, 2, 2, 2,  3, 3, 3, 3 };
+
 void Jit::Comp_Vx2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	switch ((op >> 16) & 3) {
-	case 0:  // vuc2i  
-	case 1:  // vc2i
-	case 2:  // vus2i
-		DISABLE;
+	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+	bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
 
-	case 3:  // vs2i - used heavily by GTA
-		break;
-	default:
-		DISABLE;
-	}
-
-	// OK this is vs2i. Unpacks pairs of 16-bit integers into 32-bit integers, with the values
-	// at the top.
+	// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+	// at the top.  vus2i shifts it an extra bit right afterward.
+	// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+	// at the top too.  vuc2i is a bit special (see below.)
 	// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
 	// then use it for both.
 
 	VectorSize sz = GetVecSize(op);
 	VectorSize outsize;
-	switch (sz) {
-	case V_Single:
-		outsize = V_Pair;
-		break;
-	case V_Pair:
+	if (bits == 8) {
 		outsize = V_Quad;
-		break;
-	default:
-		DISABLE;
+	} else {
+		switch (sz) {
+		case V_Single:
+			outsize = V_Pair;
+			break;
+		case V_Pair:
+			outsize = V_Quad;
+			break;
+		default:
+			DISABLE;
+		}
 	}
 
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, outsize, _VD);
 
-	MOVSS(XMM1, fpr.V(sregs[0]));
-	if (sz != V_Single) {
-		MOVSS(XMM0, fpr.V(sregs[1]));
-		PUNPCKLDQ(XMM1, R(XMM0));
+	if (bits == 16) {
+		MOVSS(XMM1, fpr.V(sregs[0]));
+		if (sz != V_Single) {
+			MOVSS(XMM0, fpr.V(sregs[1]));
+			PUNPCKLDQ(XMM1, R(XMM0));
+		}
+
+		// Unpack 16-bit words into 32-bit words, upper position, and we're done!
+		PXOR(XMM0, R(XMM0));
+		PUNPCKLWD(XMM0, R(XMM1));
+	} else if (bits == 8) {
+		if (unsignedOp) {
+			// vuc2i is a bit special.  It spreads out the bits like this:
+			// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
+			MOVSS(XMM0, fpr.V(sregs[0]));
+			if (cpu_info.bSSSE3) {
+				// Not really different speed.  Generates a bit less code.
+				PSHUFB(XMM0, M(vuc2i_shuffle));
+			} else {
+				// First, we change 0xDDCCBBAA to 0xDDDDCCCCBBBBAAAA.
+				PUNPCKLBW(XMM0, R(XMM0));
+				// Now, interleave each 16 bits so they're all 32 bits wide.
+				PUNPCKLWD(XMM0, R(XMM0));
+			}
+		} else {
+			if (cpu_info.bSSSE3) {
+				MOVSS(XMM0, fpr.V(sregs[0]));
+				PSHUFB(XMM0, M(vc2i_shuffle));
+			} else {
+				PXOR(XMM1, R(XMM1));
+				MOVSS(XMM0, fpr.V(sregs[0]));
+				PUNPCKLBW(XMM1, R(XMM0));
+				PXOR(XMM0, R(XMM0));
+				PUNPCKLWD(XMM0, R(XMM1));
+			}
+		}
 	}
 
-	// Unpack 16-bit words into 32-bit words, upper position, and we're done!
-	XORPS(XMM0, R(XMM0));
-	PUNPCKLWD(XMM0, R(XMM1));
-	
+	// At this point we have the regs in the 4 lanes.
+	// In the "u" mode, we need to shift it out of the sign bit.
+	if (unsignedOp) {
+		PSRLD(XMM0, 1);
+	}
+
 	// Done! TODO: The rest of this should be possible to extract into a function.
 	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
 
 	// TODO: Could apply D-prefix in parallel here...
 
 	MOVSS(fpr.V(dregs[0]), XMM0);
-	SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+	PSRLDQ(XMM0, 4);
 	MOVSS(fpr.V(dregs[1]), XMM0);
 
-	if (sz != V_Single) {
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+	if (outsize != V_Pair) {
+		PSRLDQ(XMM0, 4);
 		MOVSS(fpr.V(dregs[2]), XMM0);
-		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+		PSRLDQ(XMM0, 4);
 		MOVSS(fpr.V(dregs[3]), XMM0);
 	}
 
@@ -1331,6 +1418,8 @@ static const float half = 0.5f;
 static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
 static double minIntAsDouble = (double)(int)0x80000000;
 
+static u32 mxcsrTemp;
+
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
@@ -1342,15 +1431,36 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	int imm = (op >> 16) & 0x1f;
 	const double *mult = &mulTableVf2i[imm];
 
+	int setMXCSR = -1;
 	switch ((op >> 21) & 0x1f)
 	{
 	case 17:
 		break; //z - truncate. Easy to support.
 	case 16:
-	case 18:
-	case 19:
-		DISABLE;
+		setMXCSR = 0;
 		break;
+	case 18:
+		setMXCSR = 2;
+		break;
+	case 19:
+		setMXCSR = 1;
+		break;
+	}
+
+	// Small optimization: 0 is our default mode anyway.
+	if (setMXCSR == 0 && !js.hasSetRounding) {
+		setMXCSR = -1;
+	}
+	// Except for truncate, we need to update MXCSR to our preferred rounding mode.
+	if (setMXCSR != -1) {
+		STMXCSR(M(&mxcsrTemp));
+		MOV(32, R(TEMPREG), M(&mxcsrTemp));
+		AND(32, R(TEMPREG), Imm32(~(3 << 13)));
+		if (setMXCSR != 0) {
+			OR(32, R(TEMPREG), Imm32(setMXCSR << 13));
+		}
+		MOV(32, M(&mips_->temp), R(TEMPREG));
+		LDMXCSR(M(&mips_->temp));
 	}
 
 	u8 sregs[4], dregs[4];
@@ -1380,13 +1490,14 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		}
 		MINSD(XMM0, M(&maxIntAsDouble));
 		MAXSD(XMM0, M(&minIntAsDouble));
+		// We've set the rounding mode above, so this part's easy.
 		switch ((op >> 21) & 0x1f) {
-		case 16: /* TODO */ break; //n
-		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
-		case 18: /* TODO */ break; //u
-		case 19: /* TODO */ break; //d
+		case 16: CVTSD2SI(TEMPREG, R(XMM0)); break; //n
+		case 17: CVTTSD2SI(TEMPREG, R(XMM0)); break; //z - truncate
+		case 18: CVTSD2SI(TEMPREG, R(XMM0)); break; //u
+		case 19: CVTSD2SI(TEMPREG, R(XMM0)); break; //d
 		}
-		MOVD_xmm(fpr.VX(tempregs[i]), R(EAX));
+		MOVD_xmm(fpr.VX(tempregs[i]), R(TEMPREG));
 	}
 
 	for (int i = 0; i < n; ++i) {
@@ -1394,6 +1505,10 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
 		}
+	}
+
+	if (setMXCSR != -1) {
+		LDMXCSR(M(&mxcsrTemp));
 	}
 
 	ApplyPrefixD(dregs, sz);
@@ -1527,11 +1642,73 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+static float sincostemp[2];
+
+union u32float {
+	u32 u;
+	float f;
+
+	operator float() const {
+		return f;
+	}
+
+	inline u32float &operator *=(const float &other) {
+		f *= other;
+		return *this;
+	}
+};
+
+#ifdef _M_X64
+typedef float SinCosArg;
+#else
+typedef u32float SinCosArg;
+#endif
+
+void SinCos(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+}
+
+void SinOnly(SinCosArg angle) {
+	sincostemp[0] = vfpu_sin(angle);
+}
+
+void NegSinOnly(SinCosArg angle) {
+	sincostemp[0] = -vfpu_sin(angle);
+}
+
+void CosOnly(SinCosArg angle) {
+	sincostemp[1] = vfpu_cos(angle);
+}
+
+void ASinScaled(SinCosArg angle) {
+	sincostemp[0] = asinf(angle) / M_PI_2;
+}
+
+void SinCosNegSin(SinCosArg angle) {
+	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
+	sincostemp[0] = -sincostemp[0];
+}
+
 void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
 		DISABLE;
+
+	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg), u8 sreg) {
+#ifdef _M_X64
+		MOVSS(XMM0, fpr.V(sreg));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
+#else
+		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
+		if (fpr.V(sreg).IsSimpleReg()) {
+			MOVD_xmm(R(EAX), fpr.VX(sreg));
+		} else {
+			MOV(32, R(EAX), fpr.V(sreg));
+		}
+		CallProtectedFunction((const void *)sinCosFunc, R(EAX));
+#endif
+	};
 
 	// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
 	if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
@@ -1626,10 +1803,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			DISABLE;
+			trigCallHelper(&SinOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			DISABLE;
+			trigCallHelper(&CosOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
 			DISABLE;
@@ -1641,8 +1820,9 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
 			ANDPS(tempxregs[i], M(&noSignMask));
 			break;
-		case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-			DISABLE;
+		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
+			trigCallHelper(&ASinScaled, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
 			MOVSS(XMM0, M(&minus_one));
@@ -1650,7 +1830,8 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			DISABLE;
+			trigCallHelper(&NegSinOnly, sregs[i]);
+			MOVSS(tempxregs[i], M(&sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			DISABLE;
@@ -1679,9 +1860,15 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
-				fpr.MapRegV(imm, 0);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-				gpr.MapReg(rt, false, true);
-				MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				if (fpr.V(imm).IsSimpleReg()) {
+					fpr.MapRegV(imm, 0);
+					gpr.MapReg(rt, false, true);
+					MOVD_xmm(gpr.R(rt), fpr.VX(imm));
+				} else {
+					// Let's not bother mapping the vreg.
+					gpr.MapReg(rt, false, true);
+					MOV(32, gpr.R(rt), fpr.V(imm));
+				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 				if (imm - 128 == VFPU_CTRL_CC) {
 					if (gpr.IsImm(MIPS_REG_VFPUCC)) {
@@ -1708,9 +1895,14 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 
 	case 7: //mtv
 		if (imm < 128) { // VI(imm) = R(rt);
-			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);  // TODO: Seems the V register becomes dirty here? It shouldn't.
-			gpr.MapReg(rt, true, false);
-			MOVD_xmm(fpr.VX(imm), gpr.R(rt));
+			fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+			// Let's not bother mapping rt if we don't have to.
+			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+				XORPS(fpr.VX(imm), fpr.V(imm));
+			} else {
+				gpr.KillImmediate(rt, true, false);
+				MOVD_xmm(fpr.VX(imm), gpr.R(rt));
+			}
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			if (imm - 128 == VFPU_CTRL_CC) {
 				if (gpr.IsImm(rt)) {
@@ -2096,20 +2288,177 @@ void Jit::Comp_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
+// The goal is to map (reversed byte order for clarity):
+// 000000AA 000000BB 000000CC 000000DD -> AABBCCDD
+static s8 MEMORY_ALIGNED16( vi2xc_shuffle[16] ) = { 3, 7, 11, 15,  -1, -1, -1, -1,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+// 0000AAAA 0000BBBB 0000CCCC 0000DDDD -> AAAABBBB CCCCDDDD
+static s8 MEMORY_ALIGNED16( vi2xs_shuffle[16] ) = { 2, 3, 6, 7,  10, 11, 14, 15,  -1, -1, -1, -1,  -1, -1, -1, -1 };
+
 void Jit::Comp_Vi2x(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+	bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+	// These instructions pack pairs or quads of integers into 32 bits.
+	// The unsigned (u) versions skip the sign bit when packing.
+
+	VectorSize sz = GetVecSize(op);
+	VectorSize outsize;
+	if (bits == 8) {
+		outsize = V_Single;
+		if (sz != V_Quad) {
+			DISABLE;
+		}
+	} else {
+		switch (sz) {
+		case V_Pair:
+			outsize = V_Single;
+			break;
+		case V_Quad:
+			outsize = V_Pair;
+			break;
+		default:
+			DISABLE;
+		}
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	// First, let's assemble the sregs into lanes of a single xmm reg.
+	// For quad inputs, we need somewhere for the bottom regs.  Ideally dregs[0].
+	X64Reg dst0 = XMM0;
+	if (sz == V_Quad) {
+		int vreg = dregs[0];
+		if (!IsOverlapSafeAllowS(dregs[0], 0, 4, sregs)) {
+			// Will be discarded on release.
+			vreg = fpr.GetTempV();
+		}
+		fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.SpillLockV(vreg);
+		dst0 = fpr.VX(vreg);
+	} else {
+		// Pair, let's check if we should use dregs[0] directly.  No temp needed.
+		int vreg = dregs[0];
+		if (IsOverlapSafeAllowS(dregs[0], 0, 2, sregs)) {
+			fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.SpillLockV(vreg);
+			dst0 = fpr.VX(vreg);
+		}
+	}
+
+	if (!fpr.V(sregs[0]).IsSimpleReg(dst0)) {
+		MOVSS(dst0, fpr.V(sregs[0]));
+	}
+	MOVSS(XMM1, fpr.V(sregs[1]));
+	// With this, we have the lower half in dst0.
+	PUNPCKLDQ(dst0, R(XMM1));
+	if (sz == V_Quad) {
+		MOVSS(XMM0, fpr.V(sregs[2]));
+		MOVSS(XMM1, fpr.V(sregs[3]));
+		PUNPCKLDQ(XMM0, R(XMM1));
+		// Now we need to combine XMM0 into dst0.
+		PUNPCKLQDQ(dst0, R(XMM0));
+	} else {
+		// Otherwise, we need to zero out the top 2.
+		// We expect XMM1 to be zero below.
+		PXOR(XMM1, R(XMM1));
+		PUNPCKLQDQ(dst0, R(XMM1));
+	}
+
+	// For "u" type ops, we clamp to zero and shift off the sign bit first.
+	if (unsignedOp) {
+		if (cpu_info.bSSE4_1) {
+			if (sz == V_Quad) {
+				// Zeroed in the other case above.
+				PXOR(XMM1, R(XMM1));
+			}
+			PMAXSD(dst0, R(XMM1));
+			PSLLD(dst0, 1);
+		} else {
+			// Get a mask of the sign bit in dst0, then and in the values.  This clamps to 0.
+			MOVDQA(XMM1, R(dst0));
+			PSRAD(dst0, 31);
+			PSLLD(XMM1, 1);
+			PANDN(dst0, R(XMM1));
+		}
+	}
+
+	// At this point, everything is aligned in the high bits of our lanes.
+	if (cpu_info.bSSSE3) {
+		PSHUFB(dst0, bits == 8 ? M(vi2xc_shuffle) : M(vi2xs_shuffle));
+	} else {
+		// Let's *arithmetically* shift in the sign so we can use saturating packs.
+		PSRAD(dst0, 32 - bits);
+		// XMM1 used for the high part just so there's no dependency.  It contains garbage or 0.
+		PACKSSDW(dst0, R(XMM1));
+		if (bits == 8) {
+			PACKSSWB(dst0, R(XMM1));
+		}
+	}
+
+	if (!fpr.V(dregs[0]).IsSimpleReg(dst0)) {
+		MOVSS(fpr.V(dregs[0]), dst0);
+	}
+	if (outsize == V_Pair) {
+		fpr.MapRegV(dregs[1], MAP_NOINIT | MAP_DIRTY);
+		MOVDQA(fpr.V(dregs[1]), dst0);
+		// Shift out the lower result to get the result we want.
+		PSRLDQ(fpr.VX(dregs[1]), 4);
+	}
+
+	ApplyPrefixD(dregs, outsize);
+	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vhoriz(MIPSOpcode op) {
-	DISABLE;
+static const float MEMORY_ALIGNED16( vavg_table[4] ) = {1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f};
 
-	// Do any games use these a noticable amount?
+void Jit::Comp_Vhoriz(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[1];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	X64Reg reg = XMM0;
+	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
+		fpr.MapRegV(dregs[0], (dregs[0] == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.SpillLockV(dregs[0]);
+		reg = fpr.VX(dregs[0]);
+	}
+
+	// We use a temp reg in case of overlap.
+	if (!fpr.V(sregs[0]).IsSimpleReg(reg)) {
+		MOVSS(reg, fpr.V(sregs[0]));
+	}
+	for (int i = 1; i < n; ++i) {
+		ADDSS(reg, fpr.V(sregs[i]));
+	}
+
 	switch ((op >> 16) & 31) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
+		MULSS(reg, M(&vavg_table[n]));
 		break;
 	}
+
+	if (reg == XMM0) {
+		MOVSS(fpr.V(dregs[0]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, V_Single);
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_Viim(MIPSOpcode op) {
@@ -2124,9 +2473,9 @@ void Jit::Comp_Viim(MIPSOpcode op) {
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 	FP32 fp;
 	fp.f = (float)imm;
-	MOV(32, R(EAX), Imm32(fp.u));
+	MOV(32, R(TEMPREG), Imm32(fp.u));
 	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-	MOVD_xmm(fpr.VX(dreg), R(EAX));
+	MOVD_xmm(fpr.VX(dreg), R(TEMPREG));
 
 	ApplyPrefixD(&dreg, V_Single);
 	fpr.ReleaseSpillLocks();
@@ -2144,43 +2493,12 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 	FP16 half;
 	half.u = op & 0xFFFF;
 	FP32 fval = half_to_float_fast5(half);
-	MOV(32, R(EAX), Imm32(fval.u));
+	MOV(32, R(TEMPREG), Imm32(fval.u));
 	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-	MOVD_xmm(fpr.VX(dreg), R(EAX));
+	MOVD_xmm(fpr.VX(dreg), R(TEMPREG));
 
 	ApplyPrefixD(&dreg, V_Single);
 	fpr.ReleaseSpillLocks();
-}
-
-static float sincostemp[2];
-
-union u32float {
-	u32 u;
-	float f;
-
-	operator float() const {
-		return f;
-	}
-
-	inline u32float &operator *=(const float &other) {
-		f *= other;
-		return *this;
-	}
-};
-
-#ifdef _M_X64
-typedef float SinCosArg;
-#else
-typedef u32float SinCosArg;
-#endif
-
-void SinCos(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-}
-
-void SinCosNegSin(SinCosArg angle) {
-	vfpu_sincos(angle, sincostemp[0], sincostemp[1]);
-	sincostemp[0] = -sincostemp[0];
 }
 
 // Very heavily used by FF:CC

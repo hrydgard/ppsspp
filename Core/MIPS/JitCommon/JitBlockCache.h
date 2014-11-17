@@ -18,6 +18,15 @@
 #pragma once
 
 #include <map>
+#ifdef IOS
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+	using std::tr1::unordered_multimap;
+}
+#else
+#include <unordered_map>
+#endif
 #include <vector>
 #include <string>
 
@@ -41,7 +50,11 @@ namespace PpcGen { class PPCXEmitter; }
 using namespace PpcGen;
 typedef PpcGen::PPCXCodeBlock CodeBlock;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Common/FakeEmitter.h"
+namespace FakeGen { class FakeXEmitter; }
+using namespace FakeGen;
+typedef FakeGen::FakeXCodeBlock CodeBlock;
 #endif
 
 #if defined(ARM)
@@ -143,6 +156,10 @@ public:
 
 	static int GetBlockExitSize();
 
+	enum {
+		MAX_BLOCK_INSTRUCTIONS = 0x4000,
+	};
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
@@ -156,10 +173,10 @@ private:
 	MIPSState *mips_;
 	CodeBlock *codeBlock_;
 	JitBlock *blocks_;
-	std::multimap<u32, int> proxyBlockMap_;
+	std::unordered_multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_;
-	std::multimap<u32, int> links_to_;
+	std::unordered_multimap<u32, int> links_to_;
 	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
 
 	enum {

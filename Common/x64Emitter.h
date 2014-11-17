@@ -22,11 +22,11 @@
 
 #include "Common.h"
 
-#ifdef _M_X64
+#if defined(_M_X64) && !defined(_ARCH_64)
 #define _ARCH_64
 #endif
 
-#ifdef _M_X64
+#ifdef _ARCH_64
 #define PTRBITS 64
 #else
 #define PTRBITS 32
@@ -141,6 +141,17 @@ enum FloatOp {
 	floatINVALID = -1,
 };
 
+enum FloatRound {
+	FROUND_NEAREST = 0,
+	FROUND_FLOOR = 1,
+	FROUND_CEIL = 2,
+	FROUND_ZERO = 3,
+	FROUND_MXCSR = 4,
+
+	FROUND_RAISE_PRECISION = 0,
+	FROUND_IGNORE_PRECISION = 8,
+};
+
 class XEmitter;
 
 // RIP addressing does not benefit from micro op fusion on Core arch
@@ -156,7 +167,7 @@ struct OpArg
 		//if scale == 0 never mind offsetting
 		offset = _offset;
 	}
-	bool operator==(OpArg b)
+	bool operator==(const OpArg &b) const
 	{
 		return operandReg == b.operandReg && scale == b.scale && offsetOrBaseReg == b.offsetOrBaseReg &&
 		       indexReg == b.indexReg && offset == b.offset;
@@ -703,6 +714,7 @@ public:
 	void PUNPCKLBW(X64Reg dest, const OpArg &arg);
 	void PUNPCKLWD(X64Reg dest, const OpArg &arg);
 	void PUNPCKLDQ(X64Reg dest, const OpArg &arg);
+	void PUNPCKLQDQ(X64Reg dest, const OpArg &arg);
 
 	void PTEST(X64Reg dest, OpArg arg);
 	void PAND(X64Reg dest, OpArg arg);
@@ -751,7 +763,15 @@ public:
 	void PMAXUB(X64Reg dest, OpArg arg);
 	void PMINSW(X64Reg dest, OpArg arg);
 	void PMINUB(X64Reg dest, OpArg arg);
-	// SSE4 has PMAXSB and PMINSB and PMAXUW and PMINUW too if we need them.
+	// SSE4: More MAX/MIN instructions.
+	void PMINSB(X64Reg dest, OpArg arg);
+	void PMINSD(X64Reg dest, OpArg arg);
+	void PMINUW(X64Reg dest, OpArg arg);
+	void PMINUD(X64Reg dest, OpArg arg);
+	void PMAXSB(X64Reg dest, OpArg arg);
+	void PMAXSD(X64Reg dest, OpArg arg);
+	void PMAXUW(X64Reg dest, OpArg arg);
+	void PMAXUD(X64Reg dest, OpArg arg);
 
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
@@ -792,6 +812,32 @@ public:
 	void PBLENDVB(X64Reg dest, OpArg arg);
 	void BLENDVPS(X64Reg dest, OpArg arg);
 	void BLENDVPD(X64Reg dest, OpArg arg);
+
+	// SSE4: rounding (see FloatRound for mode or use ROUNDNEARSS, etc. helpers.)
+	void ROUNDSS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDSD(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPD(X64Reg dest, OpArg arg, u8 mode);
+
+	inline void ROUNDNEARSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_ZERO); }
 
 	// AVX
 	void VADDSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);

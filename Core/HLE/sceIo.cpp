@@ -438,7 +438,7 @@ void __IoWakeManager() {
 }
 
 void __IoInit() {
-	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
+	MemoryStick_Init();
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
@@ -726,6 +726,9 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 		if (!(f->openMode & FILEACCESS_READ)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 			return true;
+		} else if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
 			CBreakPoints::ExecMemCheck(data_addr, true, size, currentMIPS->pc);
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
@@ -855,6 +858,10 @@ bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 		}
 		if (!(f->openMode & FILEACCESS_WRITE)) {
 			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			return true;
+		}
+		if (size < 0) {
+			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
 		}
 
@@ -1193,12 +1200,17 @@ u32 sceIoOpen(const char *filename, int flags, int mode) {
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(SCEIO, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
+			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD, "no cwd", 10000);
+		}
+		else if (error != 0)
+		{
+			ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x)", error, filename, flags, mode);
+			return hleDelayResult(error, "file opened", 10000);
 		}
 		else
 		{
 			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 10000);
+			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
 		}
 	}
 

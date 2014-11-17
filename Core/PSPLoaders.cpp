@@ -71,6 +71,14 @@ void InitMemoryForGameISO(std::string fileToStart) {
 		// Can't init anything without a block device...
 		if (!bd)
 			return;
+
+#ifdef _M_X64
+		if (g_Config.bCacheFullIsoInRam) {
+			// The constructor destroys the original block device object after reading it.
+			bd = new RAMBlockDevice(bd);
+		}
+#endif
+
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
 		actualIso = true;
 	}

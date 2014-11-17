@@ -790,7 +790,7 @@ namespace DX9 {
 				const RECT dstRect = {x * rw / w, y * rh / h, (x + w) * rw / w, (y + h) * rh / h};
 				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
-					ERROR_LOG_REPORT(G3D, "fbo_blit_color failed on display: %08x", hr);
+					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
 					dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {

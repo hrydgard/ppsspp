@@ -141,13 +141,15 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #endif
 }
 
-OpArg JitSafeMem::PrepareMemoryOpArg(ReadType type)
+OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 {
 	// We may not even need to move into EAX as a temporary.
 	bool needTemp = alignMask_ != 0xFFFFFFFF;
+
 #ifdef _M_IX86
+	bool needMask = true; // raddr_ != MIPS_REG_SP;    // Commented out this speedhack due to low impact
 	// We always mask on 32 bit in fast memory mode.
-	needTemp = needTemp || fast_;
+	needTemp = needTemp || (fast_ && needMask);
 #endif
 
 	if (jit_->gpr.R(raddr_).IsSimpleReg() && !needTemp)
@@ -177,7 +179,9 @@ OpArg JitSafeMem::PrepareMemoryOpArg(ReadType type)
 	else
 	{
 #ifdef _M_IX86
-		jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+		if (needMask) {
+			jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+		}
 #endif
 	}
 
@@ -332,7 +336,7 @@ void JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitSafeMem::MemCheckImm(ReadType type)
+void JitSafeMem::MemCheckImm(MemoryOpType type)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
@@ -352,7 +356,7 @@ void JitSafeMem::MemCheckImm(ReadType type)
 	}
 }
 
-void JitSafeMem::MemCheckAsm(ReadType type)
+void JitSafeMem::MemCheckAsm(MemoryOpType type)
 {
 	const auto memchecks = CBreakPoints::GetMemCheckRanges();
 	bool possible = false;

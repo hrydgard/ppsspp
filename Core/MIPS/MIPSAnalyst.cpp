@@ -16,6 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#ifdef IOS
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+	using std::tr1::unordered_multimap;
+};
+#else
+#include <unordered_map>
+#endif
 #include <set>
 #include "base/mutex.h"
 #include "ext/cityhash/city.h"
@@ -36,13 +45,18 @@
 using namespace MIPSCodeUtils;
 
 // Not in a namespace because MSVC's debugger doesn't like it
-static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+typedef std::vector<MIPSAnalyst::AnalyzedFunction> FunctionsVector;
+static FunctionsVector functions;
 recursive_mutex functions_lock;
 
-// TODO: Try multimap instead
 // One function can appear in multiple copies in memory, and they will all have 
 // the same hash and should all be replaced if possible.
-static std::map<u64, std::vector<MIPSAnalyst::AnalyzedFunction*>> hashToFunction;
+#ifdef __SYMBIAN32__
+// Symbian does not have a functional unordered_multimap.
+static std::multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#else
+static std::unordered_multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#endif
 
 struct HashMapFunc {
 	char name[64];
@@ -653,10 +667,14 @@ namespace MIPSAnalyst {
 	void UpdateHashToFunctionMap() {
 		lock_guard guard(functions_lock);
 		hashToFunction.clear();
+		// Really need to detect C++11 features with better defines.
+#if !defined(__SYMBIAN32__) && !defined(IOS)
+		hashToFunction.reserve(functions.size());
+#endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
-				hashToFunction[f.hash].push_back(&f);
+				hashToFunction.insert(std::make_pair(f.hash, &f));
 			}
 		}
 	}
@@ -1021,19 +1039,34 @@ skip:
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
 
-		// TODO: speedup
-		auto iter = functions.begin();
-		while (iter != functions.end()) {
-			if (iter->start >= startAddr && iter->start <= endAddr) {
-				iter = functions.erase(iter);
-			} else {
-				iter++;
+		// Most of the time, functions from the same module will be contiguous in functions.
+		FunctionsVector::iterator prevMatch = functions.end();
+		size_t originalSize = functions.size();
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
+			const bool hadPrevMatch = prevMatch != functions.end();
+			const bool match = iter->start >= startAddr && iter->start <= endAddr;
+
+			if (!hadPrevMatch && match) {
+				// Entering a range.
+				prevMatch = iter;
+			} else if (hadPrevMatch && !match) {
+				// Left a range.
+				iter = functions.erase(prevMatch, iter);
+				prevMatch = functions.end();
 			}
+		}
+		if (prevMatch != functions.end()) {
+			// Cool, this is the fastest way.
+			functions.erase(prevMatch, functions.end());
 		}
 
 		RestoreReplacedInstructions(startAddr, endAddr);
 
-		// TODO: Also wipe them from hash->function map
+		if (functions.empty()) {
+			hashToFunction.clear();
+		} else if (originalSize != functions.size()) {
+			UpdateHashToFunctionMap();
+		}
 	}
 
 	void ReplaceFunctions() {
@@ -1112,15 +1145,14 @@ skip:
 		UpdateHashToFunctionMap();
 
 		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
-			auto iter = hashToFunction.find(mf->hash);
-			if (iter == hashToFunction.end()) {
+			auto range = hashToFunction.equal_range(mf->hash);
+			if (range.first == range.second) {
 				continue;
 			}
 
 			// Yay, found a function.
-
-			for (unsigned int i = 0; i < iter->second.size(); i++) {
-				AnalyzedFunction &f = *(iter->second[i]);
+			for (auto iter = range.first; iter != range.second; ++iter) {
+				AnalyzedFunction &f = *iter->second;
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 

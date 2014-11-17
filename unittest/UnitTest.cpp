@@ -39,6 +39,8 @@
 #include "Core/Config.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
+#include "unittest/JitHarness.h"
+
 #define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
 #define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:%i: Test Fail\n%f\nvs\n%f\n", __FUNCTION__, __LINE__, a, b); return false; }
@@ -417,17 +419,75 @@ bool TestVFPUSinCos() {
 	return true;
 }
 
+typedef bool (*TestFunc)();
+struct TestItem {
+	const char *name;
+	TestFunc func;
+};
+
+#define TEST_ITEM(name) { #name, &Test ##name, }
+
+TestItem availableTests[] = {
+	TEST_ITEM(Asin),
+	TEST_ITEM(SinCos),
+	TEST_ITEM(ArmEmitter),
+	TEST_ITEM(VFPUSinCos),
+	TEST_ITEM(MathUtil),
+	TEST_ITEM(Parsers),
+	TEST_ITEM(Jit),
+};
+
 int main(int argc, const char *argv[]) {
 	cpu_info.bNEON = true;
 	cpu_info.bVFP = true;
 	cpu_info.bVFPv3 = true;
 	cpu_info.bVFPv4 = true;
 	g_Config.bEnableLogging = true;
-	//TestAsin();
-	//TestSinCos();
-	//TestArmEmitter();
-	TestVFPUSinCos();
-	//TestMathUtil();
-	//TestParsers();
+
+	bool allTests = false;
+	TestFunc testFunc = nullptr;
+	if (argc >= 2) {
+		if (!strcasecmp(argv[1], "all")) {
+			allTests = true;
+		}
+		for (auto f : availableTests) {
+			if (!strcasecmp(argv[1], f.name)) {
+				testFunc = f.func;
+				break;
+			}
+		}
+	}
+
+	if (allTests) {
+		int passes = 0;
+		int fails = 0;
+		for (auto f : availableTests) {
+			if (f.func()) {
+				++passes;
+			} else {
+				printf("%s: FAILED\n", f.name);
+				++fails;
+			}
+		}
+		if (passes > 0) {
+			printf("%d tests passed.\n", passes);
+		}
+		if (fails > 0) {
+			return 2;
+		}
+	} else if (testFunc == nullptr) {
+		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Available tests:\n");
+		for (auto f : availableTests) {
+			fprintf(stderr, "  * %s\n", f.name);
+		}
+		return 1;
+	} else {
+		if (!testFunc()) {
+			return 2;
+		}
+	}
+
 	return 0;
 }

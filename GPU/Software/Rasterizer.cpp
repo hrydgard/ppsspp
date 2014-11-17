@@ -993,20 +993,14 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &colo
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-#if defined(_M_SSE)
-		// ToRGBA() on SSE automatically clamps.
+		// ToRGBA() always automatically clamps.
 		new_color = AlphaBlendingResult(prim_color, dst).ToRGB();
 		new_color |= stencil << 24;
-#else
-		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
-#endif
 	} else {
 #if defined(_M_SSE)
 		new_color = Vec3<int>(prim_color.ivec).ToRGB();
 		new_color |= stencil << 24;
 #else
-		if (!clearMode)
-			prim_color = prim_color.Clamp(0, 255);
 		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 #endif
 	}

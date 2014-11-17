@@ -39,7 +39,7 @@ u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 		const __m128i *p = (const __m128i *)checkp;
 		for (u32 i = 0; i < size / 16; i += 4) {
 			__m128i chunk = _mm_mullo_epi16(_mm_load_si128(&p[i]), cursor2);
-			cursor = _mm_add_epi32(cursor, chunk);
+			cursor = _mm_add_epi16(cursor, chunk);
 			cursor = _mm_xor_si128(cursor, _mm_load_si128(&p[i + 1]));
 			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i + 2]));
 			chunk = _mm_mullo_epi16(_mm_load_si128(&p[i + 3]), cursor2);
@@ -62,6 +62,57 @@ u32 QuickTexHashSSE2(const void *checkp, u32 size) {
 	return check;
 }
 #endif
+
+u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
+	u32 check = 0;
+
+	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
+		static const u16 cursor2_initial[8] = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
+		union u32x4_u16x8 {
+			u32 x32[4];
+			u16 x16[8];
+		};
+		u32x4_u16x8 cursor = {0, 0, 0, 0};
+		u32x4_u16x8 cursor2;
+		static const u16 update[8] = {0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U, 0x2455U};
+
+		for (u32 j = 0; j < 8; ++j) {
+			cursor2.x16[j] = cursor2_initial[j];
+		}
+
+		const u32x4_u16x8 *p = (const u32x4_u16x8 *)checkp;
+		for (u32 i = 0; i < size / 16; i += 4) {
+			for (u32 j = 0; j < 8; ++j) {
+				const u16 temp = p[i + 0].x16[j] * cursor2.x16[j];
+				cursor.x16[j] += temp;
+			}
+			for (u32 j = 0; j < 4; ++j) {
+				cursor.x32[j] ^= p[i + 1].x32[j];
+				cursor.x32[j] += p[i + 2].x32[j];
+			}
+			for (u32 j = 0; j < 8; ++j) {
+				const u16 temp = p[i + 3].x16[j] * cursor2.x16[j];
+				cursor.x16[j] ^= temp;
+			}
+			for (u32 j = 0; j < 8; ++j) {
+				cursor2.x16[j] += update[j];
+			}
+		}
+
+		for (u32 j = 0; j < 4; ++j) {
+			cursor.x32[j] += cursor2.x32[j];
+		}
+		check = cursor.x32[0] + cursor.x32[1] + cursor.x32[2] + cursor.x32[3];
+	} else {
+		const u32 *p = (const u32 *)checkp;
+		for (u32 i = 0; i < size / 8; ++i) {
+			check += *p++;
+			check ^= *p++;
+		}
+	}
+
+	return check;
+}
 
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 #if defined(ARM) && defined(__GNUC__)
@@ -157,7 +208,8 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #ifndef _M_SSE
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
-ReliableHashFunc DoReliableHash = &XXH32;
+ReliableHash32Func DoReliableHash32 = &XXH32;
+ReliableHash64Func DoReliableHash64 = &XXH64;
 #endif
 
 // This has to be done after CPUDetect has done its magic.
@@ -168,7 +220,7 @@ void SetupTextureDecoder() {
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
 #ifndef IOS
 		// Not sure if this is safe on iOS, it's had issues with xxhash.
-		DoReliableHash = &ReliableHashNEON;
+		DoReliableHash32 = &ReliableHash32NEON;
 #endif
 	}
 #endif

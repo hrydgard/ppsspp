@@ -171,7 +171,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
-  $(SRC)/GPU/Software/Rasterizer.cpp \
+  $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/SoftGpu.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \

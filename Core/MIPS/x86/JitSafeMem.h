@@ -65,15 +65,15 @@ public:
 	}
 
 private:
-	enum ReadType {
+	enum MemoryOpType {
 		MEM_READ,
 		MEM_WRITE,
 	};
 
-	OpArg PrepareMemoryOpArg(ReadType type);
+	OpArg PrepareMemoryOpArg(MemoryOpType type);
 	void PrepareSlowAccess();
-	void MemCheckImm(ReadType type);
-	void MemCheckAsm(ReadType type);
+	void MemCheckImm(MemoryOpType type);
+	void MemCheckAsm(MemoryOpType type);
 	bool ImmValid();
 
 	Jit *jit_;

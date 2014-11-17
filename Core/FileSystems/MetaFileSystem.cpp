@@ -348,7 +348,13 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	MountPoint *mount;
 	if (MapFilePath(filename, of, &mount))
 	{
-		return mount->system->OpenFile(of, access, mount->prefix.c_str());
+		s32 res = mount->system->OpenFile(of, access, mount->prefix.c_str());
+		if (res < 0)
+		{
+			lastOpenError = res;
+			return 0;
+		}
+		return res;
 	}
 	else
 	{
@@ -589,6 +595,17 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 	if (result != dataSize)
 		return SCE_KERNEL_ERROR_ERROR;
 	return 0;
+}
+
+u64 MetaFileSystem::FreeSpace(const std::string &path)
+{
+	lock_guard guard(lock);
+	std::string of;
+	IFileSystem *system;
+	if (MapFilePath(path, of, &system))
+		return system->FreeSpace(of);
+	else
+		return 0;
 }
 
 void MetaFileSystem::DoState(PointerWrap &p)

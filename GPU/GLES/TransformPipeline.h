@@ -17,7 +17,14 @@
 
 #pragma once
 
+#if defined(IOS)
+#include <tr1/unordered_map>
+namespace std {
+	using std::tr1::unordered_map;
+}
+#else
 #include <unordered_map>
+#endif
 
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
@@ -53,6 +60,13 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
+// Avoiding the full include of TextureDecoder.h.
+#ifdef _M_X64
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
+
 // Try to keep this POD.
 class VertexArrayInfo {
 public:
@@ -77,7 +91,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	u32 hash;
+	ReliableHashType hash;
 	u32 minihash;
 
 	Status status;
@@ -188,7 +202,7 @@ private:
 	void FreeBuffer(GLuint buf);
 
 	u32 ComputeMiniHash();
-	u32 ComputeHash();  // Reads deferred vertex data.
+	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
@@ -200,7 +214,7 @@ private:
 		void *inds;
 		u32 vertType;
 		u8 indexType;
-		u8 prim;
+		s8 prim;
 		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;

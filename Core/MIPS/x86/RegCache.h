@@ -37,6 +37,9 @@ using namespace Gen;
 #define CTXREG EBP
 #endif
 
+// This must be one of EAX, EBX, ECX, EDX as they have 8-bit subregisters.
+#define TEMPREG EAX
+
 struct MIPSCachedReg {
 	OpArg location;
 	bool away;  // value not in source register

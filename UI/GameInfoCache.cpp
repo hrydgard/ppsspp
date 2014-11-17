@@ -445,6 +445,21 @@ handleELF:
 				}
 				break;
 
+			case FILETYPE_ARCHIVE_7Z:
+				info_->paramSFOLoaded = true;
+				{
+					// Read standard icon
+					size_t sz;
+					uint8_t *contents = VFSReadFile("7z.png", &sz);
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
+						info_->iconDataLoaded = true;
+					}
+					delete[] contents;
+				}
+				break;
+
 			case FILETYPE_NORMAL_DIRECTORY:
 			default:
 				info_->paramSFOLoaded = true;

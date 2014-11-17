@@ -301,7 +301,7 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_;
+		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
 	} else {
 		prevPrim_ = prim;
 	}
@@ -462,7 +462,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 		size_t step = sz / 4;
 		u32 hash = 0;
 		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash(p + i, 100, 0x3A44B9C4);
+			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
 		}
 		return hash;
 	} else {
@@ -509,8 +509,8 @@ void TransformDrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 	}
 }
 
-u32 TransformDrawEngineDX9::ComputeHash() {
-	u32 fullhash = 0;
+ReliableHashType TransformDrawEngineDX9::ComputeHash() {
+	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 
@@ -645,7 +645,7 @@ void TransformDrawEngineDX9::DoFlush() {
 			case VertexArrayInfoDX9::VAI_NEW:
 				{
 					// Haven't seen this one before.
-					u32 dataHash = ComputeHash();
+					ReliableHashType dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoDX9::VAI_HASHING;
@@ -670,7 +670,7 @@ void TransformDrawEngineDX9::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						// Let's try to skip a full hash if mini would fail.
 						const u32 newMiniHash = ComputeMiniHash();
-						u32 newHash = vai->hash;
+						ReliableHashType newHash = vai->hash;
 						if (newMiniHash == vai->minihash) {
 							newHash = ComputeHash();
 						}

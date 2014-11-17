@@ -905,12 +905,12 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *temp = new char[space];
 
 		char *p = temp, *end = temp + space;
-		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
 			// Don't leave a trailing newline.
-			if (pos + instructionSize < endAddr)
+			if (pos + instructionSize < endAddr && p < end)
 				p += snprintf(p, end - p, "\r\n");
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);

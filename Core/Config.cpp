@@ -239,9 +239,14 @@ const char *DefaultLangRegion() {
 
 const char *CreateRandMAC() {
 	std::stringstream randStream;
+	u32 value;
 	srand(time(0));
 	for(int i = 0; i < 6; i++) {
-		randStream << std::hex << (rand() % 256); //generates each octet for the mac in hex format
+		value = rand() % 256;
+		if (value >= 0 && value <= 15)
+			randStream << '0' << std::hex << value;
+		else
+			randStream << std::hex << value;
 		if (i<5) {
 			randStream << ':'; //we need a : between every octet
 		}
@@ -257,8 +262,10 @@ static int DefaultNumWorkers() {
 static bool DefaultJit() {
 #ifdef IOS
 	return iosCanUseJit;
-#else
+#elif defined(ARM) || defined(_M_IX86) || defined(_M_X64)
 	return true;
+#else
+	return false;
 #endif
 }
 
@@ -295,6 +302,7 @@ static ConfigSetting generalSettings[] = {
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
 	ConfigSetting("AutoSaveSymbolMap", &g_Config.bAutoSaveSymbolMap, false),
+	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false),
 
 #ifdef ANDROID
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
@@ -834,6 +842,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #ifdef _WIN32
 	iTempGPUBackend = iGPUBackend;
 #endif
+
+	// Fix Wrong MAC address by old version by "Change MAC address"
+	std::string str(sMACAddress.c_str());
+	if (str.length() != 17)
+		sMACAddress = CreateRandMAC();
 }
 
 void Config::Save() {

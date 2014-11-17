@@ -24,8 +24,6 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
-#include "ext/disarm.h"
-#include "ext/udis86/udis86.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -423,45 +421,19 @@ void JitCompareScreen::CreateViews() {
 
 	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
 	leftColumn->Add(new Choice("By Address"))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
+	leftColumn->Add(new Choice("Prev"))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
+	leftColumn->Add(new Choice("Next"))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
 	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView("no block"));
+	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
+	blockStats_ = leftColumn->Add(new TextView(""));
 
 	EventParams ignore = {0};
 	OnCurrentBlock(ignore);
 }
-
-#ifdef ARM
-std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
-	std::vector<std::string> lines;
-
-	char temp[256];
-	for (int i = 0; i < size; i += 4) {
-		const u32 *codePtr = (const u32 *)(data + i);
-		u32 inst = codePtr[0];
-		u32 next = (i < size - 4) ? codePtr[1] : 0;
-		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
-		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
-			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
-			u32 hi = ((next & 0x000F0000) >> 4) | (next	 & 0x0FFF);
-			int reg0 = (inst & 0x0000F000) >> 12;
-			int reg1 = (next & 0x0000F000) >> 12;
-			if (reg0 == reg1) {
-				sprintf(temp, "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
-				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				lines.push_back(temp);
-				i += 4;
-				continue;
-			}
-		}
-		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
-		std::string buf = temp;
-		lines.push_back(buf);
-	}
-	return lines;
-}
-#endif
 
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();
@@ -469,18 +441,23 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
-	if (currentBlock_ == -1) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+
+	char temp[256];
+	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCache->GetNumBlocks());
+	blockName_->SetText(temp);
+
+	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView("No block"));
 		rightDisasm_->Add(new TextView("No block"));
+		blockStats_->SetText("");
 		return;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	JitBlock *block = blockCache->GetBlock(currentBlock_);
 
-	char temp[256];
-	snprintf(temp, sizeof(temp), "%i/%i\n%08x", currentBlock_, blockCache->GetNumBlocks(), block->originalAddress);
-	blockName_->SetText(temp);
+	snprintf(temp, sizeof(temp), "%08x", block->originalAddress);
+	blockAddr_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
 	
@@ -494,32 +471,50 @@ void JitCompareScreen::UpdateDisasm() {
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
+#else
+	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
+#endif
 	for (size_t i = 0; i < targetDis.size(); i++) {
 		rightDisasm_->Add(new TextView(targetDis[i]));
 	}
-#else
-	ud_t ud_obj;
-	ud_init(&ud_obj);
-#ifdef _M_X64
-	ud_set_mode(&ud_obj, 64);
-#else
-	ud_set_mode(&ud_obj, 32);
-#endif
-	ud_set_pc(&ud_obj, (intptr_t)block->normalEntry);
-	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
-	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
 
-	ud_set_input_buffer(&ud_obj, block->normalEntry, block->codeSize);
-	while (ud_disassemble(&ud_obj) != 0) {
-		rightDisasm_->Add(new TextView(ud_insn_asm(&ud_obj)));
+	int numMips = leftDisasm_->GetNumSubviews();
+	int numHost = rightDisasm_->GetNumSubviews();
+
+	snprintf(temp, sizeof(temp), "%d to %d : %d%%", numMips, numHost, 100 * numHost / numMips);
+	blockStats_->SetText(temp);
+}
+
+UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	u32 addr;
+	if (blockAddr_->GetText().size() > 8)
+		return UI::EVENT_DONE;
+	if (1 == sscanf(blockAddr_->GetText().c_str(), "%08x", &addr)) {
+		if (Memory::IsValidAddress(addr)) {
+			currentBlock_ = blockCache->GetBlockNumberFromStartAddress(addr);
+			UpdateDisasm();
+		}
 	}
-#endif
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto addressPrompt = new AddressPromptScreen("Block address");
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnPrevBlock(UI::EventParams &e) {
+	currentBlock_--;
+	UpdateDisasm();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
+	currentBlock_++;
+	UpdateDisasm();
 	return UI::EVENT_DONE;
 }
 

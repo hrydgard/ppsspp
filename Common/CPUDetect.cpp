@@ -75,17 +75,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
 #elif !defined(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
-#ifdef ANDROID
-	// Use the /dev/cpu/%i/cpuid interface
-	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
-	if (f) {
-		lseek64(f, ((uint64_t)ecxval << 32) | cpuid_leaf, SEEK_SET);
-		read(f, (void *)regs, 16);
-		close(f);
-	} else {
-		ELOG("CPUID %08x failed!", cpuid_leaf);
-	}
-#elif defined(__i386__) && defined(__PIC__)
+#if defined(__i386__) && defined(__PIC__)
 	asm (
 		"xchgl %%ebx, %1;\n\t"
 		"cpuid;\n\t"
@@ -191,10 +181,11 @@ void CPUInfo::Detect() {
 		}
 
 		// AVX support requires 3 separate checks:
-		//  - Is the AVX bit set in CPUID?
-		//  - Is the XSAVE bit set in CPUID?
+		//  - Is the AVX bit set in CPUID? (>>28)
+		//  - Is the XSAVE bit set in CPUID? ( >>26)
+		//  - Is the OSXSAVE bit set in CPUID? ( >>27)
 		//  - XGETBV result has the XCR bit set.
-		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1))
+		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1) && ((cpu_id[2] >> 26) & 1))
 		{
 			if ((_xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0x6) == 0x6)
 			{

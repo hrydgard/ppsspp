@@ -114,7 +114,7 @@ struct VarSymbolImport {
 
 struct VarSymbolExport {
 	bool Matches(const VarSymbolImport &other) const {
-		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
 	}
 
 	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
@@ -130,7 +130,7 @@ struct FuncSymbolImport {
 
 struct FuncSymbolExport {
 	bool Matches(const FuncSymbolImport &other) const {
-		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+		return nid == other.nid && !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
 	}
 
 	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
@@ -539,8 +539,14 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 	case R_MIPS_LO16:
 		{
 			// Sign extend the existing low value (e.g. from addiu.)
-			const u32 exportOffsetLo = exportAddress + (s16)(u16)(relocData & 0xFFFF);
-			u32 full = exportOffsetLo;
+			const u32 offsetLo = (s32)(s16)(u16)(relocData & 0xFFFF);
+			u32 full = exportAddress;
+			// This is only used in the error case (no hi/wrong hi.)
+			if (!reverse) {
+				full = offsetLo + exportAddress;
+			} else {
+				full = offsetLo - exportAddress;
+			}
 
 			// The ABI requires that these come in pairs, at least.
 			if (lastHI16Relocs.empty()) {
@@ -553,9 +559,9 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 				for (auto it = lastHI16Relocs.begin(), end = lastHI16Relocs.end(); it != end; ++it)
 				{
 					if (!reverse) {
-						full = (it->data << 16) + exportOffsetLo;
+						full = (it->data << 16) + offsetLo + exportAddress;
 					} else {
-						full = (it->data << 16) - exportOffsetLo;
+						full = (it->data << 16) + offsetLo - exportAddress;
 					}
 					// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 					// We add 1 in that case so that it ends up the right value.

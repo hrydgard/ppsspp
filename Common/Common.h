@@ -34,10 +34,6 @@
 #endif
 #endif
 
-#if defined(ARM)
-#define _M_ARM32
-#endif
-
 // Force enable logging in the right modes. For some reason, something had changed
 // so that debugfast no longer logged.
 #if defined(_DEBUG) || defined(DEBUGFAST)
@@ -106,13 +102,6 @@ private:
 #include <limits.h>
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
-#endif
-#ifdef _LP64
-#define _M_X64 1
-#else
-#ifndef _M_ARM32
-#define _M_IX86 1
-#endif
 #endif
 
 #define __forceinline inline __attribute__((always_inline))

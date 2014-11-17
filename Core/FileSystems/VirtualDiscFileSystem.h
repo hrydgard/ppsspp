@@ -41,6 +41,7 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	int  Flags() { return 0; }
+	u64  FreeSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations
 	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size);
@@ -132,10 +133,12 @@ private:
 		u64 size;			// only used by lbn files
 
 		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
+			// Ignored, we're read only.
+			u32 err;
 			if (handler.IsValid()) {
 				return handler.Open(basePath, fileName, access);
 			} else {
-				return hFile.Open(basePath, fileName, access);
+				return hFile.Open(basePath, fileName, access, err);
 			}
 		}
 		size_t Read(u8 *data, s64 size) {

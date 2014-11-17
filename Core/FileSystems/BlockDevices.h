@@ -31,6 +31,15 @@ class BlockDevice
 public:
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
+	virtual bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+		for (int b = 0; b < count; ++b) {
+			if (!ReadBlock(minBlock + b, outPtr)) {
+				return false;
+			}
+			outPtr += GetBlockSize();
+		}
+		return true;
+	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
 };
@@ -41,15 +50,21 @@ class CISOFileBlockDevice : public BlockDevice
 public:
 	CISOFileBlockDevice(FILE *file);
 	~CISOFileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() { return numBlocks;}
 
 private:
 	FILE *f;
 	u32 *index;
-	int indexShift;
-	u32 blockSize;
+	u8 *readBuffer;
+	u8 *zlibBuffer;
+	u32 zlibBufferFrame;
+	u8 indexShift;
+	u8 blockShift;
+	u32 frameSize;
 	u32 numBlocks;
+	u32 numFrames;
 };
 
 
@@ -58,8 +73,9 @@ class FileBlockDevice : public BlockDevice
 public:
 	FileBlockDevice(FILE *file);
 	~FileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() override {return (u32)(filesize / GetBlockSize());}
 
 private:
 #ifdef ANDROID
@@ -86,8 +102,8 @@ public:
 	NPDRMDemoBlockDevice(FILE *file);
 	~NPDRMDemoBlockDevice();
 
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)lbaSize;}
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	u32 GetNumBlocks() override {return (u32)lbaSize;}
 
 private:
 	FILE *f;
@@ -105,6 +121,22 @@ private:
 	int currentBlock;
 	u8 *blockBuf;
 	u8 *tempBuf;
+};
+
+// This simply fully reads another block device and caches it in RAM.
+// A bit slow to initialize.
+class RAMBlockDevice : public BlockDevice
+{
+public:
+	RAMBlockDevice(BlockDevice *device);
+	~RAMBlockDevice();
+
+	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	u32 GetNumBlocks() override;
+
+private:
+	int totalBlocks_;
+	u8 *image_;
 };
 
 

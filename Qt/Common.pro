@@ -8,11 +8,9 @@ include(Settings.pri)
 # CPU
 arm {
 	SOURCES += $$P/Common/ArmCPUDetect.cpp \
-		$$P/Common/ArmEmitter.cpp \
 		$$P/Common/ArmThunk.cpp
-	HEADERS += $$P/Common/ArmEmitter.h
 }
-else {
+else:i86 {
 	SOURCES += $$P/Common/ABI.cpp \
 		$$P/Common/CPUDetect.cpp \
 		$$P/Common/Thunk.cpp \
@@ -23,7 +21,12 @@ else {
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h
 }
-HEADERS += $$P/Common/CPUDetect.h
+else {
+	SOURCES += $$P/Common/FakeCPUDetect.cpp
+}
+SOURCES += $$P/Common/ArmEmitter.cpp
+HEADERS += $$P/Common/ArmEmitter.h \
+	$$P/Common/CPUDetect.h
 
 win32 {
 	SOURCES += $$P/Common/stdafx.cpp

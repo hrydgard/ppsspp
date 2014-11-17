@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
+
 #include "Common/Common.h"
 
 struct JitBlock;
@@ -29,8 +32,10 @@ struct JitBlock;
 #include "../PPC/PpcJit.h"
 #elif defined(ARM)
 #include "../ARM/ArmJit.h"
-#else
+#elif defined(_M_IX86) || defined(_M_X64)
 #include "../x86/Jit.h"
+#else
+#include "../fake/FakeJit.h"
 #endif
 
 // Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
@@ -56,3 +61,6 @@ struct JitBlock;
 namespace MIPSComp {
 	extern Jit *jit;
 }
+
+std::vector<std::string> DisassembleArm2(const u8 *data, int size);
+std::vector<std::string> DisassembleX86(const u8 *data, int size);

@@ -6,13 +6,26 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
 
 add_definitions(-DPPSSPP)
 
-# Detect CPU from CMAKE configuration. Toolchains should set this up
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
-	set(ARM ON)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(_ARCH_64 1)
+	add_definitions(-D_ARCH_64=1)
+else()
+	set(_ARCH_32 1)
+	add_definitions(-D_ARCH_32=1)
 endif()
 
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
-	set(ARMV7 ON)
+# Detect CPU from CMAKE configuration. Toolchains should set this up
+if(CMAKE_SYSTEM_PROCESSOR)
+	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+		set(ARM ON)
+		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
+			set(ARMV7 ON)
+		endif()
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
+		set(X86 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
+		set(MIPS ON)
+	endif()
 endif()
 
 # Remove soon?
@@ -21,9 +34,6 @@ set(USE_FFMPEG ON)
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 	set(MOBILE_DEVICE ON)
-endif()
-if (NOT ARM) # Assume x86
-	set(X86 ON)
 endif()
 
 include(CheckIncludeFile)
@@ -54,7 +64,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if (X86 AND NOT MIPS)
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	if(_ARCH_64)
 		add_definitions(-D_M_X64)
 	else()
 		add_definitions(-D_M_IX86)
@@ -191,8 +201,10 @@ if(ARMV7)
 	message("Building for ARMv7, ${CMAKE_BUILD_TYPE}")
 elseif(ARM)
 	message("Building for ARMv6, ${CMAKE_BUILD_TYPE}")
-elseif(MIPS)
+elseif(MIPS AND X86)
 	message("Building for MIPS in x86 mode, ${CMAKE_BUILD_TYPE}")
+elseif(MIPS)
+	message("Buildings for MIPS, ${CMAKE_BUILD_TYPE}")
 elseif(X86)
 	message("Building for x86, ${CMAKE_BUILD_TYPE}")
 else()
@@ -281,16 +293,11 @@ set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
 		Common/ArmCPUDetect.cpp
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp
 		Common/ArmThunk.cpp)
 elseif(X86)
-	# ARMEmitter is here for the unit tests and don't really hurt otherwise.
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
 		Common/ABI.h
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
 		Common/Thunk.cpp
@@ -299,7 +306,16 @@ elseif(X86)
 		Common/x64Analyzer.h
 		Common/x64Emitter.cpp
 		Common/x64Emitter.h)
+else()
+	set(CommonExtra ${CommonExtra}
+		Common/FakeCPUDetect.cpp
+		Common/FakeEmitter.h)
 endif()
+# ARMEmitter is here for the unit tests and don't really hurt otherwise.
+set(CommonExtra ${CommonExtra}
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp)
+
 if(WIN32)
 	set(CommonExtra ${CommonExtra}
 		Common/stdafx.cpp
@@ -421,6 +437,8 @@ if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 			set(PLATFORM_ARCH "linux/armv7")
 		elseif(ARM)
 			set(PLATFORM_ARCH "linux/arm")
+		elseif(MIPS)
+			set(PLATFORM_ARCH "linux/mips32")
 		elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 			set(PLATFORM_ARCH "linux/x86_64")
 		else()
@@ -1057,6 +1075,12 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
+		ext/disarm.cpp)
+else()
+	set(CoreExtra ${CoreExtra}
+		Core/MIPS/fake/FakeJit.cpp
+		Core/MIPS/fake/FakeJit.h
+		GPU/Common/VertexDecoderFake.cpp
 		ext/disarm.cpp)
 endif()
 
