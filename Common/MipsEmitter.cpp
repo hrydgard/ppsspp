@@ -81,7 +81,7 @@ void MIPSXEmitter::BREAK(u32 code) {
 }
 
 FixupBranch MIPSXEmitter::J() {
-	// 000010 iiiiiiiiiiiiiiiiiiiiiiiii (fix up)
+	// 000010 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x02);
 	return b;
@@ -92,7 +92,7 @@ void MIPSXEmitter::J(const void *func) {
 }
 
 FixupBranch MIPSXEmitter::JAL() {
-	// 000011 iiiiiiiiiiiiiiiiiiiiiiiii (fix up)
+	// 000011 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x03);
 	return b;
@@ -100,6 +100,18 @@ FixupBranch MIPSXEmitter::JAL() {
 
 void MIPSXEmitter::JAL(const void *func) {
 	SetJumpTarget(JAL(), func);
+}
+
+void MIPSXEmitter::JR(MIPSReg rs) {
+	// 000000 sssss xxxxxxxxxx hint- 001000 (hint must be 0.)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 21, rs, 0, 0x08);
+}
+
+void MIPSXEmitter::JALR(MIPSReg rd, MIPSReg rs) {
+	// 000000 sssss xxxxx ddddd hint- 001001 (hint must be 0.)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 21, rs, 11, rd, 0, 0x09);
 }
 
 FixupBranch MIPSXEmitter::BEQ(MIPSReg rs, MIPSReg rt) {
@@ -199,14 +211,12 @@ bool MIPSXEmitter::JInRange(const void *src, const void *dst) {
 
 void MIPSXEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
 	_dbg_assert_msg_(JIT, scratchreg < F_BASE, "Bad emitter arguments");
-	if (BInRange(func)) {
-		B(func);
-	} else if (JInRange(func)) {
-		J(func);
+	if (JInRange(func)) {
+		JAL(func);
 	} else {
 		// This may never happen.
-		MOVP2R(reg, func);
-		JR(reg);
+		MOVP2R(scratchreg, func);
+		JALR(scratchreg);
 	}
 }
 

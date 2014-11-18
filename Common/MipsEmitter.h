@@ -99,6 +99,14 @@ public:
 	void J(const void *func);
 	FixupBranch JAL();
 	void JAL(const void *func);
+	void JR(MIPSReg rs);
+	void JRRA() {
+		JR(R_RA);
+	}
+	void JALR(MIPSReg rd, MIPSReg rs);
+	void JALR(MIPSReg rs) {
+		JALR(R_RA, rs);
+	}
 
 	inline FixupBranch B() {
 		return BEQ(R_ZERO, R_ZERO);
