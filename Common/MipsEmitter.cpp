@@ -34,6 +34,15 @@ void MIPSXEmitter::SetCodePtr(u8 *ptr) {
 	lastCacheFlushEnd_ = ptr;
 }
 
+void MIPSXEmitter::QuickCallFunction(MIPSReg reg, const void *func) {
+//	if (BLInRange(func)) {
+//		J(func);
+//	} else {
+//		MOVP2R(reg, func);
+//		JR(reg);
+//	}
+}
+
 void MIPSXEmitter::ReserveCodeSpace(u32 bytes) {
 	for (u32 i = 0; i < bytes / 4; ++i) {
 		BREAK(0);
@@ -66,7 +75,6 @@ void MIPSXEmitter::FlushIcache() {
 
 void MIPSXEmitter::FlushIcacheSection(u8 *start, u8 *end) {
 #if defined(MIPS)
-	// TODO: Completely untested.
 #ifdef __clang__
 	__clear_cache(start, end);
 #else

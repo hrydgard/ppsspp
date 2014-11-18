@@ -148,6 +148,11 @@ public:
 	// Clears the lower bits.
 	void LUI(MIPSReg rt, s16 imm);
 
+	void QuickCallFunction(MIPSReg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(MIPSReg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
+	}
+
 protected:
 	inline void Write32(u32 value) {
 		*code32_++ = value;

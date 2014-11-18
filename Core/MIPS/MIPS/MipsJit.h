@@ -32,12 +32,7 @@ struct MIPSJitOptions
 {
 	MIPSJitOptions();
 
-	bool useNEONVFPU;
 	bool enableBlocklink;
-	bool downcountInRegister;
-	bool useBackJump;
-	bool useForwardJump;
-	bool cachePointers;
 	bool immBranches;
 	bool continueBranches;
 	bool continueJumps;
