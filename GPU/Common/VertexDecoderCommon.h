@@ -582,7 +582,7 @@ class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
 #elif defined(_M_IX86) || defined(_M_X64)
 class VertexDecoderJitCache : public Gen::XCodeBlock {
 #elif defined(MIPS)
-class VertexDecoderJitCache : public MIPSGen::MIPSXCodeBlock {
+class VertexDecoderJitCache : public MIPSGen::MIPSCodeBlock {
 #else
 class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
 #endif

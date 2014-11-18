@@ -51,9 +51,9 @@ using namespace PpcGen;
 typedef PpcGen::PPCXCodeBlock CodeBlock;
 #elif defined(MIPS)
 #include "Common/MipsEmitter.h"
-namespace MIPSGen { class MIPSXEmitter; }
+namespace MIPSGen { class MIPSEmitter; }
 using namespace MIPSGen;
-typedef MIPSGen::MIPSXCodeBlock CodeBlock;
+typedef MIPSGen::MIPSCodeBlock CodeBlock;
 #else
 #warning "Unsupported arch!"
 #include "Common/FakeEmitter.h"

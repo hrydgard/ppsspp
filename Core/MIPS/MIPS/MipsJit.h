@@ -39,7 +39,7 @@ struct MIPSJitOptions
 	int continueMaxInstructions;
 };
 
-class Jit : public MIPSGen::MIPSXCodeBlock
+class Jit : public MIPSGen::MIPSCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
