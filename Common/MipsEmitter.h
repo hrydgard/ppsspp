@@ -146,7 +146,7 @@ public:
 	void XORI(MIPSReg rt, MIPSReg rs, s16 imm);
 
 	// Clears the lower bits.
-	void LUI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void LUI(MIPSReg rt, s16 imm);
 
 protected:
 	inline void Write32(u32 value) {

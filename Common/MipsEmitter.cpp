@@ -236,10 +236,10 @@ void MIPSXEmitter::XORI(MIPSReg rt, MIPSReg rs, s16 imm) {
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x0e, 21, rs, 16, rt, 0, (u16)imm);
 }
-void MIPSXEmitter::LUI(MIPSReg rt, MIPSReg rs, s16 imm) {
+void MIPSXEmitter::LUI(MIPSReg rt, s16 imm) {
 	// 001111 sssss ttttt iiiiiiiiiiiiiiii
-	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
-	Write32Fields(26, 0x0f, 21, rs, 16, rt, 0, (u16)imm);
+	_dbg_assert_msg_(JIT, rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0f, 21, rt, 0, (u16)imm);
 }
 
 void MIPSXCodeBlock::AllocCodeSpace(int size) {
