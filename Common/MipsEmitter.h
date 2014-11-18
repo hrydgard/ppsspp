@@ -129,20 +129,31 @@ public:
 
 	void SetJumpTarget(const FixupBranch &branch);
 
+	void LB(MIPSReg dest, MIPSReg base, s16 offset);
 	void LW(MIPSReg dest, MIPSReg base, s16 offset);
+	void SB(MIPSReg value, MIPSReg base, s16 offset);
 	void SW(MIPSReg value, MIPSReg base, s16 offset);
 
+	// The imm is sign extended before those with s16 imm.
 	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
+	void SLT(MIPSReg rd, MIPSReg rt, MIPSReg rs);
+	void SLTI(MIPSReg rd, MIPSReg rt, s16 imm);
+	void SLTIU(MIPSReg rt, MIPSReg rs, s16 imm);
+	void SLLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
 	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);
+	void SRLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
 	void SRA(MIPSReg rd, MIPSReg rt, u8 sa);
 
-	// The imm is sign extended before these.
+	void SUB(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void SUBU(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void ADDU(MIPSReg rd, MIPSReg rs, MIPSReg rt);
 	void ADDIU(MIPSReg rt, MIPSReg rs, s16 imm);
-	void SLTIU(MIPSReg rt, MIPSReg rs, s16 imm);
 
-	// The imm is zero extended before these.
+	void AND(MIPSReg rd, MIPSReg rs, MIPSReg rt);
 	void ANDI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void OR(MIPSReg rd, MIPSReg rs, MIPSReg rt);
 	void ORI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void XOR(MIPSReg rd, MIPSReg rs, MIPSReg rt);
 	void XORI(MIPSReg rt, MIPSReg rs, s16 imm);
 
 	// Clears the lower bits.

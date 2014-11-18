@@ -189,10 +189,22 @@ FixupBranch MIPSXEmitter::MakeFixupBranch(FixupBranchType type) {
 	return b;
 }
 
+void MIPSXEmitter::LB(MIPSReg value, MIPSReg base, s16 offset) {
+	// 100000 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x20, 21, base, 16, value, 0, (u16)offset);
+}
+
 void MIPSXEmitter::LW(MIPSReg value, MIPSReg base, s16 offset) {
-	// 100011 xxxxx ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	// 100011 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
 	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x23, 21, base, 16, value, 0, (u16)offset);
+}
+
+void MIPSXEmitter::SB(MIPSReg value, MIPSReg base, s16 offset) {
+	// 101000 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x28, 21, base, 16, value, 0, (u16)offset);
 }
 
 void MIPSXEmitter::SW(MIPSReg value, MIPSReg base, s16 offset) {
@@ -207,10 +219,37 @@ void MIPSXEmitter::SLL(MIPSReg rd, MIPSReg rt, u8 sa) {
 	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x00);
 }
 
+void MIPSXEmitter::SLLV(MIPSReg rd, MIPSReg rt, MIPSReg rs) {
+	// 000000 sssss ttttt ddddd 00000000100
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x04);
+}
+
+void MIPSXEmitter::SLT(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000101010
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x2a);
+}
+
+void MIPSXEmitter::SLTI(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001010 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0a, 21, rs, 16, rt, 0, (u16)imm);
+}
+
+void MIPSXEmitter::SLTIU(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001011 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0b, 21, rs, 16, rt, 0, (u16)imm);
+}
+
 void MIPSXEmitter::SRL(MIPSReg rd, MIPSReg rt, u8 sa) {
 	// 000000 xxxxx ttttt ddddd aaaaa 000010
 	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x1f, "Bad emitter arguments");
 	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x02);
+}
+
+void MIPSXEmitter::SRLV(MIPSReg rd, MIPSReg rt, MIPSReg rs) {
+	// 000000 sssss ttttt ddddd 00000000110
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x06);
 }
 
 void MIPSXEmitter::SRA(MIPSReg rd, MIPSReg rt, u8 sa) {
@@ -219,26 +258,54 @@ void MIPSXEmitter::SRA(MIPSReg rd, MIPSReg rt, u8 sa) {
 	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x03);
 }
 
+void MIPSXEmitter::SUB(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100010
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x22);
+}
+
+void MIPSXEmitter::SUBU(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100011
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x23);
+}
+
+void MIPSXEmitter::ADDU(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100001
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x21);
+}
+
 void MIPSXEmitter::ADDIU(MIPSReg rt, MIPSReg rs, s16 imm) {
 	// 001001 sssss ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x09, 21, rs, 16, rt, 0, (u16)imm);
 }
-void MIPSXEmitter::SLTIU(MIPSReg rt, MIPSReg rs, s16 imm) {
-	// 001011 sssss ttttt iiiiiiiiiiiiiiii
-	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
-	Write32Fields(26, 0x0b, 21, rs, 16, rt, 0, (u16)imm);
+
+void MIPSXEmitter::AND(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100100
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x24);
 }
+
 void MIPSXEmitter::ANDI(MIPSReg rt, MIPSReg rs, s16 imm) {
 	// 001100 sssss ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x0c, 21, rs, 16, rt, 0, (u16)imm);
 }
+
+void MIPSXEmitter::OR(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100101
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x25);
+}
+
 void MIPSXEmitter::ORI(MIPSReg rt, MIPSReg rs, s16 imm) {
 	// 001101 sssss ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x0d, 21, rs, 16, rt, 0, (u16)imm);
 }
+
+void MIPSXEmitter::XOR(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	// 000000 sssss ttttt ddddd 00000100110
+	Write32Fields(26, 0x00, 21, rs, 16, rt, 11, rd, 0, 0x26);
+}
+
 void MIPSXEmitter::XORI(MIPSReg rt, MIPSReg rs, s16 imm) {
 	// 001110 sssss ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
