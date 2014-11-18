@@ -184,4 +184,57 @@ private:
 	u8 *lastCacheFlushEnd_;
 };
 
+// Everything that needs to generate machine code should inherit from this.
+// You get memory management for free, plus, you can use all the LUI etc functions without
+// having to prefix them with gen-> or something similar.
+class MIPSXCodeBlock : public MIPSXEmitter {
+public:
+	MIPSXCodeBlock() : region(nullptr), region_size(0) {
+	}
+	virtual ~MIPSXCodeBlock() {
+		if (region) {
+			FreeCodeSpace();
+		}
+	}
+
+	// Call this before you generate any code.
+	void AllocCodeSpace(int size);
+
+	// Always clear code space with breakpoints, so that if someone accidentally executes
+	// uninitialized, it just breaks into the debugger.
+	void ClearCodeSpace();
+
+	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
+	void FreeCodeSpace();
+
+	bool IsInSpace(const u8 *ptr) const {
+		return ptr >= region && ptr < region + region_size;
+	}
+
+	// Can possibly be undone. Will write protect the entire code region.
+	// Start over if you need to change the code, though (call FreeCodeSpace(), AllocCodeSpace().)
+	void WriteProtect();
+	void UnWriteProtect();
+
+	void ResetCodePtr() {
+		SetCodePtr(region);
+	}
+
+	size_t GetSpaceLeft() const {
+		return region_size - (GetCodePtr() - region);
+	}
+
+	u8 *GetBasePtr() {
+		return region;
+	}
+
+	size_t GetOffset(const u8 *ptr) const {
+		return ptr - region;
+	}
+
+protected:
+	u8 *region;
+	size_t region_size;
+};
+
 };

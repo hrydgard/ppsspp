@@ -242,4 +242,35 @@ void MIPSXEmitter::LUI(MIPSReg rt, MIPSReg rs, s16 imm) {
 	Write32Fields(26, 0x0f, 21, rs, 16, rt, 0, (u16)imm);
 }
 
+void MIPSXCodeBlock::AllocCodeSpace(int size) {
+	region_size = size;
+	region = (u8 *)AllocateExecutableMemory(region_size);
+	SetCodePtr(region);
+}
+
+// Always clear code space with breakpoints, so that if someone accidentally executes
+// uninitialized, it just breaks into the debugger.
+void MIPSXCodeBlock::ClearCodeSpace() {
+	// Set BREAK instructions on all of it.
+	u32 *region32 = (u32 *)region;
+	for (u32 i = 0; i < region_size / 4; ++i) {
+		*region32++ = 0x0000000d;
+	}
+	ResetCodePtr();
+}
+
+void MIPSXCodeBlock::FreeCodeSpace() {
+	FreeMemoryPages(region, region_size);
+	region = NULL;
+	region_size = 0;
+}
+
+void MIPSXCodeBlock::WriteProtect() {
+	WriteProtectMemory(region, region_size, true);
+}
+
+void MIPSXCodeBlock::UnWriteProtect() {
+	UnWriteProtectMemory(region, region_size, false);
+}
+
 }
