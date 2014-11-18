@@ -300,7 +300,7 @@ elseif(X86)
 		Common/x64Emitter.h)
 elseif(MIPS)
 	set(CommonExtra ${CommonExtra}
-		Common/FakeCPUDetect.cpp
+		Common/MipsCPUDetect.cpp
 		Common/MipsEmitter.cpp
 		Common/MipsEmitter.h)
 else()

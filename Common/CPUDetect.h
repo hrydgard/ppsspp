@@ -85,6 +85,10 @@ struct CPUInfo {
 	bool bFP;
 	bool bASIMD;
 
+	// MIPS specific
+	bool bXBurst1;
+	bool bXBurst2;
+
 	// Call Detect()
 	explicit CPUInfo();
 
