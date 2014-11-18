@@ -181,6 +181,18 @@ FixupBranch MIPSXEmitter::MakeFixupBranch(FixupBranchType type) {
 	return b;
 }
 
+void MIPSXEmitter::LW(MIPSReg value, MIPSReg base, s16 offset) {
+	// 100011 xxxxx ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x23, 21, base, 16, value, 0, (u16)offset);
+}
+
+void MIPSXEmitter::SW(MIPSReg value, MIPSReg base, s16 offset) {
+	// 101011 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x2b, 21, base, 16, value, 0, (u16)offset);
+}
+
 void MIPSXEmitter::SLL(MIPSReg rd, MIPSReg rt, u8 sa) {
 	// 000000 xxxxx ttttt ddddd aaaaa 000000
 	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x1f, "Bad emitter arguments");

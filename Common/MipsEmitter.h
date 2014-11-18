@@ -129,6 +129,9 @@ public:
 
 	void SetJumpTarget(const FixupBranch &branch);
 
+	void LW(MIPSReg dest, MIPSReg base, s16 offset);
+	void SW(MIPSReg value, MIPSReg base, s16 offset);
+
 	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
 	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);
 	void SRA(MIPSReg rd, MIPSReg rt, u8 sa);
