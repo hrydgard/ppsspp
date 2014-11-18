@@ -49,11 +49,6 @@ if(BB)
 endif()
 
 
-if(USING_EGL)
-	# Default to GLES2 but could be GL.
-	set(USING_GLES2 ON)
-endif()
-
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	add_definitions(-D__STDC_CONSTANT_MACROS)
