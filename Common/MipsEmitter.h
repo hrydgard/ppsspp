@@ -134,26 +134,32 @@ public:
 	void SB(MIPSReg value, MIPSReg base, s16 offset);
 	void SW(MIPSReg value, MIPSReg base, s16 offset);
 
-	// The imm is sign extended before those with s16 imm.
 	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
-	void SLT(MIPSReg rd, MIPSReg rt, MIPSReg rs);
-	void SLTI(MIPSReg rd, MIPSReg rt, s16 imm);
-	void SLTIU(MIPSReg rt, MIPSReg rs, s16 imm);
-	void SLLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
 	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);
-	void SRLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
 	void SRA(MIPSReg rd, MIPSReg rt, u8 sa);
+	void SLLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
+	void SRLV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
+	void SRAV(MIPSReg rd, MIPSReg rt, MIPSReg rs);
 
-	void SUB(MIPSReg rd, MIPSReg rs, MIPSReg rt);
-	void SUBU(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void SLT(MIPSReg rd, MIPSReg rt, MIPSReg rs);
+	void SLTU(MIPSReg rd, MIPSReg rt, MIPSReg rs);
+	void SLTI(MIPSReg rd, MIPSReg rt, s16 imm);
+	// Note: very importantly, *sign* extends imm before an unsigned compare.
+	void SLTIU(MIPSReg rt, MIPSReg rs, s16 imm);
+
+	// ADD/SUB/ADDI intentionally omitted.  They are just versions that trap.
 	void ADDU(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void SUBU(MIPSReg rd, MIPSReg rs, MIPSReg rt);
 	void ADDIU(MIPSReg rt, MIPSReg rs, s16 imm);
+	void SUBIU(MIPSReg rt, MIPSReg rs, s16 imm) {
+		ADDIU(rt, rs, -imm);
+	}
 
 	void AND(MIPSReg rd, MIPSReg rs, MIPSReg rt);
-	void ANDI(MIPSReg rt, MIPSReg rs, s16 imm);
 	void OR(MIPSReg rd, MIPSReg rs, MIPSReg rt);
-	void ORI(MIPSReg rt, MIPSReg rs, s16 imm);
 	void XOR(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void ANDI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void ORI(MIPSReg rt, MIPSReg rs, s16 imm);
 	void XORI(MIPSReg rt, MIPSReg rs, s16 imm);
 
 	// Clears the lower bits.
