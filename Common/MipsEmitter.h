@@ -91,17 +91,87 @@ public:
 	// 20 bits valid in code.
 	void BREAK(u32 code);
 
+	void NOP() {
+		SLL(R_ZERO, R_ZERO, 0);
+	}
+
+	FixupBranch J();
+	void J(const void *func);
+	FixupBranch JAL();
+	void JAL(const void *func);
+
+	inline FixupBranch B() {
+		return BEQ(R_ZERO, R_ZERO);
+	}
+	inline void B(const void *func) {
+		return BEQ(R_ZERO, R_ZERO, func);
+	}
+	FixupBranch BEQ(MIPSReg rs, MIPSReg rt);
+	void BEQ(MIPSReg rs, MIPSReg rt, const void *func);
+	FixupBranch BNE(MIPSReg rs, MIPSReg rt);
+	void BNE(MIPSReg rs, MIPSReg rt, const void *func);
+	inline FixupBranch BEQZ(MIPSReg rs) {
+		return BEQ(rs, R_ZERO);
+	}
+	inline void BEQZ(MIPSReg rs, const void *func) {
+		return BEQ(rs, R_ZERO, func);
+	}
+	inline FixupBranch BNEZ(MIPSReg rs) {
+		return BNE(rs, R_ZERO);
+	}
+	inline void BNEZ(MIPSReg rs, const void *func) {
+		return BNE(rs, R_ZERO, func);
+	}
+	FixupBranch BLEZ(MIPSReg rs);
+	void BLEZ(MIPSReg rs, const void *func);
+	FixupBranch BGTZ(MIPSReg rs);
+	void BGTZ(MIPSReg rs, const void *func);
+
+	void SetJumpTarget(const FixupBranch &branch);
+
+	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
+	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);
+	void SRA(MIPSReg rd, MIPSReg rt, u8 sa);
+
+	// The imm is sign extended before these.
+	void ADDIU(MIPSReg rt, MIPSReg rs, s16 imm);
+	void SLTIU(MIPSReg rt, MIPSReg rs, s16 imm);
+
+	// The imm is zero extended before these.
+	void ANDI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void ORI(MIPSReg rt, MIPSReg rs, s16 imm);
+	void XORI(MIPSReg rt, MIPSReg rs, s16 imm);
+
+	// Clears the lower bits.
+	void LUI(MIPSReg rt, MIPSReg rs, s16 imm);
+
 protected:
 	inline void Write32(u32 value) {
 		*code32_++ = value;
 	}
+
 	// Less parenthesis.
+	inline void Write32Fields(u8 pos1, u32 v1) {
+		*code32_++ = (v1 << pos1);
+	}
 	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2) {
 		*code32_++ = (v1 << pos1) | (v2 << pos2);
 	}
 	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3) {
 		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3);
 	}
+	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3, u8 pos4, u32 v4) {
+		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos4);
+	}
+	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3, u8 pos4, u32 v4, u8 pos5, u32 v5) {
+		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos5) | (v5 << pos5);
+	}
+	inline void Write32Fields(u8 pos1, u32 v1, u8 pos2, u32 v2, u8 pos3, u32 v3, u8 pos4, u32 v4, u8 pos5, u32 v5, u8 pos6, u32 v6) {
+		*code32_++ = (v1 << pos1) | (v2 << pos2) | (v3 << pos3) | (v4 << pos5) | (v5 << pos5) | (v6 << pos6);
+	}
+
+	static void SetJumpTarget(const FixupBranch &branch, const void *dst);
+	FixupBranch MakeFixupBranch(FixupBranchType type);
 
 private:
 	union {

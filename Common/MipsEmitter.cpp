@@ -77,7 +77,157 @@ void MIPSXEmitter::FlushIcacheSection(u8 *start, u8 *end) {
 
 void MIPSXEmitter::BREAK(u32 code) {
 	// 000000 iiiiiiiiiiiiiiiiiiii 001101
-	Write32Fields(26, 0x00000000, 6, code & 0xFFFFF, 0, 0x0000000d);
+	_dbg_assert_msg_(JIT, code <= 0xfffff, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 6, code & 0xfffff, 0, 0x0d);
+}
+
+FixupBranch MIPSXEmitter::J() {
+	// 000010 iiiiiiiiiiiiiiiiiiiiiiiii (fix up)
+	FixupBranch b = MakeFixupBranch(BRANCH_26);
+	Write32Fields(26, 0x02);
+	return b;
+}
+
+void MIPSXEmitter::J(const void *func) {
+	SetJumpTarget(J(), func);
+}
+
+FixupBranch MIPSXEmitter::JAL() {
+	// 000011 iiiiiiiiiiiiiiiiiiiiiiiii (fix up)
+	FixupBranch b = MakeFixupBranch(BRANCH_26);
+	Write32Fields(26, 0x03);
+	return b;
+}
+
+void MIPSXEmitter::JAL(const void *func) {
+	SetJumpTarget(JAL(), func);
+}
+
+FixupBranch MIPSXEmitter::BEQ(MIPSReg rs, MIPSReg rt) {
+	// 000100 sssss ttttt iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x04, 21, rs, 16, rt);
+	return b;
+}
+
+void MIPSXEmitter::BEQ(MIPSReg rs, MIPSReg rt, const void *func) {
+	SetJumpTarget(BEQ(rs, rt), func);
+}
+
+FixupBranch MIPSXEmitter::BNE(MIPSReg rs, MIPSReg rt) {
+	// 000101 sssss ttttt iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x05, 21, rs, 16, rt);
+	return b;
+}
+
+void MIPSXEmitter::BNE(MIPSReg rs, MIPSReg rt, const void *func) {
+	SetJumpTarget(BNE(rs, rt), func);
+}
+
+FixupBranch MIPSXEmitter::BLEZ(MIPSReg rs) {
+	// 000110 sssss xxxxx iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x06, 21, rs);
+	return b;
+}
+
+void MIPSXEmitter::BLEZ(MIPSReg rs, const void *func) {
+	SetJumpTarget(BLEZ(rs), func);
+}
+
+FixupBranch MIPSXEmitter::BGTZ(MIPSReg rs) {
+	// 000111 sssss xxxxx iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x07, 21, rs);
+	return b;
+}
+
+void MIPSXEmitter::BGTZ(MIPSReg rs, const void *func) {
+	SetJumpTarget(BGTZ(rs), func);
+}
+
+void MIPSXEmitter::SetJumpTarget(const FixupBranch &branch) {
+	SetJumpTarget(branch, code_);
+}
+
+void MIPSXEmitter::SetJumpTarget(const FixupBranch &branch, const void *dst) {
+	const intptr_t srcp = (intptr_t)branch.ptr;
+	const intptr_t dstp = (intptr_t)dst;
+	u32 *fixup = (u32 *)branch.ptr;
+
+	_dbg_assert_msg_(JIT, (dstp & 3) == 0, "Destination should be aligned");
+
+	if (branch.type == BRANCH_16) {
+		// The distance is encoded as words from the delay slot.
+		ptrdiff_t distance = (dstp - srcp - 4) >> 2;
+		_dbg_assert_msg_(JIT, distance >= -0x8000 && distance < 0x8000, "Destination is too far away (%p -> %p)", branch.ptr, dst);
+		*fixup = (*fixup & 0xffff0000) | (distance & 0x0000ffff);
+	} else {
+		// Absolute, easy.
+		_dbg_assert_msg_(JIT, (srcp & 0xf0000000) != (dstp & 0xf0000000), "Destination is too far away (%p -> %p)", branch.ptr, dst);
+		*fixup = (*fixup & 0xfc000000) | ((dstp >> 2) & 0x03ffffff);
+	}
+}
+
+FixupBranch MIPSXEmitter::MakeFixupBranch(FixupBranchType type) {
+	FixupBranch b;
+	b.ptr = code_;
+	b.type = type;
+	return b;
+}
+
+void MIPSXEmitter::SLL(MIPSReg rd, MIPSReg rt, u8 sa) {
+	// 000000 xxxxx ttttt ddddd aaaaa 000000
+	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x1f, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x00);
+}
+
+void MIPSXEmitter::SRL(MIPSReg rd, MIPSReg rt, u8 sa) {
+	// 000000 xxxxx ttttt ddddd aaaaa 000010
+	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x1f, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x02);
+}
+
+void MIPSXEmitter::SRA(MIPSReg rd, MIPSReg rt, u8 sa) {
+	// 000000 xxxxx ttttt ddddd aaaaa 000011
+	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x1f, "Bad emitter arguments");
+	Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x03);
+}
+
+void MIPSXEmitter::ADDIU(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001001 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x09, 21, rs, 16, rt, 0, (u16)imm);
+}
+void MIPSXEmitter::SLTIU(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001011 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0b, 21, rs, 16, rt, 0, (u16)imm);
+}
+void MIPSXEmitter::ANDI(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001100 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0c, 21, rs, 16, rt, 0, (u16)imm);
+}
+void MIPSXEmitter::ORI(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001101 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0d, 21, rs, 16, rt, 0, (u16)imm);
+}
+void MIPSXEmitter::XORI(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001110 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0e, 21, rs, 16, rt, 0, (u16)imm);
+}
+void MIPSXEmitter::LUI(MIPSReg rt, MIPSReg rs, s16 imm) {
+	// 001111 sssss ttttt iiiiiiiiiiiiiiii
+	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x0f, 21, rs, 16, rt, 0, (u16)imm);
 }
 
 }
