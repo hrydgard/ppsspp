@@ -29,16 +29,16 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 
-#include "FakeJit.h"
+#include "MipsJit.h"
 #include "CPUDetect.h"
 
-void DisassembleFake(const u8 *data, int size) {
+void DisassembleMIPS(const u8 *data, int size) {
 }
 
 namespace MIPSComp
 {
 
-FakeJitOptions::FakeJitOptions() {
+MIPSJitOptions::MIPSJitOptions() {
 	enableBlocklink = true;
 	immBranches = false;
 	continueBranches = false;
@@ -51,6 +51,8 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
+	AllocCodeSpace(1024 * 1024 * 16);
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
 void Jit::DoState(PointerWrap &p)
@@ -127,10 +129,44 @@ void Jit::EatInstruction(MIPSOpcode op) {
 
 void Jit::CompileDelaySlot(int flags)
 {
+	//if (flags & DELAYSLOT_SAFE)
+	//	Save flags here
+
+	js.inDelaySlot = true;
+	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
+	MIPSCompileOp(op);
+	js.inDelaySlot = false;
+
+	if (flags & DELAYSLOT_FLUSH)
+		FlushAll();
+	//if (flags & DELAYSLOT_SAFE)
+	//	Restore flags here
 }
 
 
 void Jit::Compile(u32 em_address) {
+	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
+		ClearCache();
+	}
+	int block_num = blocks.AllocateBlock(em_address);
+	JitBlock *b = blocks.GetBlock(block_num);
+	DoJit(em_address, b);
+	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+
+	bool cleanSlate = false;
+
+	if (js.hasSetRounding && !js.lastSetRounding) {
+		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		// Won't loop, since hasSetRounding is only ever set to 1.
+		js.lastSetRounding = js.hasSetRounding;
+		cleanSlate = true;
+	}
+
+	if (cleanSlate) {
+		// Our assumptions are all wrong so it's clean-slate time.
+		ClearCache();
+		Compile(em_address);
+	}
 }
 
 void Jit::RunLoopUntil(u64 globalticks)
@@ -140,11 +176,62 @@ void Jit::RunLoopUntil(u64 globalticks)
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
+	js.cancel = false;
+	js.blockStart = js.compilerPC = mips_->pc;
+	js.lastContinuedPC = 0;
+	js.initialBlockSize = 0;
+	js.nextExit = 0;
+	js.downcountAmount = 0;
+	js.curBlock = b;
+	js.compiling = true;
+	js.inDelaySlot = false;
+	js.PrefixStart();
+	b->normalEntry = GetCodePtr();
+	js.numInstructions = 0;
+	while (js.compiling)
+	{
+		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
+
+		MIPSCompileOp(inst);
+
+		js.compilerPC += 4;
+		js.numInstructions++;
+
+		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
+		{
+			FlushAll();
+			WriteExit(js.compilerPC, js.nextExit++);
+			js.compiling = false;
+		}
+	}
+
+	b->codeSize = GetCodePtr() - b->normalEntry;
+
+	// Don't forget to zap the newly written instructions in the instruction cache!
+	FlushIcache();
+
+	if (js.lastContinuedPC == 0)
+		b->originalSize = js.numInstructions;
+	else
+	{
+		// We continued at least once.  Add the last proxy and set the originalSize correctly.
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		b->originalSize = js.initialBlockSize;
+	}
+
 	return b->normalEntry;
 }
 
 void Jit::AddContinuedBlock(u32 dest)
 {
+	// The first block is the root block.  When we continue, we create proxy blocks after that.
+	if (js.lastContinuedPC == 0)
+		js.initialBlockSize = js.numInstructions;
+	else
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+	js.lastContinuedPC = dest;
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
@@ -173,8 +260,12 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
 	{
-		SaveDowncount();
-		RestoreDowncount();
+		//SaveDowncount();
+		RestoreRoundingMode();
+		// Move Imm32(js.compilerPC) in to M(&mips_->pc)
+		QuickCallFunction(V1, (void *)func);
+		ApplyRoundingMode();
+		//RestoreDowncount();
 	}
 
 	const MIPSInfo info = MIPSGetInfo(op);
@@ -186,10 +277,10 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	}
 }
 
-void Jit::MovFromPC(FakeReg r) {
+void Jit::MovFromPC(MIPSReg r) {
 }
 
-void Jit::MovToPC(FakeReg r) {
+void Jit::MovToPC(MIPSReg r) {
 }
 
 void Jit::SaveDowncount() {
@@ -201,8 +292,7 @@ void Jit::RestoreDowncount() {
 void Jit::WriteDownCount(int offset) {
 }
 
-// Abuses R2
-void Jit::WriteDownCountR(FakeReg reg) {
+void Jit::WriteDownCountR(MIPSReg reg) {
 }
 
 void Jit::RestoreRoundingMode(bool force) {
@@ -216,14 +306,35 @@ void Jit::UpdateRoundingMode() {
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
+	//WriteDownCount();
+	JitBlock *b = js.curBlock;
+	b->exitAddress[exit_num] = destination;
+	b->exitPtrs[exit_num] = GetWritableCodePtr();
+
+	// Link opportunity!
+	int block = blocks.GetBlockNumberFromStartAddress(destination);
+	if (block >= 0 && jo.enableBlocklink) {
+		// It exists! Joy of joy!
+		B(blocks.GetBlock(block)->checkedEntry);
+		b->linkStatus[exit_num] = true;
+	} else {
+		//gpr.SetRegImm(V0, destination);
+		//B((const void *)dispatcherPCInV0);
+	}
 }
 
-void Jit::WriteExitDestInR(FakeReg Reg) 
+void Jit::WriteExitDestInR(MIPSReg Reg) 
 {
+	MovToPC(Reg);
+	//WriteDownCount();
+	// TODO: shouldn't need an indirect branch here...
+	B((const void *)dispatcher);
 }
 
 void Jit::WriteSyscallExit()
 {
+	//WriteDownCount();
+	B((const void *)dispatcherCheckCoreState);
 }
 
 #define _RS ((op>>21) & 0x1F)

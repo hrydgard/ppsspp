@@ -26,7 +26,11 @@ static const float by128 = 1.0f / 128.0f;
 static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
+#ifdef MIPS
+using namespace MIPSGen;
+#else
 using namespace FakeGen;
+#endif
 
 static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},

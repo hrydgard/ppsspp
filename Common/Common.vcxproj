@@ -189,6 +189,7 @@
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
+    <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="ppcEmitter.h" />
     <ClInclude Include="stdafx.h" />
@@ -226,6 +227,7 @@
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemArena.cpp" />
     <ClCompile Include="MemoryUtil.cpp" />
+    <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="ppcEmitter.cpp">
