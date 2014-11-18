@@ -69,14 +69,14 @@ struct FixupBranch {
 	FixupBranchType type;
 };
 
-class MIPSXEmitter {
+class MIPSEmitter {
 public:
-	MIPSXEmitter() : code_(0), lastCacheFlushEnd_(0) {
+	MIPSEmitter() : code_(0), lastCacheFlushEnd_(0) {
 	}
-	MIPSXEmitter(u8 *code_ptr) : code_(code_ptr), lastCacheFlushEnd_(code_ptr) {
+	MIPSEmitter(u8 *code_ptr) : code_(code_ptr), lastCacheFlushEnd_(code_ptr) {
 		SetCodePtr(code_ptr);
 	}
-	virtual ~MIPSXEmitter() {
+	virtual ~MIPSEmitter() {
 	}
 
 	void SetCodePtr(u8 *ptr);
@@ -237,11 +237,11 @@ private:
 // Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the LUI etc functions without
 // having to prefix them with gen-> or something similar.
-class MIPSXCodeBlock : public MIPSXEmitter {
+class MIPSCodeBlock : public MIPSEmitter {
 public:
-	MIPSXCodeBlock() : region(nullptr), region_size(0) {
+	MIPSCodeBlock() : region(nullptr), region_size(0) {
 	}
-	virtual ~MIPSXCodeBlock() {
+	virtual ~MIPSCodeBlock() {
 		if (region) {
 			FreeCodeSpace();
 		}
