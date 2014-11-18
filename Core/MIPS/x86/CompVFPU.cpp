@@ -114,6 +114,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 
 		// This puts the value into a temp reg, so we won't write the modified value back.
 		vregs[i] = fpr.GetTempV();
+		fpr.SimpleRegV(origV[regnum], 0);
 		fpr.MapRegV(vregs[i], MAP_NOINIT | MAP_DIRTY);
 
 		if (!constants) {
@@ -522,9 +523,12 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 	GetVectorRegsPrefixT(tregs, sz, _VT);
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
+
 	X64Reg tempxreg = XMM0;
-	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
-	{
+	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs)) {
 		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
 		tempxreg = fpr.VX(dregs[0]);
 	}
@@ -564,6 +568,10 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixT(tregs, sz, _VT);
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
 
 	X64Reg tempxreg = XMM0;
 	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
@@ -610,6 +618,11 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	GetVectorRegs(sregs, sz, _VS);
 	GetVectorRegs(tregs, sz, _VT);
 	GetVectorRegs(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	if (sz == V_Triple) {
 		// Cross product vcrsp.t
@@ -722,6 +735,9 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	int tf = (op >> 19) & 1;
 	int imm3 = (op >> 16) & 7;
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+
 	for (int i = 0; i < n; ++i) {
 		// Simplification: Disable if overlap unsafe
 		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
@@ -806,6 +822,91 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixT(tregs, sz, _VT);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	if (fpr.TryMapDirtyInInVS(dregs, sz, sregs, sz, tregs, sz)) {
+		void (XEmitter::*opFunc)(X64Reg, OpArg) = nullptr;
+		bool symmetric = false;
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+				opFunc = &XEmitter::ADDPS;
+				symmetric = true;
+				break;
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				opFunc = &XEmitter::SUBPS;
+				break;
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				opFunc = &XEmitter::DIVPS;
+				break;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7)
+			{
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				opFunc = &XEmitter::MULPS;
+				symmetric = true;
+				break;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 7)
+			{
+			case 2:  // vmin
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				MINPS(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 3:  // vmax
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				MAXPS(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 6:  // vsge
+				// TODO: Mishandles NaN.
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				CMPPS(XMM1, fpr.VS(tregs[0]), CMP_NLT);
+				ANDPS(XMM1, M(&oneOneOneOne));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			case 7:  // vslt
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				CMPPS(XMM1, fpr.VS(tregs[0]), CMP_LT);
+				ANDPS(XMM1, M(&oneOneOneOne));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+				break;
+			}
+			break;
+		}
+
+		if (opFunc != nullptr) {
+			if (fpr.VSX(dregs[0]) != fpr.VSX(tregs[0])) {
+				if (fpr.VSX(dregs[0]) != fpr.VSX(sregs[0])) {
+					MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+				}
+				(this->*opFunc)(fpr.VSX(dregs[0]), fpr.VS(tregs[0]));
+			} else if (symmetric) {
+				// We already know d = t.
+				(this->*opFunc)(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+			} else {
+				MOVAPS(XMM1, fpr.VS(sregs[0]));
+				(this->*opFunc)(XMM1, fpr.VS(tregs[0]));
+				MOVAPS(fpr.VSX(dregs[0]), R(XMM1));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
@@ -968,8 +1069,10 @@ void Jit::Comp_Vcmp(MIPSOpcode op) {
 
 	if (cond == VC_GE || cond == VC_GT) {
 		// We flip, and we need them in regs so we don't clear the high lanes.
+		fpr.SimpleRegsV(sregs, sz, 0);
 		fpr.MapRegsV(tregs, sz, 0);
 	} else {
+		fpr.SimpleRegsV(tregs, sz, 0);
 		fpr.MapRegsV(sregs, sz, 0);
 	}
 
@@ -1159,6 +1262,10 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 	int tempregs[4];
 	for (int i = 0; i < n; ++i) {
 		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
@@ -1250,6 +1357,9 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, outsize, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+
 	// Force ourselves an extra xreg as temp space.
 	X64Reg tempR = fpr.GetFreeXReg();
 	
@@ -1336,6 +1446,9 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
 
 	if (bits == 16) {
 		MOVSS(XMM1, fpr.V(sregs[0]));
@@ -1467,6 +1580,9 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+
 	u8 tempregs[4];
 	for (int i = 0; i < n; ++i) {
 		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
@@ -1552,6 +1668,10 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
 	{
@@ -1605,6 +1725,10 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
@@ -1721,6 +1845,10 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
@@ -1860,6 +1988,7 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
+				fpr.SimpleRegV(imm, 0);
 				if (fpr.V(imm).IsSimpleReg()) {
 					fpr.MapRegV(imm, 0);
 					gpr.MapReg(rt, false, true);
@@ -1990,6 +2119,9 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	u8 dregs[16];
 	GetMatrixRegs(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 	switch ((op >> 16) & 0xF) {
 	case 3: // vmidt
 		MOVSS(XMM0, M(&zero));
@@ -2035,6 +2167,10 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	GetMatrixRegs(sregs, sz, _VS);
 	GetMatrixRegs(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 	// TODO: gas doesn't allow overlap, what does the PSP do?
 	// Potentially detect overlap or the safe direction to move in, or just DISABLE?
 	// This is very not optimal, blows the regcache everytime.
@@ -2077,6 +2213,11 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 	// TODO: Prefixes seem strange...
 	GetVectorRegsPrefixT(&scale, V_Single, _VT);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(&scale, V_Single, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	// Move to XMM0 early, so we don't have to worry about overlap with scale.
 	MOVSS(XMM0, fpr.V(scale));
@@ -2128,6 +2269,11 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 	GetMatrixRegs(sregs, sz, _VS);
 	GetMatrixRegs(tregs, sz, _VT);
 	GetMatrixRegs(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	// Rough overlap check.
 	bool overlap = false;
@@ -2193,6 +2339,11 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 	GetVectorRegs(&scale, V_Single, _VT);
 	GetMatrixRegs(dregs, sz, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(&scale, V_Single, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 	// Move to XMM0 early, so we don't have to worry about overlap with scale.
 	MOVSS(XMM0, fpr.V(scale));
 
@@ -2251,6 +2402,11 @@ void Jit::Comp_Vtfm(MIPSOpcode op) {
 	GetMatrixRegs(sregs, msz, _VS);
 	GetVectorRegs(tregs, sz, _VT);
 	GetVectorRegs(dregs, sz, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, msz, 0);
+	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	// TODO: test overlap, optimize.
 	u8 tempregs[4];
@@ -2328,6 +2484,10 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);
 
 	// First, let's assemble the sregs into lanes of a single xmm reg.
 	// For quad inputs, we need somewhere for the bottom regs.  Ideally dregs[0].
@@ -2430,6 +2590,10 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, V_Single, MAP_NOINIT | MAP_DIRTY);
+
 	X64Reg reg = XMM0;
 	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
 		fpr.MapRegV(dregs[0], (dregs[0] == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
@@ -2470,6 +2634,9 @@ void Jit::Comp_Viim(MIPSOpcode op) {
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
 
+	// Flush SIMD.
+	fpr.SimpleRegsV(&dreg, V_Single, MAP_NOINIT | MAP_DIRTY);
+
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 	FP32 fp;
 	fp.f = (float)imm;
@@ -2489,6 +2656,9 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(&dreg, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	FP16 half;
 	half.u = op & 0xFFFF;
@@ -2515,6 +2685,9 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	u8 sreg;
 	GetVectorRegs(dregs, sz, vd);
 	GetVectorRegs(&sreg, V_Single, vs);
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(&sreg, V_Single, 0);
 
 	int imm = (op >> 16) & 0x1f;
 
