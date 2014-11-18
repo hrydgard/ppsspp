@@ -133,7 +133,11 @@ int8_t EGL_Init() {
 #endif
 		EGL_DEPTH_SIZE,      16,
 		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+#ifdef USING_GLES2
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+#else
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+#endif
 		EGL_SAMPLE_BUFFERS,  0,
 		EGL_SAMPLES,         0,
 #ifdef MAEMO
@@ -153,10 +157,6 @@ int8_t EGL_Init() {
 	//Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
-	if (SDL_GetWMInfo(&sysInfo) <= 0) {
-		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
-		return 1;
-	}
 #endif
 
 #ifdef USING_FBDEV
@@ -438,7 +438,7 @@ int main(int argc, char *argv[]) {
 
 	Uint32 mode;
 #ifdef USING_GLES2
-	mode = SDL_SWSURFACE | SDL_FULLSCREEN;
+	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
 #else
 	mode = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 #endif
