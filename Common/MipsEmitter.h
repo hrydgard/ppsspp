@@ -128,6 +128,14 @@ public:
 	void BGTZ(MIPSReg rs, const void *func);
 
 	void SetJumpTarget(const FixupBranch &branch);
+	bool BInRange(const void *func);
+	bool JInRange(const void *func);
+
+	// R_AT is the stereotypical scratch reg, but it is not likely to be used.
+	void QuickCallFunction(MIPSReg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(MIPSReg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
+	}
 
 	void LB(MIPSReg dest, MIPSReg base, s16 offset);
 	void LW(MIPSReg dest, MIPSReg base, s16 offset);
@@ -162,12 +170,22 @@ public:
 	void ORI(MIPSReg rt, MIPSReg rs, s16 imm);
 	void XORI(MIPSReg rt, MIPSReg rs, s16 imm);
 
-	// Clears the lower bits.
+	// Clears the lower bits.  On MIPS64, the result is sign extended.
 	void LUI(MIPSReg rt, s16 imm);
 
-	void QuickCallFunction(MIPSReg scratchreg, const void *func);
-	template <typename T> void QuickCallFunction(MIPSReg scratchreg, T func) {
-		QuickCallFunction(scratchreg, (const void *)func);
+	// MIPS64 only.  Transparently uses DSLL32 to shift 32-63 bits.
+	void DSLL(MIPSReg rd, MIPSReg rt, u8 sa);
+
+	void MOVI2R(MIPSReg reg, u64 val);
+	void MOVI2R(MIPSReg reg, s64 val) {
+		MOVI2R(reg, (u64)val);
+	}
+	void MOVI2R(MIPSReg reg, u32 val);
+	void MOVI2R(MIPSReg reg, s32 val) {
+		MOVI2R(reg, (u32)val);
+	}
+	template <class T> void MOVP2R(MIPSReg reg, T *val) {
+		MOVI2R(reg, (intptr_t)(const void *)val);
 	}
 
 protected:
@@ -196,6 +214,8 @@ protected:
 	}
 
 	static void SetJumpTarget(const FixupBranch &branch, const void *dst);
+	static bool BInRange(const void *src, const void *dst);
+	static bool JInRange(const void *src, const void *dst);
 	FixupBranch MakeFixupBranch(FixupBranchType type);
 
 private:

@@ -34,15 +34,6 @@ void MIPSXEmitter::SetCodePtr(u8 *ptr) {
 	lastCacheFlushEnd_ = ptr;
 }
 
-void MIPSXEmitter::QuickCallFunction(MIPSReg reg, const void *func) {
-//	if (BLInRange(func)) {
-//		J(func);
-//	} else {
-//		MOVP2R(reg, func);
-//		JR(reg);
-//	}
-}
-
 void MIPSXEmitter::ReserveCodeSpace(u32 bytes) {
 	for (u32 i = 0; i < bytes / 4; ++i) {
 		BREAK(0);
@@ -163,6 +154,14 @@ void MIPSXEmitter::SetJumpTarget(const FixupBranch &branch) {
 	SetJumpTarget(branch, code_);
 }
 
+bool MIPSXEmitter::BInRange(const void *func) {
+	return BInRange(code_, func);
+}
+
+bool MIPSXEmitter::JInRange(const void *func) {
+	return JInRange(code_, func);
+}
+
 void MIPSXEmitter::SetJumpTarget(const FixupBranch &branch, const void *dst) {
 	const intptr_t srcp = (intptr_t)branch.ptr;
 	const intptr_t dstp = (intptr_t)dst;
@@ -173,12 +172,41 @@ void MIPSXEmitter::SetJumpTarget(const FixupBranch &branch, const void *dst) {
 	if (branch.type == BRANCH_16) {
 		// The distance is encoded as words from the delay slot.
 		ptrdiff_t distance = (dstp - srcp - 4) >> 2;
-		_dbg_assert_msg_(JIT, distance >= -0x8000 && distance < 0x8000, "Destination is too far away (%p -> %p)", branch.ptr, dst);
+		_dbg_assert_msg_(JIT, BInRange(branch.ptr, dst), "Destination is too far away (%p -> %p)", branch.ptr, dst);
 		*fixup = (*fixup & 0xffff0000) | (distance & 0x0000ffff);
 	} else {
 		// Absolute, easy.
-		_dbg_assert_msg_(JIT, (srcp & 0xf0000000) != (dstp & 0xf0000000), "Destination is too far away (%p -> %p)", branch.ptr, dst);
+		_dbg_assert_msg_(JIT, JInRange(branch.ptr, dst), "Destination is too far away (%p -> %p)", branch.ptr, dst);
 		*fixup = (*fixup & 0xfc000000) | ((dstp >> 2) & 0x03ffffff);
+	}
+}
+
+bool MIPSXEmitter::BInRange(const void *src, const void *dst) {
+	const intptr_t srcp = (intptr_t)src;
+	const intptr_t dstp = (intptr_t)dst;
+
+	// The distance is encoded as words from the delay slot.
+	ptrdiff_t distance = (dstp - srcp - 4) >> 2;
+	return distance >= -0x8000 && distance < 0x8000;
+}
+
+bool MIPSXEmitter::JInRange(const void *src, const void *dst) {
+	const intptr_t srcp = (intptr_t)src;
+	const intptr_t dstp = (intptr_t)dst;
+
+	return (srcp - (srcp & 0x0fffffff)) == (dstp - (dstp & 0x0fffffff));
+}
+
+void MIPSXEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
+	_dbg_assert_msg_(JIT, scratchreg < F_BASE, "Bad emitter arguments");
+	if (BInRange(func)) {
+		B(func);
+	} else if (JInRange(func)) {
+		J(func);
+	} else {
+		// This may never happen.
+		MOVP2R(reg, func);
+		JR(reg);
 	}
 }
 
@@ -331,6 +359,49 @@ void MIPSXEmitter::LUI(MIPSReg rt, s16 imm) {
 	// 001111 sssss ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rt < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x0f, 21, rt, 0, (u16)imm);
+}
+
+void MIPSXEmitter::DSLL(MIPSReg rd, MIPSReg rt, u8 sa) {
+	// 000000 xxxxx ttttt ddddd aaaaa 111000 DSLL
+	// 000000 xxxxx ttttt ddddd aaaaa 111100 DSLL32
+	_dbg_assert_msg_(JIT, rd < F_BASE && rt < F_BASE && sa <= 0x3f, "Bad emitter arguments");
+	// TODO: Assert MIPS64.
+	if (sa >= 32) {
+		Write32Fields(26, 0x00, 16, rt, 11, rd, 6, (sa - 32) & 0x1f, 0, 0x3c);
+	} else {
+		Write32Fields(26, 0x00, 16, rt, 11, rd, 6, sa & 0x1f, 0, 0x38);
+	}
+}
+
+void MIPSXEmitter::MOVI2R(MIPSReg reg, u64 imm) {
+	_dbg_assert_msg_(JIT, reg < F_BASE, "Bad emitter arguments");
+	// TODO: Assert MIPS64.
+
+	// Probably better to use a literal pool and load.
+	LUI(reg, imm >> 48);
+	ORI(reg, reg, (imm >> 32) & 0x0000ffff);
+	DSLL(reg, reg, 16);
+	ORI(reg, reg, (imm >> 16) & 0x0000ffff);
+	DSLL(reg, reg, 16);
+	ORI(reg, reg, (imm >> 0) & 0x0000ffff);
+}
+
+void MIPSXEmitter::MOVI2R(MIPSReg reg, u32 imm) {
+	_dbg_assert_msg_(JIT, reg < F_BASE, "Bad emitter arguments");
+
+	if ((imm & 0xffff0000) != 0) {
+#if 0
+		// TODO: CPUDetect MIPS64.  Ideally allow emitter to emit MIPS32 on x64.
+		ORI(reg, R_ZERO, imm >> 16);
+		DSLL(reg, reg, 16);
+		ORI(reg, reg, imm & 0x0000ffff);
+#else
+		LUI(reg, imm >> 16);
+		ORI(reg, reg, imm & 0x0000ffff);
+#endif
+	} else {
+		ORI(reg, R_ZERO, imm & 0x0000ffff);
+	}
 }
 
 void MIPSXCodeBlock::AllocCodeSpace(int size) {
