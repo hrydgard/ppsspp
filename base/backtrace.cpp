@@ -1,8 +1,6 @@
 #include "base/backtrace.h"
 
-// The mac check doesn't seem to work right.
-#if (!defined(ANDROID) && defined(__linux__)) || (defined(__APPLE__) && (defined(_M_IX86) || defined(_M_X64)))
-
+#if defined(__GLIBC__) && !defined(__UCLIBC__)
 #include <execinfo.h>
 #include <unistd.h>
 
