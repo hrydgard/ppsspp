@@ -28,9 +28,9 @@
 namespace MIPSComp
 {
 
-struct FakeJitOptions
+struct MIPSJitOptions
 {
-	FakeJitOptions();
+	MIPSJitOptions();
 
 	bool useNEONVFPU;
 	bool enableBlocklink;
@@ -44,7 +44,7 @@ struct FakeJitOptions
 	int continueMaxInstructions;
 };
 
-class Jit : public FakeGen::FakeXCodeBlock
+class Jit : public MIPSGen::MIPSXCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
@@ -153,12 +153,12 @@ private:
 	void FlushPrefixV();
 
 	void WriteDownCount(int offset = 0);
-	void WriteDownCountR(FakeReg reg);
+	void WriteDownCountR(MIPSReg reg);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
-	void MovFromPC(FakeReg r);
-	void MovToPC(FakeReg r);
+	void MovFromPC(MIPSReg r);
+	void MovToPC(MIPSReg r);
 
 	bool ReplaceJalTo(u32 dest);
 
@@ -166,11 +166,11 @@ private:
 	void RestoreDowncount();
 
 	void WriteExit(u32 destination, int exit_num);
-	void WriteExitDestInR(FakeReg Reg);
+	void WriteExitDestInR(MIPSReg Reg);
 	void WriteSyscallExit();
 
 	JitBlockCache blocks;
-	FakeJitOptions jo;
+	MIPSJitOptions jo;
 	JitState js;
 
 	MIPSState *mips_;

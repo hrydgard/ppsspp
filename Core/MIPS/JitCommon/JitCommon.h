@@ -34,6 +34,8 @@ struct JitBlock;
 #include "../ARM/ArmJit.h"
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "../x86/Jit.h"
+#elif defined(MIPS)
+#include "../MIPS/MipsJit.h"
 #else
 #include "../fake/FakeJit.h"
 #endif
