@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
@@ -139,6 +140,9 @@ bool FPURegCache::IsMappedVS(const u8 *v, VectorSize vsz) {
 
 void FPURegCache::MapRegsVS(const u8 *r, VectorSize vsz, int flags) {
 	const int n = GetNumVectorElements(vsz);
+
+	_dbg_assert_msg_(JIT, jo_->enableVFPUSIMD, "Should not map simd regs when option is off.");
+
 	if (!TryMapRegsVS(r, vsz, flags)) {
 		// TODO: Could be more optimal.
 		for (int i = 0; i < n; ++i) {
@@ -152,6 +156,10 @@ void FPURegCache::MapRegsVS(const u8 *r, VectorSize vsz, int flags) {
 
 bool FPURegCache::CanMapVS(const u8 *v, VectorSize vsz) {
 	const int n = GetNumVectorElements(vsz);
+
+	if (!jo_->enableVFPUSIMD) {
+		return false;
+	}
 
 	if (IsMappedVS(v, vsz)) {
 		return true;

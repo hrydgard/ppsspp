@@ -49,6 +49,7 @@ struct JitOptions
 	bool continueBranches;
 	bool continueJumps;
 	int continueMaxInstructions;
+	bool enableVFPUSIMD;
 };
 
 // TODO: Hmm, humongous.

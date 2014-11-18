@@ -79,6 +79,10 @@ struct FPURegCacheState {
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 };
 
+namespace MIPSComp {
+	struct JitOptions;
+}
+
 enum {
 	MAP_DIRTY = 1,
 	MAP_NOINIT = 2,
@@ -113,6 +117,7 @@ public:
 	// TODO: GetTempVS?
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
+	void SetOptions(MIPSComp::JitOptions *jo) {jo_ = jo;}
 
 	void Flush();
 	int SanityCheck() const;
@@ -229,4 +234,5 @@ private:
 	static u32 tempValues[NUM_TEMPS];
 
 	XEmitter *emit;
+	MIPSComp::JitOptions *jo_;
 };
