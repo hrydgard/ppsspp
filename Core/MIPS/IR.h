@@ -36,12 +36,15 @@
 //  * Unfold delay slots into sequential instructions for ease of optimization
 //  * 
 
+enum {
+	IR_FLAG_SKIP = 1,
+};
 
 struct IREntry {
 	u32 origAddress;  // Note - doesn't have to be contiguous.
 	MIPSInfo info;
 	MIPSOpcode op;
-	// u32 flags;
+	u32 flags;
 	// u32 pseudoInst;
 
 	// Register live state, as bitfields.
@@ -49,6 +52,8 @@ struct IREntry {
 	u32 liveFPR;
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
 };
+
+namespace MIPSComp {
 
 class IRBlock {
 public:
@@ -72,4 +77,4 @@ public:
 	const char *DisasmAt(int pos);
 };
 
-void ExtractIR(u32 address, IRBlock *block);
+}

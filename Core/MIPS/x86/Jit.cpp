@@ -308,15 +308,18 @@ void Jit::InvalidateCache()
 
 void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
+	IREntry &entry = irblock.entries[js.irBlockPos + 1];
+
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
-	CheckJitBreakpoint(GetCompilerPC() + 4, -2);
+	CheckJitBreakpoint(entry.origAddress, -2);
 
 	if (flags & DELAYSLOT_SAFE)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = GetOffsetInstruction(1);
+	MIPSOpcode op = entry.op;
 	MIPSCompileOp(op);
+	entry.flags |= IR_FLAG_SKIP;
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
@@ -430,15 +433,16 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.irBlockPos = 0;
 	js.irBlock = &irblock;
 	// - 1 to avoid the final delay slot.
-	while (js.irBlockPos < irblock.entries.size() - 1 && js.compiling) {
+	while (js.irBlockPos < irblock.entries.size() && js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
+		IREntry &entry = irblock.entries[js.irBlockPos];
+		if (entry.flags & IR_FLAG_SKIP)
+			goto skip_entry;
 		u32 compilerAddr = irblock.entries[js.irBlockPos].origAddress;
 		CheckJitBreakpoint(compilerAddr, 0);
 
-		MIPSOpcode inst = irblock.entries[js.irBlockPos].op;
-		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
-
-		MIPSCompileOp(inst);
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
+		MIPSCompileOp(entry.op);
 
 		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
@@ -461,7 +465,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
-
+skip_entry:
 		js.irBlockPos++;
 		js.numInstructions++;
 	}
@@ -470,7 +474,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	NOP();
 	AlignCode4();
 
-	
 	b->originalSize = js.numInstructions;
 	
 	/*
@@ -563,7 +566,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.ProxyBlock(js.blockStart, dest, sizeof(u32), GetCodePtr());
 	return true;
 }
 

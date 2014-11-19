@@ -56,6 +56,7 @@ namespace MIPSCodeUtils
 {
 	u32 GetCallTarget(u32 addr);
 	u32 GetBranchTarget(u32 addr);
+
 	// Ignores bltzal/etc. instructions that change RA.
 	u32 GetBranchTargetNoRA(u32 addr);
 	u32 GetBranchTargetNoRA(u32 addr, MIPSOpcode op);

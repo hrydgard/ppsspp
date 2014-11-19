@@ -25,8 +25,12 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 
-void ExtractIR(u32 address, IRBlock *block) {
+namespace MIPSComp {
+
+void Jit::ExtractIR(u32 address, IRBlock *block) {
 	block->entries.clear();
 
 	block->analysis = MIPSAnalyst::Analyze(address);
@@ -36,14 +40,28 @@ void ExtractIR(u32 address, IRBlock *block) {
 	int exitInInstructions = -1;
 	while (true) {
 		IREntry e;
-		MIPSOpcode op = Memory::ReadUnchecked_Instruction(address, false);
+		MIPSOpcode op = Memory::Read_Opcode_JIT(address);
 		e.origAddress = address;
 		e.op = op;
 		e.info = MIPSGetInfo(op);
+		e.flags = 0;
 		block->entries.push_back(e);
 
 		if (e.info & DELAYSLOT) {
-			exitInInstructions = 2;
+			// Check if replaceable JAL. If not, bail in 2 instructions.
+			bool replacableJal = false;
+			if (e.info & IS_JUMP) {
+				if ((e.op >> 26) == 3) {
+					// Definitely a JAL
+					const ReplacementTableEntry *entry;
+					if (CanReplaceJalTo(MIPSCodeUtils::GetJumpTarget(e.origAddress), &entry))
+						replacableJal = true;
+				}
+			}
+
+			if (!replacableJal) {
+				exitInInstructions = 2;
+			}
 		}
 
 		address += 4;
@@ -59,9 +77,9 @@ void ExtractIR(u32 address, IRBlock *block) {
 	// TODO: By following calling conventions etc, it may be possible to eliminate
 	// additional register liveness from "jr ra" upwards. However, this is not guaranteed to work on all games.
 
-	u64 gprLiveness = 0xFFFFFFFFF;  // note - nine Fs
+	u64 gprLiveness = 0xFFFFFFFFFULL;  // note - nine Fs, for HI/LO/flags-in-registers. To define later.
 	u32 fprLiveness = 0xFFFFFFFF;
-	for (int i = block->entries.size() - 1; i >= 0; i--) {
+	for (int i = (int)block->entries.size() - 1; i >= 0; i--) {
 		IREntry &e = block->entries[i];
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
@@ -190,4 +208,6 @@ const char *IRBlock::DisasmAt(int pos) {
 	static char temp[256];
 	MIPSDisAsm(entries[pos].op, 0, temp);
 	return temp;
+}
+
 }
