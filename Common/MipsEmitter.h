@@ -114,6 +114,8 @@ public:
 	inline void B(const void *func) {
 		return BEQ(R_ZERO, R_ZERO, func);
 	}
+	FixupBranch BLTZ(MIPSReg rs);
+	void BLTZ(MIPSReg rs, const void *func);
 	FixupBranch BEQ(MIPSReg rs, MIPSReg rt);
 	void BEQ(MIPSReg rs, MIPSReg rt, const void *func);
 	FixupBranch BNE(MIPSReg rs, MIPSReg rt);
@@ -180,6 +182,9 @@ public:
 
 	// Clears the lower bits.  On MIPS64, the result is sign extended.
 	void LUI(MIPSReg rt, s16 imm);
+
+	void INS(MIPSReg rt, MIPSReg rs, s8 pos, s8 size);
+	void EXT(MIPSReg rt, MIPSReg rs, s8 pos, s8 size);
 
 	// MIPS64 only.  Transparently uses DSLL32 to shift 32-63 bits.
 	void DSLL(MIPSReg rd, MIPSReg rt, u8 sa);

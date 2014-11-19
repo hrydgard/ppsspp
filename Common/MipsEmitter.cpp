@@ -114,6 +114,18 @@ void MIPSEmitter::JALR(MIPSReg rd, MIPSReg rs) {
 	Write32Fields(26, 0x00, 21, rs, 11, rd, 0, 0x09);
 }
 
+FixupBranch MIPSEmitter::BLTZ(MIPSReg rs) {
+	// 000001 sssss xxxxx iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x01, 21, rs);
+	return b;
+}
+
+void MIPSEmitter::BLTZ(MIPSReg rs, const void *func) {
+	SetJumpTarget(BLTZ(rs), func);
+}
+
 FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt) {
 	// 000100 sssss ttttt iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
@@ -366,9 +378,21 @@ void MIPSEmitter::XORI(MIPSReg rt, MIPSReg rs, s16 imm) {
 }
 
 void MIPSEmitter::LUI(MIPSReg rt, s16 imm) {
-	// 001111 sssss ttttt iiiiiiiiiiiiiiii
+	// 001111 00000 ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rt < F_BASE, "Bad emitter arguments");
-	Write32Fields(26, 0x0f, 21, rt, 0, (u16)imm);
+	Write32Fields(26, 0x0f, 16, rt, 0, (u16)imm);
+}
+
+void MIPSEmitter::INS(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
+	// 011111 sssss ttttt xxxxx yyyyy 000100
+	_dbg_assert_msg_(JIT, rt < F_BASE && rs < F_BASE && pos <= 0x1f && (size+pos+1) <= 0x1f, "Bad emitter arguments");
+	Write32Fields(26, 0x1f, 21, rt, 16, rs, 11, (size+pos+1) & 0x1f, 6, pos & 0x1f, 0, 0x04);
+}
+
+void MIPSEmitter::EXT(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
+	// 111111 sssss ttttt xxxxx yyyyy 000000
+	_dbg_assert_msg_(JIT, rt < F_BASE && rs < F_BASE && pos <= 0x1f && size >= 1, "Bad emitter arguments");
+	Write32Fields(26, 0x3f, 21, rt, 16, rs, 11, (size-1) & 0x1f, 6, pos & 0x1f, 0, 0x00);
 }
 
 void MIPSEmitter::DSLL(MIPSReg rd, MIPSReg rt, u8 sa) {
