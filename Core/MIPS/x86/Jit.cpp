@@ -310,17 +310,18 @@ void Jit::InvalidateCache()
 
 void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
-	const u32 addr = jit->GetCompilerPC() + 4;
+	IREntry &entry = irblock.entries[js.irBlockPos + 1];
 
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
-	CheckJitBreakpoint(addr, -2);
+	CheckJitBreakpoint(entry.origAddress, -2);
 
 	if (flags & DELAYSLOT_SAFE)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = Memory::Read_Opcode_JIT(addr);
+	MIPSOpcode op = entry.op;
 	MIPSCompileOp(op);
+	entry.flags |= IR_FLAG_SKIP;
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
@@ -434,15 +435,16 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.irBlockPos = 0;
 	js.irBlock = &irblock;
 	// - 1 to avoid the final delay slot.
-	while (js.irBlockPos < irblock.entries.size() - 1 && js.compiling) {
+	while (js.irBlockPos < irblock.entries.size() && js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
+		IREntry &entry = irblock.entries[js.irBlockPos];
+		if (entry.flags & IR_FLAG_SKIP)
+			goto skip_entry;
 		u32 compilerAddr = irblock.entries[js.irBlockPos].origAddress;
 		CheckJitBreakpoint(compilerAddr, 0);
 
-		MIPSOpcode inst = irblock.entries[js.irBlockPos].op;
-		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
-
-		MIPSCompileOp(inst);
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
+		MIPSCompileOp(entry.op);
 
 		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
@@ -465,7 +467,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
-
+skip_entry:
 		js.irBlockPos++;
 		js.numInstructions++;
 	}
@@ -474,7 +476,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	NOP();
 	AlignCode4();
 
-	
 	b->originalSize = js.numInstructions;
 	
 	/*
@@ -535,20 +536,28 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 	ERROR_LOG(JIT, "Comp_RunBlock");
 }
 
-bool Jit::ReplaceJalTo(u32 dest) {
+bool Jit::CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry) {
 	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
 	if (!MIPS_IS_REPLACEMENT(op.encoding))
 		return false;
 
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-	const ReplacementTableEntry *entry = GetReplacementFunc(index);
-	if (!entry) {
+	*entry = GetReplacementFunc(index);
+	if (!*entry) {
 		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
 		return false;
 	}
 
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+	return true;
+}
+
+bool Jit::ReplaceJalTo(u32 dest) {
+	const ReplacementTableEntry *entry = NULL;
+	if (!CanReplaceJalTo(dest, &entry)) {
 		return false;
 	}
 

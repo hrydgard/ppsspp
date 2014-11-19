@@ -20,6 +20,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
