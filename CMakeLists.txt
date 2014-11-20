@@ -121,6 +121,8 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
+include_directories(native)
+
 if(RPI)
 	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
 	link_directories(/opt/vc/lib)
@@ -369,33 +371,8 @@ if(NOT USING_GLES2)
 	set(GLEW_LIBRARIES glew)
 endif()
 
-add_library(snappy STATIC
-	ext/snappy/snappy-c.cpp
-	ext/snappy/snappy-internal.h
-	ext/snappy/snappy-sinksource.h
-	ext/snappy/snappy-stubs-internal.h
-	ext/snappy/snappy-stubs-public.h
-	ext/snappy/snappy.cpp
-	ext/snappy/snappy.h
-)
-include_directories(ext/snappy)
-
-add_library(udis86 STATIC
-	ext/udis86/decode.c
-	ext/udis86/decode.h
-	ext/udis86/extern.h
-	ext/udis86/itab.c
-	ext/udis86/itab.h
-	ext/udis86/syn-att.c
-	ext/udis86/syn-intel.c
-	ext/udis86/syn.c
-	ext/udis86/syn.h
-	ext/udis86/types.h
-	ext/udis86/udint.h
-	ext/udis86/udis86.c
-	ext/udis86/udis86.h
-)
-include_directories(ext/udis86)
+add_subdirectory(ext/snappy)
+add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
 	native/ext/vjson/json.cpp
