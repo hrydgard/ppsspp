@@ -22,9 +22,9 @@
 
 struct JitBlock;
 
-class IRBlock;
-
 namespace MIPSComp {
+
+	class IRBlock;
 
 	enum CompileDelaySlotFlags
 	{

@@ -28,7 +28,7 @@ struct MIPSInfo {
 	explicit MIPSInfo(u64 v) : value(v) {
 	}
 
-	u64 operator & (const u32 &arg) const {
+	u64 operator & (const u64 arg) const {
 		return value & arg;
 	}
 

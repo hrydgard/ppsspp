@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/MemMap.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -207,13 +208,13 @@ ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 			continue;
 
 		// Awesome, a clobbered reg.  Let's use it.
-		if (MIPSAnalyst::IsRegisterClobbered(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
+		if (js_->irBlock->IsRegisterClobbered(ar[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			*clobbered = true;
 			return reg;
 		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
+		if (unusedOnly && js_->irBlock->IsRegisterUsed(ar[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			continue;
 		}
 

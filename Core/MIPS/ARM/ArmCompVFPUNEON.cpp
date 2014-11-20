@@ -284,9 +284,9 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 			// Check for four-in-a-row
 			const u32 ops[4] = {
 				op.encoding, 
-				Memory::Read_Instruction(js.compilerPC + 4).encoding,
-				Memory::Read_Instruction(js.compilerPC + 8).encoding,
-				Memory::Read_Instruction(js.compilerPC + 12).encoding
+				GetOffsetInstruction(1).encoding,
+				GetOffsetInstruction(2).encoding,
+				GetOffsetInstruction(3).encoding
 			};
 			if (g_Config.bFastMemory && (ops[1] >> 26) == 54 && (ops[2] >> 26) == 54 && (ops[3] >> 26) == 54) {
 				int offsets[4] = {offset, (s16)(ops[1] & 0xFFFC), (s16)(ops[2] & 0xFFFC), (s16)(ops[3] & 0xFFFC)};
@@ -294,8 +294,7 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 				if (offsets[1] == offset + 16 && offsets[2] == offsets[1] + 16 && offsets[3] == offsets[2] + 16 &&
 					  rss[0] == rss[1] && rss[1] == rss[2] && rss[2] == rss[3]) {
 					int vts[4] = {MIPS_GET_VQVT(op.encoding), MIPS_GET_VQVT(ops[1]), MIPS_GET_VQVT(ops[2]), MIPS_GET_VQVT(ops[3])};
-					// Also check the destination registers!
-
+					// TODO: Also check the destination registers!
 					// Detected four consecutive ones!
 					// gpr.MapRegAsPointer(rs);
 					// fpr.QLoad4x4(vts[4], rs, offset);
@@ -350,9 +349,9 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 		{
 			const u32 ops[4] = {
 				op.encoding,
-				Memory::Read_Instruction(js.compilerPC + 4).encoding,
-				Memory::Read_Instruction(js.compilerPC + 8).encoding,
-				Memory::Read_Instruction(js.compilerPC + 12).encoding
+				GetOffsetInstruction(1).encoding,
+				GetOffsetInstruction(2).encoding,
+				GetOffsetInstruction(3).encoding,
 			};
 			if (g_Config.bFastMemory && (ops[1] >> 26) == 54 && (ops[2] >> 26) == 54 && (ops[3] >> 26) == 54) {
 				int offsets[4] = { offset, (s16)(ops[1] & 0xFFFC), (s16)(ops[2] & 0xFFFC), (s16)(ops[3] & 0xFFFC) };
