@@ -304,8 +304,6 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 		if (entry.flags & IR_FLAG_SKIP)
 			goto skip_entry;
 
-		gpr.SetCompilerPC(entry.origAddress);  // Let it know for log messages
-		fpr.SetCompilerPC(entry.origAddress);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
 
 		MIPSCompileOp(entry.op);

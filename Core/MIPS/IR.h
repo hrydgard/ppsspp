@@ -18,6 +18,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <vector>
+#include <string>
 
 #include "Common/CommonTypes.h"
 
@@ -75,6 +76,8 @@ public:
 
 	// TODO: Change this awful interface
 	const char *DisasmAt(int pos);
+
+	std::vector<std::string> ToStringVector();
 };
 
 }
