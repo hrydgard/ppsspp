@@ -180,9 +180,9 @@ public:
 
 	void EatPrefix() { js.EatPrefix(); }
 
-private:
 	void ExtractIR(u32 address, IRBlock *block);
 
+private:
 	void GenerateFixedCode();
 	void FlushAll();
 	void FlushPrefixV();

@@ -152,11 +152,12 @@ static void ComputeLiveness(IRBlock *block) {
 		}
 		if (e.info & IN_RS) gprLiveness |= (1ULL << MIPS_GET_RS(e.op));
 		if (e.info & IN_RT) gprLiveness |= (1ULL << MIPS_GET_RT(e.op));
-		if (e.info & IN_RT) gprLiveness |= (1ULL << MIPS_GET_RT(e.op));
 		if (e.info & IN_LO) gprLiveness |= (1ULL << MIPS_REG_LO);
 		if (e.info & IN_HI) gprLiveness |= (1ULL << MIPS_REG_HI);
 		if (e.info & IN_FS) fprLiveness |= (1 << MIPS_GET_FS(e.op));
 		if (e.info & IN_FT) fprLiveness |= (1 << MIPS_GET_FT(e.op));
+		if (e.info & IN_VFPU_CC) gprLiveness |= (1ULL << MIPS_REG_VFPUCC);
+		if (e.info & IN_FPUFLAG) gprLiveness |= (1ULL << MIPS_REG_FPCOND);
 
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
@@ -168,19 +169,22 @@ static void ComputeLiveness(IRBlock *block) {
 		if (e.info & OUT_FS) fprLiveness &= ~(1 << MIPS_GET_FS(e.op));
 		if (e.info & OUT_LO) gprLiveness &= ~(1ULL << MIPS_REG_LO);
 		if (e.info & OUT_HI) gprLiveness &= ~(1ULL << MIPS_REG_HI);
+		if (e.info & OUT_VFPU_CC) gprLiveness &= ~(1ULL << MIPS_REG_VFPUCC);
+		if (e.info & OUT_FPUFLAG) gprLiveness &= ~(1ULL << MIPS_REG_FPCOND);
 	}
 }
 
 std::vector<std::string> IRBlock::ToStringVector() {
 	std::vector<std::string> vec;
-	char buf[512];
+	char buf[1024];
 	for (int i = 0; i < (int)entries.size(); i++) {
 		IREntry &e = entries[i];
 		char instr[256], liveness1[40], liveness2[33];
+		memset(instr, 0, sizeof(instr));
 		ToBitString(liveness1, e.liveGPR, 40);
 		ToBitString(liveness2, e.liveFPR, 32);
 		MIPSDisAsm(e.op, e.origAddress, instr, true);
-		snprintf(buf, sizeof(buf), "%s : %s %s\n", instr, liveness1, liveness2);
+		snprintf(buf, sizeof(buf), "%s : %s %s", instr, liveness1, liveness2);
 		vec.push_back(std::string(buf));
 	}
 	return vec;

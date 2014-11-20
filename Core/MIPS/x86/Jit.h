@@ -177,8 +177,9 @@ public:
 		}
 	}
 
-private:
 	void ExtractIR(u32 address, IRBlock *block);
+
+private:
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState& state);
 	void FlushAll();
