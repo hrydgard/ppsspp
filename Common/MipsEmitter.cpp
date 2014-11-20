@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Symbian can't build this due to an old gcc/lib combination, and doesn't need to.
+// Kind programmer, if you want to translate this to a proper feature-detection
+// define, please feel free to.
+#ifndef __SYMBIAN32__
+
 #include "base/logging.h"
 
 #include <assert.h>
@@ -80,86 +85,107 @@ void MIPSEmitter::BREAK(u32 code) {
 	Write32Fields(26, 0x00, 6, code & 0xfffff, 0, 0x0d);
 }
 
-FixupBranch MIPSEmitter::J() {
+FixupBranch MIPSEmitter::J(std::function<void ()> delaySlot) {
 	// 000010 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x02);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::J(const void *func) {
-	SetJumpTarget(J(), func);
+void MIPSEmitter::J(const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(J(delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::JAL() {
+FixupBranch MIPSEmitter::JAL(std::function<void ()> delaySlot) {
 	// 000011 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x03);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::JAL(const void *func) {
-	SetJumpTarget(JAL(), func);
+void MIPSEmitter::JAL(const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(JAL(delaySlot), func);
 }
 
-void MIPSEmitter::JR(MIPSReg rs) {
+void MIPSEmitter::JR(MIPSReg rs, std::function<void ()> delaySlot) {
 	// 000000 sssss xxxxxxxxxx hint- 001000 (hint must be 0.)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x00, 21, rs, 0, 0x08);
+	ApplyDelaySlot(delaySlot);
 }
 
-void MIPSEmitter::JALR(MIPSReg rd, MIPSReg rs) {
+void MIPSEmitter::JALR(MIPSReg rd, MIPSReg rs, std::function<void ()> delaySlot) {
 	// 000000 sssss xxxxx ddddd hint- 001001 (hint must be 0.)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x00, 21, rs, 11, rd, 0, 0x09);
+	ApplyDelaySlot(delaySlot);
 }
 
-FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt) {
+FixupBranch MIPSEmitter::BLTZ(MIPSReg rs, std::function<void ()> delaySlot) {
+	// 000001 sssss xxxxx iiiiiiiiiiiiiii (fix up)
+	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
+	FixupBranch b = MakeFixupBranch(BRANCH_16);
+	Write32Fields(26, 0x01, 21, rs);
+	ApplyDelaySlot(delaySlot);
+	return b;
+}
+
+void MIPSEmitter::BLTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(BLTZ(rs, delaySlot), func);
+}
+
+FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot) {
 	// 000100 sssss ttttt iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
 	Write32Fields(26, 0x04, 21, rs, 16, rt);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, const void *func) {
-	SetJumpTarget(BEQ(rs, rt), func);
+void MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(BEQ(rs, rt, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt) {
+FixupBranch MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot) {
 	// 000101 sssss ttttt iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
 	Write32Fields(26, 0x05, 21, rs, 16, rt);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, const void *func) {
-	SetJumpTarget(BNE(rs, rt), func);
+void MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(BNE(rs, rt, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BLEZ(MIPSReg rs) {
+FixupBranch MIPSEmitter::BLEZ(MIPSReg rs, std::function<void ()> delaySlot) {
 	// 000110 sssss xxxxx iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
 	Write32Fields(26, 0x06, 21, rs);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::BLEZ(MIPSReg rs, const void *func) {
-	SetJumpTarget(BLEZ(rs), func);
+void MIPSEmitter::BLEZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(BLEZ(rs, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BGTZ(MIPSReg rs) {
+FixupBranch MIPSEmitter::BGTZ(MIPSReg rs, std::function<void ()> delaySlot) {
 	// 000111 sssss xxxxx iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
 	Write32Fields(26, 0x07, 21, rs);
+	ApplyDelaySlot(delaySlot);
 	return b;
 }
 
-void MIPSEmitter::BGTZ(MIPSReg rs, const void *func) {
-	SetJumpTarget(BGTZ(rs), func);
+void MIPSEmitter::BGTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+	SetJumpTarget(BGTZ(rs, delaySlot), func);
 }
 
 void MIPSEmitter::SetJumpTarget(const FixupBranch &branch) {
@@ -207,6 +233,15 @@ bool MIPSEmitter::JInRange(const void *src, const void *dst) {
 	const intptr_t dstp = (intptr_t)dst;
 
 	return (srcp - (srcp & 0x0fffffff)) == (dstp - (dstp & 0x0fffffff));
+}
+
+void MIPSEmitter::ApplyDelaySlot(std::function<void ()> delaySlot) {
+	if (delaySlot) {
+		delaySlot();
+	} else {
+		// We just insert a NOP if there's no delay slot provided.  Safer.
+		NOP();
+	}
 }
 
 void MIPSEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
@@ -366,9 +401,21 @@ void MIPSEmitter::XORI(MIPSReg rt, MIPSReg rs, s16 imm) {
 }
 
 void MIPSEmitter::LUI(MIPSReg rt, s16 imm) {
-	// 001111 sssss ttttt iiiiiiiiiiiiiiii
+	// 001111 00000 ttttt iiiiiiiiiiiiiiii
 	_dbg_assert_msg_(JIT, rt < F_BASE, "Bad emitter arguments");
-	Write32Fields(26, 0x0f, 21, rt, 0, (u16)imm);
+	Write32Fields(26, 0x0f, 16, rt, 0, (u16)imm);
+}
+
+void MIPSEmitter::INS(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
+	// 011111 sssss ttttt xxxxx yyyyy 000100
+	_dbg_assert_msg_(JIT, rt < F_BASE && rs < F_BASE && pos <= 0x1f && (size+pos+1) <= 0x1f, "Bad emitter arguments");
+	Write32Fields(26, 0x1f, 21, rt, 16, rs, 11, (size+pos+1) & 0x1f, 6, pos & 0x1f, 0, 0x04);
+}
+
+void MIPSEmitter::EXT(MIPSReg rt, MIPSReg rs, s8 pos, s8 size) {
+	// 111111 sssss ttttt xxxxx yyyyy 000000
+	_dbg_assert_msg_(JIT, rt < F_BASE && rs < F_BASE && pos <= 0x1f && size >= 1, "Bad emitter arguments");
+	Write32Fields(26, 0x3f, 21, rt, 16, rs, 11, (size-1) & 0x1f, 6, pos & 0x1f, 0, 0x00);
 }
 
 void MIPSEmitter::DSLL(MIPSReg rd, MIPSReg rt, u8 sa) {
@@ -446,3 +493,5 @@ void MIPSCodeBlock::UnWriteProtect() {
 }
 
 }
+
+#endif
