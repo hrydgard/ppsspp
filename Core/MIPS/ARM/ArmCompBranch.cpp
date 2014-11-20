@@ -60,13 +60,13 @@ namespace MIPSComp
 void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = _IMM16 << 2;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
-	u32 targetAddr = js.compilerPC + offset + 4;
+	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	bool immBranch = false;
 	bool immBranchTaken = false;
@@ -86,25 +86,7 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		immBranchTaken = !immBranchNotTaken;
 	}
 
-	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions) {
-		if (!immBranchTaken) {
-			// Skip the delay slot if likely, otherwise it'll be the next instruction.
-			if (likely)
-				js.compilerPC += 4;
-			return;
-		}
-
-		// Branch taken.  Always compile the delay slot, and then go to dest.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		AddContinuedBlock(targetAddr);
-		// Account for the increment in the loop.
-		js.compilerPC = targetAddr - 4;
-		// In case the delay slot was a break or something.
-		js.compiling = true;
-		return;
-	}
-
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
+	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
@@ -115,7 +97,7 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		else
 			FlushAll();
 
-		const u32 destAddr = immBranchTaken ? targetAddr : js.compilerPC + 8;
+		const u32 destAddr = immBranchTaken ? targetAddr : GetCompilerPC() + 8;
 		WriteExit(destAddr, js.nextExit++);
 	} else {
 		if (!likely && delaySlotIsNice)
@@ -163,7 +145,7 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 
 		SetJumpTarget(ptr);
 		// Not taken
-		WriteExit(js.compilerPC + 8, js.nextExit++);
+		WriteExit(GetCompilerPC() + 8, js.nextExit++);
 	}
 
 	js.compiling = false;
@@ -173,104 +155,52 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = _IMM16 << 2;
 	MIPSGPReg rs = _RS;
-	u32 targetAddr = js.compilerPC + offset + 4;
+	u32 targetAddr = GetCompilerPC() + offset + 4;
 
-	bool immBranch = false;
-	bool immBranchTaken = false;
-	if (gpr.IsImm(rs)) {
-		// The cc flags are opposites: when NOT to take the branch.
-		bool immBranchNotTaken;
-		s32 imm = (s32)gpr.GetImm(rs);
-
-		switch (cc)
-		{
-		case CC_GT: immBranchNotTaken = imm > 0; break;
-		case CC_GE: immBranchNotTaken = imm >= 0; break;
-		case CC_LT: immBranchNotTaken = imm < 0; break;
-		case CC_LE: immBranchNotTaken = imm <= 0; break;
-		default: immBranchNotTaken = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
-		}
-		immBranch = true;
-		immBranchTaken = !immBranchNotTaken;
-	}
-
-	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions) {
-		if (!immBranchTaken) {
-			// Skip the delay slot if likely, otherwise it'll be the next instruction.
-			if (likely)
-				js.compilerPC += 4;
-			return;
-		}
-
-		// Branch taken.  Always compile the delay slot, and then go to dest.
-		CompileDelaySlot(DELAYSLOT_NICE);
-		if (andLink)
-			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
-
-		AddContinuedBlock(targetAddr);
-		// Account for the increment in the loop.
-		js.compilerPC = targetAddr - 4;
-		// In case the delay slot was a break or something.
-		js.compiling = true;
-		return;
-	}
-
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	if (immBranch) {
-		// Continuing is handled above, this is just static jumping.
-		if (immBranchTaken && andLink)
-			gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
-		if (immBranchTaken || !likely)
-			CompileDelaySlot(DELAYSLOT_FLUSH);
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
+	gpr.MapReg(rs);
+	CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
+
+	ArmGen::FixupBranch ptr;
+	if (!likely)
+	{
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
-
-		const u32 destAddr = immBranchTaken ? targetAddr : js.compilerPC + 8;
-		WriteExit(destAddr, js.nextExit++);
-	} else {
-		if (!likely && delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_NICE);
-
-		gpr.MapReg(rs);
-		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
-
-		ArmGen::FixupBranch ptr;
-		if (!likely)
-		{
-			if (!delaySlotIsNice)
-				CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-			else
-				FlushAll();
-			ptr = B_CC(cc);
-		}
-		else
-		{
-			FlushAll();
-			ptr = B_CC(cc);
-			CompileDelaySlot(DELAYSLOT_FLUSH);
-		}
-
-		// Take the branch
-		if (andLink)
-		{
-			gpr.SetRegImm(SCRATCHREG1, js.compilerPC + 8);
-			STR(SCRATCHREG1, CTXREG, MIPS_REG_RA * 4);
-		}
-
-		WriteExit(targetAddr, js.nextExit++);
-
-		SetJumpTarget(ptr);
-		// Not taken
-		WriteExit(js.compilerPC + 8, js.nextExit++);
+		ptr = B_CC(cc);
 	}
+	else
+	{
+		FlushAll();
+		ptr = B_CC(cc);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
+	}
+
+	// Take the branch
+	if (andLink)
+	{
+		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC() + 8);
+		STR(SCRATCHREG1, CTXREG, MIPS_REG_RA * 4);
+	}
+
+	WriteExit(targetAddr, js.nextExit++);
+
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(GetCompilerPC() + 8, js.nextExit++);
+
 	js.compiling = false;
 }
 
@@ -320,13 +250,13 @@ void ArmJit::Comp_RelBranchRI(MIPSOpcode op)
 void ArmJit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = _IMM16 << 2;
-	u32 targetAddr = js.compilerPC + offset + 4;
+	u32 targetAddr = GetCompilerPC() + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
@@ -356,7 +286,7 @@ void ArmJit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely)
 
 	SetJumpTarget(ptr);
 	// Not taken
-	WriteExit(js.compilerPC + 8, js.nextExit++);
+	WriteExit(GetCompilerPC() + 8, js.nextExit++);
 	js.compiling = false;
 }
 
@@ -378,13 +308,13 @@ void ArmJit::Comp_FPUBranch(MIPSOpcode op)
 void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = _IMM16 << 2;
-	u32 targetAddr = js.compilerPC + offset + 4;
+	u32 targetAddr = GetCompilerPC() + offset + 4;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
@@ -395,7 +325,7 @@ void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
-		ERROR_LOG_REPORT(JIT, "VFPU branch in VFPU delay slot at %08x with different target", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "VFPU branch in VFPU delay slot at %08x with different target", GetCompilerPC());
 
 	int imm3 = (op >> 18) & 7;
 
@@ -404,8 +334,7 @@ void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 
 	ArmGen::FixupBranch ptr;
 	js.inDelaySlot = true;
-	if (!likely)
-	{
+	if (!likely) {
 		if (!delaySlotIsNice && !delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
@@ -426,7 +355,7 @@ void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 
 	SetJumpTarget(ptr);
 	// Not taken
-	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
+	u32 notTakenTarget = GetCompilerPC() + (delaySlotIsBranch ? 4 : 8);
 	WriteExit(notTakenTarget, js.nextExit++);
 	js.compiling = false;
 }
@@ -444,11 +373,11 @@ void ArmJit::Comp_VBranch(MIPSOpcode op)
 
 void ArmJit::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	u32 off = _IMM26 << 2;
-	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
+	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
@@ -464,14 +393,6 @@ void ArmJit::Comp_Jump(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
-			AddContinuedBlock(targetAddr);
-			// Account for the increment in the loop.
-			js.compilerPC = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
-		}
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
 		break;
@@ -480,16 +401,8 @@ void ArmJit::Comp_Jump(MIPSOpcode op) {
 		if (ReplaceJalTo(targetAddr))
 			return;
 
-		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
-		if (jo.continueJumps && js.numInstructions < jo.continueMaxInstructions) {
-			AddContinuedBlock(targetAddr);
-			// Account for the increment in the loop.
-			js.compilerPC = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
-		}
 		FlushAll();
 		WriteExit(targetAddr, js.nextExit++);
 		break;
@@ -504,14 +417,14 @@ void ArmJit::Comp_Jump(MIPSOpcode op) {
 void ArmJit::Comp_JumpReg(MIPSOpcode op)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
+		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 	bool andLink = (op & 0x3f) == 9;
 
-	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
@@ -522,12 +435,12 @@ void ArmJit::Comp_JumpReg(MIPSOpcode op)
 		gpr.MapReg(rs);
 		MovToPC(gpr.R(rs));  // For syscall to be able to return.
 		if (andLink)
-			gpr.SetImm(rd, js.compilerPC + 8);
+			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)
-			gpr.SetImm(rd, js.compilerPC + 8);
+			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 
 		if (!andLink && rs == MIPS_REG_RA && g_Config.bDiscardRegsOnJRRA) {
@@ -542,15 +455,6 @@ void ArmJit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardR(MIPS_REG_T9);
 		}
 
-		if (jo.continueJumps && gpr.IsImm(rs) && js.numInstructions < jo.continueMaxInstructions) {
-			AddContinuedBlock(gpr.GetImm(rs));
-			// Account for the increment in the loop.
-			js.compilerPC = gpr.GetImm(rs) - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
-			return;
-		}
-
 		gpr.MapReg(rs);
 		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
 		FlushAll();
@@ -559,19 +463,18 @@ void ArmJit::Comp_JumpReg(MIPSOpcode op)
 		gpr.MapReg(rs);
 		MOV(R8, gpr.R(rs));
 		if (andLink)
-			gpr.SetImm(rd, js.compilerPC + 8);
+			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 	}
 
-	switch (op & 0x3f) 
-	{
+	switch (op & 0x3f) {
 	case 8: //jr
 		break;
 	case 9: //jalr
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
+		_dbg_assert_msg_(CPU, 0, "Trying to compile instruction that can't be compiled");
 		break;
 	}
 

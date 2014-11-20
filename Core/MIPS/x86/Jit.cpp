@@ -440,9 +440,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		IREntry &entry = irblock.entries[js.irBlockPos];
 		if (entry.flags & IR_FLAG_SKIP)
 			goto skip_entry;
-		u32 compilerAddr = irblock.entries[js.irBlockPos].origAddress;
-		CheckJitBreakpoint(compilerAddr, 0);
-
+		CheckJitBreakpoint(entry.origAddress, 0);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
 		MIPSCompileOp(entry.op);
 
@@ -456,7 +454,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-				MOV(32, M(&mips_->pc), Imm32(compilerAddr));
+				MOV(32, M(&mips_->pc), Imm32(entry.origAddress));
 			else
 				MOV(32, M(&mips_->pc), Imm32(irblock.entries[js.irBlockPos + 1].origAddress));
 			WriteSyscallExit();
@@ -606,13 +604,13 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	}
 
 	if (entry->flags & REPFLAG_DISABLED) {
+		// We probably won't get here anymore.
 		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
-			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			FlushAll();

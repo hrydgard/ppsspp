@@ -170,12 +170,13 @@ void ArmJit::EatInstruction(MIPSOpcode op) {
 	}
 
 	js.numInstructions++;
-	js.compilerPC += 4;
+	js.irBlockPos++;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
 void ArmJit::CompileDelaySlot(int flags)
 {
+	IREntry &entry = irblock.entries[js.irBlockPos + 1];
 	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
 	// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 	// delay slot, we're screwed.
@@ -183,8 +184,7 @@ void ArmJit::CompileDelaySlot(int flags)
 		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
-	MIPSCompileOp(op);
+	MIPSCompileOp(entry.op);
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
@@ -215,7 +215,7 @@ void ArmJit::Compile(u32 em_address) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", js.compilerPC - 4);
+		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC()- 4);
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
@@ -236,13 +236,17 @@ void ArmJit::RunLoopUntil(u64 globalticks)
 }
 
 u32 ArmJit::GetCompilerPC() {
-	return 0;  // TODO
+	return irblock.entries[js.irBlockPos].origAddress;
+}
+
+MIPSOpcode ArmJit::GetOffsetInstruction(int offset) {
+	return irblock.entries[js.irBlockPos + offset].op;
 }
 
 const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = mips_->pc;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
@@ -292,24 +296,22 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	int partialFlushOffset = 0;
 
 	js.numInstructions = 0;
-	while (js.compiling)
-	{
-		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
-		//MIPSInfo info = MIPSGetInfo(inst);
-		//if (info & IS_VFPU) {
-		//	logBlocks = 1;
-		//}
+  js.irBlock = &irblock;
+	js.irBlockPos = 0;
+	while (js.irBlockPos < irblock.entries.size() && js.compiling) {
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		IREntry &entry = irblock.entries[js.irBlockPos];
+		if (entry.flags & IR_FLAG_SKIP)
+			goto skip_entry;
 
-		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
+		gpr.SetCompilerPC(entry.origAddress);  // Let it know for log messages
+		fpr.SetCompilerPC(entry.origAddress);
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
 
-		MIPSCompileOp(inst);
+		MIPSCompileOp(entry.op);
 	
-		js.compilerPC += 4;
-		js.numInstructions++;
 #ifndef HAVE_ARMV7
-		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
-		{
+		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200) {
 			// We need to prematurely flush as we are out of range
 			FixupBranch skip = B_CC(CC_AL);
 			FlushLitPool();
@@ -318,13 +320,9 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 		}
 #endif
 
-		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
-			FlushAll();
-			WriteExit(js.compilerPC, js.nextExit++);
-			js.compiling = false;
-		}
+skip_entry:
+		js.irBlockPos++;
+		js.numInstructions++;
 	}
 
 	if (jo.useForwardJump) {
@@ -338,7 +336,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips ===============");
-		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
+		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
@@ -363,7 +361,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	else
 	{
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
 	return b->normalEntry;
@@ -375,7 +373,7 @@ void ArmJit::AddContinuedBlock(u32 dest)
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
 	else
-		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
+		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 	js.lastContinuedPC = dest;
 }
 
@@ -391,21 +389,33 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
+<<<<<<< HEAD
 bool ArmJit::ReplaceJalTo(u32 dest) {
 #ifdef ARM
+=======
+bool Jit::CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry) {
+>>>>>>> Jit IR: Fix mac build, update ARM code too (untested)
 	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
 	if (!MIPS_IS_REPLACEMENT(op.encoding))
 		return false;
 
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-	const ReplacementTableEntry *entry = GetReplacementFunc(index);
-	if (!entry) {
+	*entry = GetReplacementFunc(index);
+	if (!*entry) {
 		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
 		return false;
 	}
 
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+	return true;
+}
+
+bool Jit::ReplaceJalTo(u32 dest) {
+	const ReplacementTableEntry *entry = NULL;
+	if (!CanReplaceJalTo(dest, &entry)) {
 		return false;
 	}
 
@@ -420,7 +430,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		int cycles = (this->*repl)();
 		js.downcountAmount += cycles;
 	} else {
-		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		RestoreRoundingMode();
@@ -434,8 +444,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		WriteDownCountR(R0);
 	}
 
-	js.compilerPC += 4;
-	// No writing exits, keep going!
+	js.irBlockPos++;
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
@@ -459,14 +468,14 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 	}
 
 	if (entry->flags & REPFLAG_DISABLED) {
-		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
-			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			FlushAll();
 			// Flushed, so R1 is safe.
@@ -478,7 +487,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
-		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
+		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 
 		// Standard function call, nothing fancy.
@@ -493,7 +502,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
-			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			ApplyRoundingMode();
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
@@ -515,7 +524,7 @@ void ArmJit::Comp_Generic(MIPSOpcode op)
 		SaveDowncount();
 		// TODO: Perhaps keep the rounding mode for interp?
 		RestoreRoundingMode();
-		gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
+		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);

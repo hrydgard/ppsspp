@@ -26,10 +26,14 @@
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/ARM/ArmAsm.h"
+#include "Core/MIPS/IR.h"
 
 #ifndef offsetof
 #include "stddef.h"
 #endif
+
+struct ReplacementTableEntry;
 
 namespace MIPSComp
 {
@@ -211,7 +215,10 @@ public:
 	void EatPrefix() { js.EatPrefix(); }
 
 private:
+	void ExtractIR(u32 address, IRBlock *block);
 	u32 GetCompilerPC();
+	MIPSOpcode GetOffsetInstruction(int offset);
+
 	void GenerateFixedCode();
 	void FlushAll();
 	void FlushPrefixV();
@@ -224,6 +231,7 @@ private:
 	void MovFromPC(ArmGen::ARMReg r);
 	void MovToPC(ArmGen::ARMReg r);
 
+	bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry);
 	bool ReplaceJalTo(u32 dest);
 
 	void SaveDowncount();
@@ -306,6 +314,8 @@ private:
 	JitBlockCache blocks;
 	ArmJitOptions jo;
 	JitState js;
+
+	IRBlock irblock;
 
 	ArmRegCache gpr;
 	ArmRegCacheFPU fpr;
