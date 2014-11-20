@@ -65,10 +65,10 @@ void ArmJit::Comp_FPU3op(MIPSOpcode op)
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
 		MIPSOpcode nextOp = GetOffsetInstruction(1);
 		// Optimization possible if destination is the same
-		if (fd == (int)((nextOp>>6) & 0x1F)) {
+		if (fd == (int)((nextOp >> 6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
 			if (!strcmp(MIPSGetName(nextOp), "neg.s")) {
-				if (fd == (int)((nextOp>>11) & 0x1F)) {
+				if (fd == (int)((nextOp >> 11) & 0x1F)) {
 					VNMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
 					EatInstruction(nextOp);
 				}

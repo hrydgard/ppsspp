@@ -26,10 +26,14 @@
 #include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/ARM/ArmAsm.h"
+#include "Core/MIPS/IR.h"
 
 #ifndef offsetof
 #include "stddef.h"
 #endif
+
+struct ReplacementTableEntry;
 
 namespace MIPSComp
 {
@@ -177,6 +181,8 @@ public:
 	void EatPrefix() { js.EatPrefix(); }
 
 private:
+	void ExtractIR(u32 address, IRBlock *block);
+
 	void GenerateFixedCode();
 	void FlushAll();
 	void FlushPrefixV();
@@ -277,6 +283,8 @@ private:
 	JitBlockCache blocks;
 	JitOptions jo;
 	JitState js;
+
+	IRBlock irblock;
 
 	ArmRegCache gpr;
 	ArmRegCacheFPU fpr;

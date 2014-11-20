@@ -1344,6 +1344,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/JitCommon/JitState.cpp
 	Core/MIPS/JitCommon/JitState.h
+	Core/MIPS/IR.cpp
+	Core/MIPS/IR.h
 	Core/MIPS/MIPS.cpp
 	Core/MIPS/MIPS.h
 	Core/MIPS/MIPSAnalyst.cpp

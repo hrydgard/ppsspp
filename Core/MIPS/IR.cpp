@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 
 #include <algorithm>
 
@@ -27,10 +29,16 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
+#include "Core/HLE/ReplaceTables.h"
 
 namespace MIPSComp {
 
+// Not very elegant..
+//#ifdef ARM
+//void ArmJit::ExtractIR(u32 address, IRBlock *block) {
+//#else
 void Jit::ExtractIR(u32 address, IRBlock *block) {
+//#endif
 	block->entries.clear();
 
 	block->analysis = MIPSAnalyst::Analyze(address);
@@ -103,7 +111,9 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 IRBlock::RegisterUsage IRBlock::DetermineInOutUsage(u64 inFlag, u64 outFlag, int pos, int instrs) {
 	const u32 start = pos;
-	u32 end = pos + instrs;
+	int end = pos + instrs;
+	if (end > (int)entries.size())
+		end = (int)entries.size();
 	bool canClobber = true;
 	while (pos < end) {
 		const MIPSOpcode op = entries[pos].op;
@@ -153,8 +163,8 @@ IRBlock::RegisterUsage IRBlock::DetermineRegisterUsage(MIPSGPReg reg, int pos, i
 
 	const u32 start = pos;
 	int end = pos + instrs;
-	if (end > entries.size())
-		end = entries.size();
+	if (end > (int)entries.size())
+		end = (int)entries.size();
 	bool canClobber = true;
 	while (pos < end) {
 		const MIPSOpcode op = entries[pos].op;
