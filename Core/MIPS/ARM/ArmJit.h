@@ -214,8 +214,8 @@ public:
 
 	void EatPrefix() { js.EatPrefix(); }
 
-private:
 	void ExtractIR(u32 address, IRBlock *block);
+private:
 	u32 GetCompilerPC();
 	MIPSOpcode GetOffsetInstruction(int offset);
 
