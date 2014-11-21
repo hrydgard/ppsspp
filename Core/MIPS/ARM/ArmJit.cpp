@@ -252,7 +252,6 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
-	js.compiling = true;
 	js.inDelaySlot = false;
 	js.PrefixStart();
 
@@ -298,7 +297,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	js.numInstructions = 0;
   js.irBlock = &irblock;
 	js.irBlockPos = 0;
-	while (js.irBlockPos < irblock.entries.size() && js.compiling) {
+	while (js.irBlockPos < irblock.entries.size()) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		IREntry &entry = irblock.entries[js.irBlockPos];
 		if (entry.flags & IR_FLAG_SKIP)
@@ -480,7 +479,6 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			js.downcountAmount += cycles;
 			WriteExitDestInR(R1);
-			js.compiling = false;
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
@@ -506,7 +504,6 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 			LDR(R1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(R0);
 			WriteExitDestInR(R1);
-			js.compiling = false;
 		}
 	} else {
 		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
