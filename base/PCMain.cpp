@@ -35,6 +35,7 @@ SDLJoystick *joystick = NULL;
 #include "net/resolve.h"
 #include "base/NKCodeFromSDL.h"
 #include "util/const_map.h"
+#include "util/text/utf8.h"
 #include "math/math_util.h"
 
 #ifdef PPSSPP
@@ -706,6 +707,17 @@ int main(int argc, char *argv[]) {
 						if (legacyKeyMap[i] == key.keyCode)
 							pad_buttons &= ~(1 << i);
 					}
+					break;
+				}
+			case SDL_TEXTINPUT:
+				{
+					int pos = 0;
+					int c = u8_nextchar(event.text.text, &pos);
+					KeyInput key;
+					key.flags = KEY_CHAR;
+					key.keyCode = c;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					NativeKey(key);
 					break;
 				}
 			case SDL_MOUSEBUTTONDOWN:
