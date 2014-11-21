@@ -246,8 +246,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 			AddContinuedBlock(targetAddr);
 			// Account for the increment in the loop.
 			GetCompilerPC() = targetAddr - 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
 		}
 		else
 		{
@@ -264,8 +262,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 
 			// Account for the delay slot.
 			GetCompilerPC() += 4;
-			// In case the delay slot was a break or something.
-			js.compiling = true;
 		}
 	}
 	else
@@ -297,7 +293,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 		SetJumpTarget(ptr);
 		CONDITIONAL_LOG_EXIT(notTakenAddr);
 		WriteExit(notTakenAddr, js.nextExit++);
-		js.compiling = false;
 	}
 }
 
@@ -313,7 +308,6 @@ void Jit::CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool dela
 	const u32 destAddr = taken ? targetAddr : notTakenAddr;
 	CONDITIONAL_LOG_EXIT(destAddr);
 	WriteExit(destAddr, js.nextExit++);
-	js.compiling = false;
 }
 
 void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
@@ -556,8 +550,6 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	if (!Memory::IsValidAddress(targetAddr)) {
 		if (js.nextExit == 0) {
 			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x PC %08x LR %08x", targetAddr, GetCompilerPC(), currentMIPS->r[MIPS_REG_RA]);
-		} else {
-			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		return;
@@ -588,7 +580,6 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
 	}
-	js.compiling = false;
 }
 
 static u32 savedPC;
@@ -620,7 +611,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 
 		// Syscalls write the exit code for us.
-		_dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
+		// _dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
 		return;
 	}
 	else if (delaySlotIsNice)
@@ -669,7 +660,6 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 	CONDITIONAL_LOG_EXIT_EAX();
 	WriteExitDestInEAX();
-	js.compiling = false;
 }
 
 void Jit::Comp_Syscall(MIPSOpcode op)
@@ -706,14 +696,12 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 
 	ApplyRoundingMode();
 	WriteSyscallExit();
-	js.compiling = false;
 }
 
 void Jit::Comp_Break(MIPSOpcode op)
 {
 	Comp_Generic(op);
 	WriteSyscallExit();
-	js.compiling = false;
 }
 
 }	 // namespace Mipscomp
