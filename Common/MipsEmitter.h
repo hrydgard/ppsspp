@@ -168,9 +168,19 @@ public:
 	}
 
 	void LB(MIPSReg dest, MIPSReg base, s16 offset);
+	void LH(MIPSReg dest, MIPSReg base, s16 offset);
 	void LW(MIPSReg dest, MIPSReg base, s16 offset);
 	void SB(MIPSReg value, MIPSReg base, s16 offset);
+	void SH(MIPSReg dest, MIPSReg base, s16 offset);
 	void SW(MIPSReg value, MIPSReg base, s16 offset);
+
+	// These exist for the sole purpose of making compilation fail if you try to load/store from R+R.
+	void LB(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void LH(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void LW(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void SB(MIPSReg value, MIPSReg base, MIPSReg invalid);
+	void SH(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void SW(MIPSReg value, MIPSReg base, MIPSReg invalid);
 
 	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
 	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);

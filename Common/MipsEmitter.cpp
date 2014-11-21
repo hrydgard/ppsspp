@@ -268,6 +268,12 @@ void MIPSEmitter::LB(MIPSReg value, MIPSReg base, s16 offset) {
 	Write32Fields(26, 0x20, 21, base, 16, value, 0, (u16)offset);
 }
 
+void MIPSEmitter::LH(MIPSReg value, MIPSReg base, s16 offset) {
+	// 100001 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x21, 21, base, 16, value, 0, (u16)offset);
+}
+
 void MIPSEmitter::LW(MIPSReg value, MIPSReg base, s16 offset) {
 	// 100011 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
 	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
@@ -278,6 +284,12 @@ void MIPSEmitter::SB(MIPSReg value, MIPSReg base, s16 offset) {
 	// 101000 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
 	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x28, 21, base, 16, value, 0, (u16)offset);
+}
+
+void MIPSEmitter::SH(MIPSReg value, MIPSReg base, s16 offset) {
+	// 101001 sssss ttttt iiiiiiiiiiiiiiii - rs = base, rt = value
+	_dbg_assert_msg_(JIT, value < F_BASE && base < F_BASE, "Bad emitter arguments");
+	Write32Fields(26, 0x29, 21, base, 16, value, 0, (u16)offset);
 }
 
 void MIPSEmitter::SW(MIPSReg value, MIPSReg base, s16 offset) {
