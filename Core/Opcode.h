@@ -46,6 +46,10 @@ struct Opcode {
 		return encoding != arg;
 	}
 
+	void operator =(u32 arg) {
+		encoding = arg;
+	}
+
 	u32 encoding;
 };
 

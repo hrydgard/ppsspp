@@ -37,21 +37,31 @@
 //  * Unfold delay slots into sequential instructions for ease of optimization
 //  * 
 
+// Flags
 enum {
 	IR_FLAG_SKIP = 1,
 };
 
+enum {
+	PSEUDO_NONE,
+	PSEUDO_SAVE_RA,
+};
+
+// Keep this as small as possible!
 struct IREntry {
 	u32 origAddress;  // Note - doesn't have to be contiguous.
-	MIPSInfo info;
+	MIPSInfo info;  // not strictly needed as can be recomputed but speeds things up considerably so worth the space
 	MIPSOpcode op;
 	u32 flags;
-	// u32 pseudoInst;
+	int pseudoInstr;  // 0 = no pseudo. Could be combined with flags?
 
 	// Register live state, as bitfields.
 	u64 liveGPR;  // Bigger than 32 to accommodate pseudo-GPRs like HI and LO
 	u32 liveFPR;
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
+	//
+	void MakeNOP() { op = 0; info = 0; }
+	void MakePseudo(int pseudo) { pseudoInstr = pseudo; info = 0; }
 };
 
 namespace MIPSComp {

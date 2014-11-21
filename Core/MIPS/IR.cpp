@@ -34,7 +34,6 @@
 
 // Jit brokenness to fix:	08866fe8 in Star Soldier - a b generates unnecessary stuff
 
-
 namespace MIPSComp {
 
 // Reorderings to do:
@@ -49,10 +48,13 @@ static void DebugPrintBlock(IRBlock *block);
 IREntry &IRBlock::AddIREntry(u32 address) {
 	MIPSOpcode op = Memory::Read_Opcode_JIT(address);
 	IREntry e;
+	e.pseudoInstr = PSEUDO_NONE;
 	e.origAddress = address;
 	e.op = op;
 	e.info = MIPSGetInfo(op);
 	e.flags = 0;
+	e.liveGPR = 0;
+	e.liveFPR = 0;
 	entries.push_back(e);
 	return entries.back();
 }
@@ -71,8 +73,10 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 	// TODO: This loop could easily follow branches and whatnot, perform inlining and so on.
 
-	bool joined = false;
+	bool joined = false; // flag to debugprint
 	int exitInInstructions = -1;
+	std::vector<u32> raStack;   // for inlining leaf functions
+
 	while (true) {
 		IREntry &e = block->AddIREntry(address);
 
@@ -96,16 +100,43 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 		if (e.info & IS_JUMP) {
 			// Figure out exactly what instruction it is.
 			if ((e.op >> 26) == 2 && jo.continueBranches) {   // It's a plain j instruction
-				joined = true;
+				// joined = true;
 				exitInInstructions = -1;
 				// Remove the just added jump instruction
 				block->RemoveLast();
 				// Add the delay slot to the block
 				block->AddIREntry(address + 4);
-				u32 target = MIPSCodeUtils::GetJumpTarget(address);
-				address = target;
+				address = MIPSCodeUtils::GetJumpTarget(address);
 				// NOTICE_LOG(JIT, "Blocks joined! %08x->%08x", block->address, target);
 				continue;
+			} else if ((e.op >> 26) == 3 && jo.continueBranches) {
+				// jal instruction. Same as above but save RA. This can be optimized away later if needed.
+				// joined = true;
+				exitInInstructions = -1;
+				// Turn the just added jal instruction into a pseudo SaveRA
+				block->entries.back().MakePseudo(PSEUDO_SAVE_RA);
+				raStack.push_back(address + 8);
+				// Add the delay slot
+				block->AddIREntry(address + 4);
+				address = MIPSCodeUtils::GetJumpTarget(address);
+				// NOTICE_LOG(JIT, "Blocks jal-joined! %08x->%08x", block->address, address);
+				continue;
+			} else if (e.op == MIPS_MAKE_JR_RA()) {
+				MIPSOpcode next = Memory::Read_Opcode_JIT(address + 4);
+				if (!MIPSAnalyst::IsSyscall(next) && raStack.size()) {
+					exitInInstructions = -1;
+					// Remove the just added jump instruction, and add the delay slot
+					block->RemoveLast();
+					block->AddIREntry(address + 4);
+					// We know the return address! Keep compiling there.
+					// NOTICE_LOG(JIT, "Inlined leaf function!");
+					u32 returnAddr = raStack.back();
+					raStack.pop_back();
+					address = returnAddr;
+					continue;
+				} else {
+					// Do nothing special, compile as usual.
+				}
 			}
 		}
 
@@ -119,7 +150,7 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 	Reorder(block);
 	ComputeLiveness(block);
 	if (joined) {
-		// DebugPrintBlock(block);
+		DebugPrintBlock(block);
 	}
 }
 
@@ -205,6 +236,8 @@ static void ComputeLiveness(IRBlock *block) {
 		if (e.info & IN_FT) fprLiveness |= (1 << MIPS_GET_FT(e.op));
 		if (e.info & IN_VFPU_CC) gprLiveness |= (1ULL << MIPS_REG_VFPUCC);
 		if (e.info & IN_FPUFLAG) gprLiveness |= (1ULL << MIPS_REG_FPCOND);
+		// Remove false detections of the zero register being live
+		gprLiveness &= ~1;
 
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
@@ -218,6 +251,7 @@ static void ComputeLiveness(IRBlock *block) {
 		if (e.info & OUT_HI) gprLiveness &= ~(1ULL << MIPS_REG_HI);
 		if (e.info & OUT_VFPU_CC) gprLiveness &= ~(1ULL << MIPS_REG_VFPUCC);
 		if (e.info & OUT_FPUFLAG) gprLiveness &= ~(1ULL << MIPS_REG_FPCOND);
+		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprLiveness &= ~(1ULL << MIPS_REG_RA);
 	}
 }
 
@@ -226,12 +260,18 @@ std::vector<std::string> IRBlock::ToStringVector() {
 	char buf[1024];
 	for (int i = 0; i < (int)entries.size(); i++) {
 		IREntry &e = entries[i];
-		char instr[256], liveness1[40], liveness2[33];
+		char instr[256], liveness1[36 * 3], liveness2[32 * 3];
 		memset(instr, 0, sizeof(instr));
 		ToGprLivenessString(liveness1, sizeof(liveness1), e.liveGPR);
 		ToFprLivenessString(liveness2, sizeof(liveness2), e.liveFPR);
+		const char *pseudo = " ";
+		switch (e.pseudoInstr) {
+			case PSEUDO_SAVE_RA:
+				pseudo = " save_ra / ";
+				break;
+		}
 		MIPSDisAsm(e.op, e.origAddress, instr, true);
-		snprintf(buf, sizeof(buf), "%08x %s : %s %s", e.origAddress, instr, liveness1, liveness2);
+		snprintf(buf, sizeof(buf), "%08x%s%s : %s %s", e.origAddress, pseudo, instr, liveness1, liveness2);
 		vec.push_back(std::string(buf));
 	}
 	return vec;

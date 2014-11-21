@@ -156,6 +156,10 @@ public:
 
 	void Comp_DoNothing(MIPSOpcode op);
 
+	// Pseudo instructions emitted by the IR extractor
+	void Comp_IR_SaveRA(MIPSOpcode op);
+	void CompPseudoOp(int pseudo, MIPSOpcode op);
+
 	int Replace_fabsf();
 	int Replace_dl_write_matrix();
 

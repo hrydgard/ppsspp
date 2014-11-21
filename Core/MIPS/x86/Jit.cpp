@@ -440,8 +440,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		if (entry.flags & IR_FLAG_SKIP)
 			goto skip_entry;
 		CheckJitBreakpoint(entry.origAddress, 0);
+		if (entry.pseudoInstr != PSEUDO_NONE) {
+			CompPseudoOp(entry.pseudoInstr, entry.op);
+		} else {
+			MIPSCompileOp(entry.op);
+		}
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
-		MIPSCompileOp(entry.op);
 
 		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
@@ -839,5 +843,20 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 a
 }
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }
+
+void Jit::Comp_IR_SaveRA(MIPSOpcode op) {
+	gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+}
+
+void Jit::CompPseudoOp(int pseudo, MIPSOpcode op) {
+	switch (pseudo) {
+		case PSEUDO_SAVE_RA:
+			Comp_IR_SaveRA(op);
+			break;
+		default:
+			ERROR_LOG(JIT, "Invalid pseudo op %i", pseudo);
+			break;
+	}
+}
 
 } // namespace
