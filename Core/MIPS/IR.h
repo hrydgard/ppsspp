@@ -58,6 +58,7 @@ namespace MIPSComp {
 
 class IRBlock {
 public:
+	u32 address;
 	std::vector<IREntry> entries;
 	MIPSAnalyst::AnalysisResults analysis;
 
@@ -78,6 +79,8 @@ public:
 	const char *DisasmAt(int pos);
 
 	std::vector<std::string> ToStringVector();
+	IREntry &AddIREntry(u32 address);
+	void RemoveLast();
 };
 
 }

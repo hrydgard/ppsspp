@@ -26,9 +26,14 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/HLE/ReplaceTables.h"
+
+
+// Jit brokenness to fix:	08866fe8 in Star Soldier - a b generates unnecessary stuff
+
 
 namespace MIPSComp {
 
@@ -41,6 +46,17 @@ static bool Reorder(IRBlock *block);
 static void ComputeLiveness(IRBlock *block);
 static void DebugPrintBlock(IRBlock *block);
 
+IREntry &IRBlock::AddIREntry(u32 address) {
+	MIPSOpcode op = Memory::Read_Opcode_JIT(address);
+	IREntry e;
+	e.origAddress = address;
+	e.op = op;
+	e.info = MIPSGetInfo(op);
+	e.flags = 0;
+	entries.push_back(e);
+	return entries.back();
+}
+
 // TODO: This is awful
 #ifdef ARM
 void ArmJit::ExtractIR(u32 address, IRBlock *block) {
@@ -49,25 +65,16 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 #endif
 	static int count = 0;
 	count++;
-	bool debugPrint = count < 10;
-	if (debugPrint) {
-		printf("======= %08x ========\n", address);
-	}
 	block->entries.clear();
-
+	block->address = address;
 	block->analysis = MIPSAnalyst::Analyze(address);
 
 	// TODO: This loop could easily follow branches and whatnot, perform inlining and so on.
 
+	bool joined = false;
 	int exitInInstructions = -1;
 	while (true) {
-		IREntry e;
-		MIPSOpcode op = Memory::Read_Opcode_JIT(address);
-		e.origAddress = address;
-		e.op = op;
-		e.info = MIPSGetInfo(op);
-		e.flags = 0;
-		block->entries.push_back(e);
+		IREntry &e = block->AddIREntry(address);
 
 		if (e.info & DELAYSLOT) {
 			// Check if replaceable JAL. If not, bail in 2 instructions.
@@ -86,8 +93,23 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 			}
 		}
 
-		address += 4;
+		if (e.info & IS_JUMP) {
+			// Figure out exactly what instruction it is.
+			if ((e.op >> 26) == 2 && jo.continueBranches) {   // It's a plain j instruction
+				joined = true;
+				exitInInstructions = -1;
+				// Remove the just added jump instruction
+				block->RemoveLast();
+				// Add the delay slot to the block
+				block->AddIREntry(address + 4);
+				u32 target = MIPSCodeUtils::GetJumpTarget(address);
+				address = target;
+				// NOTICE_LOG(JIT, "Blocks joined! %08x->%08x", block->address, target);
+				continue;
+			}
+		}
 
+		address += 4;
 		if (exitInInstructions > 0)
 			exitInInstructions--;
 		if (exitInInstructions == 0)
@@ -96,12 +118,14 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 	Reorder(block);
 	ComputeLiveness(block);
-	if (debugPrint) {
-		DebugPrintBlock(block);
+	if (joined) {
+		// DebugPrintBlock(block);
 	}
 }
 
 static bool Reorder(IRBlock *block) {
+	// TODO: Can't do this reliably until we have unfolded all branch delay slots!
+	return false;
 	// Sweep downwards
 	for (int i = 0; i < (int)block->entries.size() - 1; i++) {
 		IREntry &e1 = block->entries[i];
@@ -114,6 +138,7 @@ static bool Reorder(IRBlock *block) {
 		IREntry &e2 = block->entries[i + 1];
 		// Do stuff!
 	}
+
 	return false;
 }
 
@@ -122,6 +147,28 @@ void ToBitString(char *ptr, u64 bits, int numBits) {
 		*(ptr++) = (bits & (1ULL << i)) ? '1' : '.';
 	}
 	*ptr = '\0';
+}
+
+#define RN(i) currentDebugMIPS->GetRegName(0,i)
+
+void ToGprLivenessString(char *str, int bufsize, u64 bits) {
+	str[0] = 0;
+	for (int i = 0; i < 32; i++) {
+		if (bits & (1ULL << i)) {
+			sprintf(str + strlen(str), "%s ", RN(i));
+		}
+	}
+	if (bits & (1ULL << MIPS_REG_LO)) strcat(str, "lo ");
+	if (bits & (1ULL << MIPS_REG_HI)) strcat(str, "hi ");
+}
+
+void ToFprLivenessString(char *str, int bufsize, u64 bits) {
+	str[0] = 0;
+	for (int i = 0; i < 32; i++) {
+		if (bits & (1ULL << i)) {
+			sprintf(str + strlen(str), "f%d ", i);
+		}
+	}
 }
 
 static void ComputeLiveness(IRBlock *block) {
@@ -181,10 +228,10 @@ std::vector<std::string> IRBlock::ToStringVector() {
 		IREntry &e = entries[i];
 		char instr[256], liveness1[40], liveness2[33];
 		memset(instr, 0, sizeof(instr));
-		ToBitString(liveness1, e.liveGPR, 40);
-		ToBitString(liveness2, e.liveFPR, 32);
+		ToGprLivenessString(liveness1, sizeof(liveness1), e.liveGPR);
+		ToFprLivenessString(liveness2, sizeof(liveness2), e.liveFPR);
 		MIPSDisAsm(e.op, e.origAddress, instr, true);
-		snprintf(buf, sizeof(buf), "%s : %s %s", instr, liveness1, liveness2);
+		snprintf(buf, sizeof(buf), "%08x %s : %s %s", e.origAddress, instr, liveness1, liveness2);
 		vec.push_back(std::string(buf));
 	}
 	return vec;
@@ -193,8 +240,9 @@ std::vector<std::string> IRBlock::ToStringVector() {
 static void DebugPrintBlock(IRBlock *block) {
 	std::vector<std::string> vec = block->ToStringVector();
 	for (auto &s : vec) {
-		printf("%s", s.c_str());
+		printf("%s\n", s.c_str());
 	}
+	fflush(stdout);
 }
 
 IRBlock::RegisterUsage IRBlock::DetermineInOutUsage(u64 inFlag, u64 outFlag, int pos, int instrs) {
@@ -308,4 +356,8 @@ const char *IRBlock::DisasmAt(int pos) {
 	return temp;
 }
 
+void IRBlock::RemoveLast() {
+	entries.pop_back();
 }
+
+}  // namespace
