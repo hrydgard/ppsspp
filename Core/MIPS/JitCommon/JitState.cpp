@@ -42,7 +42,7 @@ namespace MIPSComp {
 		// Common
 		enableBlocklink = true;
 		immBranches = false;
-		continueBranches = false;
+		continueBranches = true;
 		continueJumps = false;
 		continueMaxInstructions = 300;
 	}
