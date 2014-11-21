@@ -448,9 +448,6 @@
     <ClCompile Include="HDRemaster.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\MIPSAsmTables.cpp">
-      <Filter>MIPS</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\MIPSAsm.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -926,9 +923,6 @@
     </ClInclude>
     <ClInclude Include="HDRemaster.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\MIPSAsmTables.h">
-      <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAsm.h">
       <Filter>MIPS</Filter>

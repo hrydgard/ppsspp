@@ -131,8 +131,9 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
-			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
-				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
+			p++;
+			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
+				printf("ERROR: %S\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;
