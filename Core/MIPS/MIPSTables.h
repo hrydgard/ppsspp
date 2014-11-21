@@ -32,6 +32,8 @@ struct MIPSInfo {
 		return value & arg;
 	}
 
+	void operator=(u64 val) {val = value;}
+
 	u64 value;
 };
 
