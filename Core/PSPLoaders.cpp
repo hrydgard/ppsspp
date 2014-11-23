@@ -32,6 +32,7 @@
 #include "FileSystems/MetaFileSystem.h"
 #include "FileSystems/VirtualDiscFileSystem.h"
 
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 
@@ -53,21 +54,21 @@
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
-void InitMemoryForGameISO(std::string fileToStart) {
+void InitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem* umd2;
 
-	// check if it's a disc directory
-	FileInfo info;
-	if (!getFileInfo(fileToStart.c_str(), &info)) return;
+	if (!fileLoader->Exists()) {
+		return;
+	}
 
 	bool actualIso = false;
-	if (info.isDirectory)
+	if (fileLoader->IsDirectory())
 	{
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
 	}
 	else 
 	{
-		auto bd = constructBlockDevice(fileToStart.c_str());
+		auto bd = constructBlockDevice(fileLoader->Path().c_str());
 		// Can't init anything without a block device...
 		if (!bd)
 			return;

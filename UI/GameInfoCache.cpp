@@ -17,6 +17,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 #include <algorithm>
 
 #include "base/logging.h"
@@ -246,8 +247,9 @@ public:
 			return;
 
 		std::string filename = gamePath_;
+		std::unique_ptr<FileLoader> fileLoader(new LocalFileLoader(filename));
 		info_->path = gamePath_;
-		info_->fileType = Identify_File(filename);
+		info_->fileType = Identify_File(fileLoader.get());
 		// Fallback title
 		info_->title = getFilename(info_->path);
 

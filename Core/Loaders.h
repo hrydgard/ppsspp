@@ -46,9 +46,65 @@ enum IdentifiedFileType {
 	FILETYPE_UNKNOWN
 };
 
+class FileLoader {
+public:
+	virtual ~FileLoader() {}
+
+	// Needed when we switch from a directory to a PBP, etc.
+	virtual bool Reopen(const std::string &filename) = 0;
+
+	virtual bool Exists() = 0;
+	virtual bool IsDirectory() = 0;
+	virtual s64 FileSize() = 0;
+	virtual std::string Path() const = 0;
+	virtual std::string Extension() {
+		const std::string filename = Path();
+		size_t pos = filename.find_last_of('.');
+		if (pos == filename.npos) {
+			return "";
+		} else {
+			return filename.substr(pos);
+		}
+	}
+
+	virtual void Seek(s64 absolutePos) = 0;
+	virtual size_t Read(size_t bytes, size_t count, void *data) = 0;
+	virtual size_t Read(size_t bytes, void *data) {
+		return Read(1, bytes, data);
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) = 0;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) {
+		return ReadAt(absolutePos, 1, bytes, data);
+	}
+};
+
+class LocalFileLoader : public FileLoader {
+public:
+	LocalFileLoader(const std::string &filename);
+	virtual ~LocalFileLoader();
+
+	virtual bool Reopen(const std::string &filename);
+
+	virtual bool Exists() override;
+	virtual bool IsDirectory() override;
+	virtual s64 FileSize() override;
+	virtual std::string Path() const override;
+
+	virtual void Seek(s64 absolutePos) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data) override;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override;
+
+private:
+	// First only used by Android, but we can keep it here for everyone.
+	int fd_;
+	FILE *f_;
+	u64 filesize_;
+	std::string filename_;
+};
+
 // This can modify the string, for example for stripping off the "/EBOOT.PBP"
 // for a FILETYPE_PSP_PBP_DIRECTORY.
-IdentifiedFileType Identify_File(std::string &str);
+IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
 // Can modify the string filename, as it calls IdentifyFile above.
-bool LoadFile(std::string &filename, std::string *error_string);
+bool LoadFile(FileLoader *fileLoader, std::string *error_string);
