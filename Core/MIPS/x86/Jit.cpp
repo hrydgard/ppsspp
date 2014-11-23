@@ -622,6 +622,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
 			SUB(32, M(&mips_->downcount), R(EAX));
 			ApplyRoundingMode();
+			// Need to set flags again, ApplyRoundingMode destroyed them (and EAX.)
 			SUB(32, M(&mips_->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
