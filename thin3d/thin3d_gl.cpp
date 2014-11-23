@@ -186,12 +186,12 @@ bool Thin3DGLShader::Compile(const char *source) {
 
 	glShaderSource(shader_, 1, &source, 0);
 	glCompileShader(shader_);
-	GLint success;
+	GLint success = 0;
 	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
 	if (!success) {
 #define MAX_INFO_LOG_SIZE 2048
 		GLchar infoLog[MAX_INFO_LOG_SIZE];
-		GLsizei len;
+		GLsizei len = 0;
 		glGetShaderInfoLog(shader_, MAX_INFO_LOG_SIZE, &len, infoLog);
 		infoLog[len] = '\0';
 		glDeleteShader(shader_);
