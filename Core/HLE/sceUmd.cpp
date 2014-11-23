@@ -469,7 +469,7 @@ void __UmdReplace(std::string filepath) {
 	if (!currentUMD)
 		return;
 
-	FileLoader *loadedFile = new LocalFileLoader(filepath);
+	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
 	IFileSystem* umd2;
 	FileInfo info;

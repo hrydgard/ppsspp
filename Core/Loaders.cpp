@@ -31,6 +31,34 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 
+class LocalFileLoader : public FileLoader {
+public:
+	LocalFileLoader(const std::string &filename);
+	virtual ~LocalFileLoader();
+
+	virtual bool Reopen(const std::string &filename);
+
+	virtual bool Exists() override;
+	virtual bool IsDirectory() override;
+	virtual s64 FileSize() override;
+	virtual std::string Path() const override;
+
+	virtual void Seek(s64 absolutePos) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data) override;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override;
+
+private:
+	// First only used by Android, but we can keep it here for everyone.
+	int fd_;
+	FILE *f_;
+	u64 filesize_;
+	std::string filename_;
+};
+
+FileLoader *ConstructFileLoader(const std::string &filename) {
+	return new LocalFileLoader(filename);
+}
+
 LocalFileLoader::LocalFileLoader(const std::string &filename) {
 	Reopen(filename);
 }

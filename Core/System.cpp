@@ -182,12 +182,12 @@ void CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
-	loadedFile = new LocalFileLoader(filename);
+	loadedFile = ConstructFileLoader(filename);
 	IdentifiedFileType type = Identify_File(loadedFile);
 
 	// TODO: Put this somewhere better?
 	if (coreParameter.mountIso != "") {
-		coreParameter.mountIsoLoader = new LocalFileLoader(coreParameter.mountIso);
+		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
 	}
 
 	MIPSAnalyst::Reset();

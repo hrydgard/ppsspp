@@ -247,7 +247,7 @@ public:
 			return;
 
 		std::string filename = gamePath_;
-		std::unique_ptr<FileLoader> fileLoader(new LocalFileLoader(filename));
+		std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(filename));
 		info_->path = gamePath_;
 		info_->fileType = Identify_File(fileLoader.get());
 		// Fallback title
