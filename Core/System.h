@@ -63,6 +63,8 @@ void Audio_Init();
 bool IsOnSeparateCPUThread();
 bool IsAudioInitialised();
 
+void UpdateLoadedFile(FileLoader *fileLoader);
+
 std::string GetSysDirectory(PSPDirectories directoryType);
 #ifdef _WIN32
 void InitSysDirectories();

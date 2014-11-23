@@ -47,6 +47,8 @@ bool LocalFileLoader::Reopen(const std::string &filename) {
 	}
 
 #ifdef ANDROID
+	// Android NDK does not support 64-bit file I/O using C streams
+	// so we fall back onto syscalls
 	fd_ = fileno(f_);
 
 	off64_t off = lseek64(fd_, 0, SEEK_END);
@@ -282,7 +284,7 @@ bool LoadFile(FileLoader *fileLoader, std::string *error_string) {
 				if (ebootType == FILETYPE_PSP_ISO_NP) {
 					InitMemoryForGameISO(fileLoader);
 					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
-					return Load_PSP_ISO(filename.c_str(), error_string);
+					return Load_PSP_ISO(fileLoader, error_string);
 				}
 				else if (ebootType == FILETYPE_PSP_PS1_PBP) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
@@ -292,7 +294,7 @@ bool LoadFile(FileLoader *fileLoader, std::string *error_string) {
 				size_t pos = path.find("/PSP/GAME/");
 				if (pos != std::string::npos)
 					pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
-				return Load_PSP_ELF_PBP(fileLoader->Path().c_str(), error_string);
+				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
 				*error_string = "No EBOOT.PBP, misidentified game";
 				return false;
@@ -303,14 +305,14 @@ bool LoadFile(FileLoader *fileLoader, std::string *error_string) {
 	case FILETYPE_PSP_ELF:
 		{
 			INFO_LOG(LOADER,"File is an ELF or loose PBP!");
-			return Load_PSP_ELF_PBP(fileLoader->Path().c_str(), error_string);
+			return Load_PSP_ELF_PBP(fileLoader, error_string);
 		}
 
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
 	case FILETYPE_PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
-		return Load_PSP_ISO(fileLoader->Path().c_str(), error_string);
+		return Load_PSP_ISO(fileLoader, error_string);
 
 	case FILETYPE_PSP_PS1_PBP:
 		*error_string = "PS1 EBOOTs are not supported by PPSSPP.";

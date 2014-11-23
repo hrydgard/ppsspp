@@ -20,6 +20,7 @@
 #include "file/file_util.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -460,20 +461,28 @@ u32 sceUmdGetErrorStat()
 }
 
 void __UmdReplace(std::string filepath) {
+	// TODO: This should really go through Loaders, no?  What if it's an invalid file?
+
 	// Only get system from disc0 seems have been enough.
 	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
 	IFileSystem* currentISOBlock = pspFileSystem.GetSystem("umd0:");
 	if (!currentUMD)
 		return;
 
+	FileLoader *loadedFile = new LocalFileLoader(filepath);
+
 	IFileSystem* umd2;
 	FileInfo info;
-	if (!getFileInfo(filepath.c_str(), &info))    // This shouldn't happen, but for safety.
+	if (!loadedFile->Exists()) {
+		delete loadedFile;
 		return;
+	}
+	UpdateLoadedFile(loadedFile);
+
 	if (info.isDirectory) {
 		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
 	} else {
-		auto bd = constructBlockDevice(filepath.c_str());
+		auto bd = constructBlockDevice(loadedFile);
 		if (!bd)
 			return;
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);

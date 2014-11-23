@@ -378,7 +378,7 @@ handleELF:
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
-				BlockDevice *bd = constructBlockDevice(gamePath_.c_str());
+				BlockDevice *bd = constructBlockDevice(fileLoader.get());
 				if (!bd)
 					return;  // nothing to do here..
 				ISOFileSystem umd(&handles, bd, "/PSP_GAME");

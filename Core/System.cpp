@@ -185,6 +185,11 @@ void CPU_Init() {
 	loadedFile = new LocalFileLoader(filename);
 	IdentifiedFileType type = Identify_File(loadedFile);
 
+	// TODO: Put this somewhere better?
+	if (coreParameter.mountIso != "") {
+		coreParameter.mountIsoLoader = new LocalFileLoader(coreParameter.mountIso);
+	}
+
 	MIPSAnalyst::Reset();
 	Replacement_Init();
 
@@ -249,7 +254,16 @@ void CPU_Shutdown() {
 	Memory::Shutdown();
 
 	delete loadedFile;
-	loadedFile = 0;
+	loadedFile = nullptr;
+
+	delete coreParameter.mountIsoLoader;
+	coreParameter.mountIsoLoader = nullptr;
+}
+
+// TODO: Maybe loadedFile doesn't even belong here...
+void UpdateLoadedFile(FileLoader *fileLoader) {
+	delete loadedFile;
+	loadedFile = fileLoader;
 }
 
 void CPU_RunLoop() {
