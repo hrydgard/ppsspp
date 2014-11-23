@@ -415,7 +415,8 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	snprintf(temp, sizeof(temp), "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
+	// Manually formatting utf-8 is fun.  \xXX doesn't work everywhere.
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", c->T("created", "Created by"), 0xC3, 0xA5);
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
