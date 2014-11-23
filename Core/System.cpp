@@ -220,7 +220,7 @@ void CPU_Init() {
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	// Why did we check for CORE_POWERDOWN here?
-	if (!LoadFile(loadedFile, &coreParameter.errorString)) {
+	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
 		CPU_SetState(CPU_THREAD_NOT_RUNNING);

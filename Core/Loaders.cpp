@@ -36,8 +36,6 @@ public:
 	LocalFileLoader(const std::string &filename);
 	virtual ~LocalFileLoader();
 
-	virtual bool Reopen(const std::string &filename);
-
 	virtual bool Exists() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
@@ -59,19 +57,11 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 	return new LocalFileLoader(filename);
 }
 
-LocalFileLoader::LocalFileLoader(const std::string &filename) {
-	Reopen(filename);
-}
-
-bool LocalFileLoader::Reopen(const std::string &filename) {
-	fd_ = 0;
-	f_ = nullptr;
-	filesize_ = 0;
-	filename_ = filename;
-
+LocalFileLoader::LocalFileLoader(const std::string &filename)
+	: fd_(0), f_(nullptr), filesize_(0), filename_(filename) {
 	f_ = File::OpenCFile(filename, "rb");
 	if (!f_) {
-		return false;
+		return;
 	}
 
 #ifdef ANDROID
@@ -87,8 +77,6 @@ bool LocalFileLoader::Reopen(const std::string &filename) {
 	filesize_ = ftello(f_);
 	fseek(f_, 0, SEEK_SET);
 #endif
-
-	return true;
 }
 
 LocalFileLoader::~LocalFileLoader() {
@@ -295,7 +283,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	return FILETYPE_UNKNOWN;
 }
 
-bool LoadFile(FileLoader *fileLoader, std::string *error_string) {
+bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
+	FileLoader *&fileLoader = *fileLoaderPtr;
 	// Note that this can modify filename!
 	switch (Identify_File(fileLoader)) {
 	case FILETYPE_PSP_PBP_DIRECTORY:
@@ -304,7 +293,8 @@ bool LoadFile(FileLoader *fileLoader, std::string *error_string) {
 			std::string ebootFilename = filename + "/EBOOT.PBP";
 
 			// Switch fileLoader to the EBOOT.
-			fileLoader->Reopen(ebootFilename);
+			delete fileLoader;
+			fileLoader = ConstructFileLoader(ebootFilename);
 
 			if (fileLoader->Exists()) {
 				INFO_LOG(LOADER, "File is a PBP in a directory!");

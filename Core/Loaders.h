@@ -50,9 +50,6 @@ class FileLoader {
 public:
 	virtual ~FileLoader() {}
 
-	// Needed when we switch from a directory to a PBP, etc.
-	virtual bool Reopen(const std::string &filename) = 0;
-
 	virtual bool Exists() = 0;
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
@@ -85,4 +82,4 @@ FileLoader *ConstructFileLoader(const std::string &filename);
 IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
 // Can modify the string filename, as it calls IdentifyFile above.
-bool LoadFile(FileLoader *fileLoader, std::string *error_string);
+bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
