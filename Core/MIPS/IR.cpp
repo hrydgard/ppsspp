@@ -97,9 +97,9 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 			}
 		}
 
-		if (e.info & IS_JUMP) {
+		if ((e.info & IS_JUMP) && jo.continueBranches) {
 			// Figure out exactly what instruction it is.
-			if ((e.op >> 26) == 2 && jo.continueBranches) {   // It's a plain j instruction
+			if ((e.op >> 26) == 2) {   // It's a plain j instruction
 				// joined = true;
 				exitInInstructions = -1;
 				// Remove the just added jump instruction
@@ -109,7 +109,7 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 				address = MIPSCodeUtils::GetJumpTarget(address);
 				// NOTICE_LOG(JIT, "Blocks joined! %08x->%08x", block->address, target);
 				continue;
-			} else if ((e.op >> 26) == 3 && jo.continueBranches) {
+			} else if ((e.op >> 26) == 3) {
 				// jal instruction. Same as above but save RA. This can be optimized away later if needed.
 				// joined = true;
 				exitInInstructions = -1;
@@ -129,14 +129,13 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 					block->RemoveLast();
 					block->AddIREntry(address + 4);
 					// We know the return address! Keep compiling there.
-					// NOTICE_LOG(JIT, "Inlined leaf function!");
+					// NOTICE_LOG(JIT, "Inlined leaf function! %08x", block->address);
 					u32 returnAddr = raStack.back();
 					raStack.pop_back();
 					address = returnAddr;
 					continue;
-				} else {
-					// Do nothing special, compile as usual.
 				}
+				// Else do nothing special, compile as usual.
 			}
 		}
 
@@ -147,22 +146,60 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 			break;
 	}
 
-	Reorder(block);
+	// Reorder until no changes are made.
+	while (Reorder(block))
+		;
+
 	ComputeLiveness(block);
+
 	if (joined) {
 		DebugPrintBlock(block);
 	}
 }
 
 static bool Reorder(IRBlock *block) {
+	bool changed = false;
 	// TODO: Can't do this reliably until we have unfolded all branch delay slots!
-	return false;
 	// Sweep downwards
 	for (int i = 0; i < (int)block->entries.size() - 1; i++) {
 		IREntry &e1 = block->entries[i];
 		IREntry &e2 = block->entries[i + 1];
-		// Do stuff!
+
+		// Reorder SW, LWC1, SWC1
+		if ((MIPSAnalyst::IsSWInstr(e1.op) && MIPSAnalyst::IsSWInstr(e2.op)) ||
+				(MIPSAnalyst::IsLWC1Instr(e1.op) && MIPSAnalyst::IsLWC1Instr(e2.op)) ||
+				(MIPSAnalyst::IsSWC1Instr(e1.op) && MIPSAnalyst::IsSWC1Instr(e2.op))) {
+			// Compare register numbers and swap if possible.
+			if (MIPS_GET_RT(e1.op) > MIPS_GET_RT(e2.op) &&
+				  (MIPS_GET_IMM16(e1.op) != MIPS_GET_IMM16(e2.op) ||
+					 MIPS_GET_RT(e1.op) != MIPS_GET_RT(e2.op))) {
+				std::swap(e1, e2);
+#if 0
+				const char *type = "SW";
+				if (MIPSAnalyst::IsLWC1Instr(e1.op)) type = "LWC1";
+				else if (MIPSAnalyst::IsSWC1Instr(e1.op)) type = "SWC1";
+				NOTICE_LOG(JIT, "Reordered %s at %08x (%08x)", type, e1.origAddress, block->address);
+#endif
+				changed = true;
+			}
+		}
+
+		// LW is tricker because we need to check against the destination of one instruction being used
+		// as the base register of the other.
+		if (MIPSAnalyst::IsLWInstr(e1.op) && MIPSAnalyst::IsLWInstr(e2.op)) {
+			// Compare register numbers and swap if possible.
+			if (MIPS_GET_RT(e1.op) != MIPS_GET_RS(e2.op) &&
+					MIPS_GET_RS(e1.op) != MIPS_GET_RT(e2.op) &&
+					MIPS_GET_RT(e1.op) > MIPS_GET_RT(e2.op) &&
+					(MIPS_GET_RT(e1.op) != MIPS_GET_RT(e2.op) || 
+					 MIPS_GET_IMM16(e1.op) != MIPS_GET_IMM16(e2.op))) {
+				std::swap(e1, e2);
+				// NOTICE_LOG(JIT, "Reordered LW at %08x (%08x)", e1.origAddress, block->address);
+				changed = true;
+			}
+		}
 	}
+
 	// Then sweep upwards
 	for (int i = (int)block->entries.size() - 1; i >= 0; i--) {
 		IREntry &e1 = block->entries[i];
@@ -170,7 +207,7 @@ static bool Reorder(IRBlock *block) {
 		// Do stuff!
 	}
 
-	return false;
+	return changed;
 }
 
 void ToBitString(char *ptr, u64 bits, int numBits) {
@@ -209,17 +246,6 @@ static void ComputeLiveness(IRBlock *block) {
 
 	// TODO: By following calling conventions etc, it may be possible to eliminate
 	// additional register liveness from "jr ra" upwards. However, this is not guaranteed to work on all games.
-
-	/*
-	u64 gprLiveness = 0;
-	u64 fprLiveness = 0;
-	for (int i = 0; i < block->entries.size(); i++) {
-		IREntry &e = block->entries[i];
-		e.liveGPR = gprLiveness;
-		e.liveFPR = fprLiveness;
-	}*/
-
-	// Hmm.. not sure this is right. Needs thinking.
 
 	u64 gprLiveness = 0;  // note - nine Fs, for HI/LO/flags-in-registers. To define later.
 	u32 fprLiveness = 0;

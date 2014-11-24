@@ -51,6 +51,7 @@
 #define MIPS_GET_VS(op) ((op>>8) & 0x7F)
 #define MIPS_GET_VT(op) ((op>>16) & 0x7F)
 
+#define MIPS_GET_IMM16(op) ((op) & 0xFFFF)
 
 namespace MIPSCodeUtils
 {

@@ -64,8 +64,6 @@ static std::set<HashMapFunc> hashMap;
 
 static std::string hashmapFileName;
 
-#define MIPSTABLE_IMM_MASK 0xFC000000
-
 // Similar to HashMapFunc but has a char pointer for the name for efficiency.
 struct HardHashTableEntry {
 	uint64_t hash;
@@ -535,33 +533,6 @@ namespace MIPSAnalyst {
 	bool IsSyscall(MIPSOpcode op) {
 		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
-	}
-
-	static bool IsSWInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xAC000000;
-	}
-	static bool IsSBInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA0000000;
-	}
-	static bool IsSHInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA4000000;
-	}
-
-	static bool IsSWLInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA8000000;
-	}
-	static bool IsSWRInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xB8000000;
-	}
-
-	static bool IsSWC1Instr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xE4000000;
-	}
-	static bool IsSVSInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xE8000000;
-	}
-	static bool IsSVQInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xF8000000;
 	}
 
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {

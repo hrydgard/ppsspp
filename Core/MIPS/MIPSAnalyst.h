@@ -124,6 +124,25 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);
 
+#define MIPSTABLE_IMM_MASK 0xFC000000
+
+	inline bool IsLBInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x80000000; }
+	inline bool IsLWInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x8C000000; }
+
+	inline bool IsSWInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xAC000000; }
+	inline bool IsSBInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA0000000; }
+	inline bool IsSHInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA4000000; }
+
+	inline bool IsSWLInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA8000000; }
+	inline bool IsSWRInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xB8000000; }
+
+	inline bool IsSWC1Instr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xE4000000; }
+	inline bool IsSVSInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xE8000000; }
+	inline bool IsSVQInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xF8000000; }
+
+	inline bool IsLWC1Instr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC4000000; }
+	inline bool IsLVSInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC8000000; }
+
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
 
 	void Shutdown();
