@@ -286,7 +286,7 @@ void HTTPFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
-	s64 absoluteEnd = absolutePos + bytes;
+	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);
 
 	// TODO: Keepalive, etc.
 	client_.Connect();
@@ -319,7 +319,11 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 			if (sscanf(header.c_str(), "Content-Range: bytes %lld-%lld/%lld", &first, &last, &total) >= 2) {
 				if (first == absolutePos && last == absoluteEnd - 1) {
 					supportedResponse = true;
+				} else {
+					ERROR_LOG(LOADER, "Unexpected HTTP range: got %lld-%lld, wanted %lld-%lld.", first, last, absolutePos, absoluteEnd - 1);
 				}
+			} else {
+				ERROR_LOG(LOADER, "Unexpected HTTP range response: %s", header.c_str());
 			}
 		}
 	}
