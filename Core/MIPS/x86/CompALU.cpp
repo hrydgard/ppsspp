@@ -145,16 +145,22 @@ namespace MIPSComp
 				// This is often used before a branch.  If rs is not already mapped, let's leave it.
 				gpr.MapReg(rt, rt == rs, true);
 
-				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
-				if (needsTemp) {
-					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_B, R(TEMPREG));
-					MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
+				if (false && rt == rs) {
+					SUB(32, gpr.R(rt), Imm32(suimm));
+					SHR(32, gpr.R(rt), Imm8(31));
 				} else {
-					XOR(32, gpr.R(rt), gpr.R(rt));
-					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_B, gpr.R(rt));
+					bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
+					if (needsTemp) {
+						CMP(32, gpr.R(rs), Imm32(suimm));
+						SETcc(CC_B, R(TEMPREG));
+						MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
+					} else {
+						XOR(32, gpr.R(rt), gpr.R(rt));
+						CMP(32, gpr.R(rs), Imm32(suimm));
+						SETcc(CC_B, gpr.R(rt));
+					}
 				}
+				// TODO: If we can figure out that it's ok to replace the source register
 				gpr.UnlockAll();
 			}
 			break;
