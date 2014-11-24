@@ -143,6 +143,8 @@ namespace MIPSAnalyst
 	inline bool IsLWC1Instr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC4000000; }
 	inline bool IsLVSInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC8000000; }
 
+	inline bool IsANDIInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x30000000; }
+
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
 
 	void Shutdown();

@@ -40,6 +40,11 @@
 // Flags
 enum {
 	IR_FLAG_SKIP = 1,
+
+	// To be used on unfolded branches
+	IR_FLAG_NO_DELAY_SLOT = 2,
+	IR_FLAG_CMP_REPLACE_LEFT = 4,
+	IR_FLAG_CMP_REPLACE_RIGHT = 8,
 };
 
 enum {
@@ -59,7 +64,7 @@ struct IREntry {
 	u64 liveGPR;  // Bigger than 32 to accommodate pseudo-GPRs like HI and LO
 	u32 liveFPR;
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
-	//
+
 	void MakeNOP() { op = 0; info = 0; }
 	void MakePseudo(int pseudo) { pseudoInstr = pseudo; info = 0; }
 };
