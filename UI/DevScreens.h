@@ -111,6 +111,7 @@ private:
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
 	UI::EventReturn OnAddressChange(UI::EventParams &e);
 	UI::EventReturn OnShowIR(UI::EventParams &e);
+	UI::EventReturn OnShowStats(UI::EventParams &e);
 
 	int currentBlock_;
 

@@ -624,3 +624,31 @@ int JitBlockCache::GetBlockExitSize() {
 	return 0;
 #endif
 }
+
+void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) {
+	double totalBloat = 0.0;
+	double maxBloat = 0.0;
+	double minBloat = 1000000000.0;
+	for (int i = 0; i < num_blocks_; i++) {
+		JitBlock *b = GetBlock(i);
+		double codeSize = (double)b->codeSize;
+		if (codeSize == 0)
+			continue;
+		double origSize = (double)(4 * b->originalSize);
+		double bloat = codeSize / origSize;
+		if (bloat < minBloat) {
+			minBloat = bloat;
+			bcStats.minBloatBlock = b->originalAddress;
+		}
+		if (bloat > maxBloat) {
+			maxBloat = bloat;
+			bcStats.maxBloatBlock = b->originalAddress;
+		}
+		totalBloat += bloat;
+		bcStats.bloatMap[bloat] = b->originalAddress;
+	}
+	bcStats.numBlocks = num_blocks_;
+	bcStats.minBloat = minBloat;
+	bcStats.maxBloat = maxBloat;
+	bcStats.avgBloat = totalBloat / (double)num_blocks_;
+}

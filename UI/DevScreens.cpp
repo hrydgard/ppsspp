@@ -466,6 +466,7 @@ void JitCompareScreen::CreateViews() {
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
+	leftColumn->Add(new Choice(d->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	EventParams ignore = {0};
@@ -548,6 +549,29 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 	}
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	BlockCacheStats bcStats;
+	blockCache->ComputeStats(bcStats);
+	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
+	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
+	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
+	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
+
+	int ctr = 0, sz = (int)bcStats.bloatMap.size();
+	for (auto iter : bcStats.bloatMap) {
+		if (ctr < 10 || ctr > sz - 10) {
+			NOTICE_LOG(JIT, "%08x: %f", iter.second, iter.first);
+		} else if (ctr == 10) {
+			NOTICE_LOG(JIT, "...");
+		}
+		ctr++;
+	}
+
+	return UI::EVENT_DONE;
+}
+
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	I18NCategory *de = GetI18NCategory("Developer");
