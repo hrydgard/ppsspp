@@ -105,16 +105,17 @@ void Connection::Disconnect() {
 
 namespace http {
 
-Client::Client() {
+// TODO: do something sane here
+#define USERAGENT "NATIVEAPP 1.0"
 
+Client::Client() {
+	httpVersion_ = "1.1";
+	userAgent_ = USERAGENT;
 }
 
 Client::~Client() {
 	Disconnect();
 }
-
-// TODO: do something sane here
-#define USERAGENT "NATIVEAPP 1.0"
 
 
 void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
@@ -144,118 +145,25 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 }
 
 int Client::GET(const char *resource, Buffer *output, float *progress) {
-	if (progress) {
-		*progress = 0.01f;
-	}
-
-	Buffer buffer;
-	const char *tpl =
-		"GET %s HTTP/1.1\r\n"
-		"Host: %s\r\n"
-		"User-Agent: " USERAGENT "\r\n"
+	const char *otherHeaders =
 		"Accept: */*\r\n"
-		"Accept-Encoding: gzip\r\n"
-		"Connection: close\r\n"
-		"\r\n";
-
-	buffer.Printf(tpl, resource, host_.c_str());
-	bool flushed = buffer.FlushSocket(sock());
-	if (!flushed) {
-		return -1;  // TODO error code.
+		"Accept-Encoding: gzip\r\n";
+	int err = SendRequest("GET", resource, otherHeaders, progress);
+	if (err < 0) {
+		return err;
 	}
 
 	Buffer readbuf;
-
-	// Snarf all the data we can into RAM. A little unsafe but hey.
-	if (readbuf.Read(sock(), 4096) < 0) {
-		ELOG("Failed to read HTTP headers :(");
-		return -1;
+	std::vector<std::string> responseHeaders;
+	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
+	if (code < 0) {
+		return code;
 	}
 
-	// Grab the first header line that contains the http code.
-
-	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
-
-	std::string line;
-	readbuf.TakeLineCRLF(&line);
-
-	int code;
-	size_t code_pos = line.find(' ');
-	if (code_pos != line.npos) {
-		code_pos = line.find_first_not_of(' ', code_pos);
+	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress);
+	if (err < 0) {
+		return err;
 	}
-
-	if (code_pos != line.npos) {
-		code = atoi(&line[code_pos]);
-	} else {
-		return -1;
-	}
-
-	bool gzip = false;
-	bool chunked = false;
-	int contentLength = 0;
-	while (true) {
-		int sz = readbuf.TakeLineCRLF(&line);
-		if (!sz)
-			break;
-		// TODO: Case folding.
-		if (startsWith(line, "Content-Length:")) {
-			size_t size_pos = line.find_first_of(' ');
-			if (size_pos != line.npos) {
-				size_pos = line.find_first_not_of(' ', size_pos);
-			}
-			if (size_pos != line.npos) {
-				contentLength = atoi(&line[size_pos]);
-				chunked = false;
-			}
-		} else if (startsWith(line, "Content-Encoding:")) {
-			if (line.find("gzip") != std::string::npos) {
-				gzip = true;
-			}
-		} else if (startsWith(line, "Transfer-Encoding:")) {
-			if (line.find("chunked") != std::string::npos) {
-				chunked = true;
-			}
-		}
-	}
-
-	if (!contentLength && progress) {
-		// Content length is unknown.
-		// Set progress to 1% so it looks like something is happening...
-		*progress = 0.1f;
-	}
-
-	if (!contentLength) {
-		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf.ReadAll(sock()))
-			return -1;
-	} else {
-		// Let's read in chunks, updating progress between each.
-		if (!readbuf.ReadAllWithProgress(sock(), contentLength, progress))
-			return -1;
-	}
-
-	// output now contains the rest of the reply. Dechunk it.
-	if (chunked) {
-		DeChunk(&readbuf, output, contentLength, progress);
-	} else {
-		output->Append(readbuf);
-	}
-
-	// If it's gzipped, we decompress it and put it back in the buffer.
-	if (gzip) {
-		std::string compressed, decompressed;
-		output->TakeAll(&compressed);
-		bool result = decompress_string(compressed, &decompressed);
-		if (!result) {
-			ELOG("Error decompressing using zlib");
-			*progress = 0.0f;
-			return -1;
-		}
-		output->Append(decompressed);
-	}
-
-	*progress = 1.0f;
 	return code;
 }
 
@@ -303,6 +211,133 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 
 int Client::POST(const char *resource, const std::string &data, Buffer *output) {
 	return POST(resource, data, "", output);
+}
+
+int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, float *progress) {
+	if (progress) {
+		*progress = 0.01f;
+	}
+
+	Buffer buffer;
+	const char *tpl =
+		"%s %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"User-Agent: " USERAGENT "\r\n"
+		"Connection: close\r\n"
+		"%s"
+		"\r\n";
+
+	buffer.Printf(tpl, method, resource, host_.c_str(), otherHeaders ? otherHeaders : "");
+	bool flushed = buffer.FlushSocket(sock());
+	if (!flushed) {
+		return -1;  // TODO error code.
+	}
+	return 0;
+}
+
+int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress) {
+	// Snarf all the data we can into RAM. A little unsafe but hey.
+	if (readbuf->Read(sock(), 4096) < 0) {
+		ELOG("Failed to read HTTP headers :(");
+		return -1;
+	}
+
+	// Grab the first header line that contains the http code.
+
+	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
+
+	std::string line;
+	readbuf->TakeLineCRLF(&line);
+
+	int code;
+	size_t code_pos = line.find(' ');
+	if (code_pos != line.npos) {
+		code_pos = line.find_first_not_of(' ', code_pos);
+	}
+
+	if (code_pos != line.npos) {
+		code = atoi(&line[code_pos]);
+	} else {
+		return -1;
+	}
+
+	// TODO
+	while (true) {
+		int sz = readbuf->TakeLineCRLF(&line);
+		if (!sz)
+			break;
+		responseHeaders.push_back(line);
+	}
+
+	return code;
+}
+
+int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress) {
+	bool gzip = false;
+	bool chunked = false;
+	int contentLength = 0;
+	for (std::string line : responseHeaders) {
+		// TODO: Case folding.
+		if (startsWith(line, "Content-Length:")) {
+			size_t size_pos = line.find_first_of(' ');
+			if (size_pos != line.npos) {
+				size_pos = line.find_first_not_of(' ', size_pos);
+			}
+			if (size_pos != line.npos) {
+				contentLength = atoi(&line[size_pos]);
+				chunked = false;
+			}
+		} else if (startsWith(line, "Content-Encoding:")) {
+			if (line.find("gzip") != std::string::npos) {
+				gzip = true;
+			}
+		} else if (startsWith(line, "Transfer-Encoding:")) {
+			if (line.find("chunked") != std::string::npos) {
+				chunked = true;
+			}
+		}
+	}
+
+	if (!contentLength && progress) {
+		// Content length is unknown.
+		// Set progress to 1% so it looks like something is happening...
+		*progress = 0.1f;
+	}
+
+	if (!contentLength || !progress) {
+		// No way to know how far along we are. Let's just not update the progress counter.
+		if (!readbuf->ReadAll(sock()))
+			return -1;
+	} else {
+		// Let's read in chunks, updating progress between each.
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+			return -1;
+	}
+
+	// output now contains the rest of the reply. Dechunk it.
+	if (chunked) {
+		DeChunk(readbuf, output, contentLength, progress);
+	} else {
+		output->Append(*readbuf);
+	}
+
+	// If it's gzipped, we decompress it and put it back in the buffer.
+	if (gzip) {
+		std::string compressed, decompressed;
+		output->TakeAll(&compressed);
+		bool result = decompress_string(compressed, &decompressed);
+		if (!result) {
+			ELOG("Error decompressing using zlib");
+			*progress = 0.0f;
+			return -1;
+		}
+		output->Append(decompressed);
+	}
+
+	if (progress) {
+		*progress = 1.0f;
+	}
+	return 0;
 }
 
 Download::Download(const std::string &url, const std::string &outfile)

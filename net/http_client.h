@@ -66,6 +66,14 @@ public:
 	int POST(const char *resource, const std::string &data, Buffer *output);
 
 	// HEAD, PUT, DELETE aren't implemented yet.
+
+	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr);
+	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr);
+	// If your response contains a response, you must read it.
+	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr);
+
+	const char *userAgent_;
+	const char *httpVersion_;
 };
 
 // Not particularly efficient, but hey - it's a background download, that's pretty cool :P
