@@ -339,26 +339,40 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
 	}
-	
+
+	if (jo.immBranches && immBranch) {
+		if (!immBranchTaken) {
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				irblock.entries[js.irBlockPos + 1].flags |= IR_FLAG_SKIP;
+			return;
+		}
+	}
+
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	if (!likely && delaySlotIsNice)
-		CompileDelaySlot(DELAYSLOT_NICE);
-
-	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-	{
-		gpr.KillImmediate(rs, true, false);
-		CMP(32, gpr.R(rs), Imm32(0));
-	}
+	if (immBranch)
+		CompBranchExit(immBranchTaken, targetAddr, GetCompilerPC() + 8, delaySlotIsNice, likely, false);
 	else
 	{
-		gpr.MapReg(rs, true, false);
-		CMP(32, gpr.R(rs), gpr.R(rt));
-	}
+		if (!likely && delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_NICE);
 
-	CompBranchExits(cc, targetAddr, GetCompilerPC() + 8, delaySlotIsNice, likely, false);
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+		{
+			gpr.KillImmediate(rs, true, false);
+			CMP(32, gpr.R(rs), Imm32(0));
+		}
+		else
+		{
+			gpr.MapReg(rs, true, false);
+			CMP(32, gpr.R(rs), gpr.R(rt));
+		}
+
+		CompBranchExits(cc, targetAddr, GetCompilerPC() + 8, delaySlotIsNice, likely, false);
+	}
 }
 
 void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool likely)
@@ -389,6 +403,24 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		}
 		immBranch = true;
 		immBranchTaken = !immBranchNotTaken;
+	}
+
+	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions)
+	{
+		if (!immBranchTaken)
+		{
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				irblock.entries[js.irBlockPos + 1].flags |= IR_FLAG_SKIP;
+			return;
+		}
+
+		// Branch taken.  Always compile the delay slot, and then go to dest.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		if (andLink)
+			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+
+		// AddContinuedBlock(targetAddr);
 	}
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
