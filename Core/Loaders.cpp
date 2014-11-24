@@ -60,7 +60,7 @@ private:
 class HTTPFileLoader : public FileLoader {
 public:
 	HTTPFileLoader(const std::string &filename);
-	virtual ~HTTPFileLoader();
+	virtual ~HTTPFileLoader() override;
 
 	virtual bool Exists() override;
 	virtual bool IsDirectory() override;
@@ -80,7 +80,6 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
 private:
-	// TODO: Caching, etc.
 	s64 filesize_;
 	s64 filepos_;
 	Url url_;
@@ -89,9 +88,68 @@ private:
 	std::string filename_;
 };
 
+class CachingFileLoader : public FileLoader {
+public:
+	CachingFileLoader(FileLoader *backend);
+	virtual ~CachingFileLoader() override;
+
+	virtual bool Exists() override;
+	virtual bool IsDirectory() override;
+	virtual s64 FileSize() override;
+	virtual std::string Path() const override;
+
+	virtual void Seek(s64 absolutePos) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data) override {
+		return ReadAt(filepos_, bytes, count, data);
+	}
+	virtual size_t Read(size_t bytes, void *data) override {
+		return ReadAt(filepos_, bytes, data);
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override {
+		return ReadAt(absolutePos, bytes * count, data) / bytes;
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
+
+private:
+	void InitCache();
+	void ShutdownCache();
+	size_t ReadFromCache(s64 pos, size_t bytes, void *data);
+	// Guaranteed to read at least one block into the cache.
+	void SaveIntoCache(s64 pos, size_t bytes);
+	void MakeCacheSpaceFor(size_t blocks);
+
+	enum {
+		BLOCK_SIZE = 65536,
+		BLOCK_SHIFT = 16,
+		MAX_BLOCKS_PER_READ = 16,
+		MAX_BLOCKS_CACHED = 4096, // 256 MB
+	};
+
+	s64 filesize_;
+	s64 filepos_;
+	FileLoader *backend_;
+	int exists_;
+	int isDirectory_;
+	u64 generation_;
+	u64 oldestGeneration_;
+	size_t cacheSize_;
+
+	struct BlockInfo {
+		u8 *ptr;
+		u64 generation;
+
+		BlockInfo() : ptr(nullptr), generation(0) {
+		}
+		BlockInfo(u8 *p) : ptr(p), generation(0) {
+		}
+	};
+
+	std::map<s64, BlockInfo> blocks_;
+};
+
 FileLoader *ConstructFileLoader(const std::string &filename) {
 	if (filename.find("http://") == 0 || filename.find("https://") == 0)
-		return new HTTPFileLoader(filename);
+		return new CachingFileLoader(new HTTPFileLoader(filename));
 	return new LocalFileLoader(filename);
 }
 
@@ -164,7 +222,7 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 }
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: filesize_(0), url_(filename), filename_(filename) {
+	: filesize_(0), filepos_(0), url_(filename), filename_(filename) {
 	if (!client_.Resolve(url_.Host().c_str(), 80)) {
 		return;
 	}
@@ -281,6 +339,175 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	output.Take(readBytes, (char *)data);
 	filepos_ = absolutePos + readBytes;
 	return readBytes;
+}
+
+// Takes ownership of backend.
+CachingFileLoader::CachingFileLoader(FileLoader *backend)
+	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1) {
+	filesize_ = backend->FileSize();
+	if (filesize_ > 0) {
+		InitCache();
+	}
+}
+
+CachingFileLoader::~CachingFileLoader() {
+	if (filesize_ > 0) {
+		ShutdownCache();
+	}
+	// Takes ownership.
+	delete backend_;
+}
+
+bool CachingFileLoader::Exists() {
+	if (exists_ == -1) {
+		exists_ = backend_->Exists() ? 1 : 0;
+	}
+	return exists_ == 1;
+}
+
+bool CachingFileLoader::IsDirectory() {
+	if (isDirectory_ == -1) {
+		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
+	}
+	return isDirectory_ == 1;
+}
+
+s64 CachingFileLoader::FileSize() {
+	return filesize_;
+}
+
+std::string CachingFileLoader::Path() const {
+	return backend_->Path();
+}
+
+void CachingFileLoader::Seek(s64 absolutePos) {
+	filepos_ = absolutePos;
+}
+
+size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	size_t readSize = ReadFromCache(absolutePos, bytes, data);
+	// While in case the cache size is too small for the entire read.
+	while (readSize < bytes) {
+		SaveIntoCache(absolutePos + readSize, bytes - readSize);
+		readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+	}
+
+	filepos_ = absolutePos + readSize;
+	return readSize;
+}
+
+void CachingFileLoader::InitCache() {
+	cacheSize_ = 0;
+	oldestGeneration_ = 0;
+	generation_ = 0;
+}
+
+void CachingFileLoader::ShutdownCache() {
+	for (auto block : blocks_) {
+		delete [] block.second.ptr;
+	}
+	blocks_.clear();
+	cacheSize_ = 0;
+}
+
+size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
+	s64 cacheStartPos = pos >> BLOCK_SHIFT;
+	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
+	// TODO: Smarter.
+	size_t readSize = 0;
+	size_t offset = (size_t)(pos - (cacheStartPos << BLOCK_SHIFT));
+	u8 *p = (u8 *)data;
+	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
+		auto block = blocks_.find(i);
+		if (block == blocks_.end()) {
+			return readSize;
+		}
+		block->second.generation = generation_;
+
+		size_t toRead = std::min(bytes - readSize, (size_t)BLOCK_SIZE - offset);
+		memcpy(p + readSize, block->second.ptr + offset, toRead);
+		readSize += toRead;
+
+		// Don't need an offset after the first read.
+		offset = 0;
+	}
+	return readSize;
+}
+
+void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
+	s64 cacheStartPos = pos >> BLOCK_SHIFT;
+	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
+
+	size_t blocksToRead = 0;
+	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
+		auto block = blocks_.find(i);
+		if (block != blocks_.end()) {
+			break;
+		}
+		++blocksToRead;
+		if (blocksToRead >= MAX_BLOCKS_PER_READ) {
+			break;
+		}
+	}
+
+	MakeCacheSpaceFor(blocksToRead);
+
+	if (blocksToRead == 0) {
+		ERROR_LOG(LOADER, "No blocks to read into cache?");
+	} else if (blocksToRead == 1) {
+		u8 *buf = new u8[BLOCK_SIZE];
+		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf);
+		blocks_[cacheStartPos] = BlockInfo(buf);
+	} else {
+		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
+		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead);
+		for (size_t i = 0; i < blocksToRead; ++i) {
+			u8 *buf = new u8[BLOCK_SIZE];
+			memcpy(buf, wholeRead + (i << BLOCK_SHIFT), BLOCK_SIZE);
+			blocks_[cacheStartPos + i] = BlockInfo(buf);
+		}
+		delete wholeRead;
+	}
+
+	cacheSize_ += blocksToRead;
+	++generation_;
+}
+
+void CachingFileLoader::MakeCacheSpaceFor(size_t blocks) {
+	size_t goal = MAX_BLOCKS_CACHED - blocks;
+
+	while (cacheSize_ > goal) {
+		u64 minGeneration = generation_;
+
+		// We increment the iterator inside because we delete things inside.
+		for (auto it = blocks_.begin(); it != blocks_.end(); ) {
+			// Check for the minimum seen generation.
+			// TODO: Do this smarter?
+			if (it->second.generation < minGeneration) {
+				minGeneration = it->second.generation;
+			}
+
+			if (it->second.generation == oldestGeneration_) {
+				s64 pos = it->first;
+				delete it->second.ptr;
+				blocks_.erase(it);
+				--cacheSize_;
+
+				// Our iterator is invalid now.  Keep going?
+				if (cacheSize_ > goal) {
+					// This finds the one at that position.
+					it = blocks_.lower_bound(pos);
+				} else {
+					break;
+				}
+			} else {
+				++it;
+			}
+		}
+
+		// If we didn't find any, update to the lowest we did find.
+		oldestGeneration_ = minGeneration;
+	}
 }
 
 // TODO : improve, look in the file more
