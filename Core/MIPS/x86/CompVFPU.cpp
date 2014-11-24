@@ -447,8 +447,20 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	switch ((op >> 16) & 0xF)
-	{
+	VectorSize sz = GetVecSize(op);
+	int type = (op >> 16) & 0xF;
+	u8 dregs[4];
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	// vzero only for now
+	if (type == 6 && fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
+		XORPS(fpr.VSX(dregs[0]), fpr.VS(dregs[0]));
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
+	switch (type) {
 	case 6: // v=zeros; break;  //vzero
 		XORPS(XMM0, R(XMM0));
 		break;
@@ -460,10 +472,7 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 		break;
 	}
 
-	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
-	u8 dregs[4];
-	GetVectorRegsPrefixD(dregs, sz, _VD);
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 	for (int i = 0; i < n; ++i)
 		MOVSS(fpr.VX(dregs[i]), R(XMM0));
@@ -471,8 +480,6 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 
 	fpr.ReleaseSpillLocks();
 }
-
-
 
 void Jit::Comp_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -1647,6 +1654,14 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
 	MOVSS(XMM0, M(&cst_constants[conNum]));
+
+	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
+		SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0,0,0,0));
+		MOVAPS(fpr.VS(dregs[0]), XMM0);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 	for (int i = 0; i < n; i++) {
 		MOVSS(fpr.V(dregs[i]), XMM0);
@@ -2210,7 +2225,6 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 
 	u8 sregs[4], dregs[4], scale;
 	GetVectorRegsPrefixS(sregs, sz, _VS);
-	// TODO: Prefixes seem strange...
 	GetVectorRegsPrefixT(&scale, V_Single, _VT);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
