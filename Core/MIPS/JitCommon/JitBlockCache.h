@@ -54,6 +54,16 @@ const int MAX_JIT_BLOCK_EXITS = 2;
 const int MAX_JIT_BLOCK_EXITS = 8;
 #endif
 
+struct BlockCacheStats {
+	int numBlocks;
+	float avgBloat;  // In code bytes, not instructions!
+	float minBloat;
+	u32 minBloatBlock;
+	float maxBloat;
+	u32 maxBloatBlock;
+	std::map<float, u32> bloatMap;
+};
+
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
@@ -114,6 +124,7 @@ public:
 	void Reset();
 
 	bool IsFull() const;
+	void ComputeStats(BlockCacheStats &bcStats);
 
 	// Code Cache
 	JitBlock *GetBlock(int block_num);
