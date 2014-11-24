@@ -58,13 +58,12 @@ void Buffer::Take(size_t length, std::string *dest) {
 	dest->resize(length);
 	if (length > 0) {
 		Take(length, &(*dest)[0]);
-		memcpy(&(*dest)[0], &data_[0], length);
-		data_.erase(data_.begin(), data_.begin() + length);
 	}
 }
 
 void Buffer::Take(size_t length, char *dest) {
 	memcpy(dest, &data_[0], length);
+	data_.erase(data_.begin(), data_.begin() + length);
 }
 
 int Buffer::TakeLineCRLF(std::string *dest) {
