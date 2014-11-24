@@ -308,7 +308,18 @@ namespace MIPSComp {
 			break;
 
 		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
-			CompITypeMemRead(op, 8, &XEmitter::MOVSX, safeMemFuncs.readU8);
+			{
+				IREntry &next = irblock.entries[js.irBlockPos + 1];
+				if (MIPSAnalyst::IsANDIInstr(next.op) && _RT == MIPS_GET_RT(next.op) && MIPS_GET_IMM16(next.op) == 0xFF) {
+					// Seen, but not very often.
+					// TODO: Move to an IR postprocess cleanly as an exercise :)
+					NOTICE_LOG(JIT, "Found lb+andi! Turning lb into lbu  %08x", irblock.address);
+					CompITypeMemRead(op, 8, &XEmitter::MOVZX, safeMemFuncs.readU8);
+					next.flags |= IR_FLAG_SKIP;
+				} else {
+					CompITypeMemRead(op, 8, &XEmitter::MOVSX, safeMemFuncs.readU8);
+				}
+			}
 			break;
 
 		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh

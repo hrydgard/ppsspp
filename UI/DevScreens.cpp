@@ -680,7 +680,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
 	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
-	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
+	NOTICE_LOG(JIT, "Average Bloat (bytes!): %0.2f%%", 100 * bcStats.avgBloat);
 	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
 	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
 
