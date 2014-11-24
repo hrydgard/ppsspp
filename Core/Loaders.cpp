@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/stringutil.h"
 #include "file/file_util.h"
+#include "net/http_client.h"
+#include "net/resolve.h"
+#include "net/url.h"
 #include <cstdio>
 
 #include "Common/FileUtil.h"
@@ -53,7 +57,41 @@ private:
 	std::string filename_;
 };
 
+class HTTPFileLoader : public FileLoader {
+public:
+	HTTPFileLoader(const std::string &filename);
+	virtual ~HTTPFileLoader();
+
+	virtual bool Exists() override;
+	virtual bool IsDirectory() override;
+	virtual s64 FileSize() override;
+	virtual std::string Path() const override;
+
+	virtual void Seek(s64 absolutePos) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data) override {
+		return ReadAt(filepos_, bytes, count, data);
+	}
+	virtual size_t Read(size_t bytes, void *data) override {
+		return ReadAt(filepos_, bytes, data);
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override {
+		return ReadAt(absolutePos, bytes * count, data) / bytes;
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
+
+private:
+	// TODO: Caching, etc.
+	s64 filesize_;
+	s64 filepos_;
+	Url url_;
+	net::AutoInit netInit_;
+	http::Client client_;
+	std::string filename_;
+};
+
 FileLoader *ConstructFileLoader(const std::string &filename) {
+	if (filename.find("http://") == 0 || filename.find("https://") == 0)
+		return new HTTPFileLoader(filename);
 	return new LocalFileLoader(filename);
 }
 
@@ -123,6 +161,126 @@ size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data) {
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) {
 	Seek(absolutePos);
 	return Read(bytes, count, data);
+}
+
+HTTPFileLoader::HTTPFileLoader(const std::string &filename)
+	: filesize_(0), url_(filename), filename_(filename) {
+	if (!client_.Resolve(url_.Host().c_str(), 80)) {
+		return;
+	}
+
+	// TODO: Keepalive, etc.
+	client_.Connect();
+	int err = client_.SendRequest("HEAD", url_.Resource().c_str());
+	if (err < 0) {
+		return;
+	}
+
+	Buffer readbuf;
+	std::vector<std::string> responseHeaders;
+	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
+	if (code != 200) {
+		// Leave size at 0, invalid.
+		return;
+	}
+
+	// TODO: Expire cache via ETag, etc.
+	for (std::string header : responseHeaders) {
+		if (startsWith(header, "Content-Length:")) {
+			size_t size_pos = header.find_first_of(' ');
+			if (size_pos != header.npos) {
+				size_pos = header.find_first_not_of(' ', size_pos);
+			}
+			if (size_pos != header.npos) {
+				filesize_ = atoll(&header[size_pos]);
+			}
+		}
+	}
+
+	client_.Disconnect();
+
+	// If we didn't end up with a filesize_ (e.g. chunked response), give up.  File invalid.
+}
+
+HTTPFileLoader::~HTTPFileLoader() {
+}
+
+bool HTTPFileLoader::Exists() {
+	// TODO
+	return url_.Valid() && filesize_ > 0;
+}
+
+bool HTTPFileLoader::IsDirectory() {
+	// Only files.
+	return false;
+}
+
+s64 HTTPFileLoader::FileSize() {
+	return filesize_;
+}
+
+std::string HTTPFileLoader::Path() const {
+	return filename_;
+}
+
+void HTTPFileLoader::Seek(s64 absolutePos) {
+	filepos_ = absolutePos;
+}
+
+size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	s64 absoluteEnd = absolutePos + bytes;
+
+	// TODO: Keepalive, etc.
+	client_.Connect();
+
+	char requestHeaders[4096];
+	// Note that the Range header is *inclusive*.
+	snprintf(requestHeaders, sizeof(requestHeaders),
+		"Range: bytes=%lld-%lld\r\n", absolutePos, absoluteEnd - 1);
+
+	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders);
+	if (err < 0) {
+		return 0;
+	}
+
+	Buffer readbuf;
+	std::vector<std::string> responseHeaders;
+	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
+	if (code != 206) {
+		ERROR_LOG(LOADER, "HTTP server does not support range requests.");
+		return 0;
+	}
+
+	// TODO: Expire cache via ETag, etc.
+	// We don't support multipart/byteranges responses.
+	bool supportedResponse = false;
+	for (std::string header : responseHeaders) {
+		if (startsWith(header, "Content-Range:")) {
+			// TODO: More correctness.  Whitespace can be missing or different.
+			s64 first = -1, last = -1, total = -1;
+			if (sscanf(header.c_str(), "Content-Range: bytes %lld-%lld/%lld", &first, &last, &total) >= 2) {
+				if (first == absolutePos && last == absoluteEnd - 1) {
+					supportedResponse = true;
+				}
+			}
+		}
+	}
+
+	// TODO: Would be nice to read directly.
+	Buffer output;
+	client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
+
+	if (!supportedResponse) {
+		ERROR_LOG(LOADER, "HTTP server did not respond with the range we wanted.");
+		return 0;
+	}
+
+	client_.Disconnect();
+
+	size_t readBytes = output.size();
+	output.Take(readBytes, (char *)data);
+	filepos_ = absolutePos + readBytes;
+	return readBytes;
 }
 
 // TODO : improve, look in the file more
