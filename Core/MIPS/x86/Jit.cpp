@@ -466,9 +466,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
+		js.numInstructions++;
 skip_entry:
 		js.irBlockPos++;
-		js.numInstructions++;
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
