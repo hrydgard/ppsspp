@@ -15,7 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "thread/thread.h"
+#include "base/mutex.h"
 #include "base/stringutil.h"
+#include "base/timeutil.h"
 #include "file/file_util.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
@@ -115,14 +118,16 @@ private:
 	void ShutdownCache();
 	size_t ReadFromCache(s64 pos, size_t bytes, void *data);
 	// Guaranteed to read at least one block into the cache.
-	void SaveIntoCache(s64 pos, size_t bytes);
-	void MakeCacheSpaceFor(size_t blocks);
+	void SaveIntoCache(s64 pos, size_t bytes, bool readingAhead = false);
+	bool MakeCacheSpaceFor(size_t blocks, bool readingAhead);
+	void StartReadAhead(s64 pos);
 
 	enum {
 		BLOCK_SIZE = 65536,
 		BLOCK_SHIFT = 16,
 		MAX_BLOCKS_PER_READ = 16,
 		MAX_BLOCKS_CACHED = 4096, // 256 MB
+		BLOCK_READAHEAD = 4,
 	};
 
 	s64 filesize_;
@@ -145,6 +150,9 @@ private:
 	};
 
 	std::map<s64, BlockInfo> blocks_;
+	recursive_mutex blocksMutex_;
+	mutable recursive_mutex backendMutex_;
+	bool aheadThread_;
 };
 
 FileLoader *ConstructFileLoader(const std::string &filename) {
@@ -347,7 +355,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1) {
+	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
 	filesize_ = backend->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
@@ -364,6 +372,7 @@ CachingFileLoader::~CachingFileLoader() {
 
 bool CachingFileLoader::Exists() {
 	if (exists_ == -1) {
+		lock_guard guard(backendMutex_);
 		exists_ = backend_->Exists() ? 1 : 0;
 	}
 	return exists_ == 1;
@@ -371,6 +380,7 @@ bool CachingFileLoader::Exists() {
 
 bool CachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
+		lock_guard guard(backendMutex_);
 		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
 	}
 	return isDirectory_ == 1;
@@ -381,6 +391,7 @@ s64 CachingFileLoader::FileSize() {
 }
 
 std::string CachingFileLoader::Path() const {
+	lock_guard guard(backendMutex_);
 	return backend_->Path();
 }
 
@@ -396,6 +407,8 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 		readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
 	}
 
+	StartReadAhead(absolutePos + readSize);
+
 	filepos_ = absolutePos + readSize;
 	return readSize;
 }
@@ -407,6 +420,14 @@ void CachingFileLoader::InitCache() {
 }
 
 void CachingFileLoader::ShutdownCache() {
+	// TODO: Maybe add some hint that deletion is coming soon?
+	// We can't delete while the thread is running, so have to wait.
+	// This should only happen from the menu.
+	while (aheadThread_) {
+		sleep_ms(1);
+	}
+
+	lock_guard guard(blocksMutex_);
 	for (auto block : blocks_) {
 		delete [] block.second.ptr;
 	}
@@ -421,6 +442,8 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	size_t readSize = 0;
 	size_t offset = (size_t)(pos - (cacheStartPos << BLOCK_SHIFT));
 	u8 *p = (u8 *)data;
+
+	lock_guard guard(blocksMutex_);
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
 		if (block == blocks_.end()) {
@@ -438,10 +461,11 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	return readSize;
 }
 
-void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
+void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, bool readingAhead) {
 	s64 cacheStartPos = pos >> BLOCK_SHIFT;
 	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
 
+	lock_guard guard(blocksMutex_);
 	size_t blocksToRead = 0;
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		auto block = blocks_.find(i);
@@ -454,17 +478,29 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
 		}
 	}
 
-	MakeCacheSpaceFor(blocksToRead);
+	if (!MakeCacheSpaceFor(blocksToRead, readingAhead) || blocksToRead == 0) {
+		return;
+	}
 
-	if (blocksToRead == 0) {
-		ERROR_LOG(LOADER, "No blocks to read into cache?");
-	} else if (blocksToRead == 1) {
+	if (blocksToRead == 1) {
+		blocksMutex_.unlock();
+
 		u8 *buf = new u8[BLOCK_SIZE];
+		backendMutex_.lock();
 		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf);
+		backendMutex_.unlock();
+
+		blocksMutex_.lock();
 		blocks_[cacheStartPos] = BlockInfo(buf);
 	} else {
+		blocksMutex_.unlock();
+
 		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
+		backendMutex_.lock();
 		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead);
+		backendMutex_.unlock();
+
+		blocksMutex_.lock();
 		for (size_t i = 0; i < blocksToRead; ++i) {
 			u8 *buf = new u8[BLOCK_SIZE];
 			memcpy(buf, wholeRead + (i << BLOCK_SHIFT), BLOCK_SIZE);
@@ -477,9 +513,14 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
 	++generation_;
 }
 
-void CachingFileLoader::MakeCacheSpaceFor(size_t blocks) {
+bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 	size_t goal = MAX_BLOCKS_CACHED - blocks;
 
+	if (readingAhead && cacheSize_ > goal) {
+		return false;
+	}
+
+	lock_guard guard(blocksMutex_);
 	while (cacheSize_ > goal) {
 		u64 minGeneration = generation_;
 
@@ -512,6 +553,39 @@ void CachingFileLoader::MakeCacheSpaceFor(size_t blocks) {
 		// If we didn't find any, update to the lowest we did find.
 		oldestGeneration_ = minGeneration;
 	}
+
+	return true;
+}
+
+void CachingFileLoader::StartReadAhead(s64 pos) {
+	lock_guard guard(blocksMutex_);
+	if (aheadThread_) {
+		// Already going.
+		return;
+	}
+	if (cacheSize_ + BLOCK_READAHEAD > MAX_BLOCKS_CACHED) {
+		// Not enough space to readahead.
+		return;
+	}
+
+	aheadThread_ = true;
+	std::thread th([this, pos] {
+		lock_guard guard(blocksMutex_);
+		s64 cacheStartPos = pos >> BLOCK_SHIFT;
+		s64 cacheEndPos = cacheStartPos + BLOCK_READAHEAD - 1;
+
+		for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
+			auto block = blocks_.find(i);
+			if (block == blocks_.end()) {
+				blocksMutex_.unlock();
+				SaveIntoCache(i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD, true);
+				break;
+			}
+		}
+
+		aheadThread_ = false;
+	});
+	th.detach();
 }
 
 // TODO : improve, look in the file more
