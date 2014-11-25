@@ -91,6 +91,37 @@ private:
 	std::string filename_;
 };
 
+class RetryingFileLoader : public FileLoader {
+public:
+	RetryingFileLoader(FileLoader *backend);
+	virtual ~RetryingFileLoader() override;
+
+	virtual bool Exists() override;
+	virtual bool IsDirectory() override;
+	virtual s64 FileSize() override;
+	virtual std::string Path() const override;
+
+	virtual void Seek(s64 absolutePos) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data) override {
+		return ReadAt(filepos_, bytes, count, data);
+	}
+	virtual size_t Read(size_t bytes, void *data) override {
+		return ReadAt(filepos_, bytes, data);
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override {
+		return ReadAt(absolutePos, bytes * count, data) / bytes;
+	}
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
+
+private:
+	enum {
+		MAX_RETRIES = 3,
+	};
+
+	s64 filepos_;
+	FileLoader *backend_;
+};
+
 class CachingFileLoader : public FileLoader {
 public:
 	CachingFileLoader(FileLoader *backend);
@@ -157,7 +188,7 @@ private:
 
 FileLoader *ConstructFileLoader(const std::string &filename) {
 	if (filename.find("http://") == 0 || filename.find("https://") == 0)
-		return new CachingFileLoader(new HTTPFileLoader(filename));
+		return new CachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename)));
 	return new LocalFileLoader(filename);
 }
 
@@ -620,6 +651,59 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 		aheadThread_ = false;
 	});
 	th.detach();
+}
+
+// Takes ownership of backend.
+RetryingFileLoader::RetryingFileLoader(FileLoader *backend)
+	: filepos_(0), backend_(backend) {
+}
+
+RetryingFileLoader::~RetryingFileLoader() {
+	// Takes ownership.
+	delete backend_;
+}
+
+bool RetryingFileLoader::Exists() {
+	if (!backend_->Exists()) {
+		// Retry once, immediately.
+		return backend_->Exists();
+	}
+	return true;
+}
+
+bool RetryingFileLoader::IsDirectory() {
+	// Can't tell if it's an error either way.
+	return backend_->IsDirectory();
+}
+
+s64 RetryingFileLoader::FileSize() {
+	s64 filesize = backend_->FileSize();
+	if (filesize == 0) {
+		return backend_->FileSize();
+	}
+	return filesize;
+}
+
+std::string RetryingFileLoader::Path() const {
+	return backend_->Path();
+}
+
+void RetryingFileLoader::Seek(s64 absolutePos) {
+	filepos_ = absolutePos;
+}
+
+size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	size_t readSize = backend_->ReadAt(absolutePos, bytes, data);
+
+	int retries = 0;
+	while (readSize < bytes && retries < MAX_RETRIES) {
+		u8 *p = (u8 *)data;
+		readSize += backend_->ReadAt(absolutePos + readSize, bytes - readSize, p + readSize);
+		++retries;
+	}
+
+	filepos_ = absolutePos + readSize;
+	return readSize;
 }
 
 // TODO : improve, look in the file more
