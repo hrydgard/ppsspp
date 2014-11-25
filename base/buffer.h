@@ -38,6 +38,7 @@ class Buffer {
   // Takers
 
   void Take(size_t length, std::string *dest);
+  void Take(size_t length, char *dest);
   void TakeAll(std::string *dest) { Take(size(), dest); }
   // On failure, return value < 0 and *dest is unchanged.
   // Strips off the actual CRLF from the result.

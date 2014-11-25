@@ -59,13 +59,22 @@ public:
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const char *resource, Buffer *output, float *progress = 0);
+	int GET(const char *resource, Buffer *output, float *progress = nullptr);
 
 	// Return value is the HTTP return code.
-	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output);
-	int POST(const char *resource, const std::string &data, Buffer *output);
+	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress = nullptr);
+	int POST(const char *resource, const std::string &data, Buffer *output, float *progress = nullptr);
 
-	// HEAD, PUT, DELETE aren't implemented yet.
+	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
+
+	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr);
+	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr);
+	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr);
+	// If your response contains a response, you must read it.
+	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr);
+
+	const char *userAgent_;
+	const char *httpVersion_;
 };
 
 // Not particularly efficient, but hey - it's a background download, that's pretty cool :P
