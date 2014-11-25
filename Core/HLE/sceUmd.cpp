@@ -472,14 +472,13 @@ void __UmdReplace(std::string filepath) {
 	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
 	IFileSystem* umd2;
-	FileInfo info;
 	if (!loadedFile->Exists()) {
 		delete loadedFile;
 		return;
 	}
 	UpdateLoadedFile(loadedFile);
 
-	if (info.isDirectory) {
+	if (loadedFile->IsDirectory()) {
 		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
 	} else {
 		auto bd = constructBlockDevice(loadedFile);

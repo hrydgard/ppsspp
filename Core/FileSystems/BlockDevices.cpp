@@ -92,7 +92,7 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) {
 }
 
 bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
-	if (fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr) != count) {
+	if (fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr) != (size_t)count) {
 		ERROR_LOG(FILESYS, "Could not read %d bytes from block", 2048 * count);
 		return false;
 	}
