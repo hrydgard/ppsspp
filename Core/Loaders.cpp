@@ -342,12 +342,12 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	Buffer output;
 	client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
 
+	client_.Disconnect();
+
 	if (!supportedResponse) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with the range we wanted.");
 		return 0;
 	}
-
-	client_.Disconnect();
 
 	size_t readBytes = output.size();
 	output.Take(readBytes, (char *)data);
