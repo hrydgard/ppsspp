@@ -90,17 +90,19 @@ static const D3DSTENCILOP stencilOps[] = {
 };
 
 static D3DBLEND toDualSource(D3DBLEND blendfunc) {
+#if 0
 	switch (blendfunc) {
 		// TODO
-#if 0
 	case D3DBLEND_SRCALPHA:
 		return D3DBLEND_SRCCOLOR2;
 	case D3DBLEND_INVSRCALPHA:
 		return D3DBLEND_INVSRCCOLOR2;
-#endif
 	default:
 		return blendfunc;
 	}
+#else
+	return blendfunc;
+#endif
 }
 
 static D3DBLEND blendColor2Func(u32 fix) {
