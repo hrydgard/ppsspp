@@ -31,13 +31,10 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
+const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
+
 void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
-
-	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
-		// Only triangles supported!
-		return;
-	}
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -101,7 +98,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 		gstate_c.uv.vOff = 0;
 	}
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -112,11 +109,6 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
-
-	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
-		// Only triangles supported!
-		return;
-	}
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -194,7 +186,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	}
 
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 	Flush();
 
 	if (g_Config.bPrescaleUV) {
