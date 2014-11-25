@@ -376,6 +376,22 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 	
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
+
+			if (g_Config.bFastMemory && fpr.TryMapRegsVS(vregs, V_Quad, MAP_NOINIT | MAP_DIRTY)) {
+				JitSafeMem safe(this, rs, imm);
+				safe.SetFar();
+				OpArg src;
+				if (safe.PrepareRead(src, 16)) {
+					MOVAPS(fpr.VSX(vregs[0]), safe.NextFastAddress(0));
+				} else {
+					// Hmm... probably never happens.
+				}
+				safe.Finish();
+				gpr.UnlockAll();
+				fpr.ReleaseSpillLocks();
+				return;
+			}
+
 			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
@@ -409,6 +425,22 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
+
+			if (g_Config.bFastMemory && fpr.TryMapRegsVS(vregs, V_Quad, 0)) {
+				JitSafeMem safe(this, rs, imm);
+				safe.SetFar();
+				OpArg dest;
+				if (safe.PrepareWrite(dest, 16)) {
+					MOVAPS(safe.NextFastAddress(0), fpr.VSX(vregs[0]));
+				} else {
+					// Hmm... probably never happens.
+				}
+				safe.Finish();
+				gpr.UnlockAll();
+				fpr.ReleaseSpillLocks();
+				return;
+			}
+
 			// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
 			fpr.MapRegsV(vregs, V_Quad, 0);
 
