@@ -312,6 +312,10 @@ void HTTPFileLoader::Seek(s64 absolutePos) {
 
 size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);
+	if (absolutePos >= filesize_ || bytes == 0) {
+		// Read outside of the file or no read at all, just fail immediately.
+		return 0;
+	}
 
 	// TODO: Keepalive, etc.
 	client_.Connect();
