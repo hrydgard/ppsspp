@@ -96,6 +96,10 @@
 #include "Common/KeyMap.h"
 #endif
 
+#ifdef __SYMBIAN32__
+#define unique_ptr auto_ptr
+#endif
+
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
