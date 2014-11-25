@@ -247,10 +247,12 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 200) {
 		// Leave size at 0, invalid.
+		ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename.c_str());
 		return;
 	}
 
 	// TODO: Expire cache via ETag, etc.
+	bool acceptsRange = false;
 	for (std::string header : responseHeaders) {
 		if (startsWithNoCase(header, "Content-Length:")) {
 			size_t size_pos = header.find_first_of(' ');
@@ -261,9 +263,24 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 				filesize_ = atoll(&header[size_pos]);
 			}
 		}
+		if (startsWithNoCase(header, "Accept-Ranges:")) {
+			std::string lowerHeader = header;
+			std::transform(lowerHeader.begin(), lowerHeader.end(), lowerHeader.begin(), tolower);
+			// TODO: Delimited.
+			if (lowerHeader.find("bytes") != lowerHeader.npos) {
+				acceptsRange = true;
+			}
+		}
 	}
 
 	client_.Disconnect();
+
+	if (!acceptsRange) {
+		WARN_LOG(LOADER, "HTTP server did not advertise support for range requests.");
+	}
+	if (filesize_ == 0) {
+		ERROR_LOG(LOADER, "Could not determine file size for %s", filename.c_str());
+	}
 
 	// If we didn't end up with a filesize_ (e.g. chunked response), give up.  File invalid.
 }
@@ -313,7 +330,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	std::vector<std::string> responseHeaders;
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 206) {
-		ERROR_LOG(LOADER, "HTTP server does not support range requests.");
+		ERROR_LOG(LOADER, "HTTP server did not respond with range, received code=%03d", code);
 		return 0;
 	}
 
