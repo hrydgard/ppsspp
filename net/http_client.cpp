@@ -167,53 +167,41 @@ int Client::GET(const char *resource, Buffer *output, float *progress) {
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output) {
-	Buffer buffer;
-	const char *tpl = "POST %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\nContent-Length: %d\r\n";
-	buffer.Printf(tpl, resource, host_.c_str(), (int)data.size());
-	if (!mime.empty()) {
-		buffer.Printf("Content-Type: %s\r\n", mime.c_str());
+int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output, float *progress) {
+	char otherHeaders[2048];
+	if (mime.empty()) {
+		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
+	} else {
+		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\nContent-Type: %s\r\n", (long long)data.size(), mime.c_str());
 	}
-	buffer.Append("\r\n");
-	buffer.Append(data);
-	if (!buffer.FlushSocket(sock())) {
-		ELOG("Failed posting");
-	}
-
-	// I guess we could add a deadline here.
-	output->ReadAll(sock());
-
-	if (output->size() == 0) {
-		// The connection was closed.
-		ELOG("POST failed.");
-		return -1;
+	int err = SendRequestWithData("POST", resource, data, otherHeaders, progress);
+	if (err < 0) {
+		return err;
 	}
 
-	std::string debug_data;
-	output->PeekAll(&debug_data);
-
-	//VLOG(1) << "Reply size (before stripping headers): " << debug_data.size();
-	std::string debug_str;
-	StringToHexString(debug_data, &debug_str);
-	// Tear off the http headers, leaving the actual response data.
-	std::string firstline;
-	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
-	int code = atoi(&firstline[9]);
-	//VLOG(1) << "HTTP result code: " << code;
-	while (true) {
-		int skipped = output->SkipLineCRLF();
-		if (skipped == 0)
-			break;
+	Buffer readbuf;
+	std::vector<std::string> responseHeaders;
+	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
+	if (code < 0) {
+		return code;
 	}
-	output->PeekAll(&debug_data);
+
+	err = ReadResponseEntity(&readbuf, responseHeaders, output, progress);
+	if (err < 0) {
+		return err;
+	}
 	return code;
 }
 
-int Client::POST(const char *resource, const std::string &data, Buffer *output) {
-	return POST(resource, data, "", output);
+int Client::POST(const char *resource, const std::string &data, Buffer *output, float *progress) {
+	return POST(resource, data, "", output, progress);
 }
 
 int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, float *progress) {
+	return SendRequestWithData(method, resource, "", otherHeaders, progress);
+}
+
+int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, float *progress) {
 	if (progress) {
 		*progress = 0.01f;
 	}
@@ -228,6 +216,7 @@ int Client::SendRequest(const char *method, const char *resource, const char *ot
 		"\r\n";
 
 	buffer.Printf(tpl, method, resource, httpVersion_, host_.c_str(), userAgent_, otherHeaders ? otherHeaders : "");
+	buffer.Append(data);
 	bool flushed = buffer.FlushSocket(sock());
 	if (!flushed) {
 		return -1;  // TODO error code.
@@ -244,8 +233,6 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 
 	// Grab the first header line that contains the http code.
 
-	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
-
 	std::string line;
 	readbuf->TakeLineCRLF(&line);
 
@@ -261,12 +248,15 @@ int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &respo
 		return -1;
 	}
 
-	// TODO
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
 		if (!sz)
 			break;
 		responseHeaders.push_back(line);
+	}
+
+	if (responseHeaders.size() == 0) {
+		return -1;
 	}
 
 	return code;
