@@ -239,20 +239,19 @@ const char *DefaultLangRegion() {
 
 const char *CreateRandMAC() {
 	std::stringstream randStream;
-	u32 value;
-	srand(time(0));
-	for(int i = 0; i < 6; i++) {
-		value = rand() % 256;
-		if (value >= 0 && value <= 15)
+	srand(time(nullptr));
+	for (int i = 0; i < 6; i++) {
+		u32 value = rand() % 256;
+		if (value <= 15)
 			randStream << '0' << std::hex << value;
 		else
 			randStream << std::hex << value;
-		if (i<5) {
+		if (i < 5) {
 			randStream << ':'; //we need a : between every octet
 		}
 	}
-  // It's ok to strdup, this runs once and will be freed by exiting the process anyway
-	return strdup(randStream.str().c_str()); //no need for creating a new string, just return this
+	// It's ok to strdup, this runs once and will be freed by exiting the process anyway
+	return strdup(randStream.str().c_str());
 }
 
 static int DefaultNumWorkers() {
@@ -845,8 +844,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 #endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"
-	std::string str(sMACAddress.c_str());
-	if (str.length() != 17)
+	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
 }
 
