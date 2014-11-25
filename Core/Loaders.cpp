@@ -215,7 +215,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 }
 
 LocalFileLoader::~LocalFileLoader() {
-	if (!f_) {
+	if (f_) {
 		fclose(f_);
 	}
 }
