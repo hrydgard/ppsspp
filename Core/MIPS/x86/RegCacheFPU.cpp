@@ -369,6 +369,22 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	return xrs[0];
 }
 
+bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, bool avoidLoad) {
+	// Don't waste time mapping if some will for sure fail.
+	if (!CanMapVS(vd, vdsz) || !CanMapVS(vs, vssz)) {
+		return false;
+	}
+	// But, they could still fail based on overlap.  Hopefully not common...
+	bool success = TryMapRegsVS(vs, vssz, 0);
+	if (success) {
+		SpillLockV(vs, vssz);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+	}
+	ReleaseSpillLockV(vs, vssz);
+
+	return success;
+}
+
 bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad) {
 	// Don't waste time mapping if some will for sure fail.
 	if (!CanMapVS(vd, vdsz) || !CanMapVS(vs, vssz) || !CanMapVS(vt, vtsz)) {

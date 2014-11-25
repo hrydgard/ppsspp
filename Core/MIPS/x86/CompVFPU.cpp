@@ -62,6 +62,7 @@ static const float minus_one = -1.0f;
 static const float zero = 0.0f;
 
 const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+const u32 MEMORY_ALIGNED16( signBitAll[4] ) = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
@@ -1892,6 +1893,37 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	bool canSIMD = false;
+	// Some can be SIMD'd.
+	switch ((op >> 16) & 0x1f) {
+	case 0:  // vmov
+	case 1:  // vabs
+	case 2:  // vneg
+		canSIMD = true;
+		break;
+	}
+
+	if (canSIMD && fpr.TryMapDirtyInVS(dregs, sz, sregs, sz)) {
+		switch ((op >> 16) & 0x1f) {
+		case 0:  // vmov
+			MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+			break;
+		case 1:  // vabs
+			if (dregs[0] != sregs[0])
+				MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+			ANDPS(fpr.VSX(dregs[0]), M(&noSignMask));
+			break;
+		case 2:  // vneg
+			if (dregs[0] != sregs[0])
+				MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+			XORPS(fpr.VSX(dregs[0]), M(&signBitAll));
+			break;
+		}
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);

@@ -195,6 +195,7 @@ public:
 	// TODO: This may trash XMM0/XMM1 some day.
 	void MapRegsVS(const u8 *v, VectorSize vsz, int flags);
 	bool TryMapRegsVS(const u8 *v, VectorSize vsz, int flags);
+	bool TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, bool avoidLoad = true);
 	bool TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, const u8 *vt, VectorSize vtsz, bool avoidLoad = true);
 	// TODO: If s/t overlap differently, need read-only copies?  Maybe finalize d?  Major design flaw...
 	// TODO: Matrix versions?  Cols/Rows?
