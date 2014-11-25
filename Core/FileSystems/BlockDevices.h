@@ -26,6 +26,8 @@
 #include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
 
+class FileLoader;
+
 class BlockDevice
 {
 public:
@@ -48,14 +50,14 @@ public:
 class CISOFileBlockDevice : public BlockDevice
 {
 public:
-	CISOFileBlockDevice(FILE *file);
+	CISOFileBlockDevice(FileLoader *fileLoader);
 	~CISOFileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() { return numBlocks;}
 
 private:
-	FILE *f;
+	FileLoader *fileLoader_;
 	u32 *index;
 	u8 *readBuffer;
 	u8 *zlibBuffer;
@@ -71,18 +73,15 @@ private:
 class FileBlockDevice : public BlockDevice
 {
 public:
-	FileBlockDevice(FILE *file);
+	FileBlockDevice(FileLoader *fileLoader);
 	~FileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
-	u32 GetNumBlocks() override {return (u32)(filesize / GetBlockSize());}
+	u32 GetNumBlocks() override {return (u32)(filesize_ / GetBlockSize());}
 
 private:
-#ifdef ANDROID
-	int fd;
-#endif
-	FILE *f;
-	u64 filesize;
+	FileLoader *fileLoader_;
+	u64 filesize_;
 };
 
 
@@ -99,14 +98,14 @@ struct table_info {
 class NPDRMDemoBlockDevice : public BlockDevice
 {
 public:
-	NPDRMDemoBlockDevice(FILE *file);
+	NPDRMDemoBlockDevice(FileLoader *fileLoader);
 	~NPDRMDemoBlockDevice();
 
 	bool ReadBlock(int blockNumber, u8 *outPtr) override;
 	u32 GetNumBlocks() override {return (u32)lbaSize;}
 
 private:
-	FILE *f;
+	FileLoader *fileLoader_;
 	u32 lbaSize;
 
 	u32 psarOffset;
@@ -140,4 +139,4 @@ private:
 };
 
 
-BlockDevice *constructBlockDevice(const char *filename);
+BlockDevice *constructBlockDevice(FileLoader *fileLoader);

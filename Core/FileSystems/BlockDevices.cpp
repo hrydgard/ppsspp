@@ -17,6 +17,7 @@
 
 
 #include "Common/FileUtil.h"
+#include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>
 #include <cstring>
@@ -29,20 +30,19 @@ extern "C"
 #include "ext/libkirk/kirk_engine.h"
 };
 
-BlockDevice *constructBlockDevice(const char *filename) {
+BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 	// Check for CISO
-	FILE *f = File::OpenCFile(filename, "rb");
-	if (!f)
-		return 0;
+	if (!fileLoader->Exists())
+		return nullptr;
 	char buffer[4];
-	auto size = fread(buffer, 1, 4, f); //size_t
-	fseek(f, 0, SEEK_SET);
+	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
+	fileLoader->Seek(0);
 	if (!memcmp(buffer, "CISO", 4) && size == 4)
-		return new CISOFileBlockDevice(f);
+		return new CISOFileBlockDevice(fileLoader);
 	else if (!memcmp(buffer, "\x00PBP", 4) && size == 4)
-		return new NPDRMDemoBlockDevice(f);
+		return new NPDRMDemoBlockDevice(fileLoader);
 	else
-		return new FileBlockDevice(f);
+		return new FileBlockDevice(fileLoader);
 }
 
 RAMBlockDevice::RAMBlockDevice(BlockDevice *device) {
@@ -74,67 +74,16 @@ u32 RAMBlockDevice::GetNumBlocks() {
 
 
 
-
-// Android NDK does not support 64-bit file I/O using C streams
-// so we fall back onto syscalls
-
-#ifdef ANDROID
-
-FileBlockDevice::FileBlockDevice(FILE *file)
-: f(file)
-{
-	fd = fileno(file);
-
-	off64_t off = lseek64(fd, 0, SEEK_END);
-	filesize = off;
-	lseek64(fd, 0, SEEK_SET);
+FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
+	: fileLoader_(fileLoader) {
+	filesize_ = fileLoader->FileSize();
 }
 
-FileBlockDevice::~FileBlockDevice()
-{
-	fclose(f);
+FileBlockDevice::~FileBlockDevice() {
 }
 
-bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
-{
-	lseek64(fd, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
-	if (read(fd, outPtr, 2048) != 2048) {
-		ERROR_LOG(FILESYS, "Could not read() 2048 bytes from block");
-		return false;
-	}
-	return true;
-}
-
-bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr)
-{
-	lseek64(fd, (u64)minBlock * (u64)GetBlockSize(), SEEK_SET);
-	const s32 bytes = GetBlockSize() * count;
-	if (read(fd, outPtr, bytes) != bytes) {
-		ERROR_LOG(FILESYS, "Could not read() %d bytes from block", bytes);
-		return false;
-	}
-	return true;
-}
-
-#else
-
-FileBlockDevice::FileBlockDevice(FILE *file)
-	: f(file)
-{
-	fseek(f, 0, SEEK_END);
-	filesize = ftello(f);
-	fseek(f, 0, SEEK_SET);
-}
-
-FileBlockDevice::~FileBlockDevice()
-{
-	fclose(f);
-}
-
-bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
-{
-	fseeko(f, (u64)blockNumber * (u64)GetBlockSize(), SEEK_SET);
-	if (fread(outPtr, 1, 2048, f) != 2048) {
+bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) {
+	if (fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr) != 2048) {
 		DEBUG_LOG(FILESYS, "Could not read 2048 bytes from block");
 		return false;
 	}
@@ -142,17 +91,13 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	return true;
 }
 
-bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr)
-{
-	fseeko(f, (u64)minBlock * (u64)GetBlockSize(), SEEK_SET);
-	if (fread(outPtr, 2048, count, f) != count) {
+bool FileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	if (fileLoader_->ReadAt((u64)minBlock * (u64)GetBlockSize(), 2048, count, outPtr) != count) {
 		ERROR_LOG(FILESYS, "Could not read %d bytes from block", 2048 * count);
 		return false;
 	}
 	return true;
 }
-
-#endif
 
 // .CSO format
 
@@ -184,14 +129,13 @@ typedef struct ciso_header
 
 static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
 
-CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
-	: f(file)
+CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
+	: fileLoader_(fileLoader)
 {
 	// CISO format is fairly simple, but most tools do not write the header_size.
 
-	f = file;
 	CISO_H hdr;
-	size_t readSize = fread(&hdr, sizeof(CISO_H), 1, f);
+	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
 	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0)
 	{
 		WARN_LOG(LOADER, "Invalid CSO!");
@@ -235,13 +179,13 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
-	if (fread(index, sizeof(u32), indexSize, f) != indexSize)
+	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, index) != indexSize)
 		memset(index, 0, indexSize * sizeof(u32));
 #else
 	index = new u32[indexSize];
 	u32_le *indexTemp = new u32_le[indexSize];
 
-	if (fread(indexTemp, sizeof(u32), indexSize, f) != indexSize)
+	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, indexTemp) != indexSize)
 	{
 		memset(indexTemp, 0, indexSize * sizeof(u32_le));
 	}
@@ -257,7 +201,6 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 
 CISOFileBlockDevice::~CISOFileBlockDevice()
 {
-	fclose(f);
 	delete [] index;
 	delete [] readBuffer;
 	delete [] zlibBuffer;
@@ -285,8 +228,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	const int plain = idx & 0x80000000;
 	if (plain)
 	{
-		fseeko(f, compressedReadPos + compressedOffset, SEEK_SET);
-		int readSize = (u32)fread(outPtr, 1, GetBlockSize(), f);
+		int readSize = (u32)fileLoader_->ReadAt(compressedReadPos + compressedOffset, 1, GetBlockSize(), outPtr);
 		if (readSize < GetBlockSize())
 			memset(outPtr + readSize, 0, GetBlockSize() - readSize);
 	}
@@ -297,8 +239,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	}
 	else
 	{
-		fseeko(f, compressedReadPos, SEEK_SET);
-		const u32 readSize = (u32)fread(readBuffer, 1, compressedReadSize, f);
+		const u32 readSize = (u32)fileLoader_->ReadAt(compressedReadPos, 1, compressedReadSize, readBuffer);
 
 		z.zalloc = Z_NULL;
 		z.zfree = Z_NULL;
@@ -387,8 +328,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 			const s64 maxNeeded = totalReadEnd - frameReadPos;
 			const size_t chunkSize = (size_t)std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE));
 
-			fseeko(f, frameReadPos, SEEK_SET);
-			const u32 readSize = (u32)fread(readBuffer, 1, chunkSize, f);
+			const u32 readSize = (u32)fileLoader_->ReadAt(frameReadPos, 1, chunkSize, readBuffer);
 			if (readSize < chunkSize) {
 				memset(readBuffer + readSize, 0, chunkSize - readSize);
 			}
@@ -432,8 +372,8 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 }
 
 
-NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
-	: f(file)
+NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
+	: fileLoader_(fileLoader)
 {
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
@@ -441,10 +381,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
 	u32 tableOffset, tableSize;
 	u32 lbaStart, lbaEnd;
 
-	fseek(f, 0x24, SEEK_SET);
-	fread(&psarOffset, 1, 4, f);
-	fseek(f, psarOffset, SEEK_SET);
-	size_t readSize = fread(&np_header, 1, 256, f);
+	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
+	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
 	if(readSize!=256){
 		ERROR_LOG(LOADER, "Invalid NPUMDIMG header!");
 	}
@@ -473,12 +411,11 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
 	tempBuf  = new u8[blockSize];
 
 	tableOffset = *(u32*)(np_header+0x6c); // table offset
-	fseek(f, psarOffset+tableOffset, SEEK_SET);
 
 	tableSize = numBlocks*32;
 	table = new table_info[numBlocks];
 
-	readSize = fread(table, 1, tableSize, f);
+	readSize = fileLoader_->ReadAt(psarOffset + tableOffset, 1, tableSize, table);
 	if(readSize!=tableSize){
 		ERROR_LOG(LOADER, "Invalid NPUMDIMG table!");
 	}
@@ -503,7 +440,6 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
 {
-	fclose(f);
 	delete [] table;
 	delete [] tempBuf;
 	delete [] blockBuf;
@@ -535,14 +471,12 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			return false;
 	}
 
-	fseek(f, psarOffset+table[block].offset, SEEK_SET);
-
 	if(table[block].size<blockSize)
 		readBuf = tempBuf;
 	else
 		readBuf = blockBuf;
 
-	readSize = fread(readBuf, 1, table[block].size, f);
+	readSize = fileLoader_->ReadAt(psarOffset+table[block].offset, 1, table[block].size, readBuf);
 	if(readSize != (size_t)table[block].size){
 		if((u32)block==(numBlocks-1))
 			return true;

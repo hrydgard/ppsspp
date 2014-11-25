@@ -72,6 +72,7 @@ MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
+static FileLoader *loadedFile;
 static PSPMixer *mixer;
 static std::thread *cpuThread = NULL;
 static std::thread::id cpuThreadID;
@@ -181,7 +182,13 @@ void CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
-	IdentifiedFileType type = Identify_File(filename);
+	loadedFile = ConstructFileLoader(filename);
+	IdentifiedFileType type = Identify_File(loadedFile);
+
+	// TODO: Put this somewhere better?
+	if (coreParameter.mountIso != "") {
+		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
+	}
 
 	MIPSAnalyst::Reset();
 	Replacement_Init();
@@ -190,7 +197,7 @@ void CPU_Init() {
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
 	case FILETYPE_PSP_DISC_DIRECTORY:
-		InitMemoryForGameISO(filename);
+		InitMemoryForGameISO(loadedFile);
 		break;
 	default:
 		break;
@@ -213,7 +220,7 @@ void CPU_Init() {
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	// Why did we check for CORE_POWERDOWN here?
-	if (!LoadFile(filename, &coreParameter.errorString)) {
+	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
 		CPU_SetState(CPU_THREAD_NOT_RUNNING);
@@ -245,6 +252,18 @@ void CPU_Shutdown() {
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
+
+	delete loadedFile;
+	loadedFile = nullptr;
+
+	delete coreParameter.mountIsoLoader;
+	coreParameter.mountIsoLoader = nullptr;
+}
+
+// TODO: Maybe loadedFile doesn't even belong here...
+void UpdateLoadedFile(FileLoader *fileLoader) {
+	delete loadedFile;
+	loadedFile = fileLoader;
 }
 
 void CPU_RunLoop() {
