@@ -220,14 +220,14 @@ int Client::SendRequest(const char *method, const char *resource, const char *ot
 
 	Buffer buffer;
 	const char *tpl =
-		"%s %s HTTP/1.1\r\n"
+		"%s %s HTTP/%s\r\n"
 		"Host: %s\r\n"
-		"User-Agent: " USERAGENT "\r\n"
+		"User-Agent: %s\r\n"
 		"Connection: close\r\n"
 		"%s"
 		"\r\n";
 
-	buffer.Printf(tpl, method, resource, host_.c_str(), otherHeaders ? otherHeaders : "");
+	buffer.Printf(tpl, method, resource, httpVersion_, host_.c_str(), userAgent_, otherHeaders ? otherHeaders : "");
 	bool flushed = buffer.FlushSocket(sock());
 	if (!flushed) {
 		return -1;  // TODO error code.
