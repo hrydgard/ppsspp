@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cstdio>
+
 #include "thread/thread.h"
 #include "base/mutex.h"
 #include "base/stringutil.h"
@@ -23,7 +26,6 @@
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
-#include <cstdio>
 
 #include "Common/FileUtil.h"
 #include "Core/MIPS/MIPS.h"
@@ -293,7 +295,12 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 				size_pos = header.find_first_not_of(' ', size_pos);
 			}
 			if (size_pos != header.npos) {
+				// TODO: Find a way to get this to work right on Symbian?
+#ifndef __SYMBIAN32__
 				filesize_ = atoll(&header[size_pos]);
+#else
+				filesize_ = atoi(&header[size_pos]);
+#endif
 			}
 		}
 		if (startsWithNoCase(header, "Accept-Ranges:")) {
