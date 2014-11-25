@@ -162,8 +162,8 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	// like the splines, so we subdivide across the whole "mega-patch".
 	if (num_patches_u == 0) num_patches_u = 1;
 	if (num_patches_v == 0) num_patches_v = 1;
-	int tess_u = gstate.getPatchDivisionU() / num_patches_u;
-	int tess_v = gstate.getPatchDivisionV() / num_patches_v;
+	int tess_u = gstate.getPatchDivisionU();
+	int tess_v = gstate.getPatchDivisionV();
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 

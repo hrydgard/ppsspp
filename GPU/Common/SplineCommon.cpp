@@ -177,8 +177,8 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 
 	// Increase tesselation based on the size. Should be approximately right?
 	// JPCSP is wrong at least because their method results in square loco roco.
-	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU() / 3;
-	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV() / 3;
+	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
+	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
 
 	if (patch_div_s <= 0) patch_div_s = 1;
 	if (patch_div_t <= 0) patch_div_t = 1;
