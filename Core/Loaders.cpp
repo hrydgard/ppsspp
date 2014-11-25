@@ -252,7 +252,7 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 
 	// TODO: Expire cache via ETag, etc.
 	for (std::string header : responseHeaders) {
-		if (startsWith(header, "Content-Length:")) {
+		if (startsWithNoCase(header, "Content-Length:")) {
 			size_t size_pos = header.find_first_of(' ');
 			if (size_pos != header.npos) {
 				size_pos = header.find_first_not_of(' ', size_pos);
@@ -321,10 +321,12 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	// We don't support multipart/byteranges responses.
 	bool supportedResponse = false;
 	for (std::string header : responseHeaders) {
-		if (startsWith(header, "Content-Range:")) {
+		if (startsWithNoCase(header, "Content-Range:")) {
 			// TODO: More correctness.  Whitespace can be missing or different.
 			s64 first = -1, last = -1, total = -1;
-			if (sscanf(header.c_str(), "Content-Range: bytes %lld-%lld/%lld", &first, &last, &total) >= 2) {
+			std::string lowerHeader = header;
+			std::transform(lowerHeader.begin(), lowerHeader.end(), lowerHeader.begin(), tolower);
+			if (sscanf(lowerHeader.c_str(), "content-range: bytes %lld-%lld/%lld", &first, &last, &total) >= 2) {
 				if (first == absolutePos && last == absoluteEnd - 1) {
 					supportedResponse = true;
 				} else {
