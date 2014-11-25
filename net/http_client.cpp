@@ -277,8 +277,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 	bool chunked = false;
 	int contentLength = 0;
 	for (std::string line : responseHeaders) {
-		// TODO: Case folding.
-		if (startsWith(line, "Content-Length:")) {
+		if (startsWithNoCase(line, "Content-Length:")) {
 			size_t size_pos = line.find_first_of(' ');
 			if (size_pos != line.npos) {
 				size_pos = line.find_first_not_of(' ', size_pos);
@@ -287,11 +286,13 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 				contentLength = atoi(&line[size_pos]);
 				chunked = false;
 			}
-		} else if (startsWith(line, "Content-Encoding:")) {
+		} else if (startsWithNoCase(line, "Content-Encoding:")) {
+			// TODO: Case folding...
 			if (line.find("gzip") != std::string::npos) {
 				gzip = true;
 			}
-		} else if (startsWith(line, "Transfer-Encoding:")) {
+		} else if (startsWithNoCase(line, "Transfer-Encoding:")) {
+			// TODO: Case folding...
 			if (line.find("chunked") != std::string::npos) {
 				chunked = true;
 			}
