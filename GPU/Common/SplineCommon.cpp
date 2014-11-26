@@ -162,7 +162,7 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatc
 
 }
 
-void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType, int patch_cap) {
+void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -177,15 +177,11 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 
 	// Increase tesselation based on the size. Should be approximately right?
 	// JPCSP is wrong at least because their method results in square loco roco.
-	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
-	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
+	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU() / quality;
+	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV() / quality;
 
 	if (patch_div_s <= 0) patch_div_s = 1;
 	if (patch_div_t <= 0) patch_div_t = 1;
-
-	// TODO: Remove this cap when spline_s has been optimized. 
-	if (patch_div_s > patch_cap) patch_div_s = patch_cap;
-	if (patch_div_t > patch_cap) patch_div_t = patch_cap;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];
@@ -320,10 +316,10 @@ void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatchLocal &spatch,
 		_SplinePatchLowQuality(dest, count, spatch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_SplinePatchFullQuality(dest, count, spatch, origVertType, 8);
+		_SplinePatchFullQuality(dest, count, spatch, origVertType, 2);
 		break;
 	case HIGH_QUALITY:
-		_SplinePatchFullQuality(dest, count, spatch, origVertType, 64);
+		_SplinePatchFullQuality(dest, count, spatch, origVertType, 1);
 		break;
 	}
 }
@@ -479,6 +475,8 @@ void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const B
 		_BezierPatchLowQuality(dest, count, tess_u, tess_v, patch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
+		_BezierPatchHighQuality(dest, count, tess_u / 2, tess_v / 2, patch, origVertType);
+		break;
 	case HIGH_QUALITY:
 		_BezierPatchHighQuality(dest, count, tess_u, tess_v, patch, origVertType);
 		break;
