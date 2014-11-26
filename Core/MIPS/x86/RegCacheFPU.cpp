@@ -451,7 +451,7 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		}
 	} else if (vr.away) {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
-		xregs[VX(v)].dirty |= (flags & MAP_DIRTY) != 0;
+		xregs[VX(v)].dirty = xregs[VX(v)].dirty || ((flags & MAP_DIRTY) != 0);
 		_assert_msg_(JIT, vr.location.IsSimpleReg(), "not loaded and not simple.");
 	}
 	Invariant();
@@ -535,13 +535,16 @@ void FPURegCache::StoreFromRegister(int i) {
 				}
 			}
 
+			// If we can do a multistore...
 			if (seq == 2 || seq == 4) {
 				OpArg newLoc = GetDefaultLocation(mri[0]);
-				if (seq == 4)
-					emit->MOVAPS(newLoc, xr);
-				else
-					emit->MOVQ_xmm(newLoc, xr);
-				for (int j = 0; j < 4; ++j) {
+				if (xregs[xr].dirty) {
+					if (seq == 4)
+						emit->MOVAPS(newLoc, xr);
+					else
+						emit->MOVQ_xmm(newLoc, xr);
+				}
+				for (int j = 0; j < seq; ++j) {
 					int mr = xregs[xr].mipsRegs[j];
 					if (mr == -1) {
 						continue;
@@ -553,26 +556,25 @@ void FPURegCache::StoreFromRegister(int i) {
 					xregs[xr].mipsRegs[j] = -1;
 				}
 			} else {
-				// Store all of them.
-				// TODO: This could be more optimal.  Check if we can MOVUPS/MOVAPS, etc.
-				for (int j = 0; j < 4; ++j) {
-					int mr = xregs[xr].mipsRegs[j];
-					if (mr == -1) {
-						continue;
-					}
-					if (j != 0 && xregs[xr].dirty) {
-						emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
-					}
-
-					OpArg newLoc = GetDefaultLocation(mr);
-					if (xregs[xr].dirty) {
-						emit->MOVSS(newLoc, xr);
-					}
-					regs[mr].location = newLoc;
-					regs[mr].away = false;
-					regs[mr].lane = 0;
-					xregs[xr].mipsRegs[j] = -1;
+				seq = 0;
+			}
+			// Store the rest.
+			for (int j = seq; j < 4; ++j) {
+				int mr = xregs[xr].mipsRegs[j];
+				if (mr == -1) {
+					continue;
 				}
+				if (j != 0 && xregs[xr].dirty) {
+					emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+				}
+				OpArg newLoc = GetDefaultLocation(mr);
+				if (xregs[xr].dirty) {
+					emit->MOVSS(newLoc, xr);
+				}
+				regs[mr].location = newLoc;
+				regs[mr].away = false;
+				regs[mr].lane = 0;
+				xregs[xr].mipsRegs[j] = -1;
 			}
 		} else {
 			OpArg newLoc = GetDefaultLocation(i);
