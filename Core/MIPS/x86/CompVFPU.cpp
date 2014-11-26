@@ -741,6 +741,28 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	if (sz == V_Triple) {
 		// Cross product vcrsp.t
 
+		if (fpr.TryMapDirtyInInVS(dregs, sz, sregs, sz, tregs, sz)) {
+			/*
+			__m128 result = _mm_sub_ps(
+				_mm_mul_ps(b, _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 0, 2, 1))),
+				_mm_mul_ps(a, _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 0, 2, 1)))
+				);
+			return _mm_shuffle_ps(result, result, _MM_SHUFFLE(3, 0, 2, 1));
+			*/
+			MOVAPS(XMM0, fpr.VS(tregs[0]));
+			MOVAPS(XMM1, fpr.VS(sregs[0]));
+			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 0, 2, 1));
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 0, 2, 1));
+			MULPS(XMM0, fpr.VS(sregs[0]));
+			MULPS(XMM1, fpr.VS(tregs[0]));
+			SUBPS(XMM0, R(XMM1));
+			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 0, 2, 1));
+			MOVAPS(fpr.VS(dregs[0]), XMM0);
+			fpr.ReleaseSpillLocks();
+			NOTICE_LOG(JIT, "Crossprod %08x", js.blockStart);
+			return;
+		}
+
 		fpr.MapRegsV(sregs, sz, 0);
 	
 		// Compute X
