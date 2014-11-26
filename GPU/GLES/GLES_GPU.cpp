@@ -877,7 +877,7 @@ void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
@@ -918,7 +918,7 @@ void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
