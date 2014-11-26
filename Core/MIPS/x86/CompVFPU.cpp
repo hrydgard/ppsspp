@@ -2292,6 +2292,19 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 	GetVectorRegsPrefixT(&scale, V_Single, _VT);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	if (fpr.TryMapDirtyInInVS(dregs, sz, sregs, sz, &scale, V_Single, true)) {
+		MOVSS(XMM0, fpr.VS(scale));
+		if (sz != V_Single)
+			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
+		if (dregs[0] != sregs[0]) {
+			MOVAPS(fpr.VSX(dregs[0]), fpr.VS(sregs[0]));
+		}
+		MULPS(fpr.VSX(dregs[0]), R(XMM0));
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
 	fpr.SimpleRegsV(&scale, V_Single, 0);

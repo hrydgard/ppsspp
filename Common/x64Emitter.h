@@ -631,6 +631,25 @@ public:
 	// SSE/SSE2: Useful alternative to shuffle in some cases.
 	void MOVDDUP(X64Reg regOp, OpArg arg);
 
+	// TODO: Actually implement
+#if 0
+	// SSE3: Horizontal operations in SIMD registers. Could be useful for various VFPU things like dot products...
+	void ADDSUBPS(X64Reg dest, OpArg src);
+	void ADDSUBPD(X64Reg dest, OpArg src);
+	void HADDPS(X64Reg dest, OpArg src);
+	void HADDPD(X64Reg dest, OpArg src);
+	void HSUBPS(X64Reg dest, OpArg src);
+	void HSUBPD(X64Reg dest, OpArg src);
+
+	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
+	void DPPS(X64Reg dest, OpArg src, u8 arg);
+	void DPPD(X64Reg dest, OpArg src, u8 arg);
+
+	// These are probably useful for VFPU emulation.
+	void INSERTPS(X64Reg dest, OpArg src, u8 arg);
+	void EXTRACTPS(OpArg dest, X64Reg src, u8 arg);
+#endif
+
 	void UNPCKLPS(X64Reg dest, OpArg src);
 	void UNPCKHPS(X64Reg dest, OpArg src);
 	void UNPCKLPD(X64Reg dest, OpArg src);

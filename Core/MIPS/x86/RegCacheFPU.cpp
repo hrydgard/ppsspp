@@ -507,29 +507,61 @@ void FPURegCache::StoreFromRegister(int i) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - store - invalid reg");
 		if (regs[i].lane != 0) {
-			// Store all of them.
-			// TODO: This could be more optimal.  Check if we can MOVUPS/MOVAPS, etc.
-			for (int j = 0; j < 4; ++j) {
-				int mr = xregs[xr].mipsRegs[j];
-				if (mr == -1) {
-					continue;
+			const int *mri = xregs[xr].mipsRegs;
+			int seq = 1;
+			for (int i = 1; i < 4; ++i) {
+				if (mri[i] == -1) {
+					break;
 				}
-				if (j != 0 && xregs[xr].dirty) {
-					emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+				if (voffset[mri[i] - 32] == voffset[mri[i - 1] - 32] + 1) {
+					seq++;
+				} else {
+					break;
 				}
+			}
 
-				OpArg newLoc = GetDefaultLocation(mr);
-				if (xregs[xr].dirty) {
-					emit->MOVSS(newLoc, xr);
+			if (seq == 2 || seq == 4) {
+				OpArg newLoc = GetDefaultLocation(mri[0]);
+				if (seq == 4)
+					emit->MOVAPS(newLoc, xr);
+				else
+					emit->MOVQ_xmm(newLoc, xr);
+				for (int j = 0; j < 4; ++j) {
+					int mr = xregs[xr].mipsRegs[j];
+					if (mr == -1) {
+						continue;
+					}
+					OpArg newLoc = GetDefaultLocation(mr);
+					regs[mr].location = newLoc;
+					regs[mr].away = false;
+					regs[mr].lane = 0;
+					xregs[xr].mipsRegs[j] = -1;
 				}
-				regs[mr].location = newLoc;
-				regs[mr].away = false;
-				regs[mr].lane = 0;
-				xregs[xr].mipsRegs[j] = -1;
+			} else {
+				// Store all of them.
+				// TODO: This could be more optimal.  Check if we can MOVUPS/MOVAPS, etc.
+				for (int j = 0; j < 4; ++j) {
+					int mr = xregs[xr].mipsRegs[j];
+					if (mr == -1) {
+						continue;
+					}
+					if (j != 0 && xregs[xr].dirty) {
+						emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+					}
+
+					OpArg newLoc = GetDefaultLocation(mr);
+					if (xregs[xr].dirty) {
+						emit->MOVSS(newLoc, xr);
+					}
+					regs[mr].location = newLoc;
+					regs[mr].away = false;
+					regs[mr].lane = 0;
+					xregs[xr].mipsRegs[j] = -1;
+				}
 			}
 		} else {
-			xregs[xr].mipsReg = -1;
 			OpArg newLoc = GetDefaultLocation(i);
+			xregs[xr].mipsReg = -1;
 			emit->MOVSS(newLoc, xr);
 			regs[i].location = newLoc;
 		}
