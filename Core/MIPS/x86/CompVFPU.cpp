@@ -68,8 +68,9 @@ const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 const u32 MEMORY_ALIGNED16( solidOnes[4] ) = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 const u32 MEMORY_ALIGNED16( lowOnes[4] ) = {0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000};
 const u32 MEMORY_ALIGNED16( lowZeroes[4] ) = {0x00000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
-const float MEMORY_ALIGNED16( solidZeroes[4] ) = {0, 0, 0, 0};
 const u32 MEMORY_ALIGNED16( fourinfnan[4] ) = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
+const float MEMORY_ALIGNED16( identityMatrix[4][4]) = { { 1.0f, 0, 0, 0 }, { 0, 1.0f, 0, 0 }, { 0, 0, 1.0f, 0 }, { 0, 0, 0, 1.0f} };
+
 
 void Jit::Comp_VPFX(MIPSOpcode op)
 {
@@ -486,8 +487,14 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
 	// vzero only for now
-	if (type == 6 && fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
-		XORPS(fpr.VSX(dregs[0]), fpr.VS(dregs[0]));
+	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
+		if (type == 6) {
+			XORPS(fpr.VSX(dregs[0]), fpr.VS(dregs[0]));
+		} else if (type == 7) {
+			MOVAPS(fpr.VSX(dregs[0]), M(&oneOneOneOne));
+		} else {
+			DISABLE;
+		}
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocks();
 		return;
@@ -522,10 +529,19 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	int vd = _VD;
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
-	XORPS(XMM0, R(XMM0));
-	MOVSS(XMM1, M(&one));
+
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+	if (sz == V_Quad && fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
+		int n = vd & 3;
+		MOVAPD(fpr.VSX(dregs[0]), M(identityMatrix[n]));
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
+	XORPS(XMM0, R(XMM0));
+	MOVSS(XMM1, M(&one));
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 	switch (sz)
 	{
@@ -1534,20 +1550,24 @@ void Jit::Comp_Vx2i(MIPSOpcode op) {
 		PSRLD(XMM0, 1);
 	}
 
-	// Done! TODO: The rest of this should be possible to extract into a function.
-	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
+	if (fpr.TryMapRegsVS(dregs, outsize, MAP_NOINIT | MAP_DIRTY)) {
+		MOVAPS(fpr.VSX(dregs[0]), R(XMM0));
+	} else {
+		// Done! TODO: The rest of this should be possible to extract into a function.
+		fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);
 
-	// TODO: Could apply D-prefix in parallel here...
+		// TODO: Could apply D-prefix in parallel here...
 
-	MOVSS(fpr.V(dregs[0]), XMM0);
-	PSRLDQ(XMM0, 4);
-	MOVSS(fpr.V(dregs[1]), XMM0);
-
-	if (outsize != V_Pair) {
+		MOVSS(fpr.V(dregs[0]), XMM0);
 		PSRLDQ(XMM0, 4);
-		MOVSS(fpr.V(dregs[2]), XMM0);
-		PSRLDQ(XMM0, 4);
-		MOVSS(fpr.V(dregs[3]), XMM0);
+		MOVSS(fpr.V(dregs[1]), XMM0);
+
+		if (outsize != V_Pair) {
+			PSRLDQ(XMM0, 4);
+			MOVSS(fpr.V(dregs[2]), XMM0);
+			PSRLDQ(XMM0, 4);
+			MOVSS(fpr.V(dregs[3]), XMM0);
+		}
 	}
 
 	ApplyPrefixD(dregs, outsize);
