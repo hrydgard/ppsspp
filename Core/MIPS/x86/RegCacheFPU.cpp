@@ -214,6 +214,10 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
+		// TODO: Currently all non-simd regs are dirty.
+		xregs[VSX(v[0])].dirty = true;
+		//if ((flags & MAP_DIRTY) != 0)
+		//	xregs[VSX(v[0])].dirty = true;
 		Invariant();
 		return true;
 	}
@@ -234,11 +238,14 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 			// Clear the xreg it was in before.
 			X64Reg oldXReg = vr.location.GetSimpleReg();
 			xregs[oldXReg].mipsReg = -1;
-			if (xregs[oldXReg].dirty) {
-				// Inherit the "dirtiness" (ultimately set below for all regs.)
-				dirty = true;
-				xregs[oldXReg].dirty = false;
-			}
+			// TODO: Do this instead, once dirtying is handled well throughout?
+			//if (xregs[oldXReg].dirty) {
+			//	// Inherit the "dirtiness" (ultimately set below for all regs.)
+			//	dirty = true;
+			//	xregs[oldXReg].dirty = false;
+			//}
+			// All non-simd regs are currently always dirty.  Ought to be fixed.
+			dirty = true;
 		}
 		xregs[xr].mipsRegs[i] = v[i] + 32;
 		vr.location = newloc;
@@ -254,21 +261,25 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	int regsAvail = 0;
 	int regsLoaded = 0;
-	X64Reg xrs[4] = {INVALID_REG, INVALID_REG, INVALID_REG};
+	X64Reg xrs[4] = {INVALID_REG, INVALID_REG, INVALID_REG, INVALID_REG};
 	bool xrsLoaded[4] = {false, false, false, false};
 
 	_dbg_assert_msg_(JIT, n >= 2 && n <= 4, "LoadRegsVS is only implemented for simd loads.");
 
 	for (int i = 0; i < n; ++i) {
 		const MIPSCachedFPReg &mr = vregs[v[i]];
-		if (mr.away && (mr.lane == 0 || xregs[mr.location.GetSimpleReg()].mipsRegs[1] == -1)) {
-			// Okay, there's nothing else in this reg, so we can use it.
-			xrsLoaded[i] = true;
-			xrs[i] = mr.location.GetSimpleReg();
-			++regsLoaded;
-			++regsAvail;
-		} else if (mr.away && mr.lane != 0) {
-			_dbg_assert_msg_(JIT, false, "LoadRegsVS is not able to handle simd remapping yet, store first.");
+		if (mr.away) {
+			X64Reg mrx = mr.location.GetSimpleReg();
+			// If it's not simd, or lanes 1+ are clear, we can use it.
+			if (mr.lane == 0 || xregs[mrx].mipsRegs[1] == -1) {
+				// Okay, there's nothing else in this reg, so we can use it.
+				xrsLoaded[i] = true;
+				xrs[i] = mrx;
+				++regsLoaded;
+				++regsAvail;
+			} else if (mr.lane != 0) {
+				_dbg_assert_msg_(JIT, false, "LoadRegsVS is not able to handle simd remapping yet, store first.");
+			}
 		}
 	}
 
