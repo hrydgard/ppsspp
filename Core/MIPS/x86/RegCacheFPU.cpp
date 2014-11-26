@@ -420,8 +420,12 @@ void FPURegCache::SimpleRegsV(const u8 *v, MatrixSize msz, int flags) {
 }
 
 void FPURegCache::SimpleRegV(const u8 v, int flags) {
-	const MIPSCachedFPReg &vr = vregs[v];
-	if (vr.lane != 0) {
+	MIPSCachedFPReg &vr = vregs[v];
+	// Special optimization: if it's in a single simd, we can keep it there.
+	if (vr.lane == 1 && xregs[VSX(v)].mipsRegs[1] == -1) {
+		// Just change the lane to 0.
+		vr.lane = 0;
+	} else if (vr.lane != 0) {
 		// This will never end up in a register this way, so ignore dirty.
 		if ((flags & MAP_NOINIT)) {
 			// This will discard only this reg, and store the others.
