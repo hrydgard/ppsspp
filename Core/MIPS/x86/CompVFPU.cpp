@@ -486,7 +486,6 @@ void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
-	// vzero only for now
 	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
 		if (type == 6) {
 			XORPS(fpr.VSX(dregs[0]), fpr.VS(dregs[0]));
@@ -572,12 +571,71 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
-	
+
 	// TODO: Force read one of them into regs? probably not.
 	u8 sregs[4], tregs[4], dregs[1];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixT(tregs, sz, _VT);
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	// With SSE2, these won't really give any performance benefit on their own, but may reduce
+	// conversion costs from/to SIMD form. However, the SSE4.1 DPPS may be worth it.
+	// Benchmarking will have to decide whether to enable this on < SSE4.1. Also a HADDPS version
+	// for SSE3 could be written.
+	if (fpr.TryMapDirtyInInVS(dregs, V_Single, sregs, sz, tregs, sz)) {
+		switch (sz) {
+		case V_Pair:
+			if (cpu_info.bSSE4_1) {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				DPPS(XMM0, fpr.VS(tregs[0]), 0x31);
+				MOVAPD(fpr.VSX(dregs[0]), R(XMM0));
+			} else {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				MULPS(XMM0, fpr.VS(tregs[0]));
+				MOVAPD(R(XMM1), XMM0);
+				SHUFPS(XMM1, R(XMM0), _MM_SHUFFLE(1, 1, 1, 1));
+				ADDPS(XMM1, R(XMM0));
+				MOVAPD(fpr.VS(dregs[0]), XMM1);
+			}
+			break;
+		case V_Triple:
+			if (cpu_info.bSSE4_1) {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				DPPS(XMM0, fpr.VS(tregs[0]), 0x71);
+				MOVAPD(fpr.VSX(dregs[0]), R(XMM0));
+			} else {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				MULPS(XMM0, fpr.VS(tregs[0]));
+				MOVAPD(R(XMM1), XMM0);
+				SHUFPS(XMM1, R(XMM0), _MM_SHUFFLE(3, 2, 1, 1));
+				ADDSS(XMM1, R(XMM0));
+				SHUFPS(XMM0, R(XMM1), _MM_SHUFFLE(3, 2, 2, 2));
+				ADDSS(XMM1, R(XMM0));
+				MOVAPD(fpr.VS(dregs[0]), XMM1);
+			}
+			break;
+		case V_Quad:
+			if (cpu_info.bSSE4_1) {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				DPPS(XMM0, fpr.VS(tregs[0]), 0xF1);
+				MOVAPD(fpr.VSX(dregs[0]), R(XMM0));
+			} else {
+				MOVAPD(XMM0, fpr.VS(sregs[0]));
+				MOVAPD(XMM1, fpr.VS(tregs[0]));
+				MULPS(XMM0, R(XMM1));
+				MOVAPD(XMM1, R(XMM0));
+				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(2, 3, 0, 1));
+				ADDPS(XMM0, R(XMM1));
+				MOVAPD(XMM1, R(XMM0));
+				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 1, 2, 3));
+				ADDSS(XMM0, R(XMM1));
+				MOVAPD(fpr.VSX(dregs[0]), R(XMM0));
+			}
+		}
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
