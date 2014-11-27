@@ -586,7 +586,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 		switch (sz) {
 		case V_Pair:
 			if (cpu_info.bSSE4_1) {
-				if (dregs != sregs && dregs != tregs) {
+				if (fpr.VSX(dregs) != fpr.VSX(sregs) && fpr.VSX(dregs) != fpr.VSX(tregs)) {
 					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
 					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0x31);
 				} else {
@@ -605,7 +605,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 			break;
 		case V_Triple:
 			if (cpu_info.bSSE4_1) {
-				if (dregs != sregs && dregs != tregs) {
+				if (fpr.VSX(dregs) != fpr.VSX(sregs) && fpr.VSX(dregs) != fpr.VSX(tregs)) {
 					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
 					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0x71);
 				} else {
@@ -626,7 +626,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 			break;
 		case V_Quad:
 			if (cpu_info.bSSE4_1) {
-				if (dregs != sregs && dregs != tregs) {
+				if (fpr.VSX(dregs) != fpr.VSX(sregs) && fpr.VSX(dregs) != fpr.VSX(tregs)) {
 					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
 					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0xF1);
 				} else {
