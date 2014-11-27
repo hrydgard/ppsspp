@@ -435,6 +435,9 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 	MIPSCachedFPReg &vr = vregs[v];
 	// Special optimization: if it's in a single simd, we can keep it there.
 	if (vr.lane == 1 && xregs[VSX(&v)].mipsRegs[1] == -1) {
+		if (flags & MAP_DIRTY) {
+			xregs[VSX(&v)].dirty = true;
+		}
 		// Just change the lane to 0.
 		vr.lane = 0;
 	} else if (vr.lane != 0) {
@@ -447,7 +450,9 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		}
 	} else if (vr.away) {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
-		xregs[VX(v)].dirty = xregs[VX(v)].dirty || ((flags & MAP_DIRTY) != 0);
+		if (flags & MAP_DIRTY) {
+			xregs[VX(v)].dirty = true;
+		}
 		_assert_msg_(JIT, vr.location.IsSimpleReg(), "not loaded and not simple.");
 	}
 	Invariant();
