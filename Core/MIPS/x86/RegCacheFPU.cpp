@@ -214,10 +214,8 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
-		// TODO: Currently all non-simd regs are dirty.
-		xregs[VSX(v[0])].dirty = true;
-		//if ((flags & MAP_DIRTY) != 0)
-		//	xregs[VSX(v[0])].dirty = true;
+		if ((flags & MAP_DIRTY) != 0)
+			xregs[VSX(v[0])].dirty = true;
 		Invariant();
 		return true;
 	}
@@ -238,14 +236,11 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 			// Clear the xreg it was in before.
 			X64Reg oldXReg = vr.location.GetSimpleReg();
 			xregs[oldXReg].mipsReg = -1;
-			// TODO: Do this instead, once dirtying is handled well throughout?
-			//if (xregs[oldXReg].dirty) {
-			//	// Inherit the "dirtiness" (ultimately set below for all regs.)
-			//	dirty = true;
-			//	xregs[oldXReg].dirty = false;
-			//}
-			// All non-simd regs are currently always dirty.  Ought to be fixed.
-			dirty = true;
+			if (xregs[oldXReg].dirty) {
+				// Inherit the "dirtiness" (ultimately set below for all regs.)
+				dirty = true;
+				xregs[oldXReg].dirty = false;
+			}
 		}
 		xregs[xr].mipsRegs[i] = v[i] + 32;
 		vr.location = newloc;

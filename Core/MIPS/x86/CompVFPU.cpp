@@ -242,7 +242,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 		{
 			gpr.Lock(rs);
 			gpr.MapReg(rs, true, false);
-			fpr.MapRegV(vt, MAP_NOINIT);
+			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
@@ -640,10 +640,11 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
 	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 
 	X64Reg tempxreg = XMM0;
 	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs)) {
-		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		fpr.MapRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 		tempxreg = fpr.VX(dregs[0]);
 	}
 
@@ -659,7 +660,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 	}
 
 	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg)) {
-		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		fpr.MapRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 		MOVSS(fpr.V(dregs[0]), tempxreg);
 	}
 
@@ -686,11 +687,12 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
 	fpr.SimpleRegsV(tregs, sz, 0);
+	fpr.SimpleRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 
 	X64Reg tempxreg = XMM0;
 	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
 	{
-		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		fpr.MapRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 		tempxreg = fpr.VX(dregs[0]);
 	}
 
@@ -710,7 +712,7 @@ void Jit::Comp_VHdp(MIPSOpcode op) {
 	}
 
 	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg)) {
-		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		fpr.MapRegsV(dregs, V_Single, MAP_DIRTY | MAP_NOINIT);
 		MOVSS(fpr.V(dregs[0]), tempxreg);
 	}
 
@@ -1722,6 +1724,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
 
 	u8 tempregs[4];
 	for (int i = 0; i < n; ++i) {
@@ -2251,7 +2254,7 @@ void Jit::Comp_Vmfvc(MIPSOpcode op) {
 	int vs = _VS;
 	int imm = op & 0xFF;
 	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-		fpr.MapRegV(vs, 0);
+		fpr.MapRegV(vs, MAP_DIRTY | MAP_NOINIT);
 		if (imm - 128 == VFPU_CTRL_CC) {
 			gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 			MOVD_xmm(fpr.VX(vs), gpr.R(MIPS_REG_VFPUCC));
