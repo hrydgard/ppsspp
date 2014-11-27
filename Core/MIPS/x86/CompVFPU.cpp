@@ -533,7 +533,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
 		int row = vd & (n - 1);
-		MOVAPD(fpr.VSX(dregs), M(identityMatrix[row]));
+		MOVAPS(fpr.VSX(dregs), M(identityMatrix[n]));
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocks();
 		return;
@@ -586,50 +586,65 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 		switch (sz) {
 		case V_Pair:
 			if (cpu_info.bSSE4_1) {
-				MOVAPD(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, fpr.VS(tregs), 0x31);
-				MOVAPD(fpr.VSX(dregs), R(XMM0));
+				if (dregs != sregs && dregs != tregs) {
+					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
+					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0x31);
+				} else {
+					MOVAPS(XMM0, fpr.VS(sregs));
+					DPPS(XMM0, fpr.VS(tregs), 0x31);
+					MOVAPS(fpr.VSX(dregs), R(XMM0));
+				}
 			} else {
-				MOVAPD(XMM0, fpr.VS(sregs));
+				MOVAPS(XMM0, fpr.VS(sregs));
 				MULPS(XMM0, fpr.VS(tregs));
-				MOVAPD(R(XMM1), XMM0);
+				MOVAPS(R(XMM1), XMM0);
 				SHUFPS(XMM1, R(XMM0), _MM_SHUFFLE(1, 1, 1, 1));
 				ADDPS(XMM1, R(XMM0));
-				MOVAPD(fpr.VS(dregs), XMM1);
+				MOVAPS(fpr.VS(dregs), XMM1);
 			}
 			break;
 		case V_Triple:
 			if (cpu_info.bSSE4_1) {
-				MOVAPD(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, fpr.VS(tregs), 0x71);
-				MOVAPD(fpr.VSX(dregs), R(XMM0));
+				if (dregs != sregs && dregs != tregs) {
+					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
+					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0x71);
+				} else {
+					MOVAPS(XMM0, fpr.VS(sregs));
+					DPPS(XMM0, fpr.VS(tregs), 0x71);
+					MOVAPS(fpr.VSX(dregs), R(XMM0));
+				}
 			} else {
-				MOVAPD(XMM0, fpr.VS(sregs));
+				MOVAPS(XMM0, fpr.VS(sregs));
 				MULPS(XMM0, fpr.VS(tregs));
-				MOVAPD(R(XMM1), XMM0);
+				MOVAPS(R(XMM1), XMM0);
 				SHUFPS(XMM1, R(XMM0), _MM_SHUFFLE(3, 2, 1, 1));
 				ADDSS(XMM1, R(XMM0));
 				SHUFPS(XMM0, R(XMM1), _MM_SHUFFLE(3, 2, 2, 2));
 				ADDSS(XMM1, R(XMM0));
-				MOVAPD(fpr.VS(dregs), XMM1);
+				MOVAPS(fpr.VS(dregs), XMM1);
 			}
 			break;
 		case V_Quad:
 			if (cpu_info.bSSE4_1) {
-				MOVAPD(XMM0, fpr.VS(sregs));
-				DPPS(XMM0, fpr.VS(tregs), 0xF1);
-				MOVAPD(fpr.VSX(dregs), R(XMM0));
+				if (dregs != sregs && dregs != tregs) {
+					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
+					DPPS(fpr.VSX(dregs), fpr.VS(tregs), 0xF1);
+				} else {
+					MOVAPS(XMM0, fpr.VS(sregs));
+					DPPS(XMM0, fpr.VS(tregs), 0xF1);
+					MOVAPS(fpr.VSX(dregs), R(XMM0));
+				}
 			} else {
-				MOVAPD(XMM0, fpr.VS(sregs));
-				MOVAPD(XMM1, fpr.VS(tregs));
+				MOVAPS(XMM0, fpr.VS(sregs));
+				MOVAPS(XMM1, fpr.VS(tregs));
 				MULPS(XMM0, R(XMM1));
-				MOVAPD(XMM1, R(XMM0));
+				MOVAPS(XMM1, R(XMM0));
 				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(2, 3, 0, 1));
 				ADDPS(XMM0, R(XMM1));
-				MOVAPD(XMM1, R(XMM0));
+				MOVAPS(XMM1, R(XMM0));
 				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 1, 2, 3));
 				ADDSS(XMM0, R(XMM1));
-				MOVAPD(fpr.VSX(dregs), R(XMM0));
+				MOVAPS(fpr.VSX(dregs), R(XMM0));
 			}
 		}
 		ApplyPrefixD(dregs, V_Single);
@@ -1720,6 +1735,8 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	// Really tricky to SIMD due to double precision requirement...
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
