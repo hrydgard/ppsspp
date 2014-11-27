@@ -91,6 +91,7 @@ enum NormalSSEOps
 	sseSHUF        = 0xC6,
 	sseMOVNTDQ     = 0xE7,
 	sseMOVNTP      = 0x2B,
+	sseHADD        = 0x7C,
 };
 
 
@@ -1565,6 +1566,8 @@ void XEmitter::SQRTPD(X64Reg regOp, OpArg arg)  {WriteSSEOp(0x66, sseSQRT, regOp
 void XEmitter::RSQRTPS(X64Reg regOp, OpArg arg) {WriteSSEOp(0x00, sseRSQRT, regOp, arg);}
 void XEmitter::SHUFPS(X64Reg regOp, OpArg arg, u8 shuffle) {WriteSSEOp(0x00, sseSHUF, regOp, arg,1); Write8(shuffle);}
 void XEmitter::SHUFPD(X64Reg regOp, OpArg arg, u8 shuffle) {WriteSSEOp(0x66, sseSHUF, regOp, arg,1); Write8(shuffle);}
+
+void XEmitter::HADDPS(X64Reg regOp, OpArg arg) {WriteSSEOp(0xF2, sseHADD, regOp, arg);}
 
 void XEmitter::COMISS(X64Reg regOp, OpArg arg)  {WriteSSEOp(0x00, sseCOMIS, regOp, arg);} //weird that these should be packed
 void XEmitter::COMISD(X64Reg regOp, OpArg arg)  {WriteSSEOp(0x66, sseCOMIS, regOp, arg);} //ordered

@@ -634,7 +634,13 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 					DPPS(XMM0, fpr.VS(tregs), 0xF1);
 					MOVAPS(fpr.VSX(dregs), R(XMM0));
 				}
-			} else {
+			} /* else if (cpu_info.bSSE3) {   // This is slower than the SSE2 solution on my Ivy!
+				MOVAPS(XMM0, fpr.VS(sregs));
+				MOVAPS(XMM1, fpr.VS(tregs));
+				HADDPS(XMM0, R(XMM1));
+				HADDPS(XMM0, R(XMM0));
+				MOVAPS(fpr.VSX(dregs), R(XMM0));
+			} */ else {
 				MOVAPS(XMM0, fpr.VS(sregs));
 				MOVAPS(XMM1, fpr.VS(tregs));
 				MULPS(XMM0, R(XMM1));
