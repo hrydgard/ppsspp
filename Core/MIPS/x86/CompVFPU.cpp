@@ -533,7 +533,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	if (fpr.TryMapRegsVS(dregs, sz, MAP_NOINIT | MAP_DIRTY)) {
 		int row = vd & (n - 1);
-		MOVAPS(fpr.VSX(dregs), M(identityMatrix[n]));
+		MOVAPS(fpr.VSX(dregs), M(identityMatrix[row]));
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocks();
 		return;
