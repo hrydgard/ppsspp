@@ -70,7 +70,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 			points[idx] = simplified_control_points + idx;
 	}
 
-	u8 *decoded2 = decoded + 65536 * 36;
+	u8 *decoded2 = decoded + 65536 * 24;
 
 	int count = 0;
 	u8 *dest = decoded2;
@@ -152,7 +152,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 		}
 	}
 
-	u8 *decoded2 = decoded + 65536 * 36;
+	u8 *decoded2 = decoded + 65536 * 24;
 
 	int count = 0;
 	u8 *dest = decoded2;
