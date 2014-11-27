@@ -574,7 +574,9 @@ void FPURegCache::StoreFromRegister(int i) {
 		} else {
 			OpArg newLoc = GetDefaultLocation(i);
 			xregs[xr].mipsReg = -1;
-			emit->MOVSS(newLoc, xr);
+			if (xregs[xr].dirty) {
+				emit->MOVSS(newLoc, xr);
+			}
 			regs[i].location = newLoc;
 		}
 		xregs[xr].dirty = false;
