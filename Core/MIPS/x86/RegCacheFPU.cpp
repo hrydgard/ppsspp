@@ -122,11 +122,12 @@ bool FPURegCache::IsMappedVS(const u8 *v, VectorSize vsz) {
 		return false;
 
 	// And make sure the rest are mapped to the same reg in the right positions.
-	X64Reg xr = VSX(v[0]);
+	X64Reg xr = VSX(v);
 	for (int i = 1; i < n; ++i) {
-		if (!IsMappedVS(v[i]) || VSX(v[i]) != xr)
+		u8 vi = v[i];
+		if (!IsMappedVS(vi) || VSX(&vi) != xr)
 			return false;
-		if (vregs[v[i]].lane != i + 1)
+		if (vregs[vi].lane != i + 1)
 			return false;
 	}
 	// TODO: Optimize this case?  It happens.
@@ -203,7 +204,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 	if (IsMappedVS(v, vsz)) {
 		// Already mapped then, perfect.  Just mark dirty.
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v[0])].dirty = true;
+			xregs[VSX(v)].dirty = true;
 		return true;
 	}
 
@@ -214,10 +215,8 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
-		// TODO: Currently all non-simd regs are dirty.
-		xregs[VSX(v[0])].dirty = true;
-		//if ((flags & MAP_DIRTY) != 0)
-		//	xregs[VSX(v[0])].dirty = true;
+		if ((flags & MAP_DIRTY) != 0)
+			xregs[VSX(v)].dirty = true;
 		Invariant();
 		return true;
 	}
@@ -238,14 +237,11 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 			// Clear the xreg it was in before.
 			X64Reg oldXReg = vr.location.GetSimpleReg();
 			xregs[oldXReg].mipsReg = -1;
-			// TODO: Do this instead, once dirtying is handled well throughout?
-			//if (xregs[oldXReg].dirty) {
-			//	// Inherit the "dirtiness" (ultimately set below for all regs.)
-			//	dirty = true;
-			//	xregs[oldXReg].dirty = false;
-			//}
-			// All non-simd regs are currently always dirty.  Ought to be fixed.
-			dirty = true;
+			if (xregs[oldXReg].dirty) {
+				// Inherit the "dirtiness" (ultimately set below for all regs.)
+				dirty = true;
+				xregs[oldXReg].dirty = false;
+			}
 		}
 		xregs[xr].mipsRegs[i] = v[i] + 32;
 		vr.location = newloc;
@@ -438,7 +434,10 @@ void FPURegCache::SimpleRegsV(const u8 *v, MatrixSize msz, int flags) {
 void FPURegCache::SimpleRegV(const u8 v, int flags) {
 	MIPSCachedFPReg &vr = vregs[v];
 	// Special optimization: if it's in a single simd, we can keep it there.
-	if (vr.lane == 1 && xregs[VSX(v)].mipsRegs[1] == -1) {
+	if (vr.lane == 1 && xregs[VSX(&v)].mipsRegs[1] == -1) {
+		if (flags & MAP_DIRTY) {
+			xregs[VSX(&v)].dirty = true;
+		}
 		// Just change the lane to 0.
 		vr.lane = 0;
 	} else if (vr.lane != 0) {
@@ -451,7 +450,9 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		}
 	} else if (vr.away) {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
-		xregs[VX(v)].dirty = xregs[VX(v)].dirty || ((flags & MAP_DIRTY) != 0);
+		if (flags & MAP_DIRTY) {
+			xregs[VX(v)].dirty = true;
+		}
 		_assert_msg_(JIT, vr.location.IsSimpleReg(), "not loaded and not simple.");
 	}
 	Invariant();
@@ -579,7 +580,9 @@ void FPURegCache::StoreFromRegister(int i) {
 		} else {
 			OpArg newLoc = GetDefaultLocation(i);
 			xregs[xr].mipsReg = -1;
-			emit->MOVSS(newLoc, xr);
+			if (xregs[xr].dirty) {
+				emit->MOVSS(newLoc, xr);
+			}
 			regs[i].location = newLoc;
 		}
 		xregs[xr].dirty = false;
