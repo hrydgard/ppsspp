@@ -122,11 +122,12 @@ bool FPURegCache::IsMappedVS(const u8 *v, VectorSize vsz) {
 		return false;
 
 	// And make sure the rest are mapped to the same reg in the right positions.
-	X64Reg xr = VSX(v[0]);
+	X64Reg xr = VSX(v);
 	for (int i = 1; i < n; ++i) {
-		if (!IsMappedVS(v[i]) || VSX(v[i]) != xr)
+		u8 vi = v[i];
+		if (!IsMappedVS(vi) || VSX(&vi) != xr)
 			return false;
-		if (vregs[v[i]].lane != i + 1)
+		if (vregs[vi].lane != i + 1)
 			return false;
 	}
 	// TODO: Optimize this case?  It happens.
@@ -203,7 +204,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 	if (IsMappedVS(v, vsz)) {
 		// Already mapped then, perfect.  Just mark dirty.
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v[0])].dirty = true;
+			xregs[VSX(v)].dirty = true;
 		return true;
 	}
 
@@ -215,7 +216,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v[0])].dirty = true;
+			xregs[VSX(v)].dirty = true;
 		Invariant();
 		return true;
 	}
@@ -433,7 +434,7 @@ void FPURegCache::SimpleRegsV(const u8 *v, MatrixSize msz, int flags) {
 void FPURegCache::SimpleRegV(const u8 v, int flags) {
 	MIPSCachedFPReg &vr = vregs[v];
 	// Special optimization: if it's in a single simd, we can keep it there.
-	if (vr.lane == 1 && xregs[VSX(v)].mipsRegs[1] == -1) {
+	if (vr.lane == 1 && xregs[VSX(&v)].mipsRegs[1] == -1) {
 		// Just change the lane to 0.
 		vr.lane = 0;
 	} else if (vr.lane != 0) {
