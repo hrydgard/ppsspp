@@ -52,6 +52,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
+	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -115,6 +116,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 			id1 |= (hasTexcoord & 1) << 28;
 		}
 	}
+	id1 |= (doFlatShading & 1) << 29;
 
 	id->d[0] = id0;
 	id->d[1] = id1;
@@ -222,6 +224,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
 	bool flipNormal = gstate.areNormalsReversed();
 
+	char *shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
 		int shadeLight0 = doShadeMapping ? gstate.getUVLS0() : -1;
@@ -326,9 +330,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
-	WRITE(p, "%s lowp vec4 v_color0;\n", varying);
+	WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, varying);
 	if (lmode) {
-		WRITE(p, "%s lowp vec3 v_color1;\n", varying);
+		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, varying);
 	}
 	if (doTexture) {
 		if (doTextureProjection)
