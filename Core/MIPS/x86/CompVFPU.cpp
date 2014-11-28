@@ -756,22 +756,9 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	GetVectorRegs(tregs, sz, _VT);
 	GetVectorRegs(dregs, sz, _VD);
 
-	// Flush SIMD.
-	fpr.SimpleRegsV(sregs, sz, 0);
-	fpr.SimpleRegsV(tregs, sz, 0);
-	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
-
 	if (sz == V_Triple) {
 		// Cross product vcrsp.t
-
 		if (fpr.TryMapDirtyInInVS(dregs, sz, sregs, sz, tregs, sz)) {
-			/*
-			__m128 result = _mm_sub_ps(
-				_mm_mul_ps(b, _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 0, 2, 1))),
-				_mm_mul_ps(a, _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 0, 2, 1)))
-				);
-			return _mm_shuffle_ps(result, result, _MM_SHUFFLE(3, 0, 2, 1));
-			*/
 			MOVAPS(XMM0, fpr.VS(tregs));
 			MOVAPS(XMM1, fpr.VS(sregs));
 			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 0, 2, 1));
@@ -784,6 +771,11 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 			fpr.ReleaseSpillLocks();
 			return;
 		}
+
+		// Flush SIMD.
+		fpr.SimpleRegsV(sregs, sz, 0);
+		fpr.SimpleRegsV(tregs, sz, 0);
+		fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 		fpr.MapRegsV(sregs, sz, 0);
 	
@@ -811,6 +803,11 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		SUBSS(XMM0, R(XMM1));
 		MOVSS(fpr.V(dregs[2]), XMM0);
 	} else if (sz == V_Quad) {
+		// Flush SIMD.
+		fpr.SimpleRegsV(sregs, sz, 0);
+		fpr.SimpleRegsV(tregs, sz, 0);
+		fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
 		// Quaternion product  vqmul.q
 		fpr.MapRegsV(sregs, sz, 0);
 
