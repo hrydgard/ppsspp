@@ -641,7 +641,6 @@ public:
 	void HSUBPD(X64Reg dest, OpArg src);
 
 	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
-	void DPPS(X64Reg dest, OpArg src, u8 arg);
 	void DPPD(X64Reg dest, OpArg src, u8 arg);
 
 	// These are probably useful for VFPU emulation.
