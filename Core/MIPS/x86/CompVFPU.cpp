@@ -1081,7 +1081,7 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 		}
 		else
 		{
-			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
@@ -1433,7 +1433,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 	if (*mult != 1.0f)
 		MOVSS(XMM1, M(mult));
 	for (int i = 0; i < n; i++) {
-		fpr.MapRegV(tempregs[i], (sregs[i] == dregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.MapRegV(tempregs[i], sregs[i] == dregs[i] ? MAP_DIRTY : MAP_NOINIT);
 		if (fpr.V(sregs[i]).IsSimpleReg()) {
 			CVTDQ2PS(fpr.VX(tempregs[i]), fpr.V(sregs[i]));
 		} else {
@@ -1854,7 +1854,7 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 		}
 		else
 		{
-			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
@@ -1912,7 +1912,7 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 		}
 		else
 		{
-			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
@@ -2063,7 +2063,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		}
 		else
 		{
-			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
@@ -2447,7 +2447,7 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 		}
 		else
 		{
-			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(dregs[i]);
 			tempxregs[i] = fpr.VX(dregs[i]);
 		}
@@ -2711,14 +2711,14 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 			// Will be discarded on release.
 			vreg = fpr.GetTempV();
 		}
-		fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.MapRegV(vreg, vreg == sregs[0] ? MAP_DIRTY : MAP_NOINIT);
 		fpr.SpillLockV(vreg);
 		dst0 = fpr.VX(vreg);
 	} else {
 		// Pair, let's check if we should use dregs[0] directly.  No temp needed.
 		int vreg = dregs[0];
 		if (IsOverlapSafeAllowS(dregs[0], 0, 2, sregs)) {
-			fpr.MapRegV(vreg, (vreg == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.MapRegV(vreg, vreg == sregs[0] ? MAP_DIRTY : MAP_NOINIT);
 			fpr.SpillLockV(vreg);
 			dst0 = fpr.VX(vreg);
 		}
@@ -2809,7 +2809,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 
 	X64Reg reg = XMM0;
 	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
-		fpr.MapRegV(dregs[0], (dregs[0] == sregs[0] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.MapRegV(dregs[0], dregs[0] == sregs[0] ? MAP_DIRTY : MAP_NOINIT);
 		fpr.SpillLockV(dregs[0]);
 		reg = fpr.VX(dregs[0]);
 	}

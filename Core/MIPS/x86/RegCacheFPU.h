@@ -85,7 +85,7 @@ namespace MIPSComp {
 
 enum {
 	MAP_DIRTY = 1,
-	MAP_NOINIT = 2,
+	MAP_NOINIT = 2 | MAP_DIRTY,
 };
 
 // The PSP has 160 FP registers: 32 FPRs + 128 VFPU registers.
