@@ -340,7 +340,6 @@
     <ClCompile Include="Mips\MIPS.cpp" />
     <ClCompile Include="Mips\MIPSAnalyst.cpp" />
     <ClCompile Include="MIPS\MIPSAsm.cpp" />
-    <ClCompile Include="MIPS\MIPSAsmTables.cpp" />
     <ClCompile Include="Mips\MIPSCodeUtils.cpp" />
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
     <ClCompile Include="Mips\MIPSDis.cpp" />
@@ -594,7 +593,6 @@
     <ClInclude Include="Mips\MIPS.h" />
     <ClInclude Include="Mips\MIPSAnalyst.h" />
     <ClInclude Include="MIPS\MIPSAsm.h" />
-    <ClInclude Include="MIPS\MIPSAsmTables.h" />
     <ClInclude Include="Mips\MIPSCodeUtils.h" />
     <ClInclude Include="MIPS\MIPSDebugInterface.h" />
     <ClInclude Include="Mips\MIPSDis.h" />
@@ -643,6 +641,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\armips\libarmips.vcxproj">
+      <Project>{129e5e2b-39c1-4d84-96fe-dfd22dbb4a25}</Project>
     </ProjectReference>
     <ProjectReference Include="..\GPU\GPU.vcxproj">
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>

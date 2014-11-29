@@ -125,7 +125,7 @@ allocate:
 		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-			if (!(mapFlags & MAP_NOINIT)) {
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 				if (mr[mipsReg].loc == ML_MEM && mipsReg < TEMP0) {
 					emit_->VLDR((ARMReg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
 				}
@@ -172,7 +172,7 @@ void ArmRegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
 	bool overlap = avoidLoad && rd == rs;
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
 	ReleaseSpillLock(rs);
@@ -181,7 +181,7 @@ void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
 	bool overlap = avoidLoad && (rd == rs || rd == rt);
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
@@ -243,7 +243,7 @@ void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
 	bool overlap = avoidLoad && (vd == vs);
 	SpillLockV(vd);
 	SpillLockV(vs);
-	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vd, overlap ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	ReleaseSpillLockV(vd);
 	ReleaseSpillLockV(vs);
@@ -254,7 +254,7 @@ void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	SpillLockV(vd);
 	SpillLockV(vs);
 	SpillLockV(vt);
-	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vd, overlap ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	MapRegV(vt);
 	ReleaseSpillLockV(vd);

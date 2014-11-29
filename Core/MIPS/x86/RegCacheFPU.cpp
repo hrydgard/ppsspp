@@ -93,7 +93,7 @@ void FPURegCache::ReleaseSpillLockV(const u8 *vec, VectorSize sz) {
 }
 
 void FPURegCache::MapRegV(int vreg, int flags) {
-	MapReg(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+	MapReg(vreg + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 }
 
 void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
@@ -101,14 +101,14 @@ void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
 	GetVectorRegs(r, sz, vec);
 	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 	}
 }
 
 void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 	}
 }
 
@@ -122,11 +122,12 @@ bool FPURegCache::IsMappedVS(const u8 *v, VectorSize vsz) {
 		return false;
 
 	// And make sure the rest are mapped to the same reg in the right positions.
-	X64Reg xr = VSX(v[0]);
+	X64Reg xr = VSX(v);
 	for (int i = 1; i < n; ++i) {
-		if (!IsMappedVS(v[i]) || VSX(v[i]) != xr)
+		u8 vi = v[i];
+		if (!IsMappedVS(vi) || VSX(&vi) != xr)
 			return false;
-		if (vregs[v[i]].lane != i + 1)
+		if (vregs[vi].lane != i + 1)
 			return false;
 	}
 	// TODO: Optimize this case?  It happens.
@@ -203,7 +204,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 	if (IsMappedVS(v, vsz)) {
 		// Already mapped then, perfect.  Just mark dirty.
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v[0])].dirty = true;
+			xregs[VSX(v)].dirty = true;
 		return true;
 	}
 
@@ -214,12 +215,14 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
 		vregs[v[0]].lane = 1;
+		if ((flags & MAP_DIRTY) != 0)
+			xregs[VSX(v)].dirty = true;
 		Invariant();
 		return true;
 	}
 
 	X64Reg xr;
-	if ((flags & MAP_NOINIT) == 0) {
+	if ((flags & MAP_NOINIT) != MAP_NOINIT) {
 		xr = LoadRegsVS(v, n);
 	} else {
 		xr = GetFreeXReg();
@@ -254,21 +257,25 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	int regsAvail = 0;
 	int regsLoaded = 0;
-	X64Reg xrs[4] = {INVALID_REG, INVALID_REG, INVALID_REG};
+	X64Reg xrs[4] = {INVALID_REG, INVALID_REG, INVALID_REG, INVALID_REG};
 	bool xrsLoaded[4] = {false, false, false, false};
 
 	_dbg_assert_msg_(JIT, n >= 2 && n <= 4, "LoadRegsVS is only implemented for simd loads.");
 
 	for (int i = 0; i < n; ++i) {
 		const MIPSCachedFPReg &mr = vregs[v[i]];
-		if (mr.away && (mr.lane == 0 || xregs[mr.location.GetSimpleReg()].mipsRegs[1] == -1)) {
-			// Okay, there's nothing else in this reg, so we can use it.
-			xrsLoaded[i] = true;
-			xrs[i] = mr.location.GetSimpleReg();
-			++regsLoaded;
-			++regsAvail;
-		} else if (mr.away && mr.lane != 0) {
-			_dbg_assert_msg_(JIT, false, "LoadRegsVS is not able to handle simd remapping yet, store first.");
+		if (mr.away) {
+			X64Reg mrx = mr.location.GetSimpleReg();
+			// If it's not simd, or lanes 1+ are clear, we can use it.
+			if (mr.lane == 0 || xregs[mrx].mipsRegs[1] == -1) {
+				// Okay, there's nothing else in this reg, so we can use it.
+				xrsLoaded[i] = true;
+				xrs[i] = mrx;
+				++regsLoaded;
+				++regsAvail;
+			} else if (mr.lane != 0) {
+				_dbg_assert_msg_(JIT, false, "LoadRegsVS is not able to handle simd remapping yet, store first.");
+			}
 		}
 	}
 
@@ -378,7 +385,7 @@ bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, V
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
 		SpillLockV(vs, vssz);
-		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
 	ReleaseSpillLockV(vs, vssz);
 
@@ -398,7 +405,7 @@ bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs,
 	}
 	if (success) {
 		SpillLockV(vt, vtsz);
-		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
 	ReleaseSpillLockV(vs, vssz);
 	ReleaseSpillLockV(vt, vtsz);
@@ -425,10 +432,17 @@ void FPURegCache::SimpleRegsV(const u8 *v, MatrixSize msz, int flags) {
 }
 
 void FPURegCache::SimpleRegV(const u8 v, int flags) {
-	const MIPSCachedFPReg &vr = vregs[v];
-	if (vr.lane != 0) {
+	MIPSCachedFPReg &vr = vregs[v];
+	// Special optimization: if it's in a single simd, we can keep it there.
+	if (vr.lane == 1 && xregs[VSX(&v)].mipsRegs[1] == -1) {
+		if (flags & MAP_DIRTY) {
+			xregs[VSX(&v)].dirty = true;
+		}
+		// Just change the lane to 0.
+		vr.lane = 0;
+	} else if (vr.lane != 0) {
 		// This will never end up in a register this way, so ignore dirty.
-		if ((flags & MAP_NOINIT)) {
+		if ((flags & MAP_NOINIT) == MAP_NOINIT) {
 			// This will discard only this reg, and store the others.
 			DiscardV(v);
 		} else {
@@ -436,7 +450,9 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		}
 	} else if (vr.away) {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
-		xregs[VX(v)].dirty |= (flags & MAP_DIRTY) != 0;
+		if (flags & MAP_DIRTY) {
+			xregs[VX(v)].dirty = true;
+		}
 		_assert_msg_(JIT, vr.location.IsSimpleReg(), "not loaded and not simple.");
 	}
 	Invariant();
@@ -520,13 +536,16 @@ void FPURegCache::StoreFromRegister(int i) {
 				}
 			}
 
+			// If we can do a multistore...
 			if (seq == 2 || seq == 4) {
 				OpArg newLoc = GetDefaultLocation(mri[0]);
-				if (seq == 4)
-					emit->MOVAPS(newLoc, xr);
-				else
-					emit->MOVQ_xmm(newLoc, xr);
-				for (int j = 0; j < 4; ++j) {
+				if (xregs[xr].dirty) {
+					if (seq == 4)
+						emit->MOVAPS(newLoc, xr);
+					else
+						emit->MOVQ_xmm(newLoc, xr);
+				}
+				for (int j = 0; j < seq; ++j) {
 					int mr = xregs[xr].mipsRegs[j];
 					if (mr == -1) {
 						continue;
@@ -538,31 +557,32 @@ void FPURegCache::StoreFromRegister(int i) {
 					xregs[xr].mipsRegs[j] = -1;
 				}
 			} else {
-				// Store all of them.
-				// TODO: This could be more optimal.  Check if we can MOVUPS/MOVAPS, etc.
-				for (int j = 0; j < 4; ++j) {
-					int mr = xregs[xr].mipsRegs[j];
-					if (mr == -1) {
-						continue;
-					}
-					if (j != 0 && xregs[xr].dirty) {
-						emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
-					}
-
-					OpArg newLoc = GetDefaultLocation(mr);
-					if (xregs[xr].dirty) {
-						emit->MOVSS(newLoc, xr);
-					}
-					regs[mr].location = newLoc;
-					regs[mr].away = false;
-					regs[mr].lane = 0;
-					xregs[xr].mipsRegs[j] = -1;
+				seq = 0;
+			}
+			// Store the rest.
+			for (int j = seq; j < 4; ++j) {
+				int mr = xregs[xr].mipsRegs[j];
+				if (mr == -1) {
+					continue;
 				}
+				if (j != 0 && xregs[xr].dirty) {
+					emit->SHUFPS(xr, Gen::R(xr), MMShuffleSwapTo0(j));
+				}
+				OpArg newLoc = GetDefaultLocation(mr);
+				if (xregs[xr].dirty) {
+					emit->MOVSS(newLoc, xr);
+				}
+				regs[mr].location = newLoc;
+				regs[mr].away = false;
+				regs[mr].lane = 0;
+				xregs[xr].mipsRegs[j] = -1;
 			}
 		} else {
 			OpArg newLoc = GetDefaultLocation(i);
 			xregs[xr].mipsReg = -1;
-			emit->MOVSS(newLoc, xr);
+			if (xregs[xr].dirty) {
+				emit->MOVSS(newLoc, xr);
+			}
 			regs[i].location = newLoc;
 		}
 		xregs[xr].dirty = false;

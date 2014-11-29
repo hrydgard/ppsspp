@@ -104,7 +104,7 @@ allocate:
 		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-			if (!(mapFlags & MAP_NOINIT)) {
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 				if (mr[mipsReg].loc == ML_MEM) {
 					if (mipsReg != 0) {
 						emit_->LWZ((PPCReg)reg, CTXREG, GetMipsRegOffset(mipsReg));
@@ -158,7 +158,7 @@ void PpcRegCache::MapInIn(MIPSReg rd, MIPSReg rs) {
 void PpcRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
 	bool load = !avoidLoad || rd == rs;
-	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
@@ -166,7 +166,7 @@ void PpcRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 void PpcRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
 	bool load = !avoidLoad || (rd == rs || rd == rt);
-	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
@@ -176,8 +176,8 @@ void PpcRegCache::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSRe
 	SpillLock(rd1, rd2, rs, rt);
 	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
 	bool load2 = !avoidLoad || (rd2 == rs || rd2 == rt);
-	MapReg(rd1, MAP_DIRTY | (load1 ? 0 : MAP_NOINIT));
-	MapReg(rd2, MAP_DIRTY | (load2 ? 0 : MAP_NOINIT));
+	MapReg(rd1, load1 ? MAP_DIRTY : MAP_NOINIT);
+	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();

@@ -4,8 +4,10 @@
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="JitHarness.cpp" />
+    <ClCompile Include="TestArmEmitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />
+    <ClInclude Include="UnitTest.h" />
   </ItemGroup>
 </Project>

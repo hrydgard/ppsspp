@@ -85,7 +85,7 @@ namespace MIPSComp {
 
 enum {
 	MAP_DIRTY = 1,
-	MAP_NOINIT = 2,
+	MAP_NOINIT = 2 | MAP_DIRTY,
 };
 
 // The PSP has 160 FP registers: 32 FPRs + 128 VFPU registers.
@@ -128,10 +128,10 @@ public:
 			PanicAlert("SIMD reg %d used as V reg (use VS instead)", vreg);
 		return vregs[vreg].location;
 	}
-	const OpArg &VS(int vreg) const {
-		if (vregs[vreg].lane == 0)
-			PanicAlert("V reg %d used as VS reg (use V instead)", vreg);
-		return vregs[vreg].location;
+	const OpArg &VS(const u8 *vs) const {
+		if (vregs[vs[0]].lane == 0)
+			PanicAlert("V reg %d used as VS reg (use V instead)", vs[0]);
+		return vregs[vs[0]].location;
 	}
 
 	X64Reg RX(int freg) const {
@@ -150,12 +150,12 @@ public:
 		return (X64Reg)-1;
 	}
 
-	X64Reg VSX(int vreg) const {
-		if (vregs[vreg].lane == 0)
-			PanicAlert("V reg %d used as VS reg (use VX instead)", vreg);
-		if (vregs[vreg].away && vregs[vreg].location.IsSimpleReg())
-			return vregs[vreg].location.GetSimpleReg();
-		PanicAlert("Not so simple - v%i", vreg);
+	X64Reg VSX(const u8 *vs) const {
+		if (vregs[vs[0]].lane == 0)
+			PanicAlert("V reg %d used as VS reg (use VX instead)", vs[0]);
+		if (vregs[vs[0]].away && vregs[vs[0]].location.IsSimpleReg())
+			return vregs[vs[0]].location.GetSimpleReg();
+		PanicAlert("Not so simple - v%i", vs[0]);
 		return (X64Reg)-1;
 	}
 
@@ -173,8 +173,8 @@ public:
 	bool IsMappedV(int v) {
 		return vregs[v].lane == 0 && V(v).IsSimpleReg();
 	}
-	bool IsMappedVS(int v) {
-		return vregs[v].lane != 0 && VS(v).IsSimpleReg();
+	bool IsMappedVS(u8 v) {
+		return vregs[v].lane != 0 && VS(&v).IsSimpleReg();
 	}
 	bool IsMappedVS(const u8 *v, VectorSize vsz);
 	bool CanMapVS(const u8 *v, VectorSize vsz);

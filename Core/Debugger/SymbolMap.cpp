@@ -944,6 +944,17 @@ DataType SymbolMap::GetDataType(u32 startAddress) const {
 
 #if defined(_WIN32)
 
+void SymbolMap::getLabels(std::vector<LabelDefinition>& dest) const
+{
+	lock_guard guard(lock_);
+	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
+		LabelDefinition entry;
+		entry.value = it->first;
+		entry.name = ConvertUTF8ToWString(it->second.name);
+		dest.push_back(entry);
+	}
+}
+
 struct DefaultSymbol {
 	u32 address;
 	const char* name;

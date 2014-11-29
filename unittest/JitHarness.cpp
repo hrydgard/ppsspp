@@ -108,12 +108,17 @@ bool TestJit() {
 
 	// TODO: Smarter way of seeding in the code sequence.
 	static const char *lines[] = {
+		//"vcrsp.t C000, C100, C200",
+		"vdot.q C000, C100, C200",
+		//"vmmul.q M000, M100, M200",
+		/*
 		"abs.s f1, f1",
 		"cvt.w.s f1, f1",
 		"cvt.w.s f3, f1",
 		"cvt.w.s f0, f2",
 		"cvt.w.s f5, f1",
 		"cvt.w.s f6, f5",
+		*/
 	};
 
 	bool compileSuccess = true;
@@ -131,8 +136,9 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
-			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
-				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
+			p++;
+			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
+				printf("ERROR: %S\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;

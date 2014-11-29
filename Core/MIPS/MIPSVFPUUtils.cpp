@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <limits>
+#include <stdio.h>
+
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-
-#include <limits>
-#include <stdio.h>
 
 #define V(i)   (currentMIPS->v[voffset[i]])
 #define VI(i)  (currentMIPS->vi[voffset[i]])
@@ -76,19 +76,87 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	}
 }
 
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed) {
+	// TODO: Fix (?)
+	int name = (matrix * 4) | (transposed << 5);
+	switch (msize) {
+	case M_4x4:
+		if (row || column) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i or column %i for size %i", row, column, msize);
+		}
+		break;
+
+	case M_3x3:
+		if (row & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i for size %i", row, msize);
+		}
+		if (column & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid col %i for size %i", column, msize);
+		}
+		name |= (row << 6) | column;
+		break;
+
+	case M_2x2:
+		if (row & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid row %i for size %i", row, msize);
+		}
+		if (column & ~2) {
+			ERROR_LOG(JIT, "GetMatrixName: Invalid col %i for size %i", column, msize);
+		}
+		name |= (row << 5) | column;
+		break;
+	}
+
+	return name;
+}
+
+int GetColumnName(int matrix, MatrixSize msize, int column, int offset) {
+	return matrix * 4 + column + offset * 32;
+}
+
+int GetRowName(int matrix, MatrixSize msize, int column, int offset) {
+	return 0x20 | (matrix * 4 + column + offset * 32);
+}
+
+void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+
+	int col = matrixReg & 3;
+	int row = (matrixReg >> 5) & 2;
+	int transpose = (matrixReg >> 5) & 1;
+
+	for (int i = 0; i < n; i++) {
+		vecs[i] = (transpose << 5) | (row << 5) | (matrixReg & 0x1C) | (i + col);
+	}
+}
+
+void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
+	int n = GetMatrixSide(msize);
+	int col = matrixReg & 3;
+	int row = (matrixReg >> 5) & 2;
+
+	int swappedCol = row ? (msize == M_3x3 ? 1 : 2) : 0;
+	int swappedRow = col ? 2 : 0;
+	int transpose = ((matrixReg >> 5) & 1) ^ 1;
+
+	for (int i = 0; i < n; i++) {
+		vecs[i] = (transpose << 5) | (swappedRow << 5) | (matrixReg & 0x1C) | (i + swappedCol);
+	}
+}
+
 void ReadVector(float *rd, VectorSize size, int reg) {
-	const int mtx = (reg >> 2) & 7;
-	const int col = reg & 3;
 	int row = 0;
 	int length = 0;
-	int transpose = (reg>>5) & 1;
 
 	switch (size) {
-	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: rd[0] = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	}
+	int transpose = (reg>>5) & 1;
+	const int mtx = (reg >> 2) & 7;
+	const int col = reg & 3;
 
 	u32 *rdu = (u32 *)rd;
 	if (transpose) {
@@ -103,18 +171,18 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
 	int row = 0;
 	int length = 0;
-	int transpose = (reg>>5)&1;
 
 	switch (size) {
-	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	}
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int transpose = (reg>>5)&1;
 
 	u32 *rdu = (u32 *)rd;
 	if (currentMIPS->VfpuWriteMask() == 0) {
@@ -186,11 +254,10 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
-	for (int i=0; i<side; i++) {
-		for (int j=0; j<side; j++) {
+	for (int i = 0; i < side; i++) {
+		for (int j = 0; j < side; j++) {
 			// Hm, I wonder if this should affect matrices at all.
-			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))
-			{
+			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))	{
 				int index = mtx * 4;
 				if (transpose)
 					index += ((row+i)&3) + ((col+j)&3)*32;
@@ -202,6 +269,22 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	}
 }
 
+int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
+	int n1 = GetNumVectorElements(size1);
+	int n2 = GetNumVectorElements(size2);
+	u8 regs1[4];
+	u8 regs2[4];
+	GetVectorRegs(regs1, size1, vec1);
+	GetVectorRegs(regs2, size1, vec2);
+	int count = 0;
+	for (int i = 0; i < n1; i++) {
+		for (int j = 0; j < n2; j++) {
+			if (regs1[i] == regs2[j])
+				count++;
+		}
+	}
+	return count;
+}
 
 int GetNumVectorElements(VectorSize sz)
 {
@@ -252,6 +335,25 @@ VectorSize GetVecSize(MIPSOpcode op)
 	}
 }
 
+VectorSize GetVectorSize(MatrixSize sz) {
+	switch (sz) {
+	case M_2x2: return V_Pair;
+	case M_3x3: return V_Triple;
+	case M_4x4: return V_Quad;
+	default:    return V_Invalid;
+	}
+}
+
+MatrixSize GetMatrixSize(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return M_Invalid;
+	case V_Pair: return M_2x2;
+	case V_Triple: return M_3x3;
+	case V_Quad: return M_4x4;
+	default: return M_Invalid;
+	}
+}
+
 MatrixSize GetMtxSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;
@@ -267,10 +369,17 @@ MatrixSize GetMtxSize(MIPSOpcode op)
 	}
 }
 
-int GetMatrixSide(MatrixSize sz)
-{
-	switch (sz)
-	{
+VectorSize MatrixVectorSize(MatrixSize sz) {
+	switch (sz) {
+	case M_2x2: return V_Pair;
+	case M_3x3: return V_Triple;
+	case M_4x4: return V_Quad;
+	default: return V_Quad;
+	}
+}
+
+int GetMatrixSide(MatrixSize sz) {
+	switch (sz) {
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
@@ -278,10 +387,40 @@ int GetMatrixSide(MatrixSize sz)
 	}
 }
 
+// TODO: Optimize
+MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
+	int n = GetMatrixSide(msize);
+
+	if (mtx1 == mtx2)
+		return OVERLAP_EQUAL;
+
+	u8 m1[16];
+	u8 m2[16];
+	GetMatrixRegs(m1, msize, mtx1);
+	GetMatrixRegs(m2, msize, mtx2);
+
+	// Simply do an exhaustive search.
+	for (int x = 0; x < n; x++) {
+		for (int y = 0; y < n; y++) {
+			int val = m1[y * 4 + x];
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					if (m2[a * 4 + b] == val) {
+						return OVERLAP_PARTIAL;
+					}
+				}
+			}
+		}
+	}
+
+	return OVERLAP_NONE;
+}
+
 const char *GetVectorNotation(int reg, VectorSize size)
 {
 	static char hej[4][16];
-	static int yo=0;yo++;yo&=3;
+	static int yo = 0; yo++; yo &= 3;
+
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 	int row = 0;

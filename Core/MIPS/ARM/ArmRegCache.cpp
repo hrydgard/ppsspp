@@ -144,7 +144,7 @@ void ArmRegCache::SetRegImm(ARMReg reg, u32 imm) {
 
 void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-	if (!(mapFlags & MAP_NOINIT)) {
+	if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 		if (mipsReg == MIPS_REG_ZERO) {
 			// If we get a request to load the zero register, at least we won't spend
 			// time on a memory access...
@@ -243,7 +243,7 @@ ARMReg ArmRegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		// add or subtract stuff to it. Later we could allow such things but for now
 		// let's just convert back to a register value by reloading from the backing storage.
 		ARMReg armReg = mr[mipsReg].reg;
-		if (!(mapFlags & MAP_NOINIT)) {
+		if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 			emit_->LDR(armReg, CTXREG, GetMipsRegOffset(mipsReg));
 		}
 		mr[mipsReg].loc = ML_ARMREG;
@@ -312,7 +312,7 @@ void ArmRegCache::MapInIn(MIPSGPReg rd, MIPSGPReg rs) {
 void ArmRegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
 	bool load = !avoidLoad || rd == rs;
-	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
@@ -320,7 +320,7 @@ void ArmRegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
 void ArmRegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
 	bool load = !avoidLoad || (rd == rs || rd == rt);
-	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
@@ -330,8 +330,8 @@ void ArmRegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bo
 	SpillLock(rd1, rd2, rs);
 	bool load1 = !avoidLoad || rd1 == rs;
 	bool load2 = !avoidLoad || rd2 == rs;
-	MapReg(rd1, MAP_DIRTY | (load1 ? 0 : MAP_NOINIT));
-	MapReg(rd2, MAP_DIRTY | (load2 ? 0 : MAP_NOINIT));
+	MapReg(rd1, load1 ? MAP_DIRTY : MAP_NOINIT);
+	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
@@ -340,8 +340,8 @@ void ArmRegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, 
 	SpillLock(rd1, rd2, rs, rt);
 	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
 	bool load2 = !avoidLoad || (rd2 == rs || rd2 == rt);
-	MapReg(rd1, MAP_DIRTY | (load1 ? 0 : MAP_NOINIT));
-	MapReg(rd2, MAP_DIRTY | (load2 ? 0 : MAP_NOINIT));
+	MapReg(rd1, load1 ? MAP_DIRTY : MAP_NOINIT);
+	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
