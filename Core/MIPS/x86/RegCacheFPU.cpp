@@ -93,7 +93,7 @@ void FPURegCache::ReleaseSpillLockV(const u8 *vec, VectorSize sz) {
 }
 
 void FPURegCache::MapRegV(int vreg, int flags) {
-	MapReg(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+	MapReg(vreg + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 }
 
 void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
@@ -101,14 +101,14 @@ void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
 	GetVectorRegs(r, sz, vec);
 	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 	}
 }
 
 void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		MapReg(r[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 	}
 }
 
@@ -222,7 +222,7 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 	}
 
 	X64Reg xr;
-	if ((flags & MAP_NOINIT) == 0) {
+	if ((flags & MAP_NOINIT) != MAP_NOINIT) {
 		xr = LoadRegsVS(v, n);
 	} else {
 		xr = GetFreeXReg();
@@ -385,7 +385,7 @@ bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, V
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
 		SpillLockV(vs, vssz);
-		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
 	ReleaseSpillLockV(vs, vssz);
 
@@ -405,7 +405,7 @@ bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs,
 	}
 	if (success) {
 		SpillLockV(vt, vtsz);
-		success = TryMapRegsVS(vd, vdsz, avoidLoad ? (MAP_NOINIT | MAP_DIRTY) : MAP_DIRTY);
+		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
 	ReleaseSpillLockV(vs, vssz);
 	ReleaseSpillLockV(vt, vtsz);
@@ -442,7 +442,7 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 		vr.lane = 0;
 	} else if (vr.lane != 0) {
 		// This will never end up in a register this way, so ignore dirty.
-		if ((flags & MAP_NOINIT)) {
+		if ((flags & MAP_NOINIT) == MAP_NOINIT) {
 			// This will discard only this reg, and store the others.
 			DiscardV(v);
 		} else {

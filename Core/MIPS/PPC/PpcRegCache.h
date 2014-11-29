@@ -92,7 +92,7 @@ struct RegMIPS {
 // Initing is the default so the flag is reversed.
 enum {
 	MAP_DIRTY = 1,
-	MAP_NOINIT = 2,
+	MAP_NOINIT = 2 | MAP_DIRTY,
 };
 
 namespace MIPSComp {
