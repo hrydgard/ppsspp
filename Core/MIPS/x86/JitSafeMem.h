@@ -24,6 +24,8 @@ class ThunkManager;
 
 namespace MIPSComp {
 
+using namespace Gen;
+
 class JitSafeMem {
 public:
 	JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);

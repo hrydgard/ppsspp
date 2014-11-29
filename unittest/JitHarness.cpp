@@ -108,12 +108,17 @@ bool TestJit() {
 
 	// TODO: Smarter way of seeding in the code sequence.
 	static const char *lines[] = {
+		//"vcrsp.t C000, C100, C200",
+		"vdot.q C000, C100, C200",
+		//"vmmul.q M000, M100, M200",
+		/*
 		"abs.s f1, f1",
 		"cvt.w.s f1, f1",
 		"cvt.w.s f3, f1",
 		"cvt.w.s f0, f2",
 		"cvt.w.s f5, f1",
 		"cvt.w.s f6, f5",
+		*/
 	};
 
 	bool compileSuccess = true;

@@ -2788,7 +2788,7 @@ void Jit::Comp_Vi2x(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
-static const float MEMORY_ALIGNED16( vavg_table[4] ) = {1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f};
+static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -2802,6 +2802,42 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	u8 sregs[4], dregs[1];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+	if (fpr.TryMapDirtyInVS(dregs, V_Single, sregs, sz)) {
+		switch (sz) {
+		case V_Pair:
+			MOVAPS(XMM0, fpr.VS(sregs));
+			MOVAPS(XMM1, R(XMM0));
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3,2,1,1));
+			ADDPS(XMM0, R(XMM1));
+			MOVAPS(fpr.VSX(dregs), R(XMM0));
+			break;
+		case V_Triple:
+			MOVAPS(XMM0, fpr.VS(sregs));
+			MOVAPS(XMM1, R(XMM0));
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3,2,1,1));
+			ADDPS(XMM0, R(XMM1));
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3,2,1,2));
+			ADDPS(XMM0, R(XMM1));
+			MOVAPS(fpr.VSX(dregs), R(XMM0));
+			break;
+		case V_Quad:
+			MOVAPS(XMM0, fpr.VS(sregs));
+			MOVHLPS(XMM1, XMM0);
+			ADDPS(XMM0, R(XMM1));
+			MOVAPS(XMM1, R(XMM0));
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(1,1,1,1));
+			ADDPS(XMM0, R(XMM1));
+			MOVAPS(fpr.VSX(dregs), R(XMM0));
+			break;
+		}
+		if (((op >> 16) & 31) == 7) { // vavg
+			MULSS(fpr.VSX(dregs), M(&vavg_table[n]));
+		}
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocks();
+		NOTICE_LOG(JIT, "Horiz %08x", js.blockStart);
+		return;
+	}
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);

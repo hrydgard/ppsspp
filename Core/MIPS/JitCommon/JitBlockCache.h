@@ -37,28 +37,23 @@ namespace std {
 #if defined(ARM)
 #include "Common/ArmEmitter.h"
 namespace ArmGen { class ARMXEmitter; }
-using namespace ArmGen;
 typedef ArmGen::ARMXCodeBlock CodeBlock;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 namespace Gen { class XEmitter; }
-using namespace Gen;
 typedef Gen::XCodeBlock CodeBlock;
 #elif defined(PPC)
 #include "Common/ppcEmitter.h"
 namespace PpcGen { class PPCXEmitter; }
-using namespace PpcGen;
 typedef PpcGen::PPCXCodeBlock CodeBlock;
 #elif defined(MIPS)
 #include "Common/MipsEmitter.h"
 namespace MIPSGen { class MIPSEmitter; }
-using namespace MIPSGen;
 typedef MIPSGen::MIPSCodeBlock CodeBlock;
 #else
 #warning "Unsupported arch!"
 #include "Common/FakeEmitter.h"
 namespace FakeGen { class FakeXEmitter; }
-using namespace FakeGen;
 typedef FakeGen::FakeXCodeBlock CodeBlock;
 #endif
 
