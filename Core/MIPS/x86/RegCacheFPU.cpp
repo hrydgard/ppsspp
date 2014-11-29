@@ -356,6 +356,13 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		}
 	} else {
 		_dbg_assert_msg_(JIT, n > 2, "2 should not be possible here.");
+		// TODO: More optimal.
+		if (xrsLoaded[0]) {
+			StoreFromRegisterV(v[0]);
+		}
+		if (xrsLoaded[1]) {
+			StoreFromRegisterV(v[1]);
+		}
 		if (n == 3) {
 			emit->MOVSS(xrs[1], vregs[v[2]].location);
 			emit->MOVSS(xrs[0], vregs[v[1]].location);
