@@ -2317,6 +2317,31 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
 
+	// Not really about trying here, it will work if enabled.
+	if (jo.enableVFPUSIMD) {
+		VectorSize vsz = GetVectorSize(sz);
+		u8 vecs[4];
+		GetMatrixColumns(_VD, sz, vecs);
+		for (int i = 0; i < n; i++) {
+			u8 vec[4];
+			GetVectorRegs(vec, vsz, vecs[i]);
+			fpr.MapRegsVS(vec, vsz, MAP_NOINIT | MAP_DIRTY);
+			switch ((op >> 16) & 0xF) {
+			case 3:
+				MOVAPS(fpr.VSX(vec), M(&identityMatrix[i]));
+				break;
+			case 6:
+				XORPS(fpr.VSX(vec), fpr.VS(vec));
+				break;
+			case 7:
+				MOVAPS(fpr.VSX(vec), M(&oneOneOneOne));
+				break;
+			}
+		}
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 	u8 dregs[16];
 	GetMatrixRegs(dregs, sz, _VD);
 
@@ -2835,7 +2860,6 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocks();
-		NOTICE_LOG(JIT, "Horiz %08x", js.blockStart);
 		return;
 	}
 
