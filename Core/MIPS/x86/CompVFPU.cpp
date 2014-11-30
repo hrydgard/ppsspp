@@ -2389,6 +2389,48 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
 
+	if (jo.enableVFPUSIMD) {
+		VectorSize vsz = GetVectorSize(sz);
+		u8 dest[4][4];
+		MatrixOverlapType overlap = GetMatrixOverlap(_VD, _VS, sz);
+
+		u8 vecs[4];
+		if (overlap == OVERLAP_NONE) {
+			GetMatrixColumns(_VD, sz, vecs);
+			for (int i = 0; i < n; ++i) {
+				GetVectorRegs(dest[i], vsz, vecs[i]);
+			}
+		} else {
+			for (int i = 0; i < n; ++i) {
+				fpr.GetTempVS(dest[i], vsz);
+			}
+		}
+
+		GetMatrixColumns(_VS, sz, vecs);
+		for (int i = 0; i < n; i++) {
+			u8 vec[4];
+			GetVectorRegs(vec, vsz, vecs[i]);
+			fpr.MapRegsVS(vec, vsz, 0);
+			fpr.MapRegsVS(dest[i], vsz, MAP_NOINIT);
+			MOVAPS(fpr.VSX(dest[i]), fpr.VS(vec));
+		}
+
+		if (overlap != OVERLAP_NONE) {
+			// Okay, move from the temps to VD now.
+			GetMatrixColumns(_VD, sz, vecs);
+			for (int i = 0; i < n; i++) {
+				u8 vec[4];
+				GetVectorRegs(vec, vsz, vecs[i]);
+				fpr.MapRegsVS(vec, vsz, MAP_NOINIT);
+				fpr.MapRegsVS(dest[i], vsz, 0);
+				MOVAPS(fpr.VSX(vec), fpr.VS(dest[i]));
+			}
+		}
+
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 	u8 sregs[16], dregs[16];
 	GetMatrixRegs(sregs, sz, _VS);
 	GetMatrixRegs(dregs, sz, _VD);

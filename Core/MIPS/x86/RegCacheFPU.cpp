@@ -684,6 +684,50 @@ int FPURegCache::GetTempR() {
 	return -1;
 }
 
+int FPURegCache::GetTempVS(u8 *v, VectorSize vsz) {
+	pendingFlush = true;
+	const int n = GetNumVectorElements(vsz);
+
+	// Let's collect regs as we go, but try for n free in a row.
+	int found = 0;
+	for (int r = TEMP0; r <= TEMP0 + NUM_TEMPS - n; ++r) {
+		if (regs[r].away || regs[r].tempLocked) {
+			continue;
+		}
+
+		// How many free siblings does this have?
+		int seq = 1;
+		for (int i = 1; i < n; ++i) {
+			if (regs[r + i].away || regs[r + i].tempLocked) {
+				break;
+			}
+			++seq;
+		}
+
+		if (seq == n) {
+			// Got 'em.  Exacty as many as we need.
+			for (int i = 0; i < n; ++i) {
+				v[i] = r + i - 32;
+			}
+			found = n;
+			break;
+		}
+
+		if (found < n) {
+			v[found++] = r - 32;
+		}
+	}
+
+	if (found != n) {
+		_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+		return -1;
+	}
+
+	for (int i = 0; i < n; ++i) {
+		regs[v[i] + 32].tempLocked = true;
+	}
+}
+
 void FPURegCache::Flush() {
 	if (!pendingFlush) {
 		return;
