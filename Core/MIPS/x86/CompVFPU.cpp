@@ -2389,7 +2389,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
 
-	if (jo.enableVFPUSIMD) {
+	if (false && jo.enableVFPUSIMD) {
 		VectorSize vsz = GetVectorSize(sz);
 		u8 dest[4][4];
 		MatrixOverlapType overlap = GetMatrixOverlap(_VD, _VS, sz);
@@ -2412,6 +2412,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 			GetVectorRegs(vec, vsz, vecs[i]);
 			fpr.MapRegsVS(vec, vsz, 0);
 			fpr.MapRegsVS(dest[i], vsz, MAP_NOINIT);
+			fpr.SpillLockV(dest[i], vsz);
 			MOVAPS(fpr.VSX(dest[i]), fpr.VS(vec));
 		}
 
@@ -2422,6 +2423,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 				u8 vec[4];
 				GetVectorRegs(vec, vsz, vecs[i]);
 				fpr.MapRegsVS(vec, vsz, MAP_NOINIT);
+				fpr.SpillLockV(vec, vsz);
 				fpr.MapRegsVS(dest[i], vsz, 0);
 				MOVAPS(fpr.VSX(vec), fpr.VS(dest[i]));
 			}
@@ -2543,7 +2545,70 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
+	VectorSize vsz = GetVectorSize(sz);
 	int n = GetMatrixSide(sz);
+
+	MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
+	MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
+
+	if (jo.enableVFPUSIMD && !soverlap && !toverlap) {
+		u8 scols[4], dcols[4], tregs[16];
+
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
+
+		// Some games transpose too much..
+		// TODO: This doesn't work! It should!
+		if (false && (vd & 0x20) && !(vs & 0x20) && (vt & 0x20) && sz == M_4x4) {
+			// Transpose both operands and swap the order, according to (AB)' = (B'A')
+			// We want our contiguous columns as much as possible!
+			vs ^= 0x20;
+			vt ^= 0x20;
+		  //vd ^= 0x20;
+			std::swap(vs, vt);
+		}
+
+		// The T matrix we will address individually.
+		GetMatrixColumns(vd, sz, dcols);
+		GetMatrixRows(vs, sz, scols);
+		memset(tregs, 255, sizeof(tregs));
+		GetMatrixRegs(tregs, sz, vt);
+		for (int i = 0; i < 16; i++) {
+			if (tregs[i] != 255)
+				fpr.StoreFromRegisterV(tregs[i]);
+		}
+
+		u8 scol[4][4];
+
+		// Map all of S's columns into registers.
+		for (int i = 0; i < n; i++) {
+			GetVectorRegs(scol[i], vsz, scols[i]);
+			fpr.MapRegsVS(scol[i], vsz, 0);
+			fpr.SpillLockV(scols[i], vsz);
+		}
+
+		// Now, work our way through the matrix, loading things as we go.
+		// TODO: With more temp registers, can generate much more efficient code.
+		for (int i = 0; i < n; i++) {
+			MOVSS(XMM1, fpr.V(tregs[4 * i]));  // TODO: AVX broadcastss to replace this and the SHUFPS
+			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+			MULPS(XMM1, fpr.VS(scol[0]));
+			for (int j = 1; j < n; j++) {
+				MOVSS(XMM0, fpr.V(tregs[4 * i + j]));
+				SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
+				MULPS(XMM0, fpr.VS(scol[j]));
+				ADDPS(XMM1, R(XMM0));
+			}
+			// Map the D column.
+			u8 dcol[4];
+			GetVectorRegs(dcol, vsz, dcols[i]);
+			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
+			MOVAPS(fpr.VS(dcol), XMM1);
+		}
+		fpr.ReleaseSpillLocks();
+		return;
+	}
 
 	u8 sregs[16], tregs[16], dregs[16];
 	GetMatrixRegs(sregs, sz, _VS);

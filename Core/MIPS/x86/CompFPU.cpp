@@ -285,7 +285,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		if (fd != fs) {
 			MOVSS(fpr.RX(fd), fpr.R(fs));
 		}
-		PXOR(fpr.RX(fd), M(ssSignBits2));
+		XORPS(fpr.RX(fd), M(ssSignBits2));
 		break;
 
 
