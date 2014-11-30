@@ -2390,7 +2390,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
 
-	if (false && jo.enableVFPUSIMD) {
+	if (jo.enableVFPUSIMD) {
 		VectorSize vsz = GetVectorSize(sz);
 		u8 dest[4][4];
 		MatrixOverlapType overlap = GetMatrixOverlap(_VD, _VS, sz);
@@ -2413,7 +2413,6 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 			GetVectorRegs(vec, vsz, vecs[i]);
 			fpr.MapRegsVS(vec, vsz, 0);
 			fpr.MapRegsVS(dest[i], vsz, MAP_NOINIT);
-			fpr.SpillLockV(dest[i], vsz);
 			MOVAPS(fpr.VSX(dest[i]), fpr.VS(vec));
 			fpr.ReleaseSpillLocks();
 		}
@@ -2425,7 +2424,6 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 				u8 vec[4];
 				GetVectorRegs(vec, vsz, vecs[i]);
 				fpr.MapRegsVS(vec, vsz, MAP_NOINIT);
-				fpr.SpillLockV(vec, vsz);
 				fpr.MapRegsVS(dest[i], vsz, 0);
 				MOVAPS(fpr.VSX(vec), fpr.VS(dest[i]));
 				fpr.ReleaseSpillLocks();
