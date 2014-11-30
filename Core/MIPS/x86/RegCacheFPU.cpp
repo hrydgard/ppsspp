@@ -325,8 +325,14 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	// Let's also check if the memory addresses are sequential.
 	int sequential = 1;
 	for (int i = 1; i < n; ++i) {
-		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
-			break;
+		if (v[i] < 128) {
+			if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
+				break;
+			}
+		} else {
+			if (v[i] != v[i - 1] + 1) {
+				break;
+			}
 		}
 		++sequential;
 	}
@@ -360,7 +366,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 				break;
 			}
 		}
-		const float *f = &mips->v[voffset[v[0]]];
+		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &mips->v[v[0]];
 		if (((intptr_t)f & 0x7) == 0 && n == 2) {
 			emit->MOVQ_xmm(res, vregs[v[0]].location);
 		} else if (((intptr_t)f & 0xf) == 0) {
@@ -604,7 +610,9 @@ void FPURegCache::StoreFromRegister(int i) {
 				if (mri[i] == -1) {
 					break;
 				}
-				if (voffset[mri[i] - 32] == voffset[mri[i - 1] - 32] + 1) {
+				if (mri[i] - 32 >= 128 && mri[i] == mri[i - 1] + 1) {
+					seq++;
+				} else if (mri[i] - 32 < 128 && voffset[mri[i] - 32] == voffset[mri[i - 1] - 32] + 1) {
 					seq++;
 				} else {
 					break;
