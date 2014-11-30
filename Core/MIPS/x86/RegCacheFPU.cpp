@@ -25,7 +25,7 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
-u32 FPURegCache::tempValues[NUM_TEMPS];
+float FPURegCache::tempValues[NUM_TEMPS];
 
 FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	memset(regs, 0, sizeof(regs));
@@ -367,7 +367,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 				break;
 			}
 		}
-		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &mips->v[v[0]];
+		const float *f = v[0] < 128 ? &mips->v[voffset[v[0]]] : &tempValues[v[0] - 128];
 		if (((intptr_t)f & 0x7) == 0 && n == 2) {
 			emit->MOVQ_xmm(res, vregs[v[0]].location);
 		} else if (((intptr_t)f & 0xf) == 0) {
@@ -607,25 +607,30 @@ void FPURegCache::StoreFromRegister(int i) {
 		if (regs[i].lane != 0) {
 			const int *mri = xregs[xr].mipsRegs;
 			int seq = 1;
-			for (int i = 1; i < 4; ++i) {
-				if (mri[i] == -1) {
+			for (int j = 1; j < 4; ++j) {
+				if (mri[j] == -1) {
 					break;
 				}
-				if (mri[i] - 32 >= 128 && mri[i] == mri[i - 1] + 1) {
+				if (mri[j] - 32 >= 128 && mri[j] == mri[j - 1] + 1) {
 					seq++;
-				} else if (mri[i] - 32 < 128 && voffset[mri[i] - 32] == voffset[mri[i - 1] - 32] + 1) {
+				} else if (mri[j] - 32 < 128 && voffset[mri[j] - 32] == voffset[mri[j - 1] - 32] + 1) {
 					seq++;
 				} else {
 					break;
 				}
 			}
 
+			const float *f = mri[0] - 32 < 128 ? &mips->v[voffset[mri[0] - 32]] : &tempValues[mri[0] - 32 - 128];
+			int align = (intptr_t)f & 0xf;
+
 			// If we can do a multistore...
-			if (seq == 2 || seq == 4) {
+			if ((seq == 2 && (align & 0x7) == 0) || seq == 4) {
 				OpArg newLoc = GetDefaultLocation(mri[0]);
 				if (xregs[xr].dirty) {
-					if (seq == 4)
+					if (seq == 4 && align == 0)
 						emit->MOVAPS(newLoc, xr);
+					else if (seq == 4)
+						emit->MOVUPS(newLoc, xr);
 					else
 						emit->MOVQ_xmm(newLoc, xr);
 				}

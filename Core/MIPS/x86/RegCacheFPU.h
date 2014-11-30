@@ -241,7 +241,7 @@ private:
 	X64CachedFPReg xregsInitial[NUM_X_FPREGS];
 
 	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
-	static u32 tempValues[NUM_TEMPS];
+	static float tempValues[NUM_TEMPS];
 
 	XEmitter *emit;
 	MIPSComp::JitOptions *jo_;
