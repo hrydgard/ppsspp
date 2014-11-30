@@ -1782,6 +1782,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		if (dregs[i] != tempregs[i]) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
+			fpr.DiscardV(tempregs[i]);
 		}
 	}
 
@@ -2414,6 +2415,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 			fpr.MapRegsVS(dest[i], vsz, MAP_NOINIT);
 			fpr.SpillLockV(dest[i], vsz);
 			MOVAPS(fpr.VSX(dest[i]), fpr.VS(vec));
+			fpr.ReleaseSpillLocks();
 		}
 
 		if (overlap != OVERLAP_NONE) {
@@ -2426,6 +2428,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 				fpr.SpillLockV(vec, vsz);
 				fpr.MapRegsVS(dest[i], vsz, 0);
 				MOVAPS(fpr.VSX(vec), fpr.VS(dest[i]));
+				fpr.ReleaseSpillLocks();
 			}
 		}
 

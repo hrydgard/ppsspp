@@ -68,15 +68,15 @@ void FPURegCache::SetupInitialRegs() {
 }
 
 void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
-	regs[p1].locked = true;
-	if (p2 != 0xFF) regs[p2].locked = true;
-	if (p3 != 0xFF) regs[p3].locked = true;
-	if (p4 != 0xFF) regs[p4].locked = true;
+	regs[p1].locked++;
+	if (p2 != 0xFF) regs[p2].locked++;
+	if (p3 != 0xFF) regs[p3].locked++;
+	if (p4 != 0xFF) regs[p4].locked++;
 }
 
 void FPURegCache::SpillLockV(const u8 *vec, VectorSize sz) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		vregs[vec[i]].locked = true;
+		vregs[vec[i]].locked++;
 	}
 }
 
@@ -88,7 +88,17 @@ void FPURegCache::SpillLockV(int vec, VectorSize sz) {
 
 void FPURegCache::ReleaseSpillLockV(const u8 *vec, VectorSize sz) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
-		vregs[vec[i]].locked = false;
+		vregs[vec[i]].locked = 0;
+	}
+}
+
+void FPURegCache::ReduceSpillLock(int mipsreg) {
+	regs[mipsreg].locked--;
+}
+
+void FPURegCache::ReduceSpillLockV(const u8 *vec, VectorSize sz) {
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		vregs[vec[i]].locked--;
 	}
 }
 
@@ -103,12 +113,22 @@ void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 	}
+	if ((flags & MAP_NOLOCK) != 0) {
+		// We have to lock so the sz won't spill, so we unlock after.
+		// If they were already locked, we only reduce the lock we added above.
+		ReduceSpillLockV(r, sz);
+	}
 }
 
 void FPURegCache::MapRegsV(const u8 *r, VectorSize sz, int flags) {
 	SpillLockV(r, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapReg(r[i] + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
+	}
+	if ((flags & MAP_NOLOCK) != 0) {
+		// We have to lock so the sz won't spill, so we unlock after.
+		// If they were already locked, we only reduce the lock we added above.
+		ReduceSpillLockV(r, sz);
 	}
 }
 
@@ -251,6 +271,10 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		vr.away = true;
 	}
 	xregs[xr].dirty = dirty;
+
+	if ((flags & MAP_NOLOCK) == 0) {
+		SpillLockV(v, vsz);
+	}
 
 	Invariant();
 	return true;
@@ -395,14 +419,18 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		}
 
 		if (n == 3) {
-			emit->MOVSS(xr2, vregs[v[2]].location);
-			emit->MOVSS(xr1, vregs[v[1]].location);
+			if (!vregs[v[2]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr2, vregs[v[2]].location);
+			if (!vregs[v[1]].location.IsSimpleReg(xr1))
+				emit->MOVSS(xr1, vregs[v[1]].location);
 			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(3, 0, 0, 0));
 			emit->MOVSS(xr2, vregs[v[0]].location);
 			emit->MOVSS(xr1, Gen::R(xr2));
 		} else if (n == 4) {
-			emit->MOVSS(xr2, vregs[v[2]].location);
-			emit->MOVSS(xr1, vregs[v[3]].location);
+			if (!vregs[v[2]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr2, vregs[v[2]].location);
+			if (!vregs[v[3]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr1, vregs[v[3]].location);
 			emit->UNPCKLPS(xr2, Gen::R(xr1));
 			emit->MOVSS(xr1, vregs[v[1]].location);
 			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(1, 0, 0, 3));
@@ -423,10 +451,10 @@ bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, V
 	// But, they could still fail based on overlap.  Hopefully not common...
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
-		SpillLockV(vs, vssz);
 		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
 	ReleaseSpillLockV(vs, vssz);
+	ReleaseSpillLockV(vd, vdsz);
 
 	return success;
 }
@@ -439,13 +467,12 @@ bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs,
 	// But, they could still fail based on overlap.  Hopefully not common...
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {
-		SpillLockV(vs, vssz);
 		success = TryMapRegsVS(vt, vtsz, 0);
 	}
 	if (success) {
-		SpillLockV(vt, vtsz);
 		success = TryMapRegsVS(vd, vdsz, avoidLoad ? MAP_NOINIT : MAP_DIRTY);
 	}
+	ReleaseSpillLockV(vd, vdsz);
 	ReleaseSpillLockV(vs, vssz);
 	ReleaseSpillLockV(vt, vtsz);
 
@@ -497,14 +524,13 @@ void FPURegCache::SimpleRegV(const u8 v, int flags) {
 	Invariant();
 }
 
-void FPURegCache::ReleaseSpillLock(int mipsreg)
-{
-	regs[mipsreg].locked = false;
+void FPURegCache::ReleaseSpillLock(int mipsreg) {
+	regs[mipsreg].locked = 0;
 }
 
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
-		regs[i].locked = false;
+		regs[i].locked = 0;
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
 		DiscardR(i);
 }
