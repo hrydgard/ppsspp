@@ -114,7 +114,7 @@ public:
 	int GetTempV() {
 		return GetTempR() - 32;
 	}
-	// TODO: GetTempVS?
+	int GetTempVS(u8 *v, VectorSize vsz);
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 	void SetOptions(MIPSComp::JitOptions *jo) {jo_ = jo;}

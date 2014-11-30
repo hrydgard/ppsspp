@@ -173,7 +173,6 @@ bool TestJit() {
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
-		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
 		// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
 		const int cutoff = 25;
 		for (int i = 0; i < std::min((int)lines.size(), cutoff); i++) {
@@ -181,6 +180,7 @@ bool TestJit() {
 		}
 		if (lines.size() > cutoff)
 			printf("...\n");
+		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
 	}
 
 	printf("\n");
