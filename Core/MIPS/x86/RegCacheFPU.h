@@ -69,7 +69,7 @@ struct MIPSCachedFPReg {
 	OpArg location;
 	int lane;
 	bool away;  // value not in source register (memory)
-	bool locked;
+	u8 locked;
 	// Only for temp regs.
 	bool tempLocked;
 };
@@ -86,6 +86,8 @@ namespace MIPSComp {
 enum {
 	MAP_DIRTY = 1,
 	MAP_NOINIT = 2 | MAP_DIRTY,
+	// Only for MapRegsV, MapRegsVS.
+	MAP_NOLOCK = 4,
 };
 
 // The PSP has 160 FP registers: 32 FPRs + 128 VFPU registers.
@@ -164,7 +166,7 @@ public:
 
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
-	void ReleaseSpillLock(int mipsrega);
+	void ReleaseSpillLock(int mipsreg);
 	void ReleaseSpillLocks();
 
 	bool IsMapped(int r) {
@@ -219,6 +221,13 @@ public:
 private:
 	const int *GetAllocationOrder(int &count);
 	void SetupInitialRegs();
+
+	// These are intentionally not public so the interface is "locked" or "unlocked", no levels.
+	void ReduceSpillLock(int mreg);
+	void ReduceSpillLockV(int vreg) {
+		ReduceSpillLock(vreg + 32);
+	}
+	void ReduceSpillLockV(const u8 *vec, VectorSize sz);
 
 	X64Reg LoadRegsVS(const u8 *v, int n);
 

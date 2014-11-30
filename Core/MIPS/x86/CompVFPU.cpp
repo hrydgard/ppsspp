@@ -2413,6 +2413,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 			fpr.MapRegsVS(vec, vsz, 0);
 			fpr.MapRegsVS(dest[i], vsz, MAP_NOINIT);
 			MOVAPS(fpr.VSX(dest[i]), fpr.VS(vec));
+			fpr.ReleaseSpillLocks();
 		}
 
 		if (overlap != OVERLAP_NONE) {
@@ -2424,6 +2425,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 				fpr.MapRegsVS(vec, vsz, MAP_NOINIT);
 				fpr.MapRegsVS(dest[i], vsz, 0);
 				MOVAPS(fpr.VSX(vec), fpr.VS(dest[i]));
+				fpr.ReleaseSpillLocks();
 			}
 		}
 
