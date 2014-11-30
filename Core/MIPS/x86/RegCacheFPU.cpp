@@ -236,7 +236,9 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		if (vr.away) {
 			// Clear the xreg it was in before.
 			X64Reg oldXReg = vr.location.GetSimpleReg();
-			xregs[oldXReg].mipsReg = -1;
+			if (oldXReg != xr) {
+				xregs[oldXReg].mipsReg = -1;
+			}
 			if (xregs[oldXReg].dirty) {
 				// Inherit the "dirtiness" (ultimately set below for all regs.)
 				dirty = true;
@@ -293,9 +295,18 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		}
 	}
 
+	// Let's also check if the memory addresses are sequential.
+	int sequential = 1;
+	for (int i = 1; i < n; ++i) {
+		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
+			break;
+		}
+		++sequential;
+	}
+
 	// Did we end up with enough regs?
 	// TODO: Not handling the case of some regs avail and some loaded right now.
-	if (regsAvail < n) {
+	if (regsAvail < n && (sequential != n || regsLoaded == n || regsAvail == 0)) {
 		regsAvail = GetFreeXRegs(xrs, 2, true);
 		_dbg_assert_msg_(JIT, regsAvail >= 2, "Ran out of fp regs for loading simd regs with.");
 		_dbg_assert_msg_(JIT, xrs[0] != xrs[1], "Regs for simd load are the same, bad things await.");
@@ -306,30 +317,30 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		regsLoaded = 0;
 	}
 
-	// Let's also check if the memory addresses are sequential.
-	int sequential = 1;
-	for (int i = 1; i < n; ++i) {
-		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
-			break;
-		}
-		++sequential;
-	}
-
 	// If they're sequential, and we wouldn't need to store them all, use a single load.
 	// But if they're already loaded, we'd have to store, not worth it.
+	X64Reg res = INVALID_REG;
 	if (sequential == n && regsLoaded < n) {
 		// TODO: What should we do if some are in regs?  Better to assemble?
 		for (int i = 0; i < n; ++i) {
 			StoreFromRegisterV(v[i]);
 		}
+
+		// Grab any available reg.
+		for (int i = 0; i < n; ++i) {
+			if (xrs[i] != INVALID_REG) {
+				res = xrs[i];
+				break;
+			}
+		}
 		const float *f = &mips->v[voffset[v[0]]];
 		if (((intptr_t)f & 0x7) == 0 && n == 2) {
-			emit->MOVQ_xmm(xrs[0], vregs[v[0]].location);
+			emit->MOVQ_xmm(res, vregs[v[0]].location);
 		} else if (((intptr_t)f & 0xf) == 0) {
 			// On modern processors, MOVUPS on aligned is fast, but maybe not on older ones.
-			emit->MOVAPS(xrs[0], vregs[v[0]].location);
+			emit->MOVAPS(res, vregs[v[0]].location);
 		} else {
-			emit->MOVUPS(xrs[0], vregs[v[0]].location);
+			emit->MOVUPS(res, vregs[v[0]].location);
 		}
 	} else if (regsAvail >= n) {
 		// Have enough regs, potentially all in regs.
@@ -354,33 +365,54 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		if (n >= 2) {
 			emit->UNPCKLPS(xrs[0], Gen::R(xrs[1]));
 		}
+		res = xrs[0];
 	} else {
 		_dbg_assert_msg_(JIT, n > 2, "2 should not be possible here.");
-		// TODO: More optimal.
-		if (xrsLoaded[0]) {
-			StoreFromRegisterV(v[0]);
+
+		// Available regs are less than n, and some may be loaded.
+		// Let's grab the most optimal unloaded ones.
+		X64Reg xr1 = n == 3 ? xrs[1] : xrs[3];
+		X64Reg xr2 = xrs[2];
+		if (xr1 == INVALID_REG) {
+			// Not one of the available ones.  Grab another.
+			for (int i = n - 1; i >= 0; --i) {
+				if (xrs[i] != INVALID_REG && xrs[i] != xr2) {
+					StoreFromRegisterV(v[i]);
+					xr1 = xrs[i];
+					break;
+				}
+			}
 		}
-		if (xrsLoaded[1]) {
-			StoreFromRegisterV(v[1]);
+		if (xr2 == INVALID_REG) {
+			// Not one of the available ones.  Grab another.
+			for (int i = n - 1; i >= 0; --i) {
+				if (xrs[i] != INVALID_REG && xrs[i] != xr1) {
+					StoreFromRegisterV(v[i]);
+					xr2 = xrs[i];
+					break;
+				}
+			}
 		}
+
 		if (n == 3) {
-			emit->MOVSS(xrs[1], vregs[v[2]].location);
-			emit->MOVSS(xrs[0], vregs[v[1]].location);
-			emit->SHUFPS(xrs[0], Gen::R(xrs[1]), _MM_SHUFFLE(3, 0, 0, 0));
-			emit->MOVSS(xrs[1], vregs[v[0]].location);
-			emit->MOVSS(xrs[0], Gen::R(xrs[1]));
+			emit->MOVSS(xr2, vregs[v[2]].location);
+			emit->MOVSS(xr1, vregs[v[1]].location);
+			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(3, 0, 0, 0));
+			emit->MOVSS(xr2, vregs[v[0]].location);
+			emit->MOVSS(xr1, Gen::R(xr2));
 		} else if (n == 4) {
-			emit->MOVSS(xrs[1], vregs[v[2]].location);
-			emit->MOVSS(xrs[0], vregs[v[3]].location);
-			emit->UNPCKLPS(xrs[1], Gen::R(xrs[0]));
-			emit->MOVSS(xrs[0], vregs[v[1]].location);
-			emit->SHUFPS(xrs[0], Gen::R(xrs[1]), _MM_SHUFFLE(1, 0, 0, 3));
-			emit->MOVSS(xrs[1], vregs[v[0]].location);
-			emit->MOVSS(xrs[0], Gen::R(xrs[1]));
+			emit->MOVSS(xr2, vregs[v[2]].location);
+			emit->MOVSS(xr1, vregs[v[3]].location);
+			emit->UNPCKLPS(xr2, Gen::R(xr1));
+			emit->MOVSS(xr1, vregs[v[1]].location);
+			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(1, 0, 0, 3));
+			emit->MOVSS(xr2, vregs[v[0]].location);
+			emit->MOVSS(xr1, Gen::R(xr2));
 		}
+		res = xr1;
 	}
 
-	return xrs[0];
+	return res;
 }
 
 bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, VectorSize vssz, bool avoidLoad) {
