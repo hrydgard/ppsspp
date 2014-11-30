@@ -395,14 +395,18 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		}
 
 		if (n == 3) {
-			emit->MOVSS(xr2, vregs[v[2]].location);
-			emit->MOVSS(xr1, vregs[v[1]].location);
+			if (!vregs[v[2]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr2, vregs[v[2]].location);
+			if (!vregs[v[1]].location.IsSimpleReg(xr1))
+				emit->MOVSS(xr1, vregs[v[1]].location);
 			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(3, 0, 0, 0));
 			emit->MOVSS(xr2, vregs[v[0]].location);
 			emit->MOVSS(xr1, Gen::R(xr2));
 		} else if (n == 4) {
-			emit->MOVSS(xr2, vregs[v[2]].location);
-			emit->MOVSS(xr1, vregs[v[3]].location);
+			if (!vregs[v[2]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr2, vregs[v[2]].location);
+			if (!vregs[v[3]].location.IsSimpleReg(xr2))
+				emit->MOVSS(xr1, vregs[v[3]].location);
 			emit->UNPCKLPS(xr2, Gen::R(xr1));
 			emit->MOVSS(xr1, vregs[v[1]].location);
 			emit->SHUFPS(xr1, Gen::R(xr2), _MM_SHUFFLE(1, 0, 0, 3));
