@@ -234,6 +234,9 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// Single is easy, just map normally but track as a SIMD reg.
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
+		if ((flags & MAP_NOLOCK) == 0) {
+			SpillLockV(v, vsz);
+		}
 		vregs[v[0]].lane = 1;
 		if ((flags & MAP_DIRTY) != 0)
 			xregs[VSX(v)].dirty = true;
@@ -456,6 +459,9 @@ bool FPURegCache::TryMapDirtyInVS(const u8 *vd, VectorSize vdsz, const u8 *vs, V
 	ReleaseSpillLockV(vs, vssz);
 	ReleaseSpillLockV(vd, vdsz);
 
+	_dbg_assert_msg_(JIT, !success || IsMappedVS(vd, vdsz), "vd should be mapped now");
+	_dbg_assert_msg_(JIT, !success || IsMappedVS(vs, vssz), "vs should be mapped now");
+
 	return success;
 }
 
@@ -475,6 +481,10 @@ bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs,
 	ReleaseSpillLockV(vd, vdsz);
 	ReleaseSpillLockV(vs, vssz);
 	ReleaseSpillLockV(vt, vtsz);
+
+	_dbg_assert_msg_(JIT, !success || IsMappedVS(vd, vdsz), "vd should be mapped now");
+	_dbg_assert_msg_(JIT, !success || IsMappedVS(vs, vssz), "vs should be mapped now");
+	_dbg_assert_msg_(JIT, !success || IsMappedVS(vt, vtsz), "vt should be mapped now");
 
 	return success;
 }
