@@ -1782,6 +1782,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 		if (dregs[i] != tempregs[i]) {
 			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
+			fpr.DiscardV(tempregs[i]);
 		}
 	}
 
