@@ -624,10 +624,13 @@ void FPURegCache::StoreFromRegister(int i) {
 			if (seq == 2 || seq == 4) {
 				OpArg newLoc = GetDefaultLocation(mri[0]);
 				if (xregs[xr].dirty) {
-					if (seq == 4)
+					if (seq == 4) {
+						_assert_msg_(JIT, (newLoc.offset & 15) == 0, "Unaligned default location for movaps");
 						emit->MOVAPS(newLoc, xr);
-					else
+					} else {
+						// _assert_msg_(JIT, (newLoc.offset & 7) == 0, "Unaligned default location for movq");
 						emit->MOVQ_xmm(newLoc, xr);
+					}
 				}
 				for (int j = 0; j < seq; ++j) {
 					int mr = xregs[xr].mipsRegs[j];
