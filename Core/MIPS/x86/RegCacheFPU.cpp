@@ -293,9 +293,18 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		}
 	}
 
+	// Let's also check if the memory addresses are sequential.
+	int sequential = 1;
+	for (int i = 1; i < n; ++i) {
+		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
+			break;
+		}
+		++sequential;
+	}
+
 	// Did we end up with enough regs?
 	// TODO: Not handling the case of some regs avail and some loaded right now.
-	if (regsAvail < n) {
+	if (regsAvail < n && (sequential != n || regsLoaded == n || regsAvail == 0)) {
 		regsAvail = GetFreeXRegs(xrs, 2, true);
 		_dbg_assert_msg_(JIT, regsAvail >= 2, "Ran out of fp regs for loading simd regs with.");
 		_dbg_assert_msg_(JIT, xrs[0] != xrs[1], "Regs for simd load are the same, bad things await.");
@@ -304,15 +313,6 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 			xrsLoaded[i] = false;
 		}
 		regsLoaded = 0;
-	}
-
-	// Let's also check if the memory addresses are sequential.
-	int sequential = 1;
-	for (int i = 1; i < n; ++i) {
-		if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
-			break;
-		}
-		++sequential;
 	}
 
 	// If they're sequential, and we wouldn't need to store them all, use a single load.
