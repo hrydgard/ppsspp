@@ -236,7 +236,9 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		if (vr.away) {
 			// Clear the xreg it was in before.
 			X64Reg oldXReg = vr.location.GetSimpleReg();
-			xregs[oldXReg].mipsReg = -1;
+			if (oldXReg != xr) {
+				xregs[oldXReg].mipsReg = -1;
+			}
 			if (xregs[oldXReg].dirty) {
 				// Inherit the "dirtiness" (ultimately set below for all regs.)
 				dirty = true;
