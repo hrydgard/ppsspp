@@ -177,5 +177,9 @@ void Jit::CompNEON_Vocp(MIPSOpcode op) {
 	DISABLE;
 }
 
+void Jit::CompNEON_ColorConv(MIPSOpcode op) {
+	DISABLE;
+}
+
 }
 // namespace MIPSComp

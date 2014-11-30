@@ -758,6 +758,8 @@ int FPURegCache::GetTempVS(u8 *v, VectorSize vsz) {
 	for (int i = 0; i < n; ++i) {
 		regs[v[i] + 32].tempLocked = true;
 	}
+
+	return 0;  // ??
 }
 
 void FPURegCache::Flush() {

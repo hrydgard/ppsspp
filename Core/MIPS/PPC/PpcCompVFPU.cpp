@@ -1209,5 +1209,8 @@ namespace MIPSComp
 	void Jit::Comp_Vocp(MIPSOpcode op) {
 		DISABLE;
 	}
+	void Jit::Comp_ColorConv(MIPSOpcode op) {
+		DISABLE;
+	}
 }
 

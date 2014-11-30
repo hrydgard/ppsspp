@@ -2111,4 +2111,8 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_ColorConv(MIPSOpcode op) {
+		DISABLE;
+	}
+
 }

@@ -46,6 +46,10 @@
 #define MIPS_GET_FT(op) ((op>>16) & 0x1F)
 #define MIPS_GET_FD(op) ((op>>6 ) & 0x1F)
 
+#define MIPS_GET_VD(op) (op & 0x7F)
+#define MIPS_GET_VS(op) ((op>>8) & 0x7F)
+#define MIPS_GET_VT(op) ((op>>16) & 0x7F)
+
 
 namespace MIPSCodeUtils
 {

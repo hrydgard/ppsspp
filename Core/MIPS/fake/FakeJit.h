@@ -131,6 +131,7 @@ public:
 	void Comp_VCrossQuat(MIPSOpcode op) {}
 	void Comp_Vsgn(MIPSOpcode op) {}
 	void Comp_Vocp(MIPSOpcode op) {}
+	void Comp_ColorConv(MIPSOpcode op) {}
 
 	int Replace_fabsf() { return 0; }
 

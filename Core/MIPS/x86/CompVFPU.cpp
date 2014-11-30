@@ -2986,6 +2986,39 @@ void Jit::Comp_Vfim(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin) {
+	char what[4] = { '0', '0', '0', '0' };
+	if (((imm >> 2) & 3) == (imm & 3)) {
+		for (int i = 0; i < 4; i++)
+			what[i] = 'S';
+	}
+	what[(imm >> 2) & 3] = 'S';
+	what[imm & 3] = 'C';
+
+	// TODO: shufps SIMD version
+
+	for (int i = 0; i < n; i++) {
+		fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+		switch (what[i]) {
+		case 'C': MOVSS(fpr.V(dregs[i]), XMM1); break;
+		case 'S':
+			MOVSS(fpr.V(dregs[i]), XMM0);
+			if (negSin) {
+				XORPS(fpr.VX(dregs[i]), M(&signBitLower));
+			}
+			break;
+		case '0':
+		{
+			XORPS(fpr.VX(dregs[i]), fpr.V(dregs[i]));
+			break;
+		}
+		default:
+			ERROR_LOG(JIT, "Bad what in vrot");
+			break;
+		}
+	}
+}
+
 // Very heavily used by FF:CC
 void Jit::Comp_VRot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -2997,8 +3030,22 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	int n = GetNumVectorElements(sz);
 
 	u8 dregs[4];
+	u8 dregs2[4];
+
+	u32 nextOp = Memory::Read_Opcode_JIT(js.compilerPC + 4).encoding;
+	int vd2 = -1;
+	int imm2 = -1;
+	if (false && (nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+		// Pair of vrot. Let's join them.
+		vd2 = MIPS_GET_VD(nextOp);
+		imm2 = (nextOp >> 16) & 0x1f;
+		NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+	}
+
 	u8 sreg;
 	GetVectorRegs(dregs, sz, vd);
+	if (vd2 >= 0)
+		GetVectorRegs(dregs2, sz, vd2);
 	GetVectorRegs(&sreg, V_Single, vs);
 
 	// Flush SIMD.
@@ -3009,44 +3056,31 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	gpr.FlushBeforeCall();
 	fpr.Flush();
 
-	bool negSin = (imm & 0x10) ? true : false;
+	bool negSin1 = (imm & 0x10) ? true : false;
 
 #ifdef _M_X64
 	MOVSS(XMM0, fpr.V(sreg));
-	ABI_CallFunction(negSin ? (const void *)&SinCosNegSin : (const void *)&SinCos);
+	ABI_CallFunction(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
 #else
 	// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
-	ABI_CallFunctionA(negSin ? (const void *)&SinCosNegSin : (const void *)&SinCos, fpr.V(sreg));
+	ABI_CallFunctionA(negSin2 ? (const void *)&SinCosNegSin : (const void *)&SinCos, fpr.V(sreg));
 #endif
 
 	MOVSS(XMM0, M(&sincostemp[0]));
 	MOVSS(XMM1, M(&sincostemp[1]));
-	
-	char what[4] = {'0', '0', '0', '0'};
-	if (((imm >> 2) & 3) == (imm & 3)) {
-		for (int i = 0; i < 4; i++)
-			what[i] = 'S';
-	}
-	what[(imm >> 2) & 3] = 'S';
-	what[imm & 3] = 'C';
 
-	for (int i = 0; i < n; i++) {
-		fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
-		switch (what[i]) {
-		case 'C': MOVSS(fpr.V(dregs[i]), XMM1); break;
-		case 'S': MOVSS(fpr.V(dregs[i]), XMM0); break;
-		case '0':
-			{
-				XORPS(fpr.VX(dregs[i]), fpr.V(dregs[i]));
-				break;
-			}
-		default:
-			ERROR_LOG(JIT, "Bad what in vrot");
-			break;
-		}
+	CompVrotShuffle(dregs, imm, n, false);
+	if (vd2 != -1) {
+		// If the negsin setting differs between the two joint invocations, we need to flip the second one.
+		bool negSin2 = (imm2 & 0x10) ? true : false;
+		CompVrotShuffle(dregs2, imm2, n, negSin1 != negSin2);
+		js.compilerPC += 4;
 	}
-
 	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_ColorConv(MIPSOpcode op) {
+	DISABLE;
 }
 
 }

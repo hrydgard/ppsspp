@@ -771,9 +771,9 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 	INVALID, INVALID, INVALID, INVALID,
 	//24
 	INVALID,
-	INSTR("vt4444", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vt5551", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vt5650", &Jit::Comp_Generic, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt4444", &Jit::Comp_ColorConv, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt5551", &Jit::Comp_ColorConv, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vt5650", &Jit::Comp_ColorConv, Dis_ColorConv, Int_ColorConv, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	//28
 	INVALID, INVALID, INVALID, INVALID,
