@@ -579,7 +579,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	const char *shading = "";
 	if (glslES30)
-		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "";
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;

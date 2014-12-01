@@ -226,7 +226,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	const char *shading = "";
 	if (glslES30)
-		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "";
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
