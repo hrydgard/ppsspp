@@ -611,9 +611,9 @@ void FPURegCache::StoreFromRegister(int i) {
 				if (mri[j] == -1) {
 					break;
 				}
-				if (mri[j] - 32 >= 128 && mri[j] == mri[j - 1] + 1) {
+				if (mri[j] - 32 >= 128 && mri[j - 1] - 32 >= 128 && mri[j] == mri[j - 1] + 1) {
 					seq++;
-				} else if (mri[j] - 32 < 128 && voffset[mri[j] - 32] == voffset[mri[j - 1] - 32] + 1) {
+				} else if (mri[j] - 32 < 128 && mri[j - 1] - 32 < 128 && voffset[mri[j] - 32] == voffset[mri[j - 1] - 32] + 1) {
 					seq++;
 				} else {
 					break;
