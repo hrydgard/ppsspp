@@ -439,7 +439,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		} else if (n == 4) {
 			if (!vregs[v[2]].location.IsSimpleReg(xr2))
 				emit->MOVSS(xr2, vregs[v[2]].location);
-			if (!vregs[v[3]].location.IsSimpleReg(xr2))
+			if (!vregs[v[3]].location.IsSimpleReg(xr1))
 				emit->MOVSS(xr1, vregs[v[3]].location);
 			emit->UNPCKLPS(xr2, Gen::R(xr1));
 			emit->MOVSS(xr1, vregs[v[1]].location);
