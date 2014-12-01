@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
 
 #include "base/display.h"
 #include "base/NativeApp.h"
@@ -32,7 +33,8 @@
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
-#include "Config.h"
+#include "Core/Config.h"
+#include "Core/Loaders.h"
 #include "HLE/sceUtility.h"
 
 #ifndef USING_QT_UI
@@ -993,19 +995,15 @@ void Config::AddRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		if (File::Exists(recentIsos[i])) {
-			// clean the redundant recent games' list.
-			if (cleanedRecent.size()==0) { // add first one
+		FileLoader *loader = ConstructFileLoader(recentIsos[i]);
+		if (loader->Exists()) {
+			// Make sure we don't have any redundant items.
+			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
+			if (duplicate == cleanedRecent.end()) {
 				cleanedRecent.push_back(recentIsos[i]);
 			}
-			for (size_t j = 0; j < cleanedRecent.size();j++) {
-				if (cleanedRecent[j] == recentIsos[i])
-					break; // skip if found redundant
-				if (j == cleanedRecent.size() - 1){ // add if no redundant found
-					cleanedRecent.push_back(recentIsos[i]);
-				}
-			}
 		}
+		delete loader;
 	}
 	recentIsos = cleanedRecent;
 }
