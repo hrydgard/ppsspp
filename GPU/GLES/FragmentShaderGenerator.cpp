@@ -577,7 +577,9 @@ void GenerateFragmentShader(char *buffer) {
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
-	char *shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+	const char *shading = "";
+	if (glslES30)
+		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;

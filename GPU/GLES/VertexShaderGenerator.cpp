@@ -224,7 +224,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
 	bool flipNormal = gstate.areNormalsReversed();
 
-	char *shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+	const char *shading = "";
+	if (glslES30)
+		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
