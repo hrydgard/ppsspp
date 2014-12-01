@@ -70,7 +70,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 			points[idx] = simplified_control_points + idx;
 	}
 
-	u8 *decoded2 = decoded + 65536 * 36;
+	u8 *decoded2 = decoded + 65536 * 24;
 
 	int count = 0;
 	u8 *dest = decoded2;
@@ -97,8 +97,10 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 		gstate_c.uv.uOff = 0;
 		gstate_c.uv.vOff = 0;
 	}
+
+	void *quadInds = prim_type == GE_PATCHPRIM_LINES ? quadIndicesLines_ : quadIndices_;
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadInds, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -152,7 +154,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 		}
 	}
 
-	u8 *decoded2 = decoded + 65536 * 36;
+	u8 *decoded2 = decoded + 65536 * 24;
 
 	int count = 0;
 	u8 *dest = decoded2;
@@ -185,8 +187,10 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 		gstate_c.uv.vOff = 0;
 	}
 
+	void *quadInds = prim_type == GE_PATCHPRIM_LINES ? quadIndicesLines_ : quadIndices_;
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadInds, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+
 	Flush();
 
 	if (g_Config.bPrescaleUV) {

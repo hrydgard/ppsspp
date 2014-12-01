@@ -400,6 +400,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
@@ -466,6 +467,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id1 |= gstate.getBlendFuncA() << 6;
 			id1 |= gstate.getBlendFuncB() << 10;
 		}
+		id1 |= (doFlatShading & 1) << 14;
 	}
 
 	id->d[0] = id0;
@@ -575,6 +577,10 @@ void GenerateFragmentShader(char *buffer) {
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
+	const char *shading = "";
+	if (glslES30)
+		shading = gstate.getShadeMode() == GE_SHADE_FLAT ? "flat" : "smooth";
+
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
 
@@ -617,9 +623,9 @@ void GenerateFragmentShader(char *buffer) {
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND)
 		WRITE(p, "uniform vec3 u_texenv;\n");
 
-	WRITE(p, "%s vec4 v_color0;\n", varying);
+	WRITE(p, "%s %s vec4 v_color0;\n", shading, varying);
 	if (lmode)
-		WRITE(p, "%s vec3 v_color1;\n", varying);
+		WRITE(p, "%s %s vec3 v_color1;\n", shading, varying);
 	if (enableFog) {
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
