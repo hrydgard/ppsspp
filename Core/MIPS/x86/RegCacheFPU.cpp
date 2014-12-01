@@ -439,7 +439,7 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		} else if (n == 4) {
 			if (!vregs[v[2]].location.IsSimpleReg(xr2))
 				emit->MOVSS(xr2, vregs[v[2]].location);
-			if (!vregs[v[3]].location.IsSimpleReg(xr2))
+			if (!vregs[v[3]].location.IsSimpleReg(xr1))
 				emit->MOVSS(xr1, vregs[v[3]].location);
 			emit->UNPCKLPS(xr2, Gen::R(xr1));
 			emit->MOVSS(xr1, vregs[v[1]].location);
@@ -611,9 +611,9 @@ void FPURegCache::StoreFromRegister(int i) {
 				if (mri[j] == -1) {
 					break;
 				}
-				if (mri[j] - 32 >= 128 && mri[j] == mri[j - 1] + 1) {
+				if (mri[j] - 32 >= 128 && mri[j - 1] - 32 >= 128 && mri[j] == mri[j - 1] + 1) {
 					seq++;
-				} else if (mri[j] - 32 < 128 && voffset[mri[j] - 32] == voffset[mri[j - 1] - 32] + 1) {
+				} else if (mri[j] - 32 < 128 && mri[j - 1] - 32 < 128 && voffset[mri[j] - 32] == voffset[mri[j - 1] - 32] + 1) {
 					seq++;
 				} else {
 					break;
@@ -852,6 +852,34 @@ void FPURegCache::Invariant() const {
 #endif
 }
 
+static int GetMRMtx(int mr) {
+	if (mr < 32)
+		return -1;
+	if (mr >= 128 + 32)
+		return -1;
+	return ((mr - 32) >> 2) & 7;
+}
+
+static int GetMRRow(int mr) {
+	if (mr < 32)
+		return -1;
+	if (mr >= 128 + 32)
+		return -1;
+	return ((mr - 32) >> 0) & 3;
+}
+
+static int GetMRCol(int mr) {
+	if (mr < 32)
+		return -1;
+	if (mr >= 128 + 32)
+		return -1;
+	return ((mr - 32) >> 5) & 3;
+}
+
+static bool IsMRTemp(int mr) {
+	return mr >= 128 + 32;
+}
+
 int FPURegCache::SanityCheck() const {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
 		const MIPSCachedFPReg &mr = regs[i];
@@ -892,6 +920,11 @@ int FPURegCache::SanityCheck() const {
 			return 8;
 
 		bool hasMoreRegs = hasReg;
+		int mtx = -2;
+		int row = -2;
+		int col = -2;
+		bool rowMatched = true;
+		bool colMatched = true;
 		for (int j = 0; j < 4; ++j) {
 			if (xr.mipsRegs[j] == -1) {
 				hasMoreRegs = false;
@@ -904,6 +937,26 @@ int FPURegCache::SanityCheck() const {
 			const MIPSCachedFPReg &mr = regs[xr.mipsRegs[j]];
 			if (!mr.location.IsSimpleReg(X64Reg(i)))
 				return 10;
+
+			if (!IsMRTemp(xr.mipsRegs[j])) {
+				if (mtx == -2)
+					mtx = GetMRMtx(xr.mipsRegs[j]);
+				else if (mtx != GetMRMtx(xr.mipsRegs[j]))
+					return 11;
+
+				if (row == -2)
+					row = GetMRRow(xr.mipsRegs[j]);
+				else if (row != GetMRRow(xr.mipsRegs[j]))
+					rowMatched = false;
+
+				if (col == -2)
+					col = GetMRCol(xr.mipsRegs[j]);
+				else if (col != GetMRCol(xr.mipsRegs[j]))
+					colMatched = false;
+			}
+		}
+		if (!rowMatched && !colMatched) {
+			return 12;
 		}
 	}
 
