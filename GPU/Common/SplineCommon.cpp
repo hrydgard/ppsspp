@@ -110,7 +110,6 @@ void spline_knot(int n, int type, float *knot) {
 }
 
 void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
-	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
 	// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
 
@@ -118,6 +117,11 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatc
 	const int tile_min_v = (spatch.type_v & START_OPEN) ? 0 : 1;
 	const int tile_max_u = (spatch.type_u & END_OPEN) ? spatch.count_u - 1 : spatch.count_u - 2;
 	const int tile_max_v = (spatch.type_v & END_OPEN) ? spatch.count_v - 1 : spatch.count_v - 2;
+
+	float tu_width = spatch.count_u - 3;
+	float tv_height = spatch.count_v - 3;
+	tu_width /= (float)(tile_max_u - tile_min_u);
+	tv_height /= (float)(tile_max_v - tile_min_v);
 
 	for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
 		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
@@ -130,16 +134,17 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatc
 
 			// Generate UV. TODO: Do this even if UV specified in control points?
 			if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
-				float u = tile_u * third;
-				float v = tile_v * third;
+				float u = (tile_u - tile_min_u) * tu_width;
+				float v = (tile_v - tile_min_v) * tv_height;
+
 				v0.uv[0] = u;
 				v0.uv[1] = v;
-				v1.uv[0] = u + third;
+				v1.uv[0] = u + tu_width;
 				v1.uv[1] = v;
 				v2.uv[0] = u;
-				v2.uv[1] = v + third;
-				v3.uv[0] = u + third;
-				v3.uv[1] = v + third;
+				v2.uv[1] = v + tv_height;
+				v3.uv[0] = u + tu_width;
+				v3.uv[1] = v + tv_height;
 			}
 
 			// Generate normal if lighting is enabled (otherwise there's no point).
@@ -177,8 +182,8 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 
 	// Increase tesselation based on the size. Should be approximately right?
 	// JPCSP is wrong at least because their method results in square loco roco.
-	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU() / quality;
-	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV() / quality;
+	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
+	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
 
 	if (patch_div_s <= 0) patch_div_s = 1;
 	if (patch_div_t <= 0) patch_div_t = 1;
@@ -186,8 +191,8 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 	// First compute all the vertices and put them in an array
 	SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];
 
-	float tu_width = 1.0f + (spatch.count_u - 4) * 1.0f / 3.0f;
-	float tv_height = 1.0f + (spatch.count_v - 4) * 1.0f / 3.0f;
+	float tu_width = spatch.count_u - 3;
+	float tv_height = spatch.count_v - 3;
 
 	bool computeNormals = gstate.isLightingEnabled();
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
