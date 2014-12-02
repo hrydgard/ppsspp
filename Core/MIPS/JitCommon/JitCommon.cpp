@@ -71,6 +71,31 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 
 #ifndef ARM
 
+const char *ppsspp_resolver(struct ud*,
+	uint64_t addr,
+	int64_t *offset) {
+	// For some reason these two don't seem to trigger..
+	if (addr >= (uint64_t)(&currentMIPS->r[0]) && addr < (uint64_t)&currentMIPS->r[32]) {
+		*offset = addr - (uint64_t)(&currentMIPS->r[0]);
+		return "mips.r";
+	}
+	if (addr >= (uint64_t)(&currentMIPS->v[0]) && addr < (uint64_t)&currentMIPS->v[128]) {
+		*offset = addr - (uint64_t)(&currentMIPS->v[0]);
+		return "mips.v";
+	}
+	// But these do.
+	if (MIPSComp::jit->IsInSpace((u8 *)(intptr_t)addr)) {
+		*offset = addr - (uint64_t)MIPSComp::jit->GetBasePtr();
+		return "jitcode";
+	}
+	if (MIPSComp::jit->Asm().IsInSpace((u8 *)(intptr_t)addr)) {
+		*offset = addr - (uint64_t)MIPSComp::jit->Asm().GetBasePtr();
+		return "dispatcher";
+	}
+
+	return NULL;
+}
+
 std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	std::vector<std::string> lines;
 	ud_t ud_obj;
@@ -83,6 +108,7 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	ud_set_pc(&ud_obj, (intptr_t)data);
 	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
 	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
+	ud_set_sym_resolver(&ud_obj, &ppsspp_resolver);
 
 	ud_set_input_buffer(&ud_obj, data, size);
 
