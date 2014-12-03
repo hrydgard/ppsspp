@@ -163,7 +163,7 @@ public:
 	~Psmf();
 	void DoState(PointerWrap &p);
 	
-	bool isValidCurrentStreamNumber() {
+	bool isValidCurrentStreamNumber() const {
 		return currentStreamNum >= 0 && currentStreamNum < (int)streamMap.size();  // urgh, checking size isn't really right here.
 	}
 

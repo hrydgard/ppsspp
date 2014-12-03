@@ -580,7 +580,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 }
 
 
-SectionID ElfReader::GetSectionByName(const char *name, int firstSection)
+SectionID ElfReader::GetSectionByName(const char *name, int firstSection) const
 {
 	for (int i = firstSection; i < header->e_shnum; i++)
 	{

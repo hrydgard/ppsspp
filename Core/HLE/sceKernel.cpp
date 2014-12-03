@@ -470,7 +470,7 @@ SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop
 	return 0;
 }
 
-bool KernelObjectPool::IsValid(SceUID handle)
+bool KernelObjectPool::IsValid(SceUID handle) const
 {
 	int index = handle - handleOffset;
 	if (index < 0)
@@ -520,7 +520,7 @@ void KernelObjectPool::List()
 	}
 }
 
-int KernelObjectPool::GetCount()
+int KernelObjectPool::GetCount() const
 {
 	int count = 0;
 	for (int i=0; i<maxCount; i++)

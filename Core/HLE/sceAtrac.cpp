@@ -218,12 +218,12 @@ struct Atrac {
 	}
 
 	int Analyze();
-	u32 getDecodePosBySample(int sample) {
+	u32 getDecodePosBySample(int sample) const {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		return (u32)(firstSampleoffset + sample / atracSamplesPerFrame * atracBytesPerFrame );
 	}
 
-	int getRemainFrames() {
+	int getRemainFrames() const {
 		// games would like to add atrac data when it wants.
 		// Do not try to guess when it want to add data.
 		// Just return current remainFrames.
