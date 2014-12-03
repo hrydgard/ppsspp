@@ -1743,7 +1743,7 @@ void XEmitter::WriteSSE41Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int ex
 void XEmitter::PSHUFB(X64Reg dest, OpArg arg)   {WriteSSSE3Op(0x66, 0x3800, dest, arg);}
 void XEmitter::PTEST(X64Reg dest, OpArg arg)    {WriteSSE41Op(0x66, 0x3817, dest, arg);}
 void XEmitter::PACKUSDW(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x382b, dest, arg);}
-void XEmitter::DPPS(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A40, dest, arg); Write8(mask);}
+void XEmitter::DPPS(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A40, dest, arg, 1); Write8(mask);}
 
 void XEmitter::PMINSB(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3838, dest, arg);}
 void XEmitter::PMINSD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3839, dest, arg);}
