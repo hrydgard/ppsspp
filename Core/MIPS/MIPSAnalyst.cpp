@@ -138,6 +138,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
 	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
+	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
 	{ 0x1f53eac122f96b37, 224, "cosf", },
