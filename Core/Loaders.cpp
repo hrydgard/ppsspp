@@ -579,7 +579,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, bool readingAhead) 
 			memcpy(buf, wholeRead + (i << BLOCK_SHIFT), BLOCK_SIZE);
 			blocks_[cacheStartPos + i] = BlockInfo(buf);
 		}
-		delete wholeRead;
+		delete[] wholeRead;
 	}
 
 	cacheSize_ += blocksToRead;
