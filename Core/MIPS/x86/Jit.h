@@ -146,6 +146,7 @@ public:
 	void Comp_Vsgn(MIPSOpcode op);
 	void Comp_Vocp(MIPSOpcode op);
 	void Comp_ColorConv(MIPSOpcode op);
+	void Comp_Vbfy(MIPSOpcode op);
 
 	void Comp_DoNothing(MIPSOpcode op);
 

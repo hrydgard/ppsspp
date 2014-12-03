@@ -2115,4 +2115,8 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_Vbfy(MIPSOpcode op) {
+		DISABLE;
+	}
+
 }

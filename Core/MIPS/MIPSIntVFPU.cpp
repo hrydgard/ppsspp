@@ -1044,10 +1044,11 @@ namespace MIPSInt
 		}
 		else
 		{
-			for (int i = 0; i < n; i+=2)
-			{
-				d[i]   = s[i] + s[i+1];
-				d[i+1] = s[i] - s[i+1];
+			d[0] = s[0] + s[1];
+			d[1] = s[0] - s[1];
+			if (n == 4) {
+				d[2] = s[2] + s[3];
+				d[3] = s[2] - s[3];
 			}
 		}
 		ApplyPrefixD(d, sz);

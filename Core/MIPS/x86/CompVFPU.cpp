@@ -1937,6 +1937,74 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_Vbfy(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+	if (n != 2 && n != 4) {
+		DISABLE;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+	// Flush SIMD.
+	fpr.SimpleRegsV(sregs, sz, 0);
+	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
+	X64Reg tempxregs[4];
+	for (int i = 0; i < n; ++i) {
+		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			int reg = fpr.GetTempV();
+			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
+			fpr.SpillLockV(reg);
+			tempxregs[i] = fpr.VX(reg);
+		} else {
+			fpr.MapRegV(dregs[i], dregs[i] == sregs[i] ? MAP_DIRTY : MAP_NOINIT);
+			fpr.SpillLockV(dregs[i]);
+			tempxregs[i] = fpr.VX(dregs[i]);
+		}
+	}
+
+	int subop = (op >> 16) & 0x1F;
+	if (subop == 3) {
+		// vbfy2
+		MOVSS(tempxregs[0], fpr.V(sregs[0]));
+		MOVSS(tempxregs[1], fpr.V(sregs[1]));
+		MOVSS(tempxregs[2], fpr.V(sregs[0]));
+		MOVSS(tempxregs[3], fpr.V(sregs[1]));
+		ADDSS(tempxregs[0], fpr.V(sregs[2]));
+		ADDSS(tempxregs[1], fpr.V(sregs[3]));
+		SUBSS(tempxregs[2], fpr.V(sregs[2]));
+		SUBSS(tempxregs[3], fpr.V(sregs[3]));
+	} else if (subop == 2) {
+		// vbfy1
+		MOVSS(tempxregs[0], fpr.V(sregs[0]));
+		MOVSS(tempxregs[1], fpr.V(sregs[0]));
+		ADDSS(tempxregs[0], fpr.V(sregs[1]));
+		SUBSS(tempxregs[1], fpr.V(sregs[1]));
+		if (n == 4) {
+			MOVSS(tempxregs[2], fpr.V(sregs[2]));
+			MOVSS(tempxregs[3], fpr.V(sregs[2]));
+			ADDSS(tempxregs[2], fpr.V(sregs[3]));
+			SUBSS(tempxregs[3], fpr.V(sregs[3]));
+		}
+	} else {
+		DISABLE;
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
+	}
+
+	ApplyPrefixD(dregs, sz);
+
+	fpr.ReleaseSpillLocks();
+}
 static float sincostemp[2];
 
 union u32float {

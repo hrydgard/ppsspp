@@ -738,8 +738,8 @@ const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 	INSTR("vsrt1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU),
 	// TODO: Flags may not be correct (prefixes, etc.)
 	INSTR("vsrt2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU),
-	INSTR("vbfy1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vbfy2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vbfy1", &Jit::Comp_Vbfy, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vbfy2", &Jit::Comp_Vbfy, Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//4
 	INSTR("vocp", &Jit::Comp_Vocp, Dis_Vbfy, Int_Vocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),  // one's complement
 	INSTR("vsocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsocp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),

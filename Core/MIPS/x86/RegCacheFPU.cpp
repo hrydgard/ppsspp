@@ -477,6 +477,8 @@ bool FPURegCache::TryMapDirtyInInVS(const u8 *vd, VectorSize vdsz, const u8 *vs,
 	if (!CanMapVS(vd, vdsz) || !CanMapVS(vs, vssz) || !CanMapVS(vt, vtsz)) {
 		return false;
 	}
+
+
 	// But, they could still fail based on overlap.  Hopefully not common...
 	bool success = TryMapRegsVS(vs, vssz, 0);
 	if (success) {

@@ -1212,5 +1212,8 @@ namespace MIPSComp
 	void Jit::Comp_ColorConv(MIPSOpcode op) {
 		DISABLE;
 	}
+	void Jit::Comp_Vbfy(MIPSOpcode op) {
+		DISABLE;
+	}
 }
 

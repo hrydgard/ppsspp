@@ -139,6 +139,7 @@ public:
 	void Comp_Vsgn(MIPSOpcode op);
 	void Comp_Vocp(MIPSOpcode op);
 	void Comp_ColorConv(MIPSOpcode op);
+	void Comp_Vbfy(MIPSOpcode op);
 
 	// Non-NEON: VPFX
 
@@ -178,6 +179,7 @@ public:
 	void CompNEON_Vsgn(MIPSOpcode op);
 	void CompNEON_Vocp(MIPSOpcode op);
 	void CompNEON_ColorConv(MIPSOpcode op);
+	void CompNEON_Vbfy(MIPSOpcode op);
 
 	int Replace_fabsf();
 
