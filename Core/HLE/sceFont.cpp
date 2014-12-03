@@ -485,7 +485,7 @@ public:
 			nfl_->altCharCode = charCode;
 	}
 
-	int GetFontHandle(int index) {
+	int GetFontHandle(int index) const {
 		return fonts_[index];
 	}
 

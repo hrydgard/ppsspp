@@ -141,7 +141,7 @@ struct ConfigSetting {
 		cb_.s = def;
 	}
 
-	bool HasMore() {
+	bool HasMore() const {
 		return type_ != TYPE_TERMINATOR;
 	}
 

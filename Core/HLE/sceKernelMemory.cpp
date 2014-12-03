@@ -258,7 +258,7 @@ struct SceKernelVplHeader {
 		return false;
 	}
 
-	u32 FreeSize() {
+	u32 FreeSize() const {
 		// Size less the header and number of allocated bytes.
 		return sizeMinus8_ + 8 - 0x20 - allocatedInBlocks_ * 8;
 	}

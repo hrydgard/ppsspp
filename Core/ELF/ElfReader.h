@@ -72,10 +72,10 @@ public:
 	}
 
 	// Quick accessors
-	ElfType GetType() { return (ElfType)(u16)(header->e_type); }
-	ElfMachine GetMachine() { return (ElfMachine)(u16)(header->e_machine); }
-	u32 GetEntryPoint() { return entryPoint; }
-	u32 GetFlags() { return (u32)(header->e_flags); }
+	ElfType GetType() const { return (ElfType)(u16)(header->e_type); }
+	ElfMachine GetMachine() const { return (ElfMachine)(u16)(header->e_machine); }
+	u32 GetEntryPoint() const { return entryPoint; }
+	u32 GetFlags() const { return (u32)(header->e_flags); }
 
 	int GetNumSegments() const { return (int)(header->e_phnum); }
 	int GetNumSections() const { return (int)(header->e_shnum); }
@@ -100,7 +100,7 @@ public:
 	int GetSectionSize(SectionID section) const {
 		return sections[section].sh_size;
 	}
-	SectionID GetSectionByName(const char *name, int firstSection=0); //-1 for not found
+	SectionID GetSectionByName(const char *name, int firstSection=0) const; //-1 for not found
 
 	u32 GetSegmentPaddr(int segment) const {
 	    return segments[segment].p_paddr;

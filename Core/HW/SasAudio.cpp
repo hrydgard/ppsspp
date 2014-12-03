@@ -417,7 +417,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	}
 }
 
-bool SasVoice::HaveSamplesEnded() {
+bool SasVoice::HaveSamplesEnded() const {
 	switch (type) {
 	case VOICETYPE_VAG:
 		return vag.End();

@@ -447,7 +447,7 @@ public:
 		return error;
 	};
 
-	bool IsValid(SceUID handle);
+	bool IsValid(SceUID handle) const;
 
 	template <class T>
 	T* Get(SceUID handle, u32 &outError)
@@ -533,7 +533,7 @@ public:
 	KernelObject *&operator [](SceUID handle);
 	void List();
 	void Clear();
-	int GetCount();
+	int GetCount() const;
 
 private:
 	enum {
