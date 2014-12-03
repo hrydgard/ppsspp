@@ -2672,7 +2672,11 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			// Map the D column.
 			u8 dcol[4];
 			GetVectorRegs(dcol, vsz, dcols[i]);
+#ifndef _M_X64
+			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT | MAP_NOLOCK);
+#else
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
+#endif
 			MOVAPS(fpr.VS(dcol), XMM1);
 		}
 		fpr.ReleaseSpillLocks();
