@@ -2733,16 +2733,65 @@ void Jit::Comp_Vtfm(MIPSOpcode op) {
 	int ins = (op >> 23) & 7;
 
 	bool homogenous = false;
-	if (n == ins)
-	{
+	if (n == ins) {
 		n++;
-		sz = (VectorSize)((int)(sz) + 1);
-		msz = (MatrixSize)((int)(msz) + 1);
+		sz = (VectorSize)((int)(sz)+1);
+		msz = (MatrixSize)((int)(msz)+1);
 		homogenous = true;
 	}
 	// Otherwise, n should already be ins + 1.
-	else if (n != ins + 1)
+	else if (n != ins + 1) {
 		DISABLE;
+	}
+
+	if (jo.enableVFPUSIMD) {
+		u8 scols[4], dcol[4], tregs[4];
+
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;  // vector!
+
+		// The T matrix we will address individually.
+		GetVectorRegs(dcol, sz, vd);
+		GetMatrixRows(vs, msz, scols);
+		memset(tregs, 255, sizeof(tregs));
+		GetVectorRegs(tregs, sz, vt);
+		for (int i = 0; i < ARRAY_SIZE(tregs); i++) {
+			if (tregs[i] != 255)
+				fpr.StoreFromRegisterV(tregs[i]);
+		}
+
+		u8 scol[4][4];
+
+		// Map all of S's columns into registers.
+		for (int i = 0; i < n; i++) {
+			GetVectorRegs(scol[i], sz, scols[i]);
+			fpr.MapRegsVS(scol[i], sz, 0);
+			fpr.SpillLockV(scols[i], sz);
+		}
+
+		// Now, work our way through the matrix, loading things as we go.
+		// TODO: With more temp registers, can generate much more efficient code.
+		MOVSS(XMM1, fpr.V(tregs[0]));  // TODO: AVX broadcastss to replace this and the SHUFPS
+		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(XMM1, fpr.VS(scol[0]));
+		for (int j = 1; j < n; j++) {
+			if (!homogenous || j != n - 1) {
+				MOVSS(XMM0, fpr.V(tregs[j]));
+				SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
+				MULPS(XMM0, fpr.VS(scol[j]));
+				ADDPS(XMM1, R(XMM0));
+			} else {
+				ADDPS(XMM1, fpr.VS(scol[j]));
+			}
+		}
+		// Map the D column.
+		fpr.MapRegsVS(dcol, sz, MAP_DIRTY | MAP_NOINIT);
+		MOVAPS(fpr.VS(dcol), XMM1);
+		fpr.ReleaseSpillLocks();
+		return;
+	}
+
 
 	u8 sregs[16], dregs[4], tregs[4];
 	GetMatrixRegs(sregs, msz, _VS);
