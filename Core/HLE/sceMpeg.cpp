@@ -846,8 +846,7 @@ public:
 		memcpy(newstream, stream, size);
 		memcpy(newstream + size, str, sz);
 		// delete old stream
-		if (stream)
-			delete[] stream;
+		delete[] stream;
 		// replace with new stream
 		stream = newstream;
 		size = newsize;
