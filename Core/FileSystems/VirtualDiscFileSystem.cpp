@@ -88,7 +88,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			line = line.substr(3);
 		}
 
-		if (strlen(line.data()) < 1 || line[0] == ';') {
+		if (line.empty() || line[0] == ';') {
 			continue;
 		}
 
