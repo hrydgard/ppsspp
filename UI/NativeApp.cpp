@@ -96,7 +96,7 @@
 #include "Common/KeyMap.h"
 #endif
 
-#ifdef __SYMBIAN32__
+#if defined(__SYMBIAN32__) || defined(IOS)
 #define unique_ptr auto_ptr
 #endif
 
