@@ -550,6 +550,9 @@
     <ClCompile Include="..\ext\udis86\decode.c">
       <Filter>Ext\udis86</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceSha256.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1019,6 +1022,9 @@
     </ClInclude>
     <ClInclude Include="..\ext\udis86\udis86.h">
       <Filter>Ext\udis86</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSha256.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
