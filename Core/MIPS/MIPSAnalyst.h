@@ -107,9 +107,9 @@ namespace MIPSAnalyst
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
 
-	void SetHashMapFilename(std::string filename = "");
+	void SetHashMapFilename(const std::string& filename = "");
 	void LoadBuiltinHashMap();
-	void LoadHashMap(std::string filename);
+	void LoadHashMap(const std::string& filename);
 	void StoreHashMap(std::string filename = "");
 
 	const char *LookupHash(u64 hash, u32 funcSize);

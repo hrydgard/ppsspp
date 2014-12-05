@@ -1108,7 +1108,7 @@ skip:
 		return 0;
 	}
 
-	void SetHashMapFilename(std::string filename) {
+	void SetHashMapFilename(const std::string& filename) {
 		if (filename.empty())
 			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
 		else
@@ -1180,7 +1180,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(std::string filename) {
+	void LoadHashMap(const std::string& filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());
