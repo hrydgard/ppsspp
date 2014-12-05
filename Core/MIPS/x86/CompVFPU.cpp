@@ -2661,9 +2661,13 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 		// TODO: With more temp registers, can generate much more efficient code.
 		for (int i = 0; i < n; i++) {
 			MOVSS(XMM1, fpr.V(tregs[4 * i]));  // TODO: AVX broadcastss to replace this and the SHUFPS
+			MOVSS(XMM0, fpr.V(tregs[4 * i + 1]));
 			SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
+			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
 			MULPS(XMM1, fpr.VS(scol[0]));
-			for (int j = 1; j < n; j++) {
+			MULPS(XMM0, fpr.VS(scol[1]));
+			ADDPS(XMM1, R(XMM0));
+			for (int j = 2; j < n; j++) {
 				MOVSS(XMM0, fpr.V(tregs[4 * i + j]));
 				SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
 				MULPS(XMM0, fpr.VS(scol[j]));
