@@ -1236,6 +1236,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceRtc.h
 	Core/HLE/sceSas.cpp
 	Core/HLE/sceSas.h
+	Core/HLE/sceSha256.cpp
+	Core/HLE/sceSha256.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp

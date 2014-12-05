@@ -261,6 +261,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSha256.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
