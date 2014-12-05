@@ -61,6 +61,7 @@ struct CPUInfo {
 	bool bAES;
 	bool bLAHFSAHF64;
 	bool bLongMode;
+	bool bAtom;
 	bool bBMI1;
 	bool bBMI2;
 	bool bMOVBE;
