@@ -754,7 +754,9 @@
     <ClCompile Include="math\math_util.cpp" />
     <ClCompile Include="math\fast\fast_math.c" />
     <ClCompile Include="math\fast\fast_matrix.c" />
-    <ClCompile Include="math\fast\fast_matrix_sse.c" />
+    <ClCompile Include="math\fast\fast_matrix_sse.c">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\resolve.cpp" />
