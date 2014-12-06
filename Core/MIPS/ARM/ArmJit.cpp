@@ -78,7 +78,7 @@ ArmJitOptions::ArmJitOptions() {
 		useNEONVFPU = false;
 }
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
@@ -297,7 +297,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
-		fpr.SetCompilerPC(js.compilerPC);
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
