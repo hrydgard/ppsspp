@@ -44,6 +44,7 @@
 
 // Want it in release builds too
 #ifdef ANDROID
+#undef _dbg_assert_msg_
 #define _dbg_assert_msg_ _assert_msg_
 #endif
 

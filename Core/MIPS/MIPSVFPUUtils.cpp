@@ -18,6 +18,7 @@
 #include <limits>
 #include <stdio.h>
 
+#include "Common/CommonFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -37,6 +38,7 @@ void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	case V_Pair:   row=(vectorReg>>5)&2; length = 2; break;
 	case V_Triple: row=(vectorReg>>6)&1; length = 3; break;
 	case V_Quad:   row=(vectorReg>>5)&2; length = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
 	}
 
 	for (int i = 0; i < length; i++) {
@@ -60,6 +62,7 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	case M_2x2: row = (matrixReg>>5)&2; side = 2; break;
 	case M_3x3: row = (matrixReg>>6)&1; side = 3; break;
 	case M_4x4: row = (matrixReg>>5)&2; side = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
 	int transpose = (matrixReg>>5) & 1;
@@ -105,6 +108,8 @@ int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transp
 		}
 		name |= (row << 5) | column;
 		break;
+
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
 	return name;
@@ -153,6 +158,7 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
 	}
 	int transpose = (reg>>5) & 1;
 	const int mtx = (reg >> 2) & 7;
@@ -179,6 +185,7 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
 	}
 	const int mtx = (reg>>2)&7;
 	const int col = reg & 3;
@@ -220,6 +227,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg>>5)&2; side = 2; break;
 	case M_3x3: row = (reg>>6)&1; side = 3; break;
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
 	int transpose = (reg>>5) & 1;
@@ -247,6 +255,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg>>5)&2; side = 2; break;
 	case M_3x3: row = (reg>>6)&1; side = 3; break;
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
 	int transpose = (reg>>5)&1;
@@ -286,10 +295,8 @@ int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
 	return count;
 }
 
-int GetNumVectorElements(VectorSize sz)
-{
-	switch (sz)
-	{
+int GetNumVectorElements(VectorSize sz) {
+	switch (sz) {
 		case V_Single: return 1;
 		case V_Pair:   return 2;
 		case V_Triple: return 3;
@@ -298,14 +305,11 @@ int GetNumVectorElements(VectorSize sz)
 	}
 }
 
-VectorSize GetHalfVectorSize(VectorSize sz)
-{
-	switch (sz)
-	{
+VectorSize GetHalfVectorSize(VectorSize sz) {
+	switch (sz) {
 	case V_Pair: return V_Single;
 	case V_Quad: return V_Pair;
-	default:
-		return V_Single;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
 	}
 }
 
@@ -315,8 +319,7 @@ VectorSize GetDoubleVectorSize(VectorSize sz)
 	{
 	case V_Single: return V_Pair;
 	case V_Pair: return V_Quad;
-	default:
-		return V_Pair;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
 	}
 }
 
@@ -331,7 +334,7 @@ VectorSize GetVecSize(MIPSOpcode op)
 		case 1: return V_Pair;
 		case 2: return V_Triple;
 		case 3: return V_Quad;
-		default: return V_Quad;
+		default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
 	}
 }
 
@@ -340,7 +343,7 @@ VectorSize GetVectorSize(MatrixSize sz) {
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
-	default:    return V_Invalid;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return V_Invalid;
 	}
 }
 
@@ -350,22 +353,20 @@ MatrixSize GetMatrixSize(VectorSize sz) {
 	case V_Pair: return M_2x2;
 	case V_Triple: return M_3x3;
 	case V_Quad: return M_4x4;
-	default: return M_Invalid;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__); return M_Invalid;
 	}
 }
 
-MatrixSize GetMtxSize(MIPSOpcode op)
-{
+MatrixSize GetMtxSize(MIPSOpcode op) {
 	int a = (op>>7)&1;
 	int b = (op>>15)&1;
 	a += (b<<1);
-	switch (a)
-	{
-	case 0: return M_4x4;  // This error pretty much only happens in disassembly of junk: // ERROR_LOG_REPORT(CPU, "Unexpected matrix size 1x1."); return M_2x2;
+	switch (a) {
+	case 0: return M_4x4;  // This happens in disassembly of junk
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;
-	default: return M_4x4;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return M_Invalid;
 	}
 }
 
@@ -374,7 +375,7 @@ VectorSize MatrixVectorSize(MatrixSize sz) {
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
-	default: return V_Quad;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return V_Invalid;
 	}
 }
 
@@ -383,7 +384,7 @@ int GetMatrixSide(MatrixSize sz) {
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
-	default: return 0;
+	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__); return 0;
 	}
 }
 

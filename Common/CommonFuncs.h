@@ -18,6 +18,7 @@
 #pragma once
 
 #include "base/compat.h"
+#include "CommonTypes.h"
 
 #if defined(IOS) || defined(MIPS)
 #include <signal.h>
