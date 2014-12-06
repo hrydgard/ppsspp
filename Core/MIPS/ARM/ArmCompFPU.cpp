@@ -395,9 +395,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.MapReg(rt);
-		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
-		VMOV(fpr.R(fs), gpr.R(rt));
+		if (rt == MIPS_REG_ZERO) {
+			fpr.MapReg(fs, MAP_NOINIT);
+			MOVI2F(fpr.R(fs), 0.0f, R0);
+		} else {
+			gpr.MapReg(rt);
+			fpr.MapReg(fs, MAP_NOINIT);
+			VMOV(fpr.R(fs), gpr.R(rt));
+		}
 		return;
 
 	case 6: //ctc1
