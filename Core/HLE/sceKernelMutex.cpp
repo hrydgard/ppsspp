@@ -17,15 +17,7 @@
 
 #include <algorithm>
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-}
-#else
 #include <unordered_map>
-#endif
 #include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"

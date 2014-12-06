@@ -28,19 +28,11 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-}
-#else
 #include <unordered_map>
-#endif
 #include <deque>
 #include <list>
 #include <set>
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 #include <tr1/type_traits>
 #else
 #include <type_traits>
@@ -50,7 +42,7 @@ namespace std {
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 namespace std {
 	using tr1::is_pointer;
 }

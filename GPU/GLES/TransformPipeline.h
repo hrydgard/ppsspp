@@ -17,15 +17,7 @@
 
 #pragma once
 
-#if defined(IOS)
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-}
-#else
 #include <unordered_map>
-#endif
-
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
