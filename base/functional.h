@@ -15,7 +15,7 @@
 #endif
 #include <vector>
 
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MACGNUSTD)
+#if defined(__SYMBIAN32__) || defined(MACGNUSTD)
 #ifndef __SYMBIAN32__
 #include <tr1/functional>
 #include <tr1/memory>
@@ -47,8 +47,6 @@ namespace std {
 
 #ifdef __SYMBIAN32__
 #define placeholder
-#elif defined(IOS)
-namespace placeholder = std::tr1::placeholders;
 #else
 namespace placeholder = std::placeholders;
 #endif
