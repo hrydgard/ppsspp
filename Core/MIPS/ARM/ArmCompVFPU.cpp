@@ -1559,7 +1559,7 @@ namespace MIPSComp
 		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
 
 		if (sz == V_Triple) {
-			int temp3 = fpr.GetTempV();
+			MIPSReg temp3 = fpr.GetTempV();
 			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
 			// Cross product vcrsp.t
 
@@ -1575,7 +1575,7 @@ namespace MIPSComp
 			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
 			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
 
-			fpr.MapRegsAndSpillLockV(dregs, V_Triple, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
 			VMOV(fpr.V(dregs[1]), S1);
 			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
@@ -1610,7 +1610,7 @@ namespace MIPSComp
 			VMLS(fpr.V(temp4), fpr.V(sregs[2]), fpr.V(tregs[2]));
 			VMLA(fpr.V(temp4), fpr.V(sregs[3]), fpr.V(tregs[3]));
 
-			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
 			VMOV(fpr.V(dregs[1]), S1);
 			VMOV(fpr.V(dregs[2]), fpr.V(temp3));

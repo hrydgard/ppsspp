@@ -338,7 +338,7 @@ namespace MIPSComp
 					addrReg = gpr.R(rs);
 				} else {
 					// In this case, only map rt. rs+offset will be in R0.
-					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
+					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 					gpr.SetRegImm(R0, addr);
 					addrReg = R0;
 				}

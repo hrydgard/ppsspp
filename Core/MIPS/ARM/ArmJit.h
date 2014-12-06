@@ -274,12 +274,9 @@ private:
 	DestARMReg NEONMapPrefixD(int vfpuReg, VectorSize sz, int mapFlags);
 	void NEONApplyPrefixD(DestARMReg dest);
 
-
 	// NEON utils
 	void NEONMaskToSize(ARMReg vs, VectorSize sz);
 	void NEONTranspose4x4(ARMReg cols[4]);
-
-
 
 	// Utils
 	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
