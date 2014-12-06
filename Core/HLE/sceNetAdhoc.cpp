@@ -476,7 +476,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 								target.sin_port = htons(dport);
 
 								// Get Peer IP
-								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr) == 0) {
+								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
 									// Acquire Network Lock
 									//_acquireNetworkLock();
 
@@ -673,7 +673,7 @@ int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *dataLen
 					SceNetEtherAddr mac;
 
 					// Find Peer MAC
-					if (resolveIP(sin.sin_addr.s_addr, &mac) == 0) {
+					if (resolveIP(sin.sin_addr.s_addr, &mac)) {
 						// Provide Sender Information
 						*saddr = mac;
 						*sport = ntohs(sin.sin_port);
@@ -1569,7 +1569,7 @@ int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeou
 							SceNetEtherAddr mac;
 							
 							// Find Peer MAC
-							if (resolveIP(peeraddr.sin_addr.s_addr, &mac) == 0) {
+							if (resolveIP(peeraddr.sin_addr.s_addr, &mac)) {
 								// Allocate Memory
 								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
 								
@@ -1678,7 +1678,7 @@ int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				sin.sin_port = htons(socket->pport);
 				
 				// Grab Peer IP
-				if (resolveMAC(&socket->paddr, (uint32_t *)&sin.sin_addr.s_addr) == 0) {
+				if (resolveMAC(&socket->paddr, (uint32_t *)&sin.sin_addr.s_addr)) {
 					// Grab Nonblocking Flag
 					uint32_t nbio = getBlockingFlag(socket->id);
 					// Switch to Nonblocking Behaviour
