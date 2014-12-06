@@ -34,6 +34,7 @@ enum {
 };
 
 enum {
+	MAP_READ = 0,
 	MAP_MTX_TRANSPOSED = 16,
 	MAP_PREFER_LOW = 16,
 	MAP_PREFER_HIGH = 32,

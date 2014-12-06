@@ -309,7 +309,7 @@ namespace MIPSComp
 				if (!gpr.IsImm(rs) && rs != rt && (offset <= offsetRange) && offset >= -offsetRange) {
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
-					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
 					switch (o) {
 					case 35: LDR  (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
 					case 37: LDRH (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
@@ -338,7 +338,7 @@ namespace MIPSComp
 					addrReg = gpr.R(rs);
 				} else {
 					// In this case, only map rt. rs+offset will be in R0.
-					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
 					gpr.SetRegImm(R0, addr);
 					addrReg = R0;
 				}

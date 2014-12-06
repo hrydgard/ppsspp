@@ -324,8 +324,8 @@ namespace MIPSComp
 
 	void Jit::Comp_SVQ(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_SVQ);
+		CONDITIONAL_DISABLE;
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -506,6 +506,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VIdt);
+
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1558,7 +1559,7 @@ namespace MIPSComp
 		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
 
 		if (sz == V_Triple) {
-			MIPSReg temp3 = fpr.GetTempV();
+			int temp3 = fpr.GetTempV();
 			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
 			// Cross product vcrsp.t
 
@@ -1574,46 +1575,13 @@ namespace MIPSComp
 			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
 			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
 
-			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegsAndSpillLockV(dregs, V_Triple, MAP_DIRTY | MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
 			VMOV(fpr.V(dregs[1]), S1);
 			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
 		} else if (sz == V_Quad) {
-			MIPSReg temp3 = fpr.GetTempV();
-			MIPSReg temp4 = fpr.GetTempV();
-			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
-			fpr.MapRegV(temp4, MAP_DIRTY | MAP_NOINIT);
-
 			// Quaternion product  vqmul.q  untested
-			// d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
-			VMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[3]));
-			VMLA(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
-			VMLS(S0, fpr.V(sregs[2]), fpr.V(tregs[1]));
-			VMLA(S0, fpr.V(sregs[3]), fpr.V(tregs[0]));
-
-			//d[1] = -s[0] * t[2] + s[1] * t[3] + s[2] * t[0] + s[3] * t[1];
-			VNMUL(S1, fpr.V(sregs[0]), fpr.V(tregs[2]));
-			VMLA(S1, fpr.V(sregs[1]), fpr.V(tregs[3]));
-			VMLA(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
-			VMLA(S1, fpr.V(sregs[3]), fpr.V(tregs[1]));
-
-			//d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
-			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
-			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
-			VMLA(fpr.V(temp3), fpr.V(sregs[2]), fpr.V(tregs[3]));
-			VMLA(fpr.V(temp3), fpr.V(sregs[3]), fpr.V(tregs[2]));
-
-			//d[3] = -s[0] * t[0] - s[1] * t[1] - s[2] * t[2] + s[3] * t[3];
-			VNMUL(fpr.V(temp4), fpr.V(sregs[0]), fpr.V(tregs[0]));
-			VMLS(fpr.V(temp4), fpr.V(sregs[1]), fpr.V(tregs[1]));
-			VMLS(fpr.V(temp4), fpr.V(sregs[2]), fpr.V(tregs[2]));
-			VMLA(fpr.V(temp4), fpr.V(sregs[3]), fpr.V(tregs[3]));
-
-			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
-			VMOV(fpr.V(dregs[0]), S0);
-			VMOV(fpr.V(dregs[1]), S1);
-			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
-			VMOV(fpr.V(dregs[3]), fpr.V(temp4));
+			DISABLE;
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -2118,5 +2086,4 @@ namespace MIPSComp
 	void Jit::Comp_Vbfy(MIPSOpcode op) {
 		DISABLE;
 	}
-
 }
