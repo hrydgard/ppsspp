@@ -344,11 +344,14 @@ struct TestItem {
 #define TEST_ITEM(name) { #name, &Test ##name, }
 
 bool TestArmEmitter();
+bool TestX64Emitter();
+
 	
 TestItem availableTests[] = {
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
 	TEST_ITEM(ArmEmitter),
+	TEST_ITEM(X64Emitter),
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),

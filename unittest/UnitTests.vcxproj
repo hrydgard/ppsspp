@@ -177,6 +177,7 @@
     <ClCompile Include="JitHarness.cpp" />
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="TestArmEmitter.cpp" />
+    <ClCompile Include="TestX64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
