@@ -422,7 +422,6 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *,
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_DOWN;
 	if (isRepeat) {
-		ILOG("Is repeat! %i", key);
 		keyInput.flags |= KEY_IS_REPEAT;
 	}
 	return NativeKey(keyInput);
