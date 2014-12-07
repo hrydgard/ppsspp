@@ -82,6 +82,25 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 #endif
 }
 
+inline void AdjustVolumeBlock(s16 *out, s16 *in, int size, int leftVol, int rightVol) {
+#ifdef _M_SSE
+	__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+	while (size >= 16) {
+		__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+		__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
+		_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
+		_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
+		in += 16;
+		out += 16;
+		size -= 16;
+	}
+#endif
+	for (int i = 0; i < size; i += 2) {
+		out[i] = adjustvolume(in[i], leftVol);
+		out[i + 1] = adjustvolume(in[i + 1], rightVol);
+	}
+}
+
 void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
@@ -265,23 +284,14 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-
-				// TODO: SSE/NEON (VQDMULH) implementations
-				for (u32 i = 0; i < sz1; i += 2) {
-					buf1[i] = adjustvolume(sampleData[i], leftVol);
-					buf1[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-				}
+				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
 				if (buf2) {
-					sampleData += sz1;
-					for (u32 i = 0; i < sz2; i += 2) {
-						buf2[i] = adjustvolume(sampleData[i], leftVol);
-						buf2[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-					}
+					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
 				}
 			}
 		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
+			// Rare, so unoptimized. Expands to stereo.
 			for (u32 i = 0; i < chan.sampleCount; i++) {
-				// Expand to stereo
 				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
 				chan.sampleQueue.push(adjustvolume(sample, leftVol));
 				chan.sampleQueue.push(adjustvolume(sample, rightVol));
