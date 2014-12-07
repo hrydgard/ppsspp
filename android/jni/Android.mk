@@ -320,6 +320,10 @@ ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
 
+  # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
+  LOCAL_CFLAGS += -fPIE
+  LOCAL_LDFLAGS += -fPIE -pie
+
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
     $(EXEC_AND_LIB_FILES) \
