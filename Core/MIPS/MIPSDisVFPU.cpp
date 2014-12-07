@@ -436,7 +436,7 @@ namespace MIPSDis
 		int vs = _VS;
 		int imm = (op>>16) & 0x1f;
 		bool negSin = (imm & 0x10) ? true : false;
-		char c[5] = "....";
+		char c[5] = "0000";
 		char temp[16]={""};
 		if (((imm>>2)&3)==(imm&3))
 		{
@@ -453,10 +453,9 @@ namespace MIPSDis
 		{
 			if (c[i] == 'S' && negSin)
 				temp[pos++] = '-';
-			else
-				temp[pos++] = ' ';
 			temp[pos++] = c[i];
-			temp[pos++] = ' ';
+			if (i != numElems-1)
+				temp[pos++] = ',';
 		}
 		temp[pos++] = ']';
 		temp[pos]=0;
