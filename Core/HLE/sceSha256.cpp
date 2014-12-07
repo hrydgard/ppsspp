@@ -15,18 +15,32 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Crypto/sha256.h"
+#include "Common/Log.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceSha256.h"
 
-int sceSha256_unknow(u32 unknow1, int unknow2, u32 unknow3) {
-	ERROR_LOG(HLE, "UNIMPL sceSha256_unknow (%08x,%08x,%08x)", unknow1, unknow2, unknow3);
+int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
+	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(digestPtr) || !Memory::IsValidAddress(data + dataLen)) {
+		ERROR_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x) - bad address(es)", data, dataLen, digestPtr);
+		return -1;
+	}
+	INFO_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x)", data, dataLen, digestPtr);
+
+	// Already checked above...
+	u8 *digest = Memory::GetPointerUnchecked(digestPtr);
+	sha256_context ctx;
+	sha256_starts(&ctx);
+	sha256_update(&ctx, Memory::GetPointerUnchecked(data), dataLen);
+	sha256_finish(&ctx, digest);
+
 	return 0;
 }
 
 const HLEFunction sceSha256[] =
 {
-	{ 0x318A350C, WrapI_UIU<sceSha256_unknow>, "sceSha256_unknow" },
+	{ 0x318A350C, WrapI_UIU<sceSha256Digest>, "sceSha256Digest" },
 };
 
 void Register_sceSha256()
