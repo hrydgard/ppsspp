@@ -1935,6 +1935,33 @@ namespace MIPSComp
 		return sincos.out;
 	}
 
+	void Jit::CompVrotShuffle(u8 *dregs, int imm, VectorSize sz, bool negSin) {
+		int n = GetNumVectorElements(sz);
+		char what[4] = {'0', '0', '0', '0'};
+		if (((imm >> 2) & 3) == (imm & 3)) {
+			for (int i = 0; i < 4; i++)
+				what[i] = 'S';
+		}
+		what[(imm >> 2) & 3] = 'S';
+		what[imm & 3] = 'C';
+
+		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+		for (int i = 0; i < n; i++) {
+			switch (what[i]) {
+			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
+			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
+			case '0':
+				{
+					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
+					break;
+				}
+			default:
+				ERROR_LOG(JIT, "Bad what in vrot");
+				break;
+			}
+		}
+	}
+
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
@@ -1977,30 +2004,8 @@ namespace MIPSComp
 		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
 		VMOV(D0, R0, R1);
 #endif
+		CompVrotShuffle(dregs, imm, sz, negSin);
 
-		char what[4] = {'0', '0', '0', '0'};
-		if (((imm >> 2) & 3) == (imm & 3)) {
-			for (int i = 0; i < 4; i++)
-				what[i] = 'S';
-		}
-		what[(imm >> 2) & 3] = 'S';
-		what[imm & 3] = 'C';
-
-		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
-		for (int i = 0; i < n; i++) {
-			switch (what[i]) {
-			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
-			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
-			case '0':
-				{
-					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
-					break;
-				}
-			default:
-				ERROR_LOG(JIT, "Bad what in vrot");
-				break;
-			}
-		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 

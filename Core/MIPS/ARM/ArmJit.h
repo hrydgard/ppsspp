@@ -226,6 +226,7 @@ private:
 
 	void CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa);
 	void CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType);
+	void CompVrotShuffle(u8 *dregs, int imm, VectorSize sz, bool negSin);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
