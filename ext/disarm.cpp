@@ -538,6 +538,7 @@ static bool DisasmNeonVecScalar(uint32_t op, char *text) {
 		break;
 	case 0x14:
 	case 0x1C:
+	case 0x1E:  // Hmmm.. Should look this up :P
 		opname = "VMLA";
 		break;
 	}
@@ -615,6 +616,9 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 			case 0x11:
 				opname = "EOR";
 				includeSuffix = false;
+				break;
+			case 0xd0:
+				opname = "PADD";
 				break;
 			default:
 				opname = "MUL";

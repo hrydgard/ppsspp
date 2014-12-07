@@ -758,7 +758,7 @@ int ArmRegCacheFPU::QGetFreeQuad(int start, int count, const char *reason) {
 		ERROR_LOG(JIT, "Failed finding a free quad. Things will now go haywire!");
 		return -1;
 	} else {
-		INFO_LOG(JIT, "No register found in %i and the next %i, kicked out %i (%s)", start, count, bestQuad, reason ? reason : "no reason");
+		INFO_LOG(JIT, "No register found in %i and the next %i, kicked out #%i (%s)", start, count, bestQuad, reason ? reason : "no reason");
 		QFlush(bestQuad);
 		return bestQuad;
 	}
@@ -866,7 +866,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 
 				return (ARMReg)(Q0 + q);
 			} else {
-				INFO_LOG(JIT, "Quad out of range %i (count = %i), needs moving. For now we flush.", start, count);
+				INFO_LOG(JIT, "Quad already mapped at %i which is out of requested range [%i-%i) (count = %i), needs moving. For now we flush.", q, start, start+count, count);
 				quadsToFlush.push_back(q);
 				continue;
 			}
@@ -912,7 +912,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qr[quad].sz = sz;
 	qr[quad].mipsVec = vreg;
 
-	if (!(flags & MAP_NOINIT)) {
+	if ((flags & MAP_NOINIT) != MAP_NOINIT) {
 		// Okay, now we will try to load the whole thing in one go. This is possible
 		// if it's a row and easy if it's a single.
 		// Rows are rare, columns are common - but thanks to our register reordering,

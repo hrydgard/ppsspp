@@ -49,7 +49,6 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
 				snprintf(temp, sizeof(temp), "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
-				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
 				lines.push_back(temp);
 				i += 4;
 				continue;
