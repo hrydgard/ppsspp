@@ -480,16 +480,19 @@ static bool DisasmNeon2Op(uint32_t op, char *text) {
 	const char *size = "f32";
 	if (type == 0xE) {
 		opname = "NEG";
-		GetISizeString(sz);
+		size = GetISizeString(sz);
 	} else if (type == 0xD) {
 		opname = "ABS";
-		GetISizeString(sz);
+		size = GetISizeString(sz);
+	} else if (type == 0x7) {
+		opname = "MVN";
+		size = "";  // MVN surely has no "size"?
 	}
 
 	int Vd = GetVd(op, quad, false);
 	int Vm = GetVm(op, quad, false);
 	char c = quad ? 'q' : 'c';
-	sprintf(text, "V%s.%s %c%i, %c%i", opname, size, c, Vd, c, Vm);
+	sprintf(text, "V%s%s%s %c%i, %c%i", opname, strlen(size) ? "." : "", size, c, Vd, c, Vm);
 	return true;
 }
 
@@ -572,6 +575,7 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 			}
 			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x22:
+		case 0x24:
 			temp = (op >> 4) & 0xF1;
 			switch (temp) {
 			case 0xF0:
