@@ -1949,7 +1949,7 @@ namespace MIPSComp
 		for (int i = 0; i < n; i++) {
 			switch (what[i]) {
 			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
-			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
+			case 'S': if (negSin) VNEG(fpr.V(dregs[i]), S0); else VMOV(fpr.V(dregs[i]), S0); break;
 			case '0':
 				{
 					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
@@ -1980,8 +1980,21 @@ namespace MIPSComp
 		int n = GetNumVectorElements(sz);
 
 		u8 dregs[4];
+		u8 dregs2[4];
+
+		u32 nextOp = Memory::Read_Opcode_JIT(js.compilerPC + 4).encoding;
+		int vd2 = -1;
+		int imm2 = -1;
+		if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+			// Pair of vrot. Let's join them.
+			vd2 = MIPS_GET_VD(nextOp);
+			imm2 = (nextOp >> 16) & 0x1f;
+			// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+		}
 		u8 sreg;
 		GetVectorRegs(dregs, sz, vd);
+		if (vd2 >= 0)
+			GetVectorRegs(dregs2, sz, vd2);
 		GetVectorRegs(&sreg, V_Single, vs);
 
 		int imm = (op >> 16) & 0x1f;
@@ -1989,7 +2002,7 @@ namespace MIPSComp
 		gpr.FlushBeforeCall();
 		fpr.FlushAll();
 
-		bool negSin = (imm & 0x10) ? true : false;
+		bool negSin1 = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
 		// We should write a custom pure-asm function instead.
@@ -1999,12 +2012,18 @@ namespace MIPSComp
 		VMOV(R0, fpr.V(sreg));
 #endif
 		// FlushBeforeCall saves R1.
-		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+		QuickCallFunction(R1, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
 #if !defined(__ARM_PCS_VFP)
 		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
 		VMOV(D0, R0, R1);
 #endif
-		CompVrotShuffle(dregs, imm, sz, negSin);
+		CompVrotShuffle(dregs, imm, sz, false);
+		if (vd2 != -1) {
+			// If the negsin setting differs between the two joint invocations, we need to flip the second one.
+			bool negSin2 = (imm2 & 0x10) ? true : false;
+			CompVrotShuffle(dregs2, imm2, sz, negSin1 != negSin2);
+			js.compilerPC += 4;
+		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
@@ -2013,7 +2032,7 @@ namespace MIPSComp
 		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
 		DISABLE;
 
-		// Do any games use these a noticable amount?
+		// Do any games use these a noticable amount? (apparently, some, like Grand Knights History)
 		switch ((op >> 16) & 31) {
 		case 6:  // vfad
 			break;
