@@ -632,6 +632,52 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
+
+	void Jit::Comp_Vhoriz(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+
+		int n = GetNumVectorElements(sz);
+
+		bool is_vavg = ((op >> 16) & 0x1f) == 7;
+		if (is_vavg) {
+			MOVI2F(S1, vavg_table[n - 1], R0);
+		}
+		VMOV(S0, fpr.V(sregs[0]));
+		for (int i = 1; i < n; i++) {
+			// sum += s[i];
+			VADD(S0, S0, fpr.V(sregs[i]));
+		}
+
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
+		if (is_vavg) {
+			VMUL(fpr.V(dregs[0]), S0, S1);
+		} else {
+			VMOV(fpr.V(dregs[0]), S0);
+		}
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+
+		NOTICE_LOG(JIT, "vfad/vags at %08x, ", js.compilerPC);
+	}
+
 	void Jit::Comp_VDot(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VDot);
 		CONDITIONAL_DISABLE;
@@ -2026,19 +2072,6 @@ namespace MIPSComp
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-	}
-
-	void Jit::Comp_Vhoriz(MIPSOpcode op) {
-		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
-		DISABLE;
-
-		// Do any games use these a noticable amount? (apparently, some, like Grand Knights History)
-		switch ((op >> 16) & 31) {
-		case 6:  // vfad
-			break;
-		case 7:  // vavg
-			break;
-		}
 	}
 
 	void Jit::Comp_Vsgn(MIPSOpcode op) {
