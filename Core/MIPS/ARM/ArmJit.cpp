@@ -62,22 +62,6 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-ArmJitOptions::ArmJitOptions() {
-	enableBlocklink = true;
-	downcountInRegister = true;
-	useBackJump = false;
-	useForwardJump = false;
-	cachePointers = true;
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-
-	useNEONVFPU = false;  // true
-	if (!cpu_info.bNEON)
-		useNEONVFPU = false;
-}
-
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips)
 { 
 	logBlocks = 0;

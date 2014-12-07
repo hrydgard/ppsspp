@@ -33,7 +33,21 @@ namespace MIPSComp
 
 struct ArmJitOptions
 {
-	ArmJitOptions();
+	ArmJitOptions()  {
+		enableBlocklink = true;
+		downcountInRegister = true;
+		useBackJump = false;
+		useForwardJump = false;
+		cachePointers = true;
+		immBranches = false;
+		continueBranches = false;
+		continueJumps = false;
+		continueMaxInstructions = 300;
+
+		useNEONVFPU = false;  // true
+		if (!cpu_info.bNEON)
+			useNEONVFPU = false;
+	}
 
 	bool useNEONVFPU;
 	bool enableBlocklink;

@@ -193,7 +193,6 @@ bool TestArmEmitter() {
 
 	const u8 *codeStart = emitter.GetCodePtr();
 
-	/*
 	MIPSState mips;
 	MIPSComp::JitState js;
 	MIPSComp::ArmJitOptions jo;
@@ -235,6 +234,6 @@ bool TestArmEmitter() {
 	const u8 *codeEnd = emitter.GetCodePtr();
 
 	DisassembleARMBetween(codeStart, codeEnd);
-	*/
+
 	return true;
 }

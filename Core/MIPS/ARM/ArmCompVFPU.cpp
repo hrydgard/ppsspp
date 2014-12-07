@@ -674,8 +674,7 @@ namespace MIPSComp
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-
-		NOTICE_LOG(JIT, "vfad/vags at %08x, ", js.compilerPC);
+		// NOTICE_LOG(JIT, "vfad/vags at %08x, ", js.compilerPC);
 	}
 
 	void Jit::Comp_VDot(MIPSOpcode op) {

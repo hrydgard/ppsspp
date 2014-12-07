@@ -3287,7 +3287,63 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 }
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
-	DISABLE;
-}
+	u8 dreg;
+	int vd = _VD;
+	int vs = _VS;
 
+	DISABLE;
+#if 0
+	VectorSize sz = V_Quad;
+	int n = GetNumVectorElements(sz);
+
+	switch ((op >> 16) & 3) {
+	case 1:
+		break;
+	default:
+		DISABLE;
+	}
+
+	u8 sregs[4];
+	u8 dregs[1];
+	GetVectorRegs(sregs, sz, vs);
+	GetVectorRegs(dregs, V_Pair, vd);
+
+	if (fpr.TryMapDirtyInVS(dregs, V_Single, sregs, sz)) {
+		switch ((op >> 16) & 3) {
+		case 1:  // 4444
+		{
+			//int a = ((in >> 24) & 0xFF) >> 4;
+			//int b = ((in >> 16) & 0xFF) >> 4;
+			//int g = ((in >> 8) & 0xFF) >> 4;
+			//int r = ((in)& 0xFF) >> 4;
+			//col = (a << 12) | (b << 8) | (g << 4) | (r);
+			//PACKUSW
+			break;
+		}
+		case 2:  // 5551
+		{
+			//int a = ((in >> 24) & 0xFF) >> 7;
+			//int b = ((in >> 16) & 0xFF) >> 3;
+			//int g = ((in >> 8) & 0xFF) >> 3;
+			//int r = ((in)& 0xFF) >> 3;
+			//col = (a << 15) | (b << 10) | (g << 5) | (r);
+			break;
+		}
+		case 3:  // 565
+		{
+			//int b = ((in >> 16) & 0xFF) >> 3;
+			//int g = ((in >> 8) & 0xFF) >> 2;
+			//int r = ((in)& 0xFF) >> 3;
+			//col = (b << 11) | (g << 5) | (r);
+			break;
+		}
+	}
+		DISABLE;
+
+	// Flush SIMD.
+	fpr.SimpleRegsV(&sreg, V_Pair, MAP_NOINIT | MAP_DIRTY);
+	fpr.SimpleRegsV(&dreg, V_Pair, MAP_NOINIT | MAP_DIRTY);
+#endif
+
+}
 }
