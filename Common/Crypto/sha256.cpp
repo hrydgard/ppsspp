@@ -260,9 +260,3 @@ void sha256_finish( sha256_context *ctx, uint8_t digest[32] )
     PUT_uint32_t( ctx->state[7], digest, 28 );
 }
 
-// added by hrydgard
-void sha256_block(char *data, size_t size, uint8_t digest[32]) {
-	sha256_context ctx;
-	sha256_starts(&ctx);
-
-}
