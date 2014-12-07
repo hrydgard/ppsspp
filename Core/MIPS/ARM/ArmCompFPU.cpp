@@ -47,7 +47,7 @@
 namespace MIPSComp
 {
 
-void Jit::Comp_FPU3op(MIPSOpcode op)
+void ArmJit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
 
@@ -85,7 +85,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op)
 
 extern int logBlocks;
 
-void Jit::Comp_FPULS(MIPSOpcode op)
+void ArmJit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -188,7 +188,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_FPUComp(MIPSOpcode op) {
+void ArmJit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int opc = op & 0xF;
@@ -253,7 +253,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	SetCC(CC_AL);
 }
 
-void Jit::Comp_FPU2op(MIPSOpcode op) {
+void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -347,7 +347,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
-void Jit::Comp_mxc1(MIPSOpcode op)
+void ArmJit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 

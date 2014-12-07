@@ -788,6 +788,16 @@ static int Hook_kankabanchoutbr_download_frame() {
 	return 0;
 }
 
+#ifdef ARM
+#define JITFUNC(f) (&MIPSComp::ArmJit::f)
+#elif defined(_M_X64) || defined(_M_IX86)
+#define JITFUNC(f) (&MIPSComp::Jit::f)
+#elif defined(MIPS)
+#define JITFUNC(f) (&MIPSComp::Jit::f)
+#elif defined(PPC)
+#define JITFUNC(f) (&MIPSComp::Jit::f)
+#endif
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -818,7 +828,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
 	{ "strcmp", &Replace_strcmp, 0, REPFLAG_DISABLED },
 	{ "strncmp", &Replace_strncmp, 0, REPFLAG_DISABLED },
-	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
+	{ "fabsf", &Replace_fabsf, JITFUNC(Replace_fabsf), REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED }, // &MIPSComp::Jit::Replace_dl_write_matrix, REPFLAG_DISABLED },
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED },
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, REPFLAG_DISABLED },

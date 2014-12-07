@@ -73,7 +73,7 @@ static const float one = 1.0f;
 static const float zero = 0.0f;
 
 
-void Jit::CompNEON_VecDo3(MIPSOpcode op) {
+void ArmJit::CompNEON_VecDo3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -149,7 +149,7 @@ void Jit::CompNEON_VecDo3(MIPSOpcode op) {
 
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
-void Jit::CompNEON_SV(MIPSOpcode op) {
+void ArmJit::CompNEON_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	
 	// Remember to use single lane stores here and not VLDR/VSTR - switching usage
@@ -266,7 +266,7 @@ inline int MIPS_GET_VQVT(u32 op) {
 	return (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 }
 
-void Jit::CompNEON_SVQ(MIPSOpcode op) {
+void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int offset = (signed short)(op & 0xFFFC);
@@ -417,7 +417,7 @@ void Jit::CompNEON_SVQ(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VVectorInit(MIPSOpcode op) {
+void ArmJit::CompNEON_VVectorInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	// WARNING: No prefix support!
 	if (js.HasUnknownPrefix()) {
@@ -442,7 +442,7 @@ void Jit::CompNEON_VVectorInit(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VDot(MIPSOpcode op) {
+void ArmJit::CompNEON_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -476,7 +476,7 @@ void Jit::CompNEON_VDot(MIPSOpcode op) {
 }
 
 
-void Jit::CompNEON_VHdp(MIPSOpcode op) {
+void ArmJit::CompNEON_VHdp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -488,7 +488,7 @@ void Jit::CompNEON_VHdp(MIPSOpcode op) {
 	// A bit tricky on NEON...
 }
 
-void Jit::CompNEON_VScl(MIPSOpcode op) {
+void ArmJit::CompNEON_VScl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -507,7 +507,7 @@ void Jit::CompNEON_VScl(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VV2Op(MIPSOpcode op) {
+void ArmJit::CompNEON_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -658,7 +658,7 @@ void Jit::CompNEON_VV2Op(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Mftv(MIPSOpcode op) {
+void ArmJit::CompNEON_Mftv(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int imm = op & 0xFF;
 	MIPSGPReg rt = _RT;
@@ -736,11 +736,11 @@ void Jit::CompNEON_Mftv(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vmfvc(MIPSOpcode op) {
+void ArmJit::CompNEON_Vmfvc(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vmtvc(MIPSOpcode op) {
+void ArmJit::CompNEON_Vmtvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int vs = _VS;
@@ -761,7 +761,7 @@ void Jit::CompNEON_Vmtvc(MIPSOpcode op) {
 	}
 }
 
-void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
+void ArmJit::CompNEON_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	MatrixSize msz = GetMtxSize(op);
@@ -822,7 +822,7 @@ void Jit::CompNEON_VMatrixInit(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vmmov(MIPSOpcode op) {
+void ArmJit::CompNEON_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (_VS == _VD) {
 		// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
@@ -850,7 +850,7 @@ void Jit::CompNEON_Vmmov(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vmmul(MIPSOpcode op) {
+void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	MatrixSize msz = GetMtxSize(op);
@@ -889,7 +889,7 @@ void Jit::CompNEON_Vmmul(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vmscl(MIPSOpcode op) {
+void ArmJit::CompNEON_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	MatrixSize msz = GetMtxSize(op);
@@ -914,7 +914,7 @@ void Jit::CompNEON_Vmscl(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vtfm(MIPSOpcode op) {
+void ArmJit::CompNEON_Vtfm(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -960,27 +960,27 @@ void Jit::CompNEON_Vtfm(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VCrs(MIPSOpcode op) {
+void ArmJit::CompNEON_VCrs(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_VDet(MIPSOpcode op) {
+void ArmJit::CompNEON_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vi2x(MIPSOpcode op) {
+void ArmJit::CompNEON_Vi2x(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vx2i(MIPSOpcode op) {
+void ArmJit::CompNEON_Vx2i(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vf2i(MIPSOpcode op) {
+void ArmJit::CompNEON_Vf2i(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vi2f(MIPSOpcode op) {
+void ArmJit::CompNEON_Vi2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -1006,7 +1006,7 @@ void Jit::CompNEON_Vi2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vh2f(MIPSOpcode op) {
+void ArmJit::CompNEON_Vh2f(MIPSOpcode op) {
 	if (!cpu_info.bHalf) {
 		// No hardware support for half-to-float, fallback to interpreter
 		// TODO: Translate the fast SSE solution to standard integer/VFP stuff
@@ -1038,7 +1038,7 @@ void Jit::CompNEON_Vh2f(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vcst(MIPSOpcode op) {
+void ArmJit::CompNEON_Vcst(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -1056,7 +1056,7 @@ void Jit::CompNEON_Vcst(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
+void ArmJit::CompNEON_Vhoriz(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -1092,7 +1092,7 @@ void Jit::CompNEON_Vhoriz(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VRot(MIPSOpcode op) {
+void ArmJit::CompNEON_VRot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix()) {
@@ -1111,7 +1111,7 @@ void Jit::CompNEON_VRot(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_VIdt(MIPSOpcode op) {
+void ArmJit::CompNEON_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE_UNKNOWN_PREFIX;
@@ -1157,7 +1157,7 @@ void Jit::CompNEON_VIdt(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vcmp(MIPSOpcode op) {
+void ArmJit::CompNEON_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
 		DISABLE;
@@ -1288,7 +1288,7 @@ void Jit::CompNEON_Vcmp(MIPSOpcode op) {
 	ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), R0);
 }
 
-void Jit::CompNEON_Vcmov(MIPSOpcode op) {
+void ArmJit::CompNEON_Vcmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -1331,7 +1331,7 @@ void Jit::CompNEON_Vcmov(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Viim(MIPSOpcode op) {
+void ArmJit::CompNEON_Viim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -1348,7 +1348,7 @@ void Jit::CompNEON_Viim(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vfim(MIPSOpcode op) {
+void ArmJit::CompNEON_Vfim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -1368,7 +1368,7 @@ void Jit::CompNEON_Vfim(MIPSOpcode op) {
 }
 
 // https://code.google.com/p/bullet/source/browse/branches/PhysicsEffects/include/vecmath/neon/vectormath_neon_assembly_implementations.S?r=2488
-void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
+void ArmJit::CompNEON_VCrossQuat(MIPSOpcode op) {
 	// This op does not support prefixes anyway.
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
@@ -1411,13 +1411,13 @@ void Jit::CompNEON_VCrossQuat(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_Vsgn(MIPSOpcode op) {
+void ArmJit::CompNEON_Vsgn(MIPSOpcode op) {
 	DISABLE;
 
 	// This will be a bunch of bit magic.
 }
 
-void Jit::CompNEON_Vocp(MIPSOpcode op) {
+void ArmJit::CompNEON_Vocp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
@@ -1434,11 +1434,11 @@ void Jit::CompNEON_Vocp(MIPSOpcode op) {
 	fpr.ReleaseSpillLocksAndDiscardTemps();
 }
 
-void Jit::CompNEON_ColorConv(MIPSOpcode op) {
+void ArmJit::CompNEON_ColorConv(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::CompNEON_Vbfy(MIPSOpcode op) {
+void ArmJit::CompNEON_Vbfy(MIPSOpcode op) {
 	DISABLE;
 }
 

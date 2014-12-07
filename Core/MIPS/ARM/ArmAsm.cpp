@@ -75,7 +75,7 @@ void DisassembleArm(const u8 *data, int size);
 
 namespace MIPSComp {
 
-void Jit::GenerateFixedCode()
+void ArmJit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 

@@ -61,7 +61,11 @@ struct JitBlock;
 #define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
 
 namespace MIPSComp {
+#if defined(ARM)
+	extern ArmJit *jit;
+#else
 	extern Jit *jit;
+#endif
 }
 
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);

@@ -61,10 +61,10 @@ struct ArmJitOptions
 	int continueMaxInstructions;
 };
 
-class Jit : public ArmGen::ARMXCodeBlock
+class ArmJit : public ArmGen::ARMXCodeBlock
 {
 public:
-	Jit(MIPSState *mips);
+	ArmJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
@@ -324,8 +324,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (ArmJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (ArmJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

@@ -50,7 +50,7 @@ namespace MIPSComp
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
 
-	void Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b))
+	void ArmJit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b))
 	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
@@ -63,7 +63,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_IType(MIPSOpcode op)
+	void ArmJit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
@@ -141,7 +141,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType2(MIPSOpcode op)
+	void ArmJit::Comp_RType2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rs = _RS;
@@ -189,7 +189,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric)
+	void ArmJit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg rm, Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric)
 	{
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
@@ -224,7 +224,7 @@ namespace MIPSComp
 		(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 	}
 
-	void Jit::Comp_RType3(MIPSOpcode op)
+	void ArmJit::Comp_RType3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
@@ -449,7 +449,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa)
+	void ArmJit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa)
 	{
 		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
@@ -477,7 +477,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
+	void ArmJit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
 		MIPSGPReg rd = _RD;
 		MIPSGPReg rt = _RT;
@@ -492,7 +492,7 @@ namespace MIPSComp
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, SCRATCHREG1));
 	}
 
-	void Jit::Comp_ShiftType(MIPSOpcode op)
+	void ArmJit::Comp_ShiftType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rs = _RS;
@@ -519,7 +519,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Special3(MIPSOpcode op)
+	void ArmJit::Comp_Special3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -581,7 +581,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex(MIPSOpcode op)
+	void ArmJit::Comp_Allegrex(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
@@ -635,7 +635,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex2(MIPSOpcode op)
+	void ArmJit::Comp_Allegrex2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;
@@ -667,7 +667,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_MulDivType(MIPSOpcode op)
+	void ArmJit::Comp_MulDivType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		MIPSGPReg rt = _RT;

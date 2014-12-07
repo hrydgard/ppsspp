@@ -24,7 +24,11 @@
 #include "ext/udis86/udis86.h"
 
 namespace MIPSComp {
+#if defined(ARM)
+	ArmJit *jit;
+#else
 	Jit *jit;
+#endif
 }
 
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.

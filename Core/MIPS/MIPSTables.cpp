@@ -89,7 +89,7 @@ struct MIPSInstruction {
 #endif
 
 #ifdef ARM
-#define JITFUNC(f) (&Jit::f)
+#define JITFUNC(f) (&ArmJit::f)
 #elif defined(_M_X64) || defined(_M_IX86)
 #define JITFUNC(f) (&Jit::f)
 #elif defined(MIPS)

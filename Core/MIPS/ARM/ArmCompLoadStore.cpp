@@ -66,7 +66,7 @@
 
 namespace MIPSComp
 {
-	void Jit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
+	void ArmJit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
 			bool negated;
@@ -91,7 +91,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
+	void ArmJit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
 		SetR0ToEffectiveAddress(rs, offset);
 
 		// There are three valid ranges.  Each one gets a bit.
@@ -126,7 +126,7 @@ namespace MIPSComp
 		SetCC(reverse ? CC_EQ : CC_GT);
 	}
 
-	void Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
+	void ArmJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
@@ -272,7 +272,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_ITypeMem(MIPSOpcode op)
+	void ArmJit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -389,7 +389,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Cache(MIPSOpcode op) {
+	void ArmJit::Comp_Cache(MIPSOpcode op) {
 		DISABLE;
 	}
 }

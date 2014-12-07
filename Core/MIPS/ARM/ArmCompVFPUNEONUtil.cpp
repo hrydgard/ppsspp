@@ -70,11 +70,11 @@ static const float zero = 0.0f;
 	
 // On NEON, we map triples to Q registers and singles to D registers.
 // Sometimes, as when doing dot products, it matters what's in that unused reg. This zeroes it.
-void Jit::NEONMaskToSize(ARMReg vs, VectorSize sz) {
+void ArmJit::NEONMaskToSize(ARMReg vs, VectorSize sz) {
 	// TODO
 }
 
-ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags) {
+ARMReg ArmJit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags) {
 	static const float constantArray[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
 	static const float constantArrayNegated[8] = { -0.f, -1.f, -2.f, -0.5f, -3.f, -1.f / 3.f, -0.25f, -1.f / 6.f };
 
@@ -255,7 +255,7 @@ ARMReg Jit::NEONMapPrefixST(int mipsReg, VectorSize sz, u32 prefix, int mapFlags
 	return ar;
 }
 
-Jit::DestARMReg Jit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
+ArmJit::DestARMReg ArmJit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
 	// Inverted from the actual bits, easier to reason about 1 == write
 	int writeMask = (~(js.prefixD >> 8)) & 0xF;
 	int n = GetNumVectorElements(sz);
@@ -277,7 +277,7 @@ Jit::DestARMReg Jit::NEONMapPrefixD(int vreg, VectorSize sz, int mapFlags) {
 	return dest;
 }
 
-void Jit::NEONApplyPrefixD(DestARMReg dest) {
+void ArmJit::NEONApplyPrefixD(DestARMReg dest) {
 	// Apply clamps to dest.rd
 	int n = GetNumVectorElements(dest.sz);
 
@@ -350,7 +350,7 @@ void Jit::NEONApplyPrefixD(DestARMReg dest) {
 	}
 }
 
-Jit::MappedRegs Jit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize, bool applyPrefixes) {
+ArmJit::MappedRegs ArmJit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, VectorSize tsize, bool applyPrefixes) {
 	MappedRegs regs;
 	if (applyPrefixes) {
 		regs.vs = NEONMapPrefixS(_VS, ssize, 0);
@@ -371,7 +371,7 @@ Jit::MappedRegs Jit::NEONMapDirtyInIn(MIPSOpcode op, VectorSize dsize, VectorSiz
 	return regs;
 }
 
-Jit::MappedRegs Jit::NEONMapInIn(MIPSOpcode op, VectorSize ssize, VectorSize tsize, bool applyPrefixes) {
+ArmJit::MappedRegs ArmJit::NEONMapInIn(MIPSOpcode op, VectorSize ssize, VectorSize tsize, bool applyPrefixes) {
 	MappedRegs regs;
 	if (applyPrefixes) {
 		regs.vs = NEONMapPrefixS(_VS, ssize, 0);
@@ -385,7 +385,7 @@ Jit::MappedRegs Jit::NEONMapInIn(MIPSOpcode op, VectorSize ssize, VectorSize tsi
 	return regs;
 }
 
-Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, bool applyPrefixes) {
+ArmJit::MappedRegs ArmJit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize ssize, bool applyPrefixes) {
 	MappedRegs regs;
 	regs.vs = NEONMapPrefixS(_VS, ssize, 0);
 	regs.overlap = GetVectorOverlap(_VD, dsize, _VS, ssize) > 0;
@@ -394,7 +394,7 @@ Jit::MappedRegs Jit::NEONMapDirtyIn(MIPSOpcode op, VectorSize dsize, VectorSize 
 }
 
 // Requires quad registers.
-void Jit::NEONTranspose4x4(ARMReg cols[4]) {
+void ArmJit::NEONTranspose4x4(ARMReg cols[4]) {
 	// 0123   _\  0426
 	// 4567    /  1537
 	VTRN(F_32, cols[0], cols[1]);   

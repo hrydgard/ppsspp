@@ -219,8 +219,13 @@ void MIPSState::Init() {
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
+	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
+#ifdef ARM
+		MIPSComp::jit = new MIPSComp::ArmJit(this);
+#else
 		MIPSComp::jit = new MIPSComp::Jit(this);
+#endif
+	}
 }
 
 bool MIPSState::HasDefaultPrefix() const {
@@ -236,7 +241,11 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
 		if (!MIPSComp::jit) {
+#ifdef ARM
+			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#else
 			MIPSComp::jit = new MIPSComp::Jit(this);
+#endif
 		}
 		break;
 
@@ -258,7 +267,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
 	else
-		MIPSComp::Jit::DoDummyState(p);
+		MIPSComp::jit->DoDummyState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
