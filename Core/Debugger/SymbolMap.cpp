@@ -942,9 +942,7 @@ DataType SymbolMap::GetDataType(u32 startAddress) const {
 	return it->second.type;
 }
 
-#if defined(_WIN32)
-
-void SymbolMap::getLabels(std::vector<LabelDefinition>& dest) const
+void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) const
 {
 	lock_guard guard(lock_);
 	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
@@ -954,6 +952,8 @@ void SymbolMap::getLabels(std::vector<LabelDefinition>& dest) const
 		dest.push_back(entry);
 	}
 }
+
+#if defined(_WIN32)
 
 struct DefaultSymbol {
 	u32 address;
