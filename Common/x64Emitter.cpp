@@ -1838,13 +1838,84 @@ void XEmitter::VSUBPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   {WriteAVXOp(0x6
 void XEmitter::VMULPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   {WriteAVXOp(0x66, sseMUL, regOp1, regOp2, arg);}
 void XEmitter::VDIVPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   {WriteAVXOp(0x66, sseDIV, regOp1, regOp2, arg);}
 void XEmitter::VSQRTSD(X64Reg regOp1, X64Reg regOp2, OpArg arg)  {WriteAVXOp(0xF2, sseSQRT, regOp1, regOp2, arg);}
-void XEmitter::VPAND(X64Reg regOp1, X64Reg regOp2, OpArg arg)    {WriteAVXOp(0x66, sseAND, regOp1, regOp2, arg);}
-void XEmitter::VPANDN(X64Reg regOp1, X64Reg regOp2, OpArg arg)   {WriteAVXOp(0x66, sseANDN, regOp1, regOp2, arg);}
-void XEmitter::VPOR(X64Reg regOp1, X64Reg regOp2, OpArg arg)     {WriteAVXOp(0x66, sseOR, regOp1, regOp2, arg);}
-void XEmitter::VPXOR(X64Reg regOp1, X64Reg regOp2, OpArg arg)    {WriteAVXOp(0x66, sseXOR, regOp1, regOp2, arg);}
 void XEmitter::VSHUFPD(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 shuffle) {WriteAVXOp(0x66, sseSHUF, regOp1, regOp2, arg, 1); Write8(shuffle);}
 void XEmitter::VUNPCKLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg){WriteAVXOp(0x66, 0x14, regOp1, regOp2, arg);}
 void XEmitter::VUNPCKHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg){WriteAVXOp(0x66, 0x15, regOp1, regOp2, arg);}
+
+void XEmitter::VANDPS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x00, sseAND, regOp1, regOp2, arg); }
+void XEmitter::VANDPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, sseAND, regOp1, regOp2, arg); }
+void XEmitter::VANDNPS(X64Reg regOp1, X64Reg regOp2, OpArg arg)  { WriteAVXOp(0x00, sseANDN, regOp1, regOp2, arg); }
+void XEmitter::VANDNPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)  { WriteAVXOp(0x66, sseANDN, regOp1, regOp2, arg); }
+void XEmitter::VORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x00, sseOR, regOp1, regOp2, arg); }
+void XEmitter::VORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, sseOR, regOp1, regOp2, arg); }
+void XEmitter::VXORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x00, sseXOR, regOp1, regOp2, arg); }
+void XEmitter::VXORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, sseXOR, regOp1, regOp2, arg); }
+
+void XEmitter::VPAND(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0xDB, regOp1, regOp2, arg); }
+void XEmitter::VPANDN(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0xDF, regOp1, regOp2, arg); }
+void XEmitter::VPOR(X64Reg regOp1, X64Reg regOp2, OpArg arg)     { WriteAVXOp(0x66, 0xEB, regOp1, regOp2, arg); }
+void XEmitter::VPXOR(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0xEF, regOp1, regOp2, arg); }
+
+void XEmitter::VFMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x3898, regOp1, regOp2, arg); }
+void XEmitter::VFMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38A8, regOp1, regOp2, arg); }
+void XEmitter::VFMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38B8, regOp1, regOp2, arg); }
+void XEmitter::VFMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x3898, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38A8, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38B8, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x3899, regOp1, regOp2, arg); }
+void XEmitter::VFMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38A9, regOp1, regOp2, arg); }
+void XEmitter::VFMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38B9, regOp1, regOp2, arg); }
+void XEmitter::VFMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x3899, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38A9, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38B9, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x389A, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38AA, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38BA, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x389A, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38AA, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38BA, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x389B, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38AB, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38BB, regOp1, regOp2, arg); }
+void XEmitter::VFMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x389B, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38AB, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)    { WriteAVXOp(0x66, 0x38BB, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389C, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AC, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BC, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389C, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AC, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BC, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389D, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AD, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BD, regOp1, regOp2, arg); }
+void XEmitter::VFNMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389D, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AD, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BD, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389E, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AE, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BE, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389E, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AE, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BE, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389F, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AF, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BF, regOp1, regOp2, arg); }
+void XEmitter::VFNMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x389F, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38AF, regOp1, regOp2, arg, 1); }
+void XEmitter::VFNMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg)   { WriteAVXOp(0x66, 0x38BF, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADDSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x3896, regOp1, regOp2, arg); }
+void XEmitter::VFMADDSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38A6, regOp1, regOp2, arg); }
+void XEmitter::VFMADDSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38B6, regOp1, regOp2, arg); }
+void XEmitter::VFMADDSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x3896, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADDSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38A6, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMADDSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38B6, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUBADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x3897, regOp1, regOp2, arg); }
+void XEmitter::VFMSUBADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38A7, regOp1, regOp2, arg); }
+void XEmitter::VFMSUBADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38B7, regOp1, regOp2, arg); }
+void XEmitter::VFMSUBADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x3897, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUBADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38A7, regOp1, regOp2, arg, 1); }
+void XEmitter::VFMSUBADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg) { WriteAVXOp(0x66, 0x38B7, regOp1, regOp2, arg, 1); }
 
 void XEmitter::SARX(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {WriteBMI2Op(bits, 0xF3, 0x38F7, regOp1, regOp2, arg);}
 void XEmitter::SHLX(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2) {WriteBMI2Op(bits, 0x66, 0x38F7, regOp1, regOp2, arg);}
