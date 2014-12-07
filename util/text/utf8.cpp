@@ -28,6 +28,7 @@
 
 #include "base/basictypes.h"
 #include "utf8.h"
+#include "utf16.h"
 
 // is start of UTF sequence
 inline bool isutf(char c) {
@@ -458,6 +459,53 @@ std::wstring ConvertUTF8ToWString(const std::string &source) {
 		MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, &str[0], size);
 	}
 	return str;
+}
+
+#else
+
+static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const std::string &source) {
+	const wchar_t *const orig = dest;
+	const wchar_t *const destEnd = dest + destSize;
+
+	UTF8 utf(source.c_str());
+
+	if (sizeof(wchar_t) == 2) {
+		uint16_t *destw = (uint16_t *)dest;
+		const uint16_t *const destwEnd = destw + destSize;
+		while (uint32_t c = utf.next()) {
+			if (destw + UTF16LE::encodeUnits(c) >= destwEnd) {
+				break;
+			}
+			destw += UTF16LE::encode(destw, c);
+		}
+	} else {
+		while (uint32_t c = utf.next()) {
+			if (dest + 1 >= destEnd) {
+				break;
+			}
+			*dest++ = c;
+		}
+	}
+
+	// No ++ to not count the terminal in length.
+	if (dest < destEnd) {
+		*dest = 0;
+	}
+
+	return dest - orig;
+}
+
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source) {
+	ConvertUTF8ToWStringInternal(dest, destSize, source);
+}
+
+std::wstring ConvertUTF8ToWString(const std::string &source) {
+	std::wstring dst;
+	// utf-8 won't be less bytes than there are characters.  But need +1 for terminator.
+	dst.resize(source.size() + 1, 0);
+	size_t realLen = ConvertUTF8ToWStringInternal(&dst[0], source.size() + 1, source);
+	dst.resize(realLen);
+	return dst;
 }
 
 #endif
