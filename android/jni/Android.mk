@@ -333,6 +333,75 @@ ifeq ($(HEADLESS),1)
   include $(BUILD_EXECUTABLE)
 endif
 
+ifeq ($(UNITTEST),1)
+  include $(CLEAR_VARS)
+  include $(LOCAL_PATH)/Locals.mk
+
+  # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
+  LOCAL_CFLAGS += -fPIE
+  LOCAL_LDFLAGS += -fPIE -pie
+
+  LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/armips $(LOCAL_C_INCLUDES)
+
+  LIBARMIPS_FILES := \
+	$(SRC)/ext/armips/Archs/ARM/Arm.cpp \
+	$(SRC)/ext/armips/Archs/ARM/ArmOpcodes.cpp \
+	$(SRC)/ext/armips/Archs/ARM/ArmRelocator.cpp \
+	$(SRC)/ext/armips/Archs/ARM/CArmInstruction.cpp \
+	$(SRC)/ext/armips/Archs/ARM/CThumbInstruction.cpp \
+	$(SRC)/ext/armips/Archs/ARM/Pool.cpp \
+	$(SRC)/ext/armips/Archs/ARM/ThumbOpcodes.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/CMipsInstruction.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/CMipsMacro.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/Mips.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/MipsElfFile.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/MipsMacros.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/MipsOpcodes.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/MipsPSP.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/PsxRelocator.cpp \
+	$(SRC)/ext/armips/Archs/Z80/CZ80Instruction.cpp \
+	$(SRC)/ext/armips/Archs/Z80/z80.cpp \
+	$(SRC)/ext/armips/Archs/Z80/z80Opcodes.cpp \
+	$(SRC)/ext/armips/Archs/Architecture.cpp \
+	$(SRC)/ext/armips/Commands/CAssemblerCommand.cpp \
+	$(SRC)/ext/armips/Commands/CAssemblerLabel.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveArea.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveConditional.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveData.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveFile.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveFill.cpp \
+	$(SRC)/ext/armips/Commands/CDirectiveMessage.cpp \
+	$(SRC)/ext/armips/Core/ELF/ElfFile.cpp \
+	$(SRC)/ext/armips/Core/ELF/ElfRelocator.cpp \
+	$(SRC)/ext/armips/Core/Assembler.cpp \
+	$(SRC)/ext/armips/Core/CMacro.cpp \
+	$(SRC)/ext/armips/Core/Common.cpp \
+	$(SRC)/ext/armips/Core/Directives.cpp \
+	$(SRC)/ext/armips/Core/FileManager.cpp \
+	$(SRC)/ext/armips/Core/MathParser.cpp \
+	$(SRC)/ext/armips/Core/Misc.cpp \
+	$(SRC)/ext/armips/Core/SymbolData.cpp \
+	$(SRC)/ext/armips/Core/SymbolTable.cpp \
+	$(SRC)/ext/armips/Util/ByteArray.cpp \
+	$(SRC)/ext/armips/Util/CommonClasses.cpp \
+	$(SRC)/ext/armips/Util/CRC.cpp \
+	$(SRC)/ext/armips/Util/EncodingTable.cpp \
+	$(SRC)/ext/armips/Util/FileClasses.cpp \
+	$(SRC)/ext/armips/Util/StringFormat.cpp \
+	$(SRC)/ext/armips/Util/Util.cpp
+
+  LOCAL_MODULE := ppsspp_unittest
+  LOCAL_SRC_FILES := \
+	$(LIBARMIPS_FILES) \
+    $(EXEC_AND_LIB_FILES) \
+	$(SRC)/Core/MIPS/MIPSAsm.cpp \
+    $(SRC)/UnitTest/JitHarness.cpp \
+    $(SRC)/UnitTest/TestArmEmitter.cpp \
+    $(SRC)/UnitTest/UnitTest.cpp
+
+  include $(BUILD_EXECUTABLE)
+endif
+
 $(call import-module,libzip)
 $(call import-module,native)
 
