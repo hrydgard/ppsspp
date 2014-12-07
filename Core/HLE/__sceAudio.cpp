@@ -23,6 +23,10 @@
 #include "Common/FixedSizeQueue.h"
 #include "Common/Atomics.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
@@ -31,6 +35,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
