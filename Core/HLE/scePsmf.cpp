@@ -170,7 +170,7 @@ public:
 	void setStreamNum(int num);
 	bool setStreamWithType(int type, int channel);
 
-	int FindEPWithTimestamp(int pts);
+	int FindEPWithTimestamp(int pts) const;
 
 	u32 magic;
 	u32 version;
@@ -548,7 +548,7 @@ bool Psmf::setStreamWithType(int type, int channel) {
 	return false;
 }
 
-int Psmf::FindEPWithTimestamp(int pts) {
+int Psmf::FindEPWithTimestamp(int pts) const {
 	int best = -1;
 	int bestPts = 0;
 

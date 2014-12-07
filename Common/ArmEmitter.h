@@ -143,7 +143,7 @@ private:
 	u8 IndexOrShift;
 	ShiftType Shift;
 public:
-	OpType GetType()
+	OpType GetType() const
 	{
 		return Type;
 	}
@@ -240,35 +240,35 @@ public:
 		_assert_msg_(JIT, Type == TYPE_RSR, "RSR must be RSR Of Course");
 		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Value;
 	}
-	u32 Rm()
+	u32 Rm() const
 	{
 		_assert_msg_(JIT, Type == TYPE_REG, "Rm must be with Reg");
 		return Value;
 	}
 
-	u32 Imm5()
+	u32 Imm5() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm5 not IMM value");
 		return ((Value & 0x0000001F) << 7);
 	}
-	u32 Imm8()
+	u32 Imm8() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
 		return Value & 0xFF;
 	}
-	u32 Imm8Rot() // IMM8 with Rotation
+	u32 Imm8Rot() const // IMM8 with Rotation
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
 		_assert_msg_(JIT, (Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
 		return (1 << 25) | (Rotation << 7) | (Value & 0x000000FF);
 	}
-	u32 Imm12()
+	u32 Imm12() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12 not IMM");
 		return (Value & 0x00000FFF);
 	}
 
-	u32 Imm12Mod()
+	u32 Imm12Mod() const
 	{
 		// This is an IMM12 with the top four bits being rotation and the
 		// bottom eight being an IMM. This is for instructions that need to
@@ -278,32 +278,32 @@ public:
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12Mod not IMM");
 		return ((Rotation & 0xF) << 8) | (Value & 0xFF);
 	}
-	u32 Imm16()
+	u32 Imm16() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( (Value & 0xF000) << 4) | (Value & 0x0FFF);
 	}
-	u32 Imm16Low()
+	u32 Imm16Low() const
 	{
 		return Imm16();
 	}
-	u32 Imm16High() // Returns high 16bits
+	u32 Imm16High() const // Returns high 16bits
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( ((Value >> 16) & 0xF000) << 4) | ((Value >> 16) & 0x0FFF);
 	}
-	u32 Imm24()
+	u32 Imm24() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return (Value & 0x0FFFFFFF);
 	}
 	// NEON and ASIMD specific
-	u32 Imm8ASIMD()
+	u32 Imm8ASIMD() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8ASIMD not IMM");
 		return  ((Value & 0x80) << 17) | ((Value & 0x70) << 12) | (Value & 0xF);
 	}
-	u32 Imm8VFP()
+	u32 Imm8VFP() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8VFP not IMM");
 		return ((Value & 0xF0) << 12) | (Value & 0xF);
@@ -511,7 +511,7 @@ public:
 	void B (ARMReg src);
 	void BL(const void *fnptr);
 	void BL(ARMReg src);
-	bool BLInRange(const void *fnptr);
+	bool BLInRange(const void *fnptr) const;
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);

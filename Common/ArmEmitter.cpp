@@ -748,7 +748,7 @@ void ARMXEmitter::B(ARMReg src)
 	Write32(condition | 0x012FFF10 | src);
 }
 
-bool ARMXEmitter::BLInRange(const void *fnptr) {
+bool ARMXEmitter::BLInRange(const void *fnptr) const {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
 	if (distance <= -0x2000000 || distance > 0x2000000)
 		return false;

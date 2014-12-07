@@ -41,7 +41,7 @@ void PpcRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	}
 }
 
-const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) {
+const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) const {
 	// Note that R0 is reserved as scratch for now.
 	// R1 could be used as it's only used for scratch outside "regalloc space" now.
 	// R12 is also potentially usable.
