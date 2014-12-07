@@ -33,7 +33,7 @@ public:
 	void Update();
 
 	// The time difference is always returned in milliseconds, regardless of alternative internal representation
-	u64 GetTimeDifference();
+	u64 GetTimeDifference() const;
 	void AddTimeDifference();
 	void WindBackStartingTime(u64 WindBack);
 
@@ -45,7 +45,7 @@ public:
 
   static void GetTimeFormatted(char formattedTime[13]);
 	std::string GetTimeElapsedFormatted() const;
-	u64 GetTimeElapsed();
+	u64 GetTimeElapsed() const;
 
 	static u32 GetTimeMs();
 

@@ -89,8 +89,8 @@ public:
 	int GetMipsRegOffset(MIPSReg r);
 
 private:
-	const PPCReg *GetMIPSAllocationOrder(int &count);
-		
+	const PPCReg *GetMIPSAllocationOrder(int &count) const;
+
 	MIPSState *mips_;
 	MIPSComp::PpcJitOptions *options_;
 	PPCXEmitter *emit_;

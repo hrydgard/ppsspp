@@ -84,7 +84,7 @@ private:
 		ReadFunc Read;
 		CloseFunc Close;
 
-		bool IsValid() { return library != NULL; }
+		bool IsValid() const { return library != NULL; }
 	};
 
 	struct HandlerFileHandle {

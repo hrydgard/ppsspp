@@ -93,7 +93,7 @@ void Timer::Update()
 // -------------------------------------
 
 // Get the number of milliseconds since the last Update()
-u64 Timer::GetTimeDifference()
+u64 Timer::GetTimeDifference() const
 {
 	return GetTimeMs() - m_LastTime;
 }
@@ -112,7 +112,7 @@ void Timer::WindBackStartingTime(u64 WindBack)
 }
 
 // Get the time elapsed since the Start()
-u64 Timer::GetTimeElapsed()
+u64 Timer::GetTimeElapsed() const
 {
 	// If we have not started yet, return 1 (because then I don't
 	// have to change the FPS calculation in CoreRerecording.cpp .

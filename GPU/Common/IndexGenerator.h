@@ -27,7 +27,7 @@ public:
 	void Setup(u16 *indexptr);
 	void Reset();
 	static bool PrimCompatible(int prim1, int prim2);
-	bool PrimCompatible(int prim);
+	bool PrimCompatible(int prim) const;
 	GEPrimitiveType Prim() const { return prim_; }
 
 	void AddPrim(int prim, int vertexCount);
