@@ -21,8 +21,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
-using namespace Gen;
-
 #ifdef _M_X64
 #define NUM_X_REGS 16
 #elif _M_IX86
@@ -41,7 +39,7 @@ using namespace Gen;
 #define TEMPREG EAX
 
 struct MIPSCachedReg {
-	OpArg location;
+	Gen::OpArg location;
 	bool away;  // value not in source register
 	bool locked;
 };
@@ -66,14 +64,14 @@ public:
 	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
-	void SetEmitter(XEmitter *emitter) {emit = emitter;}
+	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
 
-	void FlushR(X64Reg reg); 
-	void FlushLockX(X64Reg reg) {
+	void FlushR(Gen::X64Reg reg); 
+	void FlushLockX(Gen::X64Reg reg) {
 		FlushR(reg);
 		LockX(reg);
 	}
-	void FlushLockX(X64Reg reg1, X64Reg reg2) {
+	void FlushLockX(Gen::X64Reg reg1, Gen::X64Reg reg2) {
 		FlushR(reg1); FlushR(reg2);
 		LockX(reg1); LockX(reg2);
 	}
@@ -85,15 +83,15 @@ public:
 	void MapReg(MIPSGPReg preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(MIPSGPReg preg);
 
-	const OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}
-	X64Reg RX(MIPSGPReg preg) const
+	const Gen::OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}
+	Gen::X64Reg RX(MIPSGPReg preg) const
 	{
 		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
 			return regs[preg].location.GetSimpleReg(); 
 		PanicAlert("Not so simple - %i", preg); 
-		return (X64Reg)-1;
+		return (Gen::X64Reg)-1;
 	}
-	OpArg GetDefaultLocation(MIPSGPReg reg) const;
+	Gen::OpArg GetDefaultLocation(MIPSGPReg reg) const;
 
 	// Register locking.
 	void Lock(MIPSGPReg p1, MIPSGPReg p2 = MIPS_REG_INVALID, MIPSGPReg p3 = MIPS_REG_INVALID, MIPSGPReg p4 = MIPS_REG_INVALID);
@@ -111,11 +109,11 @@ public:
 	MIPSState *mips;
 
 private:
-	X64Reg GetFreeXReg();
+	Gen::X64Reg GetFreeXReg();
 	const int *GetAllocationOrder(int &count);
 
 	MIPSCachedReg regs[NUM_MIPS_GPRS];
 	X64CachedReg xregs[NUM_X_REGS];
 
-	XEmitter *emit;
+	Gen::XEmitter *emit;
 };

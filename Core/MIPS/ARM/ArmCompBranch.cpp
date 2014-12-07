@@ -54,6 +54,7 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
 
 void ArmJit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 {

@@ -5,6 +5,7 @@
 
 namespace MIPSComp {
 
+using namespace ArmGen;
 
 inline ARMReg MatchSize(ARMReg x, ARMReg target) {
 	if (IsQ(target) && IsQ(x))

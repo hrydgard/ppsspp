@@ -70,6 +70,7 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
+using namespace Gen;
 
 static u32 intBranchExit;
 static u32 jitBranchExit;

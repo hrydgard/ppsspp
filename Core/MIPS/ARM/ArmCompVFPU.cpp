@@ -55,6 +55,8 @@
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
 	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)

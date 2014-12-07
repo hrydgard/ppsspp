@@ -212,12 +212,12 @@ private:
 	void FlushPrefixV();
 
 	void WriteDownCount(int offset = 0);
-	void WriteDownCountR(ARMReg reg);
+	void WriteDownCountR(ArmGen::ARMReg reg);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
-	void MovFromPC(ARMReg r);
-	void MovToPC(ARMReg r);
+	void MovFromPC(ArmGen::ARMReg r);
+	void MovToPC(ArmGen::ARMReg r);
 
 	bool ReplaceJalTo(u32 dest);
 
@@ -225,7 +225,7 @@ private:
 	void RestoreDowncount();
 
 	void WriteExit(u32 destination, int exit_num);
-	void WriteExitDestInR(ARMReg Reg);
+	void WriteExitDestInR(ArmGen::ARMReg Reg);
 	void WriteSyscallExit();
 
 	// Utility compilation functions
@@ -235,8 +235,8 @@ private:
 	void BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code
-	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b));
-	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arithOp2)(ARMReg dst, ARMReg rm, Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ARMReg dst, ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric = false);
+	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ArmGen::ARMReg dst, ArmGen::ARMReg src, ArmGen::Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ArmGen::ARMReg dst, ArmGen::ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b));
+	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARMXEmitter::*arithOp2)(ArmGen::ARMReg dst, ArmGen::ARMReg rm, ArmGen::Operand2 rn), bool (ARMXEmitter::*tryArithI2R)(ArmGen::ARMReg dst, ArmGen::ARMReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric = false);
 
 	void CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType, int sa);
 	void CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType);
@@ -259,25 +259,25 @@ private:
 
 	// For NEON mappings, it will be easier to deal directly in ARM registers.
 
-	ARMReg NEONMapPrefixST(int vfpuReg, VectorSize sz, u32 prefix, int mapFlags);
-	ARMReg NEONMapPrefixS(int vfpuReg, VectorSize sz, int mapFlags) {
+	ArmGen::ARMReg NEONMapPrefixST(int vfpuReg, VectorSize sz, u32 prefix, int mapFlags);
+	ArmGen::ARMReg NEONMapPrefixS(int vfpuReg, VectorSize sz, int mapFlags) {
 		return NEONMapPrefixST(vfpuReg, sz, js.prefixS, mapFlags);
 	}
-	ARMReg NEONMapPrefixT(int vfpuReg, VectorSize sz, int mapFlags) {
+	ArmGen::ARMReg NEONMapPrefixT(int vfpuReg, VectorSize sz, int mapFlags) {
 		return NEONMapPrefixST(vfpuReg, sz, js.prefixT, mapFlags);
 	}
 
 	struct DestARMReg {
-		ARMReg rd;
-		ARMReg backingRd;
+		ArmGen::ARMReg rd;
+		ArmGen::ARMReg backingRd;
 		VectorSize sz;
 
-		operator ARMReg() const { return rd; }
+		operator ArmGen::ARMReg() const { return rd; }
 	};
 
 	struct MappedRegs {
-		ARMReg vs;
-		ARMReg vt;
+		ArmGen::ARMReg vs;
+		ArmGen::ARMReg vt;
 		DestARMReg vd;
 		bool overlap;
 	};
@@ -290,12 +290,12 @@ private:
 	void NEONApplyPrefixD(DestARMReg dest);
 
 	// NEON utils
-	void NEONMaskToSize(ARMReg vs, VectorSize sz);
-	void NEONTranspose4x4(ARMReg cols[4]);
+	void NEONMaskToSize(ArmGen::ARMReg vs, VectorSize sz);
+	void NEONTranspose4x4(ArmGen::ARMReg cols[4]);
 
 	// Utils
 	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
-	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse = false);
+	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ArmGen::ARMReg tempReg, bool reverse = false);
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
 	JitBlockCache blocks;

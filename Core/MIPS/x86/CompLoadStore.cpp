@@ -42,8 +42,9 @@
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
+	using namespace Gen;
+
 	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;

@@ -24,8 +24,6 @@ class ThunkManager;
 
 namespace MIPSComp {
 
-using namespace Gen;
-
 class JitSafeMem {
 public:
 	JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
@@ -33,18 +31,18 @@ public:
 	static void Init(Jit *jit);
 
 	// Emit code necessary for a memory write, returns true if MOV to dest is needed.
-	bool PrepareWrite(OpArg &dest, int size);
+	bool PrepareWrite(Gen::OpArg &dest, int size);
 	// Emit code proceeding a slow write call, returns true if slow write is needed.
 	bool PrepareSlowWrite();
 	// Emit a slow write from src.
-	void DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset = 0);
+	void DoSlowWrite(const void *safeFunc, const Gen::OpArg src, int suboffset = 0);
 	template <typename T>
-	void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const OpArg src, int suboffset = 0) {
+	void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const Gen::OpArg src, int suboffset = 0) {
 		DoSlowWrite((const void *)safeFunc, src, suboffset);
 	}
 
 	// Emit code necessary for a memory read, returns true if MOV from src is needed.
-	bool PrepareRead(OpArg &src, int size);
+	bool PrepareRead(Gen::OpArg &src, int size);
 	// Emit code for a slow read call, and returns true if result is in EAX.
 	bool PrepareSlowRead(const void *safeFunc);
 	template <typename T>
@@ -58,7 +56,7 @@ public:
 	// Use this before anything else if you're gonna use the below.
 	void SetFar();
 	// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
-	OpArg NextFastAddress(int suboffset);
+	Gen::OpArg NextFastAddress(int suboffset);
 	// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
 	void NextSlowRead(const void *safeFunc, int suboffset);
 	template <typename T>
@@ -72,7 +70,7 @@ private:
 		MEM_WRITE,
 	};
 
-	OpArg PrepareMemoryOpArg(MemoryOpType type);
+	Gen::OpArg PrepareMemoryOpArg(MemoryOpType type);
 	void PrepareSlowAccess();
 	void MemCheckImm(MemoryOpType type);
 	void MemCheckAsm(MemoryOpType type);
@@ -88,9 +86,9 @@ private:
 	bool fast_;
 	u32 alignMask_;
 	u32 iaddr_;
-	X64Reg xaddr_;
-	FixupBranch tooLow_, tooHigh_, skip_;
-	std::vector<FixupBranch> skipChecks_;
+	Gen::X64Reg xaddr_;
+	Gen::FixupBranch tooLow_, tooHigh_, skip_;
+	std::vector<Gen::FixupBranch> skipChecks_;
 	const u8 *safe_;
 };
 
@@ -121,7 +119,7 @@ private:
 	void CheckDirectEAX();
 	void StartDirectAccess();
 
-	std::vector<FixupBranch> skips_;
+	std::vector<Gen::FixupBranch> skips_;
 	ThunkManager *thunks_;
 };
 

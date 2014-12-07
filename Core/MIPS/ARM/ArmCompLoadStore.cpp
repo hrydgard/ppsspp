@@ -66,6 +66,8 @@
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+
 	void ArmJit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {

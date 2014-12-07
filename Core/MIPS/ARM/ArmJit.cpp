@@ -61,6 +61,7 @@ void DisassembleArm(const u8 *data, int size) {
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
 
 ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips)
 { 

@@ -25,8 +25,6 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Common/ArmEmitter.h"
 
-using namespace ArmGen;
-
 enum {
 	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
@@ -75,13 +73,12 @@ namespace MIPSComp {
 	struct JitState;
 }
 
-class ArmRegCacheFPU
-{
+class ArmRegCacheFPU {
 public:
 	ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
 	~ArmRegCacheFPU() {}
 
-	void Init(ARMXEmitter *emitter);
+	void Init(ArmGen::ARMXEmitter *emitter);
 
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
@@ -103,28 +100,28 @@ public:
 	u32 GetImm(MIPSReg reg) const;
 
 	// Returns an ARM register containing the requested MIPS register.
-	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
+	ArmGen::ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
 	void MapInIn(MIPSReg rd, MIPSReg rs);
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	bool IsMapped(MIPSReg r);
-	void FlushArmReg(ARMReg r);
+	void FlushArmReg(ArmGen::ARMReg r);
 	void FlushR(MIPSReg r);
 	void DiscardR(MIPSReg r);
-	ARMReg R(int preg); // Returns a cached register
+	ArmGen::ARMReg R(int preg); // Returns a cached register
 
 	// VFPU register as single ARM VFP registers. Must not be used in the upcoming NEON mode!
 	void MapRegV(int vreg, int flags = 0);
-	void LoadToRegV(ARMReg armReg, int vreg);
+	void LoadToRegV(ArmGen::ARMReg armReg, int vreg);
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
 	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
 
-	bool IsTempX(ARMReg r) const;
+	bool IsTempX(ArmGen::ARMReg r) const;
 	MIPSReg GetTempV() { return GetTempR() - 32; }
 	// VFPU registers as single VFP registers.
-	ARMReg V(int vreg) { return R(vreg + 32); }
+	ArmGen::ARMReg V(int vreg) { return R(vreg + 32); }
 	 
 	int FlushGetSequential(int a, int maxArmReg);
 	void FlushAll();
@@ -141,15 +138,15 @@ public:
 
 	// Note that we automatically spill-lock EVERY Q REGISTER we map, unlike other types.
 	// Need to explicitly allow spilling to get spilling.
-	ARMReg QMapReg(int vreg, VectorSize sz, int flags);
+	ArmGen::ARMReg QMapReg(int vreg, VectorSize sz, int flags);
 
 	// TODO
 	// Maps a matrix as a set of columns (yes, even transposed ones, always columns
 	// as those are faster to load/flush). When possible it will map into consecutive
 	// quad registers, enabling blazing-fast full-matrix loads, transposed or not.
-	void QMapMatrix(ARMReg *regs, int matrix, MatrixSize mz, int flags);
+	void QMapMatrix(ArmGen::ARMReg *regs, int matrix, MatrixSize mz, int flags);
 
-	ARMReg QAllocTemp(VectorSize sz);
+	ArmGen::ARMReg QAllocTemp(VectorSize sz);
 	
 	void QAllowSpill(int quad);
 	void QFlush(int quad);
@@ -163,7 +160,7 @@ public:
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
 
-	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
+	void SetEmitter(ArmGen::ARMXEmitter *emitter) { emit_ = emitter; }
 
 	int GetMipsRegOffset(MIPSReg r);
 
@@ -173,7 +170,7 @@ private:
 	bool Consecutive(int v1, int v2, int v3, int v4) const;
 
 	MIPSReg GetTempR();
-	const ARMReg *GetMIPSAllocationOrder(int &count);
+	const ArmGen::ARMReg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
@@ -184,7 +181,7 @@ private:
 	void SetupInitialRegs();
 
 	MIPSState *mips_;
-	ARMXEmitter *emit_;
+	ArmGen::ARMXEmitter *emit_;
 	MIPSComp::JitState *js_;
 	MIPSComp::ArmJitOptions *jo_;
 

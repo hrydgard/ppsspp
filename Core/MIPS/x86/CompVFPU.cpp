@@ -51,11 +51,9 @@
 #define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
-
-using namespace Gen;
-
 namespace MIPSComp
 {
+using namespace Gen;
 
 static const float one = 1.0f;
 static const float minus_one = -1.0f;
@@ -3287,7 +3285,6 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 }
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
-	u8 dreg;
 	int vd = _VD;
 	int vs = _VS;
 

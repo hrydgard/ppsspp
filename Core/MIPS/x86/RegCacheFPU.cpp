@@ -25,6 +25,8 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+using namespace Gen;
+
 float FPURegCache::tempValues[NUM_TEMPS];
 
 FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {

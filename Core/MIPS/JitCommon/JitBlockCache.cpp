@@ -68,6 +68,11 @@ op_agent_t agent;
 #pragma comment(lib, "jitprofiling.lib")
 #endif
 
+#ifdef ARM
+using namespace ArmGen;
+#elif defined(_M_X64) || defined(_M_IX86)
+using namespace Gen;
+#endif
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 const MIPSOpcode INVALID_ORIGINAL_OP = MIPSOpcode(0x00000001);

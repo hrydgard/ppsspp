@@ -25,6 +25,7 @@
 
 namespace MIPSComp
 {
+using namespace Gen;
 
 void JitMemCheck(u32 addr, int size, int isWrite)
 {

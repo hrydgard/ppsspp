@@ -44,6 +44,8 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+
 	static u32 EvalOr(u32 a, u32 b) { return a | b; }
 	static u32 EvalEor(u32 a, u32 b) { return a ^ b; }
 	static u32 EvalAnd(u32 a, u32 b) { return a & b; }

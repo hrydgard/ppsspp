@@ -42,6 +42,7 @@
 
 namespace MIPSComp
 {
+using namespace Gen;
 
 #ifdef _M_IX86
 

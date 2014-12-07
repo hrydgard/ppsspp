@@ -22,6 +22,7 @@
 static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
 namespace MIPSComp {
+using namespace Gen;
 
 int Jit::Replace_fabsf() {
 	fpr.SpillLock(0, 12);
