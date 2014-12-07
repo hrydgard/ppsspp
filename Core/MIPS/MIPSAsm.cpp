@@ -9,20 +9,20 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Debugger/SymbolMap.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(ANDROID)
 #include "ext/armips/Core/Assembler.h"
 #endif
 
 namespace MIPSAsm
 {	
-	std::wstring errorText;
+	static std::wstring errorText;
 
 std::wstring GetAssembleError()
 {
 	return errorText;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(ANDROID)
 class PspAssemblerFile: public AssemblerFile
 {
 public:
@@ -65,7 +65,7 @@ private:
 
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(ANDROID)
 	PspAssemblerFile file;
 	StringList errors;
 
@@ -79,7 +79,7 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	args.memoryFile = &file;
 	args.errorsResult = &errors;
 	
-	symbolMap.getLabels(args.labels);
+	symbolMap.GetLabels(args.labels);
 
 	errorText = L"";
 	if (!runArmips(args))
@@ -96,6 +96,7 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 
 	return true;
 #else
+	errorText = L"Unsupported platform";
 	return false;
 #endif
 }

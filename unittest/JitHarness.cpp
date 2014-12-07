@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "base/timeutil.h"
+#include "input/input_state.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -144,7 +145,7 @@ bool TestJit() {
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 			p++;
 			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
-				printf("ERROR: %S\n", MIPSAsm::GetAssembleError().c_str());
+				printf("ERROR: %ls\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;
@@ -165,7 +166,7 @@ bool TestJit() {
 
 	printf("\n");
 
-	double jit_speed, interp_speed;
+	double jit_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPU_JIT);
