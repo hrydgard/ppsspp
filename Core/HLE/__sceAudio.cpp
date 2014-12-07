@@ -327,6 +327,28 @@ void __AudioSetOutputFrequency(int freq) {
 	mixFrequency = freq;
 }
 
+inline void ClampBufferToS16(s16 *out, s32 *in, int size) {
+#ifdef _M_SSE
+	// Size will always be 16-byte aligned as the hwBlockSize is.
+	while (size >= 8) {
+		__m128i in1 = _mm_loadu_si128((__m128i *)in);
+		__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
+		__m128i packed = _mm_packs_epi32(in1, in2);
+		_mm_storeu_si128((__m128i *)out, packed);
+		out += 8;
+		in += 8;
+		size -= 8;
+	}
+	for (int i = 0; i < size; i++) {
+		out[i] = clamp_s16(in[i]);
+	}
+#else
+	for (int i = 0; i < size; i++) {
+		out[i] = clamp_s16(in[i]);
+	}
+#endif
+}
+
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
@@ -364,6 +386,7 @@ void __AudioUpdate() {
 			}
 			firstChannel = false;
 		} else {
+			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
 			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
@@ -374,6 +397,7 @@ void __AudioUpdate() {
 	}
 
 	if (firstChannel) {
+		// Nothing was written above, let's memset.
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
@@ -390,12 +414,9 @@ void __AudioUpdate() {
 			s16 *buf1 = 0, *buf2 = 0;
 			size_t sz1, sz2;
 			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
-			
-			for (size_t s = 0; s < sz1; s++)
-				buf1[s] = clamp_s16(mixBuffer[s]);
+			ClampBufferToS16(buf1, mixBuffer, sz1);
 			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					buf2[s] = clamp_s16(mixBuffer[s + sz1]);
+				ClampBufferToS16(buf2, mixBuffer + sz1, sz2);
 			}
 		} else {
 			// This happens quite a lot. There's still something slightly off
@@ -410,7 +431,6 @@ void __AudioUpdate() {
 // This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames)
 {
-
 	// TODO: if mixFrequency != the actual output frequency, resample!
 	int underrun = -1;
 	s16 sampleL = 0;
@@ -419,7 +439,6 @@ int __AudioMix(short *outstereo, int numFrames)
 	const s16 *buf1 = 0, *buf2 = 0;
 	size_t sz1, sz2;
 	{
-		
 		//TODO: do rigorous testing to see whether just blind locking will improve speed.
 		if (!__gainAudioQueueLock()){
 			 memset(outstereo, 0, numFrames * 2 * sizeof(short)); 
