@@ -230,6 +230,10 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest)
 {
 	size_t pos = 0;
+
+	if (src == dest)
+		return result;
+
 	while(1)
 	{
 		pos = result.find(src, pos);
