@@ -340,7 +340,7 @@ class PostAllocCallback : public Action {
 public:
 	PostAllocCallback() {}
 	static Action *Create() { return new PostAllocCallback(); }
-	void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostAllocCallback", 1, 2);
 		if (!s)
 			return;
@@ -350,7 +350,7 @@ public:
 			p.Do(errorCodePtr_);
 		}
 	}
-	void run(MipsCall &call);
+	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID, u32 errorCodePtr) { fontLibID_ = fontLibID; errorCodePtr_ = errorCodePtr; }
 
 private:
@@ -362,14 +362,14 @@ class PostOpenCallback : public Action {
 public:
 	PostOpenCallback() {}
 	static Action *Create() { return new PostOpenCallback(); }
-	void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenCallback", 1);
 		if (!s)
 			return;
 
 		p.Do(fontLibID_);
 	}
-	void run(MipsCall &call);
+	void run(MipsCall &call) override;
 	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
 
 private:

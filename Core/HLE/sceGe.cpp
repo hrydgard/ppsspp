@@ -127,7 +127,7 @@ class GeIntrHandler : public IntrHandler
 public:
 	GeIntrHandler() : IntrHandler(PSP_GE_INTR) {}
 
-	bool run(PendingInterrupt& pend)
+	bool run(PendingInterrupt& pend) override
 	{
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
@@ -210,7 +210,7 @@ public:
 		return false;
 	}
 
-	virtual void handleResult(PendingInterrupt& pend)
+	void handleResult(PendingInterrupt& pend) override
 	{
 		GeInterruptData intrdata = ge_pending_cb.front();
 		ge_pending_cb.pop_front();

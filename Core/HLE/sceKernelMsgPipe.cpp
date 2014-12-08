@@ -130,11 +130,11 @@ static bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgP
 
 struct MsgPipe : public KernelObject
 {
-	const char *GetName() {return nmp.name;}
-	const char *GetTypeName() {return "MsgPipe";}
+	const char *GetName() override { return nmp.name; }
+	const char *GetTypeName() override { return "MsgPipe"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mpipe; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mpipe; }
 
 	MsgPipe() : buffer(0) {}
 	~MsgPipe()
@@ -270,7 +270,7 @@ struct MsgPipe : public KernelObject
 		HLEKernel::RemoveWaitingThread(sendWaitingThreads, threadID);
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("MsgPipe", 1);
 		if (!s)

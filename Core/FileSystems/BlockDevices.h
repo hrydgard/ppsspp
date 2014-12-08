@@ -54,7 +54,7 @@ public:
 	~CISOFileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
-	u32 GetNumBlocks() { return numBlocks;}
+	u32 GetNumBlocks() override { return numBlocks; }
 
 private:
 	FileLoader *fileLoader_;

@@ -343,14 +343,14 @@ public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
 	static Action *Create() { return new PostPutAction; }
-	void DoState(PointerWrap &p) {
-	auto s = p.Section("PostPutAction", 1);
-	if (!s)
-		return;
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("PostPutAction", 1);
+		if (!s)
+			return;
 
 		p.Do(ringAddr_);
 	}
-	void run(MipsCall &call);
+	void run(MipsCall &call) override;
 private:
 	u32 ringAddr_;
 };

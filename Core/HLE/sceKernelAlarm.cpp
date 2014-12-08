@@ -64,7 +64,7 @@ class AlarmIntrHandler : public IntrHandler
 public:
 	AlarmIntrHandler() : IntrHandler(PSP_SYSTIMER0_INTR) {}
 
-	virtual bool run(PendingInterrupt& pend)
+	bool run(PendingInterrupt& pend) override
 	{
 		u32 error;
 		int alarmID = triggeredAlarm.front();
@@ -83,7 +83,7 @@ public:
 		return true;
 	}
 
-	virtual void handleResult(PendingInterrupt& pend)
+	void handleResult(PendingInterrupt& pend) override
 	{
 		int result = currentMIPS->r[MIPS_REG_V0];
 
