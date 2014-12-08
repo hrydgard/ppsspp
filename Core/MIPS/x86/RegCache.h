@@ -56,12 +56,17 @@ struct GPRRegCacheState {
 	X64CachedReg xregs[NUM_X_REGS];
 };
 
+namespace MIPSComp {
+	struct JitOptions;
+	struct JitState;
+}
+
 class GPRRegCache
 {
 public:
 	GPRRegCache();
 	~GPRRegCache() {}
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
 	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
@@ -110,10 +115,13 @@ public:
 
 private:
 	Gen::X64Reg GetFreeXReg();
+	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	const int *GetAllocationOrder(int &count);
 
 	MIPSCachedReg regs[NUM_MIPS_GPRS];
 	X64CachedReg xregs[NUM_X_REGS];
 
 	Gen::XEmitter *emit;
+	MIPSComp::JitState *js_;
+	MIPSComp::JitOptions *jo_;
 };

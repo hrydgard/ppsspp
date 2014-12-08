@@ -60,7 +60,7 @@ struct FPURegMIPS {
 	// Where is this MIPS register?
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
-	int reg;
+	u32 reg;
 	int lane;
 
 	bool spillLock;  // if true, this register cannot be spilled.

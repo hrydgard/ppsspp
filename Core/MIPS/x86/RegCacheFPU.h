@@ -79,6 +79,7 @@ struct FPURegCacheState {
 
 namespace MIPSComp {
 	struct JitOptions;
+	struct JitState;
 }
 
 enum {
@@ -97,7 +98,7 @@ public:
 	FPURegCache();
 	~FPURegCache() {}
 
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {
@@ -117,7 +118,6 @@ public:
 	int GetTempVS(u8 *v, VectorSize vsz);
 
 	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
-	void SetOptions(MIPSComp::JitOptions *jo) {jo_ = jo;}
 
 	void Flush();
 	int SanityCheck() const;
@@ -242,5 +242,6 @@ private:
 	static float tempValues[NUM_TEMPS];
 
 	Gen::XEmitter *emit;
+	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 };

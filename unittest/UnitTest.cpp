@@ -351,7 +351,9 @@ TestItem availableTests[] = {
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
 	TEST_ITEM(ArmEmitter),
+#ifndef ARM
 	TEST_ITEM(X64Emitter),
+#endif
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),

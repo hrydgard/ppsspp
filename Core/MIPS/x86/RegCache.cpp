@@ -52,7 +52,7 @@ GPRRegCache::GPRRegCache() : mips(0), emit(0) {
 	memset(xregs, 0, sizeof(xregs));
 }
 
-void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
+void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
@@ -85,6 +85,9 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	}*/
 	//Find top regs - preload them (load bursts ain't bad)
 	//But only preload IF written OR reads >= 3
+
+	js_ = js;
+	jo_ = jo;
 }
 
 
@@ -119,6 +122,37 @@ void GPRRegCache::UnlockAllX() {
 		xregs[i].allocLocked = false;
 }
 
+X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
+	int allocCount;
+	const int *allocOrder = GetAllocationOrder(allocCount);
+
+	static const int UNUSED_LOOKAHEAD_OPS = 30;
+
+	*clobbered = false;
+	for (int i = 0; i < allocCount; i++) {
+		X64Reg reg = (X64Reg)allocOrder[i];
+		if (xregs[reg].allocLocked)
+			continue;
+		if (xregs[reg].mipsReg != MIPS_REG_INVALID && regs[xregs[reg].mipsReg].locked)
+			continue;
+
+		// Awesome, a clobbered reg.  Let's use it.
+		if (MIPSAnalyst::IsRegisterClobbered(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+			*clobbered = true;
+			return reg;
+		}
+
+		// Not awesome.  A used reg.  Let's try to avoid spilling.
+		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+			continue;
+		}
+
+		return reg;
+	}
+
+	return INVALID_REG;
+}
+
 X64Reg GPRRegCache::GetFreeXReg()
 {
 	int aCount;
@@ -131,21 +165,23 @@ X64Reg GPRRegCache::GetFreeXReg()
 			return (X64Reg)xr;
 		}
 	}
-	//Okay, not found :( Force grab one
 
-	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
-	for (int i = 0; i < aCount; i++)
-	{
-		X64Reg xr = (X64Reg)aOrder[i];
-		if (xregs[xr].allocLocked) 
-			continue;
-		MIPSGPReg preg = xregs[xr].mipsReg;
-		if (!regs[preg].locked)
-		{
-			StoreFromRegister(preg);
-			return xr;
-		}
+	//Okay, not found :( Force grab one
+	bool clobbered;
+	X64Reg bestToSpill = FindBestToSpill(true, &clobbered);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false, &clobbered);
 	}
+
+	if (bestToSpill != INVALID_REG) {
+		if (clobbered) {
+			DiscardRegContentsIfCached(xregs[bestToSpill].mipsReg);
+		} else {
+			StoreFromRegister(xregs[bestToSpill].mipsReg);
+		}
+		return bestToSpill;
+	}
+
 	//Still no dice? Die!
 	_assert_msg_(JIT, 0, "Regcache ran out of regs");
 	return (X64Reg) -1;

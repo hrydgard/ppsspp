@@ -35,7 +35,7 @@ FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	vregs = regs + 32;
 }
 
-void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
+void FPURegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 
 	if (!initialReady) {
@@ -46,6 +46,9 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	memcpy(xregs, xregsInitial, sizeof(xregs));
 	memcpy(regs, regsInitial, sizeof(regs));
 	pendingFlush = false;
+
+	js_ = js;
+	jo_ = jo;
 }
 
 void FPURegCache::SetupInitialRegs() {

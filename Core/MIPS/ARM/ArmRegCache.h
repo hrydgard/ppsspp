@@ -75,11 +75,12 @@ enum {
 
 namespace MIPSComp {
 	struct ArmJitOptions;
+	struct JitState;
 }
 
 class ArmRegCache {
 public:
-	ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options);
+	ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
 	~ArmRegCache() {}
 
 	void Init(ArmGen::ARMXEmitter *emitter);
@@ -129,11 +130,12 @@ private:
 	const ArmGen::ARMReg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(ArmGen::ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
 	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
-	ArmGen::ARMReg FindBestToSpill(bool unusedOnly);
+	ArmGen::ARMReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 		
 	MIPSState *mips_;
-	MIPSComp::ArmJitOptions *options_;
 	ArmGen::ARMXEmitter *emit_;
+	MIPSComp::JitState *js_;
+	MIPSComp::ArmJitOptions *jo_;
 	u32 compilerPC_;
 
 	enum {
