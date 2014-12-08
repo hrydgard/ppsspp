@@ -202,7 +202,7 @@ KernelObject *__KernelMbxObject()
 	return new Mbx;
 }
 
-bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
 {
 	if (!HLEKernel::VerifyWait(th.threadID, WAITTYPE_MBX, m->GetUID()))
 		return true;
@@ -220,7 +220,7 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	return true;
 }
 
-bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
 {
 	if (m->nmb.numMessages > 0 && __KernelUnlockMbxForThread(m, waitData, error, 0, wokeThreads))
 	{
@@ -254,7 +254,7 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<Mbx, WAITTYPE_MBX>(threadID);
 }
 
-void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
+static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || mbxWaitTimer == -1)
 		return;
@@ -271,7 +271,7 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
 }
 
-std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
+static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
 {
 	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
 

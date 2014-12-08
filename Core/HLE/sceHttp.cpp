@@ -50,224 +50,224 @@ int sceHttpSetResolveRetry(int connectionID, int retryCount) {
 	return 0;
 }
 
-int sceHttpInit(int unknown) {
+static int sceHttpInit(int unknown) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpInit(%i)", unknown);
 	return 0;
 }
 
-int sceHttpEnd() {
+static int sceHttpEnd() {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnd()");
 	return 0;
 }
 
-int sceHttpInitCache(int size) {
+static int sceHttpInitCache(int size) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpInitCache(%d)", size);
 	return 0;
 }
 
-int sceHttpEndCache() {
+static int sceHttpEndCache() {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEndCache()");
 	return 0;
 }
 
-int sceHttpEnableCache(int id) {
+static int sceHttpEnableCache(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnableCache(%d)", id);
 	return 0;
 }
 
-int sceHttpDisableCache(int id) {
+static int sceHttpDisableCache(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableCache(%d)", id);
 	return 0;
 }
 
-u32 sceHttpGetProxy(u32 id, u32 activateFlagPtr, u32 modePtr, u32 proxyHostPtr, u32 len, u32 proxyPort) {
+static u32 sceHttpGetProxy(u32 id, u32 activateFlagPtr, u32 modePtr, u32 proxyHostPtr, u32 len, u32 proxyPort) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpGetProxy(%d, %x, %x, %x, %d, %x)", id, activateFlagPtr, modePtr, proxyHostPtr, len, proxyPort);
 	return 0;
 }
 
-int sceHttpGetStatusCode(int requestID, u32 statusCodePtr) {
+static int sceHttpGetStatusCode(int requestID, u32 statusCodePtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpGetStatusCode(%d, %x)", requestID, statusCodePtr);
 	return 0;
 }
 
-int sceHttpReadData(int requestID, u32 dataPtr, u32 dataSize) {
+static int sceHttpReadData(int requestID, u32 dataPtr, u32 dataSize) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpReadData(%d, %x, %x)", requestID, dataPtr, dataSize);
 	return 0;
 }
 
-int sceHttpSendRequest(int requestID, u32 dataPtr, u32 dataSize) {
+static int sceHttpSendRequest(int requestID, u32 dataPtr, u32 dataSize) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSendRequest(%d, %x, %x)", requestID, dataPtr, dataSize);
 	return 0;
 }
 
-int sceHttpDeleteRequest(int requestID) {
+static int sceHttpDeleteRequest(int requestID) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDeleteRequest(%d)", requestID);
 	return 0;
 }
 
-int sceHttpDeleteHeader(int id, const char *name) {
+static int sceHttpDeleteHeader(int id, const char *name) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDeleteHeader(%d, %s)", id, name);
 	return 0;
 }
 
-int sceHttpDeleteConnection(int connectionID) {
+static int sceHttpDeleteConnection(int connectionID) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableCache(%d)", connectionID);
 	return 0;
 }
 
-int sceHttpSetConnectTimeOut(int id, u32 timeout) {
+static int sceHttpSetConnectTimeOut(int id, u32 timeout) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetConnectTimeout(%d, %d)", id, timeout);
 	return 0;
 }
 
-int sceHttpSetSendTimeOut(int id, u32 timeout) {
+static int sceHttpSetSendTimeOut(int id, u32 timeout) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetSendTimeout(%d, %d)", id, timeout);
 	return 0;
 }
 
-u32 sceHttpSetProxy(u32 id, u32 activateFlagPtr, u32 mode, u32 newProxyHostPtr, u32 newProxyPort) {
+static u32 sceHttpSetProxy(u32 id, u32 activateFlagPtr, u32 mode, u32 newProxyHostPtr, u32 newProxyPort) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetProxy(%d, %x, %x, %x, %d)", id, activateFlagPtr, mode, newProxyHostPtr, newProxyPort);
 	return 0;
 }
 
-int sceHttpEnableCookie(int id) {
+static int sceHttpEnableCookie(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnableCookie(%d)", id);
 	return 0;
 }
 
-int sceHttpEnableKeepAlive(int id) {
+static int sceHttpEnableKeepAlive(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnableKeepAlive(%d)", id);
 	return 0;
 }
 
-int sceHttpDisableCookie(int id) {
+static int sceHttpDisableCookie(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableCookie(%d)", id);
 	return 0;
 }
 
-int sceHttpDisableKeepAlive(int id) {
+static int sceHttpDisableKeepAlive(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableKeepAlive(%d)", id);
 	return 0;
 }
 
-int sceHttpsInit(int unknown1, int unknown2, int unknown3, int unknown4) {
+static int sceHttpsInit(int unknown1, int unknown2, int unknown3, int unknown4) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpsInit(%d, %d, %d, %d)", unknown1, unknown2, unknown3, unknown4);
 	return 0;
 }
 
-int sceHttpsEnd() {
+static int sceHttpsEnd() {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpsEnd()");
 	return 0;
 }
 
 // Parameter "method" should be one of PSPHttpMethod's listed entries
-int sceHttpCreateRequest(int connectionID, int method, const char *path, u64 contentLength) {
+static int sceHttpCreateRequest(int connectionID, int method, const char *path, u64 contentLength) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateRequest(%d, %d, %s, %llx)", connectionID, method, path, contentLength);
 	return 0;
 }
 
-int sceHttpCreateConnection(int templateID, const char *hostString, const char *unknown1, u32 port, int unknown2) {
+static int sceHttpCreateConnection(int templateID, const char *hostString, const char *unknown1, u32 port, int unknown2) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateConnection(%d, %s, %s, %d, %d)", templateID, hostString, unknown1, port, unknown2);
 	return 0;
 }
 
-int sceHttpGetNetworkErrno(int request, u32 errNumPtr) {
+static int sceHttpGetNetworkErrno(int request, u32 errNumPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpGetNetworkErrno(%d, %x)", request, errNumPtr);
 	return 0;
 }
 
-int sceHttpAddExtraHeader(int id, const char *name, const char *value, int unknown) {
+static int sceHttpAddExtraHeader(int id, const char *name, const char *value, int unknown) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpAddExtraHeader(%d, %s, %s, %d)", id, name, value, unknown);
 	return 0;
 }
 
-int sceHttpAbortRequest(int requestID) {
+static int sceHttpAbortRequest(int requestID) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpAbortRequest(%d)", requestID);
 	return 0;
 }
 
-int sceHttpDeleteTemplate(int templateID) {
+static int sceHttpDeleteTemplate(int templateID) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDeleteTemplate(%d)", templateID);
 	return 0;
 }
 
-int sceHttpSetMallocFunction(u32 mallocFuncPtr, u32 freeFuncPtr, u32 reallocFuncPtr) {
+static int sceHttpSetMallocFunction(u32 mallocFuncPtr, u32 freeFuncPtr, u32 reallocFuncPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetMallocFunction(%x, %x, %x)", mallocFuncPtr, freeFuncPtr, reallocFuncPtr);
 	return 0;
 }
 
-int sceHttpSetResolveTimeOut(int id, u32 timeout) {
+static int sceHttpSetResolveTimeOut(int id, u32 timeout) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetResolveTimeOut(%d, %d)", id, timeout);
 	return 0;
 }
 
-int sceHttpSetAuthInfoCB(int id, u32 callbackFuncPtr) {
+static int sceHttpSetAuthInfoCB(int id, u32 callbackFuncPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetAuthInfoCB(%d, %x)", id, callbackFuncPtr);
 	return 0;
 }
 
-int sceHttpEnableRedirect(int id) {
+static int sceHttpEnableRedirect(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnableRedirect(%d)", id);
 	return 0;
 }
 
-int sceHttpEnableAuth(int id) {
+static int sceHttpEnableAuth(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpEnableAuth(%d)", id);
 	return 0;
 }
 
-int sceHttpDisableRedirect(int id) {
+static int sceHttpDisableRedirect(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableRedirect(%d)", id);
 	return 0;
 }
 
-int sceHttpDisableAuth(int id) {
+static int sceHttpDisableAuth(int id) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpDisableAuth(%d)", id);
 	return 0;
 }
 
-int sceHttpSaveSystemCookie() {
+static int sceHttpSaveSystemCookie() {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSaveSystemCookie()");
 	return 0;
 }
 
-int sceHttpsLoadDefaultCert(int unknown1, int unknown2) {
+static int sceHttpsLoadDefaultCert(int unknown1, int unknown2) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpLoadDefaultCert(%d, %d)", unknown1, unknown2);
 	return 0;
 }
 
-int sceHttpLoadSystemCookie() {
+static int sceHttpLoadSystemCookie() {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpLoadSystemCookie()");
 	return 0;
 }
 
-int sceHttpCreateTemplate(const char *agent, int unknown1, int unknown2) {
+static int sceHttpCreateTemplate(const char *agent, int unknown1, int unknown2) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateTemplate(%s, %d, %d)", agent, unknown1, unknown2);
 	return 0;
 }
 
 // Parameter "method" should be one of PSPHttpMethod's listed entries
-int sceHttpCreateRequestWithURL(int connectionID, int method, const char *url, u64 contentLength) {
+static int sceHttpCreateRequestWithURL(int connectionID, int method, const char *url, u64 contentLength) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateRequestWithURL(%d, %d, %s, %llx)", connectionID, method, url, contentLength);
 	return 0;
 }
 
-int sceHttpCreateConnectionWithURL(int templateID, const char *url, int unknown1) {
+static int sceHttpCreateConnectionWithURL(int templateID, const char *url, int unknown1) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpCreateConnectionWithURL(%d, %s, %d)", templateID, url, unknown1);
 	return 0;
 }
 
-int sceHttpSetRecvTimeOut(int id, u32 timeout) {
+static int sceHttpSetRecvTimeOut(int id, u32 timeout) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpSetRecvTimeOut(%d, %x)", id, timeout);
 	return 0;
 }
 
-int sceHttpGetAllHeader(int request, u32 headerPtrToPtr, u32 headerSize) {
+static int sceHttpGetAllHeader(int request, u32 headerPtrToPtr, u32 headerSize) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpGetAllHeader(%d, %x, %x)", request, headerPtrToPtr, headerSize);
 	return 0;
 }
 
-int sceHttpGetContentLength(int requestID, u64 contentLengthPtr) {
+static int sceHttpGetContentLength(int requestID, u64 contentLengthPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceHttpGetContentLength(%d, %llx)", requestID, contentLengthPtr);
 	return 0;
 }

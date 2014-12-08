@@ -248,7 +248,7 @@ public:
 	}
 };
 
-void __GeExecuteSync(u64 userdata, int cyclesLate)
+static void __GeExecuteSync(u64 userdata, int cyclesLate)
 {
 	int listid = userdata >> 32;
 	GPUSyncType type = (GPUSyncType) (userdata & 0xFFFFFFFF);
@@ -256,12 +256,12 @@ void __GeExecuteSync(u64 userdata, int cyclesLate)
 	gpu->SyncEnd(type, listid, wokeThreads);
 }
 
-void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
+static void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
 {
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
-void __GeCheckCycles(u64 userdata, int cyclesLate)
+static void __GeCheckCycles(u64 userdata, int cyclesLate)
 {
 	u64 geTicks = gpu->GetTickEstimate();
 	if (geTicks != 0)
@@ -389,7 +389,7 @@ void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason)
 	__KernelWaitCurThread(waitType, waitId, 0, 0, false, reason);
 }
 
-bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitingThreads)
+static bool __GeTriggerWait(WaitType waitType, SceUID waitId, WaitingThreadList &waitingThreads)
 {
 	// TODO: Do they ever get a result other than 0?
 	bool wokeThreads = false;
@@ -411,7 +411,7 @@ bool __GeTriggerWait(GPUSyncType type, SceUID waitId)
 	return false;
 }
 
-u32 sceGeEdramGetAddr()
+static u32 sceGeEdramGetAddr()
 {
 	u32 retVal = 0x04000000;
 	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetAddr", retVal);
@@ -419,14 +419,14 @@ u32 sceGeEdramGetAddr()
 	return retVal;
 }
 
-u32 sceGeEdramGetSize()
+static u32 sceGeEdramGetSize()
 {
 	u32 retVal = 0x00200000;
 	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetSize()", retVal);
 	return retVal;
 }
 
-int __GeSubIntrBase(int callbackId)
+static int __GeSubIntrBase(int callbackId)
 {
 	return callbackId * 2;
 }
@@ -467,7 +467,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 	return listID;
 }
 
-int sceGeListDeQueue(u32 listID)
+static int sceGeListDeQueue(u32 listID)
 {
 	WARN_LOG(SCEGE, "sceGeListDeQueue(%08x)", listID);
 	int result = gpu->DequeueList(0x35000000 ^ listID);
@@ -475,7 +475,7 @@ int sceGeListDeQueue(u32 listID)
 	return result;
 }
 
-int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
+static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	// Advance() might cause an interrupt, so defer the Advance but do it ASAP.
 	// Final Fantasy Type-0 has a graphical artifact without this (timing issue.)
@@ -492,7 +492,7 @@ int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:chec
 	return gpu->ListSync(0x35000000 ^ displayListID, mode);
 }
 
-u32 sceGeDrawSync(u32 mode)
+static u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
 	DEBUG_LOG(SCEGE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
@@ -508,7 +508,7 @@ int sceGeContinue()
 	return ret;
 }
 
-int sceGeBreak(u32 mode, u32 unknownPtr)
+static int sceGeBreak(u32 mode, u32 unknownPtr)
 {
 	if (mode > 1)
 	{
@@ -532,7 +532,7 @@ int sceGeBreak(u32 mode, u32 unknownPtr)
 	return result;
 }
 
-u32 sceGeSetCallback(u32 structAddr)
+static u32 sceGeSetCallback(u32 structAddr)
 {
 	DEBUG_LOG(SCEGE, "sceGeSetCallback(struct=%08x)", structAddr);
 
@@ -571,7 +571,7 @@ u32 sceGeSetCallback(u32 structAddr)
 	return cbID;
 }
 
-int sceGeUnsetCallback(u32 cbID)
+static int sceGeUnsetCallback(u32 cbID)
 {
 	DEBUG_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x)", cbID);
 
@@ -641,13 +641,13 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	return 0;
 }
 
-void __GeCopyMatrix(u32 matrixPtr, float *mtx, u32 size) {
+static void __GeCopyMatrix(u32 matrixPtr, float *mtx, u32 size) {
 	for (u32 i = 0; i < size / sizeof(float); ++i) {
 		Memory::Write_U32(toFloat24(mtx[i]), matrixPtr + i * sizeof(float));
 	}
 }
 
-int sceGeGetMtx(int type, u32 matrixPtr) {
+static int sceGeGetMtx(int type, u32 matrixPtr) {
 	if (!Memory::IsValidAddress(matrixPtr)) {
 		ERROR_LOG(SCEGE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
 		return -1;
@@ -686,7 +686,7 @@ int sceGeGetMtx(int type, u32 matrixPtr) {
 	return 0;
 }
 
-u32 sceGeGetCmd(int cmd) {
+static u32 sceGeGetCmd(int cmd) {
 	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
 	if (cmd >= 0 && cmd < (int)ARRAY_SIZE(gstate.cmdmem)) {
 		return gstate.cmdmem[cmd];  // Does not mask away the high bits.
@@ -695,12 +695,12 @@ u32 sceGeGetCmd(int cmd) {
 	}
 }
 
-int sceGeGetStack(int index, u32 stackPtr) {
+static int sceGeGetStack(int index, u32 stackPtr) {
 	WARN_LOG_REPORT(SCEGE, "sceGeGetStack(%i, %08x)", index, stackPtr);
 	return gpu->GetStack(index, stackPtr);
 }
 
-u32 sceGeEdramSetAddrTranslation(int new_size) {
+static u32 sceGeEdramSetAddrTranslation(int new_size) {
 	bool outsideRange = new_size != 0 && (new_size < 0x200 || new_size > 0x1000);
 	bool notPowerOfTwo = (new_size & (new_size - 1)) != 0;
 	if (outsideRange || notPowerOfTwo) {

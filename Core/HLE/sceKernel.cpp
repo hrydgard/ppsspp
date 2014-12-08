@@ -640,7 +640,7 @@ struct SystemStatus {
 	SceUInt_le perfcounter3;
 };
 
-int sceKernelReferSystemStatus(u32 statusPtr) {
+static int sceKernelReferSystemStatus(u32 statusPtr) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	if (Memory::IsValidAddress(statusPtr)) {
 		SystemStatus status;
@@ -675,7 +675,7 @@ struct DebugProfilerRegs {
 	u32 local_bus;
 };
 
-u32 sceKernelReferThreadProfiler(u32 statusPtr) {
+static u32 sceKernelReferThreadProfiler(u32 statusPtr) {
 	ERROR_LOG(SCEKERNEL, "FAKE sceKernelReferThreadProfiler()");
 
 	// Can we confirm that the struct above is the right struct?
@@ -689,25 +689,25 @@ u32 sceKernelReferThreadProfiler(u32 statusPtr) {
 	return 0;
 }
 
-int sceKernelReferGlobalProfiler(u32 statusPtr) {
+static int sceKernelReferGlobalProfiler(u32 statusPtr) {
 	ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
 	// Ignore for now
 	return 0;
 }
 
-int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
+static int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
 	WARN_LOG(SCEKERNEL,"ThreadManForKernel_446d8de6:Not support this patcher");
 	return sceKernelCreateThread(threadName, entry, prio, stacksize,  attr, optionAddr);
 }
 
-int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
+static int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 {	
 	WARN_LOG(SCEKERNEL,"ThreadManForKernel_f475845d:Not support this patcher");
 	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
 }
 
-int ThreadManForKernel_ceadeb47(u32 usec)
+static int ThreadManForKernel_ceadeb47(u32 usec)
 {	
 	WARN_LOG(SCEKERNEL,"ThreadManForKernel_ceadeb47:Not support this patcher");
 	return sceKernelDelayThread(usec);
@@ -924,7 +924,7 @@ void Register_LoadExecForUser()
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
 
-int LoadExecForKernel_4AC57943(SceUID cbId) 
+static int LoadExecForKernel_4AC57943(SceUID cbId) 
 {
 	WARN_LOG(SCEKERNEL,"LoadExecForKernel_4AC57943:Not support this patcher");
 	return sceKernelRegisterExitCallback(cbId);//not sure right

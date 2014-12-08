@@ -28,6 +28,8 @@ void __IoShutdown();
 
 struct ScePspDateTime;
 
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen);
+
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in);
 

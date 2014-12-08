@@ -116,7 +116,7 @@ void __UtilityShutdown()
 	gamedataInstallDialog.Shutdown(true);
 }
 
-int __UtilityGetStatus()
+static int __UtilityGetStatus()
 {
 	if (currentDialogType == UTILITY_DIALOG_NONE) {
 		return 0;
@@ -126,7 +126,7 @@ int __UtilityGetStatus()
 	}
 }
 
-int sceUtilitySavedataInitStart(u32 paramAddr)
+static int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
@@ -142,7 +142,7 @@ int sceUtilitySavedataInitStart(u32 paramAddr)
 	return ret;
 }
 
-int sceUtilitySavedataShutdownStart()
+static int sceUtilitySavedataShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
@@ -156,7 +156,7 @@ int sceUtilitySavedataShutdownStart()
 	return ret;
 }
 
-int sceUtilitySavedataGetStatus()
+static int sceUtilitySavedataGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
@@ -174,7 +174,7 @@ int sceUtilitySavedataGetStatus()
 	return status;
 }
 
-int sceUtilitySavedataUpdate(int animSpeed)
+static int sceUtilitySavedataUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
@@ -189,7 +189,7 @@ int sceUtilitySavedataUpdate(int animSpeed)
 	return result;
 }
 
-u32 sceUtilityLoadAvModule(u32 module)
+static u32 sceUtilityLoadAvModule(u32 module)
 {
 	if (module > 7)
 	{
@@ -201,13 +201,13 @@ u32 sceUtilityLoadAvModule(u32 module)
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
-u32 sceUtilityUnloadAvModule(u32 module)
+static u32 sceUtilityUnloadAvModule(u32 module)
 {
 	INFO_LOG(SCEUTILITY,"0=sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
-u32 sceUtilityLoadModule(u32 module)
+static u32 sceUtilityLoadModule(u32 module)
 {
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
@@ -240,7 +240,7 @@ u32 sceUtilityLoadModule(u32 module)
 		return hleDelayResult(0, "utility module loaded", 25000);
 }
 
-u32 sceUtilityUnloadModule(u32 module)
+static u32 sceUtilityUnloadModule(u32 module)
 {
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
@@ -265,7 +265,7 @@ u32 sceUtilityUnloadModule(u32 module)
 		return hleDelayResult(0, "utility module unloaded", 400);
 }
 
-int sceUtilityMsgDialogInitStart(u32 paramAddr)
+static int sceUtilityMsgDialogInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_MSG)
 	{
@@ -281,7 +281,7 @@ int sceUtilityMsgDialogInitStart(u32 paramAddr)
 	return ret;
 }
 
-int sceUtilityMsgDialogShutdownStart()
+static int sceUtilityMsgDialogShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
@@ -295,7 +295,7 @@ int sceUtilityMsgDialogShutdownStart()
 	return ret;
 }
 
-int sceUtilityMsgDialogUpdate(int animSpeed)
+static int sceUtilityMsgDialogUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
@@ -310,7 +310,7 @@ int sceUtilityMsgDialogUpdate(int animSpeed)
 	return ret;
 }
 
-int sceUtilityMsgDialogGetStatus()
+static int sceUtilityMsgDialogGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
@@ -326,7 +326,7 @@ int sceUtilityMsgDialogGetStatus()
 	return status;
 }
 
-int sceUtilityMsgDialogAbort()
+static int sceUtilityMsgDialogAbort()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
@@ -341,7 +341,7 @@ int sceUtilityMsgDialogAbort()
 
 
 // On screen keyboard
-int sceUtilityOskInitStart(u32 oskPtr)
+static int sceUtilityOskInitStart(u32 oskPtr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_OSK)
 	{
@@ -357,7 +357,7 @@ int sceUtilityOskInitStart(u32 oskPtr)
 	return ret;
 }
 
-int sceUtilityOskShutdownStart()
+static int sceUtilityOskShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
@@ -371,7 +371,7 @@ int sceUtilityOskShutdownStart()
 	return ret;
 }
 
-int sceUtilityOskUpdate(int animSpeed)
+static int sceUtilityOskUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
@@ -384,7 +384,7 @@ int sceUtilityOskUpdate(int animSpeed)
 	return ret;
 }
 
-int sceUtilityOskGetStatus()
+static int sceUtilityOskGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
@@ -401,7 +401,7 @@ int sceUtilityOskGetStatus()
 }
 
 
-int sceUtilityNetconfInitStart(u32 paramsAddr)
+static int sceUtilityNetconfInitStart(u32 paramsAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_NET) {
 		WARN_LOG(SCEUTILITY, "sceUtilityNetconfInitStart(%08x): wrong dialog type", paramsAddr);
@@ -416,7 +416,7 @@ int sceUtilityNetconfInitStart(u32 paramsAddr)
 	return ret;
 }
 
-int sceUtilityNetconfShutdownStart()
+static int sceUtilityNetconfShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_NET) {
 		WARN_LOG(SCEUTILITY, "sceUtilityNetconfShutdownStart(): wrong dialog type");
@@ -429,14 +429,14 @@ int sceUtilityNetconfShutdownStart()
 	return ret;
 }
 
-int sceUtilityNetconfUpdate(int animSpeed)
+static int sceUtilityNetconfUpdate(int animSpeed)
 {
 	int ret = netDialog.Update(animSpeed);
 	ERROR_LOG(SCEUTILITY, "UNIMPL %08x=sceUtilityNetconfUpdate(%i)", ret, animSpeed);
 	return ret;
 }
 
-int sceUtilityNetconfGetStatus()
+static int sceUtilityNetconfGetStatus()
 {
 	// Spam in Danball Senki BOOST
 	if (currentDialogType != UTILITY_DIALOG_NET) {
@@ -454,7 +454,7 @@ int sceUtilityNetconfGetStatus()
 
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
-int sceUtilityScreenshotInitStart(u32 paramAddr)
+static int sceUtilityScreenshotInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -470,7 +470,7 @@ int sceUtilityScreenshotInitStart(u32 paramAddr)
 	return retval;
 }
 
-int sceUtilityScreenshotShutdownStart()
+static int sceUtilityScreenshotShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -484,7 +484,7 @@ int sceUtilityScreenshotShutdownStart()
 	return ret;
 }
 
-int sceUtilityScreenshotUpdate(u32 animSpeed)
+static int sceUtilityScreenshotUpdate(u32 animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -497,7 +497,7 @@ int sceUtilityScreenshotUpdate(u32 animSpeed)
 	return ret;
 }
 
-int sceUtilityScreenshotGetStatus()
+static int sceUtilityScreenshotGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -513,7 +513,7 @@ int sceUtilityScreenshotGetStatus()
 	return status;
 }
 
-int sceUtilityScreenshotContStart(u32 paramAddr)
+static int sceUtilityScreenshotContStart(u32 paramAddr)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
@@ -526,7 +526,7 @@ int sceUtilityScreenshotContStart(u32 paramAddr)
 	return ret;
 }
 
-int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
+static int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
@@ -541,7 +541,7 @@ int sceUtilityGamedataInstallInitStart(u32 paramsAddr)
 	return ret;
 }
 
-int sceUtilityGamedataInstallShutdownStart() {
+static int sceUtilityGamedataInstallShutdownStart() {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallShutdownStart(): wrong dialog type");
@@ -553,7 +553,7 @@ int sceUtilityGamedataInstallShutdownStart() {
 	return gamedataInstallDialog.Shutdown();
 }
 
-int sceUtilityGamedataInstallUpdate(int animSpeed) {
+static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
 		WARN_LOG(SCEUTILITY, "sceUtilityGamedataInstallUpdate(%i): wrong dialog type", animSpeed);
@@ -565,7 +565,7 @@ int sceUtilityGamedataInstallUpdate(int animSpeed) {
 	return ret;
 }
 
-int sceUtilityGamedataInstallGetStatus()
+static int sceUtilityGamedataInstallGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
@@ -579,7 +579,7 @@ int sceUtilityGamedataInstallGetStatus()
 	return status;
 }
 
-int sceUtilityGamedataInstallAbort()
+static int sceUtilityGamedataInstallAbort()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMEDATAINSTALL)
 	{
@@ -594,13 +594,13 @@ int sceUtilityGamedataInstallAbort()
 }
 
 //TODO: should save to config file
-u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
+static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
 	WARN_LOG_REPORT(SCEUTILITY, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
-u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
+static u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 {
 	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
 	char *buf = (char *)Memory::GetPointer(destaddr);
@@ -619,7 +619,7 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 	return 0;
 }
 
-u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
+static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
 	DEBUG_LOG(SCEUTILITY,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
 	u32 param = 0;
@@ -660,48 +660,48 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 	return 0;
 }
 
-u32 sceUtilityLoadNetModule(u32 module)
+static u32 sceUtilityLoadNetModule(u32 module)
 {
 	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityLoadNetModule(%i)", module);
 	return 0;
 }
 
-u32 sceUtilityUnloadNetModule(u32 module)
+static u32 sceUtilityUnloadNetModule(u32 module)
 {
 	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityUnloadNetModule(%i)", module);
 	return 0;
 }
 
-void sceUtilityInstallInitStart(u32 unknown)
+static void sceUtilityInstallInitStart(u32 unknown)
 {
 	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityInstallInitStart()");
 }
 
-int sceUtilityStoreCheckoutShutdownStart()
+static int sceUtilityStoreCheckoutShutdownStart()
 {
 	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
 	return 0;
 }
 
-int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
+static int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
 	ERROR_LOG_REPORT(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 
-int sceUtilityStoreCheckoutUpdate(int drawSpeed)
+static int sceUtilityStoreCheckoutUpdate(int drawSpeed)
 {
 	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
 	return 0;
 }
 
-int sceUtilityStoreCheckoutGetStatus()
+static int sceUtilityStoreCheckoutGetStatus()
 {
 	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
 	return 0;
 }
 
-int sceUtilityGameSharingShutdownStart()
+static int sceUtilityGameSharingShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
@@ -714,7 +714,7 @@ int sceUtilityGameSharingShutdownStart()
 	return 0;
 }
 
-int sceUtilityGameSharingInitStart(u32 paramsPtr)
+static int sceUtilityGameSharingInitStart(u32 paramsPtr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
@@ -728,7 +728,7 @@ int sceUtilityGameSharingInitStart(u32 paramsPtr)
 	return 0;
 }
 
-int sceUtilityGameSharingUpdate(int animSpeed)
+static int sceUtilityGameSharingUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
@@ -740,7 +740,7 @@ int sceUtilityGameSharingUpdate(int animSpeed)
 	return 0;
 }
 
-int sceUtilityGameSharingGetStatus()
+static int sceUtilityGameSharingGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{

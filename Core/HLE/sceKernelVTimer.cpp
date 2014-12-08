@@ -67,18 +67,18 @@ KernelObject *__KernelVTimerObject() {
 	return new VTimer;
 }
 
-u64 __getVTimerRunningTime(VTimer *vt) {
+static u64 __getVTimerRunningTime(VTimer *vt) {
 	if (vt->nvt.active == 0)
 		return 0;
 
 	return CoreTiming::GetGlobalTimeUs() - vt->nvt.base;
 }
 
-u64 __getVTimerCurrentTime(VTimer* vt) {
+static u64 __getVTimerCurrentTime(VTimer* vt) {
 	return vt->nvt.current + __getVTimerRunningTime(vt);
 }
 
-int __KernelCancelVTimer(SceUID id) {
+static int __KernelCancelVTimer(SceUID id) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
@@ -90,7 +90,7 @@ int __KernelCancelVTimer(SceUID id) {
 	return 0;
 }
 
-void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
+static void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	CoreTiming::UnscheduleEvent(vtimerTimer, vt->GetUID());
 
 	vt->nvt.schedule = schedule;
@@ -114,7 +114,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	}
 }
 
-void __rescheduleVTimer(SceUID id, u32 delay) {
+static void __rescheduleVTimer(SceUID id, u32 delay) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
@@ -175,7 +175,7 @@ public:
 	}
 };
 
-void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
+static void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
 	SceUID uid = (SceUID) userdata;
 
 	u32 error;
@@ -319,7 +319,7 @@ u64 sceKernelGetVTimerTimeWide(SceUID uid) {
 	return time;
 }
 
-u64 __KernelSetVTimer(VTimer *vt, u64 time) {
+static u64 __KernelSetVTimer(VTimer *vt, u64 time) {
 	u64 current = __getVTimerCurrentTime(vt);
 	vt->nvt.current = time - __getVTimerRunningTime(vt);
 
@@ -365,7 +365,7 @@ u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock) {
 	return __KernelSetVTimer(vt, timeClock);
 }
 
-void __startVTimer(VTimer *vt) {
+static void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = CoreTiming::GetGlobalTimeUs();
 
@@ -397,7 +397,7 @@ u32 sceKernelStartVTimer(SceUID uid) {
 	return error;
 }
 
-void __stopVTimer(VTimer *vt) {
+static void __stopVTimer(VTimer *vt) {
 	// This increases (__getVTimerCurrentTime includes nvt.current.)
 	vt->nvt.current = __getVTimerCurrentTime(vt);
 	vt->nvt.active = 0;

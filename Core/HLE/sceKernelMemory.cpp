@@ -488,7 +488,7 @@ enum SceKernelFplAttr
 	PSP_FPL_ATTR_KNOWN    = PSP_FPL_ATTR_FIFO | PSP_FPL_ATTR_PRIORITY | PSP_FPL_ATTR_HIGHMEM,
 };
 
-bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
 {
 	const SceUID threadID = threadInfo.threadID;
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_FPL, fpl->GetUID()))
@@ -538,12 +538,12 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
-bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
+static bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
 }
 
-bool __KernelClearFplThreads(FPL *fpl, int reason)
+static bool __KernelClearFplThreads(FPL *fpl, int reason)
 {
 	u32 error;
 	bool wokeThreads = false;
@@ -554,7 +554,7 @@ bool __KernelClearFplThreads(FPL *fpl, int reason)
 	return wokeThreads;
 }
 
-void __KernelSortFplThreads(FPL *fpl)
+static void __KernelSortFplThreads(FPL *fpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = fpl->GetUID();
@@ -682,7 +682,7 @@ void __KernelFplTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<FPL, WAITTYPE_FPL>(threadID);
 }
 
-void __KernelSetFplTimeout(u32 timeoutPtr)
+static void __KernelSetFplTimeout(u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || fplWaitTimer == -1)
 		return;
@@ -953,21 +953,21 @@ public:
 };
 
 
-u32 sceKernelMaxFreeMemSize() 
+static u32 sceKernelMaxFreeMemSize()
 {
 	u32 retVal = userMemory.GetLargestFreeBlockSize();
 	DEBUG_LOG(SCEKERNEL, "%08x (dec %i)=sceKernelMaxFreeMemSize()", retVal, retVal);
 	return retVal;
 }
 
-u32 sceKernelTotalFreeMemSize()
+static u32 sceKernelTotalFreeMemSize()
 {
 	u32 retVal = userMemory.GetTotalFreeBytes();
 	DEBUG_LOG(SCEKERNEL, "%08x (dec %i)=sceKernelTotalFreeMemSize()", retVal, retVal);
 	return retVal;
 }
 
-int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
+static int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
 {
 	if (name == NULL)
 	{
@@ -1017,14 +1017,14 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	return uid;
 }
 
-int sceKernelFreePartitionMemory(SceUID id)
+static int sceKernelFreePartitionMemory(SceUID id)
 {
 	DEBUG_LOG(SCEKERNEL,"sceKernelFreePartitionMemory(%d)",id);
 
 	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
-u32 sceKernelGetBlockHeadAddr(SceUID id)
+static u32 sceKernelGetBlockHeadAddr(SceUID id)
 {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
@@ -1041,7 +1041,7 @@ u32 sceKernelGetBlockHeadAddr(SceUID id)
 }
 
 
-int sceKernelPrintf(const char *formatString)
+static int sceKernelPrintf(const char *formatString)
 {
 	if (formatString == NULL)
 		return -1;
@@ -1143,7 +1143,7 @@ int sceKernelPrintf(const char *formatString)
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	bool validSDK = false;
 	switch (sdkMainVersion) {
@@ -1177,7 +1177,7 @@ int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03070000) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
@@ -1189,7 +1189,7 @@ int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03080000 && sdkMainVersion != 0x03090000) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
@@ -1203,7 +1203,7 @@ int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFFFF00;
 	if (sdkMainVersion != 0x04000000
 			&& sdkMainVersion != 0x04000100
@@ -1219,7 +1219,7 @@ int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06010000
 			&& sdkMainVersion != 0x06000000
@@ -1233,7 +1233,7 @@ int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
+static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05000000
@@ -1247,7 +1247,7 @@ int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x04010000
 			&& sdkMainVersion != 0x04020000) {
@@ -1260,7 +1260,7 @@ int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05070000) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
@@ -1272,7 +1272,7 @@ int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06040000
 			&& sdkMainVersion != 0x06030000
@@ -1286,7 +1286,7 @@ int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 	return 0;
 }
 
-int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
+static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06060000) {
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
@@ -1304,7 +1304,7 @@ int sceKernelGetCompiledSdkVersion() {
 	return sdkVersion_;
 }
 
-int sceKernelSetCompilerVersion(int version) {
+static int sceKernelSetCompilerVersion(int version) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSetCompilerVersion(%08x)", version);
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
@@ -1340,7 +1340,7 @@ enum SceKernelVplAttr
 	PSP_VPL_ATTR_KNOWN      = PSP_VPL_ATTR_FIFO | PSP_VPL_ATTR_PRIORITY | PSP_VPL_ATTR_SMALLEST | PSP_VPL_ATTR_HIGHMEM,
 };
 
-bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads) {
+static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads) {
 	const SceUID threadID = threadInfo.threadID;
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_VPL, vpl->GetUID())) {
 		return true;
@@ -1396,12 +1396,12 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
-bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
+static bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
 }
 
-bool __KernelClearVplThreads(VPL *vpl, int reason)
+static bool __KernelClearVplThreads(VPL *vpl, int reason)
 {
 	u32 error;
 	bool wokeThreads = false;
@@ -1412,7 +1412,7 @@ bool __KernelClearVplThreads(VPL *vpl, int reason)
 	return wokeThreads;
 }
 
-void __KernelSortVplThreads(VPL *vpl)
+static void __KernelSortVplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
 	SceUID uid = vpl->GetUID();
@@ -1523,7 +1523,7 @@ int sceKernelDeleteVpl(SceUID uid)
 
 // Returns false for invalid parameters (e.g. don't check callbacks, etc.)
 // Successful allocation is indicated by error == 0.
-bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, bool trying, const char *funcname) {
+static bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, bool trying, const char *funcname) {
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl) {
 		if (size == 0 || size > (u32) vpl->nv.poolSize) {
@@ -1588,7 +1588,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	}
 }
 
-void __KernelSetVplTimeout(u32 timeoutPtr)
+static void __KernelSetVplTimeout(u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || vplWaitTimer == -1)
 		return;
@@ -1767,7 +1767,7 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 	}
 }
 
-u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
+static u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr) && Memory::Read_U32(paramsAddr) != 4) {
 		ERROR_LOG_REPORT(SCEKERNEL, "AllocMemoryBlock(%s): unsupported params size %d", pname, Memory::Read_U32(paramsAddr));
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
@@ -1798,12 +1798,12 @@ u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	return uid;
 }
 
-u32 FreeMemoryBlock(u32 uid) {
+static u32 FreeMemoryBlock(u32 uid) {
 	INFO_LOG(SCEKERNEL, "FreeMemoryBlock(%08x)", uid);
 	return kernelObjects.Destroy<PartitionMemoryBlock>(uid);
 }
 
-u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
+static u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(uid, error);
 	if (block)
@@ -1819,18 +1819,18 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	}
 }
 
-u32 SysMemUserForUser_D8DE5C1E() {
+static u32 SysMemUserForUser_D8DE5C1E() {
 	// Called by Evangelion Jo and return 0 here to go in-game.
 	ERROR_LOG(SCEKERNEL,"UNIMPL SysMemUserForUser_D8DE5C1E()");
 	return 0; 
 }
 
-u32 SysMemUserForUser_ACBD88CA() {
+static u32 SysMemUserForUser_ACBD88CA() {
 	ERROR_LOG_REPORT_ONCE(SysMemUserForUser_ACBD88CA, SCEKERNEL, "UNIMPL SysMemUserForUser_ACBD88CA()");
 	return 0; 
 }
 
-u32 SysMemUserForUser_945E45DA() {
+static u32 SysMemUserForUser_945E45DA() {
 	// Called by Evangelion Jo and expected return 0 here.
 	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, SCEKERNEL, "UNIMPL SysMemUserForUser_945E45DA()");
 	return 0; 

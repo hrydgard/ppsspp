@@ -113,7 +113,7 @@ public:
 
 static int alarmTimer = -1;
 
-void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
+static void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {
 	int uid = (int) userdata;
 
@@ -156,7 +156,7 @@ void __KernelScheduleAlarm(Alarm *alarm, u64 micro)
 	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
 }
 
-SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
+static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 {
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;

@@ -70,17 +70,17 @@ void __HeapInit() {
 	heapList.clear();
 }
 
-int sceHeapReallocHeapMemory(u32 heapAddr, u32 memPtr, int memSize) {
+static int sceHeapReallocHeapMemory(u32 heapAddr, u32 memPtr, int memSize) {
 	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapReallocHeapMemory(%08x, %08x, %08x)", heapAddr, memPtr, memSize);
 	return 0;
 }
 
-int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32 paramsPtr) {
+static int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32 paramsPtr) {
 	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapReallocHeapMemoryWithOption(%08x, %08x, %08x, %08x)", heapPtr, memPtr, memSize, paramsPtr);
 	return 0;
 }
 
-int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
+static int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapFreeHeapMemory(%08x, %08x): invalid heap", heapAddr, memAddr);
@@ -99,12 +99,12 @@ int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 	return 0;
 }
 
-int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
+static int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
 	ERROR_LOG_REPORT(HLE,"UNIMPL sceHeapGetMallinfo(%08x, %08x)", heapAddr, infoPtr);
 	return 0;
 }
 
-u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
+static u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 	Heap *heap = getHeap(heapAddr);
 	u32 grain = 4;
 	if (!heap) {
@@ -132,7 +132,7 @@ u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 paramsPtr) {
 	return addr;
 }
 
-int sceHeapGetTotalFreeSize(u32 heapAddr) {
+static int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapGetTotalFreeSize(%08x): invalid heap", heapAddr);
@@ -148,7 +148,7 @@ int sceHeapGetTotalFreeSize(u32 heapAddr) {
 	return free;
 }
 
-int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
+static int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
 	if (!Memory::IsValidAddress(memPtr)) {
 		ERROR_LOG(HLE, "sceHeapIsAllocatedHeapMemory(%08x, %08x): invalid address", heapPtr, memPtr);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
@@ -164,7 +164,7 @@ int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
 	return 0;
 }
 
-int sceHeapDeleteHeap(u32 heapAddr) {
+static int sceHeapDeleteHeap(u32 heapAddr) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapDeleteHeap(%08x): invalid heap", heapAddr);
@@ -177,7 +177,7 @@ int sceHeapDeleteHeap(u32 heapAddr) {
 	return 0;
 }
 
-int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
+static int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	if (paramsPtr != 0) {
 		u32 size = Memory::Read_U32(paramsPtr);
 		WARN_LOG_REPORT(HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
@@ -206,7 +206,7 @@ int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 paramsPtr) {
 	return heap->address;
 }
 
-u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
+static u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	Heap *heap = getHeap(heapAddr);
 	if (!heap) {
 		ERROR_LOG(HLE, "sceHeapAllocHeapMemory(%08x, %08x): invalid heap", heapAddr, memSize);

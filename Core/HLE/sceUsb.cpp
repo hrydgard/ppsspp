@@ -61,19 +61,19 @@ void __UsbDoState(PointerWrap &p)
 	p.Do(usbActivated);
 }
 
-int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
+static int sceUsbStart(const char* driverName, u32 argsSize, u32 argsPtr) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbStart(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = true;
 	return 0;
 }
 
-int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
+static int sceUsbStop(const char* driverName, u32 argsSize, u32 argsPtr) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbStop(%s, %i, %08x)", driverName, argsSize, argsPtr);
 	usbStarted = false;
 	return 0;
 }
 
-int sceUsbGetState() {
+static int sceUsbGetState() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGetState");
 	int state = (usbStarted ? USB_STATUS_STARTED : USB_STATUS_STOPPED)
 	    | (usbConnected ? USB_STATUS_CONNECTED : USB_STATUS_DISCONNECTED)
@@ -81,13 +81,13 @@ int sceUsbGetState() {
 	return state;
 }
 
-int sceUsbActivate(u32 pid) {
+static int sceUsbActivate(u32 pid) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbActivate(%i)", pid);
 	usbActivated = true;
 	return 0;
 }
 
-int sceUsbDeactivate(u32 pid) {
+static int sceUsbDeactivate(u32 pid) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbDeactivate(%i)", pid);
 	usbActivated = false;
 	return 0;

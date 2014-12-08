@@ -122,7 +122,7 @@ void SceMpegAu::write(u32 addr) {
 	Memory::WriteStruct(addr, this);
 }
 
-int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
+static int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
 
@@ -240,7 +240,7 @@ static u32 streamIdGen;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
 
-MpegContext *getMpegCtx(u32 mpegAddr) {
+static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
 		return NULL;
 		
@@ -269,11 +269,11 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 		buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 }
 
-u32 convertTimestampToDate(u32 ts) {
+static u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
 
-u32 getMpegVersion(u32 mpegRawVersion) {
+static u32 getMpegVersion(u32 mpegRawVersion) {
 	switch (mpegRawVersion) {
 		case PSMF_VERSION_0012: return MPEG_VERSION_0012;
 		case PSMF_VERSION_0013: return MPEG_VERSION_0013;
@@ -282,7 +282,7 @@ u32 getMpegVersion(u32 mpegRawVersion) {
 		default: return -1;
 	}
 }
-void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
+static void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
@@ -403,7 +403,7 @@ void __MpegLoadModule(int version) {
 	mpegLibVersion = version;
 }
 
-u32 sceMpegInit() {
+static u32 sceMpegInit() {
 	if (isMpegInit) {
 		WARN_LOG(ME, "sceMpegInit(): already initialized");
 		// TODO: Need to properly hook module load/unload for this to work right.
@@ -415,18 +415,18 @@ u32 sceMpegInit() {
 	return hleDelayResult(0, "mpeg init", 750);
 }
 
-u32 __MpegRingbufferQueryMemSize(int packets) {
+static u32 __MpegRingbufferQueryMemSize(int packets) {
 	return packets * (104 + 2048);
 }
 
-u32 sceMpegRingbufferQueryMemSize(int packets) {
+static u32 sceMpegRingbufferQueryMemSize(int packets) {
 	u32 size = __MpegRingbufferQueryMemSize(packets);
 	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)", size, packets);
 	return size;
 }
 
 
-u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
+static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
 	if (!Memory::IsValidAddress(ringbufferAddr)) {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): bad ringbuffer, should crash", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
@@ -453,7 +453,7 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 	return 0;
 }
 
-u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
+static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
 	if (!Memory::IsValidAddress(mpegAddr)) {
 		WARN_LOG(ME, "sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i): invalid addresses", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
@@ -520,7 +520,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	return hleDelayResult(0, "mpeg create", 29000);
 }
 
-int sceMpegDelete(u32 mpeg)
+static int sceMpegDelete(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -537,7 +537,7 @@ int sceMpegDelete(u32 mpeg)
 }
 
 
-int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
+static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 {
 	if (!Memory::IsValidAddress(modeAddr)) {
 		WARN_LOG(ME, "sceMpegAvcDecodeMode(%08x, %08x): invalid addresses", mpeg, modeAddr);
@@ -562,7 +562,7 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 	return 0;
 }
 
-int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
+static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(offsetAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x): invalid addresses", mpeg, bufferAddr, offsetAddr);
@@ -598,7 +598,7 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	return 0;
 }
 
-u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
+static u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(sizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryStreamSize(%08x, %08x): invalid addresses", bufferAddr, sizeAddr);
@@ -626,7 +626,7 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	return 0;
 }
 
-int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
+static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -668,7 +668,7 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	return sid;
 }
 
-int sceMpegMallocAvcEsBuf(u32 mpeg)
+static int sceMpegMallocAvcEsBuf(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -689,7 +689,7 @@ int sceMpegMallocAvcEsBuf(u32 mpeg)
 	return 0;
 }
 
-int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
+static int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -730,7 +730,7 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 }
 
 // check the existence of pmp media context 
-bool isContextExist(u32 ctxAddr){
+static bool isContextExist(u32 ctxAddr){
 	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
 		if (*it == ctxAddr){
 			return true;
@@ -740,7 +740,7 @@ bool isContextExist(u32 ctxAddr){
 }
 
 // Initialize Pmp video parameters and decoder.
-bool InitPmp(MpegContext * ctx){
+static bool InitPmp(MpegContext * ctx){
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 	auto mediaengine = ctx->mediaengine;
@@ -891,7 +891,7 @@ public:
 static H264Frames *pmpframes;
 
 // decode pmp video to RGBA format
-bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
+static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 	// the current video is pmp iff pmp_videoSource is a valid addresse
 	MpegContext* ctx = getMpegCtx(pmpctxAddr);
 	if (Memory::IsValidAddress(pmp_videoSource)){
@@ -1033,7 +1033,7 @@ void __VideoPmpDoState(PointerWrap &p){
 	}
 }
 
-u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
+static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1120,7 +1120,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	//return hleDelayResult(0, "mpeg decode", 200);
 }
 
-u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
+static u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)){
 		ERROR_LOG(ME, "sceMpegAvcDecodeStop(%08x, %08x, %08x, %08x): invalid addresses", mpeg, frameWidth, bufferAddr, statusAddr);
@@ -1140,7 +1140,7 @@ u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAdd
 	return 0;
 }
 
-u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
+static u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1176,7 +1176,7 @@ u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 	return 0;
 }
 
-int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
+static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
 {
 	if (!Memory::IsValidAddress(detailAddr)){
 		WARN_LOG(ME, "sceMpegAvcDecodeDetail(%08x, %08x): invalid addresses", mpeg, detailAddr);
@@ -1203,7 +1203,7 @@ int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
+static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x): invalid addresses", mpeg, bufferAddr, statusAddr);
@@ -1221,7 +1221,7 @@ u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 	return 0;
 }
 
-int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
+static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1278,7 +1278,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	//return hleDelayResult(0, "mpeg decode", 200);
 }
 
-u32 sceMpegAvcDecodeFlush(u32 mpeg)
+static u32 sceMpegAvcDecodeFlush(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1293,7 +1293,7 @@ u32 sceMpegAvcDecodeFlush(u32 mpeg)
 	return 0;
 }
 
-int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
+static int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1326,7 +1326,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 	return 0;
 }
 
-int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryAtracEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1346,7 +1346,7 @@ int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 	return 0;
 }
 
-int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
+static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 {
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 
@@ -1406,7 +1406,7 @@ void PostPutAction::run(MipsCall &call) {
 
 
 // Program signals that it has written data to the ringbuffer and gets a callback ?
-u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
+static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 {
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
@@ -1445,7 +1445,7 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 	return 0;
 }
 
-int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
+static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1522,7 +1522,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	return hleDelayResult(result, "mpeg get avc", 100);
 }
 
-u32 sceMpegFinish()
+static u32 sceMpegFinish()
 {
 	if (!isMpegInit) {
 		WARN_LOG(ME, "sceMpegFinish(...): not initialized");
@@ -1537,13 +1537,13 @@ u32 sceMpegFinish()
 	return hleDelayResult(0, "mpeg finish", 250);
 }
 
-u32 sceMpegQueryMemSize()
+static u32 sceMpegQueryMemSize()
 {
 	DEBUG_LOG(ME, "%i = sceMpegQueryMemSize()",MPEG_MEMSIZE);
 	return MPEG_MEMSIZE;
 }
 
-int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
+static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1611,7 +1611,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	return hleDelayResult(result, "mpeg get atrac", 100);
 }
 
-int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryPcmEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1632,7 +1632,7 @@ int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 }
 
 
-u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
+static u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1677,7 +1677,7 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 	return 0;
 }
 
-u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
+static u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
 {
 	if (!Memory::IsValidAddress(stream_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i): invalid addresses", mpeg, stream_addr, mode);
@@ -1694,7 +1694,7 @@ u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
 	return 0;
 }
 
-u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
+static u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1706,16 +1706,16 @@ u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 	return 0;
 }
 
-int __MpegRingbufferQueryPackNum(u32 memorySize) {
+static int __MpegRingbufferQueryPackNum(u32 memorySize) {
 	return memorySize / (2048 + 104);
 }
 
-int sceMpegRingbufferQueryPackNum(u32 memorySize) {
+static int sceMpegRingbufferQueryPackNum(u32 memorySize) {
 	DEBUG_LOG(ME, "sceMpegRingbufferQueryPackNum(%i)", memorySize);
 	return __MpegRingbufferQueryPackNum(memorySize);
 }
 
-u32 sceMpegFlushAllStream(u32 mpeg)
+static u32 sceMpegFlushAllStream(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1737,7 +1737,7 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
+static u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
 {
 	if (!Memory::IsValidAddress(stream_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegFlushStream(%08x, %i): invalid addresses", mpeg , stream_addr);
@@ -1755,7 +1755,7 @@ u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
 	return 0;
 }
 
-u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
+static u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 {
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(YCbCrAddr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x): invalid addresses", mpeg, sourceAddr, YCbCrAddr);
@@ -1772,7 +1772,7 @@ u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 	return 0;
 }
 
-u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
+static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1801,7 +1801,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 }
 
 // YCbCr -> RGB color space conversion
-u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
+static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(rangeAddr) || !Memory::IsValidAddress(destAddr)) {
 		ERROR_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): invalid addresses", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
@@ -1829,14 +1829,14 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	return 0;
 }
 
-u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
+static u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 {
 	DEBUG_LOG(ME, "sceMpegRingbufferDestruct(%08x)", ringbufferAddr);
 	// Apparently, does nothing.
 	return 0;
 }
 
-u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_addr)
+static u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_addr)
 {
 	if (!Memory::IsValidAddress(ycbcr_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x): invalid addresses", mpeg, mode, width, height, ycbcr_addr);
@@ -1853,7 +1853,7 @@ u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_add
 	return 0;
 }
 
-int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resultAddr)
+static int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resultAddr)
 {
 	if ((width & 15) != 0 || (height & 15) != 0 || height > 272 || width > 480)	{
 		ERROR_LOG(ME, "sceMpegAvcQueryYCbCrSize: bad w/h %i x %i", width, height);
@@ -1867,7 +1867,7 @@ int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resu
 	return 0;
 }
 
-u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryUserdataEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1887,26 +1887,26 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 	return 0;
 }
 
-u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
+static u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 {
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x)", mpeg);
 	// it's just a random address
 	return 0x12345678;
 }
 
-u32 sceMpegAvcResourceFinish(u32 mpeg)
+static u32 sceMpegAvcResourceFinish(u32 mpeg)
 {
 	DEBUG_LOG(ME,"UNIMPL sceMpegAvcResourceFinish(%08x)", mpeg);
 	return 0;
 }
 
-u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
+static u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
 {
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
 	return 0;
 }
 
-u32 sceMpegAvcResourceInit(u32 mpeg)
+static u32 sceMpegAvcResourceInit(u32 mpeg)
 {
 	if (mpeg != 1) {
 		return ERROR_MPEG_INVALID_VALUE;
@@ -1916,7 +1916,7 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 	return 0;
 }
 
-u32 convertABGRToYCbCr(u32 abgr) {
+static u32 convertABGRToYCbCr(u32 abgr) {
 	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	u8  r = (abgr >>  0) & 0xFF;
 	u8  g = (abgr >>  8) & 0xFF;
@@ -1933,7 +1933,7 @@ u32 convertABGRToYCbCr(u32 abgr) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
-int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
+static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
@@ -1967,7 +1967,7 @@ int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, 
 	return (width << 16) | height;
 }
 
-int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
+static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
 {
 	if (!Memory::IsValidAddress(bufferOutputAddr)) {
 		ERROR_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): invalid addresses", mpeg, bufferOutputAddr, unknown1, unknown2);
@@ -1996,7 +1996,7 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int 
 	return 0;
 }
 
-int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
+static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2015,7 +2015,7 @@ int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 	return ERROR_MPEG_NO_DATA;
 }
 
-u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
+static u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2028,7 +2028,7 @@ u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
 	return 0;
 }
 
-u32 sceMpegGetAvcNalAu(u32 mpeg)
+static u32 sceMpegGetAvcNalAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2041,7 +2041,7 @@ u32 sceMpegGetAvcNalAu(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
+static u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2054,7 +2054,7 @@ u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeDetail2(u32 mpeg)
+static u32 sceMpegAvcDecodeDetail2(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2067,7 +2067,7 @@ u32 sceMpegAvcDecodeDetail2(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegGetAvcEsAu(u32 mpeg)
+static u32 sceMpegGetAvcEsAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2080,7 +2080,7 @@ u32 sceMpegGetAvcEsAu(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcCscInfo(u32 mpeg)
+static u32 sceMpegAvcCscInfo(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2093,7 +2093,7 @@ u32 sceMpegAvcCscInfo(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcCscMode(u32 mpeg)
+static u32 sceMpegAvcCscMode(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2106,7 +2106,7 @@ u32 sceMpegAvcCscMode(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegFlushAu(u32 mpeg)
+static u32 sceMpegFlushAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2189,7 +2189,7 @@ void Register_sceMpeg()
 
 // This function is currently only been used for PMP videos
 // p pointing to a SceMpegLLI structure consists of video frame blocks.
-u32 sceMpegbase_BEA18F91(u32 p)
+static u32 sceMpegbase_BEA18F91(u32 p)
 {
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;

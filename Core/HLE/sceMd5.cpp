@@ -17,6 +17,7 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceMd5.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
@@ -46,7 +47,7 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 
 static md5_context md5_ctx;
 
-int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
+static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	DEBUG_LOG(HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
@@ -56,7 +57,7 @@ int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	return 0;
 }
 
-int sceMd5BlockInit(u32 ctxAddr) {
+static int sceMd5BlockInit(u32 ctxAddr) {
 	DEBUG_LOG(HLE, "sceMd5BlockInit(%08x)", ctxAddr);
 	if (!Memory::IsValidAddress(ctxAddr))
 		return -1;
@@ -68,7 +69,7 @@ int sceMd5BlockInit(u32 ctxAddr) {
 	return 0;
 }
 
-int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
+static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 	DEBUG_LOG(HLE, "sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
@@ -77,7 +78,7 @@ int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 	return 0;
 }
 
-int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
+static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	DEBUG_LOG(HLE, "sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;

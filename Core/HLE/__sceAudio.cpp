@@ -109,14 +109,14 @@ inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int r
 	}
 }
 
-void hleAudioUpdate(u64 userdata, int cyclesLate) {
+static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
 
 	__AudioUpdate();
 }
 
-void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
+static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
 
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
@@ -124,7 +124,7 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	host->UpdateSound();
 }
 
-void __AudioCPUMHzChange() {
+static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
 }

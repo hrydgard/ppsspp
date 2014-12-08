@@ -442,7 +442,7 @@ static std::set<SceUID> loadedModules;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-void __KernelModuleInit()
+static void __KernelModuleInit()
 {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
 }
@@ -479,7 +479,7 @@ struct HI16RelocInfo
 	u32 addr;
 	u32 data;
 };
-void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false)
+static void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false)
 {
 	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16ExportAddress = 0;
@@ -759,7 +759,7 @@ void Module::Cleanup() {
 	}
 }
 
-void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
+static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
 	if (!decryptedEbootDataPtr) {
 		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid pointer");
 		return;
@@ -838,7 +838,7 @@ static bool IsHLEVersionedModule(const char *name) {
 	return false;
 }
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
+static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
@@ -1368,7 +1368,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std
 	return module;
 }
 
-bool __KernelLoadPBP(const char *filename, std::string *error_string)
+static bool __KernelLoadPBP(const char *filename, std::string *error_string)
 {
 	static const char *FileNames[] =
 	{
@@ -1397,7 +1397,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	return true;
 }
 
-Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
+static Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
 {
 	Module *module = 0;
 	// Check for PBP
@@ -1443,7 +1443,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 	return module;
 }
 
-void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
+static void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
 	m->nm.status = MODULE_STATUS_STARTED;
 	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
@@ -1632,7 +1632,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	return 0;
 }
 
-u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
+static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 {
 	if (!name) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
@@ -1739,14 +1739,14 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	return hleDelayResult(module->GetUID(), "module loaded", 500);
 }
 
-u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
+static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 {
 	DEBUG_LOG(LOADER, "sceKernelLoadModuleNpDrm(%s, %08x)", name, flags);
 
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
-void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	u32 priority = 0x20;
 	u32 stacksize = 0x40000; 
@@ -1846,7 +1846,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	RETURN(moduleId);
 }
 
-u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	u32 priority = 0x20;
 	u32 stacksize = 0x40000;
@@ -1924,7 +1924,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	return 0;
 }
 
-u32 sceKernelUnloadModule(u32 moduleId)
+static u32 sceKernelUnloadModule(u32 moduleId)
 {
 	INFO_LOG(SCEMODULE,"sceKernelUnloadModule(%i)", moduleId);
 	u32 error;
@@ -2019,12 +2019,12 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 	return 0;
 }
 
-u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
+static u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
 	// Used in Tom Clancy's Splinter Cell Essentials,Ghost in the Shell Stand Alone Complex
 	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, 0, 0, false);
 }
 
-u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+static u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
 	return hleKernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
 }
 
@@ -2083,7 +2083,7 @@ struct GetModuleIdByAddressArg
 	SceUID result;
 };
 
-bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *state)
+static bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *state)
 {
 	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
 	if (start != 0 && start <= state->addr && start + size > state->addr)
@@ -2094,7 +2094,7 @@ bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *sta
 	return true;
 }
 
-u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
+static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	GetModuleIdByAddressArg state;
 	state.addr = moduleAddr;
@@ -2108,7 +2108,7 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	return state.result;
 }
 
-u32 sceKernelGetModuleId()
+static u32 sceKernelGetModuleId()
 {
 	INFO_LOG(SCEMODULE,"sceKernelGetModuleId()");
 	return __KernelGetCurThreadModuleId();
@@ -2126,7 +2126,7 @@ u32 sceKernelFindModuleByName(const char *name)
 	return 1;
 }
 
-u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
+static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 {
 	u32 error;
 	u32 handle = __IoGetFileHandleFromId(id, error);
@@ -2186,13 +2186,13 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	return module->GetUID();
 }
 
-u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
+static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
 	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL 0=sceKernelLoadModuleDNAS()");
 	return 0;
 }
 
-SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
+static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
 {
 	if (flags != 0) {
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModuleBufferUsbWlan: unsupported flags: %08x", flags);
@@ -2241,7 +2241,7 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	return module->GetUID();
 }
 
-u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
+static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 {
 	INFO_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
 	u32 error;
@@ -2277,7 +2277,7 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 	return 0;
 }
 
-u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
+static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
 {
 	ERROR_LOG(SCEMODULE, "UNTESTED sceKernelGetModuleIdList(%08x, %i, %08x)", resultBuffer, resultBufferSize, idCountAddr);
 	
@@ -2301,20 +2301,20 @@ u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCount
 	return 0;
 }
 
-u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
+static u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
 {
 	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_977de386:Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
-void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+static void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_50f0c1ec:Not support this patcher");
 	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
 }
 
 //fix for tiger x dragon
-u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
+static u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
 {
 	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_a1a78c58:Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
