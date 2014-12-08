@@ -184,11 +184,11 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 	// JPCSP is wrong at least because their method results in square loco roco.
 	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
 	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
-	if (patch_div_s >= 4) patch_div_s /= quality;
-	if (patch_div_t >= 4) patch_div_t /= quality;
+	patch_div_s /= quality;
+	patch_div_t /= quality;
 
-	if (patch_div_s <= 0) patch_div_s = 1;
-	if (patch_div_t <= 0) patch_div_t = 1;
+	if (patch_div_s < 2) patch_div_s = 2;
+	if (patch_div_t < 2) patch_div_t = 2;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];

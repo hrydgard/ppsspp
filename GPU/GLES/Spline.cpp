@@ -112,6 +112,9 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
 
+	if (count_u < 4 || count_v < 4)
+		return;
+
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	bool indices_16bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
