@@ -23,14 +23,14 @@
 
 #include "Core/HLE/sceNp.h"
 
-int sceNp_857B47D3()
+static int sceNp_857B47D3()
 {
 	// No parameters
 	ERROR_LOG(HLE, "UNIMPL sceNp_857B47D3()");
 	return 0;
 }
 
-int sceNp_37E1E274()
+static int sceNp_37E1E274()
 {
 	// No parameters
 	ERROR_LOG(HLE, "UNIMPL sceNp_37E1E274()");
@@ -47,14 +47,14 @@ void Register_sceNp()
 	RegisterModule("sceNp", ARRAY_SIZE(sceNp), sceNp);
 }
 
-int sceNpAuth_4EC1F667() 
+static int sceNpAuth_4EC1F667()
 {
 	// No parameters
 	ERROR_LOG(HLE, "UNIMPL sceNpAuth_4EC1F667()");
 	return 0;
 }
 
-int sceNpAuth_A1DE86F8(u32 poolSize, u32 stackSize, u32 threadPrio) 
+static int sceNpAuth_A1DE86F8(u32 poolSize, u32 stackSize, u32 threadPrio)
 {
 	ERROR_LOG(HLE, "UNIMPL sceNpAuth_A1DE86F8(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
 	return 0;
@@ -70,14 +70,14 @@ void Register_sceNpAuth()
 	RegisterModule("sceNpAuth", ARRAY_SIZE(sceNpAuth), sceNpAuth);
 }
 
-int sceNpService_00ACFAC3() 
+static int sceNpService_00ACFAC3()
 {
 	// No parameters
 	ERROR_LOG(HLE, "UNIMPL sceNpService_00ACFAC3()");
 	return 0;
 }
 
-int sceNpService_0F8F5821(u32 poolSize, u32 stackSize, u32 threadPrio) 
+static int sceNpService_0F8F5821(u32 poolSize, u32 stackSize, u32 threadPrio)
 {
 	ERROR_LOG(HLE, "UNIMPL sceNpService_0F8F5821(%08x, %08x, %08x)",poolSize, stackSize, threadPrio);
 	return 0;

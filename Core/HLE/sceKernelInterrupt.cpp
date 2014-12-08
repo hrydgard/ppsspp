@@ -76,7 +76,7 @@ static bool inInterrupt;
 static SceUID threadBeforeInterrupt;
 
 
-void sceKernelCpuSuspendIntr()
+static void sceKernelCpuSuspendIntr()
 {
 	VERBOSE_LOG(SCEINTC, "sceKernelCpuSuspendIntr");
 	int returnValue;
@@ -93,7 +93,7 @@ void sceKernelCpuSuspendIntr()
 	RETURN(returnValue);
 }
 
-void sceKernelCpuResumeIntr(u32 enable)
+static void sceKernelCpuResumeIntr(u32 enable)
 {
 	VERBOSE_LOG(SCEINTC, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
@@ -109,21 +109,21 @@ void sceKernelCpuResumeIntr(u32 enable)
 	hleEatCycles(15);
 }
 
-void sceKernelIsCpuIntrEnable()
+static void sceKernelIsCpuIntrEnable()
 {
 	u32 retVal = __InterruptsEnabled(); 
 	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrEnable()", retVal);
 	RETURN(retVal);
 }
 
-int sceKernelIsCpuIntrSuspended(int flag)
+static int sceKernelIsCpuIntrSuspended(int flag)
 {
 	int retVal = flag == 0 ? 1 : 0;
 	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended(%d)", retVal, flag);
 	return retVal;
 }
 
-void sceKernelCpuResumeIntrWithSync(u32 enable)
+static void sceKernelCpuResumeIntrWithSync(u32 enable)
 {
 	sceKernelCpuResumeIntr(enable);
 }
@@ -302,7 +302,7 @@ bool __IsInInterrupt()
 	return inInterrupt;
 }
 
-bool __CanExecuteInterrupt()
+static bool __CanExecuteInterrupt()
 {
 	return !inInterrupt;
 }
@@ -374,7 +374,7 @@ retry:
 	}
 }
 
-void __TriggerRunInterrupts(int type)
+static void __TriggerRunInterrupts(int type)
 {
 	// If interrupts aren't enabled, we run them later.
 	if (interruptsEnabled && !inInterrupt)
@@ -558,7 +558,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	return 0;
 }
 
-u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
+static u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber) {
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS) {
 		ERROR_LOG_REPORT(SCEINTC, "sceKernelDisableSubIntr(%i, %i): invalid interrupt", intrNumber, subIntrNumber);
 		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
@@ -599,13 +599,13 @@ struct PspIntrHandlerOptionParam {
 	u32 max_clock_hi;      //+34
 };  //=38
 
-void QueryIntrHandlerInfo()
+static void QueryIntrHandlerInfo()
 {
 	ERROR_LOG_REPORT(SCEINTC, "QueryIntrHandlerInfo()");
 	RETURN(0);
 }
 
-u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
+static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
 	u8 c = fillc & 0xff;
 	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
@@ -621,7 +621,7 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 	return addr;
 }
 
-u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
+static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 
@@ -683,46 +683,46 @@ const HLEFunction Kernel_Library[] =
 	{0xfa835cde,WrapI_I<sceKernelGetTlsAddr>, "sceKernelGetTlsAddr"},
 };
 
-u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
+static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	return dst;
 }
 
-u32 sysclib_strcat(u32 dst, u32 src) {
+static u32 sysclib_strcat(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcat(dest=%08x, src=%08x)", dst, src);
 	strcat((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 	return dst;
 }
 
-int sysclib_strcmp(u32 dst, u32 src) {
+static int sysclib_strcmp(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcmp(dest=%08x, src=%08x)", dst, src);
 	return strcmp((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 }
 
-u32 sysclib_strcpy(u32 dst, u32 src) {
+static u32 sysclib_strcpy(u32 dst, u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
 	strcpy((char *)Memory::GetPointer(dst), (char *)Memory::GetPointer(src));
 	return dst;
 }
 
-u32 sysclib_strlen(u32 src) {
+static u32 sysclib_strlen(u32 src) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strlen(src=%08x)", src);
 	return (u32)strlen(Memory::GetCharPointer(src));
 }
 
-int sysclib_memcmp(u32 dst, u32 src, u32 size) {
+static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcmp(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	return memcmp(Memory::GetCharPointer(dst), Memory::GetCharPointer(src), size);
 }
 
-int sysclib_sprintf(u32 dst, u32 fmt) {
+static int sysclib_sprintf(u32 dst, u32 fmt) {
 	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
 	// TODO
 	return sprintf((char *)Memory::GetPointer(dst), "%s", Memory::GetCharPointer(fmt));
 }
 
-u32 sysclib_memset(u32 destAddr, int data, int size) {
+static u32 sysclib_memset(u32 destAddr, int data, int size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memset(dest=%08x, data=%d ,size=%d)", destAddr, data, size);
 	if (Memory::IsValidAddress(destAddr))
 		memset(Memory::GetPointer(destAddr), data, size);

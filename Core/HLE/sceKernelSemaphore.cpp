@@ -107,7 +107,7 @@ KernelObject *__KernelSemaphoreObject()
 }
 
 // Returns whether the thread should be removed.
-bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int result, bool &wokeThreads)
+static bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int result, bool &wokeThreads)
 {
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_SEMA, s->GetUID()))
 		return true;
@@ -155,7 +155,7 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 // Resume all waiting threads (for delete / cancel.)
 // Returns true if it woke any threads.
-bool __KernelClearSemaThreads(Semaphore *s, int reason)
+static bool __KernelClearSemaThreads(Semaphore *s, int reason)
 {
 	u32 error;
 	bool wokeThreads = false;
@@ -351,7 +351,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	}
 }
 
-void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
+static void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
@@ -368,7 +368,7 @@ void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
 }
 
-int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks)
+static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks)
 {
 	hleEatCycles(900);
 

@@ -997,7 +997,7 @@ u32 __KernelInterruptReturnAddress() {
 	return intReturnHackAddr;
 }
 
-void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	u32 error;
@@ -1012,7 +1012,7 @@ void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelDelayThreadCB: beginning callback with bad wait?");
 }
 
-void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	if (pausedDelays.find(pauseKey) == pausedDelays.end())
@@ -1038,11 +1038,11 @@ void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: Suspending sleep for callback");
 }
 
-void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (!thread)
@@ -1063,7 +1063,7 @@ void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
+static void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
@@ -1074,7 +1074,7 @@ void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: beginning callback with bad wait id?");
 }
 
-bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error, int result, bool &wokeThreads)
 {
 	if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_THREADEND, t->GetUID()))
 		return true;
@@ -1093,7 +1093,7 @@ bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error,
 	return false;
 }
 
-void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
+static void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout, __KernelCheckResumeThreadEnd);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
@@ -1131,7 +1131,7 @@ u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void hleThreadEndTimeout(u64 userdata, int cyclesLate);
 
-void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
+static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 {
 	*ptr = pos;
 	pos += 8;
@@ -1261,7 +1261,7 @@ void __KernelListenThreadEnd(ThreadCallback callback)
 	threadEndListeners.push_back(callback);
 }
 
-void __KernelFireThreadEnd(SceUID threadID)
+static void __KernelFireThreadEnd(SceUID threadID)
 {
 	for (auto iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
 	{
@@ -1271,7 +1271,7 @@ void __KernelFireThreadEnd(SceUID threadID)
 }
 
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
-void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
+static void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 {
 	// Passing the id as a parameter is just an optimization, if it's wrong it will cause havoc.
 	_dbg_assert_msg_(SCEKERNEL, thread->GetUID() == threadID, "Incorrect threadID");
@@ -1292,7 +1292,7 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 	}
 }
 
-void __KernelChangeReadyState(SceUID threadID, bool ready)
+static void __KernelChangeReadyState(SceUID threadID, bool ready)
 {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
@@ -1596,19 +1596,19 @@ u32 sceKernelGetThreadmanIdType(u32 uid) {
 	}
 }
 
-bool __ThreadmanIdListIsSleeping(const Thread *t) {
+static bool __ThreadmanIdListIsSleeping(const Thread *t) {
 	return t->isWaitingFor(WAITTYPE_SLEEP, 0);
 }
 
-bool __ThreadmanIdListIsDelayed(const Thread *t) {
+static bool __ThreadmanIdListIsDelayed(const Thread *t) {
 	return t->isWaitingFor(WAITTYPE_DELAY, t->GetUID());
 }
 
-bool __ThreadmanIdListIsSuspended(const Thread *t) {
+static bool __ThreadmanIdListIsSuspended(const Thread *t) {
 	return t->isSuspended();
 }
 
-bool __ThreadmanIdListIsDormant(const Thread *t) {
+static bool __ThreadmanIdListIsDormant(const Thread *t) {
 	return t->isStopped();
 }
 
@@ -1816,7 +1816,7 @@ void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<Thread, WAITTYPE_THREADEND>(threadID);
 }
 
-void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
+static void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
 {
 	s64 cycles = usToCycles(usFromNow);
 	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, threadID);
@@ -1827,7 +1827,7 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-void __KernelRemoveFromThreadQueue(SceUID threadID)
+static void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
@@ -1900,7 +1900,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 }
 
 // Returns NULL if the current thread is fine.
-Thread *__KernelNextThread() {
+static Thread *__KernelNextThread() {
 	SceUID bestThread;
 
 	// If the current thread is running, it's a valid candidate.
@@ -2621,7 +2621,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 	}
 }
 
-s64 __KernelDelayThreadUs(u64 usec) {
+static s64 __KernelDelayThreadUs(u64 usec) {
 	if (usec < 200) {
 		return 210;
 	}
@@ -3305,11 +3305,11 @@ void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
 }
 
 
-bool __CanExecuteCallbackNow(Thread *thread) {
+static bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
+static void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
 	hleSkipDeadbeef();
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
@@ -3499,7 +3499,7 @@ bool __KernelExecutePendingMipsCalls(Thread *thread, bool reschedAfter)
 }
 
 // Executes the callback, when it next is context switched to.
-void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
+static void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 {
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);

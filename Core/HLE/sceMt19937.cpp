@@ -17,10 +17,11 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceMt19937.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
+static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
 	WARN_LOG(HLE, "sceMt19937Init(%08x, %08x)", mt19937Addr, seed);
 	if (!Memory::IsValidAddress(mt19937Addr))
@@ -32,7 +33,7 @@ u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 	return 0;
 }
 
-u32 sceMt19937UInt(u32 mt19937Addr)
+static u32 sceMt19937UInt(u32 mt19937Addr)
 {
 	WARN_LOG(HLE, "sceMt19937UInt(%08x)", mt19937Addr);
 	if (!Memory::IsValidAddress(mt19937Addr))

@@ -301,7 +301,7 @@ void __DisplayListenVblank(VblankCallback callback) {
 	vblankListeners.push_back(callback);
 }
 
-void __DisplayFireVblank() {
+static void __DisplayFireVblank() {
 	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter) {
 		VblankCallback cb = *iter;
 		cb();
@@ -385,7 +385,7 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	*out_vps = *out_fps = avg;
 }
 
-void CalculateFPS() {
+static void CalculateFPS() {
 	time_update();
 	double now = time_now_d();
 
@@ -483,7 +483,7 @@ static bool FrameTimingThrottled() {
 }
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = FrameTimingThrottled();
 	skipFrame = false;
@@ -561,7 +561,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	lastFrameTime = nextFrameTime;
 }
 
-void DoFrameIdleTiming() {
+static void DoFrameIdleTiming() {
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
@@ -749,12 +749,12 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	ScheduleLagSync(over - emuOver);
 }
 
-u32 sceDisplayIsVblank() {
+static u32 sceDisplayIsVblank() {
 	DEBUG_LOG(SCEDISPLAY,"%i=sceDisplayIsVblank()",isVblank);
 	return isVblank;
 }
 
-u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
+static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayWidth <= 0 || displayHeight <= 0 || (displayWidth & 0x7) != 0) {
 		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
@@ -777,7 +777,7 @@ u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
-u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
+static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
 	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
 	hleEatCycles(290);
@@ -850,7 +850,7 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int lat
 	return true;
 }
 
-u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
+static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == 1 && framebufIsLatched ? latchedFramebuf : framebuf;
 	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, latchedMode);
 
@@ -864,14 +864,14 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 	return 0;
 }
 
-u32 sceDisplayWaitVblankStart() {
+static u32 sceDisplayWaitVblankStart() {
 	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStart()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start waited");
 	return 0;
 }
 
-u32 sceDisplayWaitVblank() {
+static u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
 		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblank()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
@@ -885,7 +885,7 @@ u32 sceDisplayWaitVblank() {
 	}
 }
 
-u32 sceDisplayWaitVblankStartMulti(int vblanks) {
+static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (vblanks <= 0) {
 		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
@@ -900,7 +900,7 @@ u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	return 0;
 }
 
-u32 sceDisplayWaitVblankCB() {
+static u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
 		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
@@ -914,14 +914,14 @@ u32 sceDisplayWaitVblankCB() {
 	}
 }
 
-u32 sceDisplayWaitVblankStartCB() {
+static u32 sceDisplayWaitVblankStartCB() {
 	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start waited");
 	return 0;
 }
 
-u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
+static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (vblanks <= 0) {
 		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
@@ -936,7 +936,7 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	return 0;
 }
 
-u32 sceDisplayGetVcount() {
+static u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(SCEDISPLAY,"%i=sceDisplayGetVcount()", vCount);
 
 	hleEatCycles(150);
@@ -944,27 +944,27 @@ u32 sceDisplayGetVcount() {
 	return vCount;
 }
 
-u32 __DisplayGetCurrentHcount() {
+static u32 __DisplayGetCurrentHcount() {
 	const static int ticksPerVblank333 = 333 * 1000000 / 60 / hCountPerVblank;
 	const int ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
 	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
 	return 1 + (ticksIntoFrame / (CoreTiming::GetClockFrequencyMHz() * ticksPerVblank333 / 333));
 }
 
-u32 __DisplayGetAccumulatedHcount() {
+static u32 __DisplayGetAccumulatedHcount() {
 	// The hCount is always a positive int, and wraps from 0x7FFFFFFF -> 0.
 	int value = hCountBase + __DisplayGetCurrentHcount();
 	return value & 0x7FFFFFFF;
 }
 
-u32 sceDisplayGetCurrentHcount() {
+static u32 sceDisplayGetCurrentHcount() {
 	u32 currentHCount = __DisplayGetCurrentHcount();
 	DEBUG_LOG(SCEDISPLAY, "%i=sceDisplayGetCurrentHcount()", currentHCount);
 	hleEatCycles(275);
 	return currentHCount;
 }
 
-int sceDisplayAdjustAccumulatedHcount(int value) {
+static int sceDisplayAdjustAccumulatedHcount(int value) {
 	if (value < 0) {
 		ERROR_LOG_REPORT(SCEDISPLAY, "sceDisplayAdjustAccumulatedHcount(%d): invalid value", value);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
@@ -979,20 +979,20 @@ int sceDisplayAdjustAccumulatedHcount(int value) {
 	return 0;
 }
 
-int sceDisplayGetAccumulatedHcount() {
+static int sceDisplayGetAccumulatedHcount() {
 	u32 accumHCount = __DisplayGetAccumulatedHcount();
 	DEBUG_LOG(SCEDISPLAY, "%d=sceDisplayGetAccumulatedHcount()", accumHCount);
 	hleEatCycles(235);
 	return accumHCount;
 }
 
-float sceDisplayGetFramePerSec() {
+static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
 	DEBUG_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 
-u32 sceDisplayIsForeground() {
+static u32 sceDisplayIsForeground() {
   	DEBUG_LOG(SCEDISPLAY,"IMPL sceDisplayIsForeground()");	
 	if (!hasSetMode || framebuf.topaddr == 0)
 		return 0;
@@ -1000,7 +1000,7 @@ u32 sceDisplayIsForeground() {
   		return 1;   // return value according to JPCSP comment
 }
 
-u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
+static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetMode(%08x, %08x, %08x)", modeAddr, widthAddr, heightAddr);
 	if (Memory::IsValidAddress(modeAddr))
 		Memory::Write_U32(mode, modeAddr);
@@ -1011,38 +1011,38 @@ u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 	return 0;
 }
 
-u32 sceDisplayIsVsync() {
+static u32 sceDisplayIsVsync() {
 	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayIsVsync()");
 	return 0;
 }
 
-u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
+static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
 	ERROR_LOG(SCEDISPLAY,"sceDisplayGetResumeMode(%08x)", resumeModeAddr);
 	if (Memory::IsValidAddress(resumeModeAddr))
 		Memory::Write_U32(resumeMode, resumeModeAddr);
 	return 0;
 }
 
-u32 sceDisplaySetResumeMode(u32 rMode) {
+static u32 sceDisplaySetResumeMode(u32 rMode) {
 	ERROR_LOG(SCEDISPLAY,"sceDisplaySetResumeMode(%08x)", rMode);
 	resumeMode = rMode;
 	return 0;
 }
 
-u32 sceDisplayGetBrightness(u32 levelAddr) {
+static u32 sceDisplayGetBrightness(u32 levelAddr) {
 	ERROR_LOG(SCEDISPLAY,"sceDisplayGetBrightness(%08x)", levelAddr);
 	if (Memory::IsValidAddress(levelAddr))
 		Memory::Write_U32(brightnessLevel, levelAddr);
 	return 0;
 }
 
-u32 sceDisplaySetBrightness(u32 bLevel) {
+static u32 sceDisplaySetBrightness(u32 bLevel) {
 	ERROR_LOG(SCEDISPLAY,"sceDisplaySetBrightness(%08x)", bLevel);
 	brightnessLevel = bLevel;
 	return 0;
 }
 
-u32 sceDisplaySetHoldMode(u32 hMode) {
+static u32 sceDisplaySetHoldMode(u32 hMode) {
 	ERROR_LOG(SCEDISPLAY,"sceDisplaySetHoldMode(%08x)", hMode);
 	holdMode = hMode;
 	return 0;
