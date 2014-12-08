@@ -230,9 +230,9 @@ public:
 			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
-	const char *GetName() {return nm.name;}
-	const char *GetTypeName() {return "Module";}
-	void GetQuickInfo(char *ptr, int size)
+	const char *GetName() override { return nm.name; }
+	const char *GetTypeName() override { return "Module"; }
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		// ignore size
 		sprintf(ptr, "%sname=%s gp=%08x entry=%08x",
@@ -243,9 +243,9 @@ public:
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
-	int GetIDType() const { return PPSSPP_KERNEL_TMID_Module; }
+	int GetIDType() const override { return PPSSPP_KERNEL_TMID_Module; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Module", 1, 3);
 		if (!s)

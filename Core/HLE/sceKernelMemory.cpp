@@ -90,11 +90,11 @@ struct FPL : public KernelObject
 			delete [] blocks;
 		}
 	}
-	const char *GetName() {return nf.name;}
-	const char *GetTypeName() {return "FPL";}
+	const char *GetName() override { return nf.name; }
+	const char *GetTypeName() override { return "FPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }
 
 	int findFreeBlock() {
 		for (int i = 0; i < nf.numBlocks; i++) {
@@ -121,7 +121,7 @@ struct FPL : public KernelObject
 		return false;
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("FPL", 1);
 		if (!s)
@@ -379,17 +379,17 @@ struct SceKernelVplHeader {
 
 struct VPL : public KernelObject
 {
-	const char *GetName() {return nv.name;}
-	const char *GetTypeName() {return "VPL";}
+	const char *GetName() override { return nv.name; }
+	const char *GetTypeName() override { return "VPL"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Vpl; }
 
 	VPL() : alloc(8) {
 		header = 0;
 	}
 
-	virtual void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("VPL", 1, 2);
 		if (!s) {
 			return;
@@ -896,16 +896,16 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
 class PartitionMemoryBlock : public KernelObject
 {
 public:
-	const char *GetName() {return name;}
-	const char *GetTypeName() {return "MemoryPart";}
-	void GetQuickInfo(char *ptr, int size)
+	const char *GetName() override { return name; }
+	const char *GetTypeName() override { return "MemoryPart"; }
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		int sz = alloc->GetBlockSizeFromAddress(address);
 		snprintf(ptr, size, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_PMB; }
-	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
+	int GetIDType() const override { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, const char *_name, u32 size, MemblockType type, u32 alignment)
 	{
@@ -938,7 +938,7 @@ public:
 	bool IsValid() {return address != (u32)-1;}
 	BlockAllocator *alloc;
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("PMB", 1);
 		if (!s)
@@ -1865,15 +1865,15 @@ struct NativeTlspl
 
 struct TLSPL : public KernelObject
 {
-	const char *GetName() {return ntls.name;}
-	const char *GetTypeName() {return "TLS";}
+	const char *GetName() override { return ntls.name; }
+	const char *GetTypeName() override { return "TLS"; }
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLSPL_ID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Tlspl; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Tlspl; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Tlspl; }
 
 	TLSPL() : next(0) {}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("TLS", 1);
 		if (!s)

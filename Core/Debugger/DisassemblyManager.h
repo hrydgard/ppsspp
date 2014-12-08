@@ -70,13 +70,14 @@ class DisassemblyFunction: public DisassemblyEntry
 {
 public:
 	DisassemblyFunction(u32 _address, u32 _size);
-	virtual void recheck();
-	virtual int getNumLines();
-	virtual int getLineNum(u32 address, bool findStart);
-	virtual u32 getLineAddress(int line);
-	virtual u32 getTotalSize() { return size; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
-	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest);
+	void recheck() override;
+	int getNumLines() override;
+	int getLineNum(u32 address, bool findStart) override;
+	u32 getLineAddress(int line) override;
+	u32 getTotalSize() override { return size; };
+	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) override;
+	void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest) override;
+
 private:
 	void generateBranchLines();
 	void load();
@@ -96,13 +97,14 @@ class DisassemblyOpcode: public DisassemblyEntry
 public:
 	DisassemblyOpcode(u32 _address, int _num): address(_address), num(_num) { };
 	virtual ~DisassemblyOpcode() { };
-	virtual void recheck() { };
-	virtual int getNumLines() { return num; };
-	virtual int getLineNum(u32 address, bool findStart) { return (address-this->address)/4; };
-	virtual u32 getLineAddress(int line) { return address+line*4; };
-	virtual u32 getTotalSize() { return num*4; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
-	virtual void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest);
+	void recheck() override { };
+	int getNumLines() override { return num; };
+	int getLineNum(u32 address, bool findStart) override { return (address - this->address) / 4; };
+	u32 getLineAddress(int line) override { return address + line * 4; };
+	u32 getTotalSize() override { return num * 4; };
+	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) override;
+	void getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest) override;
+
 private:
 	u32 address;
 	int num;
@@ -114,16 +116,16 @@ class DisassemblyMacro: public DisassemblyEntry
 public:
 	DisassemblyMacro(u32 _address): address(_address) { };
 	virtual ~DisassemblyMacro() { };
-	
+
 	void setMacroLi(u32 _immediate, u8 _rt);
 	void setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize);
-	
-	virtual void recheck() { };
-	virtual int getNumLines() { return 1; };
-	virtual int getLineNum(u32 address, bool findStart) { return 0; };
-	virtual u32 getLineAddress(int line) { return address; };
-	virtual u32 getTotalSize() { return numOpcodes*4; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) ;
+
+	void recheck() override { };
+	int getNumLines() override { return 1; };
+	int getLineNum(u32 address, bool findStart) override { return 0; };
+	u32 getLineAddress(int line) override { return address; };
+	u32 getTotalSize() override { return numOpcodes * 4; };
+	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) override;
 private:
 	enum MacroType { MACRO_LI, MACRO_MEMORYIMM };
 
@@ -142,13 +144,14 @@ class DisassemblyData: public DisassemblyEntry
 public:
 	DisassemblyData(u32 _address, u32 _size, DataType _type);
 	virtual ~DisassemblyData() { };
-	
-	virtual void recheck();
-	virtual int getNumLines() { return (int)lines.size(); };
-	virtual int getLineNum(u32 address, bool findStart);
-	virtual u32 getLineAddress(int line) { return lineAddresses[line]; };
-	virtual u32 getTotalSize() { return size; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+
+	void recheck() override;
+	int getNumLines() override { return (int)lines.size(); };
+	int getLineNum(u32 address, bool findStart) override;
+	u32 getLineAddress(int line) override { return lineAddresses[line]; };
+	u32 getTotalSize() override { return size; };
+	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) override;
+
 private:
 	void createLines();
 
@@ -172,13 +175,14 @@ class DisassemblyComment: public DisassemblyEntry
 public:
 	DisassemblyComment(u32 _address, u32 _size, std::string name, std::string param);
 	virtual ~DisassemblyComment() { };
-	
-	virtual void recheck() { };
-	virtual int getNumLines() { return 1; };
-	virtual int getLineNum(u32 address, bool findStart) { return 0; };
-	virtual u32 getLineAddress(int line) { return address; };
-	virtual u32 getTotalSize() { return size; };
-	virtual bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols);
+
+	void recheck() override { };
+	int getNumLines() override { return 1; };
+	int getLineNum(u32 address, bool findStart) override { return 0; };
+	u32 getLineAddress(int line) override { return address; };
+	u32 getTotalSize() override { return size; };
+	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols) override;
+
 private:
 	u32 address;
 	u32 size;

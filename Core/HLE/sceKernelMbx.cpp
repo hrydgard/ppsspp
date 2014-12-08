@@ -60,11 +60,11 @@ struct NativeMbx
 
 struct Mbx : public KernelObject
 {
-	const char *GetName() {return nmb.name;}
-	const char *GetTypeName() {return "Mbx";}
+	const char *GetName() override { return nmb.name; }
+	const char *GetTypeName() override { return "Mbx"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MBXID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mbox; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Mbox; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mbox; }
 
 	void AddWaitingThread(SceUID id, u32 addr)
 	{
@@ -159,7 +159,7 @@ struct Mbx : public KernelObject
 		return 0;
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Mbx", 1);
 		if (!s)

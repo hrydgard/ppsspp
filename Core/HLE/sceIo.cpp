@@ -159,20 +159,20 @@ public:
 		pspFileSystem.CloseFile(handle);
 		pgd_close(pgdInfo);
 	}
-	const char *GetName() {return fullpath.c_str();}
-	const char *GetTypeName() {return "OpenFile";}
-	void GetQuickInfo(char *ptr, int size) {
+	const char *GetName() override { return fullpath.c_str(); }
+	const char *GetTypeName() override { return "OpenFile"; }
+	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_File; }
-	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
+	int GetIDType() const override { return PPSSPP_KERNEL_TMID_File; }
 
 	bool asyncBusy() {
 		return pendingAsyncResult || hasAsyncResult;
 	}
 
-	virtual void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("FileNode", 1);
 		if (!s)
 			return;
@@ -1874,13 +1874,13 @@ static u32 sceIoPollAsync(int id, u32 address) {
 
 class DirListing : public KernelObject {
 public:
-	const char *GetName() {return name.c_str();}
-	const char *GetTypeName() {return "DirListing";}
+	const char *GetName() override { return name.c_str(); }
+	const char *GetTypeName() override { return "DirListing"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_DirList; }
-	int GetIDType() const { return PPSSPP_KERNEL_TMID_DirList; }
+	int GetIDType() const override { return PPSSPP_KERNEL_TMID_DirList; }
 
-	virtual void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("DirListing", 1);
 		if (!s)
 			return;

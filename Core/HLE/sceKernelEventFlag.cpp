@@ -58,9 +58,9 @@ struct EventFlagTh
 class EventFlag : public KernelObject
 {
 public:
-	const char *GetName() {return nef.name;}
-	const char *GetTypeName() {return "EventFlag";}
-	void GetQuickInfo(char *ptr, int size)
+	const char *GetName() override { return nef.name; }
+	const char *GetTypeName() override { return "EventFlag"; }
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		sprintf(ptr, "init=%08x cur=%08x numwait=%i",
 			nef.initPattern,
@@ -72,9 +72,9 @@ public:
 		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
 	}
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_EventFlag; }
-	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_EventFlag; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("EventFlag", 1);
 		if (!s)

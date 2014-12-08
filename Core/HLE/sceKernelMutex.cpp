@@ -72,13 +72,13 @@ struct NativeMutex
 
 struct Mutex : public KernelObject
 {
-	const char *GetName() {return nm.name;}
-	const char *GetTypeName() {return "Mutex";}
+	const char *GetName() override { return nm.name; }
+	const char *GetTypeName() override { return "Mutex"; }
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Mutex", 1);
 		if (!s)
@@ -137,13 +137,13 @@ struct NativeLwMutex
 
 struct LwMutex : public KernelObject
 {
-	const char *GetName() {return nm.name;}
-	const char *GetTypeName() {return "LwMutex";}
+	const char *GetName() override { return nm.name; }
+	const char *GetTypeName() override { return "LwMutex"; }
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
-	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_LwMutex; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("LwMutex", 1);
 		if (!s)

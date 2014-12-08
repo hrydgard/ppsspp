@@ -206,10 +206,10 @@ public:
 	virtual ~PSPOskDialog();
 
 	virtual int Init(u32 oskPtr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
 	virtual bool UseAutoStatus() {

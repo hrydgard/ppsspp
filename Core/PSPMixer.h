@@ -22,6 +22,6 @@
 class PSPMixer : public PMixer
 {
 public:
-	int Mix(short *stereoout, int numSamples);
+	int Mix(short *stereoout, int numSamples) override;
 };
 

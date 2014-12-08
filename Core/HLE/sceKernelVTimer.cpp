@@ -42,13 +42,13 @@ struct NativeVTimer {
 };
 
 struct VTimer : public KernelObject {
-	const char *GetName() {return nvt.name;}
-	const char *GetTypeName() {return "VTimer";}
+	const char *GetName() override { return nvt.name; }
+	const char *GetTypeName() override { return "VTimer"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_VTimer; }
-	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_VTimer; }
 
-	virtual void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("VTimer", 1, 2);
 		if (!s)
 			return;
@@ -131,7 +131,7 @@ class VTimerIntrHandler : public IntrHandler
 public:
 	VTimerIntrHandler() : IntrHandler(PSP_SYSTIMER1_INTR) {}
 
-	virtual bool run(PendingInterrupt &pend) {
+	bool run(PendingInterrupt &pend) override {
 		u32 error;
 		SceUID vtimerID = vtimers.front();
 
@@ -158,7 +158,7 @@ public:
 		return true;
 	}
 
-	virtual void handleResult(PendingInterrupt &pend) {
+	void handleResult(PendingInterrupt &pend) override {
 		u32 result = currentMIPS->r[MIPS_REG_V0];
 
 		currentMIPS->r[MIPS_REG_SP] += HANDLER_STACK_SPACE;

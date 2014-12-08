@@ -120,10 +120,10 @@ struct NativeCallback
 class Callback : public KernelObject
 {
 public:
-	const char *GetName() {return nc.name;}
-	const char *GetTypeName() {return "CallBack";}
+	const char *GetName() override { return nc.name; }
+	const char *GetTypeName() override { return "CallBack"; }
 
-	void GetQuickInfo(char *ptr, int size)
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		sprintf(ptr, "thread=%i, argument= %08x",
 			//hackAddress,
@@ -137,9 +137,9 @@ public:
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Callback; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Callback; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Callback; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Callback", 1);
 		if (!s)
@@ -287,14 +287,14 @@ class ActionAfterMipsCall : public Action
 	}
 
 public:
-	virtual void run(MipsCall &call);
+	void run(MipsCall &call) override;
 
 	static Action *Create()
 	{
 		return new ActionAfterMipsCall();
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("ActionAfterMipsCall", 1);
 		if (!s)
@@ -338,7 +338,7 @@ class ActionAfterCallback : public Action
 {
 public:
 	ActionAfterCallback() {}
-	virtual void run(MipsCall &call);
+	void run(MipsCall &call) override;
 
 	static Action *Create()
 	{
@@ -350,7 +350,7 @@ public:
 		cbId = cbId_;
 	}
 
-	void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("ActionAfterCallback", 1);
 		if (!s)
@@ -365,9 +365,9 @@ public:
 class Thread : public KernelObject
 {
 public:
-	const char *GetName() {return nt.name;}
-	const char *GetTypeName() {return "Thread";}
-	void GetQuickInfo(char *ptr, int size)
+	const char *GetName() override { return nt.name; }
+	const char *GetTypeName() override { return "Thread"; }
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		sprintf(ptr, "pc= %08x sp= %08x %s %s %s %s %s %s (wt=%i wid=%i wv= %08x )",
 			context.pc, context.r[MIPS_REG_SP],
@@ -384,7 +384,7 @@ public:
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_THID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Thread; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
 
 	bool AllocateStack(u32 &stackSize)
 	{
@@ -518,7 +518,7 @@ public:
 	inline bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
 	inline bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Thread", 1, 4);
 		if (!s)
