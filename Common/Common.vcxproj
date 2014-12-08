@@ -198,6 +198,7 @@
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />
     <ClInclude Include="Crypto\sha1.h" />
+    <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="KeyMap.h" />
@@ -238,6 +239,7 @@
     <ClCompile Include="CPUDetect.cpp" />
     <ClCompile Include="Crypto\md5.cpp" />
     <ClCompile Include="Crypto\sha1.cpp" />
+    <ClCompile Include="Crypto\sha256.cpp" />
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />

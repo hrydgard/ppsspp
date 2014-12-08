@@ -130,6 +130,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
+  $(SRC)/Common/Crypto/sha256.cpp \
   $(SRC)/Common/ChunkFile.cpp \
   $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/LogManager.cpp \
@@ -263,6 +264,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSha256.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
