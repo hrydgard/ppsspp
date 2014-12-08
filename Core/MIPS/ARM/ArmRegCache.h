@@ -75,11 +75,12 @@ enum {
 
 namespace MIPSComp {
 	struct ArmJitOptions;
+	struct JitState;
 }
 
 class ArmRegCache {
 public:
-	ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options);
+	ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
 	~ArmRegCache() {}
 
 	void Init(ArmGen::ARMXEmitter *emitter);
@@ -132,8 +133,9 @@ private:
 	ArmGen::ARMReg FindBestToSpill(bool unusedOnly);
 		
 	MIPSState *mips_;
-	MIPSComp::ArmJitOptions *options_;
 	ArmGen::ARMXEmitter *emit_;
+	MIPSComp::JitState *js_;
+	MIPSComp::ArmJitOptions *jo_;
 	u32 compilerPC_;
 
 	enum {

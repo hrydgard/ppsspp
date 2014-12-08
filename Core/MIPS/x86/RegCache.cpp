@@ -52,7 +52,7 @@ GPRRegCache::GPRRegCache() : mips(0), emit(0) {
 	memset(xregs, 0, sizeof(xregs));
 }
 
-void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
+void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
@@ -85,6 +85,9 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	}*/
 	//Find top regs - preload them (load bursts ain't bad)
 	//But only preload IF written OR reads >= 3
+
+	js_ = js;
+	jo_ = jo;
 }
 
 

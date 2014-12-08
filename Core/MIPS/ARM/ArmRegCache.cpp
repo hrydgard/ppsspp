@@ -28,7 +28,7 @@
 
 using namespace ArmGen;
 
-ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options) : mips_(mips), options_(options) {
+ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), js_(js), jo_(jo) {
 }
 
 void ArmRegCache::Init(ARMXEmitter *emitter) {
@@ -55,7 +55,7 @@ const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
 	// R14 (LR) is used as a scratch reg (overwritten on calls/return.)
-	if (options_->downcountInRegister) {
+	if (jo_->downcountInRegister) {
 		static const ARMReg allocationOrder[] = {
 			R1, R2, R3, R4, R5, R6, R12,
 		};

@@ -63,7 +63,7 @@ namespace MIPSComp
 {
 	using namespace ArmGen;
 
-ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips, &js, &jo), mips_(mips)
+ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(mips, &js, &jo), mips_(mips)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
