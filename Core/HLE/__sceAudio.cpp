@@ -87,20 +87,23 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 #endif
 }
 
-inline void AdjustVolumeBlock(s16 *out, s16 *in, int size, int leftVol, int rightVol) {
+inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
 #ifdef _M_SSE
-	__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
-	while (size >= 16) {
-		__m128i indata1 = _mm_loadu_si128((__m128i *)in);
-		__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
-		_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
-		_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
-		in += 16;
-		out += 16;
-		size -= 16;
+	// TODO: This can be done in SSE with some extra shifting (might not even affect speed.)
+	if (leftVol <= 0x7fff && rightVol <= 0x7fff) {
+		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+		while (size >= 16) {
+			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
+			_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
+			_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
 	}
 #endif
-	for (int i = 0; i < size; i += 2) {
+	for (size_t i = 0; i < size; i += 2) {
 		out[i] = adjustvolume(in[i], leftVol);
 		out[i + 1] = adjustvolume(in[i + 1], rightVol);
 	}
@@ -342,7 +345,7 @@ void __AudioSetOutputFrequency(int freq) {
 	mixFrequency = freq;
 }
 
-inline void ClampBufferToS16(s16 *out, s32 *in, int size) {
+inline void ClampBufferToS16(s16 *out, s32 *in, size_t size) {
 #ifdef _M_SSE
 	// Size will always be 16-byte aligned as the hwBlockSize is.
 	while (size >= 8) {
@@ -354,11 +357,11 @@ inline void ClampBufferToS16(s16 *out, s32 *in, int size) {
 		in += 8;
 		size -= 8;
 	}
-	for (int i = 0; i < size; i++) {
+	for (size_t i = 0; i < size; i++) {
 		out[i] = clamp_s16(in[i]);
 	}
 #else
-	for (int i = 0; i < size; i++) {
+	for (size_t i = 0; i < size; i++) {
 		out[i] = clamp_s16(in[i]);
 	}
 #endif
