@@ -130,7 +130,7 @@ private:
 	const ArmGen::ARMReg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(ArmGen::ARMReg reg, MIPSGPReg mipsReg, int mapFlags);
 	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
-	ArmGen::ARMReg FindBestToSpill(bool unusedOnly);
+	ArmGen::ARMReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 		
 	MIPSState *mips_;
 	ArmGen::ARMXEmitter *emit_;

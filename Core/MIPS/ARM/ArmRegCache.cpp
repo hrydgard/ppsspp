@@ -193,16 +193,23 @@ void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 	mr[mipsReg].reg = reg;
 }
 
-ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly) {
+ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	int allocCount;
 	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
+	*clobbered = false;
 	for (int i = 0; i < allocCount; i++) {
 		ARMReg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
 			continue;
+
+		// Awesome, a clobbered reg.  Let's use it.
+		if (MIPSAnalyst::IsRegisterClobbered(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
+			*clobbered = true;
+			return reg;
+		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
 		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
@@ -280,14 +287,19 @@ allocate:
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
 	// TODO: Spill dirty regs first? or opposite?
-	ARMReg bestToSpill = FindBestToSpill(true);
+	bool clobbered;
+	ARMReg bestToSpill = FindBestToSpill(true, &clobbered);
 	if (bestToSpill == INVALID_REG) {
-		bestToSpill = FindBestToSpill(false);
+		bestToSpill = FindBestToSpill(false, &clobbered);
 	}
 
 	if (bestToSpill != INVALID_REG) {
 		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
-		FlushArmReg(bestToSpill);
+		if (clobbered) {
+			DiscardR(ar[bestToSpill].mipsReg);
+		} else {
+			FlushArmReg(bestToSpill);
+		}
 		goto allocate;
 	}
 

@@ -122,18 +122,25 @@ void GPRRegCache::UnlockAllX() {
 		xregs[i].allocLocked = false;
 }
 
-X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly) {
+X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	int allocCount;
 	const int *allocOrder = GetAllocationOrder(allocCount);
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
+	*clobbered = false;
 	for (int i = 0; i < allocCount; i++) {
 		X64Reg reg = (X64Reg)allocOrder[i];
 		if (xregs[reg].allocLocked)
 			continue;
 		if (xregs[reg].mipsReg != MIPS_REG_INVALID && regs[xregs[reg].mipsReg].locked)
 			continue;
+
+		// Awesome, a clobbered reg.  Let's use it.
+		if (MIPSAnalyst::IsRegisterClobbered(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+			*clobbered = true;
+			return reg;
+		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
 		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
@@ -160,13 +167,18 @@ X64Reg GPRRegCache::GetFreeXReg()
 	}
 
 	//Okay, not found :( Force grab one
-	X64Reg bestToSpill = FindBestToSpill(true);
+	bool clobbered;
+	X64Reg bestToSpill = FindBestToSpill(true, &clobbered);
 	if (bestToSpill == INVALID_REG) {
-		bestToSpill = FindBestToSpill(false);
+		bestToSpill = FindBestToSpill(false, &clobbered);
 	}
 
 	if (bestToSpill != INVALID_REG) {
-		StoreFromRegister(xregs[bestToSpill].mipsReg);
+		if (clobbered) {
+			DiscardRegContentsIfCached(xregs[bestToSpill].mipsReg);
+		} else {
+			StoreFromRegister(xregs[bestToSpill].mipsReg);
+		}
 		return bestToSpill;
 	}
 

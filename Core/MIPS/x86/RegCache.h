@@ -115,7 +115,7 @@ public:
 
 private:
 	Gen::X64Reg GetFreeXReg();
-	Gen::X64Reg FindBestToSpill(bool unusedOnly);
+	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	const int *GetAllocationOrder(int &count);
 
 	MIPSCachedReg regs[NUM_MIPS_GPRS];
