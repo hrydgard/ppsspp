@@ -122,6 +122,30 @@ void GPRRegCache::UnlockAllX() {
 		xregs[i].allocLocked = false;
 }
 
+X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly) {
+	int allocCount;
+	const int *allocOrder = GetAllocationOrder(allocCount);
+
+	static const int UNUSED_LOOKAHEAD_OPS = 30;
+
+	for (int i = 0; i < allocCount; i++) {
+		X64Reg reg = (X64Reg)allocOrder[i];
+		if (xregs[reg].allocLocked)
+			continue;
+		if (xregs[reg].mipsReg != MIPS_REG_INVALID && regs[xregs[reg].mipsReg].locked)
+			continue;
+
+		// Not awesome.  A used reg.  Let's try to avoid spilling.
+		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+			continue;
+		}
+
+		return reg;
+	}
+
+	return INVALID_REG;
+}
+
 X64Reg GPRRegCache::GetFreeXReg()
 {
 	int aCount;
@@ -134,21 +158,18 @@ X64Reg GPRRegCache::GetFreeXReg()
 			return (X64Reg)xr;
 		}
 	}
-	//Okay, not found :( Force grab one
 
-	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
-	for (int i = 0; i < aCount; i++)
-	{
-		X64Reg xr = (X64Reg)aOrder[i];
-		if (xregs[xr].allocLocked) 
-			continue;
-		MIPSGPReg preg = xregs[xr].mipsReg;
-		if (!regs[preg].locked)
-		{
-			StoreFromRegister(preg);
-			return xr;
-		}
+	//Okay, not found :( Force grab one
+	X64Reg bestToSpill = FindBestToSpill(true);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false);
 	}
+
+	if (bestToSpill != INVALID_REG) {
+		StoreFromRegister(xregs[bestToSpill].mipsReg);
+		return bestToSpill;
+	}
+
 	//Still no dice? Die!
 	_assert_msg_(JIT, 0, "Regcache ran out of regs");
 	return (X64Reg) -1;

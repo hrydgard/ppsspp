@@ -680,25 +680,25 @@ namespace MIPSAnalyst {
 		}
 	}
 
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+	enum RegisterUsage {
+		USAGE_CLOBBERED,
+		USAGE_INPUT,
+		USAGE_UNKNOWN,
+	};
+
+	static RegisterUsage DetermineInOutUsage(u64 inFlag, u64 outFlag, u32 addr, int instrs) {
 		u32 end = addr + instrs * sizeof(u32);
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			const MIPSInfo info = MIPSGetInfo(op);
 
 			// Yes, used.
-			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
-				return true;
-			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
-				return true;
+			if (info & inFlag)
+				return USAGE_INPUT;
 
 			// Clobbered, so not used.
-			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return false;
-			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return false;
-			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return false;
+			if (info & outFlag)
+				return USAGE_CLOBBERED;
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
@@ -708,7 +708,63 @@ namespace MIPSAnalyst {
 			}
 			addr += 4;
 		}
-		return false;
+		return USAGE_UNKNOWN;
+	}
+
+	static RegisterUsage DetermineRegisterUsage(MIPSGPReg reg, u32 addr, int instrs) {
+		switch (reg) {
+		case MIPS_REG_HI:
+			return DetermineInOutUsage(IN_HI, OUT_HI, addr, instrs);
+		case MIPS_REG_LO:
+			return DetermineInOutUsage(IN_LO, OUT_LO, addr, instrs);
+		case MIPS_REG_FPCOND:
+			return DetermineInOutUsage(IN_FPUFLAG, OUT_FPUFLAG, addr, instrs);
+		case MIPS_REG_VFPUCC:
+			return DetermineInOutUsage(IN_VFPU_CC, OUT_VFPU_CC, addr, instrs);
+		default:
+			break;
+		}
+
+		if (reg > 32) {
+			return USAGE_UNKNOWN;
+		}
+
+		u32 end = addr + instrs * sizeof(u32);
+		while (addr < end) {
+			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSInfo info = MIPSGetInfo(op);
+
+			// Yes, used.
+			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
+				return USAGE_INPUT;
+			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
+				return USAGE_INPUT;
+
+			// Clobbered, so not used.
+			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
+				return USAGE_CLOBBERED;
+			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
+				return USAGE_CLOBBERED;
+			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
+				return USAGE_CLOBBERED;
+
+			// Bail early if we hit a branch (could follow each path for continuing?)
+			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+				// Still need to check the delay slot (so end after it.)
+				// We'll assume likely are taken.
+				end = addr + 8;
+			}
+			addr += 4;
+		}
+		return USAGE_UNKNOWN;
+	}
+
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_INPUT;
+	}
+
+	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
 	void HashFunctions() {

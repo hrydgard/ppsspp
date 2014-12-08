@@ -197,26 +197,16 @@ ARMReg ArmRegCache::FindBestToSpill(bool unusedOnly) {
 	int allocCount;
 	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
 
-	static const int UNUSED_LOOKAHEAD_OPS = 3;
+	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
 	for (int i = 0; i < allocCount; i++) {
 		ARMReg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
 			continue;
 
-		if (unusedOnly) {
-			bool unused = true;
-			for (int ahead = 1; ahead <= UNUSED_LOOKAHEAD_OPS; ++ahead) {
-				MIPSOpcode laterOp = Memory::Read_Instruction(compilerPC_ + ahead * sizeof(u32));
-				// If read, it might need to be mapped again.  If output, it might not need to be stored.
-				if (MIPSAnalyst::ReadsFromGPReg(laterOp, ar[reg].mipsReg) || MIPSAnalyst::GetOutGPReg(laterOp) == ar[reg].mipsReg) {
-					unused = false;
-				}
-			}
-
-			if (!unused) {
-				continue;
-			}
+		// Not awesome.  A used reg.  Let's try to avoid spilling.
+		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
+			continue;
 		}
 
 		return reg;
