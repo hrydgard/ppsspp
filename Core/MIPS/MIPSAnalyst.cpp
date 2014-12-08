@@ -687,7 +687,9 @@ namespace MIPSAnalyst {
 	};
 
 	static RegisterUsage DetermineInOutUsage(u64 inFlag, u64 outFlag, u32 addr, int instrs) {
+		const u32 start = addr;
 		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			const MIPSInfo info = MIPSGetInfo(op);
@@ -698,13 +700,18 @@ namespace MIPSAnalyst {
 
 			// Clobbered, so not used.
 			if (info & outFlag)
-				return USAGE_CLOBBERED;
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
 				// Still need to check the delay slot (so end after it.)
 				// We'll assume likely are taken.
 				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
 			}
 			addr += 4;
 		}
@@ -729,7 +736,9 @@ namespace MIPSAnalyst {
 			return USAGE_UNKNOWN;
 		}
 
+		const u32 start = addr;
 		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			const MIPSInfo info = MIPSGetInfo(op);
@@ -742,17 +751,22 @@ namespace MIPSAnalyst {
 
 			// Clobbered, so not used.
 			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return USAGE_CLOBBERED;
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return USAGE_CLOBBERED;
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return USAGE_CLOBBERED;
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
 				// Still need to check the delay slot (so end after it.)
 				// We'll assume likely are taken.
 				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
 			}
 			addr += 4;
 		}
