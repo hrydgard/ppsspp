@@ -295,8 +295,7 @@ allocate:
 
 	if (bestToSpill != INVALID_REG) {
 		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
-		// TODO: Something is wrong with our flags or clobber detection.  Disabling for now.
-		if (clobbered && false) {
+		if (clobbered) {
 			DiscardR(ar[bestToSpill].mipsReg);
 		} else {
 			FlushArmReg(bestToSpill);

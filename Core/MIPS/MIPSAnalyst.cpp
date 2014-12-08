@@ -750,12 +750,18 @@ namespace MIPSAnalyst {
 				return USAGE_INPUT;
 
 			// Clobbered, so not used.
+			bool clobbered = false;
 			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
+				clobbered = true;
 			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
+				clobbered = true;
 			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
+				clobbered = true;
+			if (clobbered) {
+				if (!canClobber || (info & IS_CONDMOVE))
+					return USAGE_UNKNOWN;
+				return USAGE_CLOBBERED;
+			}
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
