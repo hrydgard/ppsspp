@@ -21,7 +21,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceSha256.h"
 
-int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
+static int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
 	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(digestPtr) || !Memory::IsValidAddress(data + dataLen)) {
 		ERROR_LOG(HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x) - bad address(es)", data, dataLen, digestPtr);
 		return -1;
