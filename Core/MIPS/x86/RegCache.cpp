@@ -174,7 +174,8 @@ X64Reg GPRRegCache::GetFreeXReg()
 	}
 
 	if (bestToSpill != INVALID_REG) {
-		if (clobbered) {
+		// TODO: Something is wrong with our flags or clobber detection.  Disabling for now.
+		if (clobbered && false) {
 			DiscardRegContentsIfCached(xregs[bestToSpill].mipsReg);
 		} else {
 			StoreFromRegister(xregs[bestToSpill].mipsReg);
