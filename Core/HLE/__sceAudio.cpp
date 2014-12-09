@@ -89,7 +89,6 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 
 inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
 #ifdef _M_SSE
-	// TODO: This can be done in SSE with some extra shifting (might not even affect speed.)
 	if (leftVol <= 0x7fff && rightVol <= 0x7fff) {
 		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
 		while (size >= 16) {
@@ -97,6 +96,20 @@ inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int r
 			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
 			_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
 			_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
+	} else {
+		// We have to shift inside the loop to avoid the signed multiply issue.
+		leftVol >>= 1;
+		rightVol >>= 1;
+		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+		while (size >= 16) {
+			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
+			_mm_storeu_si128((__m128i *)out, _mm_slli_epi16(_mm_mulhi_epi16(indata1, volume), 1));
+			_mm_storeu_si128((__m128i *)(out + 8), _mm_slli_epi16(_mm_mulhi_epi16(indata2, volume), 1));
 			in += 16;
 			out += 16;
 			size -= 16;
