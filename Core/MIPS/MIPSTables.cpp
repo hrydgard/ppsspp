@@ -147,11 +147,11 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	//32
 	INSTR("lb",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
 	INSTR("lh",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
-	INSTR("lwl", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
+	INSTR("lwl", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_RT|OUT_RT|MEMTYPE_WORD),
 	INSTR("lw",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
 	INSTR("lbu", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_BYTE),
 	INSTR("lhu", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_HWORD),
-	INSTR("lwr", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|MEMTYPE_WORD),
+	INSTR("lwr", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_RT|OUT_RT|MEMTYPE_WORD),
 	INVALID,
 	//40
 	INSTR("sb",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_BYTE),

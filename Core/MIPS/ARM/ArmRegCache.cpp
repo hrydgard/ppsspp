@@ -296,7 +296,7 @@ allocate:
 	if (bestToSpill != INVALID_REG) {
 		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
 		// TODO: Broken somehow in Dante's Inferno, but most games work.  Bad flags in MIPSTables somewhere?
-		if (clobbered && false) {
+		if (clobbered) {
 			DiscardR(ar[bestToSpill].mipsReg);
 		} else {
 			FlushArmReg(bestToSpill);

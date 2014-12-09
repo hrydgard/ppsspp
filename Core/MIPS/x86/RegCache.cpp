@@ -175,7 +175,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 
 	if (bestToSpill != INVALID_REG) {
 		// TODO: Broken somehow in Dante's Inferno, but most games work.  Bad flags in MIPSTables somewhere?
-		if (clobbered && false) {
+		if (clobbered) {
 			DiscardRegContentsIfCached(xregs[bestToSpill].mipsReg);
 		} else {
 			StoreFromRegister(xregs[bestToSpill].mipsReg);
