@@ -554,6 +554,11 @@ public:
 			}
 			else
 			{
+				if (shouldExist != 0)
+				{
+					WARN_LOG(COMMON, "Savestate failure: incorrect item marker %d", shouldExist);
+					SetError(ERROR_FAILURE);
+				}
 				if (mode == MODE_READ)
 				{
 					if (prev)

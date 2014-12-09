@@ -219,7 +219,7 @@ void __DisplayInit() {
 }
 
 void __DisplayDoState(PointerWrap &p) {
-	auto s = p.Section("sceDisplay", 1, 5);
+	auto s = p.Section("sceDisplay", 1, 6);
 	if (!s)
 		return;
 
@@ -278,7 +278,9 @@ void __DisplayDoState(PointerWrap &p) {
 		p.ExpectVoid(&gl_extensions.gpuVendor, sizeof(gl_extensions.gpuVendor));
 	}
 #endif
-	p.Do(gpuStats);
+	if (s < 6) {
+		p.Do(gpuStats);
+	}
 	gpu->DoState(p);
 
 	ReapplyGfxState();
