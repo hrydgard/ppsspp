@@ -394,6 +394,13 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 	Vec3Packedf *horiz3 = horiz + (tess_u + 1) * 2;
 	Vec3Packedf *horiz4 = horiz + (tess_u + 1) * 3;
 
+	Vec3Packedf *derivU1 = new Vec3Packedf[(tess_u + 1) * 4];
+	Vec3Packedf *derivU2 = derivU1 + (tess_u + 1) * 1;
+	Vec3Packedf *derivU3 = derivU1 + (tess_u + 1) * 2;
+	Vec3Packedf *derivU4 = derivU1 + (tess_u + 1) * 3;
+
+	bool computeNormals = gstate.isLightingEnabled();
+
 	// Precompute the horizontal curves to we only have to evaluate the vertical ones.
 	for (int i = 0; i < tess_u + 1; i++) {
 		float u = ((float)i / (float)tess_u);
@@ -401,9 +408,15 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 		horiz2[i] = Bernstein3D(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
 		horiz3[i] = Bernstein3D(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
 		horiz4[i] = Bernstein3D(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
+
+		if (computeNormals) {
+			derivU1[i] = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, u);
+			derivU2[i] = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
+			derivU3[i] = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
+			derivU4[i] = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
+		}
 	}
 
-	bool computeNormals = gstate.isLightingEnabled();
 
 	for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
@@ -421,11 +434,12 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
 			if (computeNormals) {
-				Vec3Packedf derivU1 = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, bu);
-				Vec3Packedf derivU2 = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, bu);
-				Vec3Packedf derivU3 = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, bu);
-				Vec3Packedf derivU4 = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, bu);
-				Vec3Packedf derivU = Bernstein3D(derivU1, derivU2, derivU3, derivU4, bv);
+				const Vec3Packedf &derivU1_ = derivU1[tile_u];
+				const Vec3Packedf &derivU2_ = derivU2[tile_u];
+				const Vec3Packedf &derivU3_ = derivU3[tile_u];
+				const Vec3Packedf &derivU4_ = derivU4[tile_u];
+
+				Vec3Packedf derivU = Bernstein3D(derivU1_, derivU2_, derivU3_, derivU4_, bv);
 				Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 				// TODO: Interpolate normals instead of generating them, if available?
@@ -455,6 +469,7 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 			}
 		}
 	}
+	delete[] derivU1;
 	delete[] horiz;
 
 	// Tesselate. TODO: Use indices so we only need to emit 4 vertices per pair of triangles instead of six.
