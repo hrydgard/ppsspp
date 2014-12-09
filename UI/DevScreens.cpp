@@ -51,12 +51,14 @@ static const char *logLevelList[] = {
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *sy = GetI18NCategory("System");
 
-	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
-	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
-	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
-	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
-	parent->Add(new Choice("Dump Frame GPU Commands"))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
+	parent->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
+	parent->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
+	parent->Add(new Choice(de->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
+	parent->Add(new Choice(de->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
+	parent->Add(new Choice(de->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -103,7 +105,8 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *de = GetI18NCategory("Developer");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -111,13 +114,13 @@ void LogConfigScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topbar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
-	topbar->Add(new Choice("Log Level"))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice(de->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
 
-	vert->Add(new ItemHeader("Log Channels"));
+	vert->Add(new ItemHeader(de->T("Logging Channels")));
 
 	LogManager *logMan = LogManager::GetInstance();
 
