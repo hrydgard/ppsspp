@@ -1118,59 +1118,58 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
 	}
 
-	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
-		if (offset != 0)
-			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
-		u8 *buf = psmfplayer->tempbuf;
-		int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
-		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
-		delayUs += 2000;
+	if (offset != 0)
+		pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
+	u8 *buf = psmfplayer->tempbuf;
+	int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
+	int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+	delayUs += 2000;
 
-		const u32 magic = *(u32_le *)buf;
-		if (magic != PSMF_MAGIC) {
-			// TODO: Let's keep trying as we were before.
-			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic, bad data");
-			//return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
-		}
-
-		// TODO: Merge better with Psmf.
-		u16 numStreams = *(u16_be *)(buf + 0x80);
-		if (numStreams > 128) {
-			ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: too many streams in PSMF video, bogus data");
-			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
-		}
-
-		psmfplayer->totalVideoStreams = 0;
-		psmfplayer->totalAudioStreams = 0;
-		psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
-		for (u16 i = 0; i < numStreams; i++) {
-			const u8 *currentStreamAddr = buf + 0x82 + i * 16;
-			const int streamId = *currentStreamAddr;
-			if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-				++psmfplayer->totalVideoStreams;
-				// If we don't have EP info for /any/ video stream, revert to BASIC.
-				const u32 epOffset = ReadUnalignedU32BE(currentStreamAddr + 4);
-				const u32 epEntries = ReadUnalignedU32BE(currentStreamAddr + 8);
-				// TODO: Actually, if these don't match, it seems to be an invalid PSMF.
-				if (epOffset == 0 || epEntries == 0) {
-					psmfplayer->playerVersion = PSMF_PLAYER_VERSION_BASIC;
-				}
-			} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-				++psmfplayer->totalAudioStreams;
-			} else {
-				WARN_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
-			}
-		}
-		// TODO: It seems like it's invalid if there's not at least 1 video stream.
-
-		int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
-		psmfplayer->readSize = size - mpegoffset;
-		psmfplayer->streamSize = *(s32_be *)(buf + PSMF_STREAM_SIZE_OFFSET);
-		psmfplayer->fileoffset = offset + mpegoffset;
-		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
-		_PsmfPlayerFillRingbuffer(psmfplayer);
-		psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	const u32 magic = *(u32_le *)buf;
+	if (magic != PSMF_MAGIC) {
+		// TODO: Let's keep trying as we were before.
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic, bad data");
+		//return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
+
+	// TODO: Merge better with Psmf.
+	u16 numStreams = *(u16_be *)(buf + 0x80);
+	if (numStreams > 128) {
+		ERROR_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: too many streams in PSMF video, bogus data");
+		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "psmfplayer set", delayUs);
+	}
+
+	psmfplayer->totalVideoStreams = 0;
+	psmfplayer->totalAudioStreams = 0;
+	psmfplayer->playerVersion = PSMF_PLAYER_VERSION_FULL;
+	for (u16 i = 0; i < numStreams; i++) {
+		const u8 *currentStreamAddr = buf + 0x82 + i * 16;
+		const int streamId = *currentStreamAddr;
+		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
+			++psmfplayer->totalVideoStreams;
+			// If we don't have EP info for /any/ video stream, revert to BASIC.
+			const u32 epOffset = ReadUnalignedU32BE(currentStreamAddr + 4);
+			const u32 epEntries = ReadUnalignedU32BE(currentStreamAddr + 8);
+			// TODO: Actually, if these don't match, it seems to be an invalid PSMF.
+			if (epOffset == 0 || epEntries == 0) {
+				psmfplayer->playerVersion = PSMF_PLAYER_VERSION_BASIC;
+			}
+		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
+			++psmfplayer->totalAudioStreams;
+		} else {
+			WARN_LOG_REPORT(ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
+		}
+	}
+	// TODO: It seems like it's invalid if there's not at least 1 video stream.
+
+	int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
+	psmfplayer->readSize = size - mpegoffset;
+	psmfplayer->streamSize = *(s32_be *)(buf + PSMF_STREAM_SIZE_OFFSET);
+	psmfplayer->fileoffset = offset + mpegoffset;
+	psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
+	_PsmfPlayerFillRingbuffer(psmfplayer);
+	psmfplayer->totalDurationTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 
