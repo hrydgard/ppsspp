@@ -311,6 +311,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
 	{ 0x9734cf721bc0f3a1, 732, "atanf", },
+	{ 0x99c9288185c352ea, 592, "orenoimouto_download_frame_2", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
