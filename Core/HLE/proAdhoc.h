@@ -645,7 +645,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * @param ip OUT: Peer IP
  * @return true on success, false otherwise.
  */
-int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
+bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
 
 /**
  * Check whether Network Name contains only valid symbols

@@ -790,7 +790,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
   return false;
 }
 
-int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
+bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
   // Get Local MAC Address
   SceNetEtherAddr localMac;
   getLocalMac(&localMac);
