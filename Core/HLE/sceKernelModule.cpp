@@ -1370,12 +1370,6 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 
 static bool __KernelLoadPBP(const char *filename, std::string *error_string)
 {
-	static const char *FileNames[] =
-	{
-		"PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "UNKNOWN.PNG",
-		"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
-	};
-
 	PBPReader pbp(filename);
 	if (!pbp.IsValid()) {
 		ERROR_LOG(LOADER,"%s is not a valid homebrew PSP1.0 PBP",filename);
