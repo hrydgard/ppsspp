@@ -287,12 +287,36 @@ bool TestVFPUSinCos() {
 	return true;
 }
 
+bool TestMatrixTranspose() {
+	MatrixSize sz = M_4x4;
+	int matrix = 0;  // M000
+	u8 cols[4];
+	u8 rows[4];
+
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	int transposed = Xpose(matrix);
+	u8 x_cols[4];
+	u8 x_rows[4];
+
+	GetMatrixColumns(transposed, sz, x_cols);
+	GetMatrixRows(transposed, sz, x_rows);
+
+	for (int i = 0; i < GetMatrixSide(sz); i++) {
+		EXPECT_EQ_INT(cols[i], x_rows[i]);
+		EXPECT_EQ_INT(x_cols[i], rows[i]);
+	}
+	return true;
+}
+
 void TestGetMatrix(int matrix, MatrixSize sz) {
 	ILOG("Testing matrix %s", GetMatrixNotation(matrix, sz));
 	u8 fullMatrix[16];
 
 	u8 cols[4];
 	u8 rows[4];
+
 	GetMatrixColumns(matrix, sz, cols);
 	GetMatrixRows(matrix, sz, rows);
 
@@ -358,6 +382,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
 	TEST_ITEM(Jit),
+	TEST_ITEM(MatrixTranspose)
 };
 
 int main(int argc, const char *argv[]) {
