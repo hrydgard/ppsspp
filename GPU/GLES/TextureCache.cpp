@@ -1207,7 +1207,6 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.flipTexture = false;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool replaceImages = false;
 
 	if (iter != cache.end()) {

@@ -144,7 +144,6 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		return true;
 	}
 
-	GLSLProgram *program = 0;
 	if (!stencilUploadProgram_) {
 		std::string errorString;
 		stencilUploadProgram_ = glsl_create_source(stencil_vs, stencil_fs, &errorString);

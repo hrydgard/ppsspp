@@ -201,7 +201,6 @@ void VertexDecoder::Step_WeightsFloat() const
 void VertexDecoder::Step_WeightsU8Skin() const
 {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
-	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
 	const u8 *wdata = (const u8*)(ptr_);
 	for (int j = 0; j < nweights; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
@@ -217,7 +216,6 @@ void VertexDecoder::Step_WeightsU8Skin() const
 void VertexDecoder::Step_WeightsU16Skin() const
 {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
-	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	for (int j = 0; j < nweights; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
@@ -236,7 +234,6 @@ void VertexDecoder::Step_WeightsU16Skin() const
 void VertexDecoder::Step_WeightsFloatSkin() const
 {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
-	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float *wdata = (const float*)(ptr_);
 	for (int j = 0; j < nweights; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
