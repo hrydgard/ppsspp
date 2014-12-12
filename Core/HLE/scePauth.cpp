@@ -24,33 +24,28 @@
 #include "Core/HLE/scePauth.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "util\text\utf8.h"
+#include "Common/FileUtil.h"
 
 static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
 	u8 *src, *key;
 	u32 crc;
-	char c_name[256];
-	wchar_t w_name[256];
-	std::string c_fullPath;
-	std::string c_hostPath;
-	std::wstring w_hostPath;
+	char name[256];
+	std::string hostPath;
 	FILE *fp;
 	int size;
 
 	INFO_LOG(HLE, "scePauth_F7AA47F6(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);
 
-	sprintf(c_name, "ms0:/PAUTH");
-	pspFileSystem.GetHostPath(std::string(c_name), c_hostPath);
-	w_hostPath = ConvertUTF8ToWString(c_hostPath);
+	sprintf(name, "ms0:/PAUTH");
+	pspFileSystem.GetHostPath(std::string(name), hostPath);
 
 	src = (u8*)Memory::GetPointer(srcPtr);
 	key = (u8*)Memory::GetPointer(workArea);
 	crc = crc32(0, src, srcLength);
 
-	swprintf(w_name, L"%s/pauth_%08x.bin.decrypt", w_hostPath.c_str(), crc);
-	c_fullPath = ConvertWStringToUTF8(w_name);
-	fp = _wfopen(w_name, L"rb");
+	sprintf(name, "%s/pauth_%08x.bin.decrypt", hostPath.c_str(), crc);
+	fp = File::OpenCFile(name, "rb");
 	if (fp){
 		fseek(fp, 0, SEEK_END);
 		size = ftell(fp);
@@ -58,21 +53,21 @@ static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 		fread(src, 1, size, fp);
 		fclose(fp);
 		Memory::Write_U32(size, destLengthPtr);
-		INFO_LOG(HLE, "Read from decrypted file %s", c_fullPath.c_str());
+		INFO_LOG(HLE, "Read from decrypted file %s", name);
 		return 0;
 	}
 
 	pspFileSystem.MkDir("ms0:/PAUTH");
 
-	swprintf(w_name, L"%s/pauth_%08x.bin", w_hostPath.c_str(), crc);
-	ERROR_LOG(HLE, "No decrypted file found! save as %s", c_fullPath.c_str());
+	sprintf(name, "%s/pauth_%08x.bin", hostPath.c_str(), crc);
+	ERROR_LOG(HLE, "No decrypted file found! save as %s", name);
 
-	fp = _wfopen(w_name, L"wb");
+	fp = File::OpenCFile(name, "wb");
 	fwrite(src, 1, srcLength, fp);
 	fclose(fp);
 
-	swprintf(w_name, L"%s/pauth_%08x.key", w_hostPath.c_str(), crc);
-	fp = _wfopen(w_name, L"wb");
+	sprintf(name, "%s/pauth_%08x.key", hostPath.c_str(), crc);
+	fp = File::OpenCFile(name, "wb");
 	fwrite(key, 1, 16, fp);
 	fclose(fp);
 
@@ -83,27 +78,22 @@ static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 {
 	u8 *src, *key;
 	u32 crc;
-	char c_name[256];
-	wchar_t w_name[256];
-	std::string c_fullPath;
-	std::string c_hostPath;
-	std::wstring w_hostPath;
+	char name[256];
+	std::string hostPath;
 	FILE *fp;
 	int size;
 
 	INFO_LOG(HLE, "scePauth_98B83B5D(%08x, %08x, %08x, %08x)", srcPtr, srcLength, destLengthPtr, workArea);
 
-	sprintf(c_name, "ms0:/PAUTH");
-	pspFileSystem.GetHostPath(std::string(c_name), c_hostPath);
-	w_hostPath = ConvertUTF8ToWString(c_hostPath);
+	sprintf(name, "ms0:/PAUTH");
+	pspFileSystem.GetHostPath(std::string(name), hostPath);
 
 	src = (u8*)Memory::GetPointer(srcPtr);
 	key = (u8*)Memory::GetPointer(workArea);
 	crc = crc32(0, src, srcLength);
 
-	swprintf(w_name, L"%s/pauth_%08x.bin.decrypt", w_hostPath.c_str(), crc);
-	c_fullPath = ConvertWStringToUTF8(w_name);
-	fp = _wfopen(w_name, L"rb");
+	sprintf(name, "%s/pauth_%08x.bin.decrypt", hostPath.c_str(), crc);
+	fp = File::OpenCFile(name, "rb");
 	if (fp){
 		fseek(fp, 0, SEEK_END);
 		size = ftell(fp);
@@ -111,21 +101,21 @@ static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 		fread(src, 1, size, fp);
 		fclose(fp);
 		Memory::Write_U32(size, destLengthPtr);
-		INFO_LOG(HLE, "Read from decrypted file %s", c_fullPath.c_str());
+		INFO_LOG(HLE, "Read from decrypted file %s", name);
 		return 0;
 	}
 
 	pspFileSystem.MkDir("ms0:/PAUTH");
 
-	swprintf(w_name, L"%s/pauth_%08x.bin", w_hostPath.c_str(), crc);
-	ERROR_LOG(HLE, "No decrypted file found! save as %s", c_fullPath.c_str());
+	sprintf(name, "%s/pauth_%08x.bin", hostPath.c_str(), crc);
+	ERROR_LOG(HLE, "No decrypted file found! save as %s", name);
 
-	fp = _wfopen(w_name, L"wb");
+	fp = File::OpenCFile(name, "wb");
 	fwrite(src, 1, srcLength, fp);
 	fclose(fp);
 
-	swprintf(w_name, L"%s/pauth_%08x.key", w_hostPath.c_str(), crc);
-	fp = _wfopen(w_name, L"wb");
+	sprintf(name, "%s/pauth_%08x.key", hostPath.c_str(), crc);
+	fp = File::OpenCFile(name, "wb");
 	fwrite(key, 1, 16, fp);
 	fclose(fp);
 
