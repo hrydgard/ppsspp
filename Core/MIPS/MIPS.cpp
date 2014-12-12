@@ -31,18 +31,6 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
-
-#if defined(PPC)
-#include "PPC/PpcJit.h"
-#elif defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "x86/Jit.h"
-#elif defined(MIPS)
-#include "MIPS/MipsJit.h"
-#else
-#include "fake/FakeJit.h"
-#endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
@@ -322,4 +310,9 @@ void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
 		MIPSComp::jit->InvalidateCacheAt(address, length);
+}
+
+void MIPSState::ClearJitCache() {
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCache();
 }

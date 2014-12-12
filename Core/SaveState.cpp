@@ -38,7 +38,6 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"

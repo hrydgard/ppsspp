@@ -33,7 +33,6 @@
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Core/Host.h"
 #include "Core/System.h"

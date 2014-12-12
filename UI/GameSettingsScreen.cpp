@@ -44,7 +44,6 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/Framebuffer.h"

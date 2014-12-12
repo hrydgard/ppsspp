@@ -30,43 +30,24 @@ struct JitBlock;
 
 #if defined(PPC) 
 #include "../PPC/PpcJit.h"
+typedef MIPSComp::Jit NativeJit;
 #elif defined(ARM)
 #include "../ARM/ArmJit.h"
+typedef MIPSComp::ArmJit NativeJit;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "../x86/Jit.h"
+typedef MIPSComp::Jit NativeJit;
 #elif defined(MIPS)
 #include "../MIPS/MipsJit.h"
+typedef MIPSComp::Jit NativeJit;
 #else
 #include "../fake/FakeJit.h"
 #endif
 
-// Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
-// opcode to represent JIT blocks and other emu hacks.
-// I've chosen 0x68000000.
-
-#define MIPS_EMUHACK_OPCODE 0x68000000
-#define MIPS_EMUHACK_MASK 0xFC000000
-#define MIPS_JITBLOCK_MASK 0xFF000000
-#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
-
-// There are 2 bits available for sub-opcodes, 0x03000000.
-#define EMUOP_RUNBLOCK 0   // Runs a JIT block
-#define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
-#define EMUOP_CALL_REPLACEMENT 2
-
-#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
-
-#define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
-
 namespace MIPSComp {
-#if defined(ARM)
-	extern ArmJit *jit;
-#else
-	extern Jit *jit;
-#endif
+	extern NativeJit *jit;
 }
 
+// TODO: Find a better place for these.
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleX86(const u8 *data, int size);

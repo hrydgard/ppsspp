@@ -381,7 +381,6 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 			}
 
 			// CC might be set by slow path below, so load regs first.
-			u8 vregs[4];
 			ARMReg ar = fpr.QMapReg(vt, V_Quad, 0);
 
 			if (gpr.IsImm(rs)) {
