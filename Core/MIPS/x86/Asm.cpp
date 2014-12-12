@@ -52,11 +52,6 @@ static bool enableDebug = false;
 
 extern volatile CoreState coreState;
 
-void Jit()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
 // IDEA, NOT IMPLEMENTED: no more block numbers - hack opcodes just contain offset within
 // dynarec buffer, gets rid of lookup into block buffer
 // At this offset - 4, there is an int specifying the block number if needed.
@@ -135,7 +130,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			//Ok, no block, let's jit
 			jit->RestoreRoundingMode(true, this);
-			ABI_CallFunction(&Jit);
+			ABI_CallFunction(&MIPSComp::JitAt);
 			jit->ApplyRoundingMode(true, this);
 			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 

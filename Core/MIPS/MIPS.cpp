@@ -32,6 +32,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/CoreTiming.h"
 
 MIPSState mipsr4k;

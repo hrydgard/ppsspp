@@ -17,15 +17,29 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
+struct JitBlock;
 
-#include "Common/Common.h"
+#ifdef USING_QT_UI
+#undef emit
+#endif
 
-// TODO: Find a better place for these.
-std::vector<std::string> DisassembleArm2(const u8 *data, int size);
-std::vector<std::string> DisassembleX86(const u8 *data, int size);
+#if defined(PPC) 
+#include "../PPC/PpcJit.h"
+typedef MIPSComp::Jit NativeJit;
+#elif defined(ARM)
+#include "../ARM/ArmJit.h"
+typedef MIPSComp::ArmJit NativeJit;
+#elif defined(_M_IX86) || defined(_M_X64)
+#include "../x86/Jit.h"
+typedef MIPSComp::Jit NativeJit;
+#elif defined(MIPS)
+#include "../MIPS/MipsJit.h"
+typedef MIPSComp::Jit NativeJit;
+#else
+#include "../fake/FakeJit.h"
+typedef MIPSComp::Jit FakeJit;
+#endif
 
 namespace MIPSComp {
-	void JitAt();
+	extern NativeJit *jit;
 }

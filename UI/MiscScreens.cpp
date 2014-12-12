@@ -36,6 +36,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"

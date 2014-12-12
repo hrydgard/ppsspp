@@ -6,7 +6,7 @@
 #include <cstring>
 #include "util/text/utf8.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/Debugger/SymbolMap.h"
 
 #if defined(_WIN32) || defined(ANDROID)

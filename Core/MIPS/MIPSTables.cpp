@@ -29,7 +29,7 @@
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
 
-#include "JitCommon/JitCommon.h"
+#include "JitCommon/NativeJit.h"
 
 enum MipsEncoding {
 	Imme,

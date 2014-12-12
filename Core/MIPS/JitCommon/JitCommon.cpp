@@ -17,7 +17,8 @@
 
 #include <stdlib.h>
 
-#include "JitCommon.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Common/StringUtils.h"
 
 #include "ext/disarm.h"
@@ -29,6 +30,9 @@ namespace MIPSComp {
 #else
 	Jit *jit;
 #endif
+	void JitAt() {
+		jit->Compile(currentMIPS->pc);
+	}
 }
 
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.

@@ -609,6 +609,9 @@
     <ClInclude Include="MIPS\JitCommon\JitCommon.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\NativeJit.h">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClInclude>
     <ClInclude Include="FileSystems\DirectoryFileSystem.h">
       <Filter>FileSystems</Filter>
     </ClInclude>

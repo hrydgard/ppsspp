@@ -23,9 +23,9 @@
 #include "Common/MemoryUtil.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace ArmGen;
 
@@ -52,12 +52,6 @@ static const bool enableDebug = false;
 // R11 : Memory base pointer.
 // R7 :  Down counter
 extern volatile CoreState coreState;
-
-void JitAt()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
 
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
@@ -176,7 +170,7 @@ void ArmJit::GenerateFixedCode()
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
-			QuickCallFunction(R2, (void *)&JitAt);
+			QuickCallFunction(R2, (void *)&MIPSComp::JitAt);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
