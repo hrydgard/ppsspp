@@ -57,7 +57,6 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	if (vertexSize != sizeof(SimpleVertex)) {
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
-	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
 	// TODO: Do something less idiotic to manage this buffer
 	SimpleVertex **points = new SimpleVertex *[count_u * count_v];
@@ -136,7 +135,6 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	if (vertexSize != sizeof(SimpleVertex)) {
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
-	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;

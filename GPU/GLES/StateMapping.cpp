@@ -164,7 +164,6 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 }
 
 bool TransformDrawEngine::ApplyShaderBlending() {
-	bool skipBlit = false;
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
 		return true;
 	}

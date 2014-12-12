@@ -380,7 +380,6 @@ void TransformDrawEngine::DecodeVertsStep() {
 	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
 	u32 indexType = dc.indexType;
-	void *inds = dc.inds;
 	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts and apply morphing. Simple.
 		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
