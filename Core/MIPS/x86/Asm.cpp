@@ -32,6 +32,7 @@
 #include "Core/MIPS/x86/Jit.h"
 
 using namespace Gen;
+using namespace X64JitConstants;
 
 //TODO - make an option
 //#if _DEBUG

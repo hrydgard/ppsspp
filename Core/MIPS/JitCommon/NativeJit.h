@@ -42,4 +42,8 @@ typedef MIPSComp::Jit FakeJit;
 
 namespace MIPSComp {
 	extern NativeJit *jit;
+
+	typedef void (NativeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+	typedef int (NativeJit::*MIPSReplaceFunc)();
+
 }

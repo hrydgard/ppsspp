@@ -21,28 +21,16 @@
 #include "../MIPSAnalyst.h"
 #include "ArmEmitter.h"
 
-#define CTXREG (R10)
-#define MEMBASEREG (R11)
-#define SCRATCHREG1 (R0)
-#define SCRATCHREG2 (R14)
-#define DOWNCOUNTREG (R7)
+namespace ArmJitConstants {
 
-// R1 to R6: mapped MIPS regs
-// R8 = flags (maybe we could do better here?)
-// R9 = code pointers
-// R10 = MIPS context
-// R11 = base pointer
-// R14 = scratch (actually LR)
+const ArmGen::ARMReg CTXREG = ArmGen::R10;
+const ArmGen::ARMReg MEMBASEREG = ArmGen::R11;
+const ArmGen::ARMReg SCRATCHREG1 = ArmGen::R0;
+const ArmGen::ARMReg SCRATCHREG2 = ArmGen::R14;
+const ArmGen::ARMReg DOWNCOUNTREG = ArmGen::R7;
 
 enum {
 	TOTAL_MAPPABLE_MIPSREGS = 36,
-};
-
-typedef int MIPSReg;
-
-struct RegARM {
-	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
-	bool isDirty;  // Should the register be written back?
 };
 
 enum RegMIPSLoc {
@@ -55,22 +43,37 @@ enum RegMIPSLoc {
 	ML_MEM,
 };
 
+// Initing is the default so the flag is reversed.
+enum {
+	MAP_DIRTY = 1,
+	MAP_NOINIT = 2 | MAP_DIRTY,
+};
+
+}
+
+// R1 to R6: mapped MIPS regs
+// R8 = flags (maybe we could do better here?)
+// R9 = code pointers
+// R10 = MIPS context
+// R11 = base pointer
+// R14 = scratch (actually LR)
+
+
+typedef int MIPSReg;
+
+struct RegARM {
+	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
+	bool isDirty;  // Should the register be written back?
+};
+
 struct RegMIPS {
 	// Where is this MIPS register?
-	RegMIPSLoc loc;
+	ArmJitConstants::RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
 	u32 imm;
 	ArmGen::ARMReg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
-};
-
-#undef MAP_DIRTY
-#undef MAP_NOINIT
-// Initing is the default so the flag is reversed.
-enum {
-	MAP_DIRTY = 1,
-	MAP_NOINIT = 2 | MAP_DIRTY,
 };
 
 namespace MIPSComp {
@@ -140,7 +143,7 @@ private:
 
 	enum {
 		NUM_ARMREG = 16,
-		NUM_MIPSREG = TOTAL_MAPPABLE_MIPSREGS,
+		NUM_MIPSREG = ArmJitConstants::TOTAL_MAPPABLE_MIPSREGS,
 	};
 
 	RegARM ar[NUM_ARMREG];

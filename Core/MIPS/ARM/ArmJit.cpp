@@ -17,23 +17,29 @@
 
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
+
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
+
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 
 #include "ArmRegCache.h"
 #include "ArmJit.h"
 #include "CPUDetect.h"
 
 #include "ext/disarm.h"
+
+using namespace ArmJitConstants;
 
 void DisassembleArm(const u8 *data, int size) {
 	char temp[256];
@@ -61,10 +67,10 @@ void DisassembleArm(const u8 *data, int size) {
 
 namespace MIPSComp
 {
-	using namespace ArmGen;
+using namespace ArmGen;
+using namespace ArmJitConstants;
 
-ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(mips, &js, &jo), mips_(mips)
-{ 
+ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(mips, &js, &jo), mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
@@ -74,6 +80,9 @@ ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(m
 	GenerateFixedCode();
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
+}
+
+ArmJit::~ArmJit() {
 }
 
 void ArmJit::DoState(PointerWrap &p)
@@ -283,6 +292,11 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
+		MIPSInfo info = MIPSGetInfo(inst);
+		if (info & IS_VFPU) {
+			logBlocks = 1;
+		}
+
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -374,6 +388,7 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 }
 
 bool ArmJit::ReplaceJalTo(u32 dest) {
+#ifdef ARM
 	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
 	if (!MIPS_IS_REPLACEMENT(op.encoding))
 		return false;
@@ -420,6 +435,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
+#endif
 	return true;
 }
 

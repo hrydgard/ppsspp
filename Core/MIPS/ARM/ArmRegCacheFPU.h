@@ -25,6 +25,8 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Common/ArmEmitter.h"
 
+namespace ArmJitConstants {
+
 enum {
 	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
@@ -42,6 +44,8 @@ enum {
 	MAP_FORCE_HIGH = 128,  // Only map Q8-Q15
 };
 
+}
+
 struct FPURegARM {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
@@ -58,7 +62,7 @@ struct FPURegQuad {
 
 struct FPURegMIPS {
 	// Where is this MIPS register?
-	RegMIPSLoc loc;
+	ArmJitConstants::RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
 	u32 reg;
 	int lane;
@@ -193,7 +197,7 @@ private:
 		// are individually mappable though.
 		MAX_ARMFPUREG = 32,
 		MAX_ARMQUADS = 16,
-		NUM_MIPSFPUREG = TOTAL_MAPPABLE_MIPSFPUREGS,
+		NUM_MIPSFPUREG = ArmJitConstants::TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 
 	FPURegARM ar[MAX_ARMFPUREG];

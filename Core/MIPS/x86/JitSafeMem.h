@@ -18,11 +18,12 @@
 #pragma once
 
 #include <vector>
-#include "Core/MIPS/x86/Jit.h"
 
 class ThunkManager;
 
 namespace MIPSComp {
+
+class Jit;
 
 class JitSafeMem {
 public:

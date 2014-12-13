@@ -19,6 +19,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 #include "Common/CPUDetect.h"
 
 using namespace MIPSAnalyst;
@@ -45,6 +46,7 @@ using namespace MIPSAnalyst;
 namespace MIPSComp
 {
 	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
 	static u32 EvalOr(u32 a, u32 b) { return a | b; }
 	static u32 EvalEor(u32 a, u32 b) { return a ^ b; }

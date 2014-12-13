@@ -43,6 +43,7 @@
 
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmCompVFPUNEONUtil.h"
 
 // TODO: Somehow #ifdef away on ARMv5eabi, without breaking the linker.
@@ -69,6 +70,7 @@
 namespace MIPSComp {
 
 using namespace ArmGen;
+using namespace ArmJitConstants;
 
 static const float minus_one = -1.0f;
 static const float one = 1.0f;

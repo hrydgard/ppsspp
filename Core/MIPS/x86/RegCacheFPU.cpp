@@ -26,6 +26,7 @@
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
 using namespace Gen;
+using namespace X64JitConstants;
 
 float FPURegCache::tempValues[NUM_TEMPS];
 

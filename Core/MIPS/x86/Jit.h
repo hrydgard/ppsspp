@@ -19,6 +19,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
+#include "Common/x64Emitter.h"
 #include "Core/MIPS/x86/Asm.h"
 
 #if defined(ARM)
@@ -312,9 +313,6 @@ private:
 	friend class JitSafeMem;
 	friend class JitSafeMemFuncs;
 };
-
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

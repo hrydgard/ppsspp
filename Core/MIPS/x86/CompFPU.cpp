@@ -43,7 +43,9 @@
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp {
+
 using namespace Gen;
+using namespace X64JitConstants;
 
 void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters) {
 	int ft = _FT;

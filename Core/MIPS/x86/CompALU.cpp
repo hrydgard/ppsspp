@@ -44,6 +44,7 @@ using namespace MIPSAnalyst;
 namespace MIPSComp
 {
 	using namespace Gen;
+	using namespace X64JitConstants;
 
 	static bool HasLowSubregister(OpArg arg) {
 #ifndef _M_X64

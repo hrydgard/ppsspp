@@ -25,6 +25,7 @@
 #include "Core/MIPS/MIPSTables.h"
 
 using namespace ArmGen;
+using namespace ArmJitConstants;
 
 ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
 	if (cpu_info.bNEON) {

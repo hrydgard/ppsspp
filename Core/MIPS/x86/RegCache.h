@@ -21,22 +21,23 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
+namespace X64JitConstants {
 #ifdef _M_X64
-#define NUM_X_REGS 16
-#elif _M_IX86
-#define NUM_X_REGS 8
-#endif
-
-#define NUM_MIPS_GPRS 36
-
-#ifdef _M_X64
-#define CTXREG R14
+	const Gen::X64Reg CTXREG = Gen::R14;
 #else
-#define CTXREG EBP
+	const Gen::X64Reg CTXREG = Gen::EBP;
 #endif
 
-// This must be one of EAX, EBX, ECX, EDX as they have 8-bit subregisters.
-#define TEMPREG EAX
+		// This must be one of EAX, EBX, ECX, EDX as they have 8-bit subregisters.
+	const Gen::X64Reg TEMPREG = Gen::EAX;
+	const int NUM_MIPS_GPRS = 36;
+
+#ifdef _M_X64
+	const int NUM_X_REGS = 16;
+#elif _M_IX86
+	const int NUM_X_REGS = 8;
+#endif
+}
 
 struct MIPSCachedReg {
 	Gen::OpArg location;
@@ -52,8 +53,8 @@ struct X64CachedReg {
 };
 
 struct GPRRegCacheState {
-	MIPSCachedReg regs[NUM_MIPS_GPRS];
-	X64CachedReg xregs[NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
 };
 
 namespace MIPSComp {
@@ -118,8 +119,8 @@ private:
 	Gen::X64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	const int *GetAllocationOrder(int &count);
 
-	MIPSCachedReg regs[NUM_MIPS_GPRS];
-	X64CachedReg xregs[NUM_X_REGS];
+	MIPSCachedReg regs[X64JitConstants::NUM_MIPS_GPRS];
+	X64CachedReg xregs[X64JitConstants::NUM_X_REGS];
 
 	Gen::XEmitter *emit;
 	MIPSComp::JitState *js_;

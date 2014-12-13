@@ -64,7 +64,8 @@
 
 namespace MIPSComp {
 
-	using namespace ArmGen;
+using namespace ArmGen;
+using namespace ArmJitConstants;
 
 static const float minus_one = -1.0f;
 static const float one = 1.0f;

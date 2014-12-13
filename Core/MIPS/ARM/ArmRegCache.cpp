@@ -27,6 +27,7 @@
 #endif
 
 using namespace ArmGen;
+using namespace ArmJitConstants;
 
 ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), js_(js), jo_(jo) {
 }

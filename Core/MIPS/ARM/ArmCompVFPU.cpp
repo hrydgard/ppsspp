@@ -56,6 +56,7 @@
 namespace MIPSComp
 {
 	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].

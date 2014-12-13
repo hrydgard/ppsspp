@@ -47,6 +47,7 @@
 namespace MIPSComp
 {
 	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
 void ArmJit::Comp_FPU3op(MIPSOpcode op)
 { 

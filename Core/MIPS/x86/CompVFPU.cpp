@@ -54,6 +54,7 @@
 namespace MIPSComp
 {
 using namespace Gen;
+using namespace X64JitConstants;
 
 static const float one = 1.0f;
 static const float minus_one = -1.0f;

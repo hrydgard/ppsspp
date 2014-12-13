@@ -216,6 +216,8 @@ bool TestArmEmitter() {
 	MIPSAnalyst::AnalysisResults results;
 	memset(&results, 0, sizeof(results));
 
+	using namespace ArmJitConstants;
+
 	fpr.Start(results);
 	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
 	fpr.QMapReg(C010, V_Quad, MAP_DIRTY);

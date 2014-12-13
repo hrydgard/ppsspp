@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Common/x64Emitter.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -26,6 +27,7 @@
 #include "Core/MIPS/x86/RegCache.h"
 
 using namespace Gen;
+using namespace X64JitConstants;
 
 static const int allocationOrder[] = 
 {
