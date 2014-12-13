@@ -18,11 +18,16 @@
 #include <string.h>
 #include <algorithm>
 
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+
 #include "Core/Config.h"
 
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+
 
 #define START_OPEN 1
 #define END_OPEN 2
@@ -237,25 +242,23 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 			if (u < 0.0f)
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
+			Vec4f vert_color;
 			vert->pos.SetZero();
 			if (origVertType & GE_VTYPE_NRM_MASK) {
 				vert->nrm.SetZero();
-			}
-			else {
+			} else {
 				vert->nrm.SetZero();
 				vert->nrm.z = 1.0f;
 			}
 			if (origVertType & GE_VTYPE_COL_MASK) {
-				memset(vert->color, 0, 4);
-			}
-			else {
+				vert_color.SetZero();
+			} else {
 				memcpy(vert->color, spatch.points[0]->color, 4);
 			}
 			if (origVertType & GE_VTYPE_TC_MASK) {
 				vert->uv[0] = 0.0f;
 				vert->uv[1] = 0.0f;
-			}
-			else {
+			} else {
 				vert->uv[0] = tu_width * ((float)tile_u / (float)patch_div_s);
 				vert->uv[1] = tv_height * ((float)tile_v / (float)patch_div_t);
 			}
@@ -288,11 +291,12 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 							vert->uv[1] += a->uv[1] * f;
 						}
 						if (origVertType & GE_VTYPE_COL_MASK) {
-							// TODO: Accumulating values in u8s is crazy. We need floats or something.
-							vert->color[0] += a->color[0] * f;
-							vert->color[1] += a->color[1] * f;
-							vert->color[2] += a->color[2] * f;
-							vert->color[3] += a->color[3] * f;
+							Vec4f a_color = Vec4f::FromRGBA(a->color_32);
+#ifdef _M_SSE
+							vert_color.vec = _mm_add_ps(vert_color.vec, _mm_mul_ps(a_color.vec, _mm_set_ps1(f)));
+#else
+							vert_color += a_color * f;
+#endif
 						}
 						if (origVertType & GE_VTYPE_NRM_MASK) {
 							vert->nrm += a->nrm * f;
@@ -302,6 +306,9 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 			}
 			if (origVertType & GE_VTYPE_NRM_MASK) {
 				vert->nrm.Normalize();
+			}
+			if (origVertType & GE_VTYPE_COL_MASK) {
+				vert->color_32 = vert_color.ToRGBA();
 			}
 		}
 	}

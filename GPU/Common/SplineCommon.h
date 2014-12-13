@@ -23,7 +23,10 @@
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
 	float uv[2];
-	u8 color[4];
+	union {
+		u8 color[4];
+		u32_le color_32;
+	};
 	Vec3Packedf nrm;
 	Vec3Packedf pos;
 };
