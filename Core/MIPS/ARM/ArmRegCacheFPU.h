@@ -25,6 +25,10 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Common/ArmEmitter.h"
 
+// These collide with something on Blackberry.
+#undef MAP_NOINIT
+#undef MAP_READ
+
 namespace ArmJitConstants {
 
 enum {
