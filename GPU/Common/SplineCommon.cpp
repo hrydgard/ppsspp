@@ -139,8 +139,8 @@ void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePat
 	const int tile_max_u = (spatch.type_u & END_OPEN) ? spatch.count_u - 1 : spatch.count_u - 2;
 	const int tile_max_v = (spatch.type_v & END_OPEN) ? spatch.count_v - 1 : spatch.count_v - 2;
 
-	float tu_width = spatch.count_u - 3;
-	float tv_height = spatch.count_v - 3;
+	float tu_width = (float)spatch.count_u - 3.0f;
+	float tv_height = (float)spatch.count_v - 3.0f;
 	tu_width /= (float)(tile_max_u - tile_min_u);
 	tv_height /= (float)(tile_max_v - tile_min_v);
 
@@ -224,8 +224,8 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
-	float tu_width = spatch.count_u - 3;
-	float tv_height = spatch.count_v - 3;
+	float tu_width = (float)spatch.count_u - 3.0f;
+	float tv_height = (float)spatch.count_v - 3.0f;
 
 	bool computeNormals = gstate.isLightingEnabled();
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
