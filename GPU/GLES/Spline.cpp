@@ -46,7 +46,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
+	u8 *temp_buffer = decoded + 65536 * 18;
 	
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -70,7 +70,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 			points[idx] = simplified_control_points + idx;
 	}
 
-	u8 *decoded2 = decoded + 65536 * 24;
+	u8 *decoded2 = decoded + 65536 * 18;
 
 	int count = 0;
 	u8 *dest = decoded2;
@@ -124,7 +124,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
+	u8 *temp_buffer = decoded + 65536 * 18;
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -157,7 +157,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 		}
 	}
 
-	u8 *decoded2 = decoded + 65536 * 24;
+	u8 *decoded2 = decoded + 65536 * 18;
 
 	int count = 0;
 	u8 *dest = decoded2;
