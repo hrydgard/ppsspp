@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Common/CPUDetect.h"
-#include "Common/ARMEmitter.h"
+#include "Common/ArmEmitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
