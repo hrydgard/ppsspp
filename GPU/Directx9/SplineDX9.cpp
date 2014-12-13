@@ -83,7 +83,7 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 	patch.count_v = count_v;
 	patch.points = points;
 
-	TesselateSplinePatch(dest, count, patch, origVertType);
+	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType);
 
 	delete[] points;
 
@@ -173,9 +173,10 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 
+	u16 *inds = quadIndices_;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		BezierPatch& patch = patches[patch_idx];
-		TesselateBezierPatch(dest, count, tess_u, tess_v, patch, origVertType);
+		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
 	}
 	delete[] patches;
 

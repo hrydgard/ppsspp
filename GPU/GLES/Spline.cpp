@@ -82,7 +82,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	patch.count_v = count_v;
 	patch.points = points;
 
-	TesselateSplinePatch(dest, count, patch, origVertType);
+	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType);
 
 	delete[] points;
 
@@ -98,9 +98,8 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 		gstate_c.uv.vOff = 0;
 	}
 
-	void *quadInds = prim_type == GE_PATCHPRIM_LINES ? quadIndicesLines_ : quadIndices_;
 	int bytesRead;
-	SubmitPrim(decoded2, quadInds, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -154,6 +153,7 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 			}
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;
+			patch.index = patch_v * num_patches_u + patch_u;
 		}
 	}
 
@@ -172,9 +172,10 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 
+	u16 *inds = quadIndices_;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		BezierPatch& patch = patches[patch_idx];
-		TesselateBezierPatch(dest, count, tess_u, tess_v, patch, origVertType);
+		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
 	}
 	delete[] patches;
 
@@ -190,9 +191,8 @@ void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int 
 		gstate_c.uv.vOff = 0;
 	}
 
-	void *quadInds = prim_type == GE_PATCHPRIM_LINES ? quadIndicesLines_ : quadIndices_;
 	int bytesRead;
-	SubmitPrim(decoded2, quadInds, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
