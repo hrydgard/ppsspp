@@ -719,7 +719,7 @@ KeyDef AxisDef(int deviceId, int axisId, int direction) {
 	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
 }
 
-int SwappedKey(int btn) {
+int CheckAxisSwap(int btn) {
 	if (g_swapped_keys) {
 		switch (btn) {
 			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX;
@@ -748,7 +748,7 @@ static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) 
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
-				psp_button->push_back(SwappedKey(iter->first));
+				psp_button->push_back(CheckAxisSwap(iter->first));
 			}
 		}
 	}
