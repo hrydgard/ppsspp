@@ -238,7 +238,6 @@ private:
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;
-	u16 *quadIndicesLines_;
 
 	// Vertex buffer objects
 	// Element buffer objects

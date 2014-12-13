@@ -41,6 +41,25 @@ static void CopyQuad(u8 *&dest, const SimpleVertex *v1, const SimpleVertex *v2, 
 	dest += vertexSize;
 }
 
+static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
+	if (type == GE_PATCHPRIM_LINES) {
+		*(indices++) = idx0;
+		*(indices++) = idx2;
+		*(indices++) = idx1;
+		*(indices++) = idx3;
+		*(indices++) = idx1;
+		*(indices++) = idx2;
+	}
+	else {
+		*(indices++) = idx0;
+		*(indices++) = idx2;
+		*(indices++) = idx1;
+		*(indices++) = idx1;
+		*(indices++) = idx2;
+		*(indices++) = idx3;
+	}
+}
+
 #undef b2
 
 // Bernstein basis functions
@@ -57,6 +76,8 @@ inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+	if (x == 0) return p0;
+	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
@@ -109,7 +130,7 @@ void spline_knot(int n, int type, float *knot) {
 	}
 }
 
-void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
+void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
 	// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
 
@@ -123,6 +144,9 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatc
 	tu_width /= (float)(tile_max_u - tile_min_u);
 	tv_height /= (float)(tile_max_v - tile_min_v);
 
+	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+
+	int i = 0;
 	for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
 		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
 			int point_index = tile_u + tile_v * spatch.count_u;
@@ -160,14 +184,21 @@ void _SplinePatchLowQuality(u8 *&dest, int &count, const SplinePatchLocal &spatc
 				v3.nrm = norm;
 			}
 
+			int idx0 = i * 4 + 0;
+			int idx1 = i * 4 + 1;
+			int idx2 = i * 4 + 2;
+			int idx3 = i * 4 + 3;
+			i++;
+
 			CopyQuad(dest, &v0, &v1, &v2, &v3);
+			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
 			count += 6;
 		}
 	}
 
 }
 
-void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality) {
+void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -191,7 +222,7 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 	if (patch_div_t < 2) patch_div_t = 2;
 
 	// First compute all the vertices and put them in an array
-	SimpleVertex *vertices = new SimpleVertex[(patch_div_s + 1) * (patch_div_t + 1)];
+	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
 	float tu_width = spatch.count_u - 3;
 	float tv_height = spatch.count_v - 3;
@@ -298,46 +329,44 @@ void  _SplinePatchFullQuality(u8 *&dest, int &count, const SplinePatchLocal &spa
 		}
 	}
 
-	// Tesselate. TODO: Use indices so we only need to emit 4 vertices per pair of triangles instead of six.
+	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	// Tesselate.
 	for (int tile_v = 0; tile_v < patch_div_t; ++tile_v) {
 		for (int tile_u = 0; tile_u < patch_div_s; ++tile_u) {
-			float u = ((float)tile_u / (float)patch_div_s);
-			float v = ((float)tile_v / (float)patch_div_t);
+			int idx0 = tile_v * (patch_div_s + 1) + tile_u;
+			int idx1 = tile_v * (patch_div_s + 1) + tile_u + 1;
+			int idx2 = (tile_v + 1) * (patch_div_s + 1) + tile_u;
+			int idx3 = (tile_v + 1) * (patch_div_s + 1) + tile_u + 1;
 
-			SimpleVertex *v0 = &vertices[tile_v * (patch_div_s + 1) + tile_u];
-			SimpleVertex *v1 = &vertices[tile_v * (patch_div_s + 1) + tile_u + 1];
-			SimpleVertex *v2 = &vertices[(tile_v + 1) * (patch_div_s + 1) + tile_u];
-			SimpleVertex *v3 = &vertices[(tile_v + 1) * (patch_div_s + 1) + tile_u + 1];
-
-			CopyQuad(dest, v0, v1, v2, v3);
+			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
 			count += 6;
 		}
 	}
-
-	delete[] vertices;
 }
 
-void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
+void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		_SplinePatchLowQuality(dest, count, spatch, origVertType);
+		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_SplinePatchFullQuality(dest, count, spatch, origVertType, 2);
+		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 2);
 		break;
 	case HIGH_QUALITY:
-		_SplinePatchFullQuality(dest, count, spatch, origVertType, 1);
+		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 1);
 		break;
 	}
 }
 
-void _BezierPatchLowQuality(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector subsitutes.
 	// Very inaccurate though but okay for Loco Roco. Maybe should keep it as an option.
 
 	float u_base = patch.u_index / 3.0f;
 	float v_base = patch.v_index / 3.0f;
+
+	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
 
 	for (int tile_v = 0; tile_v < 3; tile_v++) {
 		for (int tile_u = 0; tile_u < 3; tile_u++) {
@@ -375,24 +404,40 @@ void _BezierPatchLowQuality(u8 *&dest, int &count, int tess_u, int tess_v, const
 				v3.nrm = norm;
 			}
 
+
+			int total = patch.index * 3 * 3 * 4; // A patch has 3x3 tiles, and each tiles have 4 vertices.
+			int tile_index = tile_u + tile_v * 3;
+			int idx0 = total + tile_index * 4 + 0;
+			int idx1 = total + tile_index * 4 + 1;
+			int idx2 = total + tile_index * 4 + 2;
+			int idx3 = total + tile_index * 4 + 3;
+
 			CopyQuad(dest, &v0, &v1, &v2, &v3);
+			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
 			count += 6;
 		}
 	}
 }
 
-void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Full correct tesselation of bezier patches.
 	// Note: Does not handle splines correctly.
 
 	// First compute all the vertices and put them in an array
-	SimpleVertex *vertices = new SimpleVertex[(tess_u + 1) * (tess_v + 1)];
+	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
 	Vec3Packedf *horiz = new Vec3Packedf[(tess_u + 1) * 4];
 	Vec3Packedf *horiz2 = horiz + (tess_u + 1) * 1;
 	Vec3Packedf *horiz3 = horiz + (tess_u + 1) * 2;
 	Vec3Packedf *horiz4 = horiz + (tess_u + 1) * 3;
+
+	Vec3Packedf *derivU1 = new Vec3Packedf[(tess_u + 1) * 4];
+	Vec3Packedf *derivU2 = derivU1 + (tess_u + 1) * 1;
+	Vec3Packedf *derivU3 = derivU1 + (tess_u + 1) * 2;
+	Vec3Packedf *derivU4 = derivU1 + (tess_u + 1) * 3;
+
+	bool computeNormals = gstate.isLightingEnabled();
 
 	// Precompute the horizontal curves to we only have to evaluate the vertical ones.
 	for (int i = 0; i < tess_u + 1; i++) {
@@ -401,9 +446,15 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 		horiz2[i] = Bernstein3D(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
 		horiz3[i] = Bernstein3D(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
 		horiz4[i] = Bernstein3D(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
+
+		if (computeNormals) {
+			derivU1[i] = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, u);
+			derivU2[i] = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
+			derivU3[i] = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
+			derivU4[i] = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
+		}
 	}
 
-	bool computeNormals = gstate.isLightingEnabled();
 
 	for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
@@ -421,11 +472,12 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
 			if (computeNormals) {
-				Vec3Packedf derivU1 = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, bu);
-				Vec3Packedf derivU2 = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, bu);
-				Vec3Packedf derivU3 = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, bu);
-				Vec3Packedf derivU4 = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, bu);
-				Vec3Packedf derivU = Bernstein3D(derivU1, derivU2, derivU3, derivU4, bv);
+				const Vec3Packedf &derivU1_ = derivU1[tile_u];
+				const Vec3Packedf &derivU2_ = derivU2[tile_u];
+				const Vec3Packedf &derivU3_ = derivU3[tile_u];
+				const Vec3Packedf &derivU4_ = derivU4[tile_u];
+
+				Vec3Packedf derivU = Bernstein3D(derivU1_, derivU2_, derivU3_, derivU4_, bv);
 				Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 				// TODO: Interpolate normals instead of generating them, if available?
@@ -455,37 +507,36 @@ void _BezierPatchHighQuality(u8 *&dest, int &count, int tess_u, int tess_v, cons
 			}
 		}
 	}
+	delete[] derivU1;
 	delete[] horiz;
 
-	// Tesselate. TODO: Use indices so we only need to emit 4 vertices per pair of triangles instead of six.
+	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	// Tesselate.
 	for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
-			float u = ((float)tile_u / (float)tess_u);
-			float v = ((float)tile_v / (float)tess_v);
+			int total = patch.index * (tess_u + 1) * (tess_v + 1);
+			int idx0 = total + tile_v * (tess_u + 1) + tile_u;
+			int idx1 = total + tile_v * (tess_u + 1) + tile_u + 1;
+			int idx2 = total + (tile_v + 1) * (tess_u + 1) + tile_u;
+			int idx3 = total + (tile_v + 1) * (tess_u + 1) + tile_u + 1;
 
-			const SimpleVertex *v0 = &vertices[tile_v * (tess_u + 1) + tile_u];
-			const SimpleVertex *v1 = &vertices[tile_v * (tess_u + 1) + tile_u + 1];
-			const SimpleVertex *v2 = &vertices[(tile_v + 1) * (tess_u + 1) + tile_u];
-			const SimpleVertex *v3 = &vertices[(tile_v + 1) * (tess_u + 1) + tile_u + 1];
-
-			CopyQuad(dest, v0, v1, v2, v3);
+			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
 			count += 6;
 		}
 	}
-
-	delete[] vertices;
+	dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
 }
 
-void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		_BezierPatchLowQuality(dest, count, tess_u, tess_v, patch, origVertType);
+		_BezierPatchLowQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_BezierPatchHighQuality(dest, count, tess_u / 2, tess_v / 2, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, tess_u / 2, tess_v / 2, patch, origVertType);
 		break;
 	case HIGH_QUALITY:
-		_BezierPatchHighQuality(dest, count, tess_u, tess_v, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 		break;
 	}
 }

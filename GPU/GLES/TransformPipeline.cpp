@@ -152,15 +152,6 @@ TransformDrawEngine::TransformDrawEngine()
 		quadIndices_[i * 6 + 4] = i * 4 + 2;
 		quadIndices_[i * 6 + 5] = i * 4 + 3;
 	}
-	quadIndicesLines_ = new u16[6 * QUAD_INDICES_MAX];
-	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
-		quadIndicesLines_[i * 6 + 0] = i * 4 + 0;
-		quadIndicesLines_[i * 6 + 1] = i * 4 + 2;
-		quadIndicesLines_[i * 6 + 2] = i * 4 + 1;
-		quadIndicesLines_[i * 6 + 3] = i * 4 + 3;
-		quadIndicesLines_[i * 6 + 4] = i * 4 + 1;
-		quadIndicesLines_[i * 6 + 5] = i * 4 + 2;
-	}
 
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
@@ -179,7 +170,6 @@ TransformDrawEngine::~TransformDrawEngine() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	delete [] quadIndices_;
-	delete[] quadIndicesLines_;
 
 	unregister_gl_resource_holder(this);
 	delete decJitCache_;
