@@ -292,10 +292,10 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
-		MIPSInfo info = MIPSGetInfo(inst);
-		if (info & IS_VFPU) {
-			logBlocks = 1;
-		}
+		//MIPSInfo info = MIPSGetInfo(inst);
+		//if (info & IS_VFPU) {
+		//	logBlocks = 1;
+		//}
 
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 

@@ -46,7 +46,7 @@ struct ArmJitOptions
 		continueJumps = false;
 		continueMaxInstructions = 300;
 
-		useNEONVFPU = true;  // true
+		useNEONVFPU = false;  // true
 		if (!cpu_info.bNEON)
 			useNEONVFPU = false;
 	}
