@@ -939,10 +939,10 @@ void SwapKeys(int btn1, int btn2) {
 
 // Swap direction buttons and left analog axis
 void SwapAxis() {
-	SwapKeys(0, 12);
-	SwapKeys(1, 13);
-	SwapKeys(2, 14);
-	SwapKeys(3, 15);
+	SwapKeys(CTRL_UP, VIRTKEY_AXIS_Y_MAX);
+	SwapKeys(CTRL_DOWN, VIRTKEY_AXIS_Y_MIN);
+	SwapKeys(CTRL_LEFT, VIRTKEY_AXIS_X_MIN);
+	SwapKeys(CTRL_RIGHT, VIRTKEY_AXIS_X_MAX);
 }
 
 }  // KeyMap
