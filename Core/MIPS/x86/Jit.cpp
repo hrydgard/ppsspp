@@ -121,7 +121,7 @@ JitOptions::JitOptions()
 	continueBranches = false;
 	continueJumps = false;
 	continueMaxInstructions = 300;
-	enableVFPUSIMD = true;
+	enableVFPUSIMD = false;
 }
 
 #ifdef _MSC_VER
