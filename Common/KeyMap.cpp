@@ -44,6 +44,8 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 std::set<std::string> g_seenPads;
 
+bool g_swapped_keys = false;
+
 static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
@@ -717,12 +719,36 @@ KeyDef AxisDef(int deviceId, int axisId, int direction) {
 	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
 }
 
+int SwappedKey(int btn) {
+	if (g_swapped_keys) {
+		switch (btn) {
+			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX;
+			break;
+			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP;
+			break;
+			case CTRL_DOWN: btn = VIRTKEY_AXIS_Y_MIN;
+			break;
+			case VIRTKEY_AXIS_Y_MIN: btn = CTRL_DOWN;
+			break;
+			case CTRL_LEFT: btn = VIRTKEY_AXIS_X_MIN;
+			break;
+			case VIRTKEY_AXIS_X_MIN: btn = CTRL_LEFT;
+			break;
+			case CTRL_RIGHT: btn = VIRTKEY_AXIS_X_MAX;
+			break;
+			case VIRTKEY_AXIS_X_MAX: btn = CTRL_RIGHT;
+			break;
+		}
+	}
+	return btn;
+}
+
 static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) {
 	// Brute force, let's optimize later
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
-				psp_button->push_back(iter->first);
+				psp_button->push_back(SwappedKey(iter->first));
 			}
 		}
 	}
@@ -749,7 +775,7 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
 
 bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
 	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key, pspKeys);	
+	return KeyToPspButton(deviceId, key, pspKeys);
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
@@ -921,28 +947,12 @@ const std::set<std::string> &GetSeenPads() {
 	return g_seenPads;
 }
 
-
-void SwapKeys(int btn1, int btn2) {
-	std::vector<KeyDef> keys1;
-	std::vector<KeyDef> keys2;
-	KeyFromPspButton(psp_button_names[btn1].key, &keys1);
-	KeyFromPspButton(psp_button_names[btn2].key, &keys2);
-	RemoveButtonMapping(psp_button_names[btn1].key);
-	RemoveButtonMapping(psp_button_names[btn2].key);
-	for (size_t j = 0; j < keys1.size(); j++) {
-		SetKeyMapping(psp_button_names[btn2].key, KeyDef(keys1[j].deviceId, keys1[j].keyCode), false);
-	}
-	for (size_t j = 0; j < keys2.size(); j++) {
-		SetKeyMapping(psp_button_names[btn1].key, KeyDef(keys2[j].deviceId, keys2[j].keyCode), false);
-	}
-}
-
 // Swap direction buttons and left analog axis
 void SwapAxis() {
-	SwapKeys(CTRL_UP, VIRTKEY_AXIS_Y_MAX);
-	SwapKeys(CTRL_DOWN, VIRTKEY_AXIS_Y_MIN);
-	SwapKeys(CTRL_LEFT, VIRTKEY_AXIS_X_MIN);
-	SwapKeys(CTRL_RIGHT, VIRTKEY_AXIS_X_MAX);
+	if (g_swapped_keys)
+		g_swapped_keys = false;
+	else
+		g_swapped_keys = true;
 }
 
 }  // KeyMap
