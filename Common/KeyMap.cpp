@@ -949,10 +949,7 @@ const std::set<std::string> &GetSeenPads() {
 
 // Swap direction buttons and left analog axis
 void SwapAxis() {
-	if (g_swapped_keys)
-		g_swapped_keys = false;
-	else
-		g_swapped_keys = true;
+	g_swapped_keys = !g_swapped_keys;
 }
 
 }  // KeyMap
