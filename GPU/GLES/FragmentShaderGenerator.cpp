@@ -487,6 +487,7 @@ void GenerateFragmentShader(char *buffer) {
 	const char *texture = "texture2D";
 	const char *texelFetch = NULL;
 	bool highpFog = false;
+	bool highpTexcoord = false;
 	bool bitwiseOps = false;
 
 #if defined(USING_GLES2)
@@ -511,7 +512,8 @@ void GenerateFragmentShader(char *buffer) {
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
 	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
-	
+	highpTexcoord = highpFog;
+
 	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
@@ -635,9 +637,9 @@ void GenerateFragmentShader(char *buffer) {
 	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 		else
-			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec2 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {
@@ -666,6 +668,11 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "out vec4 fragColor1;\n");
 	} else if (!strcmp(fragColor0, "fragColor0")) {
 		WRITE(p, "out vec4 fragColor0;\n");
+	}
+
+	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
+	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && gstate_c.needShaderTexClamp) {
+		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
 	WRITE(p, "void main() {\n");
@@ -700,15 +707,17 @@ void GenerateFragmentShader(char *buffer) {
 					vcoord = "1.0 - " + vcoord;
 				}
 
+				std::string modulo = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR ? "mymod" : "mod";
+
 				if (gstate.isTexCoordClampedS()) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
-					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
+					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
 				}
 				if (gstate.isTexCoordClampedT()) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
-					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
+					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
 				if (textureAtOffset) {
 					ucoord = "(" + ucoord + " + u_texclampoff.x)";
