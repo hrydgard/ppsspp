@@ -173,7 +173,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("FileNode", 1);
+		auto s = p.Section("FileNode", 2);
 		if (!s)
 			return;
 
@@ -204,6 +204,9 @@ public:
 		}
 
 		p.Do(waitingThreads);
+		if (s >= 2) {
+			p.Do(waitingSyncThreads);
+		}
 		p.Do(pausedWaits);
 	}
 
@@ -229,6 +232,7 @@ public:
 	PGD_DESC *pgdInfo;
 
 	std::vector<SceUID> waitingThreads;
+	std::vector<SceUID> waitingSyncThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	// Value is actually meaningless but kept for consistency with other wait types.
 	std::map<SceUID, u64> pausedWaits;
@@ -277,6 +281,11 @@ static void __IoFreeFd(int fd, u32 &error) {
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
+			}
+
+			CoreTiming::UnscheduleEvent(asyncNotifyEvent, fd);
+			for (size_t i = 0; i < f->waitingSyncThreads.size(); ++i) {
+				CoreTiming::UnscheduleEvent(syncNotifyEvent, ((u64)f->waitingSyncThreads[i] << 32) | fd);
 			}
 
 			// Discard any pending results.
@@ -378,6 +387,7 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	}
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
+	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -812,6 +822,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
+		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return 0;
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
@@ -933,6 +944,7 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
+		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return 0;
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
