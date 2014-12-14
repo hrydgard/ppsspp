@@ -719,6 +719,7 @@ void EmuScreen::render() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
 
 	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
