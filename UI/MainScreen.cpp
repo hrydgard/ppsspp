@@ -1173,10 +1173,21 @@ void GamePauseScreen::CreateViews() {
 	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (g_Config.hasGameConfig(gameId))
+	{
+		rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(i->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+	}
+	else{
+		rightColumnItems->Add(new Choice(i->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(i->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+	}
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
+
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (Reporting::IsEnabled()) {
@@ -1211,6 +1222,7 @@ void GamePauseScreen::onFinish(DialogResult result) {
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+	NativeMessageReceived("stop","");
 	return UI::EVENT_DONE;
 }
 
@@ -1249,6 +1261,36 @@ UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
 	screenManager()->push(new UmdReplaceScreen());
 	return UI::EVENT_DONE;
 }
+
+void GamePauseScreen::CallbackDeleteConfig(bool yes)
+{
+	if (yes)
+	{
+		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+		g_Config.deleteGameConfig(info->id);
+		screenManager()->RecreateAllViews();
+	}
+}
+
+UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
+{
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.createGameConfig(gameId);
+	g_Config.changeGameSpecific(gameId);
+	screenManager()->topScreen()->RecreateViews();
+	return UI::EVENT_DONE;
+}
+UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *ga = GetI18NCategory("Game");
+	screenManager()->push(
+		new PromptScreen(d->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, placeholder::_1)));
+
+	return UI::EVENT_DONE;
+}
+
 
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	// Since the language message isn't allowed to be in native, we have to have add this

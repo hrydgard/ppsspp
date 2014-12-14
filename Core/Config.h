@@ -65,6 +65,7 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
+	bool bGameSpecific;
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -343,9 +344,19 @@ public:
 	std::string upgradeVersion;
 	std::string dismissedVersion;
 
-	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
+	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save();
 	void RestoreDefaults();
+	
+	//per game config managment, should maybe be in it's own class
+	void changeGameSpecific(const std::string &gameId = "");
+	bool createGameConfig(const std::string &game_id);
+	bool deleteGameConfig(const std::string& pGameId);
+	bool loadGameConfig(const std::string &game_id);
+	bool saveGameConfig();
+	void unloadGameConfig();
+	std::string getGameConfigFile(const std::string &gameId);
+	bool hasGameConfig(const std::string &game_id);
 
 	// Used when the file is not found in the search path.  Trailing slash.
 	void SetDefaultPath(const std::string &defaultPath);
@@ -366,6 +377,7 @@ public:
 	
 	
 private:
+	std::string gameId;
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;

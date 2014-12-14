@@ -61,8 +61,8 @@ using namespace std;
 extern bool iosCanUseJit;
 #endif
 
-GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID)
-	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false) {
+GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), bEditThenRestore(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 }
 
@@ -72,6 +72,12 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+
+	if (bEditThenRestore)
+	{
+		g_Config.changeGameSpecific(gameID_);
+		g_Config.loadGameConfig(gameID_);
+	}
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
@@ -721,6 +727,10 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	g_Config.Save();
+	if (bEditThenRestore)
+	{
+		g_Config.unloadGameConfig();
+	}
 
 	host->UpdateUI();
 

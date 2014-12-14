@@ -205,7 +205,8 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 		// try unencrypted BOOT.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
-
+	//in case we didn't go through EmuScreen::boot
+	g_Config.loadGameConfig(id);
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
