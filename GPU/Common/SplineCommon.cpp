@@ -242,7 +242,7 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 			if (u < 0.0f)
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
-			Vec4f vert_color;
+			Vec4f vert_color(0, 0, 0, 0);
 			vert->pos.SetZero();
 			if (origVertType & GE_VTYPE_NRM_MASK) {
 				vert->nrm.SetZero();
