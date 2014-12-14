@@ -30,6 +30,7 @@
 #include "Core/Config.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/ShaderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -385,7 +386,7 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FragmentShaderID *id) {
+void ComputeFragmentShaderID(ShaderID *id) {
 	int id0 = 0;
 	int id1 = 0;
 	if (gstate.isModeClear()) {

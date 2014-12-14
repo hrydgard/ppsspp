@@ -729,7 +729,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	VertexShaderID VSID;
+	ShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
 
 	// Just update uniforms if this is the same shader as last time.
@@ -771,7 +771,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 }
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	FragmentShaderID FSID;
+	ShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
