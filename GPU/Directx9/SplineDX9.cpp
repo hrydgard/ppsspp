@@ -155,6 +155,7 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 			}
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;
+			patch.index = patch_v * num_patches_u + patch_u;
 		}
 	}
 
