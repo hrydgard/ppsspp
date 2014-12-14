@@ -233,6 +233,7 @@ void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuff
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 		host->GPUNotifyTextureAttachment(entry->addr);
@@ -246,6 +247,7 @@ void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebu
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
@@ -703,6 +705,8 @@ void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeigh
 	bool tClamp;
 	float lodBias;
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+
+	minFilt &= 1;  // framebuffers can't mipmap.
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
@@ -1525,13 +1529,13 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
 #ifndef USING_GLES2
 		if (badMipSizes) {
+			NOTICE_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 			for (int i = 1; i <= maxLevel; i++) {
@@ -1540,8 +1544,14 @@ void TextureCache::SetTexture(bool force) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 		}
-#else 
-		glGenerateMipmap(GL_TEXTURE_2D);
+#else
+		// Avoid PowerVR driver bug
+		if (w > 1 && h > 1 && !(gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && h > w)) {  // Really! only seems to fail if height > width
+			// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
+			entry->maxLevel = 0;
+		}
 #endif
 	} else {
 #ifndef USING_GLES2
