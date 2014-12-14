@@ -352,7 +352,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 		break;
 
 	case ML_ARMREG:
-		if (mr[r].reg == (int)INVALID_REG) {
+		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
 		}
 
@@ -502,7 +502,7 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 		break;
 		 
 	case ML_ARMREG:
-		if (mr[r].reg == (int)INVALID_REG) {
+		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
 		} else {
 			// Note that we DO NOT write it back here. That's the whole point of Discard.
