@@ -40,7 +40,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "Framebuffer.h"
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID) : failed_(false), useHWTransform_(useHWTransform), id_(shaderID) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugStringUTF8(code);
@@ -714,6 +714,23 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	lastShader_ = 0;
 }
 
+// This is to be used when debugging why incompatible shaders are being linked, like is
+// happening as I write this in Tactics Ogre
+bool ShaderManager::DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs) {
+	// Check clear mode flag just for starters.
+	ShaderID vsid = vs->ID();
+	ShaderID fsid = fs->ID();
+
+	// TODO: Make the flag fields more similar?
+	// Check DoTexture
+	if (((vsid.d[0] >> 4) & 1) != ((fsid.d[0] >> 1) & 1)) {
+		ERROR_LOG(G3D, "Texture enable flag mismatch!");
+		return false;
+	}
+
+	return true;
+}
+
 Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	// This doesn't work - we miss some events that really do need to dirty the prescale.
 	// like changing the texmapmode.
@@ -730,12 +747,12 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	ShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
+	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_) {
 		lastVShaderSame_ = true;
-		return lastShader_->vs_;	// Already all set.
+		return lastShader_->vs_;  	// Already all set.
 	} else {
 		lastVShaderSame_ = false;
 	}
@@ -747,7 +764,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
-		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
@@ -760,7 +777,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 			// Can still work with software transform.
 			GenerateVertexShader(prim, vertType, codeBuffer_, false);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, VSID);
 		}
 
 		vsCache_[VSID] = vs;
@@ -785,7 +802,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform(), FSID);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -805,6 +822,12 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
+		// Check if we can link these.
+#ifdef _DEBUG
+		if (!DebugAreShadersCompatibleForLinking(vs, fs)) {
+			return NULL;
+		}
+#endif
 		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);

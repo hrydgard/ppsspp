@@ -176,16 +176,18 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t shaderType, bool useHWTransform);
+	Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID);
 	~Shader();
 	uint32_t shader;
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
+	const ShaderID &ID() const { return id_; }
 
 private:
 	std::string source_;
+	ShaderID id_;
 	bool failed_;
 	bool useHWTransform_;
 };
@@ -214,6 +216,7 @@ public:
 
 private:
 	void Clear();
+	static bool DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs);
 
 	struct LinkedShaderCacheEntry {
 		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)

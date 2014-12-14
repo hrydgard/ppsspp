@@ -514,7 +514,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransformDX9(prim);
 
 	VertexShaderIDDX9 VSID;
-	ComputeVertexShaderIDDX9(&VSID, vertType, prim, useHWTransform);
+	ComputeVertexShaderIDDX9(&VSID, vertType, useHWTransform);
 	FragmentShaderIDDX9 FSID;
 	ComputeFragmentShaderIDDX9(&FSID);
 
