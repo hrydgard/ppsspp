@@ -228,7 +228,11 @@ public:
 		MOVI2R(reg, (u32)val);
 	}
 	template <class T> void MOVP2R(MIPSReg reg, T *val) {
-		MOVI2R(reg, (intptr_t)(const void *)val);
+		if (sizeof(uintptr_t) > sizeof(u32)) {
+			MOVI2R(reg, (u64)(intptr_t)(const void *)val);
+		} else {
+			MOVI2R(reg, (u32)(intptr_t)(const void *)val);
+		}
 	}
 
 protected:
