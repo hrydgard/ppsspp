@@ -33,7 +33,7 @@ u32 TransformDrawEngine::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inP
 
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
-void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
+void TransformDrawEngine::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
 
 	u16 index_lower_bound = 0;
@@ -107,9 +107,10 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	}
 }
 
-void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
+void TransformDrawEngine::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
 
+	// TODO: Verify correct functionality with < 4.
 	if (count_u < 4 || count_v < 4)
 		return;
 

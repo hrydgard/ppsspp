@@ -29,13 +29,10 @@ u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
 }
 
-void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
-	Flush();
+const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
-	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
-		// Only triangles supported!
-		return;
-	}
+void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
+	Flush();
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -47,7 +44,7 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
+	u8 *temp_buffer = decoded + 65536 * 18;
 	
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -58,7 +55,6 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 	if (vertexSize != sizeof(SimpleVertex)) {
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
-	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
 	// TODO: Do something less idiotic to manage this buffer
 	SimpleVertex **points = new SimpleVertex *[count_u * count_v];
@@ -98,8 +94,9 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 		gstate_c.uv.uOff = 0;
 		gstate_c.uv.vOff = 0;
 	}
+
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -108,13 +105,12 @@ void TransformDrawEngineDX9::SubmitSpline(void* control_points, void* indices, i
 	}
 }
 
-void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
+void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
 	Flush();
 
-	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
-		// Only triangles supported!
+	// TODO: Verify correct functionality with < 4.
+	if (count_u < 4 || count_v < 4)
 		return;
-	}
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -126,7 +122,7 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 24;
+	u8 *temp_buffer = decoded + 65536 * 18;
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -137,7 +133,6 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 	if (vertexSize != sizeof(SimpleVertex)) {
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
-	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
@@ -169,8 +164,8 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 	// like the splines, so we subdivide across the whole "mega-patch".
 	if (num_patches_u == 0) num_patches_u = 1;
 	if (num_patches_v == 0) num_patches_v = 1;
-	int tess_u = gstate.getPatchDivisionU() / num_patches_u;
-	int tess_v = gstate.getPatchDivisionV() / num_patches_v;
+	int tess_u = gstate.getPatchDivisionU();
+	int tess_v = gstate.getPatchDivisionV();
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 
@@ -194,7 +189,8 @@ void TransformDrawEngineDX9::SubmitBezier(void* control_points, void* indices, i
 	}
 
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, GE_PRIM_TRIANGLES, count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+
 	Flush();
 
 	if (g_Config.bPrescaleUV) {
