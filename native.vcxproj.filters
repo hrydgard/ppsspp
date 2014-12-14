@@ -351,6 +351,15 @@
       <Filter>thin3d</Filter>
     </ClInclude>
     <ClInclude Include="base\compat.h" />
+    <ClInclude Include="net\http_headers.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\http_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="thread\executor.h">
+      <Filter>thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -822,6 +831,15 @@
       <Filter>thin3d</Filter>
     </ClCompile>
     <ClCompile Include="base\compat.cpp" />
+    <ClCompile Include="net\http_headers.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\http_server.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="thread\executor.cpp">
+      <Filter>thread</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

@@ -270,11 +270,14 @@
     <ClInclude Include="math\fast\fast_matrix.h" />
     <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="net\http_client.h" />
+    <ClInclude Include="net\http_headers.h" />
+    <ClInclude Include="net\http_server.h" />
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="net\url.h" />
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
+    <ClInclude Include="thread\executor.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
     <ClInclude Include="thread\thread.h" />
     <ClInclude Include="thread\threadpool.h" />
@@ -759,6 +762,8 @@
     </ClCompile>
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
+    <ClCompile Include="net\http_headers.cpp" />
+    <ClCompile Include="net\http_server.cpp" />
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="net\url.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
@@ -766,6 +771,7 @@
     <ClCompile Include="thin3d\thin3d.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
     <ClCompile Include="thin3d\thin3d_gl.cpp" />
+    <ClCompile Include="thread\executor.cpp" />
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="thread\threadpool.cpp" />
     <ClCompile Include="thread\threadutil.cpp" />

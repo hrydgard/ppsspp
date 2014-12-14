@@ -67,9 +67,12 @@ LOCAL_SRC_FILES :=\
     math/lin/matrix4x4.cpp.arm \
     midi/midi_input.cpp \
     net/http_client.cpp \
+    net/http_server.cpp \
+    net/http_headers.cpp \
     net/resolve.cpp \
     net/url.cpp \
     profiler/profiler.cpp \
+    thread/executor.cpp \
     thread/threadutil.cpp \
     thread/prioritizedworkqueue.cpp \
     thread/threadpool.cpp \

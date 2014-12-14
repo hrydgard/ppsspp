@@ -285,11 +285,7 @@ public:
 	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source);
 
 	void SetScissorEnabled(bool enable) override {
-		if (enable) {
-			glstate.scissorTest.enable();
-		} else {
-			glstate.scissorTest.disable();
-		}
+		glstate.scissorTest.set(enable);
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {

@@ -159,3 +159,7 @@ static std::string ValueToString(const N value)
 	return string.str();
 }
 
+void StringTrimEndNonAlphaNum(char *str);
+void SkipSpace(const char **ptr);
+void StringUpper(char *str);
+void StringUpper(char *str, int len);
