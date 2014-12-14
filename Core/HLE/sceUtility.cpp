@@ -116,16 +116,6 @@ void __UtilityShutdown()
 	gamedataInstallDialog.Shutdown(true);
 }
 
-static int __UtilityGetStatus()
-{
-	if (currentDialogType == UTILITY_DIALOG_NONE) {
-		return 0;
-	} else {
-		WARN_LOG(SCEUTILITY, "__UtilityGetStatus() Faked dialog : wrong dialog type");
-		return SCE_ERROR_UTILITY_WRONG_TYPE;
-	}
-}
-
 static int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)

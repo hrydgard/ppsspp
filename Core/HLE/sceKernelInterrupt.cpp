@@ -302,11 +302,6 @@ bool __IsInInterrupt()
 	return inInterrupt;
 }
 
-static bool __CanExecuteInterrupt()
-{
-	return !inInterrupt;
-}
-
 void InterruptState::save()
 {
 	__KernelSaveContext(&savedCpu, true);

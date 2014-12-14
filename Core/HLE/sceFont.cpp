@@ -679,18 +679,6 @@ static void __LoadInternalFonts() {
 	}
 }
 
-static Style FontStyleFromString(const std::string &str) {
-	if (str == "Regular")
-		return FONT_STYLE_REGULAR;
-	else if (str == "Italic")
-		return FONT_STYLE_ITALIC;
-	else if (str == "Bold")
-		return FONT_STYLE_BOLD;
-	else if (str == "Bold Italic")
-		return FONT_STYLE_BOLD_ITALIC;
-	return FONT_STYLE_REGULAR;
-}
-
 int GetInternalFontIndex(Font *font) {
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i] == font)
