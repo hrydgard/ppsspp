@@ -127,7 +127,12 @@ void CheckGLExtensions() {
 		gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 	}
 
-	ILOG("GPU Vendor : %s ; GL version str: %s ; GLSL version str: %s", cvendor, versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+	ILOG("GPU Vendor : %s ; renderer: %s version str: %s ; GLSL version str: %s", cvendor, renderer ? renderer : "N/A", versionStr ? versionStr : "N/A", glslVersionStr ? glslVersionStr : "N/A");
+
+	if (renderer) {
+		strncpy(gl_extensions.model, renderer, sizeof(gl_extensions.model));
+		gl_extensions.model[sizeof(gl_extensions.model) - 1] = 0;
+	}
 
 #ifndef USING_GLES2
 	char buffer[64] = { 0 };
