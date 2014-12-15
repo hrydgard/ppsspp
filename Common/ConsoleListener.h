@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _CONSOLELISTENER_H
-#define _CONSOLELISTENER_H
+#pragma once
 
 #include "LogManager.h"
 
@@ -72,5 +71,3 @@ private:
 	bool bHidden;
 	bool bUseColor;
 };
-
-#endif  // _CONSOLELISTENER_H

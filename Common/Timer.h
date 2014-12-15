@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _TIMER_H_
-#define _TIMER_H_
+#pragma once
 
 #include "Common.h"
 #include <string>
@@ -57,5 +56,3 @@ private:
 };
 
 } // Namespace Common
-
-#endif // _TIMER_H_
