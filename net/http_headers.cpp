@@ -128,6 +128,7 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
   }
 
   delete [] key;
+  return 0;
 }
 
 void RequestHeader::ParseHeaders(int fd) {

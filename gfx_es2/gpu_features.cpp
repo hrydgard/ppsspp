@@ -24,7 +24,8 @@ void ProcessGPUFeatures() {
 	}
 
 	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
-		if (!strcmp(gl_extensions.model, "PowerVR SGX 540") ||
+		if (!strcmp(gl_extensions.model, "PowerVR SGX 543") ||
+			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 530") ||
 				!strcmp(gl_extensions.model, "PowerVR SGX 520") ) {
 			WLOG("GL DRIVER BUG: PVR with bad and terrible precision");
