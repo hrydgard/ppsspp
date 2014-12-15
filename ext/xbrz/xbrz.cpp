@@ -610,14 +610,17 @@ void scalePixel(const Kernel_3x3& ker,
 #define i get_i<rotDeg>(ker)
 
 #ifdef _DEBUG
-	if (breakIntoDebugger)
+	if (breakIntoDebugger) {
 #if defined(IOS)
 		__asm__("trap");
 #elif defined(MIPS)
 		__asm__("break 2");
+#elif defined(__APPLE__)
+		// meh
 #else
 		__debugbreak(); //__asm int 3;
 #endif
+	}
 #endif
 
 	const unsigned char blend = rotateBlendInfo<rotDeg>(blendInfo);
