@@ -178,8 +178,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
-	highpTexcoord = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+	highpTexcoord = highpFog;
 
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {

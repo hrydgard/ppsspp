@@ -25,6 +25,7 @@
 
 #include <cstdio>
 
+#include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -511,7 +512,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 	highpTexcoord = highpFog;
 
 	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
@@ -671,7 +672,7 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
-	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && gstate_c.needShaderTexClamp) {
+	if ((gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) && gstate_c.needShaderTexClamp) {
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
@@ -693,7 +694,8 @@ void GenerateFragmentShader(char *buffer) {
 		if (gstate.isTextureMapEnabled()) {
 			const char *texcoord = "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
-			if (gstate_c.needShaderTexClamp) {
+			// This path destroys resolution on older PowerVR no matter what I do, so we disable it on SGX 540 and lesser, and live with the consequences.
+			if (gstate_c.needShaderTexClamp && !(gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_TERRIBLE)) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
@@ -707,7 +709,7 @@ void GenerateFragmentShader(char *buffer) {
 					vcoord = "1.0 - " + vcoord;
 				}
 
-				std::string modulo = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR ? "mymod" : "mod";
+				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
 
 				if (gstate.isTexCoordClampedS()) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
