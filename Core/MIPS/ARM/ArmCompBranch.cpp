@@ -57,7 +57,7 @@ namespace MIPSComp
 	using namespace ArmGen;
 	using namespace ArmJitConstants;
 
-void ArmJit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -170,7 +170,7 @@ void ArmJit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 }
 
 
-void ArmJit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool likely)
+void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -317,7 +317,7 @@ void ArmJit::Comp_RelBranchRI(MIPSOpcode op)
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void ArmJit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -375,7 +375,7 @@ void ArmJit::Comp_FPUBranch(MIPSOpcode op)
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void ArmJit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);

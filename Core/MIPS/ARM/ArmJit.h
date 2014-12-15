@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CPUDetect.h"
+#include "Common/ArmCommon.h"
 #include "Common/ArmEmitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
@@ -232,10 +233,10 @@ private:
 	void WriteSyscallExit();
 
 	// Utility compilation functions
-	void BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely);
-	void BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely);
-	void BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool likely);
-	void BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely);
+	void BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely);
+	void BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely);
+	void BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool likely);
+	void BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code
 	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARMXEmitter::*arith)(ArmGen::ARMReg dst, ArmGen::ARMReg src, ArmGen::Operand2 op2), bool (ARMXEmitter::*tryArithI2R)(ArmGen::ARMReg dst, ArmGen::ARMReg src, u32 val), u32 (*eval)(u32 a, u32 b));

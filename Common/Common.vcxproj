@@ -185,11 +185,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ABI.h" />
+    <ClInclude Include="Arm64Emitter.h" />
+    <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="Atomics.h" />
     <ClInclude Include="Atomic_GCC.h" />
     <ClInclude Include="Atomic_Win32.h" />
+    <ClInclude Include="BitSet.h" />
     <ClInclude Include="ChunkFile.h" />
+    <ClInclude Include="CodeBlock.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -204,6 +208,7 @@
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
+    <ClInclude Include="MathUtil.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MipsEmitter.h" />
@@ -221,6 +226,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
+    <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ArmCPUDetect.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

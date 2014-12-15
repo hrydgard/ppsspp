@@ -41,6 +41,11 @@
     </ClInclude>
     <ClInclude Include="ppcEmitter.h" />
     <ClInclude Include="MipsEmitter.h" />
+    <ClInclude Include="Arm64Emitter.h" />
+    <ClInclude Include="ArmCommon.h" />
+    <ClInclude Include="MathUtil.h" />
+    <ClInclude Include="BitSet.h" />
+    <ClInclude Include="CodeBlock.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -75,6 +80,7 @@
     <ClCompile Include="ArmThunk.cpp" />
     <ClCompile Include="ppcEmitter.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
+    <ClCompile Include="Arm64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
