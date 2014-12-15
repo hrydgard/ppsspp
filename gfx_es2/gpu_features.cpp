@@ -1,3 +1,4 @@
+#include <cstring>
 #include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
 
