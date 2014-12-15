@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _MEMORYUTIL_H
-#define _MEMORYUTIL_H
+#pragma once
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -83,5 +82,3 @@ private:
 	T *buf_;
 	size_t size_;
 };
-
-#endif

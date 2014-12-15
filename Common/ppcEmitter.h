@@ -19,8 +19,7 @@
 // http://publib.boulder.ibm.com/infocenter/pseries/v5r3/index.jsp?topic=/com.ibm.aix.aixassem/doc/alangref/linkage_convent.htm 
 // http://publib.boulder.ibm.com/infocenter/pseries/v5r3/index.jsp?topic=/com.ibm.aix.aixassem/doc/alangref/instruction_set.htm
 
-#ifndef _DOLPHIN_PPC_CODEGEN_
-#define _DOLPHIN_PPC_CODEGEN_
+#pragma once
 
 #include "Common.h"
 #include "MemoryUtil.h"
@@ -517,5 +516,3 @@ namespace PpcGen
 	};
 
 }  // namespace
-
-#endif // _DOLPHIN_INTEL_CODEGEN_

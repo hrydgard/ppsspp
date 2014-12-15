@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _DOLPHIN_ARM_CODEGEN_
-#define _DOLPHIN_ARM_CODEGEN_
+#pragma once
 
 #include <vector>
 #include <stdint.h>
@@ -901,5 +900,3 @@ extern const VFPEnc VFPOps[16][2];
 extern const char *VFPOpNames[16];
 
 }  // namespace
-
-#endif
