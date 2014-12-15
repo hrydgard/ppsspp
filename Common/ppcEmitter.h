@@ -15,9 +15,6 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
-
-
 // http://www.csd.uwo.ca/~mburrel/stuff/ppc-asm.html
 // http://publib.boulder.ibm.com/infocenter/pseries/v5r3/index.jsp?topic=/com.ibm.aix.aixassem/doc/alangref/linkage_convent.htm 
 // http://publib.boulder.ibm.com/infocenter/pseries/v5r3/index.jsp?topic=/com.ibm.aix.aixassem/doc/alangref/instruction_set.htm

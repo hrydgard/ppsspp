@@ -1970,26 +1970,9 @@ void XEmitter::FNSTSW_AX() { Write8(0xDF); Write8(0xE0); }
 
 void XEmitter::RDTSC() { Write8(0x0F); Write8(0x31); }
 
-void XCodeBlock::AllocCodeSpace(int size) {
-	region_size = size;
-	region = (u8*)AllocateExecutableMemory(region_size);
-	SetCodePtr(region);
-}
-
-void XCodeBlock::ClearCodeSpace() {
+void XCodeBlock::PoisonMemory() {
 	// x86/64: 0xCC = breakpoint
 	memset(region, 0xCC, region_size);
-	ResetCodePtr();
-}
-
-void XCodeBlock::FreeCodeSpace() {
-	FreeMemoryPages(region, region_size);
-	region = NULL;
-	region_size = 0;
-}
-
-void XCodeBlock::WriteProtect() {
-	WriteProtectMemory(region, region_size, true);
 }
 
 }

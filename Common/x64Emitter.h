@@ -15,12 +15,11 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
-
 #ifndef _DOLPHIN_INTEL_CODEGEN_
 #define _DOLPHIN_INTEL_CODEGEN_
 
 #include "Common.h"
+#include "CodeBlock.h"
 
 #if defined(_M_X64) && !defined(_ARCH_64)
 #define _ARCH_64
@@ -1041,49 +1040,10 @@ public:
 // Everything that needs to generate X86 code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class XCodeBlock : public XEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
 
+class XCodeBlock : public CodeBlock<XEmitter> {
 public:
-	XCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~XCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size);
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace();
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace();
-
-	bool IsInSpace(const u8 *ptr) const {
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect();
-
-	void ResetCodePtr() {
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const {
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory() override;
 };
 
 }  // namespace

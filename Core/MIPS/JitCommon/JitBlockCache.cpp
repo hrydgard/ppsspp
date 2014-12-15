@@ -79,7 +79,7 @@ using namespace Gen;
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 const MIPSOpcode INVALID_ORIGINAL_OP = MIPSOpcode(0x00000001);
 
-JitBlockCache::JitBlockCache(MIPSState *mips, CodeBlock *codeBlock) :
+JitBlockCache::JitBlockCache(MIPSState *mips, NativeCodeBlock *codeBlock) :
 	mips_(mips), codeBlock_(codeBlock), blocks_(0), num_blocks_(0) {
 }
 

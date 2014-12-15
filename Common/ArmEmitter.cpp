@@ -3147,36 +3147,12 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 	Write32((0xF3B6 << 16) | ((Dest & 0x10) << 18) | ((Dest & 0xF) << 12) | 0x600 | (op << 8) | ((Src & 0x10) << 1) | (Src & 0xF));
 }
 
-void ARMXCodeBlock::AllocCodeSpace(int size) {
-	region_size = size;
-	region = (u8*)AllocateExecutableMemory(region_size);
-	SetCodePtr(region);
-}
-
 // Always clear code space with breakpoints, so that if someone accidentally executes
 // uninitialized, it just breaks into the debugger.
-void ARMXCodeBlock::ClearCodeSpace() {
-	// x86/64: 0xCC = breakpoint
+void ARMXCodeBlock::PoisonMemory() {
+	// TODO: this isn't right for ARM!
 	memset(region, 0xCC, region_size);
 	ResetCodePtr();
-}
-
-void ARMXCodeBlock::FreeCodeSpace() {
-#ifdef __SYMBIAN32__
-	ResetExecutableMemory(region);
-#else
-	FreeMemoryPages(region, region_size);
-#endif
-	region = NULL;
-	region_size = 0;
-}
-
-void ARMXCodeBlock::WriteProtect() {
-	WriteProtectMemory(region, region_size, true);
-}
-
-void ARMXCodeBlock::UnWriteProtect() {
-	UnWriteProtectMemory(region, region_size, false);
 }
 
 }

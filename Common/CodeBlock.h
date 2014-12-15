@@ -46,12 +46,16 @@ public:
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace()
 	{
+#ifdef __SYMBIAN32__
+		ResetExecutableMemory(region);
+#else
 		FreeMemoryPages(region, region_size);
+#endif
 		region = nullptr;
 		region_size = 0;
 	}
 
-	bool IsInSpace(u8 *ptr)
+	bool IsInSpace(const u8 *ptr)
 	{
 		return (ptr >= region) && (ptr < (region + region_size));
 	}
@@ -71,6 +75,14 @@ public:
 	size_t GetSpaceLeft() const
 	{
 		return region_size - (T::GetCodePtr() - region);
+	}
+
+	u8 *GetBasePtr() {
+		return region;
+	}
+
+	size_t GetOffset(const u8 *ptr) const {
+		return ptr - region;
 	}
 };
 
