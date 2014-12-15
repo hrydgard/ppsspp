@@ -259,6 +259,20 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Display resolution", temp));
 #endif
 
+	if (gl_extensions.precision[0] != 0) {
+		const char *stypes[2] = { "Vertex", "Fragment" };
+		const char *ptypes[6] = { "LowF", "MediumF", "HighF", "LowI", "MediumI", "HighI" };
+
+		for (int st = 0; st < 2; st++) {
+			char bufValue[256], bufTitle[256];
+			for (int p = 0; p < 6; p++) {
+				snprintf(bufTitle, sizeof(bufTitle), "Precision %s %s:", stypes[st], ptypes[p]);
+				snprintf(bufValue, sizeof(bufValue), "(%i, %i): %i", gl_extensions.range[st][p][0], gl_extensions.range[st][p][1], gl_extensions.precision[st][p]);
+				deviceSpecs->Add(new InfoItem(bufTitle, bufValue, new LayoutParams(FILL_PARENT, 30)));
+			}
+		}
+	}
+
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
 	cpuExtensions->SetSpacing(0);
