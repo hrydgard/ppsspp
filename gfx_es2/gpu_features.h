@@ -74,6 +74,10 @@ struct GLExtensions {
 	// Bugs
 	int bugs;
 
+	// Shader precision. Only fetched on ES for now.
+	int range[2][6][2];  // [vs,fs][lowf,mediumf,highf,lowi,mediumi,highi][min,max]
+	int precision[6];
+
 	// greater-or-equal than
 	bool VersionGEThan(int major, int minor, int sub = 0);
 };
