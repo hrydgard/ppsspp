@@ -324,7 +324,7 @@ void CheckGLExtensions() {
 		};
 		for (int st = 0; st < 2; st++) {
 			for (int p = 0; p < 6; p++) {
-				glGetShaderPrecisionFormat(shaderTypes[st], precisions[p], gl_extensions.range[st][p], &gl_extensions.precision[p]);
+				glGetShaderPrecisionFormat(shaderTypes[st], precisions[p], gl_extensions.range[st][p], &gl_extensions.precision[st][p]);
 			}
 		}
 	}
