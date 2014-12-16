@@ -278,7 +278,7 @@ class TabHolder : public LinearLayout {
 public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
 		: LinearLayout(Opposite(orientation), layoutParams),
-			orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
+			stripSize_(stripSize), currentTab_(0) {
 		SetSpacing(0.0f);
 		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
@@ -311,7 +311,6 @@ private:
 
 	ChoiceStrip *tabStrip_;
 
-	Orientation orientation_;
 	float stripSize_;
 	int currentTab_;
 	std::vector<View *> tabs_;
