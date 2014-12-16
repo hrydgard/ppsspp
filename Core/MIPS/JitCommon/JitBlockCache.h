@@ -42,10 +42,6 @@ typedef ArmGen::ARMXCodeBlock NativeCodeBlock;
 #include "Common/x64Emitter.h"
 namespace Gen { class XEmitter; }
 typedef Gen::XCodeBlock NativeCodeBlock;
-#elif defined(PPC)
-#include "Common/ppcEmitter.h"
-namespace PpcGen { class PPCXEmitter; }
-typedef PpcGen::PPCXCodeBlock NativeCodeBlock;
 #elif defined(MIPS)
 #include "Common/MipsEmitter.h"
 namespace MIPSGen { class MIPSEmitter; }

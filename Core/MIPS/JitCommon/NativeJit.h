@@ -23,10 +23,7 @@ struct JitBlock;
 #undef emit
 #endif
 
-#if defined(PPC) 
-#include "../PPC/PpcJit.h"
-typedef MIPSComp::Jit NativeJit;
-#elif defined(ARM)
+#if defined(ARM)
 #include "../ARM/ArmJit.h"
 typedef MIPSComp::ArmJit NativeJit;
 #elif defined(_M_IX86) || defined(_M_X64)

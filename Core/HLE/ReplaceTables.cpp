@@ -807,8 +807,6 @@ static int Hook_kankabanchoutbr_download_frame() {
 #define JITFUNC(f) (&MIPSComp::Jit::f)
 #elif defined(MIPS)
 #define JITFUNC(f) (&MIPSComp::Jit::f)
-#elif defined(PPC)
-#define JITFUNC(f) (&MIPSComp::Jit::f)
 #endif
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.

@@ -49,8 +49,6 @@
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
-#elif defined(PPC)
-#include "Core/MIPS/MIPS.h"
 #else
 #warning "Unsupported arch!"
 #include "Core/MIPS/MIPS.h"
@@ -425,7 +423,7 @@ void JitBlockCache::LinkBlockExits(int i) {
 				} while ((op & 0xFF000000) != 0xEA000000);
 				emit.BKPT(1);
 				emit.FlushIcache();
-
+				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
 				// Okay, this is a bit ugly, but we check here if it already has a JMP.
@@ -440,12 +438,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 						emit.INT3();
 					}
 				}
-#elif defined(PPC)
-				PPCXEmitter emit(b.exitPtrs[e]);
-				emit.B(blocks_[destinationBlock].checkedEntry);
-				emit.FlushIcache();
-#endif
 				b.linkStatus[e] = true;
+#endif
 			}
 		}
 	}
@@ -590,12 +584,6 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	XEmitter emit((u8 *)b->checkedEntry);
 	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
 	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
-#elif defined(PPC)
-	PPCXEmitter emit((u8 *)b->checkedEntry);
-	emit.MOVI2R(R3, b->originalAddress);
-	emit.STW(R0, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
-	emit.FlushIcache();
 #endif
 }
 
@@ -631,8 +619,8 @@ int JitBlockCache::GetBlockExitSize() {
 	return 0;
 #elif defined(_M_IX86) || defined(_M_X64)
 	return 15;
-#elif defined(PPC)
-	// TODO
+#else
+#warning GetBlockExitSize unimplemented
 	return 0;
 #endif
 }
