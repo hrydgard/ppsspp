@@ -286,6 +286,9 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	}
 
 	b->normalEntry = GetCodePtr();
+
+	ExtractIR(em_address, &irblock);
+
 	// TODO: this needs work
 	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
