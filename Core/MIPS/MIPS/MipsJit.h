@@ -19,6 +19,7 @@
 
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/IR.h"
 #include "../MIPSVFPUUtils.h"
 
 #ifndef offsetof
@@ -39,10 +40,10 @@ struct MIPSJitOptions
 	int continueMaxInstructions;
 };
 
-class Jit : public MIPSGen::MIPSCodeBlock
+class MipsJit : public MIPSGen::MIPSCodeBlock
 {
 public:
-	Jit(MIPSState *mips);
+	MipsJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
@@ -167,7 +168,7 @@ private:
 	JitBlockCache blocks;
 	MIPSJitOptions jo;
 	JitState js;
-
+	IRBlock ir;
 	MIPSState *mips_;
 
 	int dontLogBlocks;
@@ -187,8 +188,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (MipsJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (MipsJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

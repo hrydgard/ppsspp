@@ -31,7 +31,7 @@ typedef MIPSComp::ArmJit NativeJit;
 typedef MIPSComp::Jit NativeJit;
 #elif defined(MIPS)
 #include "../MIPS/MipsJit.h"
-typedef MIPSComp::Jit NativeJit;
+typedef MIPSComp::MipsJit NativeJit;
 #else
 #include "../fake/FakeJit.h"
 typedef MIPSComp::Jit FakeJit;
@@ -42,5 +42,4 @@ namespace MIPSComp {
 
 	typedef void (NativeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
 	typedef int (NativeJit::*MIPSReplaceFunc)();
-
 }
