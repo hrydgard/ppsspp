@@ -144,14 +144,6 @@ TransformDrawEngine::TransformDrawEngine()
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
-	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
-		quadIndices_[i * 6 + 0] = i * 4 + 0;
-		quadIndices_[i * 6 + 1] = i * 4 + 2;
-		quadIndices_[i * 6 + 2] = i * 4 + 1;
-		quadIndices_[i * 6 + 3] = i * 4 + 1;
-		quadIndices_[i * 6 + 4] = i * 4 + 2;
-		quadIndices_[i * 6 + 5] = i * 4 + 3;
-	}
 
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
