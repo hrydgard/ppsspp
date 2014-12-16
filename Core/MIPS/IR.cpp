@@ -161,6 +161,8 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 	if (joined) {
 		DebugPrintBlock(block);
 	}
+
+	// TODO: Compute the proxy blocks from the addresses in the IR instructions.
 }
 
 static bool Reorder(IRBlock *block) {
