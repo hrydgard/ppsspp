@@ -65,7 +65,7 @@ struct IREntry {
 	u32 liveFPR;
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
 
-	void MakeNOP() { op = 0; info = 0; }
+	void MakeNOP() { op.encoding = 0; info = 0; }
 	void MakePseudo(int pseudo) { pseudoInstr = pseudo; info = 0; }
 };
 

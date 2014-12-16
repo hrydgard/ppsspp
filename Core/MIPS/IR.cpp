@@ -73,9 +73,8 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 	block->address = address;
 	block->analysis = MIPSAnalyst::Analyze(address);
 
-	// TODO: This loop could easily follow branches and whatnot, perform inlining and so on.
-
 	bool joined = false; // flag to debugprint
+
 	int exitInInstructions = -1;
 	std::vector<u32> raStack;   // for inlining leaf functions
 
@@ -98,6 +97,9 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 				exitInInstructions = 2;
 			}
 		}
+
+		// TODO: Analyze in/out registers here.
+
 
 		if ((e.info & IS_JUMP) && jo.continueBranches) {
 			// Figure out exactly what instruction it is.
@@ -124,6 +126,8 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 				// NOTICE_LOG(JIT, "Blocks jal-joined! %08x->%08x", block->address, address);
 				continue;
 			} else if (e.op == MIPS_MAKE_JR_RA()) {
+				// TODO: This is only safe if we don't write to RA manually anywhere.
+
 				MIPSOpcode next = Memory::Read_Opcode_JIT(address + 4);
 				if (!MIPSAnalyst::IsSyscall(next) && raStack.size()) {
 					exitInInstructions = -1;
@@ -161,7 +165,11 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 static bool Reorder(IRBlock *block) {
 	bool changed = false;
-	// TODO: Can't do this reliably until we have unfolded all branch delay slots!
+
+
+	// TODO: We only do some really safe optimizations now. Can't do fun stuff like hoisting loads/stores until we have unfolded all branch delay slots!
+	// Well, maybe we could do some of it, but let's not..
+
 	// Sweep downwards
 	for (int i = 0; i < (int)block->entries.size() - 1; i++) {
 		IREntry &e1 = block->entries[i];
@@ -203,12 +211,13 @@ static bool Reorder(IRBlock *block) {
 	}
 
 	// Then sweep upwards
+	/*
 	for (int i = (int)block->entries.size() - 1; i >= 0; i--) {
 		IREntry &e1 = block->entries[i];
 		IREntry &e2 = block->entries[i + 1];
 		// Do stuff!
 	}
-
+	*/
 	return changed;
 }
 
@@ -319,9 +328,11 @@ IRBlock::RegisterUsage IRBlock::DetermineInOutUsage(u64 inFlag, u64 outFlag, int
 	if (end > (int)entries.size())
 		end = (int)entries.size();
 	bool canClobber = true;
-	while (pos < end) {
+	for (; pos < end; pos++) {
 		const MIPSOpcode op = entries[pos].op;
 		const MIPSInfo info = entries[pos].info;
+
+		// Currently no pseudo instruction touch the registers that this function applies to.
 
 		// Yes, used.
 		if (info & inFlag)
@@ -342,7 +353,6 @@ IRBlock::RegisterUsage IRBlock::DetermineInOutUsage(u64 inFlag, u64 outFlag, int
 			// As for LIKELY, we don't know if it'll run the branch or not.
 			canClobber = (info & LIKELY) == 0 && start != pos;
 		}
-		pos++;
 	}
 	return USAGE_UNKNOWN;
 }
@@ -370,9 +380,18 @@ IRBlock::RegisterUsage IRBlock::DetermineRegisterUsage(MIPSGPReg reg, int pos, i
 	if (end > (int)entries.size())
 		end = (int)entries.size();
 	bool canClobber = true;
-	while (pos < end) {
+	for (; pos < end; pos++) {
 		const MIPSOpcode op = entries[pos].op;
 		const MIPSInfo info = entries[pos].info;
+
+		switch (entries[pos].pseudoInstr) {
+			// TODO: Might need to handle some of them?
+		case PSEUDO_SAVE_RA:
+			if (reg == MIPS_REG_RA)
+				return USAGE_INPUT;
+		default:
+			;
+		}
 
 		// Yes, used.
 		if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
@@ -405,7 +424,6 @@ IRBlock::RegisterUsage IRBlock::DetermineRegisterUsage(MIPSGPReg reg, int pos, i
 			// As for LIKELY, we don't know if it'll run the branch or not.
 			canClobber = (info & LIKELY) == 0 && start != pos;
 		}
-		pos++;
 	}
 	return USAGE_UNKNOWN;
 }
