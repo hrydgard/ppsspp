@@ -435,7 +435,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.irBlock = &irblock;
 	// - 1 to avoid the final delay slot.
 	while (js.irBlockPos < irblock.entries.size()) {
-		// Jit breakpoints are quite fast, so let's do them in release too.
 		IREntry &entry = irblock.entries[js.irBlockPos];
 		if (entry.flags & IR_FLAG_SKIP)
 			goto skip_entry;
@@ -447,6 +446,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		}
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
 
+		// Jit breakpoints are quite fast, so let's do them in release too.
 		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
 			FlushAll();

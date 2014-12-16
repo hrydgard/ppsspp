@@ -298,10 +298,9 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	int partialFlushOffset = 0;
 
 	js.numInstructions = 0;
-  js.irBlock = &irblock;
+	js.irBlock = &irblock;
 	js.irBlockPos = 0;
 	while (js.irBlockPos < irblock.entries.size()) {
-		// Jit breakpoints are quite fast, so let's do them in release too.
 		IREntry &entry = irblock.entries[js.irBlockPos];
 		if (entry.flags & IR_FLAG_SKIP)
 			goto skip_entry;
