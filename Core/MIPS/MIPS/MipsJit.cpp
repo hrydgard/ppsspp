@@ -180,23 +180,23 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
 	js.PrefixStart();
 	b->normalEntry = GetCodePtr();
 	js.numInstructions = 0;
-	while (js.compiling)
-	{
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
-		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
-		MIPSCompileOp(inst);
+	ExtractIR(js.compilerPC, &irblock);
 
-		js.compilerPC += 4;
+	js.irBlock = &irblock;
+
+	while (js.irBlockPos < irblock.entries.size()) {
+		IREntry &entry = irblock.entries[js.irBlockPos];
+		if (entry.flags & IR_FLAG_SKIP)
+			goto skip_entry;
+
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
+
+		MIPSCompileOp(entry.op);
+
+	skip_entry:
+		js.irBlockPos++;
 		js.numInstructions++;
-
-		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
-			FlushAll();
-			WriteExit(js.compilerPC, js.nextExit++);
-			js.compiling = false;
-		}
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;

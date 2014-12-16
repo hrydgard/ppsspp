@@ -62,6 +62,8 @@ IREntry &IRBlock::AddIREntry(u32 address) {
 // TODO: This is awful
 #ifdef ARM
 void ArmJit::ExtractIR(u32 address, IRBlock *block) {
+#elif defined(MIPS)
+void MipsJit::ExtractIR(u32 address, IRBlock *block) {
 #else
 void Jit::ExtractIR(u32 address, IRBlock *block) {
 #endif
