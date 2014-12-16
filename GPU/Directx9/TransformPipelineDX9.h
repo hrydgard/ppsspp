@@ -205,7 +205,7 @@ private:
 		u32 vertType;
 		u8 indexType;
 		s8 prim;
-		u16 vertexCount;
+		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 	};
