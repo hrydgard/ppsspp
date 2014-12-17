@@ -39,7 +39,6 @@
     <ClInclude Include="Crypto\sha256.h">
       <Filter>Crypto</Filter>
     </ClInclude>
-    <ClInclude Include="ppcEmitter.h" />
     <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="Arm64Emitter.h" />
     <ClInclude Include="ArmCommon.h" />
@@ -78,7 +77,6 @@
     </ClCompile>
     <ClCompile Include="ChunkFile.cpp" />
     <ClCompile Include="ArmThunk.cpp" />
-    <ClCompile Include="ppcEmitter.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
   </ItemGroup>
