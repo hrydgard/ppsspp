@@ -60,14 +60,19 @@ void ImHere()
 	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
+void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo)
 {
 	enterCode = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
 	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
-	MOV(64, R(JITBASEREG), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	uintptr_t jitbase = (uintptr_t)jit->GetBasePtr();
+	if (jitbase > 0x7FFFFFFFULL)
+	{
+		MOV(64, R(JITBASEREG), ImmPtr(jit->GetBasePtr()));
+		jo->reserveR15ForAsm = true;
+	}
 #endif
 	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
 	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
@@ -122,7 +127,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #ifdef _M_IX86
 				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
 #elif _M_X64
-				ADD(64, R(RAX), R(JITBASEREG));
+				if (jo->reserveR15ForAsm)
+					ADD(64, R(RAX), R(JITBASEREG));
+				else
+					ADD(64, R(EAX), Imm32(jitbase));
 #endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);

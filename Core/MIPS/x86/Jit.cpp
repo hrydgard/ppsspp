@@ -122,6 +122,8 @@ JitOptions::JitOptions()
 	continueJumps = false;
 	continueMaxInstructions = 300;
 	enableVFPUSIMD = false;
+	// Set by Asm if needed.
+	reserveR15ForAsm = false;
 }
 
 #ifdef _MSC_VER
@@ -134,7 +136,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
-	asm_.Init(mips, this);
+	asm_.Init(mips, this, &jo);
 	safeMemFuncs.Init(&thunks);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
