@@ -71,6 +71,8 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	MOV(64, R(RBX), ImmPtr(Memory::base));
 	MOV(64, R(R15), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
 #endif
+	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
 
 	outerLoop = GetCodePtr();
 		jit->RestoreRoundingMode(true, this);
@@ -99,11 +101,8 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			dispatcherNoCheck = GetCodePtr();
 
-			// TODO: Find a less costly place to put this (or multiple..)?
-			// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
-			MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
-
 			MOV(32, R(EAX), M(&mips->pc));
+
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
