@@ -26,6 +26,7 @@
 namespace MIPSComp
 {
 using namespace Gen;
+using namespace X64JitConstants;
 
 void JitMemCheck(u32 addr, int size, int isWrite)
 {
@@ -83,7 +84,7 @@ bool JitSafeMem::PrepareWrite(OpArg &dest, int size)
 #ifdef _M_IX86
 			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK & alignMask_));
 #else
-			dest = MDisp(RBX, iaddr_ & alignMask_);
+			dest = MDisp(MEMBASEREG, iaddr_ & alignMask_);
 #endif
 			return true;
 		}
@@ -108,7 +109,7 @@ bool JitSafeMem::PrepareRead(OpArg &src, int size)
 #ifdef _M_IX86
 			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK & alignMask_));
 #else
-			src = MDisp(RBX, iaddr_ & alignMask_);
+			src = MDisp(MEMBASEREG, iaddr_ & alignMask_);
 #endif
 			return true;
 		}
@@ -129,7 +130,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #ifdef _M_IX86
 		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
 #else
-		return MDisp(RBX, addr);
+		return MDisp(MEMBASEREG, addr);
 #endif
 	}
 
@@ -138,7 +139,7 @@ OpArg JitSafeMem::NextFastAddress(int suboffset)
 #ifdef _M_IX86
 	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);
 #else
-	return MComplex(RBX, xaddr_, SCALE_1, offset_ + suboffset);
+	return MComplex(MEMBASEREG, xaddr_, SCALE_1, offset_ + suboffset);
 #endif
 }
 
@@ -198,7 +199,7 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 #ifdef _M_IX86
 	return MDisp(xaddr_, (u32) Memory::base + offset_);
 #else
-	return MComplex(RBX, xaddr_, SCALE_1, offset_);
+	return MComplex(MEMBASEREG, xaddr_, SCALE_1, offset_);
 #endif
 }
 
@@ -461,7 +462,7 @@ void JitSafeMemFuncs::CreateReadFunc(int bits, const void *fallbackFunc) {
 #ifdef _M_IX86
 	MOVZX(32, bits, EAX, MDisp(EAX, (u32)Memory::base));
 #else
-	MOVZX(32, bits, EAX, MRegSum(RBX, EAX));
+	MOVZX(32, bits, EAX, MRegSum(MEMBASEREG, EAX));
 #endif
 
 	RET();
@@ -489,7 +490,7 @@ void JitSafeMemFuncs::CreateWriteFunc(int bits, const void *fallbackFunc) {
 #ifdef _M_IX86
 	MOV(bits, MDisp(EAX, (u32)Memory::base), R(EDX));
 #else
-	MOV(bits, MRegSum(RBX, EAX), R(EDX));
+	MOV(bits, MRegSum(MEMBASEREG, EAX), R(EDX));
 #endif
 
 	RET();

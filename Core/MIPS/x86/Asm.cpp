@@ -45,17 +45,15 @@ static bool enableDebug = false;
 
 //GLOBAL STATIC ALLOCATIONS x86
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
+//EBP - Pointer to fpr/gpr regs
 
 //GLOBAL STATIC ALLOCATIONS x64
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
 //RBX - Base pointer of memory
-//R15 - Pointer to array of block pointers 
+//R14 - Pointer to fpr/gpr regs
+//R15 - Pointer to array of block pointers
 
 extern volatile CoreState coreState;
-
-// IDEA, NOT IMPLEMENTED: no more block numbers - hack opcodes just contain offset within
-// dynarec buffer, gets rid of lookup into block buffer
-// At this offset - 4, there is an int specifying the block number if needed.
 
 void ImHere()
 {
@@ -68,9 +66,11 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
-	MOV(64, R(RBX), ImmPtr(Memory::base));
-	MOV(64, R(R15), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	MOV(64, R(JITBASEREG), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
 #endif
+	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
 
 	outerLoop = GetCodePtr();
 		jit->RestoreRoundingMode(true, this);
@@ -99,17 +99,15 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			dispatcherNoCheck = GetCodePtr();
 
-			// TODO: Find a less costly place to put this (or multiple..)?
-			// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
-			MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
-
 			MOV(32, R(EAX), M(&mips->pc));
+			dispatcherInEAXNoCheck = GetCodePtr();
+
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64
-			MOV(32, R(EAX), MComplex(RBX, RAX, SCALE_1, 0));
+			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
 			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
@@ -124,7 +122,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #ifdef _M_IX86
 				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
 #elif _M_X64
-				ADD(64, R(RAX), R(R15));
+				ADD(64, R(RAX), R(JITBASEREG));
 #endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);

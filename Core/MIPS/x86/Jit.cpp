@@ -709,9 +709,6 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 void Jit::WriteExitDestInReg(X64Reg reg)
 {
-	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
-	MOV(32, M(&mips_->pc), R(reg));
-
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
@@ -723,6 +720,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		SetJumpTarget(skipCheck);
 	}
 
+	MOV(32, M(&mips_->pc), R(reg));
 	WriteDowncount();
 
 	// Validate the jump to avoid a crash?
@@ -733,27 +731,33 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		CMP(32, R(reg), Imm32(PSP_GetUserMemoryEnd()));
 		FixupBranch tooHigh = J_CC(CC_AE);
 
-		// Need to set neg flag again if necessary.
-		SUB(32, M(&mips_->downcount), Imm32(0));
+		// Need to set neg flag again.
+		SUB(32, M(&mips_->downcount), Imm8(0));
+		if (reg == EAX)
+			J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
 		JMP(asm_.dispatcher, true);
 
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		CallProtectedFunction(Memory::GetPointer, R(reg));
-		CMP(32, R(reg), Imm32(0));
-		FixupBranch skip = J_CC(CC_NE);
+		ABI_CallFunctionA(Memory::GetPointer, R(reg));
 
-		// TODO: "Ignore" this so other threads can continue?
+		// If we're ignoring, coreState didn't trip - so trip it now.
 		if (g_Config.bIgnoreBadMemAccess)
-			CallProtectedFunction(Core_UpdateState, Imm32(CORE_ERROR));
+		{
+			CMP(32, R(EAX), Imm32(0));
+			FixupBranch skip = J_CC(CC_NE);
+			ABI_CallFunctionA(&Core_UpdateState, Imm32(CORE_ERROR));
+			SetJumpTarget(skip);
+		}
 
-		SUB(32, M(&mips_->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm8(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
-		SetJumpTarget(skip);
-
-		SUB(32, M(&mips_->downcount), Imm32(0));
-		J_CC(CC_NE, asm_.dispatcher, true);
+	}
+	else if (reg == EAX)
+	{
+		J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
+		JMP(asm_.dispatcher, true);
 	}
 	else
 		JMP(asm_.dispatcher, true);

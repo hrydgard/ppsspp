@@ -95,9 +95,10 @@ void ArmJit::GenerateFixedCode()
 	//   * r2-r4
 	// Really starting to run low on registers already though...
 
-	MOVP2R(R11, Memory::base);
-	MOVP2R(R10, mips_);
-	MOVP2R(R9, GetBasePtr());
+	// R11, R10, R9
+	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(CTXREG, mips_);
+	MOVP2R(JITBASEREG, GetBasePtr());
 
 	// Doing this down here for better pipelining, just in case.
 	if (cpu_info.bNEON) {
@@ -162,10 +163,10 @@ void ArmJit::GenerateFixedCode()
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
-				// TODO: Fix me, I'm ugly.
-				MOVI2R(R9, (u32)GetBasePtr());
+				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
+				MOVI2R(JITBASEREG, (u32)GetBasePtr());
 #endif
-				ADD(R0, R0, R9);
+				ADD(R0, R0, JITBASEREG);
 				B(R0);
 			SetCC(CC_AL);
 
