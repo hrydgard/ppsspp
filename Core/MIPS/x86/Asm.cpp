@@ -115,9 +115,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::
 			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
-			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
-			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
-			FixupBranch notfound = J_CC(CC_NZ);
+			_assert_msg_(JIT, MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
+			SHR(32, R(EDX), Imm8(24));
+			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = J_CC(CC_NE);
 				if (enableDebug)
 				{
 					ADD(32, M(&mips->debugCount), Imm8(1));
