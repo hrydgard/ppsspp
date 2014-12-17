@@ -23,7 +23,9 @@
 
 namespace X64JitConstants {
 #ifdef _M_X64
+	const Gen::X64Reg MEMBASEREG = Gen::RBX;
 	const Gen::X64Reg CTXREG = Gen::R14;
+	const Gen::X64Reg JITBASEREG = Gen::R15;
 #else
 	const Gen::X64Reg CTXREG = Gen::EBP;
 #endif

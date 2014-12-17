@@ -23,6 +23,7 @@
 
 namespace ArmJitConstants {
 
+const ArmGen::ARMReg JITBASEREG = ArmGen::R9;
 const ArmGen::ARMReg CTXREG = ArmGen::R10;
 const ArmGen::ARMReg MEMBASEREG = ArmGen::R11;
 const ArmGen::ARMReg SCRATCHREG1 = ArmGen::R0;
