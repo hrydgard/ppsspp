@@ -100,6 +100,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			dispatcherNoCheck = GetCodePtr();
 
 			MOV(32, R(EAX), M(&mips->pc));
+			dispatcherInEAXNoCheck = GetCodePtr();
 
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
