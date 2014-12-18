@@ -200,7 +200,7 @@ void ARM64XEmitter::EncodeCompareBranchInst(u32 op, ARM64Reg Rt, const void* ptr
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x34 << 24) | (op << 24) | \
-	        (distance << 5) | Rt);
+	        ((int)distance << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const void* ptr)
@@ -216,7 +216,7 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
-	        (bits << 19) | (distance << 5) | Rt);
+	        (bits << 19) | ((int)distance << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
@@ -229,7 +229,7 @@ void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
 
 	_assert_msg_(DYNA_REC, distance >= -0x3FFFFFF && distance < 0x3FFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
 
-	Write32((op << 31) | (0x5 << 26) | (distance & 0x3FFFFFF));
+	Write32((op << 31) | (0x5 << 26) | ((int)distance & 0x3FFFFFF));
 }
 
 void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 opc, u32 op2, u32 op3, u32 op4, ARM64Reg Rn)
@@ -553,12 +553,12 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
 			bool b64Bit = Is64Bit(branch.reg);
 			ARM64Reg reg = DecodeReg(branch.reg);
-			inst = (b64Bit << 31) | (0x1A << 25) | (Not << 24) | (distance << 5) | reg;
+			inst = (b64Bit << 31) | (0x1A << 25) | (Not << 24) | ((int)distance << 5) | reg;
 		}
 		break;
 		case 2: // B (conditional)
 			_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
-			inst = (0x2A << 25) | (distance << 5) | branch.cond;
+			inst = (0x2A << 25) | ((int)distance << 5) | branch.cond;
 		break;
 		case 4: // TBNZ
 			Not = true;
@@ -566,16 +566,16 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 		{
 			_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
 			ARM64Reg reg = DecodeReg(branch.reg);
-			inst = ((branch.bit & 0x20) << 26) | (0x1B << 25) | (Not << 24) | ((branch.bit & 0x1F) << 19) | (distance << 5) | reg;
+			inst = ((branch.bit & 0x20) << 26) | (0x1B << 25) | (Not << 24) | ((branch.bit & 0x1F) << 19) | ((int)distance << 5) | reg;
 		}
 		break;
 		case 5: // B (uncoditional)
 			_assert_msg_(DYNA_REC, distance >= -0x3FFFFFF && distance < 0x3FFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
-			inst = (0x5 << 26) | distance;
+			inst = (0x5 << 26) | (int)distance;
 		break;
 		case 6: // BL (unconditional)
 			_assert_msg_(DYNA_REC, distance >= -0x3FFFFFF && distance < 0x3FFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
-			inst = (0x25 << 26) | distance;
+			inst = (0x25 << 26) | (int)distance;
 		break;
 	}
 	*(u32*)branch.ptr = inst;
@@ -663,7 +663,7 @@ void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 
 	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
 
-	Write32((0x54 << 24) | (distance << 5) | cond);
+	Write32((0x54 << 24) | ((int)distance << 5) | cond);
 }
 
 // Test and Branch
