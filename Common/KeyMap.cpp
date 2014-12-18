@@ -44,6 +44,8 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 std::set<std::string> g_seenPads;
 
+bool g_swapped_keys = false;
+
 static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
@@ -650,6 +652,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
 	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
+
+	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;
@@ -715,12 +719,36 @@ KeyDef AxisDef(int deviceId, int axisId, int direction) {
 	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
 }
 
+int CheckAxisSwap(int btn) {
+	if (g_swapped_keys) {
+		switch (btn) {
+			case CTRL_UP: btn = VIRTKEY_AXIS_Y_MAX;
+			break;
+			case VIRTKEY_AXIS_Y_MAX: btn = CTRL_UP;
+			break;
+			case CTRL_DOWN: btn = VIRTKEY_AXIS_Y_MIN;
+			break;
+			case VIRTKEY_AXIS_Y_MIN: btn = CTRL_DOWN;
+			break;
+			case CTRL_LEFT: btn = VIRTKEY_AXIS_X_MIN;
+			break;
+			case VIRTKEY_AXIS_X_MIN: btn = CTRL_LEFT;
+			break;
+			case CTRL_RIGHT: btn = VIRTKEY_AXIS_X_MAX;
+			break;
+			case VIRTKEY_AXIS_X_MAX: btn = CTRL_RIGHT;
+			break;
+		}
+	}
+	return btn;
+}
+
 static bool FindKeyMapping(int deviceId, int key, std::vector<int> *psp_button) {
 	// Brute force, let's optimize later
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (*iter2 == KeyDef(deviceId, key)) {
-				psp_button->push_back(iter->first);
+				psp_button->push_back(CheckAxisSwap(iter->first));
 			}
 		}
 	}
@@ -747,7 +775,7 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
 
 bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
 	int key = TranslateKeyCodeFromAxis(axisId, direction);
-	return KeyToPspButton(deviceId, key, pspKeys);	
+	return KeyToPspButton(deviceId, key, pspKeys);
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
@@ -919,5 +947,9 @@ const std::set<std::string> &GetSeenPads() {
 	return g_seenPads;
 }
 
+// Swap direction buttons and left analog axis
+void SwapAxis() {
+	g_swapped_keys = !g_swapped_keys;
+}
 
 }  // KeyMap
