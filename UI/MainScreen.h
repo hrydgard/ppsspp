@@ -87,6 +87,7 @@ protected:
 	virtual void CreateViews();
 	virtual void update(InputState &input);
 	virtual void sendMessage(const char *message, const char *value);
+	void CallbackDeleteConfig(bool yes);
 
 private:
 	UI::EventReturn OnMainSettings(UI::EventParams &e);
@@ -100,6 +101,9 @@ private:
 
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
 	UI::EventReturn OnCwCheat(UI::EventParams &e);
+
+	UI::EventReturn OnCreateConfig(UI::EventParams &e);
+	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 
 	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
 

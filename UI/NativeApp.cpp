@@ -760,6 +760,11 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
 	}
+	else if (msg == "stop")
+	{
+		g_Config.Save();
+		g_Config.unloadGameConfig();
+	}
 }
 
 void NativeUpdate(InputState &input) {

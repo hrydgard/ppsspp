@@ -24,7 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "");
+	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -40,6 +40,8 @@ protected:
 
 private:
 	std::string gameID_;
+	//edit the game-specific settings and restore the global settings after exiting
+	bool bEditThenRestore;
 	bool lastVertical_;
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;

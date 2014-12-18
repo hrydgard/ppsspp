@@ -81,6 +81,13 @@ void EmuScreen::bootGame(const std::string &filename) {
 		return;
 	}
 
+	//pre-emptive loading of game specific config if possible, to get all the settings
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, filename, 0);
+	if (info && !info->id.empty())
+	{
+		g_Config.loadGameConfig(info->id);
+	}
+
 	invalid_ = true;
 
 	CoreParameter coreParam;

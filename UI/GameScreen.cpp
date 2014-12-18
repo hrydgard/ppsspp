@@ -82,7 +82,18 @@ void GameScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
-	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	if (info && !info->id.empty())
+	{
+		if (g_Config.hasGameConfig(info->id))
+		{
+			rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+			rightColumnItems->Add(new Choice(ga->T("Delete Game Config")))->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+		}
+		else
+		{
+			rightColumnItems->Add(new Choice(ga->T("Create Game Config")))->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+		}
+	}
 	std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 	if (saveDirs.size()) {
 		rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
@@ -99,6 +110,35 @@ void GameScreen::CreateViews() {
 #endif
 
 	UI::SetFocusedView(play);
+}
+
+UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
+{
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_,0);
+	g_Config.createGameConfig(info->id);
+	screenManager()->topScreen()->RecreateViews();
+	return UI::EVENT_DONE;
+}
+
+void GameScreen::CallbackDeleteConfig(bool yes)
+{
+	if (yes)
+	{
+		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+		g_Config.deleteGameConfig(info->id);
+		screenManager()->RecreateAllViews();
+	}
+}
+
+UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *ga = GetI18NCategory("Game");
+	screenManager()->push(
+		new PromptScreen(d->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+		std::bind(&GameScreen::CallbackDeleteConfig, this, placeholder::_1)));
+
+	return UI::EVENT_DONE;
 }
 
 void GameScreen::update(InputState &input) {
@@ -172,7 +212,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID));
+		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
 	}
 	return UI::EVENT_DONE;
 }
