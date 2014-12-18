@@ -16,15 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-};
-#else
 #include <unordered_map>
-#endif
 #include <set>
 #include "base/mutex.h"
 #include "ext/cityhash/city.h"

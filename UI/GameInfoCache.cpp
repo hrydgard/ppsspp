@@ -38,7 +38,7 @@
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+#ifdef __SYMBIAN32__
 #define unique_ptr auto_ptr
 #endif
 
