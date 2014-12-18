@@ -16,7 +16,7 @@ struct AxisInput;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
+void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version);
 
 // Generic host->C++ messaging, used for functionality like system-native popup input boxes.
 void NativeMessageReceived(const char *message, const char *value);

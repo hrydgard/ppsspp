@@ -393,8 +393,9 @@ int main(int argc, char *argv[]) {
 
 	std::string app_name;
 	std::string app_name_nice;
+	std::string version;
 	bool landscape;
-	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
+	NativeGetAppInfo(&app_name, &app_name_nice, &landscape, &version);
 
 	net::Init();
 

@@ -144,9 +144,9 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
 // On Android we don't use any of the values it returns.
 extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
-	std::string app_name, app_nice_name;
+	std::string app_name, app_nice_name, version;
 	bool landscape;
-	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
 	return landscape;
 }
 
@@ -210,11 +210,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	std::string app_name;
 	std::string app_nice_name;
+	std::string version;
 	bool landscape;
 
 	net::Init();
 
-	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
 
 
 	// If shortcut_param is not empty, pass it as additional varargs argument to NativeInit() method.
