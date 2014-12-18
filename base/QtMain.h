@@ -7,7 +7,7 @@
 #include "gfx_es2/glsl_program.h"
 #include <QGLWidget>
 
-#ifndef QT_HAS_SDL
+#ifndef SDL
 #include <QAudioOutput>
 #include <QAudioFormat>
 #endif
@@ -235,7 +235,7 @@ private:
 
 static MainUI* emugl = NULL;
 
-#ifndef QT_HAS_SDL
+#ifndef SDL
 
 // Audio
 #define AUDIO_FREQ 44100
@@ -294,7 +294,7 @@ private:
 	int timer;
 };
 
-#endif //QT_HAS_SDL
+#endif //SDL
 
 #endif
 

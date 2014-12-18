@@ -25,7 +25,7 @@
 #include <QFeedbackHapticsEffect>
 #include "SymbianMediaKeys.h"
 #endif
-#ifdef QT_HAS_SDL
+#ifdef SDL
 #include "SDL/SDLJoystick.h"
 #include "SDL_audio.h"
 #endif
@@ -36,7 +36,7 @@
 
 InputState* input_state;
 
-#ifdef QT_HAS_SDL
+#ifdef SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
 }
@@ -135,7 +135,7 @@ static int mainInternal(QApplication &a)
 	ssObject.setScreenSaverEnabled(false);
 #endif
 
-#ifdef QT_HAS_SDL
+#ifdef SDL
 	SDLJoystick joy(true);
 	joy.startEventLoop();
 	SDL_Init(SDL_INIT_AUDIO);
@@ -170,7 +170,7 @@ static int mainInternal(QApplication &a)
 	return a.exec();
 }
 
-#ifndef QT_HAS_SDL
+#ifndef SDL
 Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	exit(0);
 #endif
 	NativeShutdownGraphics();
-#ifdef QT_HAS_SDL
+#ifdef SDL
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
 #endif
