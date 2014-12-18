@@ -764,6 +764,7 @@ elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL2_INCLUDE_DIR})
+	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp

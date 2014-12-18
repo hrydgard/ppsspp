@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(SDL)
+#include <SDL_keyboard.h>
+#elif defined(_WIN32) && !defined(_XBOX)
 #include <windows.h>
 #endif
 #include <set>
@@ -345,7 +347,16 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		{
 			bool azerty = false;
 			bool qwertz = false;
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(SDL)
+			char q, w, y;
+			q = SDL_GetKeyFromScancode(SDL_SCANCODE_Q);
+			w = SDL_GetKeyFromScancode(SDL_SCANCODE_W);
+			y = SDL_GetKeyFromScancode(SDL_SCANCODE_Y);
+			if (q == 'a' && w == 'z' && y == 'y')
+				azerty = true;
+			else if (q == 'q' && w == 'w' && y == 'z')
+				qwertz = true;
+#elif defined(_WIN32) && !defined(_XBOX)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
 			switch ((int)localeId & 0xFFFF) {
