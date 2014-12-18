@@ -325,10 +325,18 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			CMP(32, R(EAX), Imm32(0));
 			FixupBranch next = J_CC(CC_NE);
 
+			auto PSPMemAddr = [](X64Reg scaled, int offset) {
+#ifdef _M_IX86
+				return MDisp(scaled, (u32)Memory::base + offset);
+#else
+				return MComplex(MEMBASEREG, scaled, 1, offset);
+#endif
+			};
+
 			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY);
 
 			// Offset = 0
-			MOVSS(fpr.RX(vregs[3]), MRegSum(MEMBASEREG, RAX));
+			MOVSS(fpr.RX(vregs[3]), PSPMemAddr(EAX, 0));
 
 			FixupBranch skip0 = J();
 			SetJumpTarget(next);
@@ -336,8 +344,8 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			next = J_CC(CC_NE);
 
 			// Offset = 1
-			MOVSS(fpr.RX(vregs[3]), MComplex(MEMBASEREG, RAX, 1, 4));
-			MOVSS(fpr.RX(vregs[2]), MComplex(MEMBASEREG, RAX, 1, 0));
+			MOVSS(fpr.RX(vregs[3]), PSPMemAddr(EAX, 4));
+			MOVSS(fpr.RX(vregs[2]), PSPMemAddr(EAX, 0));
 
 			FixupBranch skip1 = J();
 			SetJumpTarget(next);
@@ -345,9 +353,9 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			next = J_CC(CC_NE);
 
 			// Offset = 2
-			MOVSS(fpr.RX(vregs[3]), MComplex(MEMBASEREG, RAX, 1, 8));
-			MOVSS(fpr.RX(vregs[2]), MComplex(MEMBASEREG, RAX, 1, 4));
-			MOVSS(fpr.RX(vregs[1]), MComplex(MEMBASEREG, RAX, 1, 0));
+			MOVSS(fpr.RX(vregs[3]), PSPMemAddr(EAX, 8));
+			MOVSS(fpr.RX(vregs[2]), PSPMemAddr(EAX, 4));
+			MOVSS(fpr.RX(vregs[1]), PSPMemAddr(EAX, 0));
 
 			FixupBranch skip2 = J();
 			SetJumpTarget(next);
@@ -355,10 +363,10 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			next = J_CC(CC_NE);
 
 			// Offset = 3
-			MOVSS(fpr.RX(vregs[3]), MComplex(MEMBASEREG, RAX, 1, 12));
-			MOVSS(fpr.RX(vregs[2]), MComplex(MEMBASEREG, RAX, 1, 8));
-			MOVSS(fpr.RX(vregs[1]), MComplex(MEMBASEREG, RAX, 1, 4));
-			MOVSS(fpr.RX(vregs[0]), MComplex(MEMBASEREG, RAX, 1, 0));
+			MOVSS(fpr.RX(vregs[3]), PSPMemAddr(EAX, 12));
+			MOVSS(fpr.RX(vregs[2]), PSPMemAddr(EAX, 8));
+			MOVSS(fpr.RX(vregs[1]), PSPMemAddr(EAX, 4));
+			MOVSS(fpr.RX(vregs[0]), PSPMemAddr(EAX, 0));
 
 			SetJumpTarget(next);
 			SetJumpTarget(skip0);

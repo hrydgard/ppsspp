@@ -122,6 +122,8 @@ JitOptions::JitOptions()
 	continueJumps = false;
 	continueMaxInstructions = 300;
 	enableVFPUSIMD = false;
+	// Set by Asm if needed.
+	reserveR15ForAsm = false;
 }
 
 #ifdef _MSC_VER
@@ -134,7 +136,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
-	asm_.Init(mips, this);
+	asm_.Init(mips, this, &jo);
 	safeMemFuncs.Init(&thunks);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
@@ -740,14 +742,14 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		ABI_CallFunctionA(Memory::GetPointer, R(reg));
+		ABI_CallFunctionA((const void *)&Memory::GetPointer, R(reg));
 
 		// If we're ignoring, coreState didn't trip - so trip it now.
 		if (g_Config.bIgnoreBadMemAccess)
 		{
 			CMP(32, R(EAX), Imm32(0));
 			FixupBranch skip = J_CC(CC_NE);
-			ABI_CallFunctionA(&Core_UpdateState, Imm32(CORE_ERROR));
+			ABI_CallFunctionA((const void *)&Core_UpdateState, Imm32(CORE_ERROR));
 			SetJumpTarget(skip);
 		}
 

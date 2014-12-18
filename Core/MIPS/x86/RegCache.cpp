@@ -29,20 +29,23 @@
 using namespace Gen;
 using namespace X64JitConstants;
 
-static const int allocationOrder[] = 
-{
+static const X64Reg allocationOrder[] = {
 	// R12, when used as base register, for example in a LEA, can generate bad code! Need to look into this.
 	// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
 #ifdef _M_X64
 #ifdef _WIN32
-	RSI, RDI, R13, R8, R9, R10, R11, R12,
+	RSI, RDI, R8, R9, R10, R11, R12, R13,
 #else
-	RBP, R13, R8, R9, R10, R11, R12,
+	RBP, R8, R9, R10, R11, R12, R13,
 #endif
 #elif _M_IX86
 	ESI, EDI, EDX, ECX, EBX,
 #endif
 };
+
+#ifdef _M_X64
+static X64Reg allocationOrderR15[ARRAY_SIZE(allocationOrder) + 1] = {INVALID_REG};
+#endif
 
 void GPRRegCache::FlushBeforeCall() {
 	// TODO: Only flush the non-preserved-by-callee registers.
@@ -55,6 +58,13 @@ GPRRegCache::GPRRegCache() : mips(0), emit(0) {
 }
 
 void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
+#ifdef _M_X64
+	if (allocationOrderR15[0] == INVALID_REG) {
+		memcpy(allocationOrderR15, allocationOrder, sizeof(allocationOrder));
+		allocationOrderR15[ARRAY_SIZE(allocationOrderR15) - 1] = R15;
+	}
+#endif
+
 	this->mips = mips;
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
@@ -126,13 +136,13 @@ void GPRRegCache::UnlockAllX() {
 
 X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	int allocCount;
-	const int *allocOrder = GetAllocationOrder(allocCount);
+	const X64Reg *allocOrder = GetAllocationOrder(allocCount);
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
 	*clobbered = false;
 	for (int i = 0; i < allocCount; i++) {
-		X64Reg reg = (X64Reg)allocOrder[i];
+		X64Reg reg = allocOrder[i];
 		if (xregs[reg].allocLocked)
 			continue;
 		if (xregs[reg].mipsReg != MIPS_REG_INVALID && regs[xregs[reg].mipsReg].locked)
@@ -158,13 +168,13 @@ X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 X64Reg GPRRegCache::GetFreeXReg()
 {
 	int aCount;
-	const int *aOrder = GetAllocationOrder(aCount);
+	const X64Reg *aOrder = GetAllocationOrder(aCount);
 	for (int i = 0; i < aCount; i++)
 	{
-		X64Reg xr = (X64Reg)aOrder[i];
+		X64Reg xr = aOrder[i];
 		if (!xregs[xr].allocLocked && xregs[xr].free)
 		{
-			return (X64Reg)xr;
+			return xr;
 		}
 	}
 
@@ -255,8 +265,14 @@ u32 GPRRegCache::GetImm(MIPSGPReg preg) const {
 	return regs[preg].location.GetImmValue();
 }
 
-const int *GPRRegCache::GetAllocationOrder(int &count) {
-	count = sizeof(allocationOrder) / sizeof(const int);
+const X64Reg *GPRRegCache::GetAllocationOrder(int &count) {
+#ifdef _M_X64
+	if (!jo_->reserveR15ForAsm) {
+		count = ARRAY_SIZE(allocationOrderR15);
+		return allocationOrderR15;
+	}
+#endif
+	count = ARRAY_SIZE(allocationOrder);
 	return allocationOrder;
 }
 

@@ -60,14 +60,19 @@ void ImHere()
 	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
+void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo)
 {
 	enterCode = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
 	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
-	MOV(64, R(JITBASEREG), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	uintptr_t jitbase = (uintptr_t)jit->GetBasePtr();
+	if (jitbase > 0x7FFFFFFFULL)
+	{
+		MOV(64, R(JITBASEREG), ImmPtr(jit->GetBasePtr()));
+		jo->reserveR15ForAsm = true;
+	}
 #endif
 	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
 	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
@@ -110,9 +115,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
-			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
-			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
-			FixupBranch notfound = J_CC(CC_NZ);
+			_assert_msg_(JIT, MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
+			SHR(32, R(EDX), Imm8(24));
+			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = J_CC(CC_NE);
 				if (enableDebug)
 				{
 					ADD(32, M(&mips->debugCount), Imm8(1));
@@ -122,7 +128,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #ifdef _M_IX86
 				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
 #elif _M_X64
-				ADD(64, R(RAX), R(JITBASEREG));
+				if (jo->reserveR15ForAsm)
+					ADD(64, R(RAX), R(JITBASEREG));
+				else
+					ADD(64, R(EAX), Imm32(jitbase));
 #endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);
