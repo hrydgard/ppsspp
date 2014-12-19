@@ -863,7 +863,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
-		saveGameConfig();
+		saveGameConfig(gameId);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1092,6 +1092,8 @@ bool Config::createGameConfig(const std::string &pGameId)
 	}
 
 	File::CreateEmptyFile(fullIniFilePath);
+	g_Config.saveGameConfig(pGameId);
+
 	return true;
 }
 
@@ -1116,14 +1118,14 @@ std::string Config::getGameConfigFile(const std::string &pGameId)
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig()
+bool Config::saveGameConfig(const std::string &pGameId)
 {
-	if (!bGameSpecific)
+	if (pGameId.empty())
 	{
 		return false;
 	}
 
-	std::string fullIniFilePath = getGameConfigFile(gameId);
+	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
 	IniFile iniFile;
 
