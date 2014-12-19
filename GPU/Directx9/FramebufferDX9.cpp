@@ -853,7 +853,7 @@ namespace DX9 {
 			// We maintain a separate vector of framebuffer objects for blitting.
 			for (size_t i = 0; i < bvfbs_.size(); ++i) {
 				VirtualFramebuffer *v = bvfbs_[i];
-				if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+				if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
 					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 						nvfb = v;
 						v->fb_stride = vfb->fb_stride;
@@ -874,8 +874,8 @@ namespace DX9 {
 				nvfb->z_stride = vfb->z_stride;
 				nvfb->width = vfb->width;
 				nvfb->height = vfb->height;
-				nvfb->renderWidth = vfb->width;
-				nvfb->renderHeight = vfb->height;
+				nvfb->renderWidth = vfb->bufferWidth;
+				nvfb->renderHeight = vfb->bufferHeight;
 				nvfb->bufferWidth = vfb->bufferWidth;
 				nvfb->bufferHeight = vfb->bufferHeight;
 				nvfb->format = vfb->format;

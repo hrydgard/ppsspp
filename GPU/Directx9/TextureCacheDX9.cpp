@@ -1652,7 +1652,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 
-	if (level == 0 && !replaceImages) {
+	if (level == 0 && (!replaceImages || entry.texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
