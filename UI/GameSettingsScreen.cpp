@@ -936,7 +936,7 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 	if (g_Config.bGameSpecific)
 	{
 		screenManager()->push(
-			new PromptScreen(de->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to their defaults?\n"), d->T("OK"), d->T("Cancel"),
+			new PromptScreen(de->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 	}
 	else
