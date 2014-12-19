@@ -713,7 +713,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			(regionY2 - regionY1) * renderHeightFactor,
 			0.f, 1.f);
 	} else {
-		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = getFloat24(gstate.viewportx1);
 		float vpXCenter = getFloat24(gstate.viewportx2);
 		float vpYScale = getFloat24(gstate.viewporty1);
@@ -737,8 +736,6 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
-		
-		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
@@ -748,14 +745,58 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 		gstate_c.vpDepth = zScale * 2;
 
-		// D3D doesn't like viewports partially outside the target. Clamp the viewport for now. Should also adjust
-		// the projection matrix to compensate, really.
-		float left = std::max(0.0f, vpX0 + renderX);
-		float top = std::max(0.0f, vpY0 + renderY);
-		float right = std::min(left + vpWidth, renderWidth);
-		float bottom = std::min(top + vpHeight, renderHeight);
+		// D3D doesn't like viewports partially outside the target, so we
+		// apply the viewport partially in the shader.
+		float left = renderX + vpX0;
+		float top = renderY + vpY0;
+		float right = left + vpWidth;
+		float bottom = top + vpHeight;
+
+		float wScale = 1.0f;
+		float xOffset = 0.0f;
+		float hScale = 1.0f;
+		float yOffset = 0.0f;
+
+		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+		if (left < 0.0f || right > renderWidth) {
+			float overageLeft = std::max(-left, 0.0f);
+			float overageRight = std::max(right - renderWidth, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageRight - overageLeft;
+
+			left += overageLeft;
+			right -= overageRight;
+
+			wScale = vpWidth / (right - left);
+			xOffset = drift / (right - left);
+		}
+
+		if (top < 0.0f || bottom > renderHeight) {
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - renderHeight, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageBottom - overageTop;
+
+			top += overageTop;
+			bottom -= overageBottom;
+
+			hScale = vpHeight / (bottom - top);
+			yOffset = -drift / (bottom - top);
+		}
+
 		depthRangeMin = std::max(0.0f, depthRangeMin);
 		depthRangeMax = std::min(1.0f, depthRangeMax);
+
+		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
+		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
+		if (scaleChanged || offsetChanged)
+		{
+			gstate_c.vpWidthScale = wScale;
+			gstate_c.vpHeightScale = hScale;
+			gstate_c.vpXOffset = xOffset;
+			gstate_c.vpYOffset = yOffset;
+			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		}
 
 		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
 	}

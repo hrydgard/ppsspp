@@ -476,6 +476,11 @@ struct GPUStateCache
 	float vpWidth;
 	float vpHeight;
 	float vpDepth;
+	// Only used by Direct3D, not saved.
+	float vpXOffset;
+	float vpYOffset;
+	float vpWidthScale;
+	float vpHeightScale;
 
 	u32 curRTWidth;
 	u32 curRTHeight;
