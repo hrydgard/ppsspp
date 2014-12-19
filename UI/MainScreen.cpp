@@ -1226,7 +1226,6 @@ void GamePauseScreen::onFinish(DialogResult result) {
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
-	NativeMessageReceived("stop","");
 	return UI::EVENT_DONE;
 }
 
@@ -1272,6 +1271,7 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 	{
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 		g_Config.deleteGameConfig(info->id);
+		g_Config.unloadGameConfig();
 		screenManager()->RecreateAllViews();
 	}
 }
@@ -1281,6 +1281,8 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	g_Config.createGameConfig(gameId);
 	g_Config.changeGameSpecific(gameId);
+	g_Config.saveGameConfig(gameId);
+
 	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
 }

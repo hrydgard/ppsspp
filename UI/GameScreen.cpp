@@ -116,6 +116,8 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
 {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_,0);
 	g_Config.createGameConfig(info->id);
+	g_Config.saveGameConfig(info->id);
+
 	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
 }
