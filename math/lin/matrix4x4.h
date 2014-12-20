@@ -73,6 +73,13 @@ public:
 		wy = trans.y;
 		wz = trans.z;
 	}
+	void setTranslationAndScaling(const Vec3 &trans, const Vec3 &scale) {
+		setScaling(scale);
+		wx = trans.x;
+		wy = trans.y;
+		wz = trans.z;
+	}
+
 	Matrix4x4 inverse() const;
 	Matrix4x4 simpleInverse() const;
 	Matrix4x4 transpose() const;
@@ -141,6 +148,24 @@ public:
 	void toText(char *buffer, int len) const;
 	void print() const;
 	static Matrix4x4 fromPRS(const Vec3 &position, const Quaternion &normal, const Vec3 &scale);
+
+	void translateAndScale(const Vec3 &trans, const Vec3 &scale) {
+		xx = xx * scale.x + xw * trans.x;
+		xy = xy * scale.y + xw * trans.y;
+		xz = xz * scale.z + xw * trans.z;
+
+		yx = yx * scale.x + yw * trans.x;
+		yy = yy * scale.y + yw * trans.y;
+		yz = yz * scale.z + yw * trans.z;
+
+		zx = zx * scale.x + zw * trans.x;
+		zy = zy * scale.y + zw * trans.y;
+		zz = zz * scale.z + zw * trans.z;
+
+		wx = wx * scale.x + ww * trans.x;
+		wy = wy * scale.y + ww * trans.y;
+		wz = wz * scale.z + ww * trans.z;
+	}
 };
 
 #endif	// _MATH_LIN_MATRIX4X4_H
