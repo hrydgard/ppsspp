@@ -1026,7 +1026,7 @@ static int capture_pattern(vorb *f)
 
 static int start_page_no_capturepattern(vorb *f)
 {
-   uint32 loc0,loc1,n,i;
+   uint32 loc0,loc1,n;
    // stream structure version
    if (0 != get8(f)) return error(f, VORBIS_invalid_stream_structure_version);
    // header flag
@@ -1050,6 +1050,7 @@ static int start_page_no_capturepattern(vorb *f)
    // assume we _don't_ know any the sample position of any segments
    f->end_seg_with_known_loc = -2;
    if (loc0 != ~0 || loc1 != ~0) {
+      int i;
       // determine which packet is the last one that will complete
       for (i=f->segment_count-1; i >= 0; --i)
          if (f->segments[i] < 255)
