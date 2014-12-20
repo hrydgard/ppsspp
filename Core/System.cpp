@@ -436,6 +436,7 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
+	g_paramSFO.Clear();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;

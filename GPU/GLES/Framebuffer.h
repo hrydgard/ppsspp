@@ -109,6 +109,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 

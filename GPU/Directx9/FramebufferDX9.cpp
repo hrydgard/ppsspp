@@ -1256,7 +1256,6 @@ namespace DX9 {
 		resized_ = true;
 	}
 
-
 	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 		u32 fb_address = gstate.getFrameBufRawAddress();
 		int fb_stride = gstate.FrameBufStride();
@@ -1272,26 +1271,49 @@ namespace DX9 {
 			return true;
 		}
 
-		LPDIRECT3DSURFACE9 renderTarget = nullptr;
-		HRESULT hr;
-		hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
-		if (!renderTarget || !SUCCEEDED(hr))
-			return false;
+		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? fbo_get_color_for_read(vfb->fbo) : nullptr;
+		bool success = false;
+		if (renderTarget) {
+			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+			if (offscreen) {
+				success = GetRenderTargetFramebuffer(renderTarget, offscreen, vfb->renderWidth, vfb->renderHeight, buffer);
+			}
+		}
 
+		return success;
+	}
+
+	bool FramebufferManagerDX9::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+		fbo_unbind();
+
+		LPDIRECT3DSURFACE9 renderTarget = nullptr;
+		HRESULT hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
+		bool success = false;
+		if (renderTarget && SUCCEEDED(hr)) {
+			D3DSURFACE_DESC desc;
+			renderTarget->GetDesc(&desc);
+
+			LPDIRECT3DSURFACE9 offscreen = nullptr;
+			HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+			if (offscreen && SUCCEEDED(hr)) {
+				success = GetRenderTargetFramebuffer(renderTarget, offscreen, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, buffer);
+				offscreen->Release();
+			}
+			renderTarget->Release();
+		}
+
+		return success;
+	}
+
+	bool FramebufferManagerDX9::GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer) {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
-		if (!offscreen) {
-			renderTarget->Release();
-			return false;
-		}
-
 		bool success = false;
-		hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+		HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
 		if (SUCCEEDED(hr)) {
 			D3DLOCKED_RECT locked;
-			RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
+			RECT rect = {0, 0, w, h};
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
 				// TODO: Handle the other formats?  We don't currently create them, I think.
@@ -1301,8 +1323,6 @@ namespace DX9 {
 				success = true;
 			}
 		}
-
-		renderTarget->Release();
 
 		return success;
 	}

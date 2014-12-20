@@ -78,6 +78,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
+	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);

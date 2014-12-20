@@ -70,6 +70,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
+#include "Common/MemArena.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
@@ -78,7 +79,10 @@
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
-#include "Common/MemArena.h"
+#include "GPU/GLES/GLES_GPU.h"
+#ifdef _WIN32
+#include "GPU/Directx9/GPU_DX9.h"
+#endif
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
@@ -598,11 +602,6 @@ void NativeShutdownGraphics() {
 }
 
 void TakeScreenshot() {
-	if (g_Config.iGPUBackend != GPU_BACKEND_OPENGL) {
-		// Not yet supported
-		return;
-	}
-
 	g_TakeScreenshot = false;
 
 #if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
@@ -628,42 +627,72 @@ void TakeScreenshot() {
 		i++;
 	}
 
-	// Okay, allocate a buffer.
-	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
-
-	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
-
+	GPUDebugBuffer buf;
 	bool success = true;
-#ifdef USING_QT_UI
-	QImage image(buffer, pixel_xres, pixel_yres, QImage::Format_RGB888);
-	image = image.mirrored();
-	success = image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
-#else
-	// Silly openGL reads upside down, we flip to another buffer for simplicity.
-	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
-	for (int y = 0; y < pixel_yres; y++) {
-		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
-	}
-	if (g_Config.bScreenshotsAsPNG) {
-		png_image png;
-		memset(&png, 0, sizeof(png));
-		png.version = PNG_IMAGE_VERSION;
-		png.format = PNG_FORMAT_RGB;
-		png.width = pixel_xres;
-		png.height = pixel_yres;
-		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
-		png_image_free(&png);
 
-		success = png.warning_or_error >= 2;
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		success = GLES_GPU::GetDisplayFramebuffer(buf);
+	} else if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		success = DX9::DIRECTX9_GPU::GetDisplayFramebuffer(buf);
 	} else {
-		jpge::params params;
-		params.m_quality = 90;
-		success = compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		success = false;
 	}
-	delete [] flipbuffer;
-#endif
 
-	delete [] buffer;
+#ifdef USING_QT_UI
+	if (success) {
+		// TODO: Handle other formats (e.g. Direct3D.)  Would only happen on Qt/Windows.
+		const u8 *buffer = buf.GetData();
+		QImage image(buffer, buf.GetStride(), buf.GetHeight(), QImage::Format_RGB888);
+		image = image.mirrored();
+		success = image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
+	}
+#else
+	if (success) {
+		const u8 *buffer = buf.GetData();
+		u8 *flipbuffer = nullptr;
+		if (buf.GetFlipped()) {
+			// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
+			_assert_msg_(G3D, buf.GetFormat() == GPU_DBG_FORMAT_888_RGB, "Expecting RGB for flipped buffer (OpenGL.)");
+			flipbuffer = new u8[3 * buf.GetStride() * buf.GetHeight()];
+			for (u32 y = 0; y < buf.GetHeight(); y++) {
+				memcpy(flipbuffer + y * buf.GetStride() * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, buf.GetStride() * 3);
+			}
+			buffer = flipbuffer;
+		}
+		if (buf.GetFormat() == GPU_DBG_FORMAT_8888_BGRA) {
+			// Yay, we need to swap AND remove alpha.
+			flipbuffer = new u8[3 * buf.GetStride() * buf.GetHeight()];
+			for (u32 y = 0; y < buf.GetHeight(); y++) {
+				for (u32 x = 0; x < buf.GetStride(); x++) {
+					u8 *dst = &flipbuffer[y * buf.GetStride() * 3 + x * 3];
+					const u8 *src = &buffer[y * buf.GetStride() * 4 + x * 4];
+					dst[0] = src[2];
+					dst[1] = src[1];
+					dst[2] = src[0];
+				}
+			}
+			buffer = flipbuffer;
+		}
+
+		if (g_Config.bScreenshotsAsPNG) {
+			png_image png;
+			memset(&png, 0, sizeof(png));
+			png.version = PNG_IMAGE_VERSION;
+			png.format = PNG_FORMAT_RGB;
+			png.width = buf.GetStride();
+			png.height = buf.GetHeight();
+			png_image_write_to_file(&png, filename, 0, flipbuffer, buf.GetStride() * 3, NULL);
+			png_image_free(&png);
+
+			success = png.warning_or_error >= 2;
+		} else {
+			jpge::params params;
+			params.m_quality = 90;
+			success = compress_image_to_jpeg_file(filename, buf.GetStride(), buf.GetHeight(), 3, flipbuffer, params);
+		}
+		delete [] flipbuffer;
+	}
+#endif
 
 	if (success) {
 		osm.Show(filename);
