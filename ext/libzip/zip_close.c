@@ -31,19 +31,23 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef HAVE_STRINGS_H
-#include <strings.h>
-#endif
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "zipint.h"
+
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
 
 static int add_data(struct zip *, struct zip_source *, struct zip_dirent *,
 		    FILE *);
@@ -196,7 +200,7 @@ zip_close(struct zip *za)
 		}
 		else {
 		    de.filename = strdup(za->cdir->entry[i].filename);
-		    de.filename_len = strlen(de.filename);
+		    de.filename_len = (unsigned short)strlen(de.filename);
 		    cd->entry[j].filename = za->cdir->entry[i].filename;
 		    cd->entry[j].filename_len = de.filename_len;
 		}
@@ -230,7 +234,7 @@ zip_close(struct zip *za)
 		error = 1;
 		break;
 	    }
-	    de.filename_len = strlen(de.filename);
+	    de.filename_len = (unsigned short)strlen(de.filename);
 	    cd->entry[j].filename = za->entry[i].ch_filename;
 	    cd->entry[j].filename_len = de.filename_len;
 	}
@@ -517,7 +521,7 @@ add_data_uncomp(struct zip *za, zip_source_callback cb, void *ud,
 	
 	    zstr.next_out = (Bytef *)b2;
 	    zstr.avail_out = sizeof(b2);
-	    st->comp_size += n2;
+	    st->comp_size += (off_t)n2;
 	}
 
 	if (ret == Z_STREAM_END) {
@@ -552,7 +556,7 @@ static int
 copy_data(FILE *fs, off_t len, FILE *ft, struct zip_error *error)
 {
     char buf[BUFSIZE];
-    int n, nn;
+    ssize_t n, nn;
 
     if (len == 0)
 	return 0;
@@ -568,12 +572,12 @@ copy_data(FILE *fs, off_t len, FILE *ft, struct zip_error *error)
 	    return -1;
 	}
 
-	if (fwrite(buf, 1, n, ft) != (size_t)n) {
+	if (fwrite(buf, 1, n, ft) != n) {
 	    _zip_error_set(error, ZIP_ER_WRITE, errno);
 	    return -1;
 	}
 	
-	len -= n;
+	len -= (off_t)n;
     }
 
     return 0;

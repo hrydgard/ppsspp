@@ -31,7 +31,10 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -120,7 +123,7 @@ read_zip(void *state, void *data, size_t len, enum zip_source_cmd cmd)
 {
     struct read_zip *z;
     char b[8192], *buf;
-    int i, n;
+    ssize_t i, n;
 
     z = (struct read_zip *)state;
     buf = (char *)data;

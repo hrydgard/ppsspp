@@ -31,11 +31,15 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include "zipint.h"
 
-
+
 
 ZIP_EXTERN ssize_t
 zip_fread(struct zip_file *zf, void *outbuf, size_t toread)
@@ -75,7 +79,7 @@ zip_fread(struct zip_file *zf, void *outbuf, size_t toread)
     }
     
     zf->zstr->next_out = (Bytef *)outbuf;
-    zf->zstr->avail_out = toread;
+    zf->zstr->avail_out = (uInt)toread;
     out_before = zf->zstr->total_out;
     
     /* endless loop until something has been accomplished */
@@ -99,8 +103,8 @@ zip_fread(struct zip_file *zf, void *outbuf, size_t toread)
 	    len = zf->zstr->total_out - out_before;
 	    if (len >= zf->bytes_left || len >= toread) {
 		if (zf->flags & ZIP_ZF_CRC)
-		    zf->crc = crc32(zf->crc, (Bytef *)outbuf, len);
-		zf->bytes_left -= len;
+		    zf->crc = crc32(zf->crc, (Bytef *)outbuf, (uInt)len);
+		zf->bytes_left -= (unsigned long)len;
 	        return len;
 	    }
 	    break;

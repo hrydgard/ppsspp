@@ -31,7 +31,10 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <errno.h>
 #include <stdio.h>
@@ -40,7 +43,7 @@
 
 #include "zipint.h"
 
-
+
 
 const char *
 _zip_error_strerror(struct zip_error *err)

@@ -31,7 +31,10 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <sys/stat.h>
 #include <errno.h>
@@ -521,7 +524,7 @@ _zip_find_central_dir(FILE *fp, int flags, int *zep, off_t len)
     }
 
     clearerr(fp);
-    buflen = fread(buf, 1, CDBUFSIZE, fp);
+    buflen = (int)fread(buf, 1, CDBUFSIZE, fp);
 
     if (ferror(fp)) {
 	set_error(zep, NULL, ZIP_ER_READ);

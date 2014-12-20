@@ -124,7 +124,7 @@ read_data(void *state, void *data, size_t len, enum zip_source_cmd cmd)
 
 	    zip_stat_init(st);
 	    st->mtime = z->mtime;
-	    st->size = z->end - z->data;
+	    st->size = (off_t)(z->end - z->data);
 	    
 	    return sizeof(*st);
 	}
