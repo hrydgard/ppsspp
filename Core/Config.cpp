@@ -1139,6 +1139,7 @@ bool Config::saveGameConfig()
 	KeyMap::SaveToIni(iniFile);
 	iniFile.Save(fullIniFilePath);
 
+	return true;
 }
 
 bool Config::loadGameConfig(const std::string &pGameId)

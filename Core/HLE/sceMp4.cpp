@@ -82,12 +82,6 @@ static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
 	return 0;
 }
 
-static u32 sceMp4CreatesceMp4GetNumberOfMetaData()
-{
-	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
-	return 0;
-}
-
 static u32 sceMp4Delete()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4Delete()");
@@ -239,7 +233,7 @@ static u32 sceAacInit(u32 id)
 		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
-	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
+	if (aac->startPos > aac->endPos) {
 		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;

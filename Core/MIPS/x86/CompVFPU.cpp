@@ -659,6 +659,9 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 				ADDSS(XMM0, R(XMM1));
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 			}
+			break;
+		default:
+			DISABLE;
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocks();
@@ -3081,6 +3084,8 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 				DPPS(XMM0, M(&oneOneOneOne), 0xF1);
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
+			default:
+				DISABLE;
 			}
 		} else {
 			switch (sz) {
@@ -3109,6 +3114,8 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 				ADDPS(XMM0, R(XMM1));
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
+			default:
+				DISABLE;
 			}
 		}
 		if (((op >> 16) & 31) == 7) { // vavg
