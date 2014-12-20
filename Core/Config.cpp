@@ -863,7 +863,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
-		saveGameConfig();
+		saveGameConfig(gameId);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1060,10 +1060,18 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 }
 
 void Config::RestoreDefaults() {
-	if(File::Exists(iniFilename_))
-		File::Delete(iniFilename_);
-	recentIsos.clear();
-	currentDirectory = "";
+	if (bGameSpecific)
+	{
+		deleteGameConfig(gameId);
+		createGameConfig(gameId);
+	}
+	else
+	{
+		if (File::Exists(iniFilename_))
+			File::Delete(iniFilename_);
+		recentIsos.clear();
+		currentDirectory = "";
+	}
 	Load();
 }
 
@@ -1092,6 +1100,7 @@ bool Config::createGameConfig(const std::string &pGameId)
 	}
 
 	File::CreateEmptyFile(fullIniFilePath);
+
 	return true;
 }
 
@@ -1099,11 +1108,6 @@ bool Config::deleteGameConfig(const std::string& pGameId)
 {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
-	if (pGameId == gameId)
-	{
-		unloadGameConfig();
-		Load(iniFilename_.c_str(),controllerIniFilename_.c_str());
-	}
 	File::Delete(fullIniFilePath);
 	return true;
 }
@@ -1116,14 +1120,14 @@ std::string Config::getGameConfigFile(const std::string &pGameId)
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig()
+bool Config::saveGameConfig(const std::string &pGameId)
 {
-	if (!bGameSpecific)
+	if (pGameId.empty())
 	{
 		return false;
 	}
 
-	std::string fullIniFilePath = getGameConfigFile(gameId);
+	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
 	IniFile iniFile;
 
@@ -1149,7 +1153,6 @@ bool Config::loadGameConfig(const std::string &pGameId)
 	if (!hasGameConfig(pGameId))
 	{
 		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
-		// NO game specific config file found
 		return false;
 	}
 

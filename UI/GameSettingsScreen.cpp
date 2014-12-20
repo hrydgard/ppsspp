@@ -933,9 +933,18 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	I18NCategory *de = GetI18NCategory("Developer");
 	I18NCategory *d = GetI18NCategory("Dialog");
-	screenManager()->push(
-		new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
-	std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	if (g_Config.bGameSpecific)
+	{
+		screenManager()->push(
+			new PromptScreen(de->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	}
+	else
+	{
+		screenManager()->push(
+			new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	}
 
 	return UI::EVENT_DONE;
 }

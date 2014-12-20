@@ -353,7 +353,7 @@ public:
 	bool createGameConfig(const std::string &game_id);
 	bool deleteGameConfig(const std::string& pGameId);
 	bool loadGameConfig(const std::string &game_id);
-	bool saveGameConfig();
+	bool saveGameConfig(const std::string &pGameId);
 	void unloadGameConfig();
 	std::string getGameConfigFile(const std::string &gameId);
 	bool hasGameConfig(const std::string &game_id);
