@@ -2129,6 +2129,10 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	return success;
 }
 
+bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	return FramebufferManagerDX9::GetDisplayFramebuffer(buffer);
+}
+
 bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }

@@ -57,6 +57,9 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_8BIT = 0x12,
 	GPU_DBG_FORMAT_24BIT_8X = 0x13,
 	GPU_DBG_FORMAT_24X_8BIT = 0x14,
+
+	// This is used for screenshots, mainly.
+	GPU_DBG_FORMAT_888_RGB = 0x20,
 };
 
 inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
@@ -147,6 +150,10 @@ struct GPUDebugBuffer {
 		case GPU_DBG_FORMAT_24BIT_8X:
 		case GPU_DBG_FORMAT_24X_8BIT:
 			pixelSize = 4;
+			break;
+
+		case GPU_DBG_FORMAT_888_RGB:
+			pixelSize = 3;
 			break;
 
 		case GPU_DBG_FORMAT_8BIT:

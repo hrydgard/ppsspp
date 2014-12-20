@@ -2226,6 +2226,10 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 #endif
 }
 
+bool GLES_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	return FramebufferManager::GetDisplayFramebuffer(buffer);
+}
+
 bool GLES_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
