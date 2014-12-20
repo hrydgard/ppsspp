@@ -82,12 +82,6 @@ static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
 	return 0;
 }
 
-static u32 sceMp4CreatesceMp4GetNumberOfMetaData()
-{
-	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
-	return 0;
-}
-
 static u32 sceMp4Delete()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4Delete()");
