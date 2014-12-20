@@ -752,6 +752,8 @@ void Thin3DGLVertexFormat::Apply() {
 		case UNORM8x4:
 			glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(intptr_t)components_[i].offset);
 			break;
+		case INVALID:
+			ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
 		}
 	}
 }
