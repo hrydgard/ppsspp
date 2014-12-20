@@ -223,27 +223,17 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
-	Matrix4x4 s;
-	Matrix4x4 t;
-
-	s.setScaling(Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
 	float yoff = 0.5f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
-	t.setTranslation(Vec3(xoff, yoff, 0.5f));
-	in = in * s * t;
+	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 }
 
 static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
-	Matrix4x4 s;
-	Matrix4x4 t;
-
-	s.setScaling(Vec3(1.0f, 1.0f, 0.5f));
 	float xoff = -0.5f / gstate_c.curRTRenderWidth;
 	float yoff = -0.5f / gstate_c.curRTRenderHeight;
-	t.setTranslation(Vec3(xoff, yoff, 0.5f));
-	in = in * s * t;
+	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
 void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {

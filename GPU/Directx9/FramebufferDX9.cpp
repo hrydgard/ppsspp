@@ -295,20 +295,6 @@ namespace DX9 {
 		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
 	}
 
-	// Depth in ogl is between -1;1 we need between 0;1
-	static void ConvertMatrices(Matrix4x4 & in) {
-		/*
-		in.zz *= 0.5f;
-		in.wz += 1.f;
-		*/
-		Matrix4x4 s;
-		Matrix4x4 t;
-		s.setScaling(Vec3(1, 1, 0.5f));
-		t.setTranslation(Vec3(0, 0, 0.5f));
-		in = in * s;
-		in = in * t;
-	}
-
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1) {
 		if (flip) {
 			std::swap(v0, v1);
