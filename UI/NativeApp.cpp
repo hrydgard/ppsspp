@@ -80,7 +80,9 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
 #include "GPU/GLES/GLES_GPU.h"
+#ifdef _WIN32
 #include "GPU/Directx9/GPU_DX9.h"
+#endif
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
