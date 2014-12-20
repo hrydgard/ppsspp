@@ -692,6 +692,7 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, 
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
 
 	vbuf->Bind();
+	ibuf->Bind();
 	fmt->Apply();
 	pipe->Apply();
 	
