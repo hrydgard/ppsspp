@@ -1317,6 +1317,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Reporting.h
 	Core/SaveState.cpp
 	Core/SaveState.h
+	Core/Screenshot.cpp
+	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/GameManager.cpp
