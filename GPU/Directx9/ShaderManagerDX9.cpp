@@ -225,14 +225,14 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = 0.5f / gstate_c.curRTRenderHeight;
+	float yoff = -0.5f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 }
 
 static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	float xoff = -0.5f / gstate_c.curRTRenderWidth;
-	float yoff = -0.5f / gstate_c.curRTRenderHeight;
+	float yoff = 0.5f / gstate_c.curRTRenderHeight;
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
