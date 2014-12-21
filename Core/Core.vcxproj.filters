@@ -529,6 +529,7 @@
     <ClCompile Include="HLE\sceSha256.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="Screenshot.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -999,6 +1000,7 @@
     <ClInclude Include="HLE\sceSha256.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="Screenshot.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

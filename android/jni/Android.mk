@@ -199,6 +199,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/Reporting.cpp \
   $(SRC)/Core/SaveState.cpp \
+  $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
