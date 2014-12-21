@@ -327,7 +327,18 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
-			Save(fn + ".tmp", callback, cbUserData);
+			auto renameCallback = [=](bool status, void *data) {
+				if (status) {
+					if (File::Exists(fn)) {
+						File::Delete(fn);
+					}
+					File::Rename(fn + ".tmp", fn);
+				}
+				if (callback) {
+					callback(status, data);
+				}
+			};
+			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
