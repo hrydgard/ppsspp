@@ -29,6 +29,7 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include "GPU/GLES/VertexShaderGenerator.h"
+#include "GPU/GLES/ShaderManager.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
@@ -47,11 +48,11 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-// prim so we can special case for RECTANGLES :(
-void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useHWTransform) {
+void ComputeVertexShaderID(ShaderID *id, u32 vertType, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
+	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -60,7 +61,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	int id0 = 0;
-	int id1 = 1;
+	int id1 = 0;
 
 	id0 = lmode & 1;
 	id0 |= (gstate.isModeThrough() & 1) << 1;
@@ -115,6 +116,7 @@ void ComputeVertexShaderID(VertexShaderID *id, u32 vertType, int prim, bool useH
 			id1 |= (hasTexcoord & 1) << 28;
 		}
 	}
+	id1 |= (doFlatShading & 1) << 29;
 
 	id->d[0] = id0;
 	id->d[1] = id1;
@@ -161,6 +163,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	const char *attribute = "attribute";
 	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	bool highpFog = false;
+	bool highpTexcoord = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
@@ -175,7 +178,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
+	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+	highpTexcoord = highpFog;
+
 #elif !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glslES30 = true;
@@ -209,10 +214,11 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
+	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && useHWTransform;
@@ -221,6 +227,10 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;  // This also means that we are texturing from a render target
 	bool flipNormal = gstate.areNormalsReversed();
+
+	const char *shading = "";
+	if (glslES30)
+		shading = doFlatShading ? "flat" : "";
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
@@ -326,15 +336,15 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
-	WRITE(p, "%s lowp vec4 v_color0;\n", varying);
+	WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, varying);
 	if (lmode) {
-		WRITE(p, "%s lowp vec3 v_color1;\n", varying);
+		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, varying);
 	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 		else
-			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec2 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 
@@ -521,14 +531,15 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			bool doSpecular = gstate.isUsingSpecularLight(i);
 			bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(i);
 
+			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
 			if (poweredDiffuse) {
-				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
-				// Ugly NaN check.  pow(0.0, 0.0) may be undefined, but PSP seems to treat it as 1.0.
+				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (!(dot%i < 1.0) && !(dot%i > 0.0))\n", i, i);
+				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
-			} else {
-				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "  }\n");
 			}
 
 			const char *timesLightScale = " * lightScale";
@@ -555,7 +566,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * dot%i;\n", i, diffuseStr, i);
 			if (doSpecular) {
 				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);

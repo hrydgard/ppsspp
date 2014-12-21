@@ -44,6 +44,7 @@
 #include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/ReportScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -305,6 +306,10 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
+	if (!ginfo->id.empty() && g_Config.hasGameConfig(ginfo->id))
+	{
+		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+	}
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
@@ -438,7 +443,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef ANDROID
-	path_.SetPath(g_Config.memCardDirectory);
+	path_.SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI)
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
@@ -549,7 +554,7 @@ void GameBrowser::Refresh() {
 		// to a flood of support email...
 		if (allowBrowsing_) {
 			fileInfo.clear();
-			path_.GetListing(fileInfo, "zip:rar:r01:");
+			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
 				UI::LinearLayout *zl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				zl->SetSpacing(4.0f);
@@ -1172,9 +1177,26 @@ void GamePauseScreen::CreateViews() {
 	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	if (g_Config.hasGameConfig(gameId))
+	{
+		rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(i->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+	}
+	else{
+		rightColumnItems->Add(new Choice(i->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(i->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+	}
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+	}
+
+	// TODO, also might be nice to show overall compat rating here?
+	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
+	if (Reporting::IsEnabled()) {
+		I18NCategory *rp = GetI18NCategory("Reporting");
+		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
@@ -1207,22 +1229,27 @@ UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
+	screenManager()->push(new ReportScreen(gamePath_));
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GamePauseScreen::OnLoadState(UI::EventParams &e) {
-	SaveState::LoadSlot(saveSlots_->GetSelection(), 0, 0);
+	SaveState::LoadSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
-	SaveState::SaveSlot(saveSlots_->GetSelection(), 0, 0);
+	SaveState::SaveSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
-	SaveState::Rewind(0, 0);
+	SaveState::Rewind(SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
@@ -1237,6 +1264,39 @@ UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
 	screenManager()->push(new UmdReplaceScreen());
 	return UI::EVENT_DONE;
 }
+
+void GamePauseScreen::CallbackDeleteConfig(bool yes)
+{
+	if (yes)
+	{
+		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+		g_Config.deleteGameConfig(info->id);
+		g_Config.unloadGameConfig();
+		screenManager()->RecreateAllViews();
+	}
+}
+
+UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
+{
+	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.createGameConfig(gameId);
+	g_Config.changeGameSpecific(gameId);
+	g_Config.saveGameConfig(gameId);
+
+	screenManager()->topScreen()->RecreateViews();
+	return UI::EVENT_DONE;
+}
+UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *ga = GetI18NCategory("Game");
+	screenManager()->push(
+		new PromptScreen(d->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, placeholder::_1)));
+
+	return UI::EVENT_DONE;
+}
+
 
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
 	// Since the language message isn't allowed to be in native, we have to have add this

@@ -96,7 +96,8 @@ void AsyncIOManager::Read(u32 handle, u8 *buf, size_t bytes) {
 }
 
 void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
-	size_t result = pspFileSystem.WriteFile(handle, buf, bytes);
+	// We want to sign extend this on 32-bit.
+	AsyncIOResult result = (ssize_t)pspFileSystem.WriteFile(handle, buf, bytes);
 	EventResult(handle, result);
 }
 

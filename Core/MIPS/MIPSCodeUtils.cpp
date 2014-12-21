@@ -146,4 +146,6 @@ namespace MIPSCodeUtils
 	bool IsBranch(MIPSOpcode op) {
 		return (MIPSGetInfo(op) & IS_CONDBRANCH) == IS_CONDBRANCH;
 	}
+
+
 }

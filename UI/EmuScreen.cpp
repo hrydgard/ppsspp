@@ -44,8 +44,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/SaveState.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
@@ -79,6 +79,13 @@ void EmuScreen::bootGame(const std::string &filename) {
 			bootComplete();
 		}
 		return;
+	}
+
+	//pre-emptive loading of game specific config if possible, to get all the settings
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, filename, 0);
+	if (info && !info->id.empty())
+	{
+		g_Config.loadGameConfig(info->id);
 	}
 
 	invalid_ = true;
@@ -222,9 +229,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
 	} else if (!strcmp(message, "clear jit")) {
-		if (MIPSComp::jit) {
-			MIPSComp::jit->ClearCache();
-		}
+		currentMIPS->ClearJitCache();
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 		}
@@ -290,6 +295,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		pauseTrigger_ = true;
 		break;
 
+	case VIRTKEY_AXIS_SWAP:
+		KeyMap::SwapAxis();
+		break;
+
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
 		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
@@ -323,11 +332,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(g_Config.iCurrentStateSlot, 0);
+		SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
-			SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0);
+			SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
@@ -721,6 +730,7 @@ void EmuScreen::render() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
 
 	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
@@ -790,7 +800,7 @@ void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot();
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(lastSlot, 0, 0);
+		SaveState::LoadSlot(lastSlot, SaveState::Callback(), 0);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }

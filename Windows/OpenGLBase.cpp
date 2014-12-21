@@ -162,7 +162,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 		}
 
 		// Avoid further error messages. Let's just bail, it's safe, and we can't continue.
-		ExitProcess(0);
+		ExitProcess(1);
 	}
 
 	if (GLEW_OK != glewInit()) {

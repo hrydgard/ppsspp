@@ -26,8 +26,26 @@ class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 
-enum MIPSGPReg
-{
+// Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
+// opcode to represent JIT blocks and other emu hacks.
+// I've chosen 0x68000000.
+#define MIPS_EMUHACK_OPCODE 0x68000000
+#define MIPS_EMUHACK_MASK 0xFC000000
+#define MIPS_JITBLOCK_MASK 0xFF000000
+#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
+
+// There are 2 bits available for sub-opcodes, 0x03000000.
+#define EMUOP_RUNBLOCK 0   // Runs a JIT block
+#define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
+#define EMUOP_CALL_REPLACEMENT 2
+
+#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
+
+#define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
+
+enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
 
@@ -38,9 +56,11 @@ enum MIPSGPReg
 	MIPS_REG_A1=5,
 	MIPS_REG_A2=6,
 	MIPS_REG_A3=7,
-	MIPS_REG_A4=8,	// Seems to be N32 register calling convention - there are 8 args instead of 4.
+	MIPS_REG_A4=8,
 	MIPS_REG_A5=9,
 
+	MIPS_REG_T2=10,
+	MIPS_REG_T3=11,
 	MIPS_REG_T4=12,
 	MIPS_REG_T5=13,
 	MIPS_REG_T6=14,
@@ -63,17 +83,16 @@ enum MIPSGPReg
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	MIPS_REG_INVALID=-1,
-
 	// Not real regs, just for convenience/jit mapping.
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
 	MIPS_REG_FPCOND = 34,
 	MIPS_REG_VFPUCC = 35,
+
+	MIPS_REG_INVALID=-1,
 };
 
-enum
-{
+enum {
 	VFPU_CTRL_SPREFIX,
 	VFPU_CTRL_TPREFIX,
 	VFPU_CTRL_DPREFIX,
@@ -176,9 +195,6 @@ public:
 
 	static const u32 FCR0_VALUE = 0x00003351;
 
-	void WriteFCR(int reg, int value);
-	u32 ReadFCR(int reg);
-
 	u8 VfpuWriteMask() const {
 		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
 	}
@@ -192,6 +208,8 @@ public:
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
 	void InvalidateICache(u32 address, int length = 4);
+
+	void ClearJitCache();
 };
 
 

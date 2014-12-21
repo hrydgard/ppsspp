@@ -82,7 +82,7 @@ void __SasShutdown() {
 }
 
 
-u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
+static u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
 	if (!Memory::IsValidAddress(core) || (core & 0x3F) != 0) {
 		ERROR_LOG_REPORT(SCESAS, "sceSasInit(%08x, %i, %i, %i, %i): bad core address", core, grainSize, maxVoices, outputMode, sampleRate);
 		return ERROR_SAS_BAD_ADDRESS;
@@ -117,7 +117,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	return 0;
 }
 
-u32 sceSasGetEndFlag(u32 core) {
+static u32 sceSasGetEndFlag(u32 core) {
 	u32 endFlag = 0;
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (!sas->voices[i].playing)
@@ -129,7 +129,7 @@ u32 sceSasGetEndFlag(u32 core) {
 }
 
 // Runs the mixer
-u32 _sceSasCore(u32 core, u32 outAddr) {
+static u32 _sceSasCore(u32 core, u32 outAddr) {
 	if (!Memory::IsValidAddress(outAddr)) {
 		ERROR_LOG_REPORT(SCESAS, "sceSasCore(%08x, %08x): invalid address", core, outAddr);
 		return ERROR_SAS_INVALID_PARAMETER;
@@ -143,7 +143,7 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
-u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
+static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
 	if (!Memory::IsValidAddress(inoutAddr)) {
 		ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i): invalid address", core, inoutAddr, leftVolume, rightVolume);
 		return ERROR_SAS_INVALID_PARAMETER;
@@ -160,7 +160,7 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 	return hleDelayResult(0, "sas core", 240);
 }
 
-u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
+static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -207,7 +207,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	return 0;
 }
 
-u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos)
+static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos)
 {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
@@ -241,7 +241,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos
 	return 0;
 }
 
-u32 sceSasGetPauseFlag(u32 core) {
+static u32 sceSasGetPauseFlag(u32 core) {
 	u32 pauseFlag = 0;
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (sas->voices[i].paused)
@@ -252,7 +252,7 @@ u32 sceSasGetPauseFlag(u32 core) {
 	return pauseFlag;
 }
 
-u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
+static u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
 	DEBUG_LOG(SCESAS, "sceSasSetPause(%08x, %08x, %i)", core, voicebit, pause);
 
 	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
@@ -265,7 +265,7 @@ u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
 	return 0;
 }
 
-u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effectLeftVol, int effectRightVol) {
+static u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effectLeftVol, int effectRightVol) {
 	DEBUG_LOG(SCESAS, "sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, voiceNum, leftVol, rightVol, effectLeftVol, effectRightVol);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
@@ -285,7 +285,7 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 	return 0;
 }
 
-u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
+static u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -302,7 +302,7 @@ u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
 	return 0;
 }
 
-u32 sceSasSetKeyOn(u32 core, int voiceNum) {
+static u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 	DEBUG_LOG(SCESAS, "sceSasSetKeyOn(%08x, %i)", core, voiceNum);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
@@ -320,7 +320,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 }
 
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
-u32 sceSasSetKeyOff(u32 core, int voiceNum) {
+static u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -337,7 +337,7 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	}
 }
 
-u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
+static u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -356,7 +356,7 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
 	return 0;
 }
 
-u32 sceSasSetSL(u32 core, int voiceNum, int level) {
+static u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -368,7 +368,7 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	return 0;
 }
 
-u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
+static u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -390,7 +390,7 @@ u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, int r) 
 	return 0;
 }
 
-u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
+static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int r) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -436,7 +436,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int s, int
 }
 
 
-u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
+static u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -454,7 +454,7 @@ u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv2) {
 	return 0;
 }
 
-u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
+static u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		ERROR_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
@@ -466,20 +466,20 @@ u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 	return height;
 }
 
-u32 sceSasRevType(u32 core, int type) {
+static u32 sceSasRevType(u32 core, int type) {
 	DEBUG_LOG(SCESAS, "sceSasRevType(%08x, %i)", core, type);
 	sas->waveformEffect.type = type;
 	return 0;
 }
 
-u32 sceSasRevParam(u32 core, int delay, int feedback) {
+static u32 sceSasRevParam(u32 core, int delay, int feedback) {
 	DEBUG_LOG(SCESAS, "sceSasRevParam(%08x, %i, %i)", core, delay, feedback);
 	sas->waveformEffect.delay = delay;
 	sas->waveformEffect.feedback = feedback;
 	return 0;
 }
 
-u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
+static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 	if (lv > 0x1000 || rv > 0x1000) {
 		WARN_LOG_REPORT(SCESAS, "sceSasRevEVOL(%08x, %i, %i): invalid volume", core, lv, rv);
 		return ERROR_SAS_REV_INVALID_VOLUME;
@@ -490,30 +490,30 @@ u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 	return 0;
 }
 
-u32 sceSasRevVON(u32 core, int dry, int wet) {
+static u32 sceSasRevVON(u32 core, int dry, int wet) {
 	DEBUG_LOG(SCESAS, "sceSasRevVON(%08x, %i, %i)", core, dry, wet);
 	sas->waveformEffect.isDryOn = dry != 0;
 	sas->waveformEffect.isWetOn = wet != 0;
 	return 0;
 }
 
-u32 sceSasGetGrain(u32 core) {
+static u32 sceSasGetGrain(u32 core) {
 	DEBUG_LOG(SCESAS, "sceSasGetGrain(%08x)", core);
 	return sas->GetGrainSize();
 }
 
-u32 sceSasSetGrain(u32 core, int grain) {
+static u32 sceSasSetGrain(u32 core, int grain) {
 	INFO_LOG(SCESAS, "sceSasSetGrain(%08x, %i)", core, grain);
 	sas->SetGrainSize(grain);
 	return 0;
 }
 
-u32 sceSasGetOutputMode(u32 core) {
+static u32 sceSasGetOutputMode(u32 core) {
 	DEBUG_LOG(SCESAS, "sceSasGetOutputMode(%08x)", core);
 	return sas->outputMode;
 }
 
-u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
+static u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
 	if (outputMode != 0 && outputMode != 1) {
 		ERROR_LOG_REPORT(SCESAS, "sceSasSetOutputMode(%08x, %i): bad output mode", core, outputMode);
 		return ERROR_SAS_INVALID_OUTPUT_MODE;
@@ -524,7 +524,7 @@ u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
 	return 0;
 }
 
-u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
+static u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 	DEBUG_LOG(SCESAS, "sceSasGetAllEnvelopeHeights(%08x, %i)", core, heightsAddr);
 
 	if (!Memory::IsValidAddress(heightsAddr)) {
@@ -539,17 +539,17 @@ u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 	return 0;
 }
 
-u32 sceSasSetTriangularWave(u32 sasCore, int voice, int unknown) {
+static u32 sceSasSetTriangularWave(u32 sasCore, int voice, int unknown) {
 	ERROR_LOG_REPORT(SCESAS, "UNIMPL sceSasSetTriangularWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
-u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown) {
+static u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown) {
 	ERROR_LOG_REPORT(SCESAS, "UNIMPL sceSasSetSteepWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
-u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
+static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasSetVoiceATRAC3(%08x, %i, %08x)", core, voiceNum, atrac3Context);
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_ATRAC3;
@@ -560,15 +560,15 @@ u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 	return 0;
 }
 
-u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int atrac3DataLength) {
+static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int atrac3DataLength) {
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
-		v.atrac3.addStreamData(Memory::GetPointer(atrac3DataAddr), atrac3DataLength);
+		v.atrac3.addStreamData(atrac3DataAddr, atrac3DataLength);
 	return 0;
 }
 
-u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
+static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasUnsetATRAC3(%08x, %i)", core, voiceNum);
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
 	return 0;

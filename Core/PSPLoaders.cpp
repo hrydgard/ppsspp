@@ -32,6 +32,7 @@
 #include "FileSystems/MetaFileSystem.h"
 #include "FileSystems/VirtualDiscFileSystem.h"
 
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 
@@ -53,24 +54,32 @@
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
-void InitMemoryForGameISO(std::string fileToStart) {
+void InitMemoryForGameISO(FileLoader *fileLoader) {
 	IFileSystem* umd2;
 
-	// check if it's a disc directory
-	FileInfo info;
-	if (!getFileInfo(fileToStart.c_str(), &info)) return;
+	if (!fileLoader->Exists()) {
+		return;
+	}
 
 	bool actualIso = false;
-	if (info.isDirectory)
+	if (fileLoader->IsDirectory())
 	{
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
 	}
 	else 
 	{
-		auto bd = constructBlockDevice(fileToStart.c_str());
+		auto bd = constructBlockDevice(fileLoader);
 		// Can't init anything without a block device...
 		if (!bd)
 			return;
+
+#ifdef _M_X64
+		if (g_Config.bCacheFullIsoInRam) {
+			// The constructor destroys the original block device object after reading it.
+			bd = new RAMBlockDevice(bd);
+		}
+#endif
+
 		umd2 = new ISOFileSystem(&pspFileSystem, bd);
 		actualIso = true;
 	}
@@ -142,7 +151,7 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
 };
 
-bool Load_PSP_ISO(const char *filename, std::string *error_string)
+bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 {
 	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
@@ -196,7 +205,8 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		// try unencrypted BOOT.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
-
+	//in case we didn't go through EmuScreen::boot
+	g_Config.loadGameConfig(id);
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
@@ -215,12 +225,12 @@ static std::string NormalizePath(const std::string &path)
 	return buf;
 }
 
-bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 {
 	// This is really just for headless, might need tweaking later.
-	if (!PSP_CoreParameter().mountIso.empty())
+	if (PSP_CoreParameter().mountIsoLoader != nullptr)
 	{
-		auto bd = constructBlockDevice(PSP_CoreParameter().mountIso.c_str());
+		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
 			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
 
@@ -230,7 +240,7 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 		}
 	}
 
-	std::string full_path = filename;
+	std::string full_path = fileLoader->Path();
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
 #ifdef _WIN32

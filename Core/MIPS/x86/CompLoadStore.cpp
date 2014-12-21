@@ -42,8 +42,9 @@
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
+	using namespace Gen;
+
 	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
@@ -73,7 +74,8 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		gpr.MapReg(rt, true, false);
+		if (rt != MIPS_REG_ZERO)
+			gpr.MapReg(rt, true, false);
 
 #ifdef _M_IX86
 		// We use EDX so we can have DL for 8-bit ops.
@@ -93,8 +95,17 @@ namespace MIPSComp
 				MOV(32, R(EDX), gpr.R(rt));
 				MOV(bits, dest, R(EDX));
 			}
-			else
-				MOV(bits, dest, gpr.R(rt));
+			else {
+				if (rt == MIPS_REG_ZERO) {
+					switch (bits) {
+					case 8: MOV(8, dest, Imm8(0)); break;
+					case 16: MOV(16, dest, Imm16(0)); break;
+					case 32: MOV(32, dest, Imm32(0)); break;
+					}
+				} else {
+					MOV(bits, dest, gpr.R(rt));
+				}
+			}
 		}
 		if (safe.PrepareSlowWrite())
 			safe.DoSlowWrite(safeFunc, gpr.R(rt));
@@ -121,7 +132,7 @@ namespace MIPSComp
 		shiftReg = R9;
 #endif
 
-		gpr.Lock(rt);
+		gpr.Lock(rt, rs);
 		gpr.MapReg(rt, true, !isStore);
 
 		// Grab the offset from alignment for shifting (<< 3 for bytes -> bits.)

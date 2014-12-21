@@ -266,7 +266,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
 		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i);
+			reader.Goto(i - lowerBound);
 			SimpleVertex &sv = sverts[i];
 			if (vertType & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(sv.uv);
@@ -313,7 +313,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 		}
 	} else {
 		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i);
+			reader.Goto(i - lowerBound);
 			SimpleVertex &sv = sverts[i];
 			if (vertType & GE_VTYPE_TC_MASK) {
 				reader.ReadUV(sv.uv);

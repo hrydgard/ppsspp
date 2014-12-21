@@ -20,11 +20,12 @@
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDeflt.h"
 #include "Core/MemMap.h"
 
 // All the decompress functions are identical with only differing window bits. Possibly should be one function
 
-int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
+static int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	DEBUG_LOG(HLE, "sceGzipDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 	int err;
 	uLong crc;
@@ -70,7 +71,7 @@ int sceDeflateDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 C
 }
 
 
-int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
+static int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	DEBUG_LOG(HLE, "sceGzipDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 	int err;
 	uLong crc;
@@ -115,7 +116,7 @@ int sceGzipDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc3
 	return stream.total_out;
 }
 
-int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
+static int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
 	DEBUG_LOG(HLE, "sceZlibDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 	int err;
 	uLong crc;

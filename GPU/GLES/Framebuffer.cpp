@@ -920,13 +920,18 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	return fbo;
 }
 
-void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
+void FramebufferManager::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
 	}
 
+	if (stage != GL_TEXTURE0) {
+		glActiveTexture(stage);
+	}
+
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE0);
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 		return;
 	}
@@ -951,6 +956,10 @@ void FramebufferManager::BindFramebufferColor(VirtualFramebuffer *framebuffer, b
 		}
 	} else {
 		fbo_bind_color_as_texture(framebuffer->fbo, 0);
+	}
+
+	if (stage != GL_TEXTURE1) {
+		glActiveTexture(stage);
 	}
 }
 
@@ -1829,6 +1838,14 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
+	return true;
+}
+
+bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	fbo_unbind_read();
+	buffer.Allocate(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GPU_DBG_FORMAT_888_RGB, true);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 

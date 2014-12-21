@@ -58,10 +58,10 @@ contains(QT_CONFIG, opengles.) {
 	DEFINES += USING_GLES2
 	# How else do we know if the environment prefers windows?
 	!equals(PLATFORM_NAME, "linux")|android|maemo {
-		DEFINES += MOBILE_DEVICE
 		CONFIG += mobile_platform
 	}
 }
+mobile_platform: DEFINES += MOBILE_DEVICE
 
 # Handle flags for both C and C++
 QMAKE_CFLAGS += $$QMAKE_ALLFLAGS

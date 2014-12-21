@@ -218,7 +218,7 @@ int PSPMsgDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if ((flag & DS_ERROR)) {
+	if (flag & (DS_ERROR | DS_ABORT)) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
@@ -290,7 +290,8 @@ int PSPMsgDialog::Abort() {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	} else {
-		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		// Status is not actually changed until Update().
+		flag |= DS_ABORT;
 		return 0;
 	}
 }

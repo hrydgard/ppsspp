@@ -126,7 +126,7 @@ public:
 	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
 	int setContext(u32 context);
 	int getNextSamples(s16* outbuf, int wantedSamples);
-	int addStreamData(u8* buf, u32 addbytes);
+	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
 
 private:
@@ -222,7 +222,7 @@ struct SasVoice {
 	void DoState(PointerWrap &p);
 
 	void ReadSamples(s16 *output, int numSamples);
-	bool HaveSamplesEnded();
+	bool HaveSamplesEnded() const;
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.

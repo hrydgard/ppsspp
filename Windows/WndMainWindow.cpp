@@ -49,7 +49,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Windows/EmuThread.h"
@@ -1187,7 +1187,7 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_MEMSTICK:
-					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memCardDirectory).c_str(), 0, 0, SW_SHOW);
+					ShellExecute(NULL, L"open", ConvertUTF8ToWString(g_Config.memStickDirectory).c_str(), 0, 0, SW_SHOW);
 					break;
 
 				case ID_TOGGLE_PAUSE:

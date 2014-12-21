@@ -43,6 +43,8 @@ public:
 
 	int GetDataOffset(const u8 *paramsfo, std::string dataName);
 
+	void Clear();
+
 private:
 	enum ValueType
 	{

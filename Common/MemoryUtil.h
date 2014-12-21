@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _MEMORYUTIL_H
-#define _MEMORYUTIL_H
+#pragma once
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -27,7 +26,7 @@
 using std::size_t;
 #endif
 
-void* AllocateExecutableMemory(size_t size, bool low = true);
+void* AllocateExecutableMemory(size_t size, bool exec = true);
 void* AllocateMemoryPages(size_t size);
 void FreeMemoryPages(void* ptr, size_t size);
 void* AllocateAlignedMemory(size_t size,size_t alignment);
@@ -75,7 +74,7 @@ public:
 		return buf_;
 	}
 
-	size_t size() {
+	size_t size() const {
 		return size_;
 	}
 
@@ -83,5 +82,3 @@ private:
 	T *buf_;
 	size_t size_;
 };
-
-#endif

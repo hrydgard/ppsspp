@@ -34,7 +34,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 
 typedef int (* ReplaceFunc)();
 

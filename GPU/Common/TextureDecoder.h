@@ -32,7 +32,16 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #define DoUnswizzleTex16 DoUnswizzleTex16Basic
 
 #include "ext/xxhash.h"
+#define DoReliableHash32 XXH32
+#define DoReliableHash64 XXH64
+
+#ifdef _M_X64
+#define DoReliableHash XXH64
+typedef u64 ReliableHashType;
+#else
 #define DoReliableHash XXH32
+typedef u32 ReliableHashType;
+#endif
 #else
 typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
 extern QuickTexHashFunc DoQuickTexHash;
@@ -40,8 +49,14 @@ extern QuickTexHashFunc DoQuickTexHash;
 typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
 extern UnswizzleTex16Func DoUnswizzleTex16;
 
-typedef u32 (*ReliableHashFunc)(const void *input, int len, u32 seed);
-extern ReliableHashFunc DoReliableHash;
+typedef u32 (*ReliableHash32Func)(const void *input, size_t len, u32 seed);
+extern ReliableHash32Func DoReliableHash32;
+
+typedef u64 (*ReliableHash64Func)(const void *input, size_t len, u64 seed);
+extern ReliableHash64Func DoReliableHash64;
+
+#define DoReliableHash DoReliableHash32
+typedef u32 ReliableHashType;
 #endif
 
 // All these DXT structs are in the reverse order, as compared to PC.

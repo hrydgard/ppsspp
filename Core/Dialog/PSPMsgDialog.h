@@ -60,10 +60,10 @@ public:
 	virtual ~PSPMsgDialog();
 
 	virtual int Init(unsigned int paramAddr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 	int Abort();
 
@@ -85,7 +85,8 @@ private :
 		DS_VALIDBUTTON  = 0x20,
 		DS_CANCELBUTTON = 0x40,
 		DS_NOSOUND      = 0x80,
-		DS_ERROR        = 0x100
+		DS_ERROR        = 0x100,
+		DS_ABORT        = 0x200,
 	};
 
 	u32 flag;

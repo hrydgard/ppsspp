@@ -26,6 +26,8 @@
 
 #include "Common/CommonTypes.h"
 
+#include "ext/armips/Core/Assembler.h"
+
 enum SymbolType {
 	ST_NONE     = 0,
 	ST_FUNCTION = 1,
@@ -82,6 +84,7 @@ public:
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType) const;
 #endif
+	void GetLabels(std::vector<LabelDefinition> &dest) const;
 
 	void AddModule(const char *name, u32 address, u32 size);
 	void UnloadModule(u32 address, u32 size);

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
@@ -28,20 +29,20 @@
 #if defined(ARM)
 #include "Common/ArmEmitter.h"
 namespace ArmGen { class ARMXEmitter; }
-using namespace ArmGen;
-typedef ArmGen::ARMXCodeBlock CodeBlock;
+typedef ArmGen::ARMXCodeBlock NativeCodeBlock;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 namespace Gen { class XEmitter; }
-using namespace Gen;
-typedef Gen::XCodeBlock CodeBlock;
-#elif defined(PPC)
-#include "Common/ppcEmitter.h"
-namespace PpcGen { class PPCXEmitter; }
-using namespace PpcGen;
-typedef PpcGen::PPCXCodeBlock CodeBlock;
+typedef Gen::XCodeBlock NativeCodeBlock;
+#elif defined(MIPS)
+#include "Common/MipsEmitter.h"
+namespace MIPSGen { class MIPSEmitter; }
+typedef MIPSGen::MIPSCodeBlock NativeCodeBlock;
 #else
-#error "Unsupported arch!"
+#warning "Unsupported arch!"
+#include "Common/FakeEmitter.h"
+namespace FakeGen { class FakeXEmitter; }
+typedef FakeGen::FakeXCodeBlock NativeCodeBlock;
 #endif
 
 #if defined(ARM)
@@ -95,7 +96,7 @@ typedef void (*CompiledCode)();
 
 class JitBlockCache {
 public:
-	JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock);
+	JitBlockCache(MIPSState *mips_, NativeCodeBlock *codeBlock);
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
@@ -141,20 +142,29 @@ public:
 
 	int GetNumBlocks() const { return num_blocks_; }
 
+	static int GetBlockExitSize();
+
+	enum {
+		MAX_BLOCK_INSTRUCTIONS = 0x4000,
+	};
+
 private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
 
+	void AddBlockMap(int block_num);
+	void RemoveBlockMap(int block_num);
+
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
-	CodeBlock *codeBlock_;
+	NativeCodeBlock *codeBlock_;
 	JitBlock *blocks_;
-	std::vector<int> proxyBlockIndices_;
+	std::unordered_multimap<u32, int> proxyBlockMap_;
 
 	int num_blocks_;
-	std::multimap<u32, int> links_to_;
+	std::unordered_multimap<u32, int> links_to_;
 	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
 
 	enum {

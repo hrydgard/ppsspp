@@ -15,13 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ChunkFile.h"
-#include "FileUtil.h"
-#include "DirectoryFileSystem.h"
-#include "ISOFileSystem.h"
-#include "Core/HLE/sceKernel.h"
+#include <limits>
 #include "file/zip_read.h"
+#include "i18n/i18n.h"
 #include "util/text/utf8.h"
+#include "Common/ChunkFile.h"
+#include "Common/FileUtil.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HW/MemoryStick.h"
+#include "UI/OnScreenDisplay.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -30,6 +34,16 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#if defined(ANDROID)
+#include <sys/types.h>
+#include <sys/vfs.h>
+#define statvfs statfs
+#elif defined(__SYMBIAN32__)
+#include <mw/QSystemStorageInfo>
+QTM_USE_NAMESPACE
+#else
+#include <sys/statvfs.h>
+#endif
 #include <ctype.h>
 #include <fcntl.h>
 #endif
@@ -156,8 +170,10 @@ std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string
 	return basePath + localpath;
 }
 
-bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, FileAccess access)
+bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, FileAccess access, u32 &error)
 {
+	error = 0;
+
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
@@ -200,6 +216,15 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 	//Let's do it!
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = hFile != INVALID_HANDLE_VALUE;
+	if (!success) {
+		DWORD w32err = GetLastError();
+		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
+			// This is returned when the disk is full.
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Disk full while writing data"));
+			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+		}
+	}
 #else
 	int flags = 0;
 	if (access & FILEACCESS_APPEND) {
@@ -248,6 +273,11 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 			errno = EISDIR;
 			success = false;
 		}
+	} else if (errno == ENOSPC) {
+		// This is returned when the disk is full.
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Disk full while writing data"));
+		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 	}
 #endif
 
@@ -279,10 +309,19 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 {
 	size_t bytesWritten = 0;
+	bool diskFull = false;
+
 #ifdef _WIN32
-	::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
+	BOOL success = ::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
+	if (success == FALSE) {
+		DWORD err = GetLastError();
+		diskFull = err == ERROR_DISK_FULL || err == ERROR_NOT_ENOUGH_QUOTA;
+	}
 #else
 	bytesWritten = write(hFile, pointer, size);
+	if (bytesWritten == (size_t)-1) {
+		diskFull = errno == ENOSPC;
+	}
 #endif
 	if (needsTrunc_ != -1) {
 		off_t off = (off_t)Seek(0, FILEMOVE_CURRENT);
@@ -290,6 +329,19 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 			needsTrunc_ = off;
 		}
 	}
+
+	if (diskFull) {
+		// Sign extend on 64-bit.
+		ERROR_LOG(FILESYS, "Disk full");
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Disk full while writing data"));
+		// We only return an error when the disk is actually full.
+		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
+		if (MemoryStick_FreeSpace() == 0) {
+			return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
+		}
+	}
+
 	return bytesWritten;
 }
 
@@ -494,7 +546,8 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
-	bool success = entry.hFile.Open(basePath,filename,access);
+	u32 err = 0;
+	bool success = entry.hFile.Open(basePath, filename, access, err);
 
 	if (!success) {
 #ifdef _WIN32
@@ -503,7 +556,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", errno, (int)access);
 #endif
 		//wwwwaaaaahh!!
-		return 0;
+		return err;
 	} else {
 #ifdef _WIN32
 		if (access & FILEACCESS_APPEND)
@@ -687,7 +740,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	if(dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
+	if (dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
 		localPath = GetLocalPath(path);
 		dp = opendir(localPath.c_str());
@@ -721,6 +774,43 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	return myVector;
 }
 
+u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
+#ifdef _WIN32
+	const std::wstring w32path = ConvertUTF8ToWString(GetLocalPath(path));
+	ULARGE_INTEGER free;
+	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
+		return free.QuadPart;
+#elif defined(__SYMBIAN32__)
+	QSystemStorageInfo storageInfo;
+	return (u64)storageInfo.availableDiskSpace("E");
+#else
+	std::string localPath = GetLocalPath(path);
+	struct statvfs diskstat;
+	int res = statvfs(localPath.c_str(), &diskstat);
+
+#if HOST_IS_CASE_SENSITIVE
+	std::string fixedCase = path;
+	if (res != 0 && FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
+		// May have failed due to case sensitivity, try again.
+		localPath = GetLocalPath(fixedCase);
+		res = statvfs(localPath.c_str(), &diskstat);
+	}
+#endif
+
+	if (res == 0) {
+#ifndef ANDROID
+		if (diskstat.f_flag & ST_RDONLY) {
+			return 0;
+		}
+#endif
+		return (u64)diskstat.f_bavail * (u64)diskstat.f_frsize;
+	}
+#endif
+
+	// Just assume they're swimming in free disk space if we don't know otherwise.
+	return std::numeric_limits<u64>::max();
+}
+
 void DirectoryFileSystem::DoState(PointerWrap &p) {
 	auto s = p.Section("DirectoryFileSystem", 0, 2);
 	if (!s)
@@ -746,7 +836,8 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			p.Do(key);
 			p.Do(entry.guestFilename);
 			p.Do(entry.access);
-			if (! entry.hFile.Open(basePath,entry.guestFilename,entry.access)) {
+			u32 err;
+			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
 				ERROR_LOG(FILESYS, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
 				continue;
 			}

@@ -32,10 +32,9 @@
 #if !defined(MOBILE_DEVICE)
 #include <algorithm>
 #endif
+#include <memory>
 
 #if defined(_WIN32)
-#include <libpng17/png.h>
-#include "ext/jpge/jpge.h"
 #include "Windows/DSoundStream.h"
 #include "Windows/WndMainWindow.h"
 #include "Windows/D3D9Base.h"
@@ -49,9 +48,8 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"  // only for screenshot!
+#include "gfx_es2/gl_state.h"  // should've been only for screenshot - but actually not, cleanup?
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/draw_buffer.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
@@ -69,15 +67,16 @@
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
+#include "Common/MemArena.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/PSPMixer.h"
 #include "Core/SaveState.h"
+#include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
-#include "Common/MemArena.h"
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
@@ -93,6 +92,10 @@
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
+#endif
+
+#ifdef __SYMBIAN32__
+#define unique_ptr auto_ptr
 #endif
 
 // The new UI framework, for initialization
@@ -137,6 +140,10 @@ static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
+
+Thin3DContext *GetThin3D() {
+	return thin3d;
+}
 
 std::thread *graphicsLoadThread;
 
@@ -235,10 +242,11 @@ int NativeMix(short *audio, int num_samples) {
 }
 
 // This is called before NativeInit so we do a little bit of initialization here.
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {
+void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version) {
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
 	*landscape = true;
+	*version = PPSSPP_GIT_VERSION;
 
 #if defined(ARM) && defined(ANDROID)
 	ArmEmitterTest();
@@ -246,7 +254,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 }
 
 void NativeInit(int argc, const char *argv[],
-								const char *savegame_directory, const char *external_directory, const char *installID) {
+								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -294,10 +302,10 @@ void NativeInit(int argc, const char *argv[],
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
-	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.memStickDirectory = std::string(external_directory) + "/";
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
-	g_Config.memCardDirectory = user_data_path;
+	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
@@ -308,7 +316,7 @@ void NativeInit(int argc, const char *argv[],
 	else // Just in case
 		config = "./config";
 
-	g_Config.memCardDirectory = config + "/ppsspp/";
+	g_Config.memStickDirectory = config + "/ppsspp/";
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
@@ -319,8 +327,8 @@ void NativeInit(int argc, const char *argv[],
 	LogManager *logman = LogManager::GetInstance();
 
 	g_Config.AddSearchPath(user_data_path);
-	g_Config.AddSearchPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memCardDirectory + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.Load();
 	g_Config.externalDirectory = external_directory;
 #endif
@@ -328,10 +336,10 @@ void NativeInit(int argc, const char *argv[],
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit.
-	ILOG("Creating %s", (g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/SAVEDATA").c_str());
-	mkDir((g_Config.memCardDirectory + "PSP/GAME").c_str());
+	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
+	mkDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -375,8 +383,8 @@ void NativeInit(int argc, const char *argv[],
 				boot_filename = argv[i];
 				skipLogo = true;
 
-				FileInfo info;
-				if (!getFileInfo(boot_filename.c_str(), &info) || info.exists == false) {
+				std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
+				if (!fileLoader->Exists()) {
 					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
 					exit(1);
 				}
@@ -419,7 +427,7 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -454,7 +462,7 @@ void NativeInit(int argc, const char *argv[],
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0);
+	MainWindow* mainWindow = new MainWindow(0,fs);
 	mainWindow->show();
 	host = new QtHost(mainWindow);
 #endif
@@ -541,6 +549,10 @@ void NativeInitGraphics() {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
+#ifdef _WIN32
+		UINT ExitCode = 0;
+		ExitProcess(ExitCode);
+#endif
 	}
 
 	uiContext = new UIContext();
@@ -584,15 +596,10 @@ void NativeShutdownGraphics() {
 }
 
 void TakeScreenshot() {
-	if (g_Config.iGPUBackend != GPU_BACKEND_OPENGL) {
-		// Not yet supported
-		return;
-	}
-
 	g_TakeScreenshot = false;
 
-#if defined(_WIN32)  || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	mkDir(g_Config.memCardDirectory + "/PSP/SCREENSHOT");
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
+	mkDir(g_Config.memStickDirectory + "/PSP/SCREENSHOT");
 
 	// First, find a free filename.
 	int i = 0;
@@ -605,50 +612,22 @@ void TakeScreenshot() {
 	char filename[2048];
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		else
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memCardDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
 		FileInfo info;
 		if (!getFileInfo(filename, &info))
 			break;
 		i++;
 	}
 
-	// Okay, allocate a buffer.
-	u8 *buffer = new u8[3 * pixel_xres * pixel_yres];
-
-	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGB, GL_UNSIGNED_BYTE, buffer);
-
-#ifdef USING_QT_UI
-	QImage image(buffer, pixel_xres, pixel_yres, QImage::Format_RGB888);
-	image = image.mirrored();
-	image.save(filename, g_Config.bScreenshotsAsPNG ? "PNG" : "JPG");
-#else
-	// Silly openGL reads upside down, we flip to another buffer for simplicity.
-	u8 *flipbuffer = new u8[3 * pixel_xres * pixel_yres];
-	for (int y = 0; y < pixel_yres; y++) {
-		memcpy(flipbuffer + y * pixel_xres * 3, buffer + (pixel_yres - y - 1) * pixel_xres * 3, pixel_xres * 3);
-	}
-	if (g_Config.bScreenshotsAsPNG) {
-		png_image png;
-		memset(&png, 0, sizeof(png));
-		png.version = PNG_IMAGE_VERSION;
-		png.format = PNG_FORMAT_RGB;
-		png.width = pixel_xres;
-		png.height = pixel_yres;
-		png_image_write_to_file(&png, filename, 0, flipbuffer, pixel_xres * 3, NULL);
-		png_image_free(&png);
+	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? SCREENSHOT_PNG : SCREENSHOT_JPG, SCREENSHOT_DISPLAY);
+	if (success) {
+		osm.Show(filename);
 	} else {
-		jpge::params params;
-		params.m_quality = 90;
-		compress_image_to_jpeg_file(filename, pixel_xres, pixel_yres, 3, flipbuffer, params);
+		I18NCategory *err = GetI18NCategory("Error");
+		osm.Show(err->T("Could not save screenshot file"));
 	}
-	delete [] flipbuffer;
-#endif
-
-	delete [] buffer;
-
-	osm.Show(filename);
 #endif
 }
 

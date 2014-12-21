@@ -361,7 +361,7 @@ int main(int argc, const char* argv[])
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 #elif !defined(_WIN32)
-	g_Config.memCardDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
+	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.

@@ -2,16 +2,30 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
 enable_language(ASM)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
 
 add_definitions(-DPPSSPP)
 
-# Detect CPU from CMAKE configuration. Toolchains should set this up
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
-	set(ARM ON)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(_ARCH_64 1)
+	add_definitions(-D_ARCH_64=1)
+else()
+	set(_ARCH_32 1)
+	add_definitions(-D_ARCH_32=1)
 endif()
 
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
-	set(ARMV7 ON)
+# Detect CPU from CMAKE configuration. Toolchains should set this up
+if(CMAKE_SYSTEM_PROCESSOR)
+	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
+		set(ARM ON)
+		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
+			set(ARMV7 ON)
+		endif()
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "i.86")
+		set(X86 ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
+		set(MIPS ON)
+	endif()
 endif()
 
 # Remove soon?
@@ -19,22 +33,16 @@ set(USE_FFMPEG ON)
 
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
-	set(MOBILE_DEVICE ON)
-endif()
-if (NOT ARM) # Assume x86
-	set(X86 ON)
 endif()
 
 include(CheckIncludeFile)
 check_include_file(/opt/vc/include/bcm_host.h RPI)
-if(RPI)
-	set(MOBILE_DEVICE OFF)
+
+if(BB)
+	set(ARMV7 ON)
+	set(USING_FBDEV ON)
 endif()
 
-if(USING_EGL)
-	# Default to GLES2 but could be GL.
-	set(USING_GLES2 ON)
-endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
@@ -46,7 +54,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if (X86 AND NOT MIPS)
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	if(_ARCH_64)
 		add_definitions(-D_M_X64)
 	else()
 		add_definitions(-D_M_IX86)
@@ -73,6 +81,7 @@ option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
+option(BB "Set to ON if targeting a Beaglebone/Beaglebone Black device" ${BB})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
@@ -100,6 +109,8 @@ if(ANDROID OR BLACKBERRY OR IOS)
 			"Re-run ${CMAKE_COMMAND} with:\n"
 			"\"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\"")
 	endif()
+	set(MOBILE_DEVICE ON)
+	set(USING_GLES2 ON)
 endif()
 
 if(ANDROID)
@@ -109,6 +120,8 @@ else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
 endif()
+
+include_directories(native)
 
 if(RPI)
 	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
@@ -126,7 +139,7 @@ if(MAEMO)
 endif()
 
 if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
-	include(FindSDL)
+	include(FindSDL2)
 endif()
 include(FindThreads)
 
@@ -182,8 +195,10 @@ if(ARMV7)
 	message("Building for ARMv7, ${CMAKE_BUILD_TYPE}")
 elseif(ARM)
 	message("Building for ARMv6, ${CMAKE_BUILD_TYPE}")
-elseif(MIPS)
+elseif(MIPS AND X86)
 	message("Building for MIPS in x86 mode, ${CMAKE_BUILD_TYPE}")
+elseif(MIPS)
+	message("Buildings for MIPS, ${CMAKE_BUILD_TYPE}")
 elseif(X86)
 	message("Building for x86, ${CMAKE_BUILD_TYPE}")
 else()
@@ -219,7 +234,8 @@ if(NOT MSVC)
 
 	if(IOS)
 		add_definitions(-DGL_ETC1_RGB8_OES=0)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
+		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
 		set(CMAKE_OSX_ARCHITECTURES "armv7")
@@ -272,16 +288,11 @@ set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
 		Common/ArmCPUDetect.cpp
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp
 		Common/ArmThunk.cpp)
 elseif(X86)
-	# ARMEmitter is here for the unit tests and don't really hurt otherwise.
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
 		Common/ABI.h
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
 		Common/Thunk.cpp
@@ -290,7 +301,21 @@ elseif(X86)
 		Common/x64Analyzer.h
 		Common/x64Emitter.cpp
 		Common/x64Emitter.h)
+elseif(MIPS)
+	set(CommonExtra ${CommonExtra}
+		Common/MipsCPUDetect.cpp
+		Common/MipsEmitter.cpp
+		Common/MipsEmitter.h)
+else()
+	set(CommonExtra ${CommonExtra}
+		Common/FakeCPUDetect.cpp
+		Common/FakeEmitter.h)
 endif()
+# ARMEmitter is here for the unit tests and don't really hurt otherwise.
+set(CommonExtra ${CommonExtra}
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp)
+
 if(WIN32)
 	set(CommonExtra ${CommonExtra}
 		Common/stdafx.cpp
@@ -307,6 +332,8 @@ add_library(Common STATIC
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
+	Common/Crypto/sha256.cpp
+	Common/Crypto/sha256.h
 	Common/FileUtil.cpp
 	Common/FileUtil.h
 	Common/KeyMap.cpp
@@ -347,16 +374,8 @@ if(NOT USING_GLES2)
 	set(GLEW_LIBRARIES glew)
 endif()
 
-add_library(snappy STATIC
-	ext/snappy/snappy-c.cpp
-	ext/snappy/snappy-internal.h
-	ext/snappy/snappy-sinksource.h
-	ext/snappy/snappy-stubs-internal.h
-	ext/snappy/snappy-stubs-public.h
-	ext/snappy/snappy.cpp
-	ext/snappy/snappy.h
-)
-include_directories(ext/snappy)
+add_subdirectory(ext/snappy)
+add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
 	native/ext/vjson/json.cpp
@@ -391,7 +410,13 @@ if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 	elseif(MACOSX)
 		set(PLATFORM_ARCH "macosx/x86_64")
 	elseif(LINUX)
-		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		if(ARMV7)
+			set(PLATFORM_ARCH "linux/armv7")
+		elseif(ARM)
+			set(PLATFORM_ARCH "linux/arm")
+		elseif(MIPS)
+			set(PLATFORM_ARCH "linux/mips32")
+		elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 			set(PLATFORM_ARCH "linux/x86_64")
 		else()
 			set(PLATFORM_ARCH "linux/x86")
@@ -460,8 +485,9 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(APPLE OR BLACKBERRY)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+	find_library(ICONV_LIBRARY NAMES iconv)
+	if (ICONV_LIBRARY)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${ICONV_LIBRARY})
 	endif()
 
 	if(APPLE)
@@ -554,6 +580,7 @@ include_directories(ext/cityhash)
 if (NOT MSVC)
 	# These can be fast even for debug.
 	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
 		set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
@@ -665,7 +692,11 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ARMV7)
-	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	if(BB)
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a8")
+	else()
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
+	endif()
 	set(nativeExtra ${nativeExtra}
     native/math/fast/fast_matrix_neon.S)
 endif()
@@ -729,15 +760,16 @@ elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
-elseif(SDL_FOUND)
+elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
-	include_directories(${SDL_INCLUDE_DIR})
+	include_directories(${SDL2_INCLUDE_DIR})
+	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		native/base/PCMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
+	set(nativeExtraLibs ${nativeExtraLibs} ${SDL2_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
@@ -746,7 +778,7 @@ elseif(SDL_FOUND)
 	endif()
 	set(TargetBin PPSSPPSDL)
 else()
-	message(FATAL_ERROR "Could not find SDL. Failing.")
+	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
 set(NativeAppSource
@@ -767,6 +799,7 @@ set(NativeAppSource
 	UI/GamepadEmu.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/ReportScreen.cpp
 	UI/Store.cpp
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.cpp
@@ -947,7 +980,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
@@ -993,6 +1026,7 @@ if(ARM)
 		Core/MIPS/ARM/ArmCompLoadStore.cpp
 		Core/MIPS/ARM/ArmCompVFPU.cpp
 		Core/MIPS/ARM/ArmCompVFPUNEON.cpp
+		Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
 		Core/MIPS/ARM/ArmCompReplace.cpp
 		Core/MIPS/ARM/ArmJit.cpp
 		Core/MIPS/ARM/ArmJit.h
@@ -1021,6 +1055,18 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
+		ext/disarm.cpp)
+elseif(MIPS)
+	set(CoreExtra ${CoreExtra}
+		Core/MIPS/MIPS/MipsJit.cpp
+		Core/MIPS/MIPS/MipsJit.h
+		GPU/Common/VertexDecoderFake.cpp
+		ext/disarm.cpp)
+else()
+	set(CoreExtra ${CoreExtra}
+		Core/MIPS/fake/FakeJit.cpp
+		Core/MIPS/fake/FakeJit.h
+		GPU/Common/VertexDecoderFake.cpp
 		ext/disarm.cpp)
 endif()
 
@@ -1195,6 +1241,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceRtc.h
 	Core/HLE/sceSas.cpp
 	Core/HLE/sceSas.h
+	Core/HLE/sceSha256.cpp
+	Core/HLE/sceSha256.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp
@@ -1231,6 +1279,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Loaders.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
+	Core/MIPS/JitCommon/NativeJit.h
 	Core/MIPS/JitCommon/JitBlockCache.cpp
 	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/MIPS.cpp
@@ -1255,8 +1304,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
-	Core/MIPS/MIPSAsmTables.cpp
-	Core/MIPS/MIPSAsmTables.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
 	Core/MemMap.cpp
@@ -1270,6 +1317,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Reporting.h
 	Core/SaveState.cpp
 	Core/SaveState.h
+	Core/Screenshot.cpp
+	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/GameManager.cpp
@@ -1530,7 +1579,7 @@ if(IOS)
 	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
 	)
 	# Force Xcode to relink the binary.
 	add_custom_command(TARGET Core PRE_BUILD

@@ -259,8 +259,6 @@ std::string trimString(std::string input)
 
 void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
-	u32 encoded;
-
 	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {
 		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
@@ -298,13 +296,9 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
 	if (result == true)
 	{
-		Memory::Write_U32(encoded, address);
-		// In case this is a delay slot or combined instruction, clear cache above it too.
-		if (MIPSComp::jit)
-			MIPSComp::jit->InvalidateCacheAt(address - 4, 8);
 		scanFunctions();
 
 		if (address == curAddress)
@@ -312,7 +306,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 
 		redraw();
 	} else {
-		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
+		std::wstring error = MIPSAsm::GetAssembleError();
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
@@ -643,7 +637,7 @@ void CtrlDisAsmView::followBranch()
 		} else if (line.info.hasRelevantAddress)
 		{
 			// well, not  exactly a branch, but we can do something anyway
-			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.releventAddress,0);
+			SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,line.info.relevantAddress,0);
 			SetFocus(wnd);
 		}
 	} else if (line.type == DISTYPE_DATA)
@@ -905,12 +899,12 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *temp = new char[space];
 
 		char *p = temp, *end = temp + space;
-		for (u32 pos = startAddr; pos < endAddr; pos += instructionSize)
+		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
 			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
 
 			// Don't leave a trailing newline.
-			if (pos + instructionSize < endAddr)
+			if (pos + instructionSize < endAddr && p < end)
 				p += snprintf(p, end - p, "\r\n");
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);

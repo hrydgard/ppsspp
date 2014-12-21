@@ -92,7 +92,7 @@ namespace
 		size_t result = pspFileSystem.WriteFile(handle, data, dataSize);
 		pspFileSystem.CloseFile(handle);
 
-		return result != 0;
+		return result == dataSize;
 	}
 
 	bool PSPMatch(std::string text, std::string regexp)
@@ -369,8 +369,12 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 
-	if (!pspFileSystem.GetFileInfo(dirPath).exists)
-		pspFileSystem.MkDir(dirPath);
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		if (!pspFileSystem.MkDir(dirPath)) {
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Unable to write savedata, disk may be full"));
+		}
+	}
 
 	u8* cryptedData = 0;
 	int cryptedSize = 0;
@@ -895,34 +899,22 @@ int SavedataParam::BuildHash(unsigned char *output,
 	return 0;
 }
 
-std::string SavedataParam::GetSpaceText(int size)
+std::string SavedataParam::GetSpaceText(u64 size)
 {
+	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
 	char text[50];
 
-	if(size < 1024)
+	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
-		sprintf(text,"%d B",size);
-		return std::string(text);
+		if (size < 1024)
+		{
+			snprintf(text, sizeof(text), "%lld %s", size, suffixes[i]);
+			return std::string(text);
+		}
+		size /= 1024;
 	}
 
-	size /= 1024;
-
-	if(size < 1024)
-	{
-		sprintf(text,"%d KB",size);
-		return std::string(text);
-	}
-
-	size /= 1024;
-
-	if(size < 1024)
-	{
-		sprintf(text,"%d MB",size);
-		return std::string(text);
-	}
-
-	size /= 1024;
-	sprintf(text,"%d GB",size);
+	snprintf(text, sizeof(text), "%lld TB", size);
 	return std::string(text);
 }
 
@@ -936,10 +928,11 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 	if (param->msFree.IsValid())
 	{
+		const u64 freeBytes = MemoryStick_FreeSpace();
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
-		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
-		param->msFree->freeSpaceKB = (u32)(MemoryStick_FreeSpace() / 0x400);
-		const std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		param->msFree->freeClusters = (u32)(freeBytes / MemoryStick_SectorSize());
+		param->msFree->freeSpaceKB = (u32)(freeBytes / 0x400);
+		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
@@ -1106,9 +1099,11 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
 	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
 	std::set<std::string> secureFilenames;
-	// TODO: Error code if not?
+
 	if (sfoFileInfo.exists) {
 		secureFilenames = getSecureFileNames(dirPath);
+	} else {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 	}
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
@@ -1182,14 +1177,15 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 
 	if (param->sizeInfo.IsValid())
 	{
+		const u64 freeBytes = MemoryStick_FreeSpace();
 		// TODO: Read the entries and count up the size vs. existing size?
 
 		param->sizeInfo->sectorSize = (int)MemoryStick_SectorSize();
-		param->sizeInfo->freeSectors = (int)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+		param->sizeInfo->freeSectors = (int)(freeBytes / MemoryStick_SectorSize());
 
 		// TODO: Is this after the specified files?  Before?
-		param->sizeInfo->freeKB = (int)(MemoryStick_FreeSpace() / 1024);
-		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		param->sizeInfo->freeKB = (int)(freeBytes / 1024);
+		std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes);
 		strncpy(param->sizeInfo->freeString, spaceTxt.c_str(), 8);
 		param->sizeInfo->freeString[7] = '\0';
 
@@ -1275,8 +1271,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					std::string gameName = GetGameName(param);
 					std::string saveName = "";
 					for(auto it = allSaves.begin(); it != allSaves.end(); ++it) {
-						if(strncmp(it->name.c_str(),gameName.c_str(),strlen(gameName.c_str())) == 0) {
-							saveName = it->name.substr(strlen(gameName.c_str()));						
+						if(it->name.compare(0, gameName.length(), gameName) == 0) {
+							saveName = it->name.substr(gameName.length());
 							
 							if(IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;
@@ -1657,24 +1653,15 @@ bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
 	return false;
 }
 
-bool SavedataParam::secureCanSkip(SceUtilitySavedataParam* param, bool secureMode) {
-	if (!secureMode)       // Only check in secure mode.
-		return false;
-	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);	
+bool SavedataParam::IsSaveDirectoryExist(SceUtilitySavedataParam* param) {
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
+	PSPFileInfo directoryInfo = pspFileSystem.GetFileInfo(dirPath);
+	return directoryInfo.exists;
+}
+
+bool SavedataParam::IsSfoFileExist(SceUtilitySavedataParam* param) {
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
 	std::string sfoPath = dirPath + "/" + SFO_FILENAME;
-	std::string secureFileName = GetFileName(param); 
-	std::set<std::string> secureFileNames;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfoPath);
-	// If sfo doesn't exist,shouldn't skip.
-	if (!sfoInfo.exists)
-		return false;
-
-	// Get secure file names from PARAM.SFO.
-	secureFileNames = getSecureFileNames(dirPath);
-	// Secure file name should be saved in PARAM.SFO
-	// Cannot find name in PARAM.SFO, could skip.
-	if (secureFileNames.find(secureFileName) == secureFileNames.end())
-		return true;
-
-	return false;
+	return sfoInfo.exists;
 }

@@ -641,13 +641,13 @@ namespace DX9 {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy) {
+	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
 		if (framebuffer == NULL) {
 			framebuffer = currentRenderVfb_;
 		}
 
 		if (!framebuffer->fbo || !useBufferedRendering_) {
-			pD3Ddevice->SetTexture(0, nullptr);
+			pD3Ddevice->SetTexture(stage, nullptr);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 			return;
 		}
@@ -666,12 +666,12 @@ namespace DX9 {
 				BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
 
 				RebindFramebuffer();
-				fbo_bind_color_as_texture(renderCopy, 0);
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
 			} else {
-				fbo_bind_color_as_texture(framebuffer->fbo, 0);
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
 			}
 		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo, 0);
+			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
 		}
 	}
 
@@ -788,7 +788,7 @@ namespace DX9 {
 				const RECT dstRect = {x * rw / w, y * rh / h, (x + w) * rw / w, (y + h) * rh / h};
 				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
-					ERROR_LOG_REPORT(G3D, "fbo_blit_color failed on display: %08x", hr);
+					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
 					dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {
@@ -851,7 +851,7 @@ namespace DX9 {
 			// We maintain a separate vector of framebuffer objects for blitting.
 			for (size_t i = 0; i < bvfbs_.size(); ++i) {
 				VirtualFramebuffer *v = bvfbs_[i];
-				if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+				if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
 					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 						nvfb = v;
 						v->fb_stride = vfb->fb_stride;
@@ -872,8 +872,8 @@ namespace DX9 {
 				nvfb->z_stride = vfb->z_stride;
 				nvfb->width = vfb->width;
 				nvfb->height = vfb->height;
-				nvfb->renderWidth = vfb->width;
-				nvfb->renderHeight = vfb->height;
+				nvfb->renderWidth = vfb->bufferWidth;
+				nvfb->renderHeight = vfb->bufferHeight;
 				nvfb->bufferWidth = vfb->bufferWidth;
 				nvfb->bufferHeight = vfb->bufferHeight;
 				nvfb->format = vfb->format;
@@ -1254,7 +1254,6 @@ namespace DX9 {
 		resized_ = true;
 	}
 
-
 	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 		u32 fb_address = gstate.getFrameBufRawAddress();
 		int fb_stride = gstate.FrameBufStride();
@@ -1270,26 +1269,49 @@ namespace DX9 {
 			return true;
 		}
 
-		LPDIRECT3DSURFACE9 renderTarget = nullptr;
-		HRESULT hr;
-		hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
-		if (!renderTarget || !SUCCEEDED(hr))
-			return false;
+		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? fbo_get_color_for_read(vfb->fbo) : nullptr;
+		bool success = false;
+		if (renderTarget) {
+			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+			if (offscreen) {
+				success = GetRenderTargetFramebuffer(renderTarget, offscreen, vfb->renderWidth, vfb->renderHeight, buffer);
+			}
+		}
 
+		return success;
+	}
+
+	bool FramebufferManagerDX9::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+		fbo_unbind();
+
+		LPDIRECT3DSURFACE9 renderTarget = nullptr;
+		HRESULT hr = pD3Ddevice->GetRenderTarget(0, &renderTarget);
+		bool success = false;
+		if (renderTarget && SUCCEEDED(hr)) {
+			D3DSURFACE_DESC desc;
+			renderTarget->GetDesc(&desc);
+
+			LPDIRECT3DSURFACE9 offscreen = nullptr;
+			HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+			if (offscreen && SUCCEEDED(hr)) {
+				success = GetRenderTargetFramebuffer(renderTarget, offscreen, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, buffer);
+				offscreen->Release();
+			}
+			renderTarget->Release();
+		}
+
+		return success;
+	}
+
+	bool FramebufferManagerDX9::GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer) {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
-		if (!offscreen) {
-			renderTarget->Release();
-			return false;
-		}
-
 		bool success = false;
-		hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
+		HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
 		if (SUCCEEDED(hr)) {
 			D3DLOCKED_RECT locked;
-			RECT rect = {0, 0, vfb->renderWidth, vfb->renderHeight};
+			RECT rect = {0, 0, w, h};
 			hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			if (SUCCEEDED(hr)) {
 				// TODO: Handle the other formats?  We don't currently create them, I think.
@@ -1299,8 +1321,6 @@ namespace DX9 {
 				success = true;
 			}
 		}
-
-		renderTarget->Release();
 
 		return success;
 	}

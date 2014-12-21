@@ -57,27 +57,27 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	char *w = buffer, *end = buffer + len;
 	if (through)
 		w += snprintf(w, end - w, "through, ");
-	if (typeNames[tc])
+	if (typeNames[tc] && w < end)
 		w += snprintf(w, end - w, "%s texcoords, ", typeNames[tc]);
-	if (colorNames[col])
+	if (colorNames[col] && w < end)
 		w += snprintf(w, end - w, "%s colors, ", colorNames[col]);
-	if (typeNames[nrm])
+	if (typeNames[nrm] && w < end)
 		w += snprintf(w, end - w, "%s normals, ", typeNamesS[nrm]);
-	if (typeNames[pos])
+	if (typeNames[pos] && w < end)
 		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
-	if (typeNames[weight])
+	if (typeNames[weight] && w < end)
 		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
-	else if (weightCount > 0)
+	else if (weightCount > 0 && w < end)
 		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
-	if (morphCount > 0)
+	if (morphCount > 0 && w < end)
 		w += snprintf(w, end - w, "%d morphs, ", morphCount);
-	if (typeNames[idx])
+	if (typeNames[idx] && w < end)
 		w += snprintf(w, end - w, "%s indexes, ", typeNames[idx]);
 
 	if (w < buffer + 2)
 		snprintf(buffer, len, "none");
 	// Otherwise, get rid of the pesky trailing comma.
-	else
+	else if (w < end)
 		w[-2] = '\0';
 }
 

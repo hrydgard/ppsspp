@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceDmac.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -42,7 +43,7 @@ void __DmacDoState(PointerWrap &p) {
 	p.Do(dmacMemcpyDeadline);
 }
 
-int __DmacMemcpy(u32 dst, u32 src, u32 size) {
+static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
@@ -66,7 +67,7 @@ int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	return 0;
 }
 
-u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		// Some games seem to do this frequently.
 		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
@@ -92,7 +93,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	return __DmacMemcpy(dst, src, size);
 }
 
-u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;

@@ -733,19 +733,22 @@ void DIRECTX9_GPU::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+	u32 vertexAddr = gstate_c.vertexAddr;
+	if (!Memory::IsValidAddress(vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", vertexAddr);
 		return;
 	}
 
-	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *verts = Memory::GetPointerUnchecked(vertexAddr);
 	void *inds = 0;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+	u32 vertexType = gstate.vertType;
+	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		u32 indexAddr = gstate_c.indexAddr;
+		if (!Memory::IsValidAddress(indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
 			return;
 		}
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+		inds = Memory::GetPointerUnchecked(indexAddr);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -755,18 +758,18 @@ void DIRECTX9_GPU::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	int bytesRead = 0;
-	transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
+	transformDraw_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 
-	int vertexCost = transformDraw_.EstimatePerVertexCost();
-	gpuStats.vertexGPUCycles += vertexCost * count;
-	cyclesExecuted += vertexCost * count;
+	int vertexCost = transformDraw_.EstimatePerVertexCost() * count;
+	gpuStats.vertexGPUCycles += vertexCost;
+	cyclesExecuted += vertexCost;
 
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	if (inds) {
 		int indexSize = 1;
-		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+		if ((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
 			indexSize = 2;
 		gstate_c.indexAddr += count * indexSize;
 	} else {
@@ -797,7 +800,7 @@ void DIRECTX9_GPU::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
@@ -838,7 +841,7 @@ void DIRECTX9_GPU::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
@@ -1068,7 +1071,7 @@ void DIRECTX9_GPU::Execute_ColorRef(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1108,7 +1111,7 @@ void DIRECTX9_GPU::Execute_WorldMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_ViewMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1148,7 +1151,7 @@ void DIRECTX9_GPU::Execute_ViewMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_ProjMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
 	const int end = 16 - (op & 0xF);
 	int i = 0;
@@ -1188,7 +1191,7 @@ void DIRECTX9_GPU::Execute_ProjMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_TgenMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
 	const int end = 12 - (op & 0xF);
 	int i = 0;
@@ -1228,7 +1231,7 @@ void DIRECTX9_GPU::Execute_TgenMtxData(u32 op, u32 diff) {
 
 void DIRECTX9_GPU::Execute_BoneMtxNum(u32 op, u32 diff) {
 	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointer(currentList->pc + 4);
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
@@ -1659,13 +1662,7 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_LOGICOPENABLE:
-		if (data != 0)
-			ERROR_LOG_REPORT_ONCE(logicOpEnable, G3D, "Unsupported logic op enabled: %x", data);
-		break;
-
 	case GE_CMD_LOGICOP:
-		if (data != 0)
-			ERROR_LOG_REPORT_ONCE(logicOp, G3D, "Unsupported logic op: %06x", data);
 		break;
 
 	case GE_CMD_ANTIALIASENABLE:
@@ -2131,6 +2128,10 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	return success;
+}
+
+bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	return FramebufferManagerDX9::GetDisplayFramebuffer(buffer);
 }
 
 bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

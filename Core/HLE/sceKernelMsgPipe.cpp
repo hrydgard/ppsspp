@@ -123,18 +123,18 @@ struct MsgPipeWaitingThread
 	}
 };
 
-bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgPipeWaitingThread thread2)
+static bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgPipeWaitingThread thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
 }
 
 struct MsgPipe : public KernelObject
 {
-	const char *GetName() {return nmp.name;}
-	const char *GetTypeName() {return "MsgPipe";}
+	const char *GetName() override { return nmp.name; }
+	const char *GetTypeName() override { return "MsgPipe"; }
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mpipe; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mpipe; }
 
 	MsgPipe() : buffer(0) {}
 	~MsgPipe()
@@ -270,7 +270,7 @@ struct MsgPipe : public KernelObject
 		HLEKernel::RemoveWaitingThread(sendWaitingThreads, threadID);
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("MsgPipe", 1);
 		if (!s)
@@ -301,13 +301,13 @@ KernelObject *__KernelMsgPipeObject()
 	return new MsgPipe;
 }
 
-void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
+static void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
 	HLEKernel::WaitExecTimeout<MsgPipe, WAITTYPE_MSGPIPE>(threadID);
 }
 
-bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
+static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return true;
@@ -325,7 +325,7 @@ bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
 	return true;
 }
 
-int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
+static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
 {
 	u32 curSendAddr = sendBufAddr;
 	SceUID uid = m->GetUID();
@@ -423,7 +423,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 	return 0;
 }
 
-int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
+static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll, bool &needsResched, bool &needsWait)
 {
 	u32 curReceiveAddr = receiveBufAddr;
 	SceUID uid = m->GetUID();
@@ -519,7 +519,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 	return 0;
 }
 
-void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
+static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	u32 error;
 	u32 waitValue = __KernelGetWaitValue(threadID, error);
@@ -560,7 +560,7 @@ void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	}
 }
 
-bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
 {
 	if (!waitInfo.IsStillWaiting(m->GetUID()))
 		return true;
@@ -582,7 +582,7 @@ bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, 
 	return true;
 }
 
-bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
 {
 	if (!waitInfo.IsStillWaiting(m->GetUID()))
 		return true;
@@ -603,7 +603,7 @@ bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInf
 	return true;
 }
 
-void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	u32 waitValue = __KernelGetWaitValue(threadID, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
@@ -752,7 +752,7 @@ int sceKernelDeleteMsgPipe(SceUID uid)
 	return kernelObjects.Destroy<MsgPipe>(uid);
 }
 
-int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, bool tryMode = false)
+static int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, bool tryMode = false)
 {
 	if (sendSize & 0x80000000)
 	{
@@ -789,7 +789,7 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 	return 0;
 }
 
-int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	hleEatCycles(2400);
 
@@ -861,7 +861,7 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 	return __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
 }
 
-int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, bool tryMode = false)
+static int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, bool tryMode = false)
 {
 	if (receiveSize & 0x80000000)
 	{
@@ -898,7 +898,7 @@ int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSi
 	return 0;
 }
 
-int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	bool needsResched = false;
 	bool needsWait = false;

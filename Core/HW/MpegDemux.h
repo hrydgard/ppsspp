@@ -21,7 +21,7 @@ public:
 	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts = NULL);
 	bool hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2);
 
-	inline int getRemainSize() {
+	int getRemainSize() const {
 		return m_len - m_readSize;
 	}
 
@@ -52,7 +52,7 @@ private:
 	s64 readPts(int c) {
 		return (((s64) (c & 0x0E)) << 29) | ((read16() >> 1) << 15) | (read16() >> 1);
 	}
-	bool isEOF() {
+	bool isEOF() const {
 		return m_index >= m_len;
 	}
 	void skip(int n) {

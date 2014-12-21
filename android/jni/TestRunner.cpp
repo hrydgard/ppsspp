@@ -67,7 +67,7 @@ void RunTests()
 #ifdef IOS
 	const std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
-	const std::string baseDirectory = g_Config.memCardDirectory;
+	const std::string baseDirectory = g_Config.memStickDirectory;
 #endif
 
 	CoreParameter coreParam;

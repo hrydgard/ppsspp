@@ -591,14 +591,14 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return false;
+		return 0;
 	}
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
 #ifdef USE_FFMPEG
-	if ((!m_pFrame)||(!m_pFrameRGB))
-		return false;
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
 	int videoImageSize = 0;
 	// lock the image size
 	int height = m_desHeight;
@@ -661,14 +661,14 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return false;
+		return 0;
 	}
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
 #ifdef USE_FFMPEG
-	if ((!m_pFrame)||(!m_pFrameRGB))
-		return false;
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
 	int videoImageSize = 0;
 	// lock the image size
 	u8 *imgbuf = buffer;

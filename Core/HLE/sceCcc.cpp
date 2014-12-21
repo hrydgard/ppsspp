@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceCcc.h"
 #include "Core/Reporting.h"
 
 typedef PSPPointer<char> PSPCharPointer;
@@ -61,7 +62,7 @@ void __CccDoState(PointerWrap &p)
 	p.Do(jis2ucsTable);
 }
 
-u32 __CccUCStoJIS(u32 c, u32 alt)
+static u32 __CccUCStoJIS(u32 c, u32 alt)
 {
 	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
 	alt &= 0xFFFF;
@@ -72,7 +73,7 @@ u32 __CccUCStoJIS(u32 c, u32 alt)
 	return ucs2jisTable[c];
 }
 
-u32 __CccJIStoUCS(u32 c, u32 alt)
+static u32 __CccJIStoUCS(u32 c, u32 alt)
 {
 	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
 	c &= 0xFFFF;
@@ -81,7 +82,7 @@ u32 __CccJIStoUCS(u32 c, u32 alt)
 	return jis2ucsTable[c];
 }
 
-void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
+static void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
 	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes.
 	DEBUG_LOG(HLE, "sceCccSetTable(%08x, %08x)", jis2ucs, ucs2jis);
@@ -89,7 +90,7 @@ void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 	jis2ucsTable = jis2ucs;
 }
 
-int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPWCharPointer::Create(dstAddr);
@@ -121,7 +122,7 @@ int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -157,7 +158,7 @@ int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstWCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -188,7 +189,7 @@ int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstWCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -224,7 +225,7 @@ int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -260,7 +261,7 @@ int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPWCharPointer::Create(dstAddr);
@@ -296,7 +297,7 @@ int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccStrlenUTF8(u32 strAddr)
+static int sceCccStrlenUTF8(u32 strAddr)
 {
 	const auto str = PSPConstCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -308,7 +309,7 @@ int sceCccStrlenUTF8(u32 strAddr)
 	return UTF8(str).length();
 }
 
-int sceCccStrlenUTF16(u32 strAddr)
+static int sceCccStrlenUTF16(u32 strAddr)
 {
 	const auto str = PSPConstWCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -320,7 +321,7 @@ int sceCccStrlenUTF16(u32 strAddr)
 	return UTF16LE(str).length();
 }
 
-int sceCccStrlenSJIS(u32 strAddr)
+static int sceCccStrlenSJIS(u32 strAddr)
 {
 	const auto str = PSPCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -332,7 +333,7 @@ int sceCccStrlenSJIS(u32 strAddr)
 	return ShiftJIS(str).length();
 }
 
-u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
+static u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
@@ -346,7 +347,7 @@ u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 	return dstp->ptr;
 }
 
-void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
+static void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPWCharPointer>::Create(dstAddrAddr);
 
@@ -362,7 +363,7 @@ void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 	*dstp += UTF16LE::encode(*dstp, ucs);
 }
 
-u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
+static u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
@@ -376,7 +377,7 @@ u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 	return dstp->ptr;
 }
 
-u32 sceCccDecodeUTF8(u32 dstAddrAddr)
+static u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
@@ -396,7 +397,7 @@ u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 	return result;
 }
 
-u32 sceCccDecodeUTF16(u32 dstAddrAddr)
+static u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstWCharPointer>::Create(dstAddrAddr);
 
@@ -417,7 +418,7 @@ u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 	return result;
 }
 
-u32 sceCccDecodeSJIS(u32 dstAddrAddr)
+static u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
@@ -437,49 +438,49 @@ u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 	return result;
 }
 
-int sceCccIsValidUTF8(u32 c)
+static int sceCccIsValidUTF8(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF8(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUTF16(u32 c)
+static int sceCccIsValidUTF16(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF16(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidSJIS(u32 c)
+static int sceCccIsValidSJIS(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidSJIS(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUCS2(u32 c)
+static int sceCccIsValidUCS2(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS2(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUCS4(u32 c)
+static int sceCccIsValidUCS4(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS4(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidJIS(u32 c)
+static int sceCccIsValidJIS(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidJIS(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUnicode(u32 c)
+static int sceCccIsValidUnicode(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUnicode(%08x)", c);
 	return c != 0;
 }
 
-u32 sceCccSetErrorCharUTF8(u32 c)
+static u32 sceCccSetErrorCharUTF8(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF8(%08x)", c);
 	int result = errorUTF8;
@@ -487,7 +488,7 @@ u32 sceCccSetErrorCharUTF8(u32 c)
 	return result;
 }
 
-u32 sceCccSetErrorCharUTF16(u32 c)
+static u32 sceCccSetErrorCharUTF16(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF16(%08x)", c);
 	int result = errorUTF16;
@@ -495,7 +496,7 @@ u32 sceCccSetErrorCharUTF16(u32 c)
 	return result;
 }
 
-u32 sceCccSetErrorCharSJIS(u32 c)
+static u32 sceCccSetErrorCharSJIS(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharSJIS(%04x)", c);
 	int result = errorSJIS;
@@ -503,7 +504,7 @@ u32 sceCccSetErrorCharSJIS(u32 c)
 	return result;
 }
 
-u32 sceCccUCStoJIS(u32 c, u32 alt)
+static u32 sceCccUCStoJIS(u32 c, u32 alt)
 {
 	if (ucs2jisTable.IsValid())
 	{
@@ -517,7 +518,7 @@ u32 sceCccUCStoJIS(u32 c, u32 alt)
 	}
 }
 
-u32 sceCccJIStoUCS(u32 c, u32 alt)
+static u32 sceCccJIStoUCS(u32 c, u32 alt)
 {
 	if (jis2ucsTable.IsValid())
 	{

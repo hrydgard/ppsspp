@@ -120,10 +120,10 @@ struct NativeCallback
 class Callback : public KernelObject
 {
 public:
-	const char *GetName() {return nc.name;}
-	const char *GetTypeName() {return "CallBack";}
+	const char *GetName() override { return nc.name; }
+	const char *GetTypeName() override { return "CallBack"; }
 
-	void GetQuickInfo(char *ptr, int size)
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		sprintf(ptr, "thread=%i, argument= %08x",
 			//hackAddress,
@@ -137,9 +137,9 @@ public:
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Callback; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Callback; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Callback; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Callback", 1);
 		if (!s)
@@ -287,14 +287,14 @@ class ActionAfterMipsCall : public Action
 	}
 
 public:
-	virtual void run(MipsCall &call);
+	void run(MipsCall &call) override;
 
 	static Action *Create()
 	{
 		return new ActionAfterMipsCall();
 	}
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("ActionAfterMipsCall", 1);
 		if (!s)
@@ -338,7 +338,7 @@ class ActionAfterCallback : public Action
 {
 public:
 	ActionAfterCallback() {}
-	virtual void run(MipsCall &call);
+	void run(MipsCall &call) override;
 
 	static Action *Create()
 	{
@@ -350,7 +350,7 @@ public:
 		cbId = cbId_;
 	}
 
-	void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("ActionAfterCallback", 1);
 		if (!s)
@@ -365,9 +365,9 @@ public:
 class Thread : public KernelObject
 {
 public:
-	const char *GetName() {return nt.name;}
-	const char *GetTypeName() {return "Thread";}
-	void GetQuickInfo(char *ptr, int size)
+	const char *GetName() override { return nt.name; }
+	const char *GetTypeName() override { return "Thread"; }
+	void GetQuickInfo(char *ptr, int size) override
 	{
 		sprintf(ptr, "pc= %08x sp= %08x %s %s %s %s %s %s (wt=%i wid=%i wv= %08x )",
 			context.pc, context.r[MIPS_REG_SP],
@@ -384,7 +384,7 @@ public:
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_THID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Thread; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
 
 	bool AllocateStack(u32 &stackSize)
 	{
@@ -518,7 +518,7 @@ public:
 	inline bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
 	inline bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
 
-	virtual void DoState(PointerWrap &p)
+	void DoState(PointerWrap &p) override
 	{
 		auto s = p.Section("Thread", 1, 4);
 		if (!s)
@@ -997,7 +997,7 @@ u32 __KernelInterruptReturnAddress() {
 	return intReturnHackAddr;
 }
 
-void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	u32 error;
@@ -1012,7 +1012,7 @@ void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelDelayThreadCB: beginning callback with bad wait?");
 }
 
-void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	if (pausedDelays.find(pauseKey) == pausedDelays.end())
@@ -1038,11 +1038,11 @@ void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	DEBUG_LOG(SCEKERNEL, "sceKernelSleepThreadCB: Suspending sleep for callback");
 }
 
-void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
+static void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (!thread)
@@ -1063,7 +1063,7 @@ void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
+static void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
@@ -1074,7 +1074,7 @@ void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: beginning callback with bad wait id?");
 }
 
-bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error, int result, bool &wokeThreads)
 {
 	if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_THREADEND, t->GetUID()))
 		return true;
@@ -1093,7 +1093,7 @@ bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error,
 	return false;
 }
 
-void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
+static void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout, __KernelCheckResumeThreadEnd);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
@@ -1131,7 +1131,7 @@ u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void hleThreadEndTimeout(u64 userdata, int cyclesLate);
 
-void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
+static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 {
 	*ptr = pos;
 	pos += 8;
@@ -1148,10 +1148,8 @@ void __KernelThreadingInit()
 
 	// Yeah, this is straight out of JPCSP, I should be ashamed.
 	const static u32_le idleThreadCode[] = {
-		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800),
 		MIPS_MAKE_JR_RA(),
-		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
 		MIPS_MAKE_BREAK(0),
 	};
@@ -1263,7 +1261,7 @@ void __KernelListenThreadEnd(ThreadCallback callback)
 	threadEndListeners.push_back(callback);
 }
 
-void __KernelFireThreadEnd(SceUID threadID)
+static void __KernelFireThreadEnd(SceUID threadID)
 {
 	for (auto iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
 	{
@@ -1273,7 +1271,7 @@ void __KernelFireThreadEnd(SceUID threadID)
 }
 
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
-void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
+static void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 {
 	// Passing the id as a parameter is just an optimization, if it's wrong it will cause havoc.
 	_dbg_assert_msg_(SCEKERNEL, thread->GetUID() == threadID, "Incorrect threadID");
@@ -1294,7 +1292,7 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 	}
 }
 
-void __KernelChangeReadyState(SceUID threadID, bool ready)
+static void __KernelChangeReadyState(SceUID threadID, bool ready)
 {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
@@ -1598,19 +1596,19 @@ u32 sceKernelGetThreadmanIdType(u32 uid) {
 	}
 }
 
-bool __ThreadmanIdListIsSleeping(const Thread *t) {
+static bool __ThreadmanIdListIsSleeping(const Thread *t) {
 	return t->isWaitingFor(WAITTYPE_SLEEP, 0);
 }
 
-bool __ThreadmanIdListIsDelayed(const Thread *t) {
+static bool __ThreadmanIdListIsDelayed(const Thread *t) {
 	return t->isWaitingFor(WAITTYPE_DELAY, t->GetUID());
 }
 
-bool __ThreadmanIdListIsSuspended(const Thread *t) {
+static bool __ThreadmanIdListIsSuspended(const Thread *t) {
 	return t->isSuspended();
 }
 
-bool __ThreadmanIdListIsDormant(const Thread *t) {
+static bool __ThreadmanIdListIsDormant(const Thread *t) {
 	return t->isStopped();
 }
 
@@ -1818,7 +1816,7 @@ void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<Thread, WAITTYPE_THREADEND>(threadID);
 }
 
-void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
+static void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
 {
 	s64 cycles = usToCycles(usFromNow);
 	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, threadID);
@@ -1829,7 +1827,7 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-void __KernelRemoveFromThreadQueue(SceUID threadID)
+static void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
@@ -1902,7 +1900,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 }
 
 // Returns NULL if the current thread is fine.
-Thread *__KernelNextThread() {
+static Thread *__KernelNextThread() {
 	SceUID bestThread;
 
 	// If the current thread is running, it's a valid candidate.
@@ -2559,7 +2557,7 @@ int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)
 	// Seems like this is the only allowed attribute?
 	if ((clearAttr & ~PSP_THREAD_ATTR_VFPU) != 0 || (setAttr & ~PSP_THREAD_ATTR_VFPU) != 0)
 	{
-		ERROR_LOG_REPORT(SCEKERNEL, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -2623,7 +2621,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 	}
 }
 
-s64 __KernelDelayThreadUs(u64 usec) {
+static s64 __KernelDelayThreadUs(u64 usec) {
 	if (usec < 200) {
 		return 210;
 	}
@@ -3307,11 +3305,11 @@ void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
 }
 
 
-bool __CanExecuteCallbackNow(Thread *thread) {
+static bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
+static void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
 	hleSkipDeadbeef();
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
@@ -3501,7 +3499,7 @@ bool __KernelExecutePendingMipsCalls(Thread *thread, bool reschedAfter)
 }
 
 // Executes the callback, when it next is context switched to.
-void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
+static void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 {
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);

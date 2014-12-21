@@ -65,7 +65,13 @@ public:
 class SequentialHandleAllocator : public IHandleAllocator {
 public:
 	SequentialHandleAllocator() : handle_(1) {}
-	virtual u32 GetNewHandle() { return handle_++; }
+	virtual u32 GetNewHandle() {
+		u32 res = handle_++;
+		if (handle_ < 0) {
+			handle_ = 0;
+		}
+		return res;
+	}
 	virtual void FreeHandle(u32 handle) {}
 private:
 	int handle_;
@@ -117,6 +123,7 @@ public:
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual int      DevType(u32 handle) = 0;
 	virtual int      Flags() = 0;
+	virtual u64      FreeSpace(const std::string &path) = 0;
 };
 
 
@@ -140,6 +147,7 @@ public:
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	virtual int DevType(u32 handle) { return 0; }
 	virtual int Flags() { return 0; }
+	virtual u64 FreeSpace(const std::string &path) override { return 0; }
 };
 
 

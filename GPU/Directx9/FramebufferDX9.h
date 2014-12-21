@@ -73,7 +73,7 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
-	void BindFramebufferColor(VirtualFramebuffer *framebuffer, bool skipCopy = false);
+	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy);
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 
@@ -87,6 +87,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 
@@ -114,6 +115,7 @@ private:
 	void SetNumExtraFBOs(int num);
 
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
 	
 	// Used by DrawPixels
 	LPDIRECT3DTEXTURE9 drawPixelsTex_;

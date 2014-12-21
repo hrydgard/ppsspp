@@ -76,8 +76,20 @@ TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_
 	memset(clutBufConverted_, 0, 4096 * sizeof(u32));
 	memset(clutBufRaw_, 0, 4096 * sizeof(u32));
 
-	// TODO: Get from device caps!
-	maxAnisotropyLevel = 16;
+	D3DCAPS9 pCaps;
+	ZeroMemory(&pCaps, sizeof(pCaps));
+	HRESULT result = 0;
+	if (pD3DdeviceEx) {
+		result = pD3DdeviceEx->GetDeviceCaps(&pCaps);
+	} else {
+		result = pD3Ddevice->GetDeviceCaps(&pCaps);
+	}
+	if (FAILED(result)) {
+		WARN_LOG(G3D, "Failed to get the device caps!");
+		maxAnisotropyLevel = 16;
+	} else {
+		maxAnisotropyLevel = pCaps.MaxAnisotropy;
+	}
 	SetupTextureDecoder();
 }
 
@@ -788,7 +800,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
-	clutHash_ = DoReliableHash((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -858,7 +870,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 			pD3Ddevice->SetTexture(1, clutTexture);
 
-			framebufferManager_->BindFramebufferColor(framebuffer, true);
+			framebufferManager_->BindFramebufferColor(0, framebuffer, true);
 
 			pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
 			pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
@@ -894,7 +906,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(framebuffer);
+			framebufferManager_->BindFramebufferColor(0, framebuffer, false);
 
 			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
@@ -1696,7 +1708,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 
-	if (level == 0 && !replaceImages) {
+	if (level == 0 && (!replaceImages || entry.texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;

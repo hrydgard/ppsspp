@@ -77,6 +77,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
+	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	typedef void (DIRECTX9_GPU::*CmdFunc)(u32 op, u32 diff);

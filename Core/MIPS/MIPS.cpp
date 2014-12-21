@@ -31,15 +31,8 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
-
-#if defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(PPC)
-#include "PPC/PpcJit.h"
-#else
-#include "x86/Jit.h"
-#endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/CoreTiming.h"
 
 MIPSState mipsr4k;
@@ -215,8 +208,13 @@ void MIPSState::Init() {
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
+	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
+#ifdef ARM
+		MIPSComp::jit = new MIPSComp::ArmJit(this);
+#else
 		MIPSComp::jit = new MIPSComp::Jit(this);
+#endif
+	}
 }
 
 bool MIPSState::HasDefaultPrefix() const {
@@ -232,7 +230,11 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
 		if (!MIPSComp::jit) {
+#ifdef ARM
+			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#else
 			MIPSComp::jit = new MIPSComp::Jit(this);
+#endif
 		}
 		break;
 
@@ -254,7 +256,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
 	else
-		MIPSComp::Jit::DoDummyState(p);
+		MIPSComp::jit->DoDummyState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
@@ -305,33 +307,13 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	return 1;
 }
 
-void MIPSState::WriteFCR(int reg, int value) {
-	if (reg == 31) {
-		fcr31 = value & 0x0181FFFF;
-		fpcond = (value >> 23) & 1;
-	} else {
-		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
-}
-
-u32 MIPSState::ReadFCR(int reg) {
-	DEBUG_LOG(CPU,"FCR%i read",reg);
-	if (reg == 31) {
-		fcr31 = (fcr31 & ~(1<<23)) | ((fpcond & 1)<<23);
-		return fcr31;
-	} else if (reg == 0) {
-		return FCR0_VALUE;
-	} else {
-		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
-		// MessageBox(0, "Invalid FCR","...",0);
-	}
-	return 0;
-}
-
 void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
 		MIPSComp::jit->InvalidateCacheAt(address, length);
+}
+
+void MIPSState::ClearJitCache() {
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCache();
 }

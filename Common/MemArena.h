@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _MEMARENA_H_
-#define _MEMARENA_H_
+#pragma once
 
 #ifdef _WIN32
 #include "CommonWindows.h"
@@ -46,5 +45,3 @@ private:
 	int fd;
 #endif
 };
-
-#endif // _MEMARENA_H_

@@ -106,7 +106,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 void LoadAllPostShaderInfo() {
 	std::vector<std::string> directories;
 	directories.push_back("shaders");
-	directories.push_back(g_Config.memCardDirectory + "PSP/shaders");
+	directories.push_back(g_Config.memStickDirectory + "PSP/shaders");
 	LoadPostShaderInfo(directories);
 }
 

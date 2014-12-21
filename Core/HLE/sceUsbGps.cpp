@@ -26,12 +26,12 @@ enum UsbStatus {
 	GPS_STATE_ON = 3,
 };
 
-int sceUsbGpsGetState(u32 stateAddr) {
+static int sceUsbGpsGetState(u32 stateAddr) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsGetData(%08x)", stateAddr);
 	return 0;
 }
 
-int sceUsbGpsOpen() {
+static int sceUsbGpsOpen() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsOpen");
 	return 0;
 }

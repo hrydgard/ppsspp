@@ -23,6 +23,10 @@
 #include "Common/FixedSizeQueue.h"
 #include "Common/Atomics.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
@@ -31,6 +35,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -82,14 +87,49 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 #endif
 }
 
-void hleAudioUpdate(u64 userdata, int cyclesLate) {
+inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
+#ifdef _M_SSE
+	if (leftVol <= 0x7fff && rightVol <= 0x7fff) {
+		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+		while (size >= 16) {
+			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
+			_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
+			_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
+	} else {
+		// We have to shift inside the loop to avoid the signed multiply issue.
+		leftVol >>= 1;
+		rightVol >>= 1;
+		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
+		while (size >= 16) {
+			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
+			_mm_storeu_si128((__m128i *)out, _mm_slli_epi16(_mm_mulhi_epi16(indata1, volume), 1));
+			_mm_storeu_si128((__m128i *)(out + 8), _mm_slli_epi16(_mm_mulhi_epi16(indata2, volume), 1));
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
+	}
+#endif
+	for (size_t i = 0; i < size; i += 2) {
+		out[i] = adjustvolume(in[i], leftVol);
+		out[i + 1] = adjustvolume(in[i + 1], rightVol);
+	}
+}
+
+static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
 
 	__AudioUpdate();
 }
 
-void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
+static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
 
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
@@ -97,7 +137,7 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	host->UpdateSound();
 }
 
-void __AudioCPUMHzChange() {
+static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
 }
@@ -265,23 +305,14 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-
-				// TODO: SSE/NEON (VQDMULH) implementations
-				for (u32 i = 0; i < sz1; i += 2) {
-					buf1[i] = adjustvolume(sampleData[i], leftVol);
-					buf1[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-				}
+				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
 				if (buf2) {
-					sampleData += sz1;
-					for (u32 i = 0; i < sz2; i += 2) {
-						buf2[i] = adjustvolume(sampleData[i], leftVol);
-						buf2[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-					}
+					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
 				}
 			}
 		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
+			// Rare, so unoptimized. Expands to stereo.
 			for (u32 i = 0; i < chan.sampleCount; i++) {
-				// Expand to stereo
 				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
 				chan.sampleQueue.push(adjustvolume(sample, leftVol));
 				chan.sampleQueue.push(adjustvolume(sample, rightVol));
@@ -327,6 +358,28 @@ void __AudioSetOutputFrequency(int freq) {
 	mixFrequency = freq;
 }
 
+inline void ClampBufferToS16(s16 *out, s32 *in, size_t size) {
+#ifdef _M_SSE
+	// Size will always be 16-byte aligned as the hwBlockSize is.
+	while (size >= 8) {
+		__m128i in1 = _mm_loadu_si128((__m128i *)in);
+		__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
+		__m128i packed = _mm_packs_epi32(in1, in2);
+		_mm_storeu_si128((__m128i *)out, packed);
+		out += 8;
+		in += 8;
+		size -= 8;
+	}
+	for (size_t i = 0; i < size; i++) {
+		out[i] = clamp_s16(in[i]);
+	}
+#else
+	for (size_t i = 0; i < size; i++) {
+		out[i] = clamp_s16(in[i]);
+	}
+#endif
+}
+
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
@@ -364,6 +417,7 @@ void __AudioUpdate() {
 			}
 			firstChannel = false;
 		} else {
+			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
 			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
@@ -374,6 +428,7 @@ void __AudioUpdate() {
 	}
 
 	if (firstChannel) {
+		// Nothing was written above, let's memset.
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
@@ -390,12 +445,9 @@ void __AudioUpdate() {
 			s16 *buf1 = 0, *buf2 = 0;
 			size_t sz1, sz2;
 			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
-			
-			for (size_t s = 0; s < sz1; s++)
-				buf1[s] = clamp_s16(mixBuffer[s]);
+			ClampBufferToS16(buf1, mixBuffer, sz1);
 			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					buf2[s] = clamp_s16(mixBuffer[s + sz1]);
+				ClampBufferToS16(buf2, mixBuffer + sz1, sz2);
 			}
 		} else {
 			// This happens quite a lot. There's still something slightly off
@@ -410,7 +462,6 @@ void __AudioUpdate() {
 // This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames)
 {
-
 	// TODO: if mixFrequency != the actual output frequency, resample!
 	int underrun = -1;
 	s16 sampleL = 0;
@@ -419,7 +470,6 @@ int __AudioMix(short *outstereo, int numFrames)
 	const s16 *buf1 = 0, *buf2 = 0;
 	size_t sz1, sz2;
 	{
-		
 		//TODO: do rigorous testing to see whether just blind locking will improve speed.
 		if (!__gainAudioQueueLock()){
 			 memset(outstereo, 0, numFrames * 2 * sizeof(short)); 

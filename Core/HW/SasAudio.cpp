@@ -89,6 +89,7 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	int coef1 = f[predict_nr][0];
 	int coef2 = -f[predict_nr][1];
 
+	// TODO: Unroll once more and interleave the unpacking with the decoding more?
 	for (int i = 0; i < 28; i += 2) {
 		u8 d = *readp++;
 		int sample1 = (short)((d & 0xf) << 12) >> shift_factor;
@@ -115,11 +116,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
-	u8 *readp = Memory::GetPointer(read_);
-	if (!readp) {
+	if (!Memory::IsValidAddress(read_)) {
 		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
+	u8 *readp = Memory::GetPointerUnchecked(read_);
 	u8 *origp = readp;
 
 	for (int i = 0; i < numSamples; i++) {
@@ -188,7 +189,7 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 		u32 numSamples = 0;
 		int remains = 0;
 		static s16 buf[0x800];
-		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
+		_AtracDecodeData(atracID, (u8*)buf, 0, &numSamples, &finish, &remains);
 		if (numSamples > 0)
 			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
 		else
@@ -198,9 +199,9 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 	return finish;
 }
 
-int SasAtrac3::addStreamData(u8* buf, u32 addbytes) {
+int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
 	if (atracID > 0) {
-		_AtracAddStreamData(atracID, buf, addbytes);
+		_AtracAddStreamData(atracID, bufPtr, addbytes);
 	}
 	return 0;
 }
@@ -416,7 +417,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	}
 }
 
-bool SasVoice::HaveSamplesEnded() {
+bool SasVoice::HaveSamplesEnded() const {
 	switch (type) {
 	case VOICETYPE_VAG:
 		return vag.End();
@@ -491,6 +492,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
 			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
 			int envelopeValue = voice.envelope.GetHeight();
+			voice.envelope.Step();
 			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
 
 			// We just scale by the envelope before we scale by volumes.
@@ -504,7 +506,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
 			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
 			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
-			voice.envelope.Step();
 		}
 
 		voice.sampleFrac = sampleFrac;

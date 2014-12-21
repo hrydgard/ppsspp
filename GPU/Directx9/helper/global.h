@@ -25,12 +25,12 @@ extern LPDIRECT3DPIXELSHADER9       pFramebufferPixelShader;  // Pixel Shader
 extern IDirect3DVertexDeclaration9* pFramebufferVertexDecl;
 extern IDirect3DVertexDeclaration9* pSoftVertexDecl;
 
-void CompileShaders();
+bool CompileShaders(std::string &errorMessage);
 bool CompilePixelShader(const char *code, LPDIRECT3DPIXELSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
 bool CompileVertexShader(const char *code, LPDIRECT3DVERTEXSHADER9 *pShader, ID3DXConstantTable **pShaderTable, std::string &errorMessage);
 void DestroyShaders();
 void DirectxInit(HWND window);
 
-#define D3DBLEND_UNK	D3DSTENCILOP_FORCE_DWORD
+#define D3DBLEND_UNK	D3DBLEND_FORCE_DWORD
 
 };

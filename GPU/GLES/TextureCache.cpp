@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <map>
 #include <algorithm>
 #include <cstring>
 
@@ -234,6 +233,7 @@ void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuff
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 		host->GPUNotifyTextureAttachment(entry->addr);
@@ -247,6 +247,7 @@ void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebu
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
@@ -705,6 +706,8 @@ void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeigh
 	float lodBias;
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
 
+	minFilt &= 1;  // framebuffers can't mipmap.
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
 
@@ -922,7 +925,7 @@ void TextureCache::UpdateCurrentClut() {
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
-	clutHash_ = DoReliableHash((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
+	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
 	// Avoid a copy when we don't need to convert colors.
 	if (UseBGRA8888() || clutFormat != GE_CMODE_32BIT_ABGR8888) {
@@ -1052,7 +1055,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
 			glActiveTexture(GL_TEXTURE0);
 
-			framebufferManager_->BindFramebufferColor(framebuffer, true);
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, framebuffer, true);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
@@ -1087,7 +1090,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(framebuffer);
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, framebuffer);
 
 			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
@@ -1200,7 +1203,7 @@ void TextureCache::SetTexture(bool force) {
 	int bufw = GetTextureBufw(0, texaddr, format);
 	int maxLevel = gstate.getTextureMaxLevel();
 
-	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
+	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 	u32 fullhash = 0;
 
 	TexCache::iterator iter = cache.find(cachekey);
@@ -1208,7 +1211,6 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.flipTexture = false;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool replaceImages = false;
 
 	if (iter != cache.end()) {
@@ -1527,13 +1529,13 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
 #ifndef USING_GLES2
 		if (badMipSizes) {
+			// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 			for (int i = 1; i <= maxLevel; i++) {
@@ -1542,8 +1544,14 @@ void TextureCache::SetTexture(bool force) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 		}
-#else 
-		glGenerateMipmap(GL_TEXTURE_2D);
+#else
+		// Avoid PowerVR driver bug
+		if (w > 1 && h > 1 && !(gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && h > w)) {  // Really! only seems to fail if height > width
+			// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
+			entry->maxLevel = 0;
+		}
 #endif
 	} else {
 #ifndef USING_GLES2

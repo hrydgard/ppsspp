@@ -26,6 +26,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -137,6 +138,19 @@ void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha)
 	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
 }
 
+void ShaderManagerDX9::PSSetFloat(int creg, float value) {
+	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
+	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+}
+
+void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) {
+	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	for (int i = 0; i < count; i++) {
+		f[i] = value[i];
+	}
+	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
+}
+
 void ShaderManagerDX9::VSSetFloat(int creg, float value) {
 	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
 	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
@@ -208,13 +222,27 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
-static void ConvertProjMatrixToD3D(Matrix4x4 & in, bool invertedX, bool invertedY, bool invertedZ) {
+static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
 	Matrix4x4 s;
 	Matrix4x4 t;
-	s.setScaling(Vec3(1, 1, invertedZ ? -0.5 : 0.5f));
+
+	s.setScaling(Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
+	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
 	float yoff = 0.5f / gstate_c.curRTRenderHeight;
-	t.setTranslation(Vec3(invertedX ? xoff : -xoff, invertedY ? -yoff : yoff, 0.5f));
+	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
+	t.setTranslation(Vec3(xoff, yoff, 0.5f));
+	in = in * s * t;
+}
+
+static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
+	Matrix4x4 s;
+	Matrix4x4 t;
+
+	s.setScaling(Vec3(1.0f, 1.0f, 0.5f));
+	float xoff = -0.5f / gstate_c.curRTRenderWidth;
+	float yoff = -0.5f / gstate_c.curRTRenderHeight;
+	t.setTranslation(Vec3(xoff, yoff, 0.5f));
 	in = in * s * t;
 }
 
@@ -231,6 +259,43 @@ void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
 	}
+	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
+		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
+	}
+
+	if (dirtyUniforms & DIRTY_SHADERBLEND) {
+		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
+		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());
+
+		const float fbotexSize[2] = {
+			1.0f / (float)gstate_c.curRTRenderWidth,
+			1.0f / (float)gstate_c.curRTRenderHeight,
+		};
+		PSSetFloatArray(CONST_PS_FBOTEXSIZE, fbotexSize, 2);
+	}
+
+	if (dirtyUniforms & DIRTY_TEXCLAMP) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
+		// First wrap xy, then half texel xy (for clamp.)
+		const float texclamp[4] = {
+			widthFactor,
+			heightFactor,
+			invW * 0.5f,
+			invH * 0.5f,
+		};
+		const float texclampoff[2] = {
+			gstate_c.curTextureXOffset * invW,
+			gstate_c.curTextureYOffset * invH,
+		};
+		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
+		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+	}
 }
 
 void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
@@ -240,7 +305,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 		const bool invertedY = gstate_c.vpHeight < 0;
-		if (invertedY) {
+		if (!invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
@@ -259,7 +324,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 
-		ConvertProjMatrixToD3D(proj_through, false, false, false);
+		ConvertProjMatrixToD3DThrough(proj_through);
 
 		VSSetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
 	}
@@ -278,6 +343,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
+		// TODO: Handle NAN/INF?
 		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
@@ -315,31 +381,58 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
+		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+		const int w = gstate.getTextureWidth(0);
+		const int h = gstate.getTextureHeight(0);
+		const float widthFactor = (float)w * invW;
+		const float heightFactor = (float)h * invH;
+
 		float uvscaleoff[4];
-		if (gstate.isModeThrough()) {
-			// We never get here because we don't use HW transform with through mode.
-			// Although - why don't we?
-			uvscaleoff[0] = gstate_c.uv.uScale / gstate_c.curTextureWidth;
-			uvscaleoff[1] = gstate_c.uv.vScale / gstate_c.curTextureHeight;
-			uvscaleoff[2] = gstate_c.uv.uOff / gstate_c.curTextureWidth;
-			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
-		} else {
-			int w = gstate.getTextureWidth(0);
-			int h = gstate.getTextureHeight(0);
-			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
+
+		switch (gstate.getUVGenMode()) {
+		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
-				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			} else {
+		case GE_TEXMAP_UNKNOWN:
+			if (g_Config.bPrescaleUV) {
+				// Shouldn't even get here as we won't use the uniform in the shader.
+				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
+				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
 				uvscaleoff[1] = heightFactor;
 				uvscaleoff[2] = 0.0f;
 				uvscaleoff[3] = 0.0f;
+			} else {
+				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			}
+			break;
+
+		// These two work the same whether or not we prescale UV.
+
+		case GE_TEXMAP_TEXTURE_MATRIX:
+			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
+			// before this is applied, and the matrix multiplication may contain translation. In this case
+			// the translation will be scaled which breaks faces in Hexyz Force for example.
+			// So I've gone back to applying the scale factor in the shader.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		case GE_TEXMAP_ENVIRONMENT_MAP:
+			// In this mode we only use uvscaleoff to scale to the texture size.
+			uvscaleoff[0] = widthFactor;
+			uvscaleoff[1] = heightFactor;
+			uvscaleoff[2] = 0.0f;
+			uvscaleoff[3] = 0.0f;
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
@@ -435,7 +528,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransformDX9(prim);
 
 	VertexShaderIDDX9 VSID;
-	ComputeVertexShaderIDDX9(&VSID, vertType, prim, useHWTransform);
+	ComputeVertexShaderIDDX9(&VSID, vertType, useHWTransform);
 	FragmentShaderIDDX9 FSID;
 	ComputeFragmentShaderIDDX9(&FSID);
 

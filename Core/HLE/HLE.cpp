@@ -58,9 +58,6 @@ enum
 	HLE_AFTER_SKIP_DEADBEEF     = 0x40,
 };
 
-typedef std::vector<Syscall> SyscallVector;
-typedef std::map<std::string, SyscallVector> SyscallVectorByModule;
-
 static std::vector<HLEModule> moduleDB;
 static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;

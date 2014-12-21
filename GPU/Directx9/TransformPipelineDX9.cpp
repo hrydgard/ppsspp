@@ -77,7 +77,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define QUAD_INDICES_MAX 32768
+#define QUAD_INDICES_MAX 65536
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 
@@ -95,7 +95,8 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(0) {
+		uvScale(0),
+		fboTexBound_(false) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = true;
@@ -112,14 +113,6 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
-	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
-		quadIndices_[i * 6 + 0] = i * 4;
-		quadIndices_[i * 6 + 1] = i * 4 + 2;
-		quadIndices_[i * 6 + 2] = i * 4 + 1;
-		quadIndices_[i * 6 + 3] = i * 4 + 1;
-		quadIndices_[i * 6 + 4] = i * 4 + 2;
-		quadIndices_[i * 6 + 5] = i * 4 + 3;
-	}
 
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
@@ -292,27 +285,22 @@ inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 }
 
 void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (vertexCount == 0)
-		return;  // we ignore zero-sized draw calls.
-
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+		return;
+
 	// TODO: Is this the right thing to do?
 	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_;
+		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
+	} else {
+		prevPrim_ = prim;
 	}
-	prevPrim_ = prim;
 
 	SetupVertexDecoderInternal(vertType);
 
-	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
-
-	if (bytesRead)
-		*bytesRead = vertexCount * dec_->VertexSize();
-
-	gpuStats.numDrawCalls++;
-	gpuStats.numVertsSubmitted += vertexCount;
+	*bytesRead = vertexCount * dec_->VertexSize();
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
@@ -354,6 +342,7 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
 			gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 			Flush();
@@ -465,7 +454,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 		size_t step = sz / 4;
 		u32 hash = 0;
 		for (size_t i = 0; i < sz; i += step) {
-			hash += DoReliableHash(p + i, 100, 0x3A44B9C4);
+			hash += DoReliableHash32(p + i, 100, 0x3A44B9C4);
 		}
 		return hash;
 	} else {
@@ -512,8 +501,8 @@ void TransformDrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 	}
 }
 
-u32 TransformDrawEngineDX9::ComputeHash() {
-	u32 fullhash = 0;
+ReliableHashType TransformDrawEngineDX9::ComputeHash() {
+	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
 
@@ -605,6 +594,7 @@ VertexArrayInfoDX9::~VertexArrayInfoDX9() {
 	}
 }
 
+// The inline wrapper in the header checks for numDrawCalls == 0
 void TransformDrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -647,7 +637,7 @@ void TransformDrawEngineDX9::DoFlush() {
 			case VertexArrayInfoDX9::VAI_NEW:
 				{
 					// Haven't seen this one before.
-					u32 dataHash = ComputeHash();
+					ReliableHashType dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoDX9::VAI_HASHING;
@@ -672,7 +662,7 @@ void TransformDrawEngineDX9::DoFlush() {
 					if (vai->drawsUntilNextFullHash == 0) {
 						// Let's try to skip a full hash if mini would fail.
 						const u32 newMiniHash = ComputeMiniHash();
-						u32 newHash = vai->hash;
+						ReliableHashType newHash = vai->hash;
 						if (newMiniHash == vai->minihash) {
 							newHash = ComputeHash();
 						}
@@ -720,7 +710,7 @@ void TransformDrawEngineDX9::DoFlush() {
 						vai->vbo->Unlock();
 						if (useElements) {
 							void * pIb;
-							u32 size =  sizeof(short) * indexGen.VertexCount();
+							u32 size = sizeof(short) * indexGen.VertexCount();
 							pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
 							vai->ebo->Lock(0, size, &pIb, 0);
 							memcpy(pIb, decIndex, size);
@@ -882,6 +872,9 @@ rotateVBO:
 			pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
 		}
 	}
+
+	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;

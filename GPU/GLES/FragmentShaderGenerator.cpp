@@ -25,11 +25,13 @@
 
 #include <cstdio>
 
+#include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/ShaderManager.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
@@ -354,9 +356,38 @@ ReplaceBlendType ReplaceBlendWithShader() {
 	}
 }
 
+enum LogicOpReplaceType {
+	LOGICOPTYPE_NORMAL,
+	LOGICOPTYPE_ONE,
+	LOGICOPTYPE_INVERT,
+};
+
+static inline LogicOpReplaceType ReplaceLogicOpType() {
+#if defined(USING_GLES2)
+	if (gstate.isLogicOpEnabled()) {
+		switch (gstate.getLogicOp()) {
+		case GE_LOGIC_COPY_INVERTED:
+		case GE_LOGIC_AND_INVERTED:
+		case GE_LOGIC_OR_INVERTED:
+		case GE_LOGIC_NOR:
+		case GE_LOGIC_NAND:
+		case GE_LOGIC_EQUIV:
+			return LOGICOPTYPE_INVERT;
+		case GE_LOGIC_INVERTED:
+			return LOGICOPTYPE_ONE;
+		case GE_LOGIC_SET:
+			return LOGICOPTYPE_ONE;
+		default:
+			return LOGICOPTYPE_NORMAL;
+		}
+	}
+#endif
+	return LOGICOPTYPE_NORMAL;
+}
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FragmentShaderID *id) {
+void ComputeFragmentShaderID(ShaderID *id) {
 	int id0 = 0;
 	int id1 = 0;
 	if (gstate.isModeClear()) {
@@ -371,6 +402,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
@@ -425,7 +457,9 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 29 - 31 are free.
+		// 29 is free.
+		// 2 bits.
+		id0 |= ReplaceLogicOpType() << 30;
 
 		// 3 bits.
 		id1 |= replaceBlend << 0;
@@ -435,6 +469,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id1 |= gstate.getBlendFuncA() << 6;
 			id1 |= gstate.getBlendFuncB() << 10;
 		}
+		id1 |= (doFlatShading & 1) << 14;
 	}
 
 	id->d[0] = id0;
@@ -453,6 +488,7 @@ void GenerateFragmentShader(char *buffer) {
 	const char *texture = "texture2D";
 	const char *texelFetch = NULL;
 	bool highpFog = false;
+	bool highpTexcoord = false;
 	bool bitwiseOps = false;
 
 #if defined(USING_GLES2)
@@ -476,8 +512,9 @@ void GenerateFragmentShader(char *buffer) {
 
 	// PowerVR needs highp to do the fog in MHU correctly.
 	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = gl_extensions.gpuVendor == GPU_VENDOR_POWERVR;
-	
+	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+	highpTexcoord = highpFog;
+
 	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
@@ -540,9 +577,15 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
+	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
+
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
+
+	const char *shading = "";
+	if (glslES30)
+		shading = doFlatShading ? "flat" : "";
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -586,18 +629,18 @@ void GenerateFragmentShader(char *buffer) {
 	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND)
 		WRITE(p, "uniform vec3 u_texenv;\n");
 
-	WRITE(p, "%s vec4 v_color0;\n", varying);
+	WRITE(p, "%s %s vec4 v_color0;\n", shading, varying);
 	if (lmode)
-		WRITE(p, "%s vec3 v_color1;\n", varying);
+		WRITE(p, "%s %s vec3 v_color1;\n", shading, varying);
 	if (enableFog) {
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "%s %s float v_fogdepth;\n", varying, highpFog ? "highp" : "mediump");
 	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "%s mediump vec3 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 		else
-			WRITE(p, "%s mediump vec2 v_texcoord;\n", varying);
+			WRITE(p, "%s %s vec2 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {
@@ -628,6 +671,11 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "out vec4 fragColor0;\n");
 	}
 
+	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
+	if ((gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) && gstate_c.needShaderTexClamp) {
+		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
+	}
+
 	WRITE(p, "void main() {\n");
 
 	if (gstate.isModeClear()) {
@@ -646,7 +694,8 @@ void GenerateFragmentShader(char *buffer) {
 		if (gstate.isTextureMapEnabled()) {
 			const char *texcoord = "v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
-			if (gstate_c.needShaderTexClamp) {
+			// This path destroys resolution on older PowerVR no matter what I do, so we disable it on SGX 540 and lesser, and live with the consequences.
+			if (gstate_c.needShaderTexClamp && !(gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_TERRIBLE)) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
@@ -660,16 +709,17 @@ void GenerateFragmentShader(char *buffer) {
 					vcoord = "1.0 - " + vcoord;
 				}
 
+				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
+
 				if (gstate.isTexCoordClampedS()) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
-					ucoord = "mod(" + ucoord + ", u_texclamp.x)";
+					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
 				}
-				// The v coordinate is more tricky, since it's flipped.
 				if (gstate.isTexCoordClampedT()) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
-					vcoord = "mod(" + vcoord + ", u_texclamp.y)";
+					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
 				}
 				if (textureAtOffset) {
 					ucoord = "(" + ucoord + " + u_texclampoff.x)";
@@ -1005,6 +1055,17 @@ void GenerateFragmentShader(char *buffer) {
 
 	case REPLACE_ALPHA_NO:
 		WRITE(p, "  %s = v;\n", fragColor0);
+		break;
+	}
+
+	switch (ReplaceLogicOpType()) {
+	case LOGICOPTYPE_ONE:
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);
+		break;
+	case LOGICOPTYPE_INVERT:
+		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", fragColor0, fragColor0);
+		break;
+	case LOGICOPTYPE_NORMAL:
 		break;
 	}
 

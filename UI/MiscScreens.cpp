@@ -36,6 +36,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
@@ -337,7 +338,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	bool iniLoadedSuccessfully = false;
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memCardDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -415,7 +416,8 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	snprintf(temp, sizeof(temp), "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
+	// Manually formatting utf-8 is fun.  \xXX doesn't work everywhere.
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", c->T("created", "Created by"), 0xC3, 0xA5);
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else

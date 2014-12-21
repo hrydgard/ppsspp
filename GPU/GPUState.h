@@ -276,13 +276,13 @@ struct GPUgstate
 
 	// Alpha Test
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
-	GEComparison getAlphaTestFunction() { return static_cast<GEComparison>(alphatest & 0x7); }
+	GEComparison getAlphaTestFunction() const { return static_cast<GEComparison>(alphatest & 0x7); }
 	int getAlphaTestRef() const { return (alphatest >> 8) & 0xFF; }
 	int getAlphaTestMask() const { return (alphatest >> 16) & 0xFF; }
 	
 	// Color Test
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
-	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
+	GEComparison getColorTestFunction() const { return static_cast<GEComparison>(colortest & 0x3); }
 	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
 	u32 getColorTestMask() const { return colortestmask & 0xFFFFFF; }
 
@@ -305,7 +305,7 @@ struct GPUgstate
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFFF) | ((clutaddrupper << 8) & 0x0F000000); }
 	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
 	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
-	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
+	GEPaletteFormat getClutPaletteFormat() const { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
@@ -476,6 +476,11 @@ struct GPUStateCache
 	float vpWidth;
 	float vpHeight;
 	float vpDepth;
+	// Only used by Direct3D, not saved.
+	float vpXOffset;
+	float vpYOffset;
+	float vpWidthScale;
+	float vpHeightScale;
 
 	u32 curRTWidth;
 	u32 curRTHeight;

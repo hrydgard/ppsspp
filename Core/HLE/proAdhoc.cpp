@@ -1,5 +1,6 @@
 // TODO: Add license
 
+#include <cctype>
 #include <cstring>
 #include "util/text/parsers.h"
 #include "proAdhoc.h" 
@@ -750,33 +751,27 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
   }
 }
 
-int isBroadcastMAC(const SceNetEtherAddr * addr) {
-  // Broadcast MAC
-  if(memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0) return 1;
-  // Normal MAC
-  return 0;
+bool isBroadcastMAC(const SceNetEtherAddr * addr) {
+  return memcmp(addr->data, "\xFF\xFF\xFF\xFF\xFF\xFF", ETHER_ADDR_LEN) == 0;
 }
 
-int resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
+bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
   sockaddr_in addr;
   getLocalIp(&addr);
   uint32 localIp = addr.sin_addr.s_addr;
 
-  if(ip == localIp){
+  if (ip == localIp) {
     getLocalMac(mac);
-    return 0;
+    return true;
   }
 
   // Multithreading Lock
   peerlock.lock();
 
-  // Peer Reference
-  SceNetAdhocctlPeerInfo * peer = friends;
-
   // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
+  for (SceNetAdhocctlPeerInfo* peer = friends; peer != NULL; peer = peer->next) {
     // Found Matching Peer
-    if(peer->ip_addr == ip) {
+    if (peer->ip_addr == ip) {
       // Copy Data
       *mac = peer->mac_addr;
 
@@ -784,7 +779,7 @@ int resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
       peerlock.unlock();
 
       // Return Success
-      return 0;
+      return true;
     }
   }
 
@@ -792,40 +787,36 @@ int resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
   peerlock.unlock();
 
   // Peer not found
-  return -1;
+  return false;
 }
 
-int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
+bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
   // Get Local MAC Address
   SceNetEtherAddr localMac;
   getLocalMac(&localMac);
   // Local MAC Requested
-  if(memcmp(&localMac, mac, sizeof(SceNetEtherAddr)) == 0) {
+  if (memcmp(&localMac, mac, sizeof(SceNetEtherAddr)) == 0) {
     // Get Local IP Address
     sockaddr_in sockAddr;
     getLocalIp(&sockAddr);
     *ip = sockAddr.sin_addr.s_addr;
-    return 0; // return succes
+    return true;
   }
 
   // Multithreading Lock
   peerlock.lock();
 
-  // Peer Reference
-  SceNetAdhocctlPeerInfo * peer = friends;
-
   // Iterate Peers
-  for(; peer != NULL; peer = peer->next) {
+  for (SceNetAdhocctlPeerInfo * peer = friends; peer != NULL; peer = peer->next) {
     // Found Matching Peer
-    if(memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0) {
+    if (memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0) {
       // Copy Data
       *ip = peer->ip_addr;
 
       // Multithreading Unlock
       peerlock.unlock();
 
-      // Return Success
-      return 0;
+      return true;
     }
   }
 
@@ -833,35 +824,24 @@ int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip) {
   peerlock.unlock();
 
   // Peer not found
-  return -1;
+  return false;
 }
 
-int validNetworkName(const SceNetAdhocctlGroupName * group_name) {
-  // Result
-  int valid = 1;
-
+bool validNetworkName(const SceNetAdhocctlGroupName * group_name) {
   // Name given
-  if(group_name != NULL) {
-    // Iterate Name Characters
-    int i = 0; for(; i < ADHOCCTL_GROUPNAME_LEN && valid; i++) {
+  if (group_name != NULL) {
+    for (int i = 0; i < ADHOCCTL_GROUPNAME_LEN; i++) {
       // End of Name
-      if(group_name->data[i] == 0) break;
+      if (group_name->data[i] == 0)
+        break;
 
-      // Not a digit
-      if(group_name->data[i] < '0' || group_name->data[i] > '9') {
-        // Not 'A' to 'Z'
-        if(group_name->data[i] < 'A' || group_name->data[i] > 'Z') {
-          // Not 'a' to 'z'
-          if(group_name->data[i] < 'a' || group_name->data[i] > 'z') {
-            // Invalid Name
-            valid = 0;
-          }
-        }
-      }
+      // Invalid name
+      if (!::isalnum(group_name->data[i]))
+        return false;
     }
   }
-  // Return Result
-  return valid;
+
+  return true;
 }
 
 u64 join32(u32 num1, u32 num2){

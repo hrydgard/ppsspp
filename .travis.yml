@@ -2,6 +2,15 @@
 
 language: cpp
 
+notifications:
+  irc:
+    channels: "chat.freenode.net#ppsspp"
+    on_success: change
+    on_failure: always
+    skip_join: true
+    template:
+      - "%{repository_slug}:%{branch} - %{message} %{build_url}"
+
 env:
   - PPSSPP_BUILD_TYPE=Linux
     CMAKE=TRUE
@@ -35,10 +44,13 @@ before_install:
 install:
 # Ubuntu Linux + GCC 4.8
   - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
-      sudo apt-get install libsdl1.2-dev -qq &&
+      sudo add-apt-repository ppa:zoogie/sdl2-snapshots -y &&
       if [[ "$CXX" == g++ ]]; then
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
-        sudo apt-get update &&
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y;
+      fi;
+      sudo apt-get update &&
+      sudo apt-get install libsdl2-dev -qq &&
+      if [[ "$CXX" == g++ ]]; then
         sudo apt-get install g++-4.8 -qq &&
         export CXX="g++-4.8" CC="gcc-4.8";
       fi;
