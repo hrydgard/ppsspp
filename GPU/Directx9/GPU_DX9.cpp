@@ -543,7 +543,7 @@ void DIRECTX9_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferForma
 
 bool DIRECTX9_GPU::FramebufferDirty() {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Allow it to process fully before deciding if it's dirty.
@@ -559,7 +559,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 }
 bool DIRECTX9_GPU::FramebufferReallyDirty() {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Allow it to process fully before deciding if it's dirty.

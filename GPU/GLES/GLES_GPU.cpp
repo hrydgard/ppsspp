@@ -615,7 +615,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GLES_GPU::FramebufferDirty() {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
@@ -630,7 +630,7 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 bool GLES_GPU::FramebufferReallyDirty() {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Allow it to process fully before deciding if it's dirty.
 		SyncThread();
 	}
