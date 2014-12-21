@@ -319,7 +319,7 @@ namespace SaveState
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to load state. Error in the file system.", 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 
@@ -327,12 +327,12 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (!fn.empty()) {
-			Save(fn, callback, cbUserData);
+			Save(fn + ".tmp", callback, cbUserData);
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 

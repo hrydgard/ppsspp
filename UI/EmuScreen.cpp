@@ -332,11 +332,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(g_Config.iCurrentStateSlot, 0);
+		SaveState::SaveSlot(g_Config.iCurrentStateSlot, nullptr);
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
-			SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0);
+			SaveState::LoadSlot(g_Config.iCurrentStateSlot, nullptr);
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
@@ -800,7 +800,7 @@ void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot();
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(lastSlot, 0, 0);
+		SaveState::LoadSlot(lastSlot, nullptr, 0);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }
