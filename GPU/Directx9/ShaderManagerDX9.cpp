@@ -23,6 +23,7 @@
 #include "helper/global.h"
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
+#include "math/math_util.h"
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
@@ -329,11 +330,26 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
-		const float fogcoef[2] = {
+		float fogcoef[2] = {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
-		// TODO: Handle NAN/INF?
+		if (my_isinf(fogcoef[1])) {
+			// not really sure what a sensible value might be.
+			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
+		} else if (my_isnan(fogcoef[1])) {
+			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+			// Just put the fog far away at a large finite distance.
+			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
+			// so it's best to just make it a sane calculation.
+			fogcoef[0] = 100000.0f;
+			fogcoef[1] = 1.0f;
+		}
+#ifndef MOBILE_DEVICE
+		else if (my_isnanorinf(fogcoef[1]) || my_isnanorinf(fogcoef[0])) {
+			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
+		}
+#endif
 		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
