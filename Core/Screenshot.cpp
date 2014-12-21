@@ -43,8 +43,10 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	} else {
 		if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 			success = GLES_GPU::GetDisplayFramebuffer(buf);
+#ifdef _WIN32
 		} else if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 			success = DX9::DIRECTX9_GPU::GetDisplayFramebuffer(buf);
+#endif
 		}
 	}
 
