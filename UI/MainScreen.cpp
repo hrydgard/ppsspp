@@ -1235,21 +1235,21 @@ UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnLoadState(UI::EventParams &e) {
-	SaveState::LoadSlot(saveSlots_->GetSelection(), nullptr, 0);
+	SaveState::LoadSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
-	SaveState::SaveSlot(saveSlots_->GetSelection(), nullptr, 0);
+	SaveState::SaveSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
-	SaveState::Rewind(nullptr, 0);
+	SaveState::Rewind(SaveState::Callback(), 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;

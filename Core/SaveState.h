@@ -45,22 +45,22 @@ namespace SaveState
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const std::string &filename, Callback callback = nullptr, void *cbUserData = 0);
+	void Load(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const std::string &filename, Callback callback = nullptr, void *cbUserData = 0);
+	void Save(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = nullptr, void *cbUserData = 0);
+	void Verify(Callback callback = Callback(), void *cbUserData = 0);
 
 	// To go back to a previous snapshot (only if enabled.)
 	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = nullptr, void *cbUserData = 0);
+	void Rewind(Callback callback = Callback(), void *cbUserData = 0);
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
