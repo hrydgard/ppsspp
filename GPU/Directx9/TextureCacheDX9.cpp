@@ -900,10 +900,11 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 				ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
 			}
 
+			framebufferManager_->RebindFramebuffer();
 			fbo_bind_color_as_texture(depalFBO, 0);
 
 			dxstate.Restore();
-			framebufferManager_->RebindFramebuffer();
+			dxstate.viewport.restore();
 
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 			const u32 clutBase = gstate.getClutIndexStartPos();
