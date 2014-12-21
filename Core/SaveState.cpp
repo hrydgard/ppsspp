@@ -335,6 +335,7 @@ namespace SaveState
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		std::string shot = GenerateSaveSlotFilename(slot, SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
+#ifndef __SYMBIAN32__
 			auto renameCallback = [=](bool status, void *data) {
 				if (status) {
 					if (File::Exists(fn)) {
@@ -349,6 +350,9 @@ namespace SaveState
 			// Let's also create a screenshot.
 			SaveScreenshot(shot, nullptr, 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
+#else
+			Save(fn, renameCallback, cbUserData);
+#endif
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
