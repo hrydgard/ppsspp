@@ -869,9 +869,18 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
 			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 			pD3Ddevice->SetTexture(1, clutTexture);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
 			framebufferManager_->BindFramebufferColor(0, framebuffer, true);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
+			pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
 			pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
 			pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
 			pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
