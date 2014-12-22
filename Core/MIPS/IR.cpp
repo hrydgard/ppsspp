@@ -184,7 +184,7 @@ static bool Reorder(IRBlock *block) {
 			// Compare register numbers and swap if possible.
 			if (MIPS_GET_RT(e1.op) > MIPS_GET_RT(e2.op) &&
 				  (MIPS_GET_IMM16(e1.op) != MIPS_GET_IMM16(e2.op) ||
-					 MIPS_GET_RT(e1.op) != MIPS_GET_RT(e2.op))) {
+					 MIPS_GET_RS(e1.op) != MIPS_GET_RS(e2.op))) {
 				std::swap(e1, e2);
 #if 0
 				const char *type = "SW";
