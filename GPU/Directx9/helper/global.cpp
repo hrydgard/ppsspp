@@ -35,7 +35,6 @@ static const char * pscode =
   "};\n"
   "float4 main( PS_IN In ) : COLOR {\n"
   "  float4 c =  tex2D(s, In.Uv);\n"
-  "  c.a = 1.0f;\n"
   "  return c;\n"
   "}\n";
 
