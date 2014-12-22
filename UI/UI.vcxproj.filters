@@ -50,6 +50,9 @@
     <ClCompile Include="ReportScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="PauseScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -100,7 +103,9 @@
     <ClInclude Include="ReportScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-
+    <ClInclude Include="PauseScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

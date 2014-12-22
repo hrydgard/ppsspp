@@ -790,6 +790,7 @@ set(NativeAppSource
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
 	UI/MiscScreens.cpp
+	UI/PauseScreen.cpp
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp
 	UI/TiltAnalogSettingsScreen.cpp

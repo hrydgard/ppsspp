@@ -302,6 +302,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/ReportScreen.cpp \
+  $(SRC)/UI/PauseScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \

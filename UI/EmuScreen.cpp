@@ -51,6 +51,7 @@
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
+#include "UI/PauseScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
