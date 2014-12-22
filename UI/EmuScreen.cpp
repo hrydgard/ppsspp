@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "android/app-android.h"
 #include "base/display.h"
 #include "base/logging.h"
@@ -534,9 +535,9 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 				if (!IsAnalogStickKey(results[i]))
 					pspKey(results[i], KEY_DOWN);
 			}
-			// Also unpress the other direction.
+			// Also unpress the other direction (unless both directions press the same key.)
 			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]))
+				if (!IsAnalogStickKey(resultsOpposite[i]) && std::find(results.begin(), results.end(), resultsOpposite[i]) == results.end())
 					pspKey(resultsOpposite[i], KEY_UP);
 			}
 		} else if (axisState == 0) {
