@@ -36,10 +36,12 @@ typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
 																											GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei
 																											width, GLsizei height, GLsizei depth);
 extern PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
+#ifndef ARM64
 typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 	GLint srcX0, GLint srcY0, GLint srcX1, GLuint srcY1,
 	GLint dstX0, GLint dstY0, GLint dstX1, GLuint dstY1,
 	GLint mask, GLenum filter);
+#endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
