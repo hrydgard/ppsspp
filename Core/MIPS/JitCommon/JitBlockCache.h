@@ -39,7 +39,6 @@ typedef Gen::XCodeBlock NativeCodeBlock;
 namespace MIPSGen { class MIPSEmitter; }
 typedef MIPSGen::MIPSCodeBlock NativeCodeBlock;
 #else
-#warning "Unsupported arch!"
 #include "Common/FakeEmitter.h"
 namespace FakeGen { class FakeXEmitter; }
 typedef FakeGen::FakeXCodeBlock NativeCodeBlock;

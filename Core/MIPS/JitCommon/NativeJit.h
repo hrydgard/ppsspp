@@ -32,9 +32,12 @@ typedef MIPSComp::Jit NativeJit;
 #elif defined(MIPS)
 #include "../MIPS/MipsJit.h"
 typedef MIPSComp::Jit NativeJit;
+//#elif defined(ARM64)
+//#include "../ARM64/Arm64Jit.h"
+//typedef MIPSComp::Arm64Jit NativeJit;
 #else
 #include "../fake/FakeJit.h"
-typedef MIPSComp::Jit FakeJit;
+typedef MIPSComp::FakeJit NativeJit;
 #endif
 
 namespace MIPSComp {

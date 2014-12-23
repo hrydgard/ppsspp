@@ -28,6 +28,8 @@
 namespace MIPSComp
 {
 
+typedef int FakeReg;
+
 struct FakeJitOptions
 {
 	FakeJitOptions();
@@ -39,17 +41,14 @@ struct FakeJitOptions
 	int continueMaxInstructions;
 };
 
-class Jit : public FakeGen::FakeXCodeBlock
+class FakeJit : public FakeGen::FakeXCodeBlock
 {
 public:
-	Jit(MIPSState *mips);
+	FakeJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
-	// Compiled ops should ignore delay slots
-	// the compiler will take care of them by itself
-	// OR NOT
 	void Comp_Generic(MIPSOpcode op);
 
 	void RunLoopUntil(u64 globalticks);
@@ -132,6 +131,7 @@ public:
 	void Comp_Vsgn(MIPSOpcode op) {}
 	void Comp_Vocp(MIPSOpcode op) {}
 	void Comp_ColorConv(MIPSOpcode op) {}
+	void Comp_Vbfy(MIPSOpcode op) {}
 
 	int Replace_fabsf() { return 0; }
 
@@ -188,8 +188,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (FakeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (FakeJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

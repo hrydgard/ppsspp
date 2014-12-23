@@ -95,7 +95,7 @@ struct MIPSInstruction {
 #elif defined(MIPS)
 #define JITFUNC(f) (&Jit::f)
 #else
-#error Unknown architecture
+#define JITFUNC(f) (&FakeJit::f)
 #endif
 
 using namespace MIPSDis;

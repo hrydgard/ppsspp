@@ -50,7 +50,7 @@
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
 #else
-#warning "Unsupported arch!"
+// FakeJit doesn't need an emitter, no blocks will be created
 #include "Core/MIPS/MIPS.h"
 #endif
 // #include "JitBase.h"
