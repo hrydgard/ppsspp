@@ -333,99 +333,32 @@ static void DebugPrintBlock(IRBlock *block) {
 	fflush(stdout);
 }
 
-IRBlock::RegisterUsage IRBlock::DetermineInOutUsage(u64 inFlag, u64 outFlag, int pos, int instrs) {
-	const int start = pos;
-	int end = pos + instrs;
-	if (end > (int)entries.size())
-		end = (int)entries.size();
-	bool canClobber = true;
-	for (; pos < end; pos++) {
-		const MIPSOpcode op = entries[pos].op;
-		const MIPSInfo info = entries[pos].info;
-
-		// Currently no pseudo instruction touch the registers that this function applies to.
-
-		// Yes, used.
-		if (info & inFlag)
-			return USAGE_INPUT;
-
-		// Clobbered, so not used.
-		if (info & outFlag)
-			return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
-
-		// Bail early if we hit a branch (could follow each path for continuing?)
-		if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
-			// Still need to check the delay slot (so end after it.)
-			// We'll assume likely are taken.
-			end = pos + 2;
-			// The reason for the start != addr check is that we compile delay slots before branches.
-			// That means if we're starting at the branch, it's not safe to allow the delay slot
-			// to clobber, since it might have already been compiled.
-			// As for LIKELY, we don't know if it'll run the branch or not.
-			canClobber = (info & LIKELY) == 0 && start != pos;
-		}
-	}
-	return USAGE_UNKNOWN;
-}
-
 IRBlock::RegisterUsage IRBlock::DetermineRegisterUsage(MIPSGPReg reg, int pos, int instrs) {
-	switch (reg) {
-	case MIPS_REG_HI:
-		return DetermineInOutUsage(IN_HI, OUT_HI, pos, instrs);
-	case MIPS_REG_LO:
-		return DetermineInOutUsage(IN_LO, OUT_LO, pos, instrs);
-	case MIPS_REG_FPCOND:
-		return DetermineInOutUsage(IN_FPUFLAG, OUT_FPUFLAG, pos, instrs);
-	case MIPS_REG_VFPUCC:
-		return DetermineInOutUsage(IN_VFPU_CC, OUT_VFPU_CC, pos, instrs);
-	default:
-		break;
-	}
-
-	if (reg > 32) {
-		return USAGE_UNKNOWN;
-	}
-
 	const int start = pos;
 	int end = pos + instrs;
 	if (end > (int)entries.size())
 		end = (int)entries.size();
 	bool canClobber = true;
+	u64 mask = 1ULL << (int)reg;
 	for (; pos < end; pos++) {
-		const MIPSOpcode op = entries[pos].op;
-		const MIPSInfo info = entries[pos].info;
+		IREntry &e = entries[pos];
 
-		switch (entries[pos].pseudoInstr) {
-			// TODO: Might need to handle some of them?
-		case PSEUDO_SAVE_RA:
-			if (reg == MIPS_REG_RA)
-				return USAGE_INPUT;
-		default:
-			;
+		if (e.gprIn & mask)
+			return USAGE_INPUT;
+
+		bool clobbered = false;
+		if (e.gprOut & mask) {
+			clobbered = true;
 		}
 
-		// Yes, used.
-		if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
-			return USAGE_INPUT;
-		if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
-			return USAGE_INPUT;
-
-		// Clobbered, so not used.
-		bool clobbered = false;
-		if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-			clobbered = true;
-		if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-			clobbered = true;
-		if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-			clobbered = true;
 		if (clobbered) {
-			if (!canClobber || (info & IS_CONDMOVE))
+			if (!canClobber || (e.info & IS_CONDMOVE))
 				return USAGE_UNKNOWN;
 			return USAGE_CLOBBERED;
 		}
 
 		// Bail early if we hit a branch (could follow each path for continuing?)
-		if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+		if ((e.info & IS_CONDBRANCH) || (e.info & IS_JUMP)) {
 			// Still need to check the delay slot (so end after it.)
 			// We'll assume likely are taken.
 			end = pos + 2;
@@ -433,7 +366,7 @@ IRBlock::RegisterUsage IRBlock::DetermineRegisterUsage(MIPSGPReg reg, int pos, i
 			// That means if we're starting at the branch, it's not safe to allow the delay slot
 			// to clobber, since it might have already been compiled.
 			// As for LIKELY, we don't know if it'll run the branch or not.
-			canClobber = (info & LIKELY) == 0 && start != pos;
+			canClobber = (e.info & LIKELY) == 0 && start != pos;
 		}
 	}
 	return USAGE_UNKNOWN;
