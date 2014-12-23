@@ -215,10 +215,11 @@ struct MsgPipe : public KernelObject
 			// Receive as much as possible, even if it's not enough to wake up.
 			u32 bytesToSend = std::min(thread->freeSize, GetUsedSize());
 
-			thread->WriteBuffer(Memory::GetPointer(buffer), bytesToSend);
+			u8* ptr = Memory::GetPointer(buffer);
+			thread->WriteBuffer(ptr, bytesToSend);
 			// Put the unused data at the start of the buffer.
 			nmp.freeSize += bytesToSend;
-			memmove(Memory::GetPointer(buffer), Memory::GetPointer(buffer) + bytesToSend, GetUsedSize());
+			memmove(ptr, ptr + bytesToSend, GetUsedSize());
 			freedSpace = true;
 
 			if (thread->waitMode == SCE_KERNEL_MPW_ASAP || thread->freeSize == 0)
