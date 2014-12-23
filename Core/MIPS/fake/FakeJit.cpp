@@ -29,7 +29,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 
-#include "FakeFakeJit.h"
+#include "FakeJit.h"
 #include "CPUDetect.h"
 
 void DisassembleFake(const u8 *data, int size) {
@@ -38,7 +38,7 @@ void DisassembleFake(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-FakeFakeJitOptions::FakeFakeJitOptions() {
+FakeJitOptions::FakeJitOptions() {
 	enableBlocklink = true;
 	immBranches = false;
 	continueBranches = false;
