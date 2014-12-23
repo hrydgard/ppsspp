@@ -181,6 +181,7 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 	while (Reorder(block))
 		;
 
+	// Computing liveness must be done _after_ reordering, of course.
 	ComputeLiveness(block);
 
 	if (joined) {
@@ -293,12 +294,12 @@ static void ComputeLiveness(IRBlock *block) {
 			continue;
 		}
 		// These are already cleaned from the zero register
-		gprLiveness |= e.gprIn;
-		fprLiveness |= e.fprIn;
-		e.liveGPR = gprLiveness;
-		e.liveFPR = fprLiveness;
 		gprLiveness &= ~e.gprOut;
 		fprLiveness &= ~e.fprOut;
+		e.liveGPR = gprLiveness;
+		e.liveFPR = fprLiveness;
+		gprLiveness |= e.gprIn;
+		fprLiveness |= e.fprIn;
 	}
 }
 
