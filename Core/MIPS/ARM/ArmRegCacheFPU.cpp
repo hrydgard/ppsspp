@@ -95,14 +95,32 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 		S4,  S5,  S6,  S7,   // Q1
 		S8,  S9,  S10, S11,  // Q2
 		S12, S13, S14, S15,  // Q3
+		S16, S17, S18, S19,  // Q4
+		S20, S21, S22, S23,  // Q5
+		S24, S25, S26, S27,  // Q6
+		S28, S29, S30, S31,  // Q7
+		// Q8-Q15 free for NEON tricks
+	};
+
+	static const ARMReg allocationOrderNEONVFPU[] = {
+		// Reserve four temp registers. Useful when building quads until we really figure out
+		// how to do that best.
+		S4,  S5,  S6,  S7,   // Q1
+		S8,  S9,  S10, S11,  // Q2
+		S12, S13, S14, S15,  // Q3
 		// Q4-Q15 free for VFPU
 	};
 
+	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
+	// They are used by a few instructions, like vh2f.
 	if (jo_->useNEONVFPU) {
-		count = sizeof(allocationOrderNEON) / sizeof(const int);
+		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
+		return allocationOrderNEONVFPU;
+	} else if (cpu_info.bNEON) {
+		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
 		return allocationOrderNEON;
 	} else {
-		count = sizeof(allocationOrder) / sizeof(const int);
+		count = sizeof(allocationOrder) / sizeof(const ARMReg);
 		return allocationOrder;
 	}
 }
