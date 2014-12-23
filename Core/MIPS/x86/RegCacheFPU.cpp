@@ -354,6 +354,9 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		for (int i = 0; i < 4; ++i) {
 			xrsLoaded[i] = false;
 		}
+		for (int i = 2; i < n; ++i){
+			xrs[i] = INVALID_REG;
+		}
 		regsLoaded = 0;
 	}
 
