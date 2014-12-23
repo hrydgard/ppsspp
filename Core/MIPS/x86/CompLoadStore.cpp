@@ -66,6 +66,16 @@ namespace MIPSComp {
 		gpr.UnlockAll();
 	}
 
+	static OpArg DowncastImm(OpArg in, int bits) {
+		if (!in.IsImm())
+			return in;
+		if (in.GetImmBits() > bits) {
+			in.SetImmBits(bits);
+			return in;
+		}
+		return in;
+	}
+
 	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
@@ -74,8 +84,12 @@ namespace MIPSComp {
 		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
-		if (rt != MIPS_REG_ZERO)
+		
+		if (rt == MIPS_REG_ZERO || gpr.R(rt).IsImm()) {
+			// NOTICE_LOG(JIT, "%d-bit Imm at %08x : %08x", bits, js.blockStart, (u32)gpr.R(rt).GetImmValue());
+		} else {
 			gpr.MapReg(rt, true, false);
+		}
 
 #ifdef _M_IX86
 		// We use EDX so we can have DL for 8-bit ops.
@@ -103,7 +117,9 @@ namespace MIPSComp {
 					case 32: MOV(32, dest, Imm32(0)); break;
 					}
 				} else {
-					MOV(bits, dest, gpr.R(rt));
+					// The downcast is needed so we don't try to generate a 8-bit write with a 32-bit imm
+					// (that might have been generated from an li instruction) which is illegal.
+					MOV(bits, dest, DowncastImm(gpr.R(rt), bits));
 				}
 			}
 		}
