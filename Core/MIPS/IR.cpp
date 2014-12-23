@@ -100,6 +100,31 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 		// TODO: Analyze in/out registers here.
 
+		u64 gprIn = 0, gprOut = 0;
+		u32 fprIn = 0, fprOut = 0;
+		if (e.info & IN_RS) gprIn |= (1ULL << MIPS_GET_RS(e.op));
+		if (e.info & IN_RT) gprIn |= (1ULL << MIPS_GET_RT(e.op));
+		if (e.info & IN_LO) gprIn |= (1ULL << MIPS_REG_LO);
+		if (e.info & IN_HI) gprIn |= (1ULL << MIPS_REG_HI);
+		if (e.info & IN_VFPU_CC) gprIn |= (1ULL << MIPS_REG_VFPUCC);
+		if (e.info & IN_FPUFLAG) gprIn |= (1ULL << MIPS_REG_FPCOND);
+		if (e.info & IN_FS) fprIn |= (1 << MIPS_GET_FS(e.op));
+		if (e.info & IN_FT) fprIn |= (1 << MIPS_GET_FT(e.op));
+		if (e.info & OUT_RT) gprOut &= ~(1ULL << MIPS_GET_RT(e.op));
+		if (e.info & OUT_RD) gprOut &= ~(1ULL << MIPS_GET_RD(e.op));
+		if (e.info & OUT_RA) gprOut &= ~(1ULL << MIPS_REG_RA);
+		if (e.info & OUT_FD) fprOut &= ~(1 << MIPS_GET_FD(e.op));
+		if (e.info & OUT_FS) fprOut &= ~(1 << MIPS_GET_FS(e.op));
+		if (e.info & OUT_LO) gprOut &= ~(1ULL << MIPS_REG_LO);
+		if (e.info & OUT_HI) gprOut &= ~(1ULL << MIPS_REG_HI);
+		if (e.info & OUT_VFPU_CC) gprOut &= ~(1ULL << MIPS_REG_VFPUCC);
+		if (e.info & OUT_FPUFLAG) gprOut &= ~(1ULL << MIPS_REG_FPCOND);
+		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprOut &= ~(1ULL << MIPS_REG_RA);
+
+		e.gprIn = gprIn & ~1;  // the zero register doesn't count.
+		e.gprOut = gprOut & ~1;
+		e.fprIn = fprIn;
+		e.fprOut = fprOut;
 
 		if ((e.info & IS_JUMP) && jo.continueBranches) {
 			// Figure out exactly what instruction it is.
@@ -267,30 +292,13 @@ static void ComputeLiveness(IRBlock *block) {
 		if (e.op == 0) { // nop
 			continue;
 		}
-		if (e.info & IN_RS) gprLiveness |= (1ULL << MIPS_GET_RS(e.op));
-		if (e.info & IN_RT) gprLiveness |= (1ULL << MIPS_GET_RT(e.op));
-		if (e.info & IN_LO) gprLiveness |= (1ULL << MIPS_REG_LO);
-		if (e.info & IN_HI) gprLiveness |= (1ULL << MIPS_REG_HI);
-		if (e.info & IN_FS) fprLiveness |= (1 << MIPS_GET_FS(e.op));
-		if (e.info & IN_FT) fprLiveness |= (1 << MIPS_GET_FT(e.op));
-		if (e.info & IN_VFPU_CC) gprLiveness |= (1ULL << MIPS_REG_VFPUCC);
-		if (e.info & IN_FPUFLAG) gprLiveness |= (1ULL << MIPS_REG_FPCOND);
-		// Remove false detections of the zero register being live
-		gprLiveness &= ~1;
-
+		// These are already cleaned from the zero register
+		gprLiveness |= e.gprIn;
+		fprLiveness |= e.fprIn;
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
-
-		if (e.info & OUT_RT) gprLiveness &= ~(1ULL << MIPS_GET_RT(e.op));
-		if (e.info & OUT_RD) gprLiveness &= ~(1ULL << MIPS_GET_RD(e.op));
-		if (e.info & OUT_RA) gprLiveness &= ~(1ULL << MIPS_REG_RA);
-		if (e.info & OUT_FD) fprLiveness &= ~(1 << MIPS_GET_FD(e.op));
-		if (e.info & OUT_FS) fprLiveness &= ~(1 << MIPS_GET_FS(e.op));
-		if (e.info & OUT_LO) gprLiveness &= ~(1ULL << MIPS_REG_LO);
-		if (e.info & OUT_HI) gprLiveness &= ~(1ULL << MIPS_REG_HI);
-		if (e.info & OUT_VFPU_CC) gprLiveness &= ~(1ULL << MIPS_REG_VFPUCC);
-		if (e.info & OUT_FPUFLAG) gprLiveness &= ~(1ULL << MIPS_REG_FPCOND);
-		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprLiveness &= ~(1ULL << MIPS_REG_RA);
+		gprLiveness &= ~e.gprOut;
+		fprLiveness &= ~e.fprOut;
 	}
 }
 

@@ -60,13 +60,23 @@ struct IREntry {
 	u32 flags;
 	int pseudoInstr;  // 0 = no pseudo. Could be combined with flags?
 
+	// We include LO, HI, VFPUCC, FPUFlag as mapped GPRs.
+	u64 gprIn;
+	u64 gprOut;
+	u32 fprIn;
+	u32 fprOut;
+
 	// Register live state, as bitfields.
 	u64 liveGPR;  // Bigger than 32 to accommodate pseudo-GPRs like HI and LO
 	u32 liveFPR;
+
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
 
 	void MakeNOP() { op.encoding = 0; info = 0; }
 	void MakePseudo(int pseudo) { pseudoInstr = pseudo; info = 0; }
+
+	bool IsGPRAlive(int reg) const { return (liveGPR & (1ULL << reg)) != 0; }
+	bool IsFPRAlive(int freg) const { return (liveFPR & (1UL << freg)) != 0; }
 };
 
 namespace MIPSComp {
