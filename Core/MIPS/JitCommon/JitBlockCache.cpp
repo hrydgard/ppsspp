@@ -415,12 +415,12 @@ void JitBlockCache::LinkBlockExits(int i) {
 				}
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks_[destinationBlock].checkedEntry);
-				u32 op = 0;
+				u32 op = *((const u32 *)emit.GetCodePtr());
 				// Overwrite with nops until the next unconditional branch.
-				do {
+				while ((op & 0xFF000000) != 0xEA000000) {
 					emit.BKPT(1);
 					op = *((const u32 *)emit.GetCodePtr());
-				} while ((op & 0xFF000000) != 0xEA000000);
+				}
 				emit.BKPT(1);
 				emit.FlushIcache();
 				b.linkStatus[e] = true;
