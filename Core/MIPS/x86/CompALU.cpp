@@ -101,6 +101,16 @@ namespace MIPSComp
 					} else if (simm < 0) {
 						SUB(32, gpr.R(rt), UImmAuto(-simm));
 					}
+				} else if (gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+					// NOTICE_LOG(JIT, "Reg remap at %08x", js.blockStart);
+					// Can avoid a MOV by taking over the dest register. It keeps its contents
+					// but is now reassigned to rt.
+					gpr.FlushRemap(rs, rt);
+					if (simm > 0)
+						ADD(32, gpr.R(rt), UImmAuto(simm));
+					else if (simm < 0) {
+						SUB(32, gpr.R(rt), UImmAuto(-simm));
+					}
 				} else if (gpr.R(rs).IsSimpleReg()) {
 					LEA(32, gpr.RX(rt), MDisp(gpr.RX(rs), simm));
 				} else {

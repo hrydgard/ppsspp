@@ -110,16 +110,16 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 		if (e.info & IN_FPUFLAG) gprIn |= (1ULL << MIPS_REG_FPCOND);
 		if (e.info & IN_FS) fprIn |= (1 << MIPS_GET_FS(e.op));
 		if (e.info & IN_FT) fprIn |= (1 << MIPS_GET_FT(e.op));
-		if (e.info & OUT_RT) gprOut &= ~(1ULL << MIPS_GET_RT(e.op));
-		if (e.info & OUT_RD) gprOut &= ~(1ULL << MIPS_GET_RD(e.op));
-		if (e.info & OUT_RA) gprOut &= ~(1ULL << MIPS_REG_RA);
-		if (e.info & OUT_FD) fprOut &= ~(1 << MIPS_GET_FD(e.op));
-		if (e.info & OUT_FS) fprOut &= ~(1 << MIPS_GET_FS(e.op));
-		if (e.info & OUT_LO) gprOut &= ~(1ULL << MIPS_REG_LO);
-		if (e.info & OUT_HI) gprOut &= ~(1ULL << MIPS_REG_HI);
-		if (e.info & OUT_VFPU_CC) gprOut &= ~(1ULL << MIPS_REG_VFPUCC);
-		if (e.info & OUT_FPUFLAG) gprOut &= ~(1ULL << MIPS_REG_FPCOND);
-		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprOut &= ~(1ULL << MIPS_REG_RA);
+		if (e.info & OUT_RT) gprOut |= (1ULL << MIPS_GET_RT(e.op));
+		if (e.info & OUT_RD) gprOut |= (1ULL << MIPS_GET_RD(e.op));
+		if (e.info & OUT_RA) gprOut |= (1ULL << MIPS_REG_RA);
+		if (e.info & OUT_FD) fprOut |= (1 << MIPS_GET_FD(e.op));
+		if (e.info & OUT_FS) fprOut |= (1 << MIPS_GET_FS(e.op));
+		if (e.info & OUT_LO) gprOut |= (1ULL << MIPS_REG_LO);
+		if (e.info & OUT_HI) gprOut |= (1ULL << MIPS_REG_HI);
+		if (e.info & OUT_VFPU_CC) gprOut |= (1ULL << MIPS_REG_VFPUCC);
+		if (e.info & OUT_FPUFLAG) gprOut |= (1ULL << MIPS_REG_FPCOND);
+		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprOut |= ~(1ULL << MIPS_REG_RA);
 
 		e.gprIn = gprIn & ~1;  // the zero register doesn't count.
 		e.gprOut = gprOut & ~1;
@@ -193,7 +193,6 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 
 static bool Reorder(IRBlock *block) {
 	bool changed = false;
-
 
 	// TODO: We only do some really safe optimizations now. Can't do fun stuff like hoisting loads/stores until we have unfolded all branch delay slots!
 	// Well, maybe we could do some of it, but let's not..
@@ -294,10 +293,10 @@ static void ComputeLiveness(IRBlock *block) {
 			continue;
 		}
 		// These are already cleaned from the zero register
-		gprLiveness &= ~e.gprOut;
-		fprLiveness &= ~e.fprOut;
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
+		gprLiveness &= ~e.gprOut;
+		fprLiveness &= ~e.fprOut;
 		gprLiveness |= e.gprIn;
 		fprLiveness |= e.fprIn;
 	}
