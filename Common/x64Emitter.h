@@ -209,6 +209,16 @@ struct OpArg
 		}
 	}
 
+	void SetImmBits(int bits) {
+		switch (bits)
+		{
+			case 8: scale = SCALE_IMM8; break;
+			case 16: scale = SCALE_IMM16; break;
+			case 32: scale = SCALE_IMM32; break;
+			case 64: scale = SCALE_IMM64; break;
+		}
+	}
+
 	X64Reg GetSimpleReg() const
 	{
 		if (scale == SCALE_NONE)
