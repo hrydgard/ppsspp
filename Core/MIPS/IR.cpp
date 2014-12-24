@@ -98,8 +98,6 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 			}
 		}
 
-		// TODO: Analyze in/out registers here.
-
 		u64 gprIn = 0, gprOut = 0;
 		u32 fprIn = 0, fprOut = 0;
 		if (e.info & IN_RS) gprIn |= (1ULL << MIPS_GET_RS(e.op));
@@ -119,9 +117,11 @@ void Jit::ExtractIR(u32 address, IRBlock *block) {
 		if (e.info & OUT_HI) gprOut |= (1ULL << MIPS_REG_HI);
 		if (e.info & OUT_VFPU_CC) gprOut |= (1ULL << MIPS_REG_VFPUCC);
 		if (e.info & OUT_FPUFLAG) gprOut |= (1ULL << MIPS_REG_FPCOND);
-		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprOut |= ~(1ULL << MIPS_REG_RA);
+		if (e.pseudoInstr == PSEUDO_SAVE_RA) gprOut |= (1ULL << MIPS_REG_RA);
 
-		e.gprIn = gprIn & ~1;  // the zero register doesn't count.
+		// TODO: Add VFPU analysis as well...
+
+		e.gprIn = gprIn & ~1;  // The zero register doesn't count.
 		e.gprOut = gprOut & ~1;
 		e.fprIn = fprIn;
 		e.fprOut = fprOut;

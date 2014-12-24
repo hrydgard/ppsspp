@@ -61,10 +61,15 @@ namespace MIPSComp
 		u32 uimm = (u16)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
-		gpr.Lock(rt, rs);
-		gpr.MapReg(rt, rt == rs, true);
-		if (rt != rs)
-			MOV(32, gpr.R(rt), gpr.R(rs));
+		if (gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+			// NOTICE_LOG(JIT,"immlogic remap at %08x : %08x", js.blockStart, GetCompilerPC());
+			gpr.FlushRemap(rs, rt);
+		} else {
+			gpr.Lock(rt, rs);
+			gpr.MapReg(rt, rt == rs, true);
+			if (rt != rs)
+				MOV(32, gpr.R(rt), gpr.R(rs));
+		}
 		(this->*arith)(32, gpr.R(rt), Imm32(uimm));
 		gpr.UnlockAll();
 	}
