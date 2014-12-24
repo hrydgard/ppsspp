@@ -59,14 +59,7 @@ IREntry &IRBlock::AddIREntry(u32 address) {
 	return entries.back();
 }
 
-// TODO: This is awful
-#ifdef ARM
-void ArmJit::ExtractIR(u32 address, IRBlock *block) {
-#elif defined(MIPS)
-void MipsJit::ExtractIR(u32 address, IRBlock *block) {
-#else
-void Jit::ExtractIR(u32 address, IRBlock *block) {
-#endif
+void ExtractIR(const JitOptions &jo, u32 address, IRBlock *block) {
 	static int count = 0;
 	count++;
 	block->entries.clear();

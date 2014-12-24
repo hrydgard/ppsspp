@@ -423,7 +423,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	b->normalEntry = GetCodePtr();
 
-	ExtractIR(em_address, &irblock);
+	ExtractIR(jo, em_address, &irblock);
 
 	gpr.Start(mips_, &js, &jo, irblock.analysis);
 	fpr.Start(mips_, &js, &jo, irblock.analysis);

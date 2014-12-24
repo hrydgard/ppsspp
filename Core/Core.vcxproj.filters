@@ -466,6 +466,9 @@
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitState.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
     </ClCompile>

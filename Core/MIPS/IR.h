@@ -24,6 +24,7 @@
 
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 
 
 // MIPS IR
@@ -107,5 +108,7 @@ public:
 	IREntry &AddIREntry(u32 address);
 	void RemoveLast();
 };
+
+void ExtractIR(const JitOptions &jo, u32 address, IRBlock *block);
 
 }

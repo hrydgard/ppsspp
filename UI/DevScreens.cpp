@@ -644,7 +644,7 @@ void JitCompareScreen::UpdateDisasm() {
 
 	if (showIR_) {
 		MIPSComp::IRBlock irblock;
-		MIPSComp::jit->ExtractIR(block->originalAddress, &irblock);
+		MIPSComp::ExtractIR(MIPSComp::jit->GetJitOptions(), block->originalAddress, &irblock);
 		std::vector<std::string> irDis = irblock.ToStringVector();
 		for (size_t i = 0; i < irDis.size(); i++) {
 			irDisasm_->Add(new TextView(irDis[i]));

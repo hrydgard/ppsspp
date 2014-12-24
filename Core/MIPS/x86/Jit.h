@@ -50,14 +50,15 @@ struct RegCacheState {
 	FPURegCacheState fpr;
 };
 
-class Jit : public Gen::XCodeBlock
-{
+class Jit : public Gen::XCodeBlock {
 public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -181,8 +182,6 @@ public:
 			blocks.InvalidateICache(em_address, length);
 		}
 	}
-
-	void ExtractIR(u32 address, IRBlock *block);
 
 private:
 	void GetStateAndFlushAll(RegCacheState &state);

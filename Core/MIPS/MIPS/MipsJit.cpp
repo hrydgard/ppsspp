@@ -181,7 +181,8 @@ const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
 	b->normalEntry = GetCodePtr();
 	js.numInstructions = 0;
 
-	ExtractIR(js.compilerPC, &irblock);
+	IROptions iropt;
+	ExtractIR(iropt, js.compilerPC, &irblock);
 
 	js.irBlock = &irblock;
 
