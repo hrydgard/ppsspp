@@ -275,6 +275,7 @@ public:
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
+	virtual void SetThreadEnabled(bool threadEnabled) = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
