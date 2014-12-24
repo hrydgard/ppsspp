@@ -31,7 +31,11 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <stdio.h>
 #include <errno.h>
@@ -62,9 +66,9 @@ _zip_filerange_crc(FILE *fp, off_t start, off_t len, uLong *crcp,
 	    return -1;
 	}
 
-	*crcp = crc32(*crcp, buf, n);
+	*crcp = crc32(*crcp, buf, (uInt)n);
 
-	len-= n;
+	len-= (off_t)n;
     }
 
     return 0;

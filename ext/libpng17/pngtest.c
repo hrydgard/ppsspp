@@ -31,6 +31,11 @@
  * of files at once by typing "pngtest -m file1.png file2.png ..."
  */
 
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
+
 #define _POSIX_SOURCE 1
 
 #include <stdio.h>

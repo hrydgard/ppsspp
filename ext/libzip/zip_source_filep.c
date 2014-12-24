@@ -31,7 +31,10 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <sys/stat.h>
 #include <errno.h>
@@ -115,7 +118,8 @@ read_file(void *state, void *data, size_t len, enum zip_source_cmd cmd)
 {
     struct read_file *z;
     char *buf;
-    int i, n;
+    ssize_t i;
+    size_t n;
 
     z = (struct read_file *)state;
     buf = (char *)data;
@@ -151,7 +155,7 @@ read_file(void *state, void *data, size_t len, enum zip_source_cmd cmd)
 	}
 
 	if (z->remain != -1)
-	    z->remain -= i;
+	    z->remain -= (off_t)i;
 
 	return i;
 	

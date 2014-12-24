@@ -31,7 +31,11 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
+
 
 #include <errno.h>
 #include <stdio.h>
@@ -141,7 +145,8 @@ zip_fopen_index(struct zip *za, int fileno, int flags)
 int
 _zip_file_fillbuf(void *buf, size_t buflen, struct zip_file *zf)
 {
-    int i, j;
+    ssize_t i;
+    int j;
 
     if (zf->error.zip_err != ZIP_ER_OK)
 	return -1;
@@ -158,7 +163,7 @@ _zip_file_fillbuf(void *buf, size_t buflen, struct zip_file *zf)
     else
 	i = zf->cbytes_left;
 
-    j = fread(buf, 1, i, zf->za->zp);
+    j = (int)fread(buf, 1, i, zf->za->zp);
     if (j == 0) {
 	_zip_error_set(&zf->error, ZIP_ER_EOF, 0);
 	j = -1;

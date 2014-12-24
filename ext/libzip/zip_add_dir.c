@@ -31,7 +31,10 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +56,7 @@ zip_add_dir(struct zip *za, const char *name)
     }
 
     s = NULL;
-    len = strlen(name);
+    len = (int)strlen(name);
 
     if (name[len-1] != '/') {
 	if ((s=(char *)malloc(len+2)) == NULL) {

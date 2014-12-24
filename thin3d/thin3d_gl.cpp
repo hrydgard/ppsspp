@@ -692,6 +692,7 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, 
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
 
 	vbuf->Bind();
+	ibuf->Bind();
 	fmt->Apply();
 	pipe->Apply();
 	
@@ -751,6 +752,8 @@ void Thin3DGLVertexFormat::Apply() {
 		case UNORM8x4:
 			glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(intptr_t)components_[i].offset);
 			break;
+		case INVALID:
+			ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
 		}
 	}
 }

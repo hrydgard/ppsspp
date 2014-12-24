@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include "base/compat.h"
 #include "math/lin/vec3.h"
 #include "math/lin/quat.h"
 #include "math/fast/fast_matrix.h"
@@ -250,9 +251,7 @@ Matrix4x4 Matrix4x4::fromPRS(const Vec3 &positionv, const Quaternion &rotv, cons
 	newM.wz = positionv.z;
 	return newM;
 }
-#if _MSC_VER
-#define snprintf _snprintf
-#endif
+
 void Matrix4x4::toText(char *buffer, int len) const {
 	snprintf(buffer, len, "%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
 		xx,xy,xz,xw,

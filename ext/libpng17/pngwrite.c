@@ -11,6 +11,11 @@
  * and license in png.h
  */
 
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#pragma warning (disable:4244)
+#endif
+
 #include "pngpriv.h"
 #if defined(PNG_SIMPLIFIED_WRITE_SUPPORTED) && defined(PNG_STDIO_SUPPORTED)
 #  include <errno.h>
