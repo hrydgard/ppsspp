@@ -2148,9 +2148,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
+                    break;
 				}
-				if (res == ATDECODE_GOTFRAME)
-					break;
 			}
 		}
 
