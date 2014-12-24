@@ -616,6 +616,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 
 static u32 savedPC;
 
+// jr ra  << helpful for grep
 void Jit::Comp_JumpReg(MIPSOpcode op)
 {
 	CONDITIONAL_LOG;
@@ -633,6 +634,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
+	X64Reg destReg = EAX;
 	if (IsSyscall(delaySlotOp))
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
@@ -664,7 +666,11 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.DiscardRegContentsIfCached(MIPS_REG_T9);
 		}
 
-		MOV(32, R(EAX), gpr.R(rs));
+		if (gpr.R(rs).IsSimpleReg()) {
+			destReg = gpr.R(rs).GetSimpleReg();
+		} else {
+			MOV(32, R(EAX), gpr.R(rs));
+		}
 		FlushAll();
 	}
 	else
@@ -676,6 +682,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), M(&savedPC));
+		destReg = EAX;
 		FlushAll();
 	}
 
@@ -691,7 +698,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 
 	CONDITIONAL_LOG_EXIT_EAX();
-	WriteExitDestInEAX();
+	WriteExitDestInReg(destReg);
 }
 
 void Jit::Comp_Syscall(MIPSOpcode op)

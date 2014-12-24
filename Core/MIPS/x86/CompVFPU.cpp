@@ -2455,12 +2455,17 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
+	int vd = _VD;
+	if (n == 4) {
+		// Just remove the transposed-ness. All modes are transpose-invariant.
+		vd &= ~0x20;
+	}
 
 	// Not really about trying here, it will work if enabled.
 	if (jo.enableVFPUSIMD) {
 		VectorSize vsz = GetVectorSize(sz);
 		u8 vecs[4];
-		GetMatrixColumns(_VD, sz, vecs);
+		GetMatrixColumns(vd, sz, vecs);
 		for (int i = 0; i < n; i++) {
 			u8 vec[4];
 			GetVectorRegs(vec, vsz, vecs[i]);
@@ -2482,7 +2487,7 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	}
 
 	u8 dregs[16];
-	GetMatrixRegs(dregs, sz, _VD);
+	GetMatrixRegs(dregs, sz, vd);
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
