@@ -379,6 +379,13 @@ namespace MIPSComp
 			if (invertResult) {
 				NOT(32, gpr.R(rd));
 			}
+		} else if (rd != rt && rd != rs && gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+			// NOTICE_LOG(JIT, "TriArith liveness at %08x", js.blockStart);
+			gpr.FlushRemap(rs, rd);
+			(this->*arith)(32, gpr.R(rd), gpr.R(rt));
+			if (invertResult) {
+				NOT(32, gpr.R(rd));
+			}
 		} else {
 			// Use TEMPREG as a temporary if we'd overwrite it.
 			if (rd == rt)
