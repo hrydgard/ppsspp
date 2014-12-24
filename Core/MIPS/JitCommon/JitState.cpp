@@ -31,7 +31,11 @@ namespace MIPSComp {
 		cachePointers = true;
 
 		// ARM only
+#ifdef ARM
 		downcountInRegister = true;
+#else
+		downcountInRegister = false;
+#endif
 		useNEONVFPU = false;  // true
 		if (!cpu_info.bNEON)
 			useNEONVFPU = false;

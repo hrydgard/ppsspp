@@ -578,9 +578,9 @@ void JitCompareScreen::CreateViews() {
 	lin->Add(new Choice("<<", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
 	lin->Add(new Choice(">>", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
 	lin = leftColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	lin->Add(new Choice(de->T("Rand")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	lin->Add(new Choice(de->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
-	lin->Add(new Choice(de->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
+	lin->Add(new Choice(de->T("Rn")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	lin->Add(new Choice(de->T("FP")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
+	lin->Add(new Choice(de->T("VFP")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(de->T("Show IR")))->OnClick.Handle(this, &JitCompareScreen::OnShowIR);
 	blockName_ = leftColumn->Add(new TextView(de->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -758,26 +758,21 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_VFPU);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_FPU);
-	return UI::EVENT_DONE;
+	return OnRandomBlockWithFlag(e, IS_FPU);
 }
 
-void JitCompareScreen::OnRandomBlock(int flag) {
-	if (!MIPSComp::jit) {
-		return;
-	}
+UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
+	return OnRandomBlockWithFlag(e, IS_VFPU);
+}
+
+UI::EventReturn JitCompareScreen::OnRandomBlockWithFlag(UI::EventParams &e, u64 flag) {
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
-		bool anyWanted = false;
+		bool anyWithFlag = false;
 		int tries = 0;
-		while (!anyWanted && tries < 10000) {
+		while (!anyWithFlag && tries < 10000) {
 			currentBlock_ = rand() % numBlocks;
 			const JitBlock *b = blockCache->GetBlock(currentBlock_);
 			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
@@ -786,7 +781,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
 					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
-					anyWanted = true;
+					anyWithFlag = true;
 					break;
 				}
 			}
@@ -794,6 +789,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 		}
 	}
 	UpdateDisasm();
+	return UI::EVENT_DONE;
 }
 
 

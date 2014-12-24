@@ -122,8 +122,7 @@ private:
 	UI::EventReturn OnRandomBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
-	void OnRandomBlock(int flag);
-
+	UI::EventReturn OnRandomBlockWithFlag(UI::EventParams &e, u64 flag);
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnPrevBlock(UI::EventParams &e);
