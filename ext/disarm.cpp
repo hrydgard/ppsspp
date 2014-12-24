@@ -599,15 +599,10 @@ static bool DisasmNeonF2F3(uint32_t op, char *text) {
 			}
 			return DisasmArithNeon(op, opname, text, includeSuffix);
 		case 0x31:
-			temp = (op >> 4) & 0xF1;
-			switch (temp) {
-			default:
-				if (op & 0x100)
-					opname = "MLS";
-				else
-					opname = "SUB";
-				break;
-			}
+			if (op & 0x100)
+				opname = "MLS";
+			else
+				opname = "SUB";
 			return DisasmArithNeon(op, opname, text);
 		case 0x30:
 		case 0x34:
