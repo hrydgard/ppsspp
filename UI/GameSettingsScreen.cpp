@@ -513,7 +513,6 @@ void GameSettingsScreen::CreateViews() {
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
-	const std::string path = File::GetExeDirectory();
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
 	if (!installed_ && result == S_OK) {
@@ -658,10 +657,8 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
-	const std::string path = File::GetExeDirectory();
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
-		const std::string PPSSPPpath = File::GetExeDirectory();
 		File::Delete(PPSSPPpath + "installed.txt");
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
 		otherinstalled_ = false;
