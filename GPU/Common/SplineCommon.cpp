@@ -121,13 +121,13 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-static Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3D(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
-static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 

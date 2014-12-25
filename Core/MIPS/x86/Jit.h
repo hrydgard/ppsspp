@@ -187,7 +187,7 @@ public:
 
 private:
 	void GetStateAndFlushAll(RegCacheState &state);
-	void RestoreState(const RegCacheState state);
+	void RestoreState(const RegCacheState& state);
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
