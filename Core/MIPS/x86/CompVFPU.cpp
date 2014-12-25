@@ -3402,11 +3402,11 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	u32 nextOp = GetOffsetInstruction(1).encoding;
 	int vd2 = -1;
 	int imm2 = -1;
-	if (false && (nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+	if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
 		// Pair of vrot with the same angle argument. Let's join them (can share sin/cos results).
 		vd2 = MIPS_GET_VD(nextOp);
 		imm2 = (nextOp >> 16) & 0x1f;
-		// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+		NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
 	}
 
 	u8 sreg;

@@ -21,7 +21,9 @@
 namespace MIPSComp {
 	JitOptions::JitOptions() {
 		// x86
+#if defined(_M_IX86) || defined(_M_X64)
 		enableVFPUSIMD = true;
+#endif
 		// Set by Asm if needed.
 		reserveR15ForAsm = false;
 
@@ -40,7 +42,7 @@ namespace MIPSComp {
 		if (!cpu_info.bNEON)
 			useNEONVFPU = false;
 
-		//ARM64
+		// ARM64
 		useASIMDVFPU = false;  // true
 
 		// Common
