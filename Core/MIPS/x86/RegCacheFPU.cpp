@@ -108,7 +108,7 @@ void FPURegCache::ReduceSpillLockV(const u8 *vec, VectorSize sz) {
 	}
 }
 
-void FPURegCache::FlushRemap(int oldreg, int newreg) {
+void FPURegCache::FlushRemap(int oldreg, int newreg, bool clobbered) {
 	OpArg oldLocation = regs[oldreg].location;
 	if (!oldLocation.IsSimpleReg()) {
 		PanicAlert("FlushRemap: Must already be in an x86 SSE register");
@@ -124,7 +124,11 @@ void FPURegCache::FlushRemap(int oldreg, int newreg) {
 		return;
 	}
 
-	StoreFromRegister(oldreg);
+	if (clobbered && jo_->useClobberOpt) {
+		DiscardR(oldreg);
+	} else {
+		StoreFromRegister(oldreg);
+	}
 
 	// Now, if newreg already was mapped somewhere, get rid of that.
 	DiscardR(newreg);

@@ -63,7 +63,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 		if (gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
 			// NOTICE_LOG(JIT,"immlogic remap at %08x : %08x", js.blockStart, GetCompilerPC());
-			gpr.FlushRemap(rs, rt);
+			gpr.FlushRemap(rs, rt, GetIREntry().IsGPRClobbered(rs));
 		} else {
 			gpr.Lock(rt, rs);
 			gpr.MapReg(rt, rt == rs, true);
@@ -110,7 +110,7 @@ namespace MIPSComp
 					// NOTICE_LOG(JIT, "Reg remap at %08x", js.blockStart);
 					// Can avoid a MOV by taking over the dest register. It keeps its contents
 					// but is now reassigned to rt.
-					gpr.FlushRemap(rs, rt);
+					gpr.FlushRemap(rs, rt, GetIREntry().IsGPRClobbered(rs));
 					if (simm > 0)
 						ADD(32, gpr.R(rt), UImmAuto(simm));
 					else if (simm < 0) {
@@ -381,7 +381,7 @@ namespace MIPSComp
 			}
 		} else if (rd != rt && rd != rs && gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
 			// NOTICE_LOG(JIT, "TriArith liveness at %08x", js.blockStart);
-			gpr.FlushRemap(rs, rd);
+			gpr.FlushRemap(rs, rd, GetIREntry().IsGPRClobbered(rs));
 			(this->*arith)(32, gpr.R(rd), gpr.R(rt));
 			if (invertResult) {
 				NOT(32, gpr.R(rd));

@@ -281,6 +281,8 @@ static void ComputeLiveness(IRBlock *block) {
 
 	u64 gprLiveness = 0;  // note - nine Fs, for HI/LO/flags-in-registers. To define later.
 	u32 fprLiveness = 0;
+	u64 gprClobber = 0;
+	u32 fprClobber = 0;
 	for (int i = (int)block->entries.size() - 1; i >= 0; i--) {
 		IREntry &e = block->entries[i];
 		if (e.op == 0) { // nop
@@ -289,10 +291,18 @@ static void ComputeLiveness(IRBlock *block) {
 		// These are already cleaned from the zero register
 		e.liveGPR = gprLiveness;
 		e.liveFPR = fprLiveness;
+		e.clobberedGPR = gprClobber;
+		e.clobberedFPR = fprClobber;
+
 		gprLiveness &= ~e.gprOut;
 		fprLiveness &= ~e.fprOut;
 		gprLiveness |= e.gprIn;
 		fprLiveness |= e.fprIn;
+
+		gprClobber |= e.gprOut;
+		fprClobber |= e.fprOut;
+		gprClobber &= ~e.gprIn;
+		fprClobber &= ~e.fprIn;
 	}
 }
 
@@ -303,8 +313,8 @@ std::vector<std::string> IRBlock::ToStringVector() {
 		IREntry &e = entries[i];
 		char instr[256], liveness1[36 * 3], liveness2[32 * 3];
 		memset(instr, 0, sizeof(instr));
-		ToGprLivenessString(liveness1, sizeof(liveness1), e.liveGPR);
-		ToFprLivenessString(liveness2, sizeof(liveness2), e.liveFPR);
+		ToGprLivenessString(liveness1, sizeof(liveness1), e.clobberedGPR);
+		ToFprLivenessString(liveness2, sizeof(liveness2), e.clobberedFPR);
 		const char *pseudo = " ";
 		switch (e.pseudoInstr) {
 			case PSEUDO_SAVE_RA:

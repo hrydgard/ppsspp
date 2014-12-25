@@ -208,7 +208,7 @@ void GPRRegCache::FlushR(X64Reg reg)
 		StoreFromRegister(xregs[reg].mipsReg);
 }
 
-void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg) {
+void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg, bool clobbered) {
 	OpArg oldLocation = regs[oldreg].location;
 	if (!oldLocation.IsSimpleReg()) {
 		PanicAlert("FlushRemap: Must already be in an x86 register");
@@ -221,7 +221,11 @@ void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg) {
 		return;
 	}
 
-	StoreFromRegister(oldreg);
+	if (clobbered && jo_->useClobberOpt) {
+		DiscardRegContentsIfCached(oldreg);
+	} else {
+		StoreFromRegister(oldreg);
+	}
 
 	// Now, if newreg already was mapped somewhere, get rid of that.
 	DiscardRegContentsIfCached(newreg);

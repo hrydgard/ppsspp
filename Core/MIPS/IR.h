@@ -71,6 +71,10 @@ struct IREntry {
 	u64 liveGPR;  // Bigger than 32 to accommodate pseudo-GPRs like HI and LO
 	u32 liveFPR;
 
+	// Clobbered state. Can discard registers marked as clobbered later.
+	u64 clobberedGPR;
+	u64 clobberedFPR;
+
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
 
 	void MakeNOP() { op.encoding = 0; info = 0; }
@@ -78,6 +82,8 @@ struct IREntry {
 
 	bool IsGPRAlive(int reg) const { return (liveGPR & (1ULL << reg)) != 0; }
 	bool IsFPRAlive(int freg) const { return (liveFPR & (1UL << freg)) != 0; }
+	bool IsGPRClobbered(int reg) const { return (clobberedGPR & (1ULL << reg)) != 0; }
+	bool IsFPRClobbered(int freg) const { return (clobberedFPR & (1UL << freg)) != 0; }
 };
 
 namespace MIPSComp {

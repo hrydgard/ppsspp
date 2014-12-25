@@ -23,6 +23,8 @@ namespace MIPSComp {
 		// x86
 #if defined(_M_IX86) || defined(_M_X64)
 		enableVFPUSIMD = true;
+#else
+		enableVFPUSIMD = false;
 #endif
 		// Set by Asm if needed.
 		reserveR15ForAsm = false;
@@ -46,6 +48,7 @@ namespace MIPSComp {
 		useASIMDVFPU = false;  // true
 
 		// Common
+		useClobberOpt = false;
 		enableBlocklink = true;
 		immBranches = false;
 		continueBranches = false;  // true

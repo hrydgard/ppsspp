@@ -196,6 +196,7 @@ namespace MIPSComp {
 		bool useASIMDVFPU;
 
 		// Common
+		bool useClobberOpt;
 		bool enableBlocklink;
 		bool immBranches;
 		bool continueBranches;
