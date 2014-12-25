@@ -22,6 +22,7 @@ static LPDIRECT3DDEVICE9EX deviceEx;
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
+static D3DPRESENT_PARAMETERS pp;
 
 static int xres, yres;
 
@@ -125,10 +126,9 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	int xres = rc.right - rc.left;
 	int yres = rc.bottom - rc.top;
 
-	D3DPRESENT_PARAMETERS pp;
 	memset(&pp, 0, sizeof(pp));
-	pp.BackBufferWidth = xres;
-	pp.BackBufferHeight = yres;
+	pp.BackBufferWidth = 0;
+	pp.BackBufferHeight = 0;
 	pp.BackBufferFormat = d3ddm.Format;
 	pp.MultiSampleType = D3DMULTISAMPLE_NONE;
 	pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
@@ -186,7 +186,16 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 }
 
 void D3D9_Resize(HWND window) {
-	// TODO!
+	// Allow call from only EMU thread.
+	if (device) {
+		DX9::fbo_shutdown();
+		pp.BackBufferWidth = 0;
+		pp.BackBufferHeight = 0;
+		HRESULT hr = device->Reset(&pp);
+		if (FAILED(hr)){
+		}
+		DX9::fbo_init(d3d);
+	}
 }
 
 void D3D9_Shutdown() {
