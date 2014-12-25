@@ -1049,7 +1049,7 @@ void FPURegCache::GetState(FPURegCacheState &state) const {
 	memcpy(state.xregs, xregs, sizeof(xregs));
 }
 
-void FPURegCache::RestoreState(const FPURegCacheState state) {
+void FPURegCache::RestoreState(const FPURegCacheState& state) {
 	memcpy(regs, state.regs, sizeof(regs));
 	memcpy(xregs, state.xregs, sizeof(xregs));
 	pendingFlush = true;

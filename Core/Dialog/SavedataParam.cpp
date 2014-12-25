@@ -577,7 +577,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	return true;
 }
 
-bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string dirPath, bool secureMode) {
+bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode) {
 	u8 *data_ = param->dataBuf;
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	s64 readSize;
@@ -666,7 +666,7 @@ void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data,
 		memcpy(data, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
 }
 
-void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string dirPath) {
+void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
 	ParamSFOData sfoFile;
 	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
@@ -718,7 +718,7 @@ std::set<std::string> SavedataParam::getSecureFileNames(std::string dirPath) {
 	return secureFileNames;
 }
 
-void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
+void SavedataParam::LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData) {
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize = -1;
 	if(!fileData->buf.IsValid())

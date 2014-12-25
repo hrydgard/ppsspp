@@ -206,7 +206,7 @@ public:
 	void SimpleRegV(const u8 v, int flags);
 
 	void GetState(FPURegCacheState &state) const;
-	void RestoreState(const FPURegCacheState state);
+	void RestoreState(const FPURegCacheState& state);
 
 	MIPSState *mips;
 

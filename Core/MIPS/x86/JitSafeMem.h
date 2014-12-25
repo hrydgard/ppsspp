@@ -36,9 +36,9 @@ public:
 	// Emit code proceeding a slow write call, returns true if slow write is needed.
 	bool PrepareSlowWrite();
 	// Emit a slow write from src.
-	void DoSlowWrite(const void *safeFunc, const Gen::OpArg src, int suboffset = 0);
+	void DoSlowWrite(const void *safeFunc, const Gen::OpArg& src, int suboffset = 0);
 	template <typename T>
-	void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const Gen::OpArg src, int suboffset = 0) {
+	void DoSlowWrite(void (*safeFunc)(T val, u32 addr), const Gen::OpArg& src, int suboffset = 0) {
 		DoSlowWrite((const void *)safeFunc, src, suboffset);
 	}
 
