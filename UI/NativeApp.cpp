@@ -713,9 +713,13 @@ void NativeRender() {
 		TakeScreenshot();
 	}
 
-	if (resized) {
-		resized = false;
-		D3D9_Resize(0);
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		if (resized) {
+			resized = false;
+#ifdef _WIN32
+			D3D9_Resize(0);
+#endif
+		}
 	}
 }
 
