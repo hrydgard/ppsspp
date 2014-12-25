@@ -106,6 +106,7 @@ void ExtractIR(const JitOptions &jo, u32 address, IRBlock *block) {
 		if (e.info & OUT_RA) gprOut |= (1ULL << MIPS_REG_RA);
 		if (e.info & OUT_FD) fprOut |= (1 << MIPS_GET_FD(e.op));
 		if (e.info & OUT_FS) fprOut |= (1 << MIPS_GET_FS(e.op));
+		if (e.info & OUT_FT) fprOut |= (1 << MIPS_GET_FT(e.op));
 		if (e.info & OUT_LO) gprOut |= (1ULL << MIPS_REG_LO);
 		if (e.info & OUT_HI) gprOut |= (1ULL << MIPS_REG_HI);
 		if (e.info & OUT_VFPU_CC) gprOut |= (1ULL << MIPS_REG_VFPUCC);
