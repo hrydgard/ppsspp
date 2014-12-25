@@ -32,7 +32,7 @@ static AuCtx *getAacCtx(u32 id) {
 }
 
 void __AACShutdown() {
-	for (auto it = aacMap.begin(), end = aacMap.end(); it != end; it++) {
+	for (auto it = aacMap.begin(), end = aacMap.end(); it != end; ++it) {
 		delete it->second;
 	}
 	aacMap.clear();

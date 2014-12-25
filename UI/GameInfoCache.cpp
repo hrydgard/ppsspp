@@ -523,7 +523,7 @@ void GameInfoCache::Decimate() {
 void GameInfoCache::Clear() {
 	if (gameInfoWQ_)
 		gameInfoWQ_->Flush();
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
+	for (auto iter = info_.begin(); iter != info_.end(); ++iter) {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
 			iter->second->pic0TextureData.clear();
@@ -559,7 +559,7 @@ void GameInfoCache::Clear() {
 }
 
 void GameInfoCache::FlushBGs() {
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
+	for (auto iter = info_.begin(); iter != info_.end(); ++iter) {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
 			iter->second->pic0TextureData.clear();

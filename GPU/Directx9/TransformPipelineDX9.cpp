@@ -140,7 +140,7 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 		}
 	}
 
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); ++iter) {
 		delete iter->second;
 	}
 	delete [] uvScale;
@@ -541,7 +541,7 @@ ReliableHashType TransformDrawEngineDX9::ComputeHash() {
 }
 
 void TransformDrawEngineDX9::ClearTrackedVertexArrays() {
-	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
+	for (auto vai = vai_.begin(); vai != vai_.end(); ++vai) {
 		delete vai->second;
 	}
 	vai_.clear();
@@ -893,7 +893,7 @@ void TransformDrawEngineDX9::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); ++iter) {
 		delete iter->second;
 	}
 	decoderMap_.clear();

@@ -3608,7 +3608,7 @@ bool __KernelCheckCallbacks() {
 	bool processed = false;
 
 	u32 error;
-	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++) {
+	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter) {
 		Thread *thread = kernelObjects.Get<Thread>(*iter, error);
 		if (thread && __KernelCheckThreadCallbacks(thread, false)) {
 			processed = true;
@@ -3690,7 +3690,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 	std::vector<DebugThreadInfo> threadList;
 
 	u32 error;
-	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
+	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter)
 	{
 		Thread *t = kernelObjects.Get<Thread>(*iter, error);
 		if (!t)

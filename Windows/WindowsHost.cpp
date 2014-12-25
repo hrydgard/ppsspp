@@ -175,7 +175,7 @@ void WindowsHost::SetDebugMode(bool mode)
 void WindowsHost::PollControllers(InputState &input_state)
 {
 	bool doPad = true;
-	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
+	for (auto iter = this->input.begin(); iter != this->input.end(); ++iter)
 	{
 		auto device = *iter;
 		if (!doPad && device->IsPad())
