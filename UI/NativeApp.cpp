@@ -130,6 +130,7 @@ bool iosCanUseJit;
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
+static bool resized = false;
 
 struct PendingMessage {
 	std::string msg;
@@ -711,6 +712,11 @@ void NativeRender() {
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
 	}
+
+	if (resized) {
+		resized = false;
+		D3D9_Resize(0);
+	}
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
@@ -884,6 +890,8 @@ void NativeMessageReceived(const char *message, const char *value) {
 }
 
 void NativeResized() {
+	resized = true;
+
 	if (uiContext) {
 		// Modifying the bounds here can be used to "inset" the whole image to gain borders for TV overscan etc.
 		// The UI now supports any offset but not the EmuScreen yet.
