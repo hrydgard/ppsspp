@@ -50,6 +50,13 @@ enum {
 	GPU_BACKEND_DIRECT3D9 = 1,
 };
 
+// For iIOTimingMethod.
+enum IOTimingMethods {
+	IOTIMING_FAST = 0,
+	IOTIMING_HOST = 1,
+	IOTIMING_REALISTIC = 2,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -109,6 +116,7 @@ public:
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
+	int iIOTimingMethod;
 	bool bSeparateIOThread;
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;

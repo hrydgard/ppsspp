@@ -173,7 +173,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("FileNode", 1);
+		auto s = p.Section("FileNode", 2);
 		if (!s)
 			return;
 
@@ -204,6 +204,9 @@ public:
 		}
 
 		p.Do(waitingThreads);
+		if (s >= 2) {
+			p.Do(waitingSyncThreads);
+		}
 		p.Do(pausedWaits);
 	}
 
@@ -229,6 +232,7 @@ public:
 	PGD_DESC *pgdInfo;
 
 	std::vector<SceUID> waitingThreads;
+	std::vector<SceUID> waitingSyncThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	// Value is actually meaningless but kept for consistency with other wait types.
 	std::map<SceUID, u64> pausedWaits;
@@ -240,7 +244,7 @@ public:
 
 /******************************************************************************/
 
-void __IoCompleteAsyncIO(int fd);
+u64 __IoCompleteAsyncIO(FileNode *f);
 
 static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
@@ -279,6 +283,11 @@ static void __IoFreeFd(int fd, u32 &error) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
 			}
 
+			CoreTiming::UnscheduleEvent(asyncNotifyEvent, fd);
+			for (size_t i = 0; i < f->waitingSyncThreads.size(); ++i) {
+				CoreTiming::UnscheduleEvent(syncNotifyEvent, ((u64)f->waitingSyncThreads[i] << 32) | fd);
+			}
+
 			// Discard any pending results.
 			AsyncIOResult managerResult;
 			ioManager.WaitResult(f->handle, managerResult);
@@ -302,16 +311,30 @@ static void __IoFreeFd(int fd, u32 &error) {
 // Clearly a buffer is used, it doesn't seem like they are actually kernel objects.
 
 // TODO: We don't do any of that yet.
-// For now, let's at least delay the callback mnotification.
+// For now, let's at least delay the callback notification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	int fd = (int) userdata;
-	__IoCompleteAsyncIO(fd);
 
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
 	if (!f) {
 		ERROR_LOG_REPORT(SCEIO, "__IoAsyncNotify: file no longer exists?");
 		return;
+	}
+
+	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+		if (!ioManager.HasResult(f->handle)) {
+			// Try again in another 0.5ms until the IO completes on the host.
+			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, asyncNotifyEvent, userdata);
+			return;
+		}
+	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = __IoCompleteAsyncIO(f);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			// Reschedule for later, since we now know how long it ought to take.
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
+			return;
+		}
 	}
 
 	if (f->waitingThreads.empty()) {
@@ -350,17 +373,36 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 
+	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+		if (!ioManager.HasResult(f->handle)) {
+			// Try again in another 0.5ms until the IO completes on the host.
+			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
+			return;
+		}
+	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			// Reschedule for later when the result should finish.
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
+			return;
+		}
+	}
+
 	f->pendingAsyncResult = false;
 	f->hasAsyncResult = false;
 
 	AsyncIOResult managerResult;
 	if (ioManager.WaitResult(f->handle, managerResult)) {
-		result = managerResult;
+		result = managerResult.result;
 	} else {
 		ERROR_LOG(SCEIO, "Unable to complete IO operation on %s", f->GetName());
 	}
 
+	f->pendingAsyncResult = false;
+	f->hasAsyncResult = false;
+
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
+	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -567,22 +609,26 @@ static u32 sceKernelStderr() {
 	return PSP_STDERR;
 }
 
-void __IoCompleteAsyncIO(int fd) {
-	u32 error;
-	FileNode *f = __IoGetFd(fd, error);
-	if (f) {
-		AsyncIOResult managerResult;
-		if (ioManager.WaitResult(f->handle, managerResult)) {
-			f->asyncResult = managerResult;
-		} else {
-			// It's okay, not all operations are deferred.
+u64 __IoCompleteAsyncIO(FileNode *f) {
+	if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			return finishTicks;
 		}
-		if (f->callbackID) {
-			__KernelNotifyCallback(f->callbackID, f->callbackArg);
-		}
-		f->pendingAsyncResult = false;
-		f->hasAsyncResult = true;
 	}
+	AsyncIOResult managerResult;
+	if (ioManager.WaitResult(f->handle, managerResult)) {
+		f->asyncResult = managerResult.result;
+	} else {
+		// It's okay, not all operations are deferred.
+	}
+	if (f->callbackID) {
+		__KernelNotifyCallback(f->callbackID, f->callbackArg);
+	}
+	f->pendingAsyncResult = false;
+	f->hasAsyncResult = true;
+
+	return 0;
 }
 
 void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in)
@@ -709,7 +755,13 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
-static bool __IoRead(int &result, int id, u32 data_addr, int size) {
+static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
+	// Low estimate, may be improved later from the ReadFile result.
+	us = size / 100;
+	if (us < 100) {
+		us = 100;
+	}
+
 	if (id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoRead STDIN");
 		result = 0; //stdin
@@ -753,7 +805,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size) {
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
-				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+				result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
 				return true;
 			}
 		} else {
@@ -786,19 +838,15 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 		}
 	}
 
-	// TODO: Timing is probably not very accurate, low estimate.
-	int us = size / 100;
-	if (us < 100) {
-		us = 100;
-	}
-
 	int result;
-	bool complete = __IoRead(result, id, data_addr, size);
+	int us;
+	bool complete = __IoRead(result, id, data_addr, size, us);
 	if (!complete) {
 		DEBUG_LOG(SCEIO, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
 
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
+		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return 0;
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
@@ -810,12 +858,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
-	// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-	int us = size / 100;
-	if (us < 100) {
-		us = 100;
-	}
-
+	// TODO: Technically we shouldn't read into the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
@@ -824,7 +867,8 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
 		int result;
-		bool complete = __IoRead(result, id, data_addr, size);
+		int us;
+		bool complete = __IoRead(result, id, data_addr, size, us);
 		if (complete) {
 			f->asyncResult = result;
 			DEBUG_LOG(SCEIO, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
@@ -839,7 +883,13 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-static bool __IoWrite(int &result, int id, u32 data_addr, int size) {
+static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
+	// Low estimate, may be improved later from the WriteFile result.
+	us = size / 100;
+	if (us < 100) {
+		us = 100;
+	}
+
 	const void *data_ptr = Memory::GetPointer(data_addr);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
@@ -883,7 +933,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size) {
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
-			result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
+			result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
 		}
 		return true;
 	} else {
@@ -907,19 +957,15 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 		}
 	}
 
-	// TODO: Timing is probably not very accurate, low estimate.
-	int us = size / 100;
-	if (us < 100) {
-		us = 100;
-	}
-
 	int result;
-	bool complete = __IoWrite(result, id, data_addr, size);
+	int us;
+	bool complete = __IoWrite(result, id, data_addr, size, us);
 	if (!complete) {
 		DEBUG_LOG(SCEIO, "sceIoWrite(%d, %08x, %x): deferring result", id, data_addr, size);
 
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
+		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return 0;
 	} else if (result >= 0) {
 		DEBUG_LOG(SCEIO, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
@@ -940,12 +986,7 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
-	// TODO: Not sure what the correct delay is (and technically we shouldn't read from the buffer yet...)
-	int us = size / 100;
-	if (us < 100) {
-		us = 100;
-	}
-
+	// TODO: Technically we shouldn't read from the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
@@ -954,7 +995,8 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 			return SCE_KERNEL_ERROR_ASYNC_BUSY;
 		}
 		int result;
-		bool complete = __IoWrite(result, id, data_addr, size);
+		int us;
+		bool complete = __IoWrite(result, id, data_addr, size, us);
 		if (complete) {
 			f->asyncResult = result;
 			DEBUG_LOG(SCEIO, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
@@ -1366,7 +1408,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 		}
 		break;
-	// TODO: What does these do?  Seem to require a u32 in, no output.
+	// TODO: What do these do?  Seem to require a u32 in, no output.
 	case 0x01F100A6:
 	case 0x01F100A8:
 	case 0x01F100A9:
