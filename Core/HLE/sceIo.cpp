@@ -323,7 +323,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	}
 
 	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
-		if (!ioManager.HasResult(f->handle)) {
+		// Not all async operations actually queue up.  Maybe should separate them?
+		if (!ioManager.HasResult(f->handle) && ioManager.HasOperation(f->handle)) {
 			// Try again in another 0.5ms until the IO completes on the host.
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, asyncNotifyEvent, userdata);
 			return;
