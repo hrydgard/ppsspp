@@ -15,7 +15,7 @@
 #pragma warning (disable:4996)
 #pragma warning (disable:4244)
 #include <malloc.h>
-#else
+#elif !defined(__SYMBIAN32__)
 #include <alloca.h>
 #endif
 
