@@ -383,7 +383,6 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
 			return;
 		}
-		__IoCompleteAsyncIO(f);
 	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
 		if (finishTicks > CoreTiming::GetTicks()) {
@@ -391,8 +390,6 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
 			return;
 		}
-	} else {
-		__IoCompleteAsyncIO(f);
 	}
 
 	f->pendingAsyncResult = false;
