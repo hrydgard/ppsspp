@@ -328,6 +328,7 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, asyncNotifyEvent, userdata);
 			return;
 		}
+		__IoCompleteAsyncIO(f);
 	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = __IoCompleteAsyncIO(f);
 		if (finishTicks > CoreTiming::GetTicks()) {
@@ -335,6 +336,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
 			return;
 		}
+	} else {
+		__IoCompleteAsyncIO(f);
 	}
 
 	if (f->waitingThreads.empty()) {
@@ -379,6 +382,7 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
 			return;
 		}
+		__IoCompleteAsyncIO(f);
 	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
 		if (finishTicks > CoreTiming::GetTicks()) {
@@ -386,6 +390,8 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
 			return;
 		}
+	} else {
+		__IoCompleteAsyncIO(f);
 	}
 
 	f->pendingAsyncResult = false;
@@ -805,7 +811,11 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
-				result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
+				if (g_Config.iIOTimingMethod != IOTIMING_REALISTIC) {
+					result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+				} else {
+					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
+				}
 				return true;
 			}
 		} else {
@@ -933,7 +943,11 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
-			result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+			if (g_Config.iIOTimingMethod != IOTIMING_REALISTIC) {
+				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+			} else {
+				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+			}
 		}
 		return true;
 	} else {
