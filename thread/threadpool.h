@@ -10,7 +10,7 @@
 class WorkerThread {
 public:
 	WorkerThread();
-	~WorkerThread();
+	virtual ~WorkerThread();
 
 	// submit a new work item
 	void Process(const std::function<void()>& work);
