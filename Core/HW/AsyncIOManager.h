@@ -55,6 +55,7 @@ public:
 	void ScheduleOperation(AsyncIOEvent ev);
 	void Shutdown();
 
+	bool HasResult(u32 handle);
 	bool PopResult(u32 handle, AsyncIOResult &result);
 	bool WaitResult(u32 handle, AsyncIOResult &result);
 

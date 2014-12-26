@@ -47,6 +47,11 @@ void AsyncIOManager::Shutdown() {
 	results_.clear();
 }
 
+bool AsyncIOManager::HasResult(u32 handle) {
+	lock_guard guard(resultsLock_);
+	return results_.find(handle) != results_.end();
+}
+
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 	lock_guard guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {

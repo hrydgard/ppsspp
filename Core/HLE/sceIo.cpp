@@ -240,7 +240,7 @@ public:
 
 /******************************************************************************/
 
-void __IoCompleteAsyncIO(int fd);
+void __IoCompleteAsyncIO(FileNode *f);
 
 static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
@@ -305,7 +305,6 @@ static void __IoFreeFd(int fd, u32 &error) {
 // For now, let's at least delay the callback mnotification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	int fd = (int) userdata;
-	__IoCompleteAsyncIO(fd);
 
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
@@ -313,6 +312,16 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		ERROR_LOG_REPORT(SCEIO, "__IoAsyncNotify: file no longer exists?");
 		return;
 	}
+
+	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+		if (!ioManager.HasResult(f->handle)) {
+			// Try again in another 0.5ms until the IO completes on the host.
+			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, asyncNotifyEvent, userdata);
+			return;
+		}
+	}
+
+	__IoCompleteAsyncIO(f);
 
 	if (f->waitingThreads.empty()) {
 		return;
@@ -348,6 +357,14 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	if (!f) {
 		ERROR_LOG_REPORT(SCEIO, "__IoSyncNotify: file no longer exists?");
 		return;
+	}
+
+	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+		if (!ioManager.HasResult(f->handle)) {
+			// Try again in another 0.5ms until the IO completes on the host.
+			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
+			return;
+		}
 	}
 
 	f->pendingAsyncResult = false;
@@ -567,22 +584,18 @@ static u32 sceKernelStderr() {
 	return PSP_STDERR;
 }
 
-void __IoCompleteAsyncIO(int fd) {
-	u32 error;
-	FileNode *f = __IoGetFd(fd, error);
-	if (f) {
-		AsyncIOResult managerResult;
-		if (ioManager.WaitResult(f->handle, managerResult)) {
-			f->asyncResult = managerResult;
-		} else {
-			// It's okay, not all operations are deferred.
-		}
-		if (f->callbackID) {
-			__KernelNotifyCallback(f->callbackID, f->callbackArg);
-		}
-		f->pendingAsyncResult = false;
-		f->hasAsyncResult = true;
+void __IoCompleteAsyncIO(FileNode *f) {
+	AsyncIOResult managerResult;
+	if (ioManager.WaitResult(f->handle, managerResult)) {
+		f->asyncResult = managerResult;
+	} else {
+		// It's okay, not all operations are deferred.
 	}
+	if (f->callbackID) {
+		__KernelNotifyCallback(f->callbackID, f->callbackArg);
+	}
+	f->pendingAsyncResult = false;
+	f->hasAsyncResult = true;
 }
 
 void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in)
