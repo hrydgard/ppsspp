@@ -328,13 +328,13 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, asyncNotifyEvent, userdata);
 			return;
 		}
-	}
-
-	u64 finishTicks = __IoCompleteAsyncIO(f);
-	if (finishTicks > CoreTiming::GetTicks()) {
-		// Reschedule for later, since we now know how long it ought to take.
-		CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
-		return;
+	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = __IoCompleteAsyncIO(f);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			// Reschedule for later, since we now know how long it ought to take.
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
+			return;
+		}
 	}
 
 	if (f->waitingThreads.empty()) {
@@ -379,13 +379,13 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
 			return;
 		}
-	}
-
-	u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
-	if (finishTicks > CoreTiming::GetTicks()) {
-		// Reschedule for later when the result should finish.
-		CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
-		return;
+	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			// Reschedule for later when the result should finish.
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), syncNotifyEvent, userdata);
+			return;
+		}
 	}
 
 	f->pendingAsyncResult = false;
@@ -610,9 +610,11 @@ static u32 sceKernelStderr() {
 }
 
 u64 __IoCompleteAsyncIO(FileNode *f) {
-	u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
-	if (finishTicks > CoreTiming::GetTicks()) {
-		return finishTicks;
+	if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
+		if (finishTicks > CoreTiming::GetTicks()) {
+			return finishTicks;
+		}
 	}
 	AsyncIOResult managerResult;
 	if (ioManager.WaitResult(f->handle, managerResult)) {
