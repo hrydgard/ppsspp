@@ -61,7 +61,9 @@ static void GetRes(int &xres, int &yres) {
 	yres = rc.bottom - rc.top;
 }
 
-bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
+bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
+	hWnd = wnd;
+
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
 	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
@@ -137,7 +139,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.MultiSampleType = D3DMULTISAMPLE_NONE;
 	pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	pp.Windowed = windowed;
-	pp.hDeviceWindow = hWnd;
+	pp.hDeviceWindow = wnd;
 	pp.EnableAutoDepthStencil = true;
 	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
 	pp.PresentationInterval = (g_Config.bVSync) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
@@ -149,10 +151,10 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 			//pp.BackBufferCount = 2;
 			//pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
 		}
-		hr = d3dEx->CreateDeviceEx(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, NULL, &deviceEx);
+		hr = d3dEx->CreateDeviceEx(adapterId, D3DDEVTYPE_HAL, wnd, dwBehaviorFlags, &pp, NULL, &deviceEx);
 		device = deviceEx;
 	} else {
-		hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
+		hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, wnd, dwBehaviorFlags, &pp, &device);
 	}
 
 	if (FAILED(hr)) {
