@@ -942,7 +942,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return false;
 		} else {
 			if (g_Config.iIOTimingMethod != IOTIMING_REALISTIC) {
-				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
+				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
 			} else {
 				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
 			}
