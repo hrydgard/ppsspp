@@ -9,6 +9,7 @@
 #include "i18n/i18n.h"
 
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Windows/D3D9Base.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
@@ -23,8 +24,6 @@ static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
 static D3DPRESENT_PARAMETERS pp;
-
-static int xres, yres;
 
 // TODO: Make config?
 static bool enableGLDebug = true;
@@ -53,6 +52,13 @@ bool IsWin7OrLater() {
 	DWORD minor = (DWORD)(HIBYTE(LOWORD(version)));
 
 	return (major > 6) || ((major == 6) && (minor >= 1));
+}
+
+static void GetRes(int &xres, int &yres) {
+	RECT rc;
+	GetClientRect(hWnd, &rc);
+	xres = rc.right - rc.left;
+	yres = rc.bottom - rc.top;
 }
 
 bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
@@ -121,14 +127,12 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	else
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	int xres = rc.right - rc.left;
-	int yres = rc.bottom - rc.top;
+	int xres, yres;
+	GetRes(xres, yres);
 
 	memset(&pp, 0, sizeof(pp));
-	pp.BackBufferWidth = 0;
-	pp.BackBufferHeight = 0;
+	pp.BackBufferWidth = xres;
+	pp.BackBufferHeight = yres;
 	pp.BackBufferFormat = d3ddm.Format;
 	pp.MultiSampleType = D3DMULTISAMPLE_NONE;
 	pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
@@ -189,10 +193,14 @@ void D3D9_Resize(HWND window) {
 	// Allow call from only EMU thread.
 	if (device) {
 		DX9::fbo_shutdown();
-		pp.BackBufferWidth = 0;
-		pp.BackBufferHeight = 0;
+
+		int xres, yres;
+		GetRes(xres, yres);
+		pp.BackBufferWidth = xres;
+		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
-		if (FAILED(hr)){
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "Unable to reset device: %08x", hr);
 		}
 		DX9::fbo_init(d3d);
 	}
