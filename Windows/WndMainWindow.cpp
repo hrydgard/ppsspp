@@ -262,8 +262,9 @@ namespace MainWindow
 		UpdateRenderResolution();
 		
 		if (!noWindowMovement) {
-			UpdateScreenScale(width, height);
-			NativeMessageReceived("gpu resized", "");
+			if (UpdateScreenScale(width, height)) {
+				NativeMessageReceived("gpu resized", "");
+			}
 		}
 	}
 

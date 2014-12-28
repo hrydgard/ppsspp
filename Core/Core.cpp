@@ -111,27 +111,34 @@ void Core_WaitInactive(int milliseconds) {
 	}
 }
 
-void UpdateScreenScale(int width, int height) {
-	dp_xres = width;
-	dp_yres = height;
-	pixel_xres = width;
-	pixel_yres = height;
+bool UpdateScreenScale(int width, int height) {
 	g_dpi = 72;
 	g_dpi_scale = 1.0f;
-#ifdef __SYMBIAN32__
-	dp_xres *= 1.4f;
-	dp_yres *= 1.4f;
+#if defined(__SYMBIAN32__)
 	g_dpi_scale = 1.4f;
-#endif
-#ifdef _WIN32
+#elif defined(_WIN32)
 	if (pixel_xres < 480 + 80) {
-		dp_xres *= 2;
-		dp_yres *= 2;
 		g_dpi_scale = 2.0f;
 	}
 #endif
-	pixel_in_dps = (float)pixel_xres / dp_xres;
-	NativeResized();
+	pixel_in_dps = 1.0f / g_dpi_scale;
+
+	int new_dp_xres = width * g_dpi_scale;
+	int new_dp_yres = height * g_dpi_scale;
+
+	bool dp_changed = new_dp_xres != dp_xres || new_dp_yres != dp_yres;
+	bool px_changed = pixel_xres != width || pixel_yres != height;
+
+	if (dp_changed || px_changed) {
+		dp_xres = new_dp_xres;
+		dp_yres = new_dp_yres;
+		pixel_xres = width;
+		pixel_yres = height;
+
+		NativeResized();
+		return true;
+	}
+	return false;
 }
 
 void UpdateRunLoop() {

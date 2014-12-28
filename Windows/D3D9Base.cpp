@@ -192,12 +192,16 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 }
 
 void D3D9_Resize(HWND window) {
-	// Allow call from only EMU thread.
-	if (device) {
+	// This should only be called from the emu thread.
+
+	int xres, yres;
+	GetRes(xres, yres);
+	bool w_changed = pp.BackBufferWidth != xres;
+	bool h_changed = pp.BackBufferHeight != yres;
+
+	if (device && (w_changed || h_changed)) {
 		DX9::fbo_shutdown();
 
-		int xres, yres;
-		GetRes(xres, yres);
 		pp.BackBufferWidth = xres;
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
