@@ -173,7 +173,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("FileNode", 2);
+		auto s = p.Section("FileNode", 1, 2);
 		if (!s)
 			return;
 
