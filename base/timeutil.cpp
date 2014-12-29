@@ -18,18 +18,21 @@ static float curtime_f = 0;
 
 #ifdef _WIN32
 
-__int64 _frequency = 0;
-__int64 _starttime = 0;
+LARGE_INTEGER frequency;
+double frequencyMult;
+LARGE_INTEGER startTime;
 
 double real_time_now() {
-	if (_frequency == 0) {
-		QueryPerformanceFrequency((LARGE_INTEGER*)&_frequency);
-		QueryPerformanceCounter((LARGE_INTEGER*)&_starttime);
-		curtime=0;
+	if (frequency.QuadPart == 0) {
+		QueryPerformanceFrequency(&frequency);
+		QueryPerformanceCounter(&startTime);
+		curtime = 0.0;
+		frequencyMult = 1.0 / static_cast<double>(frequency.QuadPart);
 	}
-	__int64 time;
-	QueryPerformanceCounter((LARGE_INTEGER*)&time);
-	return ((double) (time - _starttime) / (double) _frequency);
+	LARGE_INTEGER time;
+	QueryPerformanceCounter(&time);
+	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
+	return elapsed * frequencyMult;
 }
 
 #elif defined(BLACKBERRY)
