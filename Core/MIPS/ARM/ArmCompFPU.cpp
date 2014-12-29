@@ -397,7 +397,7 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		if (rt == MIPS_REG_ZERO) {
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 			fpr.MapReg(fs, MAP_NOINIT);
 			MOVI2F(fpr.R(fs), 0.0f, R0);
 		} else {
