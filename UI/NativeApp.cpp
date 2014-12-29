@@ -600,7 +600,13 @@ void TakeScreenshot() {
 	g_TakeScreenshot = false;
 
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	mkDir(g_Config.memStickDirectory + "/PSP/SCREENSHOT");
+	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+	while (path.length() > 0 && path.back() == '/') {
+		path.resize(path.size() - 1);
+	}
+	if (!File::Exists(path)) {
+		File::CreateDir(path);
+	}
 
 	// First, find a free filename.
 	int i = 0;
@@ -613,9 +619,9 @@ void TakeScreenshot() {
 	char filename[2048];
 	while (i < 10000){
 		if (g_Config.bScreenshotsAsPNG)
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.png", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/%s_%05d.png", path.c_str(), gameId.c_str(), i);
 		else
-			snprintf(filename, sizeof(filename), "%s/PSP/SCREENSHOT/%s_%05d.jpg", g_Config.memStickDirectory.c_str(), gameId.c_str(), i);
+			snprintf(filename, sizeof(filename), "%s/%s_%05d.jpg", path.c_str(), gameId.c_str(), i);
 		FileInfo info;
 		if (!getFileInfo(filename, &info))
 			break;
