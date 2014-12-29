@@ -322,7 +322,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
 		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
 		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
-		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame) - frameBlockOffset;
+		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame - frameBlockOffset);
 
 		if (frameReadEnd > readBufferEnd) {
 			const s64 maxNeeded = totalReadEnd - frameReadPos;
