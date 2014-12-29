@@ -19,9 +19,10 @@
 #include <QtGui/QImage>
 #else
 #include <libpng17/png.h>
-#endif
 #include "ext/jpge/jpge.h"
+#endif
 
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -31,6 +32,83 @@
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+
+#ifndef USING_QT_UI
+// This is used to make non-ASCII paths work for filename.
+// Technically only needed on Windows.
+class JPEGFileStream : public jpge::output_stream
+{
+public:
+	JPEGFileStream(const char *filename) {
+		fp_ = File::OpenCFile(filename, "wb");
+	}
+	~JPEGFileStream() override {
+		if (fp_ ) {
+			fclose(fp_);
+		}
+	}
+
+	bool put_buf(const void *buf, int len) override
+	{
+		if (fp_) {
+			if (fwrite(buf, len, 1, fp_) != 1) {
+				fclose(fp_);
+				fp_ = nullptr;
+			}
+		}
+		return Valid();
+	}
+
+	bool Valid() {
+		return fp_ != nullptr;
+	}
+
+private:
+	FILE *fp_;
+};
+
+static bool WriteScreenshotToJPEG(const char *filename, int width, int height, int num_channels, const uint8 *image_data, const jpge::params &comp_params) {
+	JPEGFileStream dst_stream(filename);
+	if (!dst_stream.Valid()) {
+		return false;
+	}
+
+	jpge::jpeg_encoder dst_image;
+	if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params)) {
+		return false;
+	}
+
+	for (u32 pass_index = 0; pass_index < dst_image.get_total_passes(); pass_index++) {
+		for (int i = 0; i < height; i++) {
+			const uint8 *buf = image_data + i * width * num_channels;
+			if (!dst_image.process_scanline(buf)) {
+				return false;
+			}
+		}
+		if (!dst_image.process_scanline(NULL)) {
+			return false;
+		}
+	}
+
+	dst_image.deinit();
+	return dst_stream.Valid();
+}
+
+static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		return false;
+	}
+
+	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
+		return fclose(fp) == 0;
+	} else {
+		fclose(fp);
+		remove(filename);
+		return false;
+	}
+}
+#endif
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type) {
 	GPUDebugBuffer buf;
@@ -103,14 +181,16 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 			png.format = PNG_FORMAT_RGB;
 			png.width = buf.GetStride();
 			png.height = buf.GetHeight();
-			png_image_write_to_file(&png, filename, 0, flipbuffer, buf.GetStride() * 3, NULL);
+			success = WriteScreenshotToPNG(&png, filename, 0, flipbuffer, buf.GetStride() * 3, nullptr);
 			png_image_free(&png);
 
-			success = png.warning_or_error < 2;
+			if (png.warning_or_error >= 2) {
+				success = false;
+			}
 		} else if (success && fmt == SCREENSHOT_JPG) {
 			jpge::params params;
 			params.m_quality = 90;
-			success = compress_image_to_jpeg_file(filename, buf.GetStride(), buf.GetHeight(), 3, flipbuffer, params);
+			success = WriteScreenshotToJPEG(filename, buf.GetStride(), buf.GetHeight(), 3, flipbuffer, params);
 		} else {
 			success = false;
 		}
