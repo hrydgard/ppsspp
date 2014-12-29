@@ -354,8 +354,15 @@ bool Rename(const std::string &srcFilename, const std::string &destFilename)
 {
 	INFO_LOG(COMMON, "Rename: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
+#if defined(_WIN32) && defined(UNICODE)
+	std::wstring srcw = ConvertUTF8ToWString(srcFilename);
+	std::wstring destw = ConvertUTF8ToWString(destFilename);
+	if (_wrename(srcw.c_str(), destw.c_str()) == 0)
+		return true;
+#else
 	if (rename(srcFilename.c_str(), destFilename.c_str()) == 0)
 		return true;
+#endif
 	ERROR_LOG(COMMON, "Rename: failed %s --> %s: %s", 
 			  srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
 	return false;
