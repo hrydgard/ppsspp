@@ -1,5 +1,6 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
+#include <DxErr.h>
 
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/helper/fbo.h"
@@ -206,28 +207,7 @@ void D3D9_Resize(HWND window) {
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
 		if (FAILED(hr)) {
-			const char *error_message;
-			switch (hr) {
-			case D3DERR_DEVICELOST:
-				error_message = "Device lost";
-				break;
-			case D3DERR_DEVICEREMOVED:
-				error_message = "Device removed";
-				break;
-			case D3DERR_DRIVERINTERNALERROR:
-				error_message = "Driver internal error";
-				break;
-			case D3DERR_OUTOFVIDEOMEMORY:
-				error_message = "Out of video memory";
-				break;
-			case D3DERR_INVALIDCALL:
-				error_message = "Invalid call";
-				break;
-			case E_OUTOFMEMORY:
-				error_message = "Out of  memory";
-				break;
-			}
-			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", error_message);
+			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", DXGetErrorStringA(hr));
 		}
 		DX9::fbo_init(d3d);
 	}
