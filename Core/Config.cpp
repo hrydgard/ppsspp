@@ -676,7 +676,7 @@ static ConfigSectionSettings sections[] = {
 	{"Upgrade", upgradeSettings},
 };
 
-Config::Config() : bGameSpecific(false){ }
+Config::Config() : bGameSpecific(false) { }
 Config::~Config() { }
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
@@ -847,7 +847,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	//but these configs shouldn't contain older versions anyhow
 	if (bGameSpecific)
 	{
-		loadGameConfig(gameId);
+		loadGameConfig(gameId_);
 	}
 
 	CleanRecent();
@@ -864,7 +864,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
-		saveGameConfig(gameId);
+		saveGameConfig(gameId_);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1055,7 +1055,10 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 	if (!File::Exists(filename)) {
 		std::string path;
 		SplitPath(filename, &path, NULL, NULL);
-		File::CreateFullPath(path);
+		if (createdPath_ != path) {
+			File::CreateFullPath(path);
+			createdPath_ = path;
+		}
 	}
 	return filename;
 }
@@ -1063,8 +1066,8 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 void Config::RestoreDefaults() {
 	if (bGameSpecific)
 	{
-		deleteGameConfig(gameId);
-		createGameConfig(gameId);
+		deleteGameConfig(gameId_);
+		createGameConfig(gameId_);
 	}
 	else
 	{
@@ -1087,7 +1090,7 @@ bool Config::hasGameConfig(const std::string &pGameId)
 
 void Config::changeGameSpecific(const std::string &pGameId)
 {
-	gameId = pGameId;
+	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }
 

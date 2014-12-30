@@ -385,11 +385,12 @@ public:
 	
 	
 private:
-	std::string gameId;
+	std::string gameId_;
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;
 	std::string defaultPath_;
+	std::string createdPath_;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
