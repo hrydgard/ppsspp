@@ -749,7 +749,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
 	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
 
-	if (g_Config.iAnisotropyLevel > 0) {
+	if (g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
 		minf = D3DTEXF_ANISOTROPIC;
 	}
 
