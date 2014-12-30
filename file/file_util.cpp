@@ -5,6 +5,8 @@
 #ifndef strcasecmp
 #define strcasecmp _stricmp
 #endif
+#define fseeko _fseeki64
+#define ftello _ftelli64
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -85,18 +87,31 @@ bool writeDataToFile(bool text_file, const void* data, const unsigned int size, 
 
 uint64_t GetSize(FILE *f)
 {
-	// can't use off_t here because it can be 32-bit
-	size_t pos = ftell(f);
-	if (fseek(f, 0, SEEK_END) != 0) {
-		return 0;
-	}
-	size_t size = ftell(f);
-	// Reset the seek position to where it was when we started.
-	if ((size != pos) && (fseek(f, pos, SEEK_SET) != 0)) {
-		// Should error here
+	// This will only support 64-bit when large file support is available.
+	// That won't be the case on some versions of Android, at least.
+#if defined(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+	int fd = fileno(f);
+
+	off64_t pos = lseek64(fd, 0, SEEK_CUR);
+	off64_t size = lseek64(fd, 0, SEEK_END);
+	if (size != pos && lseek64(fd, pos, SEEK_SET) != pos) {
+		// Should error here.
 		return 0;
 	}
 	return size;
+#else
+	uint64_t pos = ftello(f);
+	if (fseek(f, 0, SEEK_END) != 0) {
+		return 0;
+	}
+	uint64_t size = ftello(f);
+	// Reset the seek position to where it was when we started.
+	if (size != pos && fseeko(f, pos, SEEK_SET) != 0) {
+		// Should error here.
+		return 0;
+	}
+	return size;
+#endif
 }
 
 bool readFileToString(bool text_file, const char *filename, std::string &str)
