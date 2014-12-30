@@ -218,7 +218,13 @@ void D3D9_Resize(HWND window) {
 				error_message = "Driver internal error";
 				break;
 			case D3DERR_OUTOFVIDEOMEMORY:
-				error_message = "Out of memory";
+				error_message = "Out of video memory";
+				break;
+			case D3DERR_INVALIDCALL:
+				error_message = "Invalid call";
+				break;
+			case E_OUTOFMEMORY:
+				error_message = "Out of  memory";
 				break;
 			}
 			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", error_message);
