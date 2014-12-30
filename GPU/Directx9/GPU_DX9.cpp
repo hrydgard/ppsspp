@@ -438,6 +438,10 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	UpdateCmdInfo();
 
 	BuildReportingInfo();
+
+	// Some of our defaults are different from hw defaults, let's assert them.
+	// We restore each frame anyway, but here is convenient for tests.
+	dxstate.Restore();
 }
 
 void DIRECTX9_GPU::UpdateCmdInfo() {
