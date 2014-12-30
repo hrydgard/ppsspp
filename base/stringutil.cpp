@@ -38,7 +38,7 @@ void OutputDebugStringUTF8(const char *p) {
 #endif
 
 void StringTrimEndNonAlphaNum(char *str) {
-	int n = strlen(str);
+	ssize_t n = strlen(str);
 	while (!isalnum(str[n]) && n >= 0) {
 		str[n--] = '\0';
 	}
