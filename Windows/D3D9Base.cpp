@@ -206,7 +206,22 @@ void D3D9_Resize(HWND window) {
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Unable to reset device: %08x", hr);
+			const char *error_message;
+			switch (hr) {
+			case D3DERR_DEVICELOST:
+				error_message = "Device lost";
+				break;
+			case D3DERR_DEVICEREMOVED:
+				error_message = "Device removed";
+				break;
+			case D3DERR_DRIVERINTERNALERROR:
+				error_message = "Driver internal error";
+				break;
+			case D3DERR_OUTOFVIDEOMEMORY:
+				error_message = "Out of memory";
+				break;
+			}
+			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", error_message);
 		}
 		DX9::fbo_init(d3d);
 	}
