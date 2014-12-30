@@ -61,7 +61,9 @@ _zip_mkstemp(wchar_t *path)
 _zip_mkstemp(char *path)
 #endif
 {
+#ifndef _WIN32
 	int fd;   
+#endif
 #ifdef UNICODE
 	wchar_t *start, *trv;
 	struct _stat sbuf;
