@@ -5,6 +5,7 @@
 #include "image/zim_load.h"
 #include "image/png_load.h"
 #include "file/vfs.h"
+#include "ext/jpge/jpgd.h"
 
 static const char * const glsl_fsTexCol =
 "varying vec4 oColor0;\n"
@@ -129,24 +130,85 @@ static T3DImageFormat ZimToT3DFormat(int zim) {
 	}
 }
 
-bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type) {
-	int width[16], height[16], zim_flags;
-	uint8_t *image[16] = { nullptr };
+static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
+	if (!memcmp(data, "ZIMG", 4)) {
+		return ZIM;
+	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
+		return PNG;
+	} else if (!memcmp(data, "\xff\xd8\xff\xe0", 4)) {
+		return JPEG;
+	} else {
+		return TYPE_UNKNOWN;
+	}
+}
 
-	int num_levels = LoadZIMPtr(data, dataSize, width, height, &zim_flags, image);
-	if (num_levels == 0) {
+bool LoadTextureLevels(const uint8_t *data, int size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DImageFormat *fmt, uint8_t *image[16], int *zim_flags) {
+	if (type == DETECT) {
+		type = DetectImageFileType(data, size);
+	}
+	if (type == TYPE_UNKNOWN) {
+		ELOG("File has unknown format");
 		return false;
 	}
 
-	T3DImageFormat fmt = ZimToT3DFormat(zim_flags & ZIM_FORMAT_MASK);
+	*num_levels = 0;
+	*zim_flags = 0;
 
-	// TODO: Cube map / 3D texture / texture array support
+	switch (type) {
+	case ZIM:
+	{
+		*num_levels = LoadZIMPtr((const uint8_t *)data, size, width, height, zim_flags, image);
+		*fmt = ZimToT3DFormat(*zim_flags & ZIM_FORMAT_MASK);
+	}
+		break;
+
+	case PNG:
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
+			*num_levels = 1;
+			*fmt = RGBA8888;
+		}
+		break;
+
+	case JPEG:
+		{
+			int actual_components = 0;
+			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, size, &width[0], &height[0], &actual_components, 4);
+			if (jpegBuf) {
+				*num_levels = 1;
+				*fmt = RGBA8888;
+				image[0] = (uint8_t *)jpegBuf;
+			}
+		}
+		break;
+
+	default:
+		ELOG("Unknown image format");
+		return false;
+	}
+
+	return *num_levels > 0;
+}
+
+bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type) {
+	int width[16], height[16];
+	uint8_t *image[16] = { nullptr };
+
+	int num_levels;
+	int zim_flags;
+	T3DImageFormat fmt;
+
+	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
+		return false;
+	}
 
 	Create(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
-
 	for (int i = 0; i < num_levels; i++) {
-		SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
-		free(image[i]);
+		if (image[i]) {
+			SetImageData(0, 0, 0, width[i], height[i], 1, i, width[i] * 4, image[i]);
+			free(image[i]);
+		} else {
+			ELOG("Missing image level %i", i);
+		}
 	}
 
 	Finalize(zim_flags);
@@ -177,57 +239,16 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DIma
 		return tex;
 	}
 }
-
-T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
-	if (!memcmp(data, "ZIMG", 4)) {
-		return ZIM;
-	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
-		return PNG;
-	} else if (!memcmp(data, "\xff\xd8\xff\xe0", 4)) {
-		return JPEG;
-	} else {
-		return TYPE_UNKNOWN;
-	}
-}
-
 // TODO: Remove the code duplication between this and LoadFromFileData
 Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType type) {
-	int width[16], height[16], zim_flags = 0;
+	int width[16], height[16];
+	int num_levels = 0;
+	int zim_flags = 0;
+	T3DImageFormat fmt;
 	uint8_t *image[16] = { nullptr };
 
-	int num_levels = 0;
-	T3DImageFormat fmt;
-
-	if (type == DETECT) {
-		type = DetectImageFileType(data, size);
-	}
-	if (type == TYPE_UNKNOWN) {
-		ELOG("File has unknown format");
-		return nullptr;
-	}
-
-	switch (type) {
-	case ZIM:
-		num_levels = LoadZIMPtr((const uint8_t *)data, size, width, height, &zim_flags, image);
-		fmt = ZimToT3DFormat(zim_flags & ZIM_FORMAT_MASK);
-		break;
-
-	case PNG:
-		if (1 != pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
-			return NULL;
-		}
-		num_levels = 1;
-		fmt = RGBA8888;
-		break;
-
-	default:
-		ELOG("Unknown image format");
-		return nullptr;
-	}
-
-	if (num_levels == 0) {
+	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags))
 		return NULL;
-	}
 
 	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
