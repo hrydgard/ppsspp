@@ -225,6 +225,8 @@ bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type)
 	bool retval = LoadFromFileData(buffer, fileSize, type);
 	if (retval) {
 		filename_ = filename;
+	} else {
+		ELOG("%s: Failed to load texture %s", __FUNCTION__, filename.c_str());
 	}
 	delete[] buffer;
 	return retval;
@@ -235,10 +237,10 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DIma
 	if (!tex->LoadFromFile(filename, type)) {
 		tex->Release();
 		return NULL;
-	} else {
-		return tex;
 	}
+	return tex;
 }
+
 // TODO: Remove the code duplication between this and LoadFromFileData
 Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType type) {
 	int width[16], height[16];
@@ -247,8 +249,9 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int
 	T3DImageFormat fmt;
 	uint8_t *image[16] = { nullptr };
 
-	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags))
+	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return NULL;
+	}
 
 	Thin3DTexture *tex = CreateTexture(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
