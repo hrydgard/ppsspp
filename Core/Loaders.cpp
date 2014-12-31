@@ -85,12 +85,26 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
 private:
+	void Connect() {
+		if (!connected_) {
+			connected_ = client_.Connect();
+		}
+	}
+
+	void Disconnect() {
+		if (connected_) {
+			client_.Disconnect();
+		}
+		connected_ = false;
+	}
+
 	s64 filesize_;
 	s64 filepos_;
 	Url url_;
 	net::AutoInit netInit_;
 	http::Client client_;
 	std::string filename_;
+	bool connected_;
 };
 
 class RetryingFileLoader : public FileLoader {
@@ -265,15 +279,15 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 }
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: filesize_(0), filepos_(0), url_(filename), filename_(filename) {
-	if (!client_.Resolve(url_.Host().c_str(), 80)) {
+	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false) {
+	if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
 		return;
 	}
 
-	// TODO: Keepalive, etc.
-	client_.Connect();
+	Connect();
 	int err = client_.SendRequest("HEAD", url_.Resource().c_str());
 	if (err < 0) {
+		Disconnect();
 		return;
 	}
 
@@ -283,6 +297,7 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 	if (code != 200) {
 		// Leave size at 0, invalid.
 		ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename.c_str());
+		Disconnect();
 		return;
 	}
 
@@ -313,7 +328,8 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 		}
 	}
 
-	client_.Disconnect();
+	// TODO: Keepalive instead.
+	Disconnect();
 
 	if (!acceptsRange) {
 		WARN_LOG(LOADER, "HTTP server did not advertise support for range requests.");
@@ -326,10 +342,10 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 }
 
 HTTPFileLoader::~HTTPFileLoader() {
+	Disconnect();
 }
 
 bool HTTPFileLoader::Exists() {
-	// TODO
 	return url_.Valid() && filesize_ > 0;
 }
 
@@ -357,16 +373,16 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 		return 0;
 	}
 
-	// TODO: Keepalive, etc.
-	client_.Connect();
+	Connect();
 
 	char requestHeaders[4096];
 	// Note that the Range header is *inclusive*.
 	snprintf(requestHeaders, sizeof(requestHeaders),
 		"Range: bytes=%lld-%lld\r\n", absolutePos, absoluteEnd - 1);
 
-	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders);
+	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, nullptr);
 	if (err < 0) {
+		Disconnect();
 		return 0;
 	}
 
@@ -375,6 +391,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 206) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with range, received code=%03d", code);
+		Disconnect();
 		return 0;
 	}
 
@@ -401,9 +418,14 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 
 	// TODO: Would be nice to read directly.
 	Buffer output;
-	client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
+	int res = client_.ReadResponseEntity(&readbuf, responseHeaders, &output);
+	if (res != 0) {
+		ERROR_LOG(LOADER, "Unable to read HTTP response entity: %d", res);
+		// Let's take anything we got anyway.  Not worse than returning nothing?
+	}
 
-	client_.Disconnect();
+	// TODO: Keepalive instead.
+	Disconnect();
 
 	if (!supportedResponse) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with the range we wanted.");

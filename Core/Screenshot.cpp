@@ -197,5 +197,8 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		delete [] flipbuffer;
 	}
 #endif
+	if (!success) {
+		ERROR_LOG(COMMON, "Failed to write screenshot.");
+	}
 	return success;
 }
