@@ -562,6 +562,7 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
+	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams((UI::Size)bounds.w, (UI::Size)bounds.h)));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -735,57 +736,61 @@ void EmuScreen::render() {
 	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
 
-	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
+	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu) {
+		ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
-	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-		root_->Draw(*screenManager()->getUIContext());
-	}
-
-	if (!osm.IsEmpty()) {
-		osm.Draw(ui_draw2d, screenManager()->getUIContext()->GetBounds());
-	}
-
-	if (g_Config.bShowDebugStats) {
-		char statbuf[4096] = {0};
-		__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-		ui_draw2d.SetFontScale(.7f, .7f);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
-	}
-
-	if (g_Config.iShowFPSCounter) {
-		float vps, fps, actual_fps;
-		__DisplayGetFPS(&vps, &fps, &actual_fps);
-		char fpsbuf[256];
-		switch (g_Config.iShowFPSCounter) {
-		case 1:
-			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
-		case 2:
-			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
-		case 3:
-			snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
-		default:
-			return;
+		if (root_) {
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+			root_->Draw(*screenManager()->getUIContext());
 		}
 
-		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
+		if (g_Config.bShowDebugStats) {
+			char statbuf[4096] = {0};
+			__DisplayGetDebugStats(statbuf, sizeof(statbuf));
+			ui_draw2d.SetFontScale(.7f, .7f);
+			ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
+			ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+			ui_draw2d.SetFontScale(1.0f, 1.0f);
+		}
+
+		if (g_Config.iShowFPSCounter) {
+			float vps, fps, actual_fps;
+			__DisplayGetFPS(&vps, &fps, &actual_fps);
+			char fpsbuf[256];
+			switch (g_Config.iShowFPSCounter) {
+			case 1:
+				snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+			case 2:
+				snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
+			case 3:
+				snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+			default:
+				return;
+			}
+
+			const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+			ui_draw2d.SetFontScale(0.7f, 0.7f);
+			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			ui_draw2d.SetFontScale(1.0f, 1.0f);
+		}
+
+		ui_draw2d.End();
+		ui_draw2d.Flush();
 	}
 
-	ui_draw2d.End();
-	ui_draw2d.Flush();
-
-	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#if defined(USING_GLES2)
-	bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
-	if (hasDiscard) {
-		//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
-		//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
+#ifdef USING_GLES2
+	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
+	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+		GLenum attachments[3] = { GL_DEPTH, GL_STENCIL };
+		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+	} else if (!gl_extensions.GLES3) {
+		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
+		bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
+		if (hasDiscard) {
+			//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
+			//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
+		}
 	}
 #endif
 }

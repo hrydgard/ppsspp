@@ -102,6 +102,7 @@ public:
 	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
 		std::string filename = SaveState::GenerateSaveSlotFilename(slot, "jpg");
 		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+		Add(new UI::Spacer(10));
 		Add(new UI::TextView(StringFromFormat("%i", slot_ + 1), 0, false, new UI::LinearLayoutParams(0.0, UI::G_CENTER)));
 		Add(new AsyncImageFileView(filename, UI::IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
 
@@ -177,7 +178,7 @@ void GamePauseScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(510, FILL_PARENT, actionMenuMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(520, FILL_PARENT, actionMenuMargins));
 	root_->Add(leftColumn);
 
 	root_->Add(new Spacer(new LinearLayoutParams(1.0)));
