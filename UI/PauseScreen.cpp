@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "thin3d/thin3d.h"
 
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
@@ -37,16 +38,132 @@
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
 
+#include "gfx_es2/draw_buffer.h"
+#include "ui/ui_context.h"
+
+// TextureView takes a texture that is assumed to be alive during the lifetime
+// of the view. TODO: Actually make async using the task.
+class AsyncImageFileView : public UI::InertView {
+public:
+	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
+		: UI::InertView(layoutParams), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false) {}
+	~AsyncImageFileView() {
+		delete texture_;
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+
+	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
+	void SetColor(uint32_t color) { color_ = color; }
+
+private:
+	std::string filename_;
+	uint32_t color_;
+	UI::ImageSizeMode sizeMode_;
+
+	Thin3DTexture *texture_;
+	bool textureFailed_;
+};
+
+void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	// TODO: involve sizemode
+	if (texture_) {
+		w = (float)texture_->Width();
+		h = (float)texture_->Height();
+	} else {
+		w = 16;
+		h = 16;
+	}
+}
+
+void AsyncImageFileView::Draw(UIContext &dc) {
+	if (!texture_ && !textureFailed_) {
+		texture_ = dc.GetThin3DContext()->CreateTextureFromFile(filename_.c_str(), DETECT);
+		if (!texture_)
+			textureFailed_ = true;
+	}
+
+	// TODO: involve sizemode
+	if (texture_) {
+		dc.Flush();
+		dc.GetThin3DContext()->SetTexture(0, texture_);
+		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Flush();
+		dc.RebindTexture();
+	} else {
+		// draw a dark gray rectangle to represent the texture.
+		dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+	}
+}
+
+class SaveSlotView : public UI::LinearLayout {
+public:
+	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
+		std::string filename = SaveState::GenerateSaveSlotFilename(slot, "jpg");
+		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+		Add(new UI::TextView(StringFromFormat("%i", slot_ + 1), 0, false, new UI::LinearLayoutParams(0.0, UI::G_CENTER)));
+		Add(new AsyncImageFileView(filename, UI::IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
+
+		I18NCategory *i = GetI18NCategory("Pause");
+
+		saveStateButton_ = Add(new UI::Button(i->T("Save State"), new UI::LinearLayoutParams(0.0, UI::G_VCENTER)));
+		saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
+
+		if (SaveState::HasSaveInSlot(slot)) {
+			loadStateButton_ = Add(new UI::Button(i->T("Load State"), new UI::LinearLayoutParams(0.0, UI::G_VCENTER)));
+			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+		}
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 500; h = 90;
+	}
+
+	void Draw(UIContext &dc) {
+		if (g_Config.iCurrentStateSlot == slot_) {
+			dc.FillRect(UI::Drawable(0x40FFFFFF), GetBounds());
+		}
+		UI::LinearLayout::Draw(dc);
+	}
+
+	UI::Event OnStateLoaded;
+	UI::Event OnStateSaved;
+
+private:
+	UI::EventReturn OnSaveState(UI::EventParams &e);
+	UI::EventReturn OnLoadState(UI::EventParams &e);
+
+	UI::Button *saveStateButton_;
+	UI::Button *loadStateButton_;
+
+	Thin3DTexture *texture_;
+	int slot_;
+};
+
+
+UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
+	g_Config.iCurrentStateSlot = slot_;
+	SaveState::LoadSlot(slot_, SaveState::Callback(), 0);
+	UI::EventParams e2;
+	OnStateLoaded.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
+	g_Config.iCurrentStateSlot = slot_;
+	SaveState::SaveSlot(slot_, SaveState::Callback(), 0);
+	UI::EventParams e2;
+	OnStateSaved.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
 void GamePauseScreen::update(InputState &input) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	UIScreen::update(input);
 }
 
 GamePauseScreen::~GamePauseScreen() {
-	if (saveSlots_ != NULL) {
-		g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
-		g_Config.Save();
-	}
 	__DisplaySetWasPaused();
 }
 
@@ -60,32 +177,19 @@ void GamePauseScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(510, FILL_PARENT, actionMenuMargins));
 	root_->Add(leftColumn);
 
 	root_->Add(new Spacer(new LinearLayoutParams(1.0)));
 
-	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
-	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
-		std::stringstream saveSlotText;
-		saveSlotText << " " << i + 1 << " ";
-		saveSlots_->AddChoice(saveSlotText.str());
-		if (SaveState::HasSaveInSlot(i)) {
-			saveSlots_->HighlightChoice(i);
-		}
+		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
+		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
 	}
-
-	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
-	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
-
-	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));
-	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
-
-	loadStateButton_ = leftColumnItems->Add(new Choice(i->T("Load State")));
-	loadStateButton_->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
 
 	if (g_Config.iRewindFlipFrequency > 0) {
 		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(i->T("Rewind")));
@@ -127,10 +231,6 @@ void GamePauseScreen::CreateViews() {
 	}
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
-
-	UI::EventParams e;
-	e.a = g_Config.iCurrentStateSlot;
-	saveSlots_->OnChoice.Trigger(e);
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
@@ -151,6 +251,11 @@ void GamePauseScreen::onFinish(DialogResult result) {
 	Reporting::UpdateConfig();
 }
 
+UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
@@ -158,20 +263,6 @@ UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 
 UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 	screenManager()->push(new ReportScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnLoadState(UI::EventParams &e) {
-	SaveState::LoadSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
-
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
-	SaveState::SaveSlot(saveSlots_->GetSelection(), SaveState::Callback(), 0);
-
-	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 

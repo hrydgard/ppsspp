@@ -182,6 +182,8 @@ public:
 	void Save();
 	void Load();
 
+	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
+
 private:
 	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);
 

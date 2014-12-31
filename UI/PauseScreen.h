@@ -24,7 +24,7 @@
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), saveSlots_(NULL) {}
+	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename) {}
 	virtual ~GamePauseScreen();
 
 	virtual void onFinish(DialogResult result);
@@ -41,8 +41,6 @@ private:
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
 
-	UI::EventReturn OnSaveState(UI::EventParams &e);
-	UI::EventReturn OnLoadState(UI::EventParams &e);
 	UI::EventReturn OnRewind(UI::EventParams &e);
 
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
@@ -52,8 +50,8 @@ private:
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 
 	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
+	UI::EventReturn OnState(UI::EventParams &e);
 
-	UI::ChoiceStrip *saveSlots_;
 	UI::Choice *saveStateButton_;
 	UI::Choice *loadStateButton_;
 };
