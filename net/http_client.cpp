@@ -368,7 +368,7 @@ void Download::Do(std::shared_ptr<Download> self) {
 	net::AutoInit netInit;
 
 	http::Client client;
-	if (!client.Resolve(fileUrl.Host().c_str(), 80)) {
+	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
 		ELOG("Failed resolving %s", url_.c_str());
 		failed_ = true;
 		progress_ = 1.0f;
