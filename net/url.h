@@ -176,7 +176,9 @@ public:
 
 	bool Valid() const { return valid_; }
 
+	// Host = Hostname:Port, or just Hostname.
 	std::string Host() const { return host_; }
+	int Port() const { return port_; }
 	std::string Protocol() const { return protocol_; }
 	std::string Resource() const { return resource_; }
 
@@ -187,6 +189,7 @@ private:
 	std::string host_;
 	std::string resource_;
 	std::string protocol_;
+	int port_;
 };
 
 

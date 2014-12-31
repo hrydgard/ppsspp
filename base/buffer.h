@@ -66,7 +66,7 @@ class Buffer {
 	bool FlushToFile(const char *filename);
   bool FlushSocket(uintptr_t sock);  // Windows portability
 
-  bool ReadAll(int fd);
+  bool ReadAll(int fd, int hintSize = 0);
   bool ReadAllWithProgress(int fd, int knownSize, float *progress);
 
 	// < 0: error
