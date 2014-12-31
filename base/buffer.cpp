@@ -170,7 +170,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 	}
 
 	while (true) {
-		int retval = recv(fd, buf.data(), (int)buf.size(), 0);
+		int retval = recv(fd, &buf[0], (int)buf.size(), 0);
 		if (retval == 0) {
 			break;
 		} else if (retval < 0) {
@@ -178,7 +178,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 			return false;
 		}
 		char *p = Append((size_t)retval);
-		memcpy(p, buf.data(), retval);
+		memcpy(p, &buf[0], retval);
 	}
 	return true;
 }
@@ -195,7 +195,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
 
 	int total = 0;
 	while (true) {
-		int retval = recv(fd, buf.data(), (int)buf.size(), 0);
+		int retval = recv(fd, &buf[0], (int)buf.size(), 0);
 		if (retval == 0) {
 			return true;
 		} else if (retval < 0) {
@@ -203,7 +203,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress) {
 			return false;
 		}
 		char *p = Append((size_t)retval);
-		memcpy(p, buf.data(), retval);
+		memcpy(p, &buf[0], retval);
 		total += retval;
 		*progress = (float)total / (float)knownSize;
 	}
