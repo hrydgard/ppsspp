@@ -215,7 +215,11 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 		"%s"
 		"\r\n";
 
-	buffer.Printf(tpl, method, resource, httpVersion_, host_.c_str(), userAgent_, otherHeaders ? otherHeaders : "");
+	buffer.Printf(tpl,
+		method, resource, httpVersion_,
+		host_.c_str(),
+		userAgent_,
+		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
 	bool flushed = buffer.FlushSocket(sock());
 	if (!flushed) {
@@ -297,7 +301,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 
 	if (!contentLength || !progress) {
 		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAll(sock()))
+		if (!readbuf->ReadAll(sock(), contentLength))
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
