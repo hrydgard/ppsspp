@@ -837,8 +837,7 @@ struct EncodingBitsInfo {
 	u32 mask;
 };
 
-const EncodingBitsInfo encodingBits[NumEncodings] =
-{
+const EncodingBitsInfo encodingBits[NumEncodings] = {
 	EncodingBitsInfo(26, 6), //IMME
 	EncodingBitsInfo(0,  6), //Special
 	EncodingBitsInfo(0,  6), //special2
@@ -868,8 +867,7 @@ const EncodingBitsInfo encodingBits[NumEncodings] =
 	EncodingBitsInfo(0,  0), //Rese
 };
 
-const MIPSInstruction *mipsTables[NumEncodings] =
-{
+const MIPSInstruction *mipsTables[NumEncodings] = {
 	tableImmediate,
 	tableSpecial,
 	tableSpecial2,
@@ -908,39 +906,32 @@ const MIPSInstruction *mipsTables[NumEncodings] =
 //	{Comp_AND,   Dis_AND,    Info_DP,    0, DATAP(0, 0), 0x20F, {0}},
 //};
 
-
-//Todo : generate dispatcher functions from above tables
-//instead of this horribly slow abomination
-
-const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
-{
+// TODO : generate smart dispatcher functions from above tables
+// instead of this slow method.
+const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	MipsEncoding encoding = Imme;
-	const MIPSInstruction *instr = &tableImmediate[op>>26];
-	while (instr->altEncoding != Instruc)
-	{
-		if (instr->altEncoding == Inval)
-		{
+	const MIPSInstruction *instr = &tableImmediate[op.encoding >> 26];
+	while (instr->altEncoding != Instruc) {
+		if (instr->altEncoding == Inval) {
 			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
 		encoding = instr->altEncoding;
 
 		const MIPSInstruction *table = mipsTables[encoding];
-		const u32 subop = (op >> encodingBits[encoding].shift) & encodingBits[encoding].mask;
+		const u32 subop = (op.encoding >> encodingBits[encoding].shift) & encodingBits[encoding].mask;
 		instr = &table[subop];
 	}
 	//alright, we have a valid MIPS instruction!
 	return instr;
 }
 
-void MIPSCompileOp(MIPSOpcode op)
-{
+void MIPSCompileOp(MIPSOpcode op) {
 	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	const MIPSInfo info = MIPSGetInfo(op);
-	if (instr)
-	{
+	if (instr) {
 		if (instr->compile) {
 			(MIPSComp::jit->*(instr->compile))(op);
 		} else {
@@ -949,15 +940,12 @@ void MIPSCompileOp(MIPSOpcode op)
 
 		if (info & OUT_EAT_PREFIX)
 			MIPSComp::jit->EatPrefix();
-	}
-	else
-	{
+	} else {
 		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
 }
 
-void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
-{
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
 	if (op == 0) {
 		sprintf(out,"nop");
 	} else {

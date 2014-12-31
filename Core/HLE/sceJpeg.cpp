@@ -87,7 +87,7 @@ static void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 			u8 cb = *Cb++;
 			u8 cr = *Cr++;
 
-			// Convert to ABGR
+			// Convert to ABGR. This is not a fast way to do it.
 			u32 abgr0 = convertYCbCrToABGR(y0, cb, cr);
 			u32 abgr1 = convertYCbCrToABGR(y1, cb, cr);
 			u32 abgr2 = convertYCbCrToABGR(y2, cb, cr);
@@ -170,6 +170,8 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG data");
 		return getYCbCrBufferSize(0, 0);
 	}
+
+	free(jpegBuf);
 	
 	// Buffer to store info about the color space in use.
 	// - Bits 24 to 32 (Always empty): 0x00
@@ -196,6 +198,7 @@ static int __JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 
 	return getYCbCrBufferSize(width, height);
 }
+
 static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
 {
 	if (!Memory::IsValidAddress(jpegAddr)) {
@@ -281,6 +284,8 @@ static int __JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr) {
 	if (actual_components == 3) {
 		__JpegConvertRGBToYCbCr(jpegBuf, yCbCrAddr, width, height);
 	}
+
+	free(jpegBuf);
 
 	// TODO: There's more...
 
