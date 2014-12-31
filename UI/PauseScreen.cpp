@@ -18,6 +18,7 @@
 #include "i18n/i18n.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "ui/ui_screen.h"
 #include "thin3d/thin3d.h"
 
 #include "Core/Reporting.h"
@@ -43,10 +44,10 @@
 
 // TextureView takes a texture that is assumed to be alive during the lifetime
 // of the view. TODO: Actually make async using the task.
-class AsyncImageFileView : public UI::InertView {
+class AsyncImageFileView : public UI::Clickable {
 public:
 	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
-		: UI::InertView(layoutParams), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false) {}
+		: UI::Clickable(layoutParams), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false) {}
 	~AsyncImageFileView() {
 		delete texture_;
 	}
@@ -56,6 +57,8 @@ public:
 
 	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
 	void SetColor(uint32_t color) { color_ = color; }
+
+	const std::string &GetFilename() const { return filename_; }
 
 private:
 	std::string filename_;
@@ -69,8 +72,15 @@ private:
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	// TODO: involve sizemode
 	if (texture_) {
-		w = (float)texture_->Width();
-		h = (float)texture_->Height();
+		float texw = (float)texture_->Width();
+		float texh = (float)texture_->Height();
+		switch (sizeMode_) {
+		case UI::IS_DEFAULT:
+		default:
+			w = texw;
+			h = texh;
+			break;
+		}
 	} else {
 		w = 16;
 		h = 16;
@@ -97,14 +107,39 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 	}
 }
 
+class ScreenshotViewScreen : public PopupScreen {
+public:
+	ScreenshotViewScreen(std::string filename, std::string title, int slot) : PopupScreen(title, "Load State", "Back"), filename_(filename), slot_(slot) {}
+
+	int GetSlot() const {
+		return slot_;
+	}
+
+	std::string tag() const override {
+		return "screenshot";
+	}
+
+protected:
+	virtual bool FillVertical() const override { return false; }
+	bool ShowButtons() const override { return true; }
+
+	virtual void CreatePopupContents(UI::ViewGroup *parent) {
+		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)));
+	}
+
+private:
+	std::string filename_;
+	int slot_;
+};
+
 class SaveSlotView : public UI::LinearLayout {
 public:
 	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
-		std::string filename = SaveState::GenerateSaveSlotFilename(slot, "jpg");
+		screenshotFilename_ = SaveState::GenerateSaveSlotFilename(slot, "jpg");
 		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
 		Add(new UI::Spacer(10));
 		Add(new UI::TextView(StringFromFormat("%i", slot_ + 1), 0, false, new UI::LinearLayoutParams(0.0, UI::G_CENTER)));
-		Add(new AsyncImageFileView(filename, UI::IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
+		AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, UI::IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
 
 		I18NCategory *i = GetI18NCategory("Pause");
 
@@ -114,6 +149,8 @@ public:
 		if (SaveState::HasSaveInSlot(slot)) {
 			loadStateButton_ = Add(new UI::Button(i->T("Load State"), new UI::LinearLayoutParams(0.0, UI::G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+
+			fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
 		}
 	}
 
@@ -128,18 +165,32 @@ public:
 		UI::LinearLayout::Draw(dc);
 	}
 
+	int GetSlot() const {
+		return slot_;
+	}
+
+	std::string GetScreenshotFilename() const {
+		return screenshotFilename_;
+	}
+
+	std::string GetScreenshotTitle() const {
+		return SaveState::GetSlotDateAsString(slot_);
+	}
+
 	UI::Event OnStateLoaded;
 	UI::Event OnStateSaved;
+	UI::Event OnScreenshotClicked;
 
 private:
+	UI::EventReturn OnScreenshotClick(UI::EventParams &e);
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
 
 	UI::Button *saveStateButton_;
 	UI::Button *loadStateButton_;
 
-	Thin3DTexture *texture_;
 	int slot_;
+	std::string screenshotFilename_;
 };
 
 
@@ -147,6 +198,7 @@ UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
 	SaveState::LoadSlot(slot_, SaveState::Callback(), 0);
 	UI::EventParams e2;
+	e2.v = this;
 	OnStateLoaded.Trigger(e2);
 	return UI::EVENT_DONE;
 }
@@ -155,13 +207,26 @@ UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
 	SaveState::SaveSlot(slot_, SaveState::Callback(), 0);
 	UI::EventParams e2;
+	e2.v = this;
 	OnStateSaved.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn SaveSlotView::OnScreenshotClick(UI::EventParams &e) {
+	UI::EventParams e2;
+	e2.v = this;
+	OnScreenshotClicked.Trigger(e2);
 	return UI::EVENT_DONE;
 }
 
 void GamePauseScreen::update(InputState &input) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	UIScreen::update(input);
+
+	if (finishNextFrame_) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+		finishNextFrame_ = false;
+	}
 }
 
 GamePauseScreen::~GamePauseScreen() {
@@ -190,6 +255,7 @@ void GamePauseScreen::CreateViews() {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
+		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
 	}
 
 	if (g_Config.iRewindFlipFrequency > 0) {
@@ -239,12 +305,6 @@ UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GamePauseScreen::OnStateSelected(UI::EventParams &e) {
-	int st = e.a;
-	loadStateButton_->SetEnabled(SaveState::HasSaveInSlot(st));
-	return UI::EVENT_DONE;
-}
-
 void GamePauseScreen::onFinish(DialogResult result) {
 	// Do we really always need to "gpu->Resized" here?
 	if (gpu)
@@ -254,6 +314,27 @@ void GamePauseScreen::onFinish(DialogResult result) {
 
 UI::EventReturn GamePauseScreen::OnState(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
+	std::string tag = dialog->tag();
+	if (tag == "screenshot" && dr == DR_OK) {
+		ScreenshotViewScreen *s = (ScreenshotViewScreen *)dialog;
+		int slot = s->GetSlot();
+		g_Config.iCurrentStateSlot = slot;
+		SaveState::LoadSlot(slot, SaveState::Callback(), 0);
+
+		finishNextFrame_ = true;
+	}
+}
+
+UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
+	SaveSlotView *v = (SaveSlotView *)e.v;
+	std::string fn = v->GetScreenshotFilename();
+	std::string title = v->GetScreenshotTitle();
+	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot());
+	screenManager()->push(screen);
 	return UI::EVENT_DONE;
 }
 

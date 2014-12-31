@@ -401,6 +401,16 @@ namespace SaveState
 		return newestSlot;
 	}
 
+	std::string GetSlotDateAsString(int slot) {
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		if (File::Exists(fn)) {
+			tm time = File::GetModifTime(fn);
+			char buf[256];
+			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+			return std::string(buf);
+		}
+		return "";
+	}
 
 	std::vector<Operation> Flush()
 	{
@@ -520,6 +530,7 @@ namespace SaveState
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
+
 					osm.Show(s->T("Saved State"), 2.0);
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
@@ -563,7 +574,9 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE_SCREENSHOT:
-				TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER);
+				if (!TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER)) {
+					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
+				}
 				break;
 
 			default:

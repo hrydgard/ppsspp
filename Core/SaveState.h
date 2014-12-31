@@ -41,6 +41,7 @@ namespace SaveState
 	// Returns -1 if there's no newest slot.
 	int GetNewestSlot();
 
+	std::string GetSlotDateAsString(int slot);
 	std::string GenerateSaveSlotFilename(int slot, const char *extension);
 
 	// Load the specified file into the current state (async.)
