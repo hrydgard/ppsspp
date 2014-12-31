@@ -446,6 +446,10 @@ GLES_GPU::GLES_GPU()
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
+
+	// Some of our defaults are different from hw defaults, let's assert them.
+	// We restore each frame anyway, but here is convenient for tests.
+	glstate.Restore();
 }
 
 GLES_GPU::~GLES_GPU() {

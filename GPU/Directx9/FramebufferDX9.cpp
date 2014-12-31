@@ -313,7 +313,7 @@ namespace DX9 {
 		float halfPixelX = invDestW * 0.5f;
 		float halfPixelY = invDestH * 0.5f;
 		for (int i = 0; i < 4; i++) {
-			coord[i * 5] = coord[i * 5] * invDestW - 1.0f + halfPixelX;
+			coord[i * 5] = coord[i * 5] * invDestW - 1.0f - halfPixelX;
 			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
