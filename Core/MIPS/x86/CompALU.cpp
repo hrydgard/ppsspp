@@ -43,6 +43,9 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
+	using namespace Gen;
+	using namespace X64JitConstants;
+
 	static bool HasLowSubregister(OpArg arg) {
 #ifndef _M_X64
 		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.

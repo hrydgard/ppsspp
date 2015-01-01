@@ -39,7 +39,7 @@ void __VaudioDoState(PointerWrap &p) {
 	p.Do(vaudioReserved);
 }
 
-u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
+static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 	if (vaudioReserved) {
 		ERROR_LOG(SCEAUDIO, "sceVaudioChReserve(%i, %i, %i) - already reserved", sampleCount, freq, format);
 		return SCE_KERNEL_ERROR_BUSY;
@@ -60,7 +60,7 @@ u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 	return 0;
 }
 
-u32 sceVaudioChRelease() {
+static u32 sceVaudioChRelease() {
 	DEBUG_LOG(SCEAUDIO, "sceVaudioChRelease(...)");
 	if (!chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
@@ -72,7 +72,7 @@ u32 sceVaudioChRelease() {
 	}
 }
 
-u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
+static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	DEBUG_LOG(SCEAUDIO, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].leftVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
@@ -81,12 +81,12 @@ u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
 }
 
-u32 sceVaudioSetEffectType(int effectType, int vol) {
+static u32 sceVaudioSetEffectType(int effectType, int vol) {
 	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
 	return 0;
 }
 
-u32 sceVaudioSetAlcMode(int alcMode) {
+static u32 sceVaudioSetAlcMode(int alcMode) {
 	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
 	return 0;
 }

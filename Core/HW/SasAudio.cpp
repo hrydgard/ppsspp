@@ -417,7 +417,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	}
 }
 
-bool SasVoice::HaveSamplesEnded() {
+bool SasVoice::HaveSamplesEnded() const {
 	switch (type) {
 	case VOICETYPE_VAG:
 		return vag.End();
@@ -492,6 +492,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
 			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
 			int envelopeValue = voice.envelope.GetHeight();
+			voice.envelope.Step();
 			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
 
 			// We just scale by the envelope before we scale by volumes.
@@ -505,7 +506,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
 			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
 			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
-			voice.envelope.Step();
 		}
 
 		voice.sampleFrac = sampleFrac;

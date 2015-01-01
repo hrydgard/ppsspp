@@ -15,25 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cmath>
-#include "math/math_util.h"
+#pragma once
 
-#include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/MIPSCodeUtils.h"
-#include "Common/CPUDetect.h"
-#include "Core/Config.h"
-#include "Core/Reporting.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+enum ScreenshotFormat {
+	SCREENSHOT_PNG,
+	SCREENSHOT_JPG,
+};
 
-namespace MIPSComp {
+enum ScreenshotType {
+	// What's begin show on screen (e.g. including FPS, etc.)
+	SCREENSHOT_DISPLAY,
+	// What the game rendered (e.g. at render resolution.)
+	// Can only be used while in game.
+	SCREENSHOT_RENDER,
+};
 
-int Jit::Replace_fabsf() {
-	return -1;
-	// fpr.MapDirtyIn(0, 13);
-	// VABS(fpr.R(0), fpr.R(13));
-	// return 6;  // Number of instructions in the MIPS function
-}
-
-}
+bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type);

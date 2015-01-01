@@ -105,7 +105,7 @@ GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u
 	// Build the logic map.
 	for (int color = 0; color < 256; ++color) {
 		for (int i = 0; i < 4; ++i) {
-			bool res;
+			bool res = true;
 			if (valid[i]) {
 				switch (funcs[i]) {
 				case GE_COMP_NEVER:
@@ -133,8 +133,6 @@ GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u
 					res = (color & masks[i]) >= (refs[i] & masks[i]);
 					break;
 				}
-			} else {
-				res = true;
 			}
 			scratchpad_[color * 4 + i] = res ? 0xFF : 0;
 		}

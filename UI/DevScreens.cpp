@@ -33,6 +33,7 @@
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -51,12 +52,14 @@ static const char *logLevelList[] = {
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *sy = GetI18NCategory("System");
 
-	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
-	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
-	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
-	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
-	parent->Add(new Choice("Dump Frame GPU Commands"))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
+	parent->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
+	parent->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
+	parent->Add(new Choice(de->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
+	parent->Add(new Choice(de->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
+	parent->Add(new Choice(de->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -98,12 +101,11 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 
-// It's not so critical to translate everything here, most of this is developers only.
-
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *de = GetI18NCategory("Developer");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -111,13 +113,13 @@ void LogConfigScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topbar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
-	topbar->Add(new Choice("Log Level"))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice(de->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
 
-	vert->Add(new ItemHeader("Log Channels"));
+	vert->Add(new ItemHeader(de->T("Logging Channels")));
 
 	LogManager *logMan = LogManager::GetInstance();
 
@@ -156,7 +158,9 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 }
 
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
-	auto logLevelScreen = new LogLevelScreen("Log Level");
+	I18NCategory *de = GetI18NCategory("Developer");
+
+	auto logLevelScreen = new LogLevelScreen(de->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
 	screenManager()->push(logLevelScreen);
 	return UI::EVENT_DONE;
@@ -250,10 +254,32 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
 
 #ifdef ANDROID
+	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
+	if (moga.empty()) {
+		moga = "(none detected)";
+	}
+	deviceSpecs->Add(new InfoItem("Moga", moga));
+#endif
+
+#ifdef ANDROID
 	char temp[256];
 	sprintf(temp, "%dx%d", System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	deviceSpecs->Add(new InfoItem("Display resolution", temp));
 #endif
+
+	if (gl_extensions.precision[0] != 0) {
+		const char *stypes[2] = { "Vertex", "Fragment" };
+		const char *ptypes[6] = { "LowF", "MediumF", "HighF", "LowI", "MediumI", "HighI" };
+
+		for (int st = 0; st < 2; st++) {
+			char bufValue[256], bufTitle[256];
+			for (int p = 0; p < 6; p++) {
+				snprintf(bufTitle, sizeof(bufTitle), "Precision %s %s:", stypes[st], ptypes[p]);
+				snprintf(bufValue, sizeof(bufValue), "(%i, %i): %i", gl_extensions.range[st][p][0], gl_extensions.range[st][p][1], gl_extensions.precision[st][p]);
+				deviceSpecs->Add(new InfoItem(bufTitle, bufValue, new LayoutParams(FILL_PARENT, 30)));
+			}
+		}
+	}
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
@@ -316,7 +342,9 @@ void SystemInfoScreen::CreateViews() {
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	addrView_ = new TextView("Enter address", ALIGN_HCENTER, false);
+	I18NCategory *de = GetI18NCategory("Developer");
+
+	addrView_ = new TextView(de->T("Enter address"), ALIGN_HCENTER, false);
 	parent->Add(addrView_);
 
 	ViewGroup *grid = new GridLayout(GridLayoutSettings(60, 40));
@@ -329,7 +357,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		grid->Add(buttons_[i])->OnClick.Handle(this, &AddressPromptScreen::OnDigitButton);
 	}
 
-	parent->Add(new Button("Backspace"))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
+	parent->Add(new Button(de->T("Backspace")))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
 }
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
@@ -368,12 +396,14 @@ void AddressPromptScreen::BackspaceDigit() {
 }
 
 void AddressPromptScreen::UpdatePreviewDigits() {
+	I18NCategory *de = GetI18NCategory("Developer");
+
 	if (addr_ != 0) {
 		char temp[32];
 		snprintf(temp, 32, "%8X", addr_);
 		addrView_->SetText(temp);
 	} else {
-		addrView_->SetText("Enter address");
+		addrView_->SetText(de->T("Enter address"));
 	}
 }
 
@@ -401,6 +431,7 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *de = GetI18NCategory("Developer");
 
 	using namespace UI;
 	
@@ -419,14 +450,14 @@ void JitCompareScreen::CreateViews() {
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
 
-	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
-	leftColumn->Add(new Choice("By Address"))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice("Prev"))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
-	leftColumn->Add(new Choice("Next"))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
-	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
+	leftColumn->Add(new Choice(de->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+	leftColumn->Add(new Choice(de->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
+	leftColumn->Add(new Choice(de->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
+	leftColumn->Add(new Choice(de->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
+	leftColumn->Add(new Choice(de->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	leftColumn->Add(new Choice(de->T("Random VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	blockName_ = leftColumn->Add(new TextView("no block"));
+	blockName_ = leftColumn->Add(new TextView(de->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
@@ -441,6 +472,8 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
+	I18NCategory *de = GetI18NCategory("Developer");
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 
 	char temp[256];
@@ -448,8 +481,8 @@ void JitCompareScreen::UpdateDisasm() {
 	blockName_->SetText(temp);
 
 	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
-		leftDisasm_->Add(new TextView("No block"));
-		rightDisasm_->Add(new TextView("No block"));
+		leftDisasm_->Add(new TextView(de->T("No block")));
+		rightDisasm_->Add(new TextView(de->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
@@ -500,7 +533,9 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
-	auto addressPrompt = new AddressPromptScreen("Block address");
+	I18NCategory *de = GetI18NCategory("Developer");
+
+	auto addressPrompt = new AddressPromptScreen(de->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
 	return UI::EVENT_DONE;
@@ -553,7 +588,7 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 				if (MIPSGetInfo(opcode) & IS_VFPU) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
+					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
 					anyVFPU = true;
 					break;
 				}

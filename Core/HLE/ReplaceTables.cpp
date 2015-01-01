@@ -325,47 +325,55 @@ static int Replace_vmmul_q_transp() {
 // a2 = source address
 static int Replace_gta_dl_write_matrix() {
 	u32 *ptr = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *dest = (u32_le *)Memory::GetPointer(ptr[0]);
 	u32 *src = (u32_le *)Memory::GetPointer(PARAM(2));
 	u32 matrix = PARAM(1) << 24;
 
-	if (ptr && src && dest) {
+	if (!ptr || !src) {
+		RETURN(0);
+		return 38;
+	}
+
+	u32 *dest = (u32_le *)Memory::GetPointer(ptr[0]);
+	if (!dest) {
+		RETURN(0);
+		return 38;
+	}
+
 #if defined(_M_IX86) || defined(_M_X64)
-		__m128i topBytes = _mm_set1_epi32(matrix);
-		__m128i m0 = _mm_loadu_si128((const __m128i *)src);
-		__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
-		__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
-		__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
-		m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
-		m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
-		m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
-		m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
-		// These three stores overlap by a word, due to the offsets.
-		_mm_storeu_si128((__m128i *)dest, m0);
-		_mm_storeu_si128((__m128i *)(dest + 3), m1);
-		_mm_storeu_si128((__m128i *)(dest + 6), m2);
-		// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
-		_mm_storel_epi64((__m128i *)(dest + 9), m3);
-		m3 = _mm_srli_si128(m3, 8);
-		_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
+	__m128i topBytes = _mm_set1_epi32(matrix);
+	__m128i m0 = _mm_loadu_si128((const __m128i *)src);
+	__m128i m1 = _mm_loadu_si128((const __m128i *)(src + 4));
+	__m128i m2 = _mm_loadu_si128((const __m128i *)(src + 8));
+	__m128i m3 = _mm_loadu_si128((const __m128i *)(src + 12));
+	m0 = _mm_or_si128(_mm_srli_epi32(m0, 8), topBytes);
+	m1 = _mm_or_si128(_mm_srli_epi32(m1, 8), topBytes);
+	m2 = _mm_or_si128(_mm_srli_epi32(m2, 8), topBytes);
+	m3 = _mm_or_si128(_mm_srli_epi32(m3, 8), topBytes);
+	// These three stores overlap by a word, due to the offsets.
+	_mm_storeu_si128((__m128i *)dest, m0);
+	_mm_storeu_si128((__m128i *)(dest + 3), m1);
+	_mm_storeu_si128((__m128i *)(dest + 6), m2);
+	// Store the last one in parts to not overwrite forwards (probably mostly risk free though)
+	_mm_storel_epi64((__m128i *)(dest + 9), m3);
+	m3 = _mm_srli_si128(m3, 8);
+	_mm_store_ss((float *)(dest + 11), _mm_castsi128_ps(m3));
 #else
-		// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
-		dest[0] = matrix | (src[0] >> 8);
-		dest[1] = matrix | (src[1] >> 8);
-		dest[2] = matrix | (src[2] >> 8);
-		dest[3] = matrix | (src[4] >> 8);
-		dest[4] = matrix | (src[5] >> 8);
-		dest[5] = matrix | (src[6] >> 8);
-		dest[6] = matrix | (src[8] >> 8);
-		dest[7] = matrix | (src[9] >> 8);
-		dest[8] = matrix | (src[10] >> 8);
-		dest[9] = matrix | (src[12] >> 8);
-		dest[10] = matrix | (src[13] >> 8);
-		dest[11] = matrix | (src[14] >> 8);
+	// Bit tricky to SIMD (note the offsets) but should be doable if not perfect
+	dest[0] = matrix | (src[0] >> 8);
+	dest[1] = matrix | (src[1] >> 8);
+	dest[2] = matrix | (src[2] >> 8);
+	dest[3] = matrix | (src[4] >> 8);
+	dest[4] = matrix | (src[5] >> 8);
+	dest[5] = matrix | (src[6] >> 8);
+	dest[6] = matrix | (src[8] >> 8);
+	dest[7] = matrix | (src[9] >> 8);
+	dest[8] = matrix | (src[10] >> 8);
+	dest[9] = matrix | (src[12] >> 8);
+	dest[10] = matrix | (src[13] >> 8);
+	dest[11] = matrix | (src[14] >> 8);
 #endif
 
-		(*ptr) += 0x30;
-	}
+	(*ptr) += 0x30;
 
 	RETURN(0);
 	return 38;
@@ -376,10 +384,15 @@ static int Replace_gta_dl_write_matrix() {
 // Anyway, not sure if worth it. There's not that many matrices written per frame normally.
 static int Replace_dl_write_matrix() {
 	u32 *dlStruct = (u32 *)Memory::GetPointer(PARAM(0));
-	u32 *dest = (u32 *)Memory::GetPointer(dlStruct[2]);
 	u32 *src = (u32 *)Memory::GetPointer(PARAM(2));
 
-	if (!dlStruct || !dest || !src) {
+	if (!dlStruct || !src) {
+		RETURN(0);
+		return 60;
+	}
+
+	u32 *dest = (u32 *)Memory::GetPointer(dlStruct[2]);
+	if (!dest) {
 		RETURN(0);
 		return 60;
 	}
@@ -779,6 +792,32 @@ static int Hook_danganronpa1_2_download_frame() {
 	return 0;
 }
 
+static int Hook_kankabanchoutbr_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_orenoimouto_download_frame_2() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A4];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+#ifdef ARM
+#define JITFUNC(f) (&MIPSComp::ArmJit::f)
+#elif defined(_M_X64) || defined(_M_IX86)
+#define JITFUNC(f) (&MIPSComp::Jit::f)
+#elif defined(MIPS)
+#define JITFUNC(f) (&MIPSComp::Jit::f)
+#endif
+
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
 	// TODO: I think some games can be helped quite a bit by implementing the
@@ -809,7 +848,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
 	{ "strcmp", &Replace_strcmp, 0, REPFLAG_DISABLED },
 	{ "strncmp", &Replace_strncmp, 0, REPFLAG_DISABLED },
-	{ "fabsf", &Replace_fabsf, &MIPSComp::Jit::Replace_fabsf, REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
+	{ "fabsf", &Replace_fabsf, JITFUNC(Replace_fabsf), REPFLAG_ALLOWINLINE | REPFLAG_DISABLED },
 	{ "dl_write_matrix", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED }, // &MIPSComp::Jit::Replace_dl_write_matrix, REPFLAG_DISABLED },
 	{ "dl_write_matrix_2", &Replace_dl_write_matrix, 0, REPFLAG_DISABLED },
 	{ "gta_dl_write_matrix", &Replace_gta_dl_write_matrix, 0, REPFLAG_DISABLED },
@@ -843,6 +882,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
 	{ "danganronpa1_1_download_frame", &Hook_danganronpa1_1_download_frame, 0, REPFLAG_HOOKENTER, 0x78 },
 	{ "danganronpa1_2_download_frame", &Hook_danganronpa1_2_download_frame, 0, REPFLAG_HOOKENTER, 0xA8 },
+	{ "kankabanchoutbr_download_frame", &Hook_kankabanchoutbr_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "orenoimouto_download_frame_2", &Hook_orenoimouto_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{}
 };
 

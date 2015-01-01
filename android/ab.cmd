@@ -5,4 +5,4 @@ copy ..\assets\langregion.ini assets\langregion.ini
 copy ..\assets\*.png assets
 SET NDK=C:\AndroidNDK
 SET NDK_MODULE_PATH=..;..\native\ext
-%NDK%/ndk-build -j9 %1
+%NDK%/ndk-build -j9 %*

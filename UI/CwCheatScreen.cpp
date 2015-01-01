@@ -23,7 +23,7 @@
 
 #include "Core/Core.h"
 #include "Core/Config.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
@@ -317,7 +317,7 @@ void CheatCheckBox::Draw(UIContext &dc) {
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
-	Style style = dc.theme->itemStyle;
+	UI::Style style = dc.theme->itemStyle;
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
 

@@ -16,9 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-
 #include <cmath>
 
+#include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
 #define _VD (op & 0x7F)
@@ -48,7 +48,7 @@ inline float vfpu_cos(float angle) {
 inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
-#if defined(__linux__) && !defined(ANDROID)  // TODO: Remove this check when we upgrade NDK on the buildbot
+#if defined(__linux__)
 	sincosf(angle, &sine, &cosine);
 #else
 	sine = sinf(angle);
@@ -64,19 +64,19 @@ inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 #define VFPU_SH_FLOAT16_FRAC    0
 #define VFPU_MASK_FLOAT16_FRAC  0x3ff
 
-enum VectorSize
-{
-	V_Single,
-	V_Pair,
-	V_Triple,
-	V_Quad,
+enum VectorSize {
+	V_Single = 1,
+	V_Pair = 2,
+	V_Triple = 3,
+	V_Quad = 4,
+	V_Invalid = -1,
 };
 
-enum MatrixSize
-{
-	M_2x2,
-	M_3x3,
-	M_4x4,
+enum MatrixSize {
+	M_2x2 = 2,
+	M_3x3 = 3,
+	M_4x4 = 4,
+	M_Invalid = -1
 };
 
 void ReadMatrix(float *rd, MatrixSize size, int reg);
@@ -87,6 +87,31 @@ void ReadVector(float *rd, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+ 
+// Translate between vector and matrix size. Possibly we should simply
+// join the two enums, but the type safety is kind of nice.
+VectorSize GetVectorSize(MatrixSize sz);
+MatrixSize GetMatrixSize(VectorSize sz);
+
+// Note that if matrix is a transposed matrix (E format), GetColumn will actually return rows,
+// and vice versa.
+int GetColumnName(int matrix, MatrixSize msize, int column, int offset);
+int GetRowName(int matrix, MatrixSize msize, int row, int offset);
+
+int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed);
+
+void GetMatrixColumns(int matrixReg, MatrixSize msize, u8 vecs[4]);
+void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]);
+
+enum MatrixOverlapType {
+	OVERLAP_NONE = 0,
+	OVERLAP_PARTIAL = 1,
+	OVERLAP_EQUAL = 2,
+	// Transposed too?  (same space but transposed)
+};
+
+MatrixOverlapType GetMatrixOverlap(int m1, int m2, MatrixSize msize);
+
 
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
 inline int GetMtx(int matrixReg) {
@@ -97,9 +122,12 @@ VectorSize GetVecSize(MIPSOpcode op);
 MatrixSize GetMtxSize(MIPSOpcode op);
 VectorSize GetHalfVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
+VectorSize MatrixVectorSize(MatrixSize sz);
 int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);
 const char *GetMatrixNotation(int reg, MatrixSize size);
+
+int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 
 float Float16ToFloat32(unsigned short l);

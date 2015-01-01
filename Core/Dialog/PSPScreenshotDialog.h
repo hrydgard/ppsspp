@@ -28,9 +28,9 @@ public:
 	virtual ~PSPScreenshotDialog();
 
 	virtual int Init(u32 paramAddr);
-	virtual int Update(int animSpeed);
+	virtual int Update(int animSpeed) override;
 	virtual int ContStart();
-	virtual void DoState(PointerWrap &p);
+	virtual void DoState(PointerWrap &p) override;
 
 protected:
 	int mode;

@@ -29,8 +29,10 @@
 #include <cstdlib>
 #include <cmath>
 #include <string>
+#include <sstream>
 
 #include "base/NativeApp.h"
+#include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
 #include "ext/disarm.h"
@@ -40,14 +42,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include "unittest/JitHarness.h"
-
-#define EXPECT_TRUE(a) if (!(a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
-#define EXPECT_FALSE(a) if ((a)) { printf("%s:%i: Test Fail\n", __FUNCTION__, __LINE__); return false; }
-#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf("%s:%i: Test Fail\n%f\nvs\n%f\n", __FUNCTION__, __LINE__, a, b); return false; }
-#define EXPECT_APPROX_EQ_FLOAT(a, b) if (fabsf((a)-(b))>0.00001f) { printf("%s:%i: Test Fail\n%f\nvs\n%f\n", __FUNCTION__, __LINE__, a, b); /*return false;*/ }
-#define EXPECT_EQ_STR(a, b) if (a != b) { printf("%s: Test Fail\n%s\nvs\n%s\n", __FUNCTION__, a.c_str(), b.c_str()); return false; }
-
-#define RET(a) if (!(a)) { return false; }
+#include "unittest/UnitTest.h"
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
@@ -242,133 +237,6 @@ bool TestAsin() {
 	return true;
 }
 
-
-
-bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
-	u32 instr;
-	memcpy(&instr, emit.GetCodePtr() - 4, 4);
-	char disasm[512];
-	ArmDis(0, instr, disasm, sizeof(disasm), true);
-	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
-	return true;
-}
-
-
-bool TestArmEmitter() {
-	using namespace ArmGen;
-
-	u32 code[512];
-	ARMXEmitter emitter((u8 *)code);
-	emitter.LDR(R3, R7);
-	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
-	emitter.BFI(R3, R7, 5, 9);
-	RET(CheckLast(emitter, "e7cd3297 BFI r3, r7, #5, #9"));
-	emitter.BFC(R4, 5, 9);
-	RET(CheckLast(emitter, "e7cd429f BFC r4, #5, #9"));
-	emitter.UBFX(R4, R9, 5, 9);
-	RET(CheckLast(emitter, "e7e842d9 UBFX r4, r9, #5, #9"));
-	emitter.SBFX(R0, R8, 5, 9);
-	RET(CheckLast(emitter, "e7a802d8 SBFX r0, r8, #5, #9"));
-
-	emitter.B_CC(CC_NEQ, code + 128);
-	RET(CheckLast(emitter, "1a000079 BNE &000001EC"));
-	emitter.SetJumpTarget(emitter.B_CC(CC_NEQ));
-	RET(CheckLast(emitter, "1affffff BNE &00000004"));
-	emitter.SetJumpTarget(emitter.BL_CC(CC_NEQ));
-	RET(CheckLast(emitter, "1bffffff BLNE &00000004"));
-
-	emitter.VLDR(S3, R8, 48);
-	RET(CheckLast(emitter, "edd81a0c VLDR s3, [r8, #48]"));
-	emitter.VSTR(S5, R12, -36);
-	RET(CheckLast(emitter, "ed4c2a09 VSTR s5, [r12, #-36]"));
-	emitter.VADD(S1, S2, S3);
-	RET(CheckLast(emitter, "ee710a21 VADD s1, s2, s3"));
-	emitter.VADD(D1, D2, D3);
-	RET(CheckLast(emitter, "ee321b03 VADD d1, d2, d3"));
-	emitter.VSUB(S1, S2, S3);
-	RET(CheckLast(emitter, "ee710a61 VSUB s1, s2, s3"));
-	emitter.VMUL(S7, S8, S9);
-	RET(CheckLast(emitter, "ee643a24 VMUL s7, s8, s9"));
-	emitter.VMUL(S0, S5, S10);
-	RET(CheckLast(emitter, "ee220a85 VMUL s0, s5, s10"));
-	emitter.VNMUL(S7, S8, S9);
-	RET(CheckLast(emitter, "ee643a64 VNMUL s7, s8, s9"));
-	emitter.VMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee443a24 VMLA s7, s8, s9"));
-	emitter.VNMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee543a64 VNMLA s7, s8, s9"));
-	emitter.VNMLS(S7, S8, S9);
-	RET(CheckLast(emitter, "ee543a24 VNMLS s7, s8, s9"));
-	emitter.VABS(S1, S2);
-	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
-	emitter.VMOV(S1, S2);
-	RET(CheckLast(emitter, "eef00a41 VMOV s1, s2"));
-	emitter.VCMP(S1, S2);
-	RET(CheckLast(emitter, "eef40a41 VCMP s1, s2"));
-	emitter.VCMPE(S1, S2);
-	RET(CheckLast(emitter, "eef40ac1 VCMPE s1, s2"));
-	emitter.VSQRT(S1, S2);
-	RET(CheckLast(emitter, "eef10ac1 VSQRT s1, s2"));
-	emitter.VDIV(S1, S2, S3);
-	RET(CheckLast(emitter, "eec10a21 VDIV s1, s2, s3"));
-	emitter.VMRS(R1);
-	RET(CheckLast(emitter, "eef11a10 VMRS r1"));
-	emitter.VMSR(R7);
-	RET(CheckLast(emitter, "eee17a10 VMSR r7"));
-	emitter.VMRS_APSR();
-	RET(CheckLast(emitter, "eef1fa10 VMRS APSR"));
-	emitter.VCVT(S0, S1, TO_INT | IS_SIGNED);
-	RET(CheckLast(emitter, "eebd0a60 VCVT ..."));
-
-
-	// WTF?
-	//emitter.VSUB(S4, S5, S6);
-	//RET(CheckLast(emitter, "ee322ac3 VSUB s4, s5, s6"));
-
-
-	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
-
-	/*
-	// These are only implemented in the neon-vfpu branch. will cherrypick later.
-	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
-	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
-	emitter.VMOV_immf(Q0, 1.0f);
-	RET(CheckLast(emitter, "eebd0a60 VMOV Q0, 1.0"));
-	emitter.VMOV_immf(Q0, -1.0f);
-	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
-	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
-	emitter.VPADD(F_32, D0, D0, D0);
-	emitter.VMOV(Q14, Q2);
-	*/
-
-	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
-	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
-	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
-	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
-	RET(CheckLast(emitter, "f449778f VST1.32 {d23}, [r9]"));
-	emitter.VADD(I_8, D3, D4, D19);
-	RET(CheckLast(emitter, "f2043823 VADD.i8 d3, d4, d19"));
-	emitter.VADD(I_32, D3, D4, D19);
-	RET(CheckLast(emitter, "f2243823 VADD.i32 d3, d4, d19"));
-	emitter.VADD(F_32, D3, D4, D19);
-	RET(CheckLast(emitter, "f2043d23 VADD.f32 d3, d4, d19"));
-	emitter.VSUB(I_16, Q5, Q6, Q15);
-	RET(CheckLast(emitter, "f31ca86e VSUB.i16 q5, q6, q15"));
-	emitter.VMUL(F_32, Q1, Q2, Q3);
-	RET(CheckLast(emitter, "f3042d56 VMUL.f32 q1, q2, q3"));
-	emitter.VADD(F_32, Q1, Q2, Q3);
-	RET(CheckLast(emitter, "f2042d46 VADD.f32 q1, q2, q3"));
-	emitter.VMLA(F_32, Q1, Q2, Q3);
-	RET(CheckLast(emitter, "f2042d56 VMLA.f32 q1, q2, q3"));
-	emitter.VMLS(F_32, Q1, Q2, Q3);
-	RET(CheckLast(emitter, "f2242d56 VMLS.f32 q1, q2, q3"));
-	emitter.VMLS(I_16, Q1, Q2, Q3);
-	RET(CheckLast(emitter, "f3142946 VMLS.i16 q1, q2, q3"));
-	return true;
-}
-
 bool TestMathUtil() {
 	EXPECT_FALSE(my_isinf(1.0));
 	volatile float zero = 0.0f;
@@ -419,6 +287,78 @@ bool TestVFPUSinCos() {
 	return true;
 }
 
+bool TestMatrixTranspose() {
+	MatrixSize sz = M_4x4;
+	int matrix = 0;  // M000
+	u8 cols[4];
+	u8 rows[4];
+
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	int transposed = Xpose(matrix);
+	u8 x_cols[4];
+	u8 x_rows[4];
+
+	GetMatrixColumns(transposed, sz, x_cols);
+	GetMatrixRows(transposed, sz, x_rows);
+
+	for (int i = 0; i < GetMatrixSide(sz); i++) {
+		EXPECT_EQ_INT(cols[i], x_rows[i]);
+		EXPECT_EQ_INT(x_cols[i], rows[i]);
+	}
+	return true;
+}
+
+void TestGetMatrix(int matrix, MatrixSize sz) {
+	ILOG("Testing matrix %s", GetMatrixNotation(matrix, sz));
+	u8 fullMatrix[16];
+
+	u8 cols[4];
+	u8 rows[4];
+
+	GetMatrixColumns(matrix, sz, cols);
+	GetMatrixRows(matrix, sz, rows);
+
+	GetMatrixRegs(fullMatrix, sz, matrix);
+
+	int n = GetMatrixSide(sz);
+	VectorSize vsz = GetVectorSize(sz);
+	for (int i = 0; i < n; i++) {
+		// int colName = GetColumnName(matrix, sz, i, 0);
+		// int rowName = GetRowName(matrix, sz, i, 0);
+		int colName = cols[i];
+		int rowName = rows[i];
+		ILOG("Column %i: %s", i, GetVectorNotation(colName, vsz));
+		ILOG("Row %i: %s", i, GetVectorNotation(rowName, vsz));
+
+		u8 colRegs[4];
+		u8 rowRegs[4];
+		GetVectorRegs(colRegs, vsz, colName);
+		GetVectorRegs(rowRegs, vsz, rowName);
+
+		// Check that the individual regs are the expected ones.
+		std::stringstream a, b, c, d;
+		for (int j = 0; j < n; j++) {
+			a.clear();
+			b.clear();
+			a << (int)fullMatrix[i * 4 + j] << " ";
+			b << (int)colRegs[j] << " ";
+
+			c.clear();
+			d.clear();
+
+			c << (int)fullMatrix[j * 4 + i] << " ";
+			d << (int)rowRegs[j] << " ";
+		}
+		ILOG("Col: %s vs %s", a.str().c_str(), b.str().c_str());
+		if (a.str() != b.str())
+			ILOG("WRONG!");
+		ILOG("Row: %s vs %s", c.str().c_str(), d.str().c_str());
+		if (c.str() != d.str())
+			ILOG("WRONG!");
+	}
+}
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -427,14 +367,22 @@ struct TestItem {
 
 #define TEST_ITEM(name) { #name, &Test ##name, }
 
+bool TestArmEmitter();
+bool TestX64Emitter();
+
+	
 TestItem availableTests[] = {
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
 	TEST_ITEM(ArmEmitter),
+#ifndef ARM
+	TEST_ITEM(X64Emitter),
+#endif
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
 	TEST_ITEM(Jit),
+	TEST_ITEM(MatrixTranspose)
 };
 
 int main(int argc, const char *argv[]) {

@@ -14,7 +14,7 @@
    height="1052.3622047"
    id="svg2"
    version="1.1"
-   inkscape:version="0.48.4 r9939"
+   inkscape:version="0.48.2 r9819"
    sodipodi:docname="buttons.svg">
   <defs
      id="defs4">
@@ -1229,6 +1229,39 @@
          operator="over"
          result="composite2" />
     </filter>
+    <filter
+       id="filter4781"
+       inkscape:label="Drop shadow"
+       width="1.5"
+       height="1.5"
+       x="-.25"
+       y="-.25">
+      <feGaussianBlur
+         id="feGaussianBlur4783"
+         in="SourceAlpha"
+         stdDeviation="2"
+         result="blur" />
+      <feColorMatrix
+         id="feColorMatrix4785"
+         result="bluralpha"
+         type="matrix"
+         values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.5 0 " />
+      <feOffset
+         id="feOffset4787"
+         in="bluralpha"
+         dx="0"
+         dy="0"
+         result="offsetBlur" />
+      <feMerge
+         id="feMerge4789">
+        <feMergeNode
+           id="feMergeNode4791"
+           in="offsetBlur" />
+        <feMergeNode
+           id="feMergeNode4793"
+           in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
   <sodipodi:namedview
      id="base"
@@ -1238,16 +1271,16 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="3.959798"
-     inkscape:cx="176.69166"
-     inkscape:cy="991.50356"
+     inkscape:cx="73.150997"
+     inkscape:cy="947.90072"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="2325"
-     inkscape:window-height="1422"
-     inkscape:window-x="28"
-     inkscape:window-y="37"
-     inkscape:window-maximized="0" />
+     inkscape:window-width="1822"
+     inkscape:window-height="1057"
+     inkscape:window-x="1370"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1" />
   <metadata
      id="metadata7">
     <rdf:RDF>
@@ -1766,5 +1799,27 @@
          d="m -18.561551,39.179179 3.59867,4.545687 5.3664299,-9.154508"
          style="fill:none;stroke:#ffffff;stroke-width:3;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;filter:url(#filter5328)" />
     </g>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="194.70689"
+       y="34.633499"
+       id="text3261"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3263"
+         x="194.70689"
+         y="34.633499" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;filter:url(#filter4781);font-family:DejaVu Sans;-inkscape-font-specification:DejaVu Sans"
+       x="-48.487312"
+       y="151.8112"
+       id="text4033"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4035"
+         x="-48.487312"
+         y="151.8112">⚙</tspan></text>
   </g>
 </svg>

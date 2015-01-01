@@ -27,6 +27,8 @@
 #include "Common/ArmEmitter.h"
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
+#elif defined(MIPS)
+#include "Common/MipsEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -579,6 +581,8 @@ public:
 class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
 #elif defined(_M_IX86) || defined(_M_X64)
 class VertexDecoderJitCache : public Gen::XCodeBlock {
+#elif defined(MIPS)
+class VertexDecoderJitCache : public MIPSGen::MIPSCodeBlock {
 #else
 class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
 #endif

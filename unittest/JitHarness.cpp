@@ -18,7 +18,9 @@
 #include <algorithm>
 
 #include "base/timeutil.h"
+#include "input/input_state.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
@@ -108,12 +110,23 @@ bool TestJit() {
 
 	// TODO: Smarter way of seeding in the code sequence.
 	static const char *lines[] = {
+		//"vcrsp.t C000, C100, C200",
+		//"vdot.q C000, C100, C200",
+		//"vmmul.q M000, M100, M200",
+		"lui r1, 0x8910",
+		"vmmul.q M000, M100, M200",
+		"sv.q C000, 0(r1)",
+		"sv.q C000, 16(r1)",
+		"sv.q C000, 32(r1)",
+		"sv.q C000, 48(r1)",
+		/*
 		"abs.s f1, f1",
 		"cvt.w.s f1, f1",
 		"cvt.w.s f3, f1",
 		"cvt.w.s f0, f2",
 		"cvt.w.s f5, f1",
 		"cvt.w.s f6, f5",
+		*/
 	};
 
 	bool compileSuccess = true;
@@ -131,8 +144,9 @@ bool TestJit() {
 		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
 		*/
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
-			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr, *p++)) {
-				printf("ERROR: %s\n", MIPSAsm::GetAssembleError());
+			p++;
+			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
+				printf("ERROR: %ls\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;
@@ -153,7 +167,7 @@ bool TestJit() {
 
 	printf("\n");
 
-	double jit_speed, interp_speed;
+	double jit_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPU_JIT);
@@ -167,7 +181,6 @@ bool TestJit() {
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
-		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
 		// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
 		const int cutoff = 25;
 		for (int i = 0; i < std::min((int)lines.size(), cutoff); i++) {
@@ -175,6 +188,7 @@ bool TestJit() {
 		}
 		if (lines.size() > cutoff)
 			printf("...\n");
+		printf("Jit was %fx faster than interp.\n\n", jit_speed / interp_speed);
 	}
 
 	printf("\n");

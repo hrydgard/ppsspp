@@ -674,6 +674,14 @@ std::string GetScheduledEventsSummary()
 
 void Event_DoState(PointerWrap &p, BaseEvent *ev)
 {
+	// There may be padding, so do each one individually.
+	p.Do(ev->time);
+	p.Do(ev->userdata);
+	p.Do(ev->type);
+}
+
+void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
+{
 	p.Do(*ev);
 }
 
@@ -681,7 +689,7 @@ void DoState(PointerWrap &p)
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 
-	auto s = p.Section("CoreTiming", 1, 2);
+	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)
 		return;
 
@@ -690,8 +698,13 @@ void DoState(PointerWrap &p)
 	// These (should) be filled in later by the modules.
 	event_types.resize(n, EventType(AntiCrashCallback, "INVALID EVENT"));
 
-	p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(first, (Event **) NULL);
-	p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
+	if (s >= 3) {
+		p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(first, (Event **) NULL);
+		p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
+	} else {
+		p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(first, (Event **) NULL);
+		p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoStateOld>(tsFirst, &tsLast);
+	}
 
 	p.Do(CPU_HZ);
 	p.Do(slicelength);

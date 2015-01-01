@@ -122,11 +122,11 @@ public:
 	// Do not use, only for savestate upgrading.
 	void CompatLoad(u32 texture, int width, int height);
 
-	int Width() {
+	int Width() const {
 		return width_;
 	}
 
-	int Height() {
+	int Height() const {
 		return height_;
 	}
 

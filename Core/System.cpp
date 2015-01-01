@@ -33,7 +33,6 @@
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -64,16 +63,19 @@ enum CPUThreadState {
 	CPU_THREAD_STARTING,
 	CPU_THREAD_RUNNING,
 	CPU_THREAD_SHUTDOWN,
+	CPU_THREAD_QUIT,
 
 	CPU_THREAD_EXECUTE,
+	CPU_THREAD_RESUME,
 };
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
+static FileLoader *loadedFile;
 static PSPMixer *mixer;
-static std::thread *cpuThread = NULL;
+static std::thread *cpuThread = nullptr;
 static std::thread::id cpuThreadID;
 static recursive_mutex cpuThreadLock;
 static condition_variable cpuThreadCond;
@@ -110,7 +112,7 @@ void Audio_Init() {
 }
 
 bool IsOnSeparateCPUThread() {
-	if (cpuThread != NULL) {
+	if (cpuThread != nullptr) {
 		return cpuThreadID == std::this_thread::get_id();
 	} else {
 		return false;
@@ -181,7 +183,13 @@ void CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
-	IdentifiedFileType type = Identify_File(filename);
+	loadedFile = ConstructFileLoader(filename);
+	IdentifiedFileType type = Identify_File(loadedFile);
+
+	// TODO: Put this somewhere better?
+	if (coreParameter.mountIso != "") {
+		coreParameter.mountIsoLoader = ConstructFileLoader(coreParameter.mountIso);
+	}
 
 	MIPSAnalyst::Reset();
 	Replacement_Init();
@@ -190,7 +198,7 @@ void CPU_Init() {
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
 	case FILETYPE_PSP_DISC_DIRECTORY:
-		InitMemoryForGameISO(filename);
+		InitMemoryForGameISO(loadedFile);
 		break;
 	default:
 		break;
@@ -213,7 +221,7 @@ void CPU_Init() {
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	// Why did we check for CORE_POWERDOWN here?
-	if (!LoadFile(filename, &coreParameter.errorString)) {
+	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
 		CPU_SetState(CPU_THREAD_NOT_RUNNING);
@@ -245,19 +253,31 @@ void CPU_Shutdown() {
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
 	Memory::Shutdown();
+
+	delete loadedFile;
+	loadedFile = nullptr;
+
+	delete coreParameter.mountIsoLoader;
+	coreParameter.mountIsoLoader = nullptr;
+}
+
+// TODO: Maybe loadedFile doesn't even belong here...
+void UpdateLoadedFile(FileLoader *fileLoader) {
+	delete loadedFile;
+	loadedFile = fileLoader;
 }
 
 void CPU_RunLoop() {
 	setCurrentThreadName("CPU");
 	FPU_SetFastMode();
 
-	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
+	if (CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
+		CPU_Init();
+		CPU_NextState(CPU_THREAD_STARTING, CPU_THREAD_RUNNING);
+	} else if (!CPU_NextState(CPU_THREAD_RESUME, CPU_THREAD_RUNNING)) {
 		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 		return;
 	}
-
-	CPU_Init();
-	CPU_NextState(CPU_THREAD_STARTING, CPU_THREAD_RUNNING);
 
 	while (cpuThreadState != CPU_THREAD_SHUTDOWN)
 	{
@@ -273,6 +293,11 @@ void CPU_RunLoop() {
 		case CPU_THREAD_RUNNING:
 		case CPU_THREAD_SHUTDOWN:
 			break;
+
+		case CPU_THREAD_QUIT:
+			// Just leave the thread, CPU is switching off thread.
+			CPU_SetState(CPU_THREAD_NOT_RUNNING);
+			return;
 
 		default:
 			ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
@@ -408,7 +433,7 @@ void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
 		Core_UpdateState(CORE_ERROR);
 	Core_NotifyShutdown();
-	if (cpuThread != NULL) {
+	if (cpuThread != nullptr) {
 		CPU_NextStateNot(CPU_THREAD_NOT_RUNNING, CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
 		delete cpuThread;
@@ -418,11 +443,13 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
+	g_paramSFO.Clear();
 	host->SetWindowTitle(0);
 	currentMIPS = 0;
 	pspIsInited = false;
 	pspIsIniting = false;
 	pspIsQuiting = false;
+	g_Config.unloadGameConfig();
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
@@ -431,7 +458,31 @@ void PSP_RunLoopUntil(u64 globalticks) {
 		return;
 	}
 
-	if (cpuThread != NULL) {
+	// Switch the CPU thread on or off, as the case may be.
+	bool useCPUThread = g_Config.bSeparateCPUThread;
+	if (useCPUThread && cpuThread == nullptr) {
+		// Need to start the cpu thread.
+		Core_ListenShutdown(System_Wake);
+		CPU_SetState(CPU_THREAD_RESUME);
+		cpuThread = new std::thread(&CPU_RunLoop);
+		cpuThreadID = cpuThread->get_id();
+		cpuThread->detach();
+		if (gpu) {
+			gpu->SetThreadEnabled(true);
+		}
+		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
+	} else if (!useCPUThread && cpuThread != nullptr) {
+		CPU_SetState(CPU_THREAD_QUIT);
+		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsShutdown);
+		delete cpuThread;
+		cpuThread = nullptr;
+		cpuThreadID = std::thread::id();
+		if (gpu) {
+			gpu->SetThreadEnabled(false);
+		}
+	}
+
+	if (cpuThread != nullptr) {
 		// Tell the gpu a new frame is about to begin, before we start the CPU.
 		gpu->SyncBeginFrame();
 

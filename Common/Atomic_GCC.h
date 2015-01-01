@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _ATOMIC_GCC_H_
-#define _ATOMIC_GCC_H_
+#pragma once
 
 #ifdef BLACKBERRY
 #include <atomic.h>
@@ -93,5 +92,3 @@ inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
 }
 
 }
-
-#endif

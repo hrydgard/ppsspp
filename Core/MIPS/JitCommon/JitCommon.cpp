@@ -17,14 +17,22 @@
 
 #include <stdlib.h>
 
-#include "JitCommon.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Common/StringUtils.h"
 
 #include "ext/disarm.h"
 #include "ext/udis86/udis86.h"
 
 namespace MIPSComp {
+#if defined(ARM)
+	ArmJit *jit;
+#else
 	Jit *jit;
+#endif
+	void JitAt() {
+		jit->Compile(currentMIPS->pc);
+	}
 }
 
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.
@@ -32,6 +40,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	std::vector<std::string> lines;
 
 	char temp[256];
+	int bkpt_count = 0;
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
 		u32 inst = codePtr[0];
@@ -43,8 +52,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 			int reg0 = (inst & 0x0000F000) >> 12;
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
-				sprintf(temp, "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
-				// sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				snprintf(temp, sizeof(temp), "MOV32 %s, %04x%04x", ArmRegName(reg0), hi, low);
 				lines.push_back(temp);
 				i += 4;
 				continue;
@@ -52,12 +60,48 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 		}
 		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
 		std::string buf = temp;
-		lines.push_back(buf);
+		if (buf == "BKPT 1") {
+			bkpt_count++;
+		} else {
+			if (bkpt_count) {
+				lines.push_back(StringFromFormat("BKPT 1 (x%i)", bkpt_count));
+				bkpt_count = 0;
+			}
+			lines.push_back(buf);
+		}
+	}
+	if (bkpt_count) {
+		lines.push_back(StringFromFormat("BKPT 1 (x%i)", bkpt_count));
 	}
 	return lines;
 }
 
 #ifndef ARM
+
+const char *ppsspp_resolver(struct ud*,
+	uint64_t addr,
+	int64_t *offset) {
+	// For some reason these two don't seem to trigger..
+	if (addr >= (uint64_t)(&currentMIPS->r[0]) && addr < (uint64_t)&currentMIPS->r[32]) {
+		*offset = addr - (uint64_t)(&currentMIPS->r[0]);
+		return "mips.r";
+	}
+	if (addr >= (uint64_t)(&currentMIPS->v[0]) && addr < (uint64_t)&currentMIPS->v[128]) {
+		*offset = addr - (uint64_t)(&currentMIPS->v[0]);
+		return "mips.v";
+	}
+	// But these do.
+	if (MIPSComp::jit->IsInSpace((u8 *)(intptr_t)addr)) {
+		*offset = addr - (uint64_t)MIPSComp::jit->GetBasePtr();
+		return "jitcode";
+	}
+	if (MIPSComp::jit->Asm().IsInSpace((u8 *)(intptr_t)addr)) {
+		*offset = addr - (uint64_t)MIPSComp::jit->Asm().GetBasePtr();
+		return "dispatcher";
+	}
+
+	return NULL;
+}
 
 std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	std::vector<std::string> lines;
@@ -71,6 +115,7 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	ud_set_pc(&ud_obj, (intptr_t)data);
 	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
 	ud_set_syntax(&ud_obj, UD_SYN_INTEL);
+	ud_set_sym_resolver(&ud_obj, &ppsspp_resolver);
 
 	ud_set_input_buffer(&ud_obj, data, size);
 

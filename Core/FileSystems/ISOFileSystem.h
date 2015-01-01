@@ -37,6 +37,7 @@ public:
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
@@ -46,6 +47,8 @@ public:
 	u64      FreeSpace(const std::string &path) override { return 0; }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+
 	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
 	bool MkDir(const std::string &dirname) override {return false;}
 	bool RmDir(const std::string &dirname) override { return false; }
@@ -83,6 +86,7 @@ private:
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
 	BlockDevice *blockDevice;
+	u32 lastReadBlock_;
 
 	TreeEntry entireISO;
 
@@ -116,6 +120,9 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override {
 		return isoFileSystem_->ReadFile(handle, pointer, size);
 	}
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override {
+		return isoFileSystem_->ReadFile(handle, pointer, size, usec);
+	}
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override {
 		return isoFileSystem_->SeekFile(handle, position, type);
 	}
@@ -136,6 +143,9 @@ public:
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override {
 		return isoFileSystem_->WriteFile(handle, pointer, size);
+	}
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override {
+		return isoFileSystem_->WriteFile(handle, pointer, size, usec);
 	}
 	bool GetHostPath(const std::string &inpath, std::string &outpath) { return false; }
 	bool MkDir(const std::string &dirname) override { return false; }

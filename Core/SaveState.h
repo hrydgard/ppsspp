@@ -18,11 +18,12 @@
 #include <string>
 #include <vector>
 
+#include "base/functional.h"
 #include "Common/ChunkFile.h"
 
 namespace SaveState
 {
-	typedef void (*Callback)(bool status, void *cbUserData);
+	typedef std::function<void(bool status, void *cbUserData)> Callback;
 
 	// TODO: Better place for this?
 	const int REVISION = 4;
@@ -40,26 +41,27 @@ namespace SaveState
 	// Returns -1 if there's no newest slot.
 	int GetNewestSlot();
 
+	std::string GetSlotDateAsString(int slot);
 	std::string GenerateSaveSlotFilename(int slot, const char *extension);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+	void Load(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+	void Save(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = 0, void *cbUserData = 0);
+	void Verify(Callback callback = Callback(), void *cbUserData = 0);
 
 	// To go back to a previous snapshot (only if enabled.)
 	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = 0, void *cbUserData = 0);
+	void Rewind(Callback callback = Callback(), void *cbUserData = 0);
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();

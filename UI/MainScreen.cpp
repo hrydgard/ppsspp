@@ -33,7 +33,6 @@
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/SaveState.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
@@ -41,10 +40,8 @@
 #include "UI/GameScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
-#include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
-#include "UI/ReportScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -178,6 +175,7 @@ void GameButton::Draw(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath_, 0);
 	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
+	using namespace UI;
 
 	if (ginfo->iconTexture) {
 		texture = ginfo->iconTexture;
@@ -306,6 +304,10 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
+	if (!ginfo->id.empty() && g_Config.hasGameConfig(ginfo->id))
+	{
+		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+	}
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
@@ -321,7 +323,7 @@ class DirButton : public UI::Button {
 public:
 	DirButton(const std::string &path, UI::LayoutParams *layoutParams)
 		: UI::Button(path, layoutParams), path_(path), absolute_(false) {}
-	DirButton(const std::string &path, const std::string &text, LayoutParams *layoutParams = 0)
+	DirButton(const std::string &path, const std::string &text, UI::LayoutParams *layoutParams = 0)
 		: UI::Button(text, layoutParams), path_(path), absolute_(true) {}
 
 	virtual void Draw(UIContext &dc);
@@ -341,6 +343,7 @@ private:
 };
 
 void DirButton::Draw(UIContext &dc) {
+	using namespace UI;
 	Style style = dc.theme->buttonStyle;
 
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
@@ -877,13 +880,13 @@ UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 	// Go directly to ppsspp.org and let the user sort it out
 	LaunchBrowser("http://www.ppsspp.org/downloads.html");
 #endif
-	return EVENT_DONE;
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnDismissUpgrade(UI::EventParams &e) {
 	g_Config.DismissUpgrade();
-	upgradeBar_->SetVisibility(V_GONE);
-	return EVENT_DONE;
+	upgradeBar_->SetVisibility(UI::V_GONE);
+	return UI::EVENT_DONE;
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {
@@ -999,6 +1002,8 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
+	using namespace UI;
+
 #ifdef _WIN32
 	std::string path = ReplaceAll(e.s, "\\", "/");
 #else
@@ -1104,161 +1109,8 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void GamePauseScreen::update(InputState &input) {
-	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update(input);
-}
-
-GamePauseScreen::~GamePauseScreen() {
-	if (saveSlots_ != NULL) {
-		g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
-		g_Config.Save();
-	}
-	__DisplaySetWasPaused();
-}
-
-void GamePauseScreen::CreateViews() {
-	static const int NUM_SAVESLOTS = 5;
-
-	using namespace UI;
-	Margins actionMenuMargins(0, 100, 15, 0);
-	I18NCategory *gs = GetI18NCategory("Graphics");
-	I18NCategory *i = GetI18NCategory("Pause");
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(leftColumn);
-
-	root_->Add(new Spacer(new LinearLayoutParams(1.0)));
-
-	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
-	leftColumn->Add(leftColumnItems);
-
-	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
-	for (int i = 0; i < NUM_SAVESLOTS; i++){
-		std::stringstream saveSlotText;
-		saveSlotText << " " << i + 1 << " ";
-		saveSlots_->AddChoice(saveSlotText.str());
-		if (SaveState::HasSaveInSlot(i)) {
-			saveSlots_->HighlightChoice(i);
-		}
-	}
-
-	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
-	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
-
-	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));
-	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
-
-	loadStateButton_ = leftColumnItems->Add(new Choice(i->T("Load State")));
-	loadStateButton_->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
-
-	if (g_Config.iRewindFlipFrequency > 0) {
-		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(i->T("Rewind")));
-		rewindButton->SetEnabled(SaveState::CanRewind());
-		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
-	}
-
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumn);
-
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
-	rightColumn->Add(rightColumnItems);
-
-	rightColumnItems->SetSpacing(0.0f);
-	if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
-	}
-	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
-	root_->SetDefaultFocusView(continueChoice);
-	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
-	}
-	// TODO, also might be nice to show overall compat rating here?
-	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
-	if (Reporting::IsEnabled()) {
-		I18NCategory *rp = GetI18NCategory("Reporting");
-		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
-	}
-	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
-
-	UI::EventParams e;
-	e.a = g_Config.iCurrentStateSlot;
-	saveSlots_->OnChoice.Trigger(e);
-}
-
-UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnStateSelected(UI::EventParams &e) {
-	int st = e.a;
-	loadStateButton_->SetEnabled(SaveState::HasSaveInSlot(st));
-	return UI::EVENT_DONE;
-}
-
-void GamePauseScreen::onFinish(DialogResult result) {
-	// Do we really always need to "gpu->Resized" here?
-	if (gpu)
-		gpu->Resized();
-	Reporting::UpdateConfig();
-}
-
-UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
-	screenManager()->push(new ReportScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnLoadState(UI::EventParams &e) {
-	SaveState::LoadSlot(saveSlots_->GetSelection(), 0, 0);
-
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
-	SaveState::SaveSlot(saveSlots_->GetSelection(), 0, 0);
-
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
-	SaveState::Rewind(0, 0);
-
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
-	screenManager()->push(new UmdReplaceScreen());
-	return UI::EVENT_DONE;
-}
-
-void GamePauseScreen::sendMessage(const char *message, const char *value) {
-	// Since the language message isn't allowed to be in native, we have to have add this
-	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
-	if (!strcmp(message, "language")) {
-		screenManager()->RecreateAllViews();
-	}
-}
-
 void UmdReplaceScreen::CreateViews() {
+	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
 	I18NCategory *m = GetI18NCategory("MainMenu");
 	I18NCategory *d = GetI18NCategory("Dialog");
@@ -1320,16 +1172,16 @@ UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UmdReplaceScreen:: OnCancel(UI::EventParams &e) {
+UI::EventReturn UmdReplaceScreen::OnCancel(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn UmdReplaceScreen:: OnGameSettings(UI::EventParams &e) {
+UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(""));
 	return UI::EVENT_DONE;
 }
-UI::EventReturn UmdReplaceScreen:: OnGameSelectedInstant(UI::EventParams &e) {
+UI::EventReturn UmdReplaceScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	__UmdReplace(e.s);
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;

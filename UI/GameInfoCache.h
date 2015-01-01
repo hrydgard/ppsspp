@@ -96,7 +96,8 @@ public:
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
 		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantFlags(0),
 		  timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
-		  gameSize(0), saveDataSize(0), installDataSize(0) {}
+		  gameSize(0), saveDataSize(0), installDataSize(0), fileLoader(nullptr) {}
+	~GameInfo();
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -116,7 +117,6 @@ public:
 	// to it.
 	recursive_mutex lock;
 
-	FileInfo fileInfo;
 	std::string path;
 	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
@@ -156,6 +156,8 @@ public:
 	u64 gameSize;
 	u64 saveDataSize;
 	u64 installDataSize;
+
+	FileLoader *fileLoader;
 };
 
 class GameInfoCache {
@@ -179,6 +181,8 @@ public:
 	// TODO - save cache between sessions
 	void Save();
 	void Load();
+
+	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
 private:
 	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);

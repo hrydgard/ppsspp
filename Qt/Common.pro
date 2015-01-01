@@ -21,11 +21,16 @@ else:i86 {
 		$$P/Common/x64Analyzer.h \
 		$$P/Common/x64Emitter.h
 }
+else:mips: {
+	SOURCES += $$P/Common/MipsCPUDetect.cpp
+}
 else {
 	SOURCES += $$P/Common/FakeCPUDetect.cpp
 }
-SOURCES += $$P/Common/ArmEmitter.cpp
+SOURCES += $$P/Common/ArmEmitter.cpp \
+	$$P/Common/MipsEmitter.cpp
 HEADERS += $$P/Common/ArmEmitter.h \
+	$$P/Common/MipsEmitter.h \
 	$$P/Common/CPUDetect.h
 
 win32 {

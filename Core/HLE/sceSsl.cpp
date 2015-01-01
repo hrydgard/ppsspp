@@ -49,7 +49,7 @@ void __SslDoState(PointerWrap &p)
 	p.Do(currentMemSize);
 }
 
-int sceSslInit(int heapSize)
+static int sceSslInit(int heapSize)
 {
 	DEBUG_LOG(HLE, "sceSslInit %d", heapSize);
 	if (isSslInit) 
@@ -67,7 +67,7 @@ int sceSslInit(int heapSize)
 	return 0;
 }
 
-int sceSslEnd() 
+static int sceSslEnd()
 {
 	DEBUG_LOG(HLE, "sceSslEnd");
 	if (!isSslInit) 
@@ -78,7 +78,7 @@ int sceSslEnd()
 	return 0;
 }
 
-int sceSslGetUsedMemoryMax(u32 maxMemPtr) 
+static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 {
 	DEBUG_LOG(HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
 	if (!isSslInit) 
@@ -93,7 +93,7 @@ int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 	return 0;
 }
 
-int sceSslGetUsedMemoryCurrent(u32 currentMemPtr) 
+static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
 {
 	DEBUG_LOG(HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
 	if (!isSslInit) 

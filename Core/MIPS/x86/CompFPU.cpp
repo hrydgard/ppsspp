@@ -44,6 +44,9 @@
 
 namespace MIPSComp {
 
+using namespace Gen;
+using namespace X64JitConstants;
+
 void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters) {
 	int ft = _FT;
 	int fs = _FS;
@@ -285,7 +288,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		if (fd != fs) {
 			MOVSS(fpr.RX(fd), fpr.R(fs));
 		}
-		PXOR(fpr.RX(fd), M(ssSignBits2));
+		XORPS(fpr.RX(fd), M(ssSignBits2));
 		break;
 
 

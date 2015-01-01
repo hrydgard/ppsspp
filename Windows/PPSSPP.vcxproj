@@ -142,6 +142,10 @@
       <FixedBaseAddress>true</FixedBaseAddress>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>../Windows/git-version-gen.cmd</Command>
+      <Message>Updating git-version.cpp</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -177,6 +181,10 @@
       <ShowProgress>NotSet</ShowProgress>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>../Windows/git-version-gen.cmd</Command>
+      <Message>Updating git-version.cpp</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -215,6 +223,10 @@
       <LargeAddressAware>true</LargeAddressAware>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
+    <PreBuildEvent>
+      <Command>../Windows/git-version-gen.cmd</Command>
+      <Message>Updating git-version.cpp</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -253,6 +265,10 @@
       <FixedBaseAddress>true</FixedBaseAddress>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PreBuildEvent>
+      <Command>../Windows/git-version-gen.cmd</Command>
+      <Message>Updating git-version.cpp</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">

@@ -40,7 +40,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "Framebuffer.h"
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID) : failed_(false), useHWTransform_(useHWTransform), id_(shaderID) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugStringUTF8(code);
@@ -388,6 +388,39 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
+
+		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
+		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
+		if (g_Config.bDepthRangeHack) {
+			float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+			float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+
+			// if far depth range < 0
+			if (zOff + zScale < 0.0f) {
+				// if perspective projection
+				if (flippedMatrix[11] < 0.0f) {
+					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
+					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
+
+					float a = flippedMatrix[10];
+					float b = flippedMatrix[14];
+
+					float n = b / (a - 1.0f);
+					float f = b / (a + 1.0f);
+
+					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
+
+					a = (n + f) / (n - f);
+					b = (2.0f * n * f) / (n - f);
+
+					if (!my_isnan(a) && !my_isnan(b)) {
+						flippedMatrix[10] = a;
+						flippedMatrix[14] = b;
+					}
+				}
+			}
+		}
+
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
@@ -681,6 +714,23 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	lastShader_ = 0;
 }
 
+// This is to be used when debugging why incompatible shaders are being linked, like is
+// happening as I write this in Tactics Ogre
+bool ShaderManager::DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs) {
+	// Check clear mode flag just for starters.
+	ShaderID vsid = vs->ID();
+	ShaderID fsid = fs->ID();
+
+	// TODO: Make the flag fields more similar?
+	// Check DoTexture
+	if (((vsid.d[0] >> 4) & 1) != ((fsid.d[0] >> 1) & 1)) {
+		ERROR_LOG(G3D, "Texture enable flag mismatch!");
+		return false;
+	}
+
+	return true;
+}
+
 Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	// This doesn't work - we miss some events that really do need to dirty the prescale.
 	// like changing the texmapmode.
@@ -696,13 +746,13 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	VertexShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
+	ShaderID VSID;
+	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastShader_ != 0 && VSID == lastVSID_) {
 		lastVShaderSame_ = true;
-		return lastShader_->vs_;	// Already all set.
+		return lastShader_->vs_;  	// Already all set.
 	} else {
 		lastVShaderSame_ = false;
 	}
@@ -714,7 +764,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
-		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
@@ -727,7 +777,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 			// Can still work with software transform.
 			GenerateVertexShader(prim, vertType, codeBuffer_, false);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, VSID);
 		}
 
 		vsCache_[VSID] = vs;
@@ -738,7 +788,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 }
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	FragmentShaderID FSID;
+	ShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
@@ -752,7 +802,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform(), FSID);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -772,6 +822,12 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
+		// Check if we can link these.
+#ifdef _DEBUG
+		if (!DebugAreShadersCompatibleForLinking(vs, fs)) {
+			return NULL;
+		}
+#endif
 		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);

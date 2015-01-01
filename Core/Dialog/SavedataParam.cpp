@@ -1271,8 +1271,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					std::string gameName = GetGameName(param);
 					std::string saveName = "";
 					for(auto it = allSaves.begin(); it != allSaves.end(); ++it) {
-						if(strncmp(it->name.c_str(),gameName.c_str(),strlen(gameName.c_str())) == 0) {
-							saveName = it->name.substr(strlen(gameName.c_str()));						
+						if(it->name.compare(0, gameName.length(), gameName) == 0) {
+							saveName = it->name.substr(gameName.length());
 							
 							if(IsInSaveDataList(saveName, realCount)) // Already in SaveDataList, skip...
 								continue;

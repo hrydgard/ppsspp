@@ -26,7 +26,6 @@
 #include "UI/MiscScreens.h"
 #include "UI/GameSettingsScreen.h"
 
-using namespace UI;
 extern std::string activeCheatFile;
 extern std::string gameTitle;
 
@@ -55,16 +54,16 @@ private:
 };
 
 // TODO: Instead just hook the OnClick event on a regular checkbox.
-class CheatCheckBox : public ClickableItem, public CwCheatScreen {
+class CheatCheckBox : public UI::ClickableItem, public CwCheatScreen {
 public:
-	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), toggle_(toggle), text_(text) {
+	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", UI::LayoutParams *layoutParams = 0)
+		: UI::ClickableItem(layoutParams), toggle_(toggle), text_(text) {
 			OnClick.Handle(this, &CheatCheckBox::OnClicked);
 	}
 
 	virtual void Draw(UIContext &dc);
 
-	EventReturn OnClicked(EventParams &e) {
+	UI::EventReturn OnClicked(UI::EventParams &e) {
 		if (toggle_) {
 			*toggle_ = !(*toggle_);
 		}
@@ -77,7 +76,7 @@ public:
 			deactivatedCheat = text_;
 			processFileOff(deactivatedCheat);
 		}
-		return EVENT_DONE;
+		return UI::EVENT_DONE;
 	}
 
 private:

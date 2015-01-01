@@ -28,6 +28,7 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelMutex.h"
+#include "sceNet.h"
 #include "sceUtility.h"
 
 #include "Core/HLE/sceNetAdhoc.h"
@@ -77,7 +78,7 @@ struct ApctlHandler {
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-void __ResetInitNetLib() {
+static void __ResetInitNetLib() {
 	netInited = false;
 	netApctlInited = false;
 	netInetInited = false;
@@ -94,7 +95,7 @@ void __NetShutdown() {
 }
 
 
-void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
+static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
 	u32 args[5] = { 0, 0, 0, 0, 0 };
 		args[0] = oldState;
 		args[1] = newState;
@@ -121,7 +122,7 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netMallocStat);
 }
 
-u32 sceNetTerm() {
+static u32 sceNetTerm() {
 	//May also need to Terminate netAdhocctl and netAdhoc since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit+sceNetAdhocInit
 	if (netAdhocctlInited) sceNetAdhocctlTerm();
 	if (netAdhocInited) sceNetAdhocTerm();
@@ -132,7 +133,7 @@ u32 sceNetTerm() {
 }
 
 // TODO: should that struct actually be initialized here?
-u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
+static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
 	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
 	if (netInited) sceNetTerm();
 
@@ -145,8 +146,8 @@ u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u
 	return 0;
 }
 
-u32 sceWlanGetEtherAddr(u32 addrAddr) {
-  // Read MAC Address from config
+static u32 sceWlanGetEtherAddr(u32 addrAddr) {
+	// Read MAC Address from config
 	uint8_t mac[6] = {0};
 	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
@@ -157,22 +158,22 @@ u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	return 0;
 }
 
-u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
+static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 	return sceWlanGetEtherAddr(addrAddr);
 }
 
-u32 sceWlanDevIsPowerOn() {
+static u32 sceWlanDevIsPowerOn() {
 	DEBUG_LOG(SCENET, "UNTESTED sceWlanDevIsPowerOn()");
 	return g_Config.bEnableWlan ? 1 : 0;
 }
 
-u32 sceWlanGetSwitchState() {
+static u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
 	return g_Config.bEnableWlan ? 1 : 0;
 }
 
 // Probably a void function, but often returns a useful value.
-int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
+static int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -199,7 +200,7 @@ static int hex_to_digit(int c) {
 }
 
 // Probably a void function, but sometimes returns a useful-ish value.
-int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
+static int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -240,7 +241,7 @@ int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
-int sceNetGetMallocStat(u32 statPtr) {
+static int sceNetGetMallocStat(u32 statPtr) {
 	WARN_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
@@ -250,7 +251,7 @@ int sceNetGetMallocStat(u32 statPtr) {
 	return 0;
 }
 
-int sceNetInetInit() {
+static int sceNetInetInit() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetInit()");
 	if (netInetInited)
 		return ERROR_NET_INET_ALREADY_INITIALIZED;
@@ -259,14 +260,14 @@ int sceNetInetInit() {
 	return 0;
 }
 
-int sceNetInetTerm() {
+static int sceNetInetTerm() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetTerm()");
 	netInetInited = false;
 
 	return 0;
 }
 
-int sceNetApctlInit() {
+static int sceNetApctlInit() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetApctlInit()");
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
@@ -275,7 +276,7 @@ int sceNetApctlInit() {
 	return 0;
 }
 
-int sceNetApctlTerm() {
+static int sceNetApctlTerm() {
 	ERROR_LOG(SCENET, "UNIMPL sceNeApctlTerm()");
 	netApctlInited = false;
 	
@@ -284,7 +285,7 @@ int sceNetApctlTerm() {
 
 // TODO: How many handlers can the PSP actually have for Apctl?
 // TODO: Should we allow the same handler to be added more than once?
-u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
+static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
 	u32 retval = 0;
 	struct ApctlHandler handler;
@@ -320,7 +321,7 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	return retval;
 }
 
-int sceNetApctlDelHandler(u32 handlerID) {
+static int sceNetApctlDelHandler(u32 handlerID) {
 	if(apctlHandlers.find(handlerID) != apctlHandlers.end()) {
 		apctlHandlers.erase(handlerID);
 		WARN_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
@@ -331,42 +332,42 @@ int sceNetApctlDelHandler(u32 handlerID) {
 	return 0;
 }
 
-int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
+static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
 	return -1;
 }
 
-int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
+static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
-int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
+static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
-int sceNetInetGetErrno() {
+static int sceNetInetGetErrno() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetGetErrno()");
 	return -1;
 }
 
-int sceNetInetSocket(int domain, int type, int protocol) {
+static int sceNetInetSocket(int domain, int type, int protocol) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
 	return -1;
 }
 
-int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
+static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
 	return -1;
 }
 
-int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
+static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
 	return -1;
 }
 
-int sceNetApctlDisconnect() {
+static int sceNetApctlDisconnect() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
@@ -374,7 +375,7 @@ int sceNetApctlDisconnect() {
 	return 0;
 }
 
-int sceNetResolverInit()
+static int sceNetResolverInit()
 {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	return 0;

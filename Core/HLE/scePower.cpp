@@ -85,49 +85,49 @@ void __PowerDoState(PointerWrap &p) {
 	p.Do(volatileWaitingThreads);
 }
 
-int scePowerGetBatteryLifePercent() {
+static int scePowerGetBatteryLifePercent() {
 	DEBUG_LOG(HLE, "100=scePowerGetBatteryLifePercent");
 	return 100;
 }
 
-int scePowerGetBatteryLifeTime() {
+static int scePowerGetBatteryLifeTime() {
 	DEBUG_LOG(HLE, "0=scePowerGetBatteryLifeTime()");
 	// 0 means we're on AC power.
 	return 0;
 }
 
-int scePowerGetBatteryTemp() {
+static int scePowerGetBatteryTemp() {
 	DEBUG_LOG(HLE, "0=scePowerGetBatteryTemp()");
 	// 0 means celsius temperature of the battery
 	return 0;
 }
 
-int scePowerIsPowerOnline() {
+static int scePowerIsPowerOnline() {
 	DEBUG_LOG(HLE, "1=scePowerIsPowerOnline");
 	return 1;
 }
 
-int scePowerIsBatteryExist() {
+static int scePowerIsBatteryExist() {
 	DEBUG_LOG(HLE, "1=scePowerIsBatteryExist");
 	return 1;
 }
 
-int scePowerIsBatteryCharging() {
+static int scePowerIsBatteryCharging() {
 	DEBUG_LOG(HLE, "0=scePowerIsBatteryCharging");
 	return 0;
 }
 
-int scePowerGetBatteryChargingStatus() {
+static int scePowerGetBatteryChargingStatus() {
 	DEBUG_LOG(HLE, "0=scePowerGetBatteryChargingStatus");
 	return 0;
 }
 
-int scePowerIsLowBattery() {
+static int scePowerIsLowBattery() {
 	DEBUG_LOG(HLE, "0=scePowerIsLowBattery");
 	return 0;
 }
 
-int scePowerRegisterCallback(int slot, int cbId) {
+static int scePowerRegisterCallback(int slot, int cbId) {
 	DEBUG_LOG(HLE, "0=scePowerRegisterCallback(%i, %i)", slot, cbId);
 
 	if (slot < -1 || slot >= numberOfCBPowerSlotsPrivate) {
@@ -168,7 +168,7 @@ int scePowerRegisterCallback(int slot, int cbId) {
 	return retval;
 }
 
-int scePowerUnregisterCallback(int slotId) {
+static int scePowerUnregisterCallback(int slotId) {
 	DEBUG_LOG(HLE, "0=scePowerUnregisterCallback(%i)", slotId);
 
 	if (slotId < 0 || slotId >= numberOfCBPowerSlotsPrivate) {
@@ -189,7 +189,7 @@ int scePowerUnregisterCallback(int slotId) {
 	return 0;
 }
 
-int sceKernelPowerLock(int lockType) {
+static int sceKernelPowerLock(int lockType) {
 	DEBUG_LOG(HLE, "0=sceKernelPowerLock(%i)", lockType);
 	if (lockType == 0) {
 		return 0;
@@ -198,7 +198,7 @@ int sceKernelPowerLock(int lockType) {
 	}
 }
 
-int sceKernelPowerUnlock(int lockType) {
+static int sceKernelPowerUnlock(int lockType) {
 	DEBUG_LOG(HLE, "0=sceKernelPowerUnlock(%i)", lockType);
 	if (lockType == 0) {
 		return 0;
@@ -207,12 +207,12 @@ int sceKernelPowerUnlock(int lockType) {
 	}
 }
 
-int sceKernelPowerTick(int flag) {
+static int sceKernelPowerTick(int flag) {
 	DEBUG_LOG(HLE, "UNIMPL 0=sceKernelPowerTick(%i)", flag);
 	return 0;
 }
 
-int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
+static int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	if (type != 0) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
@@ -234,7 +234,7 @@ int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	return 0;
 }
 
-int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
+static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 	u32 error = __KernelVolatileMemLock(type, paddr, psize);
 
 	switch (error) {
@@ -259,7 +259,7 @@ int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 	return error;
 }
 
-int sceKernelVolatileMemUnlock(int type) {
+static int sceKernelVolatileMemUnlock(int type) {
 	if (type != 0) {
 		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -296,7 +296,7 @@ int sceKernelVolatileMemUnlock(int type) {
 	return 0;
 }
 
-int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
+static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	u32 error = 0;
 
 	// If dispatch is disabled or in an interrupt, don't check, just return an error.
@@ -353,7 +353,7 @@ int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 }
 
 
-u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
+static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	if (g_Config.iLockedCPUSpeed > 0) {
 		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
 	}
@@ -371,7 +371,7 @@ u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	return 0;
 }
 
-u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
+static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 	if(g_Config.iLockedCPUSpeed > 0) {
 		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i): locked by user config at %i", cpufreq, g_Config.iLockedCPUSpeed);
 	}
@@ -386,7 +386,7 @@ u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 	return 0;
 }
 
-u32 scePowerSetBusClockFrequency(u32 busfreq) {
+static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	if(g_Config.iLockedCPUSpeed > 0) {
 		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i): locked by user config at %i", busfreq, busFreq);
 	}
@@ -402,46 +402,46 @@ u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	return 0;
 }
 
-u32 scePowerGetCpuClockFrequencyInt() {
+static u32 scePowerGetCpuClockFrequencyInt() {
 	int cpuFreq = CoreTiming::GetClockFrequencyMHz();
 	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
 	return cpuFreq;
 }
 
-u32 scePowerGetPllClockFrequencyInt() {
+static u32 scePowerGetPllClockFrequencyInt() {
 	INFO_LOG(HLE,"%i=scePowerGetPllClockFrequencyInt()", pllFreq);
 	return pllFreq;
 }
 
-u32 scePowerGetBusClockFrequencyInt() {
+static u32 scePowerGetBusClockFrequencyInt() {
 	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", busFreq);
 	return busFreq;
 }
 
-float scePowerGetCpuClockFrequencyFloat() {
+static float scePowerGetCpuClockFrequencyFloat() {
 	int cpuFreq = CoreTiming::GetClockFrequencyMHz(); 
 	INFO_LOG(HLE, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
 	return (float) cpuFreq;
 }
 
-float scePowerGetPllClockFrequencyFloat() {
+static float scePowerGetPllClockFrequencyFloat() {
 	INFO_LOG(HLE, "%f=scePowerGetPllClockFrequencyFloat()", (float)pllFreq);
 	return (float) pllFreq;
 }
 
-float scePowerGetBusClockFrequencyFloat() {
+static float scePowerGetBusClockFrequencyFloat() {
 	INFO_LOG(HLE, "%f=scePowerGetBusClockFrequencyFloat()", (float)busFreq);
 	return (float) busFreq;
 }
 
-int scePowerTick() {
+static int scePowerTick() {
 	DEBUG_LOG(HLE, "scePowerTick()");
 	// Don't think we need to do anything.
 	return 0;
 }
 
 
-u32 IsPSPNonFat() {
+static u32 IsPSPNonFat() {
 	DEBUG_LOG(HLE, "%d=scePower_a85880d0_IsPSPNonFat()", g_Config.iPSPModel);
 
 	return g_Config.iPSPModel;  

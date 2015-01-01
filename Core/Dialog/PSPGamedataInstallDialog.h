@@ -42,9 +42,9 @@ public:
 	virtual ~PSPGamedataInstallDialog();
 
 	virtual int Init(u32 paramAddr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
 
 	int Abort();
 	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);

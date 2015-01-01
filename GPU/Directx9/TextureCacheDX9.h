@@ -183,6 +183,8 @@ private:
 	TexCache cache;
 	TexCache secondCache;
 	std::vector<VirtualFramebuffer *> fbCache_;
+	u32 cacheSizeEstimate_;
+	u32 secondCacheSizeEstimate_;
 
 	// Separate to keep main texture cache size down.
 	struct AttachedFramebufferInfo {

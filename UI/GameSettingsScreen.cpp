@@ -44,7 +44,6 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -62,8 +61,8 @@ using namespace std;
 extern bool iosCanUseJit;
 #endif
 
-GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID)
-	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false) {
+GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), bEditThenRestore(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 }
 
@@ -73,6 +72,12 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+
+	if (bEditThenRestore)
+	{
+		g_Config.changeGameSpecific(gameID_);
+		g_Config.loadGameConfig(gameID_);
+	}
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
@@ -278,6 +283,9 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gs->T("Texture Coord Speedhack")));
 	prescale->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+	CheckBox *depthRange = graphicsSettings->Add(new CheckBox(&g_Config.bDepthRangeHack, gs->T("Depth Range Hack (Phantasy Star Portable 2)")));
+	depthRange->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	static const char *fpsChoices[] = {
 		"None", "Speed", "FPS", "Both"
@@ -382,8 +390,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("Emulation")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
+	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, s->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), s, screenManager()));
+	ioTimingMethod->SetEnabledPtr(&g_Config.bSeparateIOThread);
 	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, s->T("Force real clock sync (slower, less lag)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default) (unstable)"), screenManager()));
 #ifndef MOBILE_DEVICE
@@ -719,6 +730,10 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	g_Config.Save();
+	if (bEditThenRestore)
+	{
+		g_Config.unloadGameConfig();
+	}
 
 	host->UpdateUI();
 
@@ -921,9 +936,18 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	I18NCategory *de = GetI18NCategory("Developer");
 	I18NCategory *d = GetI18NCategory("Dialog");
-	screenManager()->push(
-		new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
-	std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	if (g_Config.bGameSpecific)
+	{
+		screenManager()->push(
+			new PromptScreen(de->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	}
+	else
+	{
+		screenManager()->push(
+			new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+	}
 
 	return UI::EVENT_DONE;
 }

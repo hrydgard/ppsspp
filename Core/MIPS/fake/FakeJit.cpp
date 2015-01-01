@@ -40,26 +40,22 @@ namespace MIPSComp
 
 FakeJitOptions::FakeJitOptions() {
 	enableBlocklink = true;
-	downcountInRegister = true;
-	useBackJump = false;
-	useForwardJump = false;
-	cachePointers = true;
 	immBranches = false;
 	continueBranches = false;
 	continueJumps = false;
 	continueMaxInstructions = 300;
 }
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
+FakeJit::FakeJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();
 }
 
-void Jit::DoState(PointerWrap &p)
+void FakeJit::DoState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1, 2);
+	auto s = p.Section("FakeJit", 1, 2);
 	if (!s)
 		return;
 
@@ -73,9 +69,9 @@ void Jit::DoState(PointerWrap &p)
 }
 
 // This is here so the savestate matches between jit and non-jit.
-void Jit::DoDummyState(PointerWrap &p)
+void FakeJit::DoDummyState(PointerWrap &p)
 {
-	auto s = p.Section("Jit", 1, 2);
+	auto s = p.Section("FakeJit", 1, 2);
 	if (!s)
 		return;
 
@@ -87,77 +83,91 @@ void Jit::DoDummyState(PointerWrap &p)
 	}
 }
 
-void Jit::FlushAll()
+void FakeJit::FlushAll()
 {
+	//gpr.FlushAll();
+	//fpr.FlushAll();
 	FlushPrefixV();
 }
 
-void Jit::FlushPrefixV()
+void FakeJit::FlushPrefixV()
 {
 }
 
-void Jit::ClearCache()
+void FakeJit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
+	//GenerateFixedCode();
 }
 
-void Jit::InvalidateCache()
+void FakeJit::InvalidateCache()
 {
 	blocks.Clear();
 }
 
-void Jit::InvalidateCacheAt(u32 em_address, int length)
+void FakeJit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);
 }
 
-void Jit::EatInstruction(MIPSOpcode op) {
+void FakeJit::EatInstruction(MIPSOpcode op) {
+	MIPSInfo info = MIPSGetInfo(op);
+	if (info & DELAYSLOT) {
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+	}
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
+	}
+
+	js.numInstructions++;
+	js.compilerPC += 4;
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void Jit::CompileDelaySlot(int flags)
+void FakeJit::CompileDelaySlot(int flags)
 {
 }
 
 
-void Jit::Compile(u32 em_address) {
+void FakeJit::Compile(u32 em_address) {
 }
 
-void Jit::RunLoopUntil(u64 globalticks)
+void FakeJit::RunLoopUntil(u64 globalticks)
 {
 	((void (*)())enterCode)();
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
+const u8 *FakeJit::DoFakeJit(u32 em_address, FakeJitBlock *b)
 {
 	return b->normalEntry;
 }
 
-void Jit::AddContinuedBlock(u32 dest)
+void FakeJit::AddContinuedBlock(u32 dest)
 {
 }
 
-bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
+bool FakeJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
 	// TODO: Not used by anything yet.
 	return false;
 }
 
-void Jit::Comp_RunBlock(MIPSOpcode op)
+void FakeJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-bool Jit::ReplaceJalTo(u32 dest) {
+bool FakeJit::ReplaceJalTo(u32 dest) {
 	return true;
 }
 
-void Jit::Comp_ReplacementFunc(MIPSOpcode op)
+void FakeJit::Comp_ReplacementFunc(MIPSOpcode op)
 {
 }
 
-void Jit::Comp_Generic(MIPSOpcode op)
+void FakeJit::Comp_Generic(MIPSOpcode op)
 {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
@@ -176,43 +186,43 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	}
 }
 
-void Jit::MovFromPC(FakeReg r) {
+void FakeJit::MovFromPC(FakeReg r) {
 }
 
-void Jit::MovToPC(FakeReg r) {
+void FakeJit::MovToPC(FakeReg r) {
 }
 
-void Jit::SaveDowncount() {
+void FakeJit::SaveDowncount() {
 }
 
-void Jit::RestoreDowncount() {
+void FakeJit::RestoreDowncount() {
 }
 
-void Jit::WriteDownCount(int offset) {
+void FakeJit::WriteDownCount(int offset) {
 }
 
 // Abuses R2
-void Jit::WriteDownCountR(FakeReg reg) {
+void FakeJit::WriteDownCountR(FakeReg reg) {
 }
 
-void Jit::RestoreRoundingMode(bool force) {
+void FakeJit::RestoreRoundingMode(bool force) {
 }
 
-void Jit::ApplyRoundingMode(bool force) {
+void FakeJit::ApplyRoundingMode(bool force) {
 }
 
-void Jit::UpdateRoundingMode() {
+void FakeJit::UpdateRoundingMode() {
 }
 
-void Jit::WriteExit(u32 destination, int exit_num)
+void FakeJit::WriteExit(u32 destination, int exit_num)
 {
 }
 
-void Jit::WriteExitDestInR(FakeReg Reg) 
+void FakeJit::WriteExitDestInR(FakeReg Reg) 
 {
 }
 
-void Jit::WriteSyscallExit()
+void FakeJit::WriteSyscallExit()
 {
 }
 

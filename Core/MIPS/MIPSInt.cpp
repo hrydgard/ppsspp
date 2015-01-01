@@ -29,7 +29,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"

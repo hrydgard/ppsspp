@@ -42,16 +42,15 @@
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 
 #if defined(ARM)
 #include "Core/MIPS/ARM/ArmAsm.h"
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
-#elif defined(PPC)
-#include "Core/MIPS/MIPS.h"
 #else
-#warning "Unsupported arch!"
+// FakeJit doesn't need an emitter, no blocks will be created
 #include "Core/MIPS/MIPS.h"
 #endif
 // #include "JitBase.h"
@@ -68,11 +67,17 @@ op_agent_t agent;
 #pragma comment(lib, "jitprofiling.lib")
 #endif
 
+#ifdef ARM
+using namespace ArmGen;
+using namespace ArmJitConstants;
+#elif defined(_M_X64) || defined(_M_IX86)
+using namespace Gen;
+#endif
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 const MIPSOpcode INVALID_ORIGINAL_OP = MIPSOpcode(0x00000001);
 
-JitBlockCache::JitBlockCache(MIPSState *mips, CodeBlock *codeBlock) :
+JitBlockCache::JitBlockCache(MIPSState *mips, NativeCodeBlock *codeBlock) :
 	mips_(mips), codeBlock_(codeBlock), blocks_(0), num_blocks_(0) {
 }
 
@@ -404,10 +409,21 @@ void JitBlockCache::LinkBlockExits(int i) {
 			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
 			if (destinationBlock != -1) 	{
 #if defined(ARM)
+				const u8 *nextExit = b.exitPtrs[e + 1];
+				if (!nextExit) {
+					nextExit = b.normalEntry + b.codeSize;
+				}
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks_[destinationBlock].checkedEntry);
+				u32 op = *((const u32 *)emit.GetCodePtr());
+				// Overwrite with nops until the next unconditional branch.
+				while ((op & 0xFF000000) != 0xEA000000) {
+					emit.BKPT(1);
+					op = *((const u32 *)emit.GetCodePtr());
+				}
+				emit.BKPT(1);
 				emit.FlushIcache();
-
+				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
 				// Okay, this is a bit ugly, but we check here if it already has a JMP.
@@ -422,12 +438,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 						emit.INT3();
 					}
 				}
-#elif defined(PPC)
-				PPCXEmitter emit(b.exitPtrs[e]);
-				emit.B(blocks_[destinationBlock].checkedEntry);
-				emit.FlushIcache();
-#endif
 				b.linkStatus[e] = true;
+#endif
 			}
 		}
 	}
@@ -572,12 +584,6 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	XEmitter emit((u8 *)b->checkedEntry);
 	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
 	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
-#elif defined(PPC)
-	PPCXEmitter emit((u8 *)b->checkedEntry);
-	emit.MOVI2R(R3, b->originalAddress);
-	emit.STW(R0, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
-	emit.FlushIcache();
 #endif
 }
 
@@ -609,12 +615,12 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 
 int JitBlockCache::GetBlockExitSize() {
 #if defined(ARM)
-	// TODO
+	// Will depend on the sequence found to encode the destination address.
 	return 0;
 #elif defined(_M_IX86) || defined(_M_X64)
 	return 15;
-#elif defined(PPC)
-	// TODO
+#else
+#warning GetBlockExitSize unimplemented
 	return 0;
 #endif
 }

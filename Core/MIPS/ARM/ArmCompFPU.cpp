@@ -46,8 +46,10 @@
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
-void Jit::Comp_FPU3op(MIPSOpcode op)
+void ArmJit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
 
@@ -85,7 +87,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op)
 
 extern int logBlocks;
 
-void Jit::Comp_FPULS(MIPSOpcode op)
+void ArmJit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -188,7 +190,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_FPUComp(MIPSOpcode op) {
+void ArmJit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int opc = op & 0xF;
@@ -253,7 +255,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 	SetCC(CC_AL);
 }
 
-void Jit::Comp_FPU2op(MIPSOpcode op) {
+void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -347,7 +349,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
-void Jit::Comp_mxc1(MIPSOpcode op)
+void ArmJit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -357,9 +359,12 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	switch ((op >> 21) & 0x1f)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		fpr.MapReg(fs);
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
-		VMOV(gpr.R(rt), fpr.R(fs));
+		if (fpr.IsMapped(fs)) {
+			VMOV(gpr.R(rt), fpr.R(fs));
+		} else {
+			LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		}
 		return;
 
 	case 2: //cfc1
@@ -392,9 +397,14 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.MapReg(rt);
-		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
-		VMOV(fpr.R(fs), gpr.R(rt));
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+			fpr.MapReg(fs, MAP_NOINIT);
+			MOVI2F(fpr.R(fs), 0.0f, R0);
+		} else {
+			gpr.MapReg(rt);
+			fpr.MapReg(fs, MAP_NOINIT);
+			VMOV(fpr.R(fs), gpr.R(rt));
+		}
 		return;
 
 	case 6: //ctc1

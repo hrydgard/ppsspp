@@ -29,6 +29,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Host.h"
+#include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
@@ -38,7 +39,6 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
@@ -56,6 +56,7 @@ namespace SaveState
 		SAVESTATE_LOAD,
 		SAVESTATE_VERIFY,
 		SAVESTATE_REWIND,
+		SAVESTATE_SAVE_SCREENSHOT,
 	};
 
 	struct Operation
@@ -183,7 +184,7 @@ namespace SaveState
 			next_ = 0;
 		}
 
-		bool Empty()
+		bool Empty() const
 		{
 			return next_ == first_;
 		}
@@ -277,6 +278,11 @@ namespace SaveState
 		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
 	}
 
+	void SaveScreenshot(const std::string &filename, Callback callback, void *cbUserData)
+	{
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, callback, cbUserData));
+	}
+
 	bool CanRewind()
 	{
 		return !rewindStates.Empty();
@@ -320,20 +326,34 @@ namespace SaveState
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to load state. Error in the file system.", 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData)
 	{
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		std::string shot = GenerateSaveSlotFilename(slot, SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
-			Save(fn, callback, cbUserData);
+			auto renameCallback = [=](bool status, void *data) {
+				if (status) {
+					if (File::Exists(fn)) {
+						File::Delete(fn);
+					}
+					File::Rename(fn + ".tmp", fn);
+				}
+				if (callback) {
+					callback(status, data);
+				}
+			};
+			// Let's also create a screenshot.
+			SaveScreenshot(shot, Callback(), 0);
+			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 
@@ -381,6 +401,16 @@ namespace SaveState
 		return newestSlot;
 	}
 
+	std::string GetSlotDateAsString(int slot) {
+		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		if (File::Exists(fn)) {
+			tm time = File::GetModifTime(fn);
+			char buf[256];
+			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+			return std::string(buf);
+		}
+		return "";
+	}
 
 	std::vector<Operation> Flush()
 	{
@@ -500,6 +530,7 @@ namespace SaveState
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
+
 					osm.Show(s->T("Saved State"), 2.0);
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
@@ -539,6 +570,12 @@ namespace SaveState
 				} else {
 					osm.Show(i18nLoadFailure, 2.0);
 					callbackResult = false;
+				}
+				break;
+
+			case SAVESTATE_SAVE_SCREENSHOT:
+				if (!TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER)) {
+					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
 

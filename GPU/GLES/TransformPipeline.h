@@ -17,15 +17,7 @@
 
 #pragma once
 
-#if defined(IOS)
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-}
-#else
 #include <unordered_map>
-#endif
-
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -119,8 +111,8 @@ public:
 	virtual ~TransformDrawEngine();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
-	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -215,7 +207,7 @@ private:
 		u32 vertType;
 		u8 indexType;
 		s8 prim;
-		u16 vertexCount;
+		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 	};

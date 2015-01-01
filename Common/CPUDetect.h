@@ -16,8 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 // Detect the cpu, so we'll know which optimizations to use
-#ifndef _CPUDETECT_H_
-#define _CPUDETECT_H_
+#pragma once
 
 // Every architecture has its own define. This needs to be added to.
 #if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7S__)
@@ -61,6 +60,7 @@ struct CPUInfo {
 	bool bAES;
 	bool bLAHFSAHF64;
 	bool bLongMode;
+	bool bAtom;
 	bool bBMI1;
 	bool bBMI2;
 	bool bMOVBE;
@@ -85,6 +85,10 @@ struct CPUInfo {
 	bool bFP;
 	bool bASIMD;
 
+	// MIPS specific
+	bool bXBurst1;
+	bool bXBurst2;
+
 	// Call Detect()
 	explicit CPUInfo();
 
@@ -97,5 +101,3 @@ private:
 };
 
 extern CPUInfo cpu_info;
-
-#endif // _CPUDETECT_H_

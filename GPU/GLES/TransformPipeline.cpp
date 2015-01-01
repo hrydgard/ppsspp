@@ -109,7 +109,7 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define QUAD_INDICES_MAX 32768
+#define QUAD_INDICES_MAX 65536
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
@@ -144,14 +144,6 @@ TransformDrawEngine::TransformDrawEngine()
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
-	for (int i = 0; i < QUAD_INDICES_MAX; i++) {
-		quadIndices_[i * 6 + 0] = i * 4;
-		quadIndices_[i * 6 + 1] = i * 4 + 2;
-		quadIndices_[i * 6 + 2] = i * 4 + 1;
-		quadIndices_[i * 6 + 3] = i * 4 + 1;
-		quadIndices_[i * 6 + 4] = i * 4 + 2;
-		quadIndices_[i * 6 + 5] = i * 4 + 3;
-	}
 
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
@@ -370,8 +362,7 @@ void TransformDrawEngine::DecodeVertsStep() {
 	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
 	u32 indexType = dc.indexType;
-	void *inds = dc.inds;
-	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+	if (indexType == (GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT)) {
 		// Decode the verts and apply morphing. Simple.
 		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);

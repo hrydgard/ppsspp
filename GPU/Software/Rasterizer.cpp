@@ -885,7 +885,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_add_ps(s, d), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_add_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
 #endif
@@ -896,7 +896,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(s, d), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
 #endif
@@ -907,7 +907,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(d, s), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(d, s), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
 #endif

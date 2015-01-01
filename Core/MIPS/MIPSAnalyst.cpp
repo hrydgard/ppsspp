@@ -16,15 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-};
-#else
 #include <unordered_map>
-#endif
 #include <set>
 #include "base/mutex.h"
 #include "ext/cityhash/city.h"
@@ -39,7 +31,6 @@ namespace std {
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/xxhash.h"
 
 using namespace MIPSCodeUtils;
@@ -138,6 +129,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
 	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
+	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
 	{ 0x1f53eac122f96b37, 224, "cosf", },
@@ -310,6 +302,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
 	{ 0x9734cf721bc0f3a1, 732, "atanf", },
+	{ 0x99c9288185c352ea, 592, "orenoimouto_download_frame_2", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
@@ -679,35 +672,111 @@ namespace MIPSAnalyst {
 		}
 	}
 
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+	enum RegisterUsage {
+		USAGE_CLOBBERED,
+		USAGE_INPUT,
+		USAGE_UNKNOWN,
+	};
+
+	static RegisterUsage DetermineInOutUsage(u64 inFlag, u64 outFlag, u32 addr, int instrs) {
+		const u32 start = addr;
 		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			const MIPSInfo info = MIPSGetInfo(op);
 
 			// Yes, used.
-			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
-				return true;
-			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
-				return true;
+			if (info & inFlag)
+				return USAGE_INPUT;
 
 			// Clobbered, so not used.
-			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return false;
-			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return false;
-			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return false;
+			if (info & outFlag)
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
 				// Still need to check the delay slot (so end after it.)
 				// We'll assume likely are taken.
 				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
 			}
 			addr += 4;
 		}
-		return false;
+		return USAGE_UNKNOWN;
+	}
+
+	static RegisterUsage DetermineRegisterUsage(MIPSGPReg reg, u32 addr, int instrs) {
+		switch (reg) {
+		case MIPS_REG_HI:
+			return DetermineInOutUsage(IN_HI, OUT_HI, addr, instrs);
+		case MIPS_REG_LO:
+			return DetermineInOutUsage(IN_LO, OUT_LO, addr, instrs);
+		case MIPS_REG_FPCOND:
+			return DetermineInOutUsage(IN_FPUFLAG, OUT_FPUFLAG, addr, instrs);
+		case MIPS_REG_VFPUCC:
+			return DetermineInOutUsage(IN_VFPU_CC, OUT_VFPU_CC, addr, instrs);
+		default:
+			break;
+		}
+
+		if (reg > 32) {
+			return USAGE_UNKNOWN;
+		}
+
+		const u32 start = addr;
+		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
+		while (addr < end) {
+			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSInfo info = MIPSGetInfo(op);
+
+			// Yes, used.
+			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
+				return USAGE_INPUT;
+			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
+				return USAGE_INPUT;
+
+			// Clobbered, so not used.
+			bool clobbered = false;
+			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
+				clobbered = true;
+			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
+				clobbered = true;
+			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
+				clobbered = true;
+			if (clobbered) {
+				if (!canClobber || (info & IS_CONDMOVE))
+					return USAGE_UNKNOWN;
+				return USAGE_CLOBBERED;
+			}
+
+			// Bail early if we hit a branch (could follow each path for continuing?)
+			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+				// Still need to check the delay slot (so end after it.)
+				// We'll assume likely are taken.
+				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
+			}
+			addr += 4;
+		}
+		return USAGE_UNKNOWN;
+	}
+
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_INPUT;
+	}
+
+	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
 	void HashFunctions() {
@@ -1107,7 +1176,7 @@ skip:
 		return 0;
 	}
 
-	void SetHashMapFilename(std::string filename) {
+	void SetHashMapFilename(const std::string& filename) {
 		if (filename.empty())
 			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
 		else
@@ -1179,7 +1248,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(std::string filename) {
+	void LoadHashMap(const std::string& filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

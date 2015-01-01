@@ -15,15 +15,14 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
-
-#ifndef _DOLPHIN_ARM_CODEGEN_
-#define _DOLPHIN_ARM_CODEGEN_
+#pragma once
 
 #include <vector>
 #include <stdint.h>
 
 #include "Common.h"
+#include "ArmCommon.h"
+#include "CodeBlock.h"
 #include "MsgHandler.h"
 
 // TODO: Check if Pandora still needs signal.h/kill here. Symbian doesn't.
@@ -70,28 +69,6 @@ enum ARMReg
 	REG_UPDATE = R13,
 	INVALID_REG = 0xFFFFFFFF
 };
-
-enum CCFlags
-{
-	CC_EQ = 0, // Equal
-	CC_NEQ, // Not equal
-	CC_CS, // Carry Set
-	CC_CC, // Carry Clear
-	CC_MI, // Minus (Negative)
-	CC_PL, // Plus
-	CC_VS, // Overflow
-	CC_VC, // No Overflow
-	CC_HI, // Unsigned higher
-	CC_LS, // Unsigned lower or same
-	CC_GE, // Signed greater than or equal
-	CC_LT, // Signed less than
-	CC_GT, // Signed greater than
-	CC_LE, // Signed less than or equal
-	CC_AL, // Always (unconditional) 14
-	CC_HS = CC_CS, // Alias of CC_CS  Unsigned higher or same
-	CC_LO = CC_CC, // Alias of CC_CC  Unsigned lower
-};
-const u32 NO_COND = 0xE0000000;
 
 enum ShiftType
 {
@@ -143,7 +120,7 @@ private:
 	u8 IndexOrShift;
 	ShiftType Shift;
 public:
-	OpType GetType()
+	OpType GetType() const
 	{
 		return Type;
 	}
@@ -240,35 +217,35 @@ public:
 		_assert_msg_(JIT, Type == TYPE_RSR, "RSR must be RSR Of Course");
 		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Value;
 	}
-	u32 Rm()
+	u32 Rm() const
 	{
 		_assert_msg_(JIT, Type == TYPE_REG, "Rm must be with Reg");
 		return Value;
 	}
 
-	u32 Imm5()
+	u32 Imm5() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm5 not IMM value");
 		return ((Value & 0x0000001F) << 7);
 	}
-	u32 Imm8()
+	u32 Imm8() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
 		return Value & 0xFF;
 	}
-	u32 Imm8Rot() // IMM8 with Rotation
+	u32 Imm8Rot() const // IMM8 with Rotation
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8Rot not IMM value");
 		_assert_msg_(JIT, (Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
 		return (1 << 25) | (Rotation << 7) | (Value & 0x000000FF);
 	}
-	u32 Imm12()
+	u32 Imm12() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12 not IMM");
 		return (Value & 0x00000FFF);
 	}
 
-	u32 Imm12Mod()
+	u32 Imm12Mod() const
 	{
 		// This is an IMM12 with the top four bits being rotation and the
 		// bottom eight being an IMM. This is for instructions that need to
@@ -278,32 +255,32 @@ public:
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm12Mod not IMM");
 		return ((Rotation & 0xF) << 8) | (Value & 0xFF);
 	}
-	u32 Imm16()
+	u32 Imm16() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( (Value & 0xF000) << 4) | (Value & 0x0FFF);
 	}
-	u32 Imm16Low()
+	u32 Imm16Low() const
 	{
 		return Imm16();
 	}
-	u32 Imm16High() // Returns high 16bits
+	u32 Imm16High() const // Returns high 16bits
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( ((Value >> 16) & 0xF000) << 4) | ((Value >> 16) & 0x0FFF);
 	}
-	u32 Imm24()
+	u32 Imm24() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm16 not IMM");
 		return (Value & 0x0FFFFFFF);
 	}
 	// NEON and ASIMD specific
-	u32 Imm8ASIMD()
+	u32 Imm8ASIMD() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8ASIMD not IMM");
 		return  ((Value & 0x80) << 17) | ((Value & 0x70) << 12) | (Value & 0xF);
 	}
-	u32 Imm8VFP()
+	u32 Imm8VFP() const
 	{
 		_assert_msg_(JIT, (Type == TYPE_IMM), "Imm8VFP not IMM");
 		return ((Value & 0xF0) << 12) | (Value & 0xF);
@@ -354,6 +331,20 @@ const u32 I_UNSIGNED = (1 << 5);
 const u32 F_32 = (1 << 6);
 const u32 I_POLYNOMIAL = (1 << 7); // Only used in VMUL/VMULL
 
+enum VIMMMode {
+	VIMM___x___x = 0x0, // 0000 VMOV
+	VIMM__x___x_ = 0x2, // 0010
+	VIMM_x___x__ = 0x4, // 0100
+	VIMMx___x___ = 0x6, // 0110
+	VIMM_x_x_x_x = 0x8, // 1000
+	VIMMx_x_x_x_ = 0xA, // 1010
+	VIMM__x1__x1 = 0xC, // 1100
+	VIMM_x11_x11 = 0xD, // 1101
+	VIMMxxxxxxxx = 0xE, // 1110  // op == 0
+	VIMMf000f000 = 0xF, // 1111  // op == 0     ( really   aBbbbbbc defgh 00000000 00000000 ) where B = NOT b
+	VIMMbits2bytes = 0x1E,   // Bit replication into bytes! Easily created 111111111 00000000 masks!
+};
+
 u32 EncodeVd(ARMReg Vd);
 u32 EncodeVn(ARMReg Vn);
 u32 EncodeVm(ARMReg Vm);
@@ -363,10 +354,40 @@ u32 encodedSize(u32 value);
 // Subtracts the base from the register to give us the real one
 ARMReg SubBase(ARMReg Reg);
 
+inline bool IsQ(ARMReg r) {
+	return r >= Q0 && r <= Q15;
+}
+
+inline bool IsD(ARMReg r) {
+	return r >= D0 && r <= D31;
+}
+
 // See A.7.1 in the ARMv7-A
 // VMUL F32 scalars can only be up to D15[0], D15[1] - higher scalars cannot be individually addressed
 ARMReg DScalar(ARMReg dreg, int subScalar);
 ARMReg QScalar(ARMReg qreg, int subScalar);
+inline ARMReg XScalar(ARMReg reg, int subScalar) {
+	if (IsQ(reg))
+		return QScalar(reg, subScalar);
+	else
+		return DScalar(reg, subScalar);
+}
+
+const char *ARMRegAsString(ARMReg reg);
+
+// Get the two halves of a Q register.
+inline ARMReg D_0(ARMReg q) {
+	if (q >= Q0 && q <= Q15) {
+		return ARMReg(D0 + (q - Q0) * 2);
+	} else if (q >= D0 && q <= D31) {
+		return q;
+	} else {
+		return INVALID_REG;
+	}
+}
+inline ARMReg D_1(ARMReg q) {
+	return ARMReg(D0 + (q - Q0) * 2 + 1);
+}
 
 enum NEONAlignment {
 	ALIGN_NONE = 0,
@@ -404,6 +425,8 @@ private:
 
 	void WriteVLDST1(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int regCount, NEONAlignment align, ARMReg Rm);
 	void WriteVLDST1_lane(bool load, u32 Size, ARMReg Vd, ARMReg Rn, int lane, bool aligned, ARMReg Rm);
+
+	void WriteVimm(ARMReg Vd, int cmode, u8 imm, int op);
 
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
@@ -465,7 +488,7 @@ public:
 	void B (ARMReg src);
 	void BL(const void *fnptr);
 	void BL(ARMReg src);
-	bool BLInRange(const void *fnptr);
+	bool BLInRange(const void *fnptr) const;
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);
@@ -720,6 +743,7 @@ public:
 	void VMOV_neon(u32 Size, ARMReg Vd, ARMReg Rt, int lane);
 
 	void VNEG(u32 Size, ARMReg Vd, ARMReg Vm);
+	void VMVN(ARMReg Vd, ARMReg Vm);
 	void VPADAL(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VPADD(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VPADDL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -754,6 +778,16 @@ public:
 	void VREV32(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VREV16(u32 Size, ARMReg Vd, ARMReg Vm);
 
+
+	// NEON immediate instructions
+
+
+	void VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMOV_immf(ARMReg Vd, float value);  // This only works with a select few values (1.0f and -1.0f).
+
+	void VORR_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VMVN_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
+	void VBIC_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm);
 
 	// Widening and narrowing moves
 	void VMOVL(u32 Size, ARMReg Vd, ARMReg Vm);
@@ -851,53 +885,10 @@ public:
 // Everything that needs to generate machine code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class ARMXCodeBlock : public ARMXEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
 
+class ARMXCodeBlock : public CodeBlock<ARMXEmitter> {
 public:
-	ARMXCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~ARMXCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size);
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace();
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace();
-
-	bool IsInSpace(const u8 *ptr) const
-	{
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect();
-	void UnWriteProtect();
-
-	void ResetCodePtr()
-	{
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const
-	{
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory() override;
 };
 
 // VFP Specific
@@ -909,5 +900,3 @@ extern const VFPEnc VFPOps[16][2];
 extern const char *VFPOpNames[16];
 
 }  // namespace
-
-#endif // _DOLPHIN_INTEL_CODEGEN_

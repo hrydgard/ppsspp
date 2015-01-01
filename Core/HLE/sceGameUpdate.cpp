@@ -17,26 +17,27 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceGameUpdate.h"
 
-u32 sceGameUpdateInit()
+static u32 sceGameUpdateInit()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateInit()");
 	return 0;
 }
 
-u32 sceGameUpdateTerm()
+static u32 sceGameUpdateTerm()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateTerm()");
 	return 0;
 }
 
-u32 sceGameUpdateRun()
+static u32 sceGameUpdateRun()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateRun()");
 	return 0;
 }
 
-u32 sceGameUpdateAbort()
+static u32 sceGameUpdateAbort()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateAbort()");
 	return 0;

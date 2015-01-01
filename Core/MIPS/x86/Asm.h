@@ -18,35 +18,31 @@
 #ifndef _JIT64ASM_H
 #define _JIT64ASM_H
 
-#include "x64Emitter.h"
-#include "../MIPS.h"
+#include "Common/x64Emitter.h"
+#include "Core/MIPS/MIPS.h"
 
 // Runtime generated assembly routines, like the Dispatcher.
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 	class Jit;
+	struct JitOptions;
 }
 
-class AsmRoutineManager : public Gen::XCodeBlock
-{
+class AsmRoutineManager : public Gen::XCodeBlock {
 private:
-	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
+	void Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo);
 	void GenerateCommon();
 
 public:
-	AsmRoutineManager()
-	{
+	AsmRoutineManager() {
 	}
-	~AsmRoutineManager()
-	{
+	~AsmRoutineManager() {
 		FreeCodeSpace();
 	}
 
-	void Init(MIPSState *mips, MIPSComp::Jit *jit)
-	{
+	void Init(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo) {
 		AllocCodeSpace(8192);
-		Generate(mips, jit);
+		Generate(mips, jit, jo);
 		WriteProtect();
 	}
 
@@ -56,6 +52,7 @@ public:
 	const u8 *dispatcher;
 	const u8 *dispatcherCheckCoreState;
 	const u8 *dispatcherNoCheck;
+	const u8 *dispatcherInEAXNoCheck;
 
 	const u8 *breakpointBailout;
 };

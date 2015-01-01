@@ -56,13 +56,16 @@
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
+#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
+#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+
 #ifndef GL_UNPACK_ROW_LENGTH
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
 extern int g_iNumVideos;
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
+TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -89,6 +92,38 @@ TextureCache::~TextureCache() {
 	FreeAlignedMemory(clutBufRaw_);
 }
 
+static u32 EstimateTexMemoryUsage(const TextureCache::TexCacheEntry *entry) {
+	const u16 dim = entry->dim;
+	const u8 dimW = ((dim >> 0) & 0xf);
+	const u8 dimH = ((dim >> 8) & 0xf);
+
+	u32 pixelSize = 2;
+	switch (entry->format) {
+	case GE_TFMT_CLUT4:
+	case GE_TFMT_CLUT8:
+	case GE_TFMT_CLUT16:
+	case GE_TFMT_CLUT32:
+		// We assume cluts always point to 8888 for simplicity.
+		pixelSize = 4;
+		break;
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+		break;
+
+	case GE_TFMT_8888:
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+	default:
+		pixelSize = 4;
+		break;
+	}
+
+	// This in other words multiplies by w and h.
+	return pixelSize << (dimW + dimH);
+}
+
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	lastBoundTexture = -1;
@@ -110,6 +145,8 @@ void TextureCache::Clear(bool delete_them) {
 		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
 		cache.clear();
 		secondCache.clear();
+		cacheSizeEstimate_ = 0;
+		secondCacheSizeEstimate_ = 0;
 	}
 	fbTexInfo_.clear();
 }
@@ -120,6 +157,8 @@ void TextureCache::DeleteTexture(TexCache::iterator it) {
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
 	}
+
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
 	cache.erase(it);
 }
 
@@ -131,27 +170,38 @@ void TextureCache::Decimate() {
 		return;
 	}
 
-	glBindTexture(GL_TEXTURE_2D, 0);
-	lastBoundTexture = -1;
-	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			DeleteTexture(iter++);
-		} else {
-			++iter;
+	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate_;
+
+		glBindTexture(GL_TEXTURE_2D, 0);
+		lastBoundTexture = -1;
+		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
+				DeleteTexture(iter++);
+			} else {
+				++iter;
+			}
 		}
+
+		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
 	}
 
-	if (g_Config.bTextureSecondaryCache) {
+	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
+		const u32 had = secondCacheSizeEstimate_;
+
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				glDeleteTextures(1, &iter->second.texture);
+				secondCacheSizeEstimate_ -= EstimateTexMemoryUsage(&iter->second);
 				secondCache.erase(iter++);
 			} else {
 				++iter;
 			}
 		}
+
+		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
 	}
 }
 
@@ -219,8 +269,8 @@ void TextureCache::ClearNextFrame() {
 
 
 void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
-	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
+	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
+	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	bool hasFartherFramebuffer = false;
 	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
 		// If it's valid, but the offset is greater, then we still win.
@@ -230,9 +280,13 @@ void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuff
 			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
 	}
 	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 		host->GPUNotifyTextureAttachment(entry->addr);
@@ -242,10 +296,14 @@ void TextureCache::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuff
 }
 
 void TextureCache::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
+	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCache::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
 		fbTexInfo_[entry->addr] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
@@ -360,6 +418,7 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 
 inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
+		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 		entry->framebuffer = 0;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
@@ -703,6 +762,8 @@ void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeigh
 	bool tClamp;
 	float lodBias;
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+
+	minFilt &= 1;  // framebuffers can't mipmap.
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
@@ -1207,7 +1268,6 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.flipTexture = false;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool replaceImages = false;
 
 	if (iter != cache.end()) {
@@ -1314,6 +1374,7 @@ void TextureCache::SetTexture(bool force) {
 							}
 						} else {
 							secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
+							secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 							secondCache[secondKey] = *entry;
 							doDelete = false;
 						}
@@ -1341,6 +1402,7 @@ void TextureCache::SetTexture(bool force) {
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
@@ -1412,6 +1474,9 @@ void TextureCache::SetTexture(bool force) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	// For the estimate, we assume cluts always point to 8888 for simplicity.
+	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
 	// Always generate a texture name, we might need it if the texture is replaced later.
 	if (!replaceImages) {
@@ -1526,13 +1591,13 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
 #ifndef USING_GLES2
 		if (badMipSizes) {
+			// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 			for (int i = 1; i <= maxLevel; i++) {
@@ -1541,8 +1606,14 @@ void TextureCache::SetTexture(bool force) {
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 		}
-#else 
-		glGenerateMipmap(GL_TEXTURE_2D);
+#else
+		// Avoid PowerVR driver bug
+		if (w > 1 && h > 1 && !(gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && h > w)) {  // Really! only seems to fail if height > width
+			// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
+			glGenerateMipmap(GL_TEXTURE_2D);
+		} else {
+			entry->maxLevel = 0;
+		}
 #endif
 	} else {
 #ifndef USING_GLES2

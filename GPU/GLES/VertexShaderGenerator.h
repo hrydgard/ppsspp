@@ -21,34 +21,9 @@
 
 // #define USE_BONE_ARRAY
 
-struct VertexShaderID
-{
-	VertexShaderID() {d[0] = 0xFFFFFFFF;}
-	void clear() {d[0] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const VertexShaderID &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
-	}
-	bool operator == (const VertexShaderID &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
-	}
-};
+struct ShaderID;
 
 bool CanUseHardwareTransform(int prim);
 
-void ComputeVertexShaderID(VertexShaderID *id, u32 vertexType, int prim, bool useHWTransform);
+void ComputeVertexShaderID(ShaderID *id, u32 vertexType, bool useHWTransform);
 void GenerateVertexShader(int prim, u32 vertexType, char *buffer, bool useHWTransform);

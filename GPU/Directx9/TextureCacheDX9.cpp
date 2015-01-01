@@ -56,7 +56,10 @@ namespace DX9 {
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
-TextureCacheDX9::TextureCacheDX9() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
+#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
+#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+
+TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -96,6 +99,38 @@ TextureCacheDX9::~TextureCacheDX9() {
 	FreeAlignedMemory(clutBufRaw_);
 }
 
+static u32 EstimateTexMemoryUsage(const TextureCacheDX9::TexCacheEntry *entry) {
+	const u16 dim = entry->dim;
+	const u8 dimW = ((dim >> 0) & 0xf);
+	const u8 dimH = ((dim >> 8) & 0xf);
+
+	u32 pixelSize = 2;
+	switch (entry->format) {
+	case GE_TFMT_CLUT4:
+	case GE_TFMT_CLUT8:
+	case GE_TFMT_CLUT16:
+	case GE_TFMT_CLUT32:
+		// We assume cluts always point to 8888 for simplicity.
+		pixelSize = 4;
+		break;
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+		break;
+
+	case GE_TFMT_8888:
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+	default:
+		pixelSize = 4;
+		break;
+	}
+
+	// This in other words multiplies by w and h.
+	return pixelSize << (dimW + dimH);
+}
+
 void TextureCacheDX9::Clear(bool delete_them) {
 	pD3Ddevice->SetTexture(0, NULL);
 	lastBoundTexture = INVALID_TEX;
@@ -113,6 +148,8 @@ void TextureCacheDX9::Clear(bool delete_them) {
 		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
 		cache.clear();
 		secondCache.clear();
+		cacheSizeEstimate_ = 0;
+		secondCacheSizeEstimate_ = 0;
 	}
 	fbTexInfo_.clear();
 }
@@ -123,6 +160,8 @@ void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
 	}
+
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(&it->second);
 	cache.erase(it);
 }
 
@@ -139,18 +178,26 @@ void TextureCacheDX9::Decimate() {
 		return;
 	}
 
-	pD3Ddevice->SetTexture(0, NULL);
-	lastBoundTexture = INVALID_TEX;
-	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
-			DeleteTexture(iter++);
-		} else {
-			++iter;
+	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
+		const u32 had = cacheSizeEstimate_;
+
+		pD3Ddevice->SetTexture(0, NULL);
+		lastBoundTexture = INVALID_TEX;
+		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
+				DeleteTexture(iter++);
+			} else {
+				++iter;
+			}
 		}
+
+		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
 	}
 
-	if (g_Config.bTextureSecondaryCache) {
+	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
+		const u32 had = secondCacheSizeEstimate_;
+
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
@@ -160,6 +207,8 @@ void TextureCacheDX9::Decimate() {
 				++iter;
 			}
 		}
+
+		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
 	}
 }
 
@@ -227,8 +276,8 @@ void TextureCacheDX9::ClearNextFrame() {
 
 
 void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
-	const bool hasOlderFramebuffer = entry->framebuffer != 0 && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
+	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
+	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	bool hasFartherFramebuffer = false;
 	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
 		// If it's valid, but the offset is greater, then we still win.
@@ -238,6 +287,9 @@ void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFrameb
 			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
 	}
 	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCacheDX9::TexCacheEntry::STATUS_DEPALETTIZE;
@@ -251,6 +303,9 @@ void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFrameb
 
 void TextureCacheDX9::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
 	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCacheDX9::TexCacheEntry::STATUS_DEPALETTIZE;
@@ -368,6 +423,7 @@ bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, Virtu
 
 inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
 	if (entry->framebuffer == framebuffer) {
+		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 		entry->framebuffer = 0;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
@@ -693,7 +749,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
 	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
 
-	if (g_Config.iAnisotropyLevel > 0) {
+	if (g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
 		minf = D3DTEXF_ANISOTROPIC;
 	}
 
@@ -1080,6 +1136,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 							}
 						} else {
 							secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
+							secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 							secondCache[secondKey] = *entry;
 							doDelete = false;
 						}
@@ -1107,6 +1164,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
@@ -1178,6 +1236,9 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	// For the estimate, we assume cluts always point to 8888 for simplicity.
+	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
 	// TODO: If a framebuffer is attached here, might end up with a bad entry.texture.
 	// Should just always create one here or something (like GLES.)
@@ -1652,7 +1713,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 
-	if (level == 0 && !replaceImages) {
+	if (level == 0 && (!replaceImages || entry.texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;

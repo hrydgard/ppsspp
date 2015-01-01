@@ -54,8 +54,10 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
 
-void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -168,7 +170,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 }
 
 
-void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool likely)
+void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -273,7 +275,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, ArmGen::CCFlags cc, bool andLink, bool
 }
 
 
-void Jit::Comp_RelBranch(MIPSOpcode op)
+void ArmJit::Comp_RelBranch(MIPSOpcode op)
 {
 	// The CC flags here should be opposite of the actual branch becuase they skip the branching action.
 	switch (op >> 26)
@@ -296,7 +298,7 @@ void Jit::Comp_RelBranch(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_RelBranchRI(MIPSOpcode op)
+void ArmJit::Comp_RelBranchRI(MIPSOpcode op)
 {
 	switch ((op >> 16) & 0x1F)
 	{
@@ -315,7 +317,7 @@ void Jit::Comp_RelBranchRI(MIPSOpcode op)
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void Jit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -358,7 +360,7 @@ void Jit::BranchFPFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	js.compiling = false;
 }
 
-void Jit::Comp_FPUBranch(MIPSOpcode op)
+void ArmJit::Comp_FPUBranch(MIPSOpcode op)
 {
 	switch((op >> 16) & 0x1f)
 	{
@@ -373,7 +375,7 @@ void Jit::Comp_FPUBranch(MIPSOpcode op)
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
+void ArmJit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -429,7 +431,7 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, ArmGen::CCFlags cc, bool likely)
 	js.compiling = false;
 }
 
-void Jit::Comp_VBranch(MIPSOpcode op)
+void ArmJit::Comp_VBranch(MIPSOpcode op)
 {
 	switch ((op >> 16) & 3)
 	{
@@ -440,7 +442,7 @@ void Jit::Comp_VBranch(MIPSOpcode op)
 	}
 }
 
-void Jit::Comp_Jump(MIPSOpcode op) {
+void ArmJit::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
@@ -499,7 +501,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-void Jit::Comp_JumpReg(MIPSOpcode op)
+void ArmJit::Comp_JumpReg(MIPSOpcode op)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
@@ -578,7 +580,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 }
 
 	
-void Jit::Comp_Syscall(MIPSOpcode op)
+void ArmJit::Comp_Syscall(MIPSOpcode op)
 {
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
@@ -610,7 +612,7 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	js.compiling = false;
 }
 
-void Jit::Comp_Break(MIPSOpcode op)
+void ArmJit::Comp_Break(MIPSOpcode op)
 {
 	Comp_Generic(op);
 	WriteSyscallExit();

@@ -438,6 +438,10 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	UpdateCmdInfo();
 
 	BuildReportingInfo();
+
+	// Some of our defaults are different from hw defaults, let's assert them.
+	// We restore each frame anyway, but here is convenient for tests.
+	dxstate.Restore();
 }
 
 void DIRECTX9_GPU::UpdateCmdInfo() {
@@ -543,7 +547,7 @@ void DIRECTX9_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferForma
 
 bool DIRECTX9_GPU::FramebufferDirty() {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Allow it to process fully before deciding if it's dirty.
@@ -559,7 +563,7 @@ bool DIRECTX9_GPU::FramebufferDirty() {
 }
 bool DIRECTX9_GPU::FramebufferReallyDirty() {
 	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
 		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 		// Allow it to process fully before deciding if it's dirty.
@@ -799,7 +803,7 @@ void DIRECTX9_GPU::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
@@ -840,7 +844,7 @@ void DIRECTX9_GPU::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
 		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 		return;
 	}
@@ -2127,6 +2131,10 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	return success;
+}
+
+bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	return FramebufferManagerDX9::GetDisplayFramebuffer(buffer);
 }
 
 bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

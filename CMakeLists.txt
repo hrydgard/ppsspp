@@ -33,26 +33,16 @@ set(USE_FFMPEG ON)
 
 if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
-	set(MOBILE_DEVICE ON)
 endif()
 
 include(CheckIncludeFile)
 check_include_file(/opt/vc/include/bcm_host.h RPI)
-if(RPI)
-	set(MOBILE_DEVICE OFF)
-endif()
 
 if(BB)
-	set(MOBILE_DEVICE OFF)
 	set(ARMV7 ON)
 	set(USING_FBDEV ON)
 endif()
 
-
-if(USING_EGL)
-	# Default to GLES2 but could be GL.
-	set(USING_GLES2 ON)
-endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
@@ -119,6 +109,8 @@ if(ANDROID OR BLACKBERRY OR IOS)
 			"Re-run ${CMAKE_COMMAND} with:\n"
 			"\"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\"")
 	endif()
+	set(MOBILE_DEVICE ON)
+	set(USING_GLES2 ON)
 endif()
 
 if(ANDROID)
@@ -128,6 +120,8 @@ else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
 endif()
+
+include_directories(native)
 
 if(RPI)
 	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
@@ -240,7 +234,8 @@ if(NOT MSVC)
 
 	if(IOS)
 		add_definitions(-DGL_ETC1_RGB8_OES=0)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
+		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 		# armv7s (without resorting to FastMemory) is still a work in progress
 		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
 		set(CMAKE_OSX_ARCHITECTURES "armv7")
@@ -306,6 +301,11 @@ elseif(X86)
 		Common/x64Analyzer.h
 		Common/x64Emitter.cpp
 		Common/x64Emitter.h)
+elseif(MIPS)
+	set(CommonExtra ${CommonExtra}
+		Common/MipsCPUDetect.cpp
+		Common/MipsEmitter.cpp
+		Common/MipsEmitter.h)
 else()
 	set(CommonExtra ${CommonExtra}
 		Common/FakeCPUDetect.cpp
@@ -332,6 +332,8 @@ add_library(Common STATIC
 	Common/Crypto/md5.h
 	Common/Crypto/sha1.cpp
 	Common/Crypto/sha1.h
+	Common/Crypto/sha256.cpp
+	Common/Crypto/sha256.h
 	Common/FileUtil.cpp
 	Common/FileUtil.h
 	Common/KeyMap.cpp
@@ -372,33 +374,8 @@ if(NOT USING_GLES2)
 	set(GLEW_LIBRARIES glew)
 endif()
 
-add_library(snappy STATIC
-	ext/snappy/snappy-c.cpp
-	ext/snappy/snappy-internal.h
-	ext/snappy/snappy-sinksource.h
-	ext/snappy/snappy-stubs-internal.h
-	ext/snappy/snappy-stubs-public.h
-	ext/snappy/snappy.cpp
-	ext/snappy/snappy.h
-)
-include_directories(ext/snappy)
-
-add_library(udis86 STATIC
-	ext/udis86/decode.c
-	ext/udis86/decode.h
-	ext/udis86/extern.h
-	ext/udis86/itab.c
-	ext/udis86/itab.h
-	ext/udis86/syn-att.c
-	ext/udis86/syn-intel.c
-	ext/udis86/syn.c
-	ext/udis86/syn.h
-	ext/udis86/types.h
-	ext/udis86/udint.h
-	ext/udis86/udis86.c
-	ext/udis86/udis86.h
-)
-include_directories(ext/udis86)
+add_subdirectory(ext/snappy)
+add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
 	native/ext/vjson/json.cpp
@@ -508,8 +485,9 @@ if(USE_FFMPEG)
 		)
 	endif()
 
-	if(APPLE OR BLACKBERRY)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+	find_library(ICONV_LIBRARY NAMES iconv)
+	if (ICONV_LIBRARY)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${ICONV_LIBRARY})
 	endif()
 
 	if(APPLE)
@@ -786,6 +764,7 @@ elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL2_INCLUDE_DIR})
+	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra} 
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
@@ -811,6 +790,7 @@ set(NativeAppSource
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
 	UI/MiscScreens.cpp
+	UI/PauseScreen.cpp
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp
 	UI/TiltAnalogSettingsScreen.cpp
@@ -1047,6 +1027,7 @@ if(ARM)
 		Core/MIPS/ARM/ArmCompLoadStore.cpp
 		Core/MIPS/ARM/ArmCompVFPU.cpp
 		Core/MIPS/ARM/ArmCompVFPUNEON.cpp
+		Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
 		Core/MIPS/ARM/ArmCompReplace.cpp
 		Core/MIPS/ARM/ArmJit.cpp
 		Core/MIPS/ARM/ArmJit.h
@@ -1075,6 +1056,12 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
+		ext/disarm.cpp)
+elseif(MIPS)
+	set(CoreExtra ${CoreExtra}
+		Core/MIPS/MIPS/MipsJit.cpp
+		Core/MIPS/MIPS/MipsJit.h
+		GPU/Common/VertexDecoderFake.cpp
 		ext/disarm.cpp)
 else()
 	set(CoreExtra ${CoreExtra}
@@ -1257,6 +1244,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceRtc.h
 	Core/HLE/sceSas.cpp
 	Core/HLE/sceSas.h
+	Core/HLE/sceSha256.cpp
+	Core/HLE/sceSha256.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp
@@ -1293,6 +1282,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Loaders.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
+	Core/MIPS/JitCommon/NativeJit.h
 	Core/MIPS/JitCommon/JitBlockCache.cpp
 	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/MIPS.cpp
@@ -1317,8 +1307,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
-	Core/MIPS/MIPSAsmTables.cpp
-	Core/MIPS/MIPSAsmTables.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
 	Core/MemMap.cpp
@@ -1332,6 +1320,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Reporting.h
 	Core/SaveState.cpp
 	Core/SaveState.h
+	Core/Screenshot.cpp
+	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/GameManager.cpp

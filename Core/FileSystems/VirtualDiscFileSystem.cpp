@@ -88,7 +88,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			line = line.substr(3);
 		}
 
-		if (strlen(line.data()) < 1 || line[0] == ';') {
+		if (line.empty() || line[0] == ';') {
 			continue;
 		}
 
@@ -146,7 +146,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
 {
-	auto s = p.Section("VirtualDiscFileSystem", 1);
+	auto s = p.Section("VirtualDiscFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -215,6 +215,12 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			p.Do(of.startOffset);
 			p.Do(of.size);
 		}
+	}
+
+	if (s >= 2) {
+		p.Do(lastReadBlock_);
+	} else {
+		lastReadBlock_ = 0;
 	}
 
 	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
@@ -422,6 +428,11 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 }
 
 size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -468,6 +479,12 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			temp.Close();
 
 			iter->second.curOffset += size;
+			// TODO: This probably isn't enough...
+			if (abs((int)lastReadBlock_ - (int)iter->second.curOffset) > 100) {
+				// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+				usec = 100000;
+			}
+			lastReadBlock_ = iter->second.curOffset;
 			return size;
 		}
 
@@ -696,6 +713,12 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 }
 
 size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
+{
+	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
+	return 0;
+}
+
+size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
 	return 0;

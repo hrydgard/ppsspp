@@ -55,6 +55,9 @@
 
 namespace MIPSComp
 {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
+
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
 	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
@@ -79,7 +82,7 @@ namespace MIPSComp
 		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 	}
 
-	void Jit::Comp_VPFX(MIPSOpcode op)
+	void ArmJit::Comp_VPFX(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
@@ -103,7 +106,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
+	void ArmJit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 		if (prefix == 0xE4)
 			return;
 
@@ -150,12 +153,12 @@ namespace MIPSComp
 			} else {
 				fpr.MapRegV(vregs[i], MAP_DIRTY | MAP_NOINIT);
 				fpr.SpillLockV(vregs[i]);
-				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], SCRATCHREG1, negate);
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], SCRATCHREG1, (bool)negate);
 			}
 		}
 	}
 
-	void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
+	void ArmJit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 
 		GetVectorRegs(regs, sz, vectorReg);
@@ -170,7 +173,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
+	void ArmJit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 		if (!js.prefixD)
 			return;
@@ -217,7 +220,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_SV(MIPSOpcode op) {
+	void ArmJit::Comp_SV(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_SV);
 		CONDITIONAL_DISABLE;
 
@@ -322,10 +325,10 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_SVQ(MIPSOpcode op)
+	void ArmJit::Comp_SVQ(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_SVQ);
+		CONDITIONAL_DISABLE;
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
@@ -467,7 +470,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VVectorInit(MIPSOpcode op)
+	void ArmJit::Comp_VVectorInit(MIPSOpcode op)
 	{
 		NEON_IF_AVAILABLE(CompNEON_VVectorInit);
 		CONDITIONAL_DISABLE;
@@ -504,8 +507,9 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VIdt(MIPSOpcode op) {
+	void ArmJit::Comp_VIdt(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VIdt);
+
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -541,7 +545,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VMatrixInit(MIPSOpcode op)
+	void ArmJit::Comp_VMatrixInit(MIPSOpcode op)
 	{
 		NEON_IF_AVAILABLE(CompNEON_VMatrixInit);
 		CONDITIONAL_DISABLE;
@@ -590,7 +594,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VHdp(MIPSOpcode op) {
+	void ArmJit::Comp_VHdp(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VHdp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -631,7 +635,52 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VDot(MIPSOpcode op) {
+	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
+
+	void ArmJit::Comp_Vhoriz(MIPSOpcode op) {
+		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+
+		int n = GetNumVectorElements(sz);
+
+		bool is_vavg = ((op >> 16) & 0x1f) == 7;
+		if (is_vavg) {
+			MOVI2F(S1, vavg_table[n - 1], R0);
+		}
+		VMOV(S0, fpr.V(sregs[0]));
+		for (int i = 1; i < n; i++) {
+			// sum += s[i];
+			VADD(S0, S0, fpr.V(sregs[i]));
+		}
+
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
+		if (is_vavg) {
+			VMUL(fpr.V(dregs[0]), S0, S1);
+		} else {
+			VMOV(fpr.V(dregs[0]), S0);
+		}
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+		// NOTICE_LOG(JIT, "vfad/vags at %08x, ", js.compilerPC);
+	}
+
+	void ArmJit::Comp_VDot(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VDot);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -668,7 +717,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VecDo3(MIPSOpcode op) {
+	void ArmJit::Comp_VecDo3(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VecDo3);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -828,7 +877,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VV2Op(MIPSOpcode op) {
+	void ArmJit::Comp_VV2Op(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VV2Op);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1021,7 +1070,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vi2f(MIPSOpcode op) {
+	void ArmJit::Comp_Vi2f(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vi2f);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1068,7 +1117,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vh2f(MIPSOpcode op) {
+	void ArmJit::Comp_Vh2f(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vh2f);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1130,7 +1179,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vf2i(MIPSOpcode op) {
+	void ArmJit::Comp_Vf2i(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vf2i);
 		CONDITIONAL_DISABLE;
 
@@ -1200,7 +1249,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Mftv(MIPSOpcode op) {
+	void ArmJit::Comp_Mftv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_Mftv);
 
@@ -1275,7 +1324,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vmfvc(MIPSOpcode op) {
+	void ArmJit::Comp_Vmfvc(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
 
@@ -1294,7 +1343,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Vmtvc(MIPSOpcode op) {
+	void ArmJit::Comp_Vmtvc(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE;
 
@@ -1321,7 +1370,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Vmmov(MIPSOpcode op) {
+	void ArmJit::Comp_Vmmov(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmmov);
 		CONDITIONAL_DISABLE;
 
@@ -1359,7 +1408,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_VScl(MIPSOpcode op) {
+	void ArmJit::Comp_VScl(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VScl);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1409,7 +1458,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vmmul(MIPSOpcode op) {
+	void ArmJit::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1452,12 +1501,12 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Vmscl(MIPSOpcode op) {
+	void ArmJit::Comp_Vmscl(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmscl);
 		DISABLE;
 	}
 
-	void Jit::Comp_Vtfm(MIPSOpcode op) {
+	void ArmJit::Comp_Vtfm(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vtfm);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1518,27 +1567,27 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VCrs(MIPSOpcode op) {
+	void ArmJit::Comp_VCrs(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VCrs);
 		DISABLE;
 	}
 
-	void Jit::Comp_VDet(MIPSOpcode op) {
+	void ArmJit::Comp_VDet(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VDet);
 		DISABLE;
 	}
 
-	void Jit::Comp_Vi2x(MIPSOpcode op) {
+	void ArmJit::Comp_Vi2x(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vi2x);
 		DISABLE;
 	}
 
-	void Jit::Comp_Vx2i(MIPSOpcode op) {
+	void ArmJit::Comp_Vx2i(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vx2i);
 		DISABLE;
 	}
 
-	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
+	void ArmJit::Comp_VCrossQuat(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VCrossQuat);
 		// This op does not support prefixes anyway.
 		CONDITIONAL_DISABLE;
@@ -1574,7 +1623,7 @@ namespace MIPSComp
 			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
 			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
 
-			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
 			VMOV(fpr.V(dregs[1]), S1);
 			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
@@ -1609,7 +1658,7 @@ namespace MIPSComp
 			VMLS(fpr.V(temp4), fpr.V(sregs[2]), fpr.V(tregs[2]));
 			VMLA(fpr.V(temp4), fpr.V(sregs[3]), fpr.V(tregs[3]));
 
-			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
 			VMOV(fpr.V(dregs[1]), S1);
 			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
@@ -1619,7 +1668,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcmp(MIPSOpcode op) {
+	void ArmJit::Comp_Vcmp(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vcmp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
@@ -1807,7 +1856,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcmov(MIPSOpcode op) {
+	void ArmJit::Comp_Vcmov(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vcmov);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1858,7 +1907,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Viim(MIPSOpcode op) {
+	void ArmJit::Comp_Viim(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Viim);
 		CONDITIONAL_DISABLE;
 
@@ -1873,7 +1922,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vfim(MIPSOpcode op) {
+	void ArmJit::Comp_Vfim(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vfim);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1893,7 +1942,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcst(MIPSOpcode op) {
+	void ArmJit::Comp_Vcst(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vcst);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1934,10 +1983,37 @@ namespace MIPSComp
 		return sincos.out;
 	}
 
+	void ArmJit::CompVrotShuffle(u8 *dregs, int imm, VectorSize sz, bool negSin) {
+		int n = GetNumVectorElements(sz);
+		char what[4] = {'0', '0', '0', '0'};
+		if (((imm >> 2) & 3) == (imm & 3)) {
+			for (int i = 0; i < 4; i++)
+				what[i] = 'S';
+		}
+		what[(imm >> 2) & 3] = 'S';
+		what[imm & 3] = 'C';
+
+		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
+		for (int i = 0; i < n; i++) {
+			switch (what[i]) {
+			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
+			case 'S': if (negSin) VNEG(fpr.V(dregs[i]), S0); else VMOV(fpr.V(dregs[i]), S0); break;
+			case '0':
+				{
+					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
+					break;
+				}
+			default:
+				ERROR_LOG(JIT, "Bad what in vrot");
+				break;
+			}
+		}
+	}
+
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
-	void Jit::Comp_VRot(MIPSOpcode op) {
+	void ArmJit::Comp_VRot(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_VRot);
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
@@ -1952,8 +2028,21 @@ namespace MIPSComp
 		int n = GetNumVectorElements(sz);
 
 		u8 dregs[4];
+		u8 dregs2[4];
+
+		u32 nextOp = Memory::Read_Opcode_JIT(js.compilerPC + 4).encoding;
+		int vd2 = -1;
+		int imm2 = -1;
+		if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+			// Pair of vrot. Let's join them.
+			vd2 = MIPS_GET_VD(nextOp);
+			imm2 = (nextOp >> 16) & 0x1f;
+			// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+		}
 		u8 sreg;
 		GetVectorRegs(dregs, sz, vd);
+		if (vd2 >= 0)
+			GetVectorRegs(dregs2, sz, vd2);
 		GetVectorRegs(&sreg, V_Single, vs);
 
 		int imm = (op >> 16) & 0x1f;
@@ -1961,7 +2050,7 @@ namespace MIPSComp
 		gpr.FlushBeforeCall();
 		fpr.FlushAll();
 
-		bool negSin = (imm & 0x10) ? true : false;
+		bool negSin1 = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
 		// We should write a custom pure-asm function instead.
@@ -1971,52 +2060,23 @@ namespace MIPSComp
 		VMOV(R0, fpr.V(sreg));
 #endif
 		// FlushBeforeCall saves R1.
-		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+		QuickCallFunction(R1, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
 #if !defined(__ARM_PCS_VFP)
 		// Returns D0 on hardfp and R0,R1 on softfp due to union joining the two floats
 		VMOV(D0, R0, R1);
 #endif
-
-		char what[4] = {'0', '0', '0', '0'};
-		if (((imm >> 2) & 3) == (imm & 3)) {
-			for (int i = 0; i < 4; i++)
-				what[i] = 'S';
+		CompVrotShuffle(dregs, imm, sz, false);
+		if (vd2 != -1) {
+			// If the negsin setting differs between the two joint invocations, we need to flip the second one.
+			bool negSin2 = (imm2 & 0x10) ? true : false;
+			CompVrotShuffle(dregs2, imm2, sz, negSin1 != negSin2);
+			js.compilerPC += 4;
 		}
-		what[(imm >> 2) & 3] = 'S';
-		what[imm & 3] = 'C';
 
-		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
-		for (int i = 0; i < n; i++) {
-			switch (what[i]) {
-			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
-			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
-			case '0':
-				{
-					MOVI2F(fpr.V(dregs[i]), 0.0f, SCRATCHREG1);
-					break;
-				}
-			default:
-				ERROR_LOG(JIT, "Bad what in vrot");
-				break;
-			}
-		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vhoriz(MIPSOpcode op) {
-		NEON_IF_AVAILABLE(CompNEON_Vhoriz);
-		DISABLE;
-
-		// Do any games use these a noticable amount?
-		switch ((op >> 16) & 31) {
-		case 6:  // vfad
-			break;
-		case 7:  // vavg
-			break;
-		}
-	}
-
-	void Jit::Comp_Vsgn(MIPSOpcode op) {
+	void ArmJit::Comp_Vsgn(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vsgn);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -2065,7 +2125,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vocp(MIPSOpcode op) {
+	void ArmJit::Comp_Vocp(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vocp);
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -2111,4 +2171,11 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void ArmJit::Comp_ColorConv(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void ArmJit::Comp_Vbfy(MIPSOpcode op) {
+		DISABLE;
+	}
 }

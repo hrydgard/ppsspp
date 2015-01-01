@@ -49,7 +49,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Windows/EmuThread.h"
@@ -262,8 +262,9 @@ namespace MainWindow
 		UpdateRenderResolution();
 		
 		if (!noWindowMovement) {
-			UpdateScreenScale(width, height);
-			NativeMessageReceived("gpu resized", "");
+			if (UpdateScreenScale(width, height)) {
+				NativeMessageReceived("gpu resized", "");
+			}
 		}
 	}
 

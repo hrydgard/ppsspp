@@ -1841,6 +1841,14 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
+bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	fbo_unbind_read();
+	buffer.Allocate(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GPU_DBG_FORMAT_888_RGB, true);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	return true;
+}
+
 bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
 	int fb_stride = gstate.FrameBufStride();

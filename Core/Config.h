@@ -50,6 +50,13 @@ enum {
 	GPU_BACKEND_DIRECT3D9 = 1,
 };
 
+// For iIOTimingMethod.
+enum IOTimingMethods {
+	IOTIMING_FAST = 0,
+	IOTIMING_HOST = 1,
+	IOTIMING_REALISTIC = 2,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -65,6 +72,7 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
+	bool bGameSpecific;
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -108,6 +116,7 @@ public:
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
+	int iIOTimingMethod;
 	bool bSeparateIOThread;
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
@@ -165,6 +174,7 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
+	bool bDepthRangeHack;
 	bool bTimerHack;
 	bool bAlphaMaskHack;
 	bool bBlockTransferGPU;
@@ -343,9 +353,19 @@ public:
 	std::string upgradeVersion;
 	std::string dismissedVersion;
 
-	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
+	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save();
 	void RestoreDefaults();
+	
+	//per game config managment, should maybe be in it's own class
+	void changeGameSpecific(const std::string &gameId = "");
+	bool createGameConfig(const std::string &game_id);
+	bool deleteGameConfig(const std::string& pGameId);
+	bool loadGameConfig(const std::string &game_id);
+	bool saveGameConfig(const std::string &pGameId);
+	void unloadGameConfig();
+	std::string getGameConfigFile(const std::string &gameId);
+	bool hasGameConfig(const std::string &game_id);
 
 	// Used when the file is not found in the search path.  Trailing slash.
 	void SetDefaultPath(const std::string &defaultPath);
@@ -366,10 +386,12 @@ public:
 	
 	
 private:
+	std::string gameId_;
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;
 	std::string defaultPath_;
+	std::string createdPath_;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();

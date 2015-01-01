@@ -176,6 +176,8 @@
     <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="JitHarness.cpp" />
     <ClCompile Include="UnitTest.cpp" />
+    <ClCompile Include="TestArmEmitter.cpp" />
+    <ClCompile Include="TestX64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
@@ -202,6 +204,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />
+    <ClInclude Include="UnitTest.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

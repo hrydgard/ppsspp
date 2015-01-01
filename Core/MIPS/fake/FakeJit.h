@@ -28,33 +28,27 @@
 namespace MIPSComp
 {
 
+typedef int FakeReg;
+
 struct FakeJitOptions
 {
 	FakeJitOptions();
 
-	bool useNEONVFPU;
 	bool enableBlocklink;
-	bool downcountInRegister;
-	bool useBackJump;
-	bool useForwardJump;
-	bool cachePointers;
 	bool immBranches;
 	bool continueBranches;
 	bool continueJumps;
 	int continueMaxInstructions;
 };
 
-class Jit : public FakeGen::FakeXCodeBlock
+class FakeJit : public FakeGen::FakeXCodeBlock
 {
 public:
-	Jit(MIPSState *mips);
+	FakeJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
-	// Compiled ops should ignore delay slots
-	// the compiler will take care of them by itself
-	// OR NOT
 	void Comp_Generic(MIPSOpcode op);
 
 	void RunLoopUntil(u64 globalticks);
@@ -136,6 +130,8 @@ public:
 	void Comp_VCrossQuat(MIPSOpcode op) {}
 	void Comp_Vsgn(MIPSOpcode op) {}
 	void Comp_Vocp(MIPSOpcode op) {}
+	void Comp_ColorConv(MIPSOpcode op) {}
+	void Comp_Vbfy(MIPSOpcode op) {}
 
 	int Replace_fabsf() { return 0; }
 
@@ -169,24 +165,6 @@ private:
 	void WriteExitDestInR(FakeReg Reg);
 	void WriteSyscallExit();
 
-	// Utility compilation functions
-	void BranchFPFlag(MIPSOpcode op, FakeGen::CCFlags cc, bool likely);
-	void BranchVFPUFlag(MIPSOpcode op, FakeGen::CCFlags cc, bool likely);
-	void BranchRSZeroComp(MIPSOpcode op, FakeGen::CCFlags cc, bool andLink, bool likely);
-	void BranchRSRTComp(MIPSOpcode op, FakeGen::CCFlags cc, bool likely);
-
-	// Utilities to reduce duplicated code
-	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (FakeXEmitter::*arith)(FakeReg dst, FakeReg src, Operand2 op2), bool (FakeXEmitter::*tryArithI2R)(FakeReg dst, FakeReg src, u32 val), u32 (*eval)(u32 a, u32 b));
-	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (FakeXEmitter::*arithOp2)(FakeReg dst, FakeReg rm, Operand2 rn), bool (FakeXEmitter::*tryArithI2R)(FakeReg dst, FakeReg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric = false);
-
-	void CompShiftImm(MIPSOpcode op, FakeGen::ShiftType shiftType, int sa);
-	void CompShiftVar(MIPSOpcode op, FakeGen::ShiftType shiftType);
-
-	// Utils
-	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
-	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, FakeReg tempReg, bool reverse = false);
-	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
-
 	JitBlockCache blocks;
 	FakeJitOptions jo;
 	JitState js;
@@ -210,8 +188,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (FakeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (FakeJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

@@ -23,7 +23,10 @@
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
 	float uv[2];
-	u8 color[4];
+	union {
+		u8 color[4];
+		u32_le color_32;
+	};
 	Vec3Packedf nrm;
 	Vec3Packedf pos;
 };
@@ -46,6 +49,8 @@ struct BezierPatch {
 
 	// These are used to generate UVs.
 	int u_index, v_index;
+
+	int index;
 
 	// Interpolate colors between control points (bilinear, should be good enough).
 	void sampleColor(float u, float v, u8 color[4]) const {
@@ -161,5 +166,5 @@ enum quality {
 	HIGH_QUALITY = 2,
 };
 
-void TesselateSplinePatch(u8 *&dest, int &count, const SplinePatchLocal &spatch, u32 origVertType);
-void TesselateBezierPatch(u8 *&dest, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType);
+void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType);
+void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType);
