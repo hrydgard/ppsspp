@@ -136,7 +136,7 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 			memcpy(temp + y * buf.GetStride() * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, buf.GetStride() * 3);
 		}
 		buffer = temp;
-	} else {
+	} else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
 		// Let's boil it down to how we need to interpret the bits.
 		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
 		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
@@ -205,7 +205,10 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 				}
 			}
 		}
+		buffer = temp;
 	}
+
+	return buffer;
 }
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type) {
