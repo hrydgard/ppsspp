@@ -130,6 +130,7 @@ enum SystemProperty {
 	SYSPROP_SYSTEMVERSION,
 	SYSPROP_DISPLAY_XRES,
 	SYSPROP_DISPLAY_YRES,
+	SYSPROP_MOGA_VERSION
 };
 
 std::string System_GetProperty(SystemProperty prop);

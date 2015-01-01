@@ -43,6 +43,7 @@ std::queue<FrameCommand> frameCommands;
 
 std::string systemName;
 std::string langRegion;
+std::string mogaVersion;
 
 static float left_joystick_x_async;
 static float left_joystick_y_async;
@@ -103,6 +104,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return systemName;
 	case SYSPROP_LANGREGION:  // "en_US"
 		return langRegion;
+	case SYSPROP_MOGA_VERSION:
+		return mogaVersion;
 	default:
 		return "";
 	}
@@ -519,5 +522,9 @@ extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerom
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
+
+	if (msg == "moga") {
+		mogaVersion = prm;
+	}
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }

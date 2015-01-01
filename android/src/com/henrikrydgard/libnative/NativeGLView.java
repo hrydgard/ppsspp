@@ -32,7 +32,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		super(activity);
 		mActivity = activity;
 
-		/*
+		/*// TODO: This would be nice.
 		if (Build.VERSION.SDK_INT >= 11) {
 			try {
 				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
@@ -57,12 +57,8 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		if (mController.init()) {
 			Log.i(TAG, "MOGA initialized");
 			mController.setListener(this, new Handler());
-			if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) != Controller.ACTION_VERSION_MOGA) {
-				Log.i(TAG, "MOGA pro detected");
-				isMogaPro = true;
-			}
 		} else {
-			Log.i(TAG, "MOGA failed to initialize");
+			Log.i(TAG, "MOGA failed to initialize. No moga detected?");
 		}
 	}
 
@@ -202,12 +198,20 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			switch (state.getAction()) {
 			case StateEvent.ACTION_CONNECTED:
 				Log.i(TAG, "Moga Connected");
+				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
+					NativeApp.sendMessage("moga", "Moga");
+				} else {
+					Log.i(TAG, "MOGA Pro detected");
+					isMogaPro = true;
+					NativeApp.sendMessage("moga", "MogaPro");
+				}
 				break;
 			case StateEvent.ACTION_CONNECTING:
 				Log.i(TAG, "Moga Connecting...");
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
 				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
+				NativeApp.sendMessage("moga", "");
 				break;
 			}
 			break;
