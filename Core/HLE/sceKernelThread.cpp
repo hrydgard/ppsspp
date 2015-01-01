@@ -3309,7 +3309,7 @@ static bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-static void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
 	hleSkipDeadbeef();
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
