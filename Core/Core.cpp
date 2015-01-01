@@ -117,7 +117,7 @@ bool UpdateScreenScale(int width, int height) {
 #if defined(__SYMBIAN32__)
 	g_dpi_scale = 1.4f;
 #elif defined(_WIN32)
-	if (pixel_xres < 480 + 80) {
+	if (width < 480 + 80) {
 		g_dpi_scale = 2.0f;
 	}
 #endif
