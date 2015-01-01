@@ -47,6 +47,7 @@ enum GPUDebugBufferFormat {
 
 	// 565 is just reversed, the others have B and R swapped.
 	GPU_DBG_FORMAT_565_BGRA = 0x04,
+	GPU_DBG_FORMAT_BRSWAP_FLAG = 0x08,
 	GPU_DBG_FORMAT_5551_BGRA = 0x09,
 	GPU_DBG_FORMAT_4444_BGRA = 0x0A,
 	GPU_DBG_FORMAT_8888_BGRA = 0x0B,

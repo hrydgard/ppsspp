@@ -70,11 +70,13 @@ private:
 static bool WriteScreenshotToJPEG(const char *filename, int width, int height, int num_channels, const uint8 *image_data, const jpge::params &comp_params) {
 	JPEGFileStream dst_stream(filename);
 	if (!dst_stream.Valid()) {
+		ERROR_LOG(COMMON, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	jpge::jpeg_encoder dst_image;
 	if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params)) {
+		ERROR_LOG(COMMON, "Screenshot JPEG encode init failed.");
 		return false;
 	}
 
@@ -82,12 +84,18 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 		for (int i = 0; i < height; i++) {
 			const uint8 *buf = image_data + i * width * num_channels;
 			if (!dst_image.process_scanline(buf)) {
+				ERROR_LOG(COMMON, "Screenshot JPEG encode scanline failed.");
 				return false;
 			}
 		}
 		if (!dst_image.process_scanline(NULL)) {
+			ERROR_LOG(COMMON, "Screenshot JPEG encode scanline flush failed.");
 			return false;
 		}
+	}
+
+	if (!dst_stream.Valid()) {
+		ERROR_LOG(COMMON, "Screenshot file write failed.");
 	}
 
 	dst_image.deinit();
@@ -97,18 +105,108 @@ static bool WriteScreenshotToJPEG(const char *filename, int width, int height, i
 static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int convert_to_8bit, const void *buffer, png_int_32 row_stride, const void *colormap) {
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
+		ERROR_LOG(COMMON, "Unable to open screenshot file for writing.");
 		return false;
 	}
 
 	if (png_image_write_to_stdio(image, fp, convert_to_8bit, buffer, row_stride, colormap)) {
-		return fclose(fp) == 0;
+		if (fclose(fp) != 0) {
+			ERROR_LOG(COMMON, "Screenshot file write failed.");
+			return false;
+		}
+		return true;
 	} else {
+		ERROR_LOG(COMMON, "Screenshot PNG encode failed.");
 		fclose(fp);
 		remove(filename);
 		return false;
 	}
 }
 #endif
+
+static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
+	// The temp buffer will be freed by the caller if set, and can be the return value.
+	temp = nullptr;
+
+	const u8 *buffer = buf.GetData();
+	if (buf.GetFlipped() && buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
+		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
+		temp = new u8[3 * buf.GetStride() * buf.GetHeight()];
+		for (u32 y = 0; y < buf.GetHeight(); y++) {
+			memcpy(temp + y * buf.GetStride() * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, buf.GetStride() * 3);
+		}
+		buffer = temp;
+	} else {
+		// Let's boil it down to how we need to interpret the bits.
+		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
+		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
+		bool brswap = (buf.GetFormat() & GPU_DBG_FORMAT_BRSWAP_FLAG) != 0;
+		bool flip = buf.GetFlipped();
+
+		temp = new u8[3 * buf.GetStride() * buf.GetHeight()];
+
+		// This is pretty inefficient.
+		const u16 *buf16 = (const u16 *)buffer;
+		const u32 *buf32 = (const u32 *)buffer;
+		for (u32 y = 0; y < buf.GetHeight(); y++) {
+			for (u32 x = 0; x < buf.GetStride(); x++) {
+				u8 *dst;
+				if (flip) {
+					dst = &temp[(buf.GetHeight() - y - 1) * buf.GetStride() * 3 + x * 3];
+				} else {
+					dst = &temp[y * buf.GetStride() * 3 + x * 3];
+				}
+
+				u8 &r = brswap ? dst[2] : dst[0];
+				u8 &g = dst[1];
+				u8 &b = brswap ? dst[0] : dst[2];
+
+				u32 src;
+				switch (baseFmt) {
+				case GPU_DBG_FORMAT_565:
+					src = buf16[y * buf.GetStride() + x];
+					if (rev) {
+						src = bswap16(src);
+					}
+					r = Convert5To8((src >> 0) & 0x1F);
+					g = Convert6To8((src >> 5) & 0x3F);
+					b = Convert5To8((src >> 11) & 0x1F);
+					break;
+				case GPU_DBG_FORMAT_5551:
+					src = buf16[y * buf.GetStride() + x];
+					if (rev) {
+						src = bswap16(src);
+					}
+					r = Convert5To8((src >> 0) & 0x1F);
+					g = Convert5To8((src >> 5) & 0x1F);
+					b = Convert5To8((src >> 10) & 0x1F);
+					break;
+				case GPU_DBG_FORMAT_4444:
+					src = buf16[y * buf.GetStride() + x];
+					if (rev) {
+						src = bswap16(src);
+					}
+					r = Convert4To8((src >> 0) & 0xF);
+					g = Convert4To8((src >> 4) & 0xF);
+					b = Convert4To8((src >> 8) & 0xF);
+					break;
+				case GPU_DBG_FORMAT_8888:
+					src = buf32[y * buf.GetStride() + x];
+					if (rev) {
+						src = bswap32(src);
+					}
+					r = (src >> 0) & 0xFF;
+					g = (src >> 8) & 0xFF;
+					b = (src >> 16) & 0xFF;
+					break;
+				default:
+					ERROR_LOG(COMMON, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
+					return nullptr;
+				}
+			}
+		}
+	}
+}
 
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type) {
 	GPUDebugBuffer buf;
@@ -128,9 +226,14 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		}
 	}
 
+	if (!success) {
+		ERROR_LOG(COMMON, "Failed to obtain screenshot data.");
+		return false;
+	}
+
 #ifdef USING_QT_UI
 	if (success) {
-		// TODO: Handle other formats (e.g. Direct3D.)  Would only happen on Qt/Windows.
+		// TODO: Handle other formats (e.g. Direct3D, raw framebuffers.)
 		const u8 *buffer = buf.GetData();
 		QImage image(buffer, buf.GetStride(), buf.GetHeight(), QImage::Format_RGB888);
 		image = image.mirrored();
@@ -138,40 +241,10 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	}
 #else
 	if (success) {
-		const u8 *buffer = buf.GetData();
 		u8 *flipbuffer = nullptr;
-		if (buf.GetFlipped()) {
-			// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
-			flipbuffer = new u8[3 * buf.GetStride() * buf.GetHeight()];
-			if (buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
-				for (u32 y = 0; y < buf.GetHeight(); y++) {
-					memcpy(flipbuffer + y * buf.GetStride() * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, buf.GetStride() * 3);
-				}
-			} else if (buf.GetFormat() == GPU_DBG_FORMAT_8888) {
-				for (u32 y = 0; y < buf.GetHeight(); y++) {
-					for (u32 x = 0; x < buf.GetStride(); x++) {
-						u8 *dst = &flipbuffer[(buf.GetHeight() - y - 1) * buf.GetStride() * 3 + x * 3];
-						const u8 *src = &buffer[y * buf.GetStride() * 4 + x * 4];
-						memcpy(dst, src, 3);
-					}
-				}
-			} else {
-				success = false;
-			}
-			buffer = flipbuffer;
-		} else if (buf.GetFormat() == GPU_DBG_FORMAT_8888_BGRA) {
-			// Yay, we need to swap AND remove alpha.
-			flipbuffer = new u8[3 * buf.GetStride() * buf.GetHeight()];
-			for (u32 y = 0; y < buf.GetHeight(); y++) {
-				for (u32 x = 0; x < buf.GetStride(); x++) {
-					u8 *dst = &flipbuffer[y * buf.GetStride() * 3 + x * 3];
-					const u8 *src = &buffer[y * buf.GetStride() * 4 + x * 4];
-					dst[0] = src[2];
-					dst[1] = src[1];
-					dst[2] = src[0];
-				}
-			}
-			buffer = flipbuffer;
+		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer);
+		if (buffer == nullptr) {
+			success = false;
 		}
 
 		if (success && fmt == SCREENSHOT_PNG) {
@@ -185,6 +258,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 			png_image_free(&png);
 
 			if (png.warning_or_error >= 2) {
+				ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
 				success = false;
 			}
 		} else if (success && fmt == SCREENSHOT_JPG) {
