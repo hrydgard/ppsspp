@@ -254,6 +254,14 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
 
 #ifdef ANDROID
+	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
+	if (moga.empty()) {
+		moga = "(none detected)";
+	}
+	deviceSpecs->Add(new InfoItem("Moga", moga));
+#endif
+
+#ifdef ANDROID
 	char temp[256];
 	sprintf(temp, "%dx%d", System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
 	deviceSpecs->Add(new InfoItem("Display resolution", temp));
