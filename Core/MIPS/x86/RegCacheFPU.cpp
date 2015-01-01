@@ -332,14 +332,17 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	// Let's also check if the memory addresses are sequential.
 	int sequential = 1;
 	for (int i = 1; i < n; ++i) {
-		if (v[i] < 128) {
+		if (v[i] < 128 && v[i - 1] < 128) {
 			if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
 				break;
 			}
-		} else {
+		} else if (v[i] >= 128 && v[i - 1] >= 128) {
 			if (v[i] != v[i - 1] + 1) {
 				break;
 			}
+		} else {
+			// Temps can't be sequential with non-temps.
+			break;
 		}
 		++sequential;
 	}
