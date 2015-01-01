@@ -121,7 +121,8 @@ JitOptions::JitOptions()
 	continueBranches = false;
 	continueJumps = false;
 	continueMaxInstructions = 300;
-	enableVFPUSIMD = true;
+	// TODO: breaks something in Monhun Nikki Poka Poka Ailu Mura G (see #7245.)
+	enableVFPUSIMD = false;
 	// Set by Asm if needed.
 	reserveR15ForAsm = false;
 }
