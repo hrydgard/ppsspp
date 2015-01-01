@@ -70,7 +70,6 @@ const u32 MEMORY_ALIGNED16( lowZeroes[4] ) = {0x00000000, 0xFFFFFFFF, 0xFFFFFFFF
 const u32 MEMORY_ALIGNED16( fourinfnan[4] ) = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
 const float MEMORY_ALIGNED16( identityMatrix[4][4]) = { { 1.0f, 0, 0, 0 }, { 0, 1.0f, 0, 0 }, { 0, 0, 1.0f, 0 }, { 0, 0, 0, 1.0f} };
 
-
 void Jit::Comp_VPFX(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
@@ -568,7 +567,6 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	ApplyPrefixD(dregs, sz);
 	fpr.ReleaseSpillLocks();
 }
-
 
 void Jit::Comp_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
@@ -2637,15 +2635,18 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 		int vd = _VD;
 		int vt = _VT;
 
-		// Some games transpose too much..
-		// TODO: This doesn't work! It should!
-		if (false && (vd & 0x20) && !(vs & 0x20) && (vt & 0x20) && sz == M_4x4) {
-			// Transpose both operands and swap the order, according to (AB)' = (B'A')
-			// We want our contiguous columns as much as possible!
+		bool transposeDest = false;
+		bool transposeS = false;
+
+		if ((vd & 0x20) && sz == M_4x4) {
+			vd ^= 0x20;
+			transposeDest = true;
+		}
+
+		// Our algorithm needs a transposed S (which is the usual).
+		if (!(vs & 0x20) && sz == M_4x4) {
 			vs ^= 0x20;
-			vt ^= 0x20;
-		  //vd ^= 0x20;
-			std::swap(vs, vt);
+			transposeS = true;
 		}
 
 		// The T matrix we will address individually.
@@ -2665,6 +2666,35 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			GetVectorRegs(scol[i], vsz, scols[i]);
 			fpr.MapRegsVS(scol[i], vsz, 0);
 			fpr.SpillLockV(scols[i], vsz);
+		}
+
+		// Shorter than manually stuffing the registers. But it feels like ther'es room for optimization here...
+		auto transposeInPlace = [=](u8 col[4][4]) {
+			MOVAPS(XMM0, fpr.VS(col[0]));
+			UNPCKLPS(fpr.VSX(col[0]), fpr.VS(col[2]));
+			UNPCKHPS(XMM0, fpr.VS(col[2]));
+
+			MOVAPS(fpr.VSX(col[2]), fpr.VS(col[1]));
+			UNPCKLPS(fpr.VSX(col[1]), fpr.VS(col[3]));
+			UNPCKHPS(fpr.VSX(col[2]), fpr.VS(col[3]));
+
+			MOVAPS(fpr.VSX(col[3]), fpr.VS(col[0]));
+			UNPCKLPS(fpr.VSX(col[0]), fpr.VS(col[1]));
+			UNPCKHPS(fpr.VSX(col[3]), fpr.VS(col[1]));
+
+			MOVAPS(fpr.VSX(col[1]), R(XMM0));
+			UNPCKLPS(fpr.VSX(col[1]), fpr.VS(col[2]));
+			UNPCKHPS(XMM0, fpr.VS(col[2]));
+
+			MOVAPS(fpr.VSX(col[2]), fpr.VS(col[1]));
+			MOVAPS(fpr.VSX(col[1]), fpr.VS(col[3]));
+			MOVAPS(fpr.VSX(col[3]), R(XMM0));
+		};
+
+		// Some games pass in S as an E matrix (transposed). Let's just transpose the data before we do the multiplication instead.
+		// This is shorter than trying to combine a discontinous matrix with lots of shufps.
+		if (transposeS) {
+			transposeInPlace(scol);
 		}
 
 		// Now, work our way through the matrix, loading things as we go.
@@ -2692,6 +2722,19 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
 #endif
 			MOVAPS(fpr.VS(dcol), XMM1);
+		}
+
+#ifndef _M_X64
+		fpr.ReleaseSpillLocks();
+#endif
+		if (transposeDest) {
+			u8 dcol[4][4];
+			for (int i = 0; i < n; i++) {
+				GetVectorRegs(dcol[i], vsz, dcols[i]);
+				fpr.MapRegsVS(dcol[i], vsz, MAP_DIRTY);
+				fpr.SpillLockV(dcols[i], vsz);
+			}
+			transposeInPlace(dcol);
 		}
 		fpr.ReleaseSpillLocks();
 		return;
@@ -3257,7 +3300,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	int vd2 = -1;
 	int imm2 = -1;
 	if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
-		// Pair of vrot. Let's join them.
+		// Pair of vrot with the same angle argument. Let's join them (can share sin/cos results).
 		vd2 = MIPS_GET_VD(nextOp);
 		imm2 = (nextOp >> 16) & 0x1f;
 		// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
