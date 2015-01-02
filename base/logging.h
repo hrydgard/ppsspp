@@ -83,7 +83,7 @@ void OutputDebugStringUTF8(const char *p);
 #ifdef _WIN32
 
 #define XLOG_IMPL(type, ...) do {\
-  char temp[512]; \
+	char temp[512]; \
 	char *p = temp; \
 	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", __FILE__, __LINE__); \
 	if (len < sizeof(temp)) { \
