@@ -2638,15 +2638,18 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 		bool transposeDest = false;
 		bool transposeS = false;
 
-		if ((vd & 0x20) && sz == M_4x4) {
-			vd ^= 0x20;
-			transposeDest = true;
-		}
+		// Apparently not reliable enough yet... monster hunter hd breaks
+		if (false) {
+			if ((vd & 0x20) && sz == M_4x4) {
+				vd ^= 0x20;
+				transposeDest = true;
+			}
 
-		// Our algorithm needs a transposed S (which is the usual).
-		if (!(vs & 0x20) && sz == M_4x4) {
-			vs ^= 0x20;
-			transposeS = true;
+			// Our algorithm needs a transposed S (which is the usual).
+			if (!(vs & 0x20) && sz == M_4x4) {
+				vs ^= 0x20;
+				transposeS = true;
+			}
 		}
 
 		// The T matrix we will address individually.
@@ -2732,7 +2735,6 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			for (int i = 0; i < n; i++) {
 				GetVectorRegs(dcol[i], vsz, dcols[i]);
 				fpr.MapRegsVS(dcol[i], vsz, MAP_DIRTY);
-				fpr.SpillLockV(dcols[i], vsz);
 			}
 			transposeInPlace(dcol);
 		}
