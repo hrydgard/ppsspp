@@ -142,7 +142,7 @@ static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-bool LoadTextureLevels(const uint8_t *data, int size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DImageFormat *fmt, uint8_t *image[16], int *zim_flags) {
+static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DImageFormat *fmt, uint8_t *image[16], int *zim_flags) {
 	if (type == DETECT) {
 		type = DetectImageFileType(data, size);
 	}
@@ -172,7 +172,7 @@ bool LoadTextureLevels(const uint8_t *data, int size, T3DImageType type, int wid
 	case JPEG:
 		{
 			int actual_components = 0;
-			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, size, &width[0], &height[0], &actual_components, 4);
+			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 			if (jpegBuf) {
 				*num_levels = 1;
 				*fmt = RGBA8888;

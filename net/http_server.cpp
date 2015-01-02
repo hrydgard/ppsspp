@@ -154,7 +154,7 @@ void Server::HandleRequestDefault(const Request &request) {
   }
   ILOG("No handler for '%s', falling back to 404.", request.resource());
   const char *payload = "<html><body>404 not found</body></html>\r\n";
-  request.WriteHttpResponseHeader(404, strlen(payload));
+  request.WriteHttpResponseHeader(404, (int)strlen(payload));
   request.out_buffer()->Append(payload);
 }
 

@@ -113,7 +113,7 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
   // Go to after the colon to get the value.
   buffer = colon + 1;
   SkipSpace(&buffer);
-  int value_len = strlen(buffer);
+  int value_len = (int)strlen(buffer);
   
   if (!strcmp(key, "USER-AGENT")) {
     user_agent = new char[value_len + 1];

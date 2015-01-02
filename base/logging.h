@@ -82,16 +82,30 @@ void OutputDebugStringUTF8(const char *p);
 
 #ifdef _WIN32
 
+#define XLOG_IMPL(type, ...) do {\
+  char temp[512]; \
+	char *p = temp; \
+	int len = snprintf(p, sizeof(temp), type ": %s:%i: ", __FILE__, __LINE__); \
+	if (len < sizeof(temp)) { \
+		p += len; \
+		p += snprintf(p, sizeof(temp) - len - 3, type ": " __VA_ARGS__);  \
+		if (p > temp + sizeof(temp) - 3) \
+			p = temp + sizeof(temp) - 3; \
+		p += sprintf(p, "\n"); \
+		OutputDebugStringUTF8(temp); \
+	} \
+} while (false)
+
 #ifdef _DEBUG
-#define DLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "D: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "D: " __VA_ARGS__); if (p > temp + 450) p = temp + 450; p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define DLOG(...) XLOG_IMPL("D", __VA_ARGS__)
 #else
 #define DLOG(...)
 #endif
 
-#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "I: " __VA_ARGS__); if (p > temp + 450) p = temp + 450; p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "W: " __VA_ARGS__); if (p > temp + 450) p = temp + 450; p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "E: " __VA_ARGS__); if (p > temp + 450) p = temp + 450; p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
-#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += snprintf(p, 450, "F: " __VA_ARGS__); if (p > temp + 450) p = temp + 450; p += sprintf(p, "\n"); OutputDebugStringUTF8(temp); Crash();}
+#define ILOG(...) XLOG_IMPL("I", __VA_ARGS__)
+#define WLOG(...) XLOG_IMPL("W", __VA_ARGS__)
+#define ELOG(...) XLOG_IMPL("E", __VA_ARGS__)
+#define FLOG(...) do {XLOG_IMPL("F", __VA_ARGS__); Crash();} while (false)
 
 // TODO: Win32 version using OutputDebugString
 #else
