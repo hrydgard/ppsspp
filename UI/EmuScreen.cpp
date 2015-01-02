@@ -408,10 +408,6 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 }
 
 bool EmuScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
-		pauseTrigger_ = true;
-	}
-
 	std::vector<int> pspKeys;
 	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
 
@@ -423,6 +419,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(pspKeys[i], key.flags);
 	}
+
+	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
+		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+			pauseTrigger_ = true;
+			return true;
+		}
+	}
+
 	return pspKeys.size() > 0;
 }
 
