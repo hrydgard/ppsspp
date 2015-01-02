@@ -96,7 +96,7 @@ void RunTests()
 		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
 		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
 
-		ILOG("Preparing to execute %s", testName)
+		ILOG("Preparing to execute %s", testName);
 		std::string error_string;
 		output = "";
 		if (!PSP_Init(coreParam, &error_string)) {
