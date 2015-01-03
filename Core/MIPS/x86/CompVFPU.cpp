@@ -2726,6 +2726,11 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 #endif
 			MOVAPS(fpr.VS(dcol), XMM1);
 		}
+		if (transposeS){
+			for (int i = 0; i < n; i++){
+				fpr.DiscardVS(scols[i]);
+			}
+		}
 
 #ifndef _M_X64
 		fpr.ReleaseSpillLocks();
