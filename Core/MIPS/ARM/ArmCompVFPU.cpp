@@ -663,8 +663,9 @@ namespace MIPSComp
 		if (is_vavg) {
 			MOVI2F(S1, vavg_table[n - 1], R0);
 		}
-		VMOV(S0, fpr.V(sregs[0]));
-		for (int i = 1; i < n; i++) {
+		// Have to start at +0.000 for the correct sign.
+		MOVI2F(S0, 0.0f, SCRATCHREG1);
+		for (int i = 0; i < n; i++) {
 			// sum += s[i];
 			VADD(S0, S0, fpr.V(sregs[i]));
 		}
