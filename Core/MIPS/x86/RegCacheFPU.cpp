@@ -753,6 +753,7 @@ void FPURegCache::DiscardVS(int vreg) {
 				regs[mr].location = GetDefaultLocation(mr);
 				regs[mr].away = false;
 				regs[mr].tempLocked = false;
+				regs[mr].lane = 0;
 			}
 			xregs[xr].mipsRegs[i] = -1;
 		}
