@@ -83,7 +83,7 @@ public class NativeActivity extends Activity {
 
 	private boolean isXperiaPlay;
     
-    // Allow for two connected gamepads but just consider them the same for now.
+    // Allow for multiple connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
     InputDeviceState inputPlayerA;
     InputDeviceState inputPlayerB;
@@ -477,9 +477,9 @@ public class NativeActivity extends Activity {
             return null;
         }
         if (inputPlayerA == null) {
-        	Log.i(TAG, "Input player A registered");
-            inputPlayerA = new InputDeviceState(device);
             inputPlayerADesc = getInputDesc(device);
+            Log.i(TAG, "Input player A registered: desc = " + inputPlayerADesc);
+            inputPlayerA = new InputDeviceState(device);
         }
 
         if (inputPlayerA.getDevice() == device) {
@@ -487,7 +487,7 @@ public class NativeActivity extends Activity {
         }
 
         if (inputPlayerB == null) {
-        	Log.i(TAG, "Input player B registered");
+            Log.i(TAG, "Input player B registered: desc = " + getInputDesc(device));
             inputPlayerB = new InputDeviceState(device);
         }
 
@@ -496,7 +496,7 @@ public class NativeActivity extends Activity {
         }
 
         if (inputPlayerC == null) {
-        	Log.i(TAG, "Input player C registered");
+            Log.i(TAG, "Input player C registered");
             inputPlayerC = new InputDeviceState(device);
         }
 
@@ -520,9 +520,10 @@ public class NativeActivity extends Activity {
 			if (state == null) {
 				return super.dispatchKeyEvent(event);
 			}
-			
-			// Let's let volume and back through to dispatchKeyEvent.
+
+			// Let's let back and menu through to dispatchKeyEvent.
 			boolean passThrough = false;
+
 			switch (event.getKeyCode()) {
 			case KeyEvent.KEYCODE_BACK:
 			case KeyEvent.KEYCODE_MENU:
@@ -531,19 +532,31 @@ public class NativeActivity extends Activity {
 			default:
 				break;
 			}
-			
-			switch (event.getAction()) {
-			case KeyEvent.ACTION_DOWN:
-				if (state.onKeyDown(event) && !passThrough) {
-					return true;
-				}
+
+			// Don't passthrough back button if gamepad.
+			int sources = event.getSource();
+			switch (sources) {
+			case InputDevice.SOURCE_GAMEPAD:
+			case InputDevice.SOURCE_JOYSTICK:
+			case InputDevice.SOURCE_DPAD:
+				passThrough = false;
 				break;
-	
-			case KeyEvent.ACTION_UP:
-				if (state.onKeyUp(event) && !passThrough) {
-					return true;
+			}
+
+			if (!passThrough) {
+				switch (event.getAction()) {
+				case KeyEvent.ACTION_DOWN:
+					if (state.onKeyDown(event)) {
+						return true;
+					}
+					break;
+
+				case KeyEvent.ACTION_UP:
+					if (state.onKeyUp(event)) {
+						return true;
+					}
+					break;
 				}
-				break;
 			}
         }
         
@@ -602,9 +615,10 @@ public class NativeActivity extends Activity {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (event.isAltPressed()) {
-				NativeApp.keyDown(0, 1004, repeat); // special custom keycode
+				NativeApp.keyDown(0, 1004, repeat); // special custom keycode for the O button on Xperia Play
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
+				// Pass through the back event.
 				return super.onKeyDown(keyCode, event);
 			} else {
 				NativeApp.keyDown(0, keyCode, repeat);

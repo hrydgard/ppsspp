@@ -12,8 +12,7 @@ import android.view.MotionEvent;
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
 	
-	// DEVICE_ID_PAD_0 from the cpp code. TODO: allocate these sequentially if we get more controllers.
-	private static int deviceId = 10;
+	private static final int deviceId = NativeApp.DEVICE_ID_PAD_0;
 
 	private InputDevice mDevice;
 	private int[] mAxes;
