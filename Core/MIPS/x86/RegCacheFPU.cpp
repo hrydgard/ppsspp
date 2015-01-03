@@ -568,11 +568,11 @@ void FPURegCache::ReleaseSpillLocks() {
 
 void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	pendingFlush = true;
-	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - load - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::MapReg - imm");
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - load - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg");
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -614,10 +614,10 @@ static int MMShuffleSwapTo0(int lane) {
 }
 
 void FPURegCache::StoreFromRegister(int i) {
-	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - store - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::StoreFromRegister - it's an imm");
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - store - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
 		if (regs[i].lane != 0) {
 			const int *mri = xregs[xr].mipsRegs;
 			int seq = 1;
