@@ -3171,7 +3171,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 			}
 		}
 		if (((op >> 16) & 31) == 7) { // vavg
-			MULSS(fpr.VSX(dregs), M(&vavg_table[n]));
+			MULSS(fpr.VSX(dregs), M(&vavg_table[n - 1]));
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocks();
@@ -3199,7 +3199,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
-		MULSS(reg, M(&vavg_table[n]));
+		MULSS(reg, M(&vavg_table[n - 1]));
 		break;
 	}
 
