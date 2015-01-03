@@ -3125,8 +3125,12 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			case V_Quad:
+				XORPS(XMM1, R(XMM1));
 				MOVAPS(XMM0, fpr.VS(sregs));
 				DPPS(XMM0, M(&oneOneOneOne), 0xF1);
+				// In every other case, +0.0 is selected by the mask and added.
+				// But, here we need to manually add it to the result.
+				ADDPS(XMM0, R(XMM1));
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			default:
@@ -3135,15 +3139,17 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 		} else {
 			switch (sz) {
 			case V_Pair:
+				XORPS(XMM1, R(XMM1));
 				MOVAPS(XMM0, fpr.VS(sregs));
-				MOVAPS(XMM1, R(XMM0));
+				ADDPS(XMM1, R(XMM0));
 				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 2, 1, 1));
 				ADDPS(XMM0, R(XMM1));
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			case V_Triple:
+				XORPS(XMM1, R(XMM1));
 				MOVAPS(XMM0, fpr.VS(sregs));
-				MOVAPS(XMM1, R(XMM0));
+				ADDPS(XMM1, R(XMM0));
 				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 2, 1, 1));
 				ADDPS(XMM0, R(XMM1));
 				SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(3, 2, 1, 2));
@@ -3151,7 +3157,10 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 				MOVAPS(fpr.VSX(dregs), R(XMM0));
 				break;
 			case V_Quad:
+				XORPS(XMM1, R(XMM1));
 				MOVAPS(XMM0, fpr.VS(sregs));
+				// This flips the sign of any -0.000.
+				ADDPS(XMM0, R(XMM1));
 				MOVHLPS(XMM1, XMM0);
 				ADDPS(XMM0, R(XMM1));
 				MOVAPS(XMM1, R(XMM0));
@@ -3164,7 +3173,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 			}
 		}
 		if (((op >> 16) & 31) == 7) { // vavg
-			MULSS(fpr.VSX(dregs), M(&vavg_table[n]));
+			MULSS(fpr.VSX(dregs), M(&vavg_table[n - 1]));
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocks();
@@ -3176,17 +3185,15 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	fpr.SimpleRegsV(dregs, V_Single, MAP_NOINIT | MAP_DIRTY);
 
 	X64Reg reg = XMM0;
-	if (IsOverlapSafeAllowS(dregs[0], 0, n, sregs)) {
+	if (IsOverlapSafe(dregs[0], 0, n, sregs)) {
 		fpr.MapRegV(dregs[0], dregs[0] == sregs[0] ? MAP_DIRTY : MAP_NOINIT);
 		fpr.SpillLockV(dregs[0]);
 		reg = fpr.VX(dregs[0]);
 	}
 
-	// We use a temp reg in case of overlap.
-	if (!fpr.V(sregs[0]).IsSimpleReg(reg)) {
-		MOVSS(reg, fpr.V(sregs[0]));
-	}
-	for (int i = 1; i < n; ++i) {
+	// We have to start zt +0.000 in case any values are -0.000.
+	XORPS(reg, R(reg));
+	for (int i = 0; i < n; ++i) {
 		ADDSS(reg, fpr.V(sregs[i]));
 	}
 
@@ -3194,7 +3201,7 @@ void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	case 6:  // vfad
 		break;
 	case 7:  // vavg
-		MULSS(reg, M(&vavg_table[n]));
+		MULSS(reg, M(&vavg_table[n - 1]));
 		break;
 	}
 
