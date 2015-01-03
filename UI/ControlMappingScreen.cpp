@@ -421,10 +421,23 @@ void JoystickHistoryView::Update(const InputState &input_state) {
 	}
 }
 
-void AnalogTestScreen::CreateViews() {
-	root_ = new UI::LinearLayout(UI::ORIENT_VERTICAL);
+bool AnalogTestScreen::key(const KeyInput &key) {
+	char buf[512];
+	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
+		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
+		(key.flags & KEY_UP) ? "UP" : "",
+		(key.flags & KEY_DOWN) ? "DOWN" : "",
+		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	lastKeyEvent_->SetText(buf);
+	return true;
+}
 
-	UI::LinearLayout *theTwo = new UI::LinearLayout(UI::ORIENT_HORIZONTAL, new UI::LinearLayoutParams(1.0f));
+void AnalogTestScreen::CreateViews() {
+	using namespace UI;
+
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+
+	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
 	int axis1, device1, dir1;
 	int axis2, device2, dir2;
@@ -432,14 +445,16 @@ void AnalogTestScreen::CreateViews() {
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
 
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
 
 	root_->Add(theTwo);
 
-	root_->Add(new UI::Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	root_->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

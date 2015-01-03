@@ -73,6 +73,10 @@ class AnalogTestScreen : public UIDialogScreenWithBackground {
 public:
 	AnalogTestScreen() {}
 
+	bool key(const KeyInput &key) override;
+
 protected:
 	virtual void CreateViews() override;
+
+	UI::TextView *lastKeyEvent_;
 };
