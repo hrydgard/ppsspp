@@ -1,1 +1,0 @@
-Will use it in Core/HLE/proAdhocServer.cpp
