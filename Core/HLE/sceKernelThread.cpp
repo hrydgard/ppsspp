@@ -1982,7 +1982,7 @@ void ThreadContext::reset()
 	r[0] = 0;
 	for (int i = 0; i<128; i++)
 	{
-		v[i] = 0.0f;
+		vi[i] = 0x7f800001;
 	}
 	for (int i = 0; i<15; i++)
 	{
