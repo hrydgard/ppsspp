@@ -1069,6 +1069,7 @@ void ArmJit::CompNEON_Vhoriz(MIPSOpcode op) {
 	switch ((op >> 16) & 31) {
 	case 6:  // vfad
 		{
+			VMOV_neon(F_32, D1, 0.0f);
 			MappedRegs r = NEONMapDirtyIn(op, V_Single, sz);
 			switch (sz) {
 			case V_Pair:
@@ -1079,12 +1080,14 @@ void ArmJit::CompNEON_Vhoriz(MIPSOpcode op) {
 				VADD(F_32, r.vd, D0, D_1(r.vs));
 				break;
 			case V_Quad:
-				VADD(F_32, R0, D_0(r.vs), D_1(r.vs));
-				VPADD(F_32, r.vd, R0, R0);
+				VADD(F_32, D0, D_0(r.vs), D_1(r.vs));
+				VPADD(F_32, r.vd, D0, D0);
 				break;
 			default:
 				;
 			}
+			// This forces the sign of -0.000 to +0.000.
+			VADD(F_32, r.vd, r.vd, D1);
 			break;
 		}
 
