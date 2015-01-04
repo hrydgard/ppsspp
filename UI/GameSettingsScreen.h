@@ -92,7 +92,7 @@ private:
 #endif
 	UI::EventReturn OnSoftwareRendering(UI::EventParams &e);
 	UI::EventReturn OnHardwareTransform(UI::EventParams &e);
-
+	UI::EventReturn OnOne_Key(UI::EventParams &e);
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 

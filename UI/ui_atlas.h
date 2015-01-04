@@ -13,36 +13,58 @@
 #define I_CIRCLE 2
 #define I_SQUARE 3
 #define I_TRIANGLE 4
-#define I_SELECT 5
-#define I_START 6
-#define I_ARROW 7
-#define I_DIR 8
-#define I_ROUND 9
-#define I_RECT 10
-#define I_STICK 11
-#define I_STICK_BG 12
-#define I_SHOULDER 13
-#define I_DIR_LINE 14
-#define I_ROUND_LINE 15
-#define I_RECT_LINE 16
-#define I_SHOULDER_LINE 17
-#define I_STICK_LINE 18
-#define I_STICK_BG_LINE 19
-#define I_CHECKEDBOX 20
-#define I_BG 21
-#define I_BG_GOLD 22
-#define I_L 23
-#define I_R 24
-#define I_DROP_SHADOW 25
-#define I_LINES 26
-#define I_GRID 27
-#define I_LOGO 28
-#define I_ICON 29
-#define I_ICONGOLD 30
-#define I_FOLDER 31
-#define I_UP_DIRECTORY 32
-#define I_GEAR 33
+#define I_CROSS1 5
+#define I_SQUARE1 6
+#define I_TRIANGLE1 7
+#define I_STAR 8
+#define I_GC 9
+#define I_EYE 10
+#define I_SELECT 11
+#define I_START 12
+#define I_ARROW 13
+#define I_ARROW1 14
+#define I_ARROW2 15
+#define I_ARROW3 16
+#define I_DIR 17
+#define I_DIR_UP 18
+#define I_DIR_RIGHT 19
+#define I_DIR_DOWN 20
+#define I_ROUND 21
+#define I_RECT 22
+#define I_STICK 23
+#define I_STICK_BG 24
+#define I_SHOULDER 25
+#define I_DIR_LINE 26
+#define I_DIR_LINE_UP 27
+#define I_DIR_LINE_RIGHT 28
+#define I_DIR_LINE_DOWN 29
+#define I_ROUND_LINE 30
+#define I_RECT_LINE 31
+#define I_SHOULDER_LINE 32
+#define I_STICK_LINE 33
+#define I_STICK_BG_LINE 34
+#define I_CHECKEDBOX 35
+#define I_BG_GOLD 36
+#define I_L 37
+#define I_R 38
+#define I_DROP_SHADOW 39
+#define I_LINES 40
+#define I_GRID 41
+#define I_LOGO 42
+#define I_ICON 43
+#define I_ICONGOLD 44
+#define I_FOLDER 45
+#define I_UP_DIRECTORY 46
+#define I_BG 47
+#define I_BG1 48
+#define I_BG2 49
+#define I_BG3 50
+#define I_BG4 51
+#define I_BG5 52
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[34];
+extern const AtlasImage ui_images[48];
+extern const Atlas ui_atlas1;
+extern const AtlasImage ui_images1[53];
+
