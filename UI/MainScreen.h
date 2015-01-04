@@ -61,6 +61,7 @@ private:
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
+	UI::EventReturn MainScreen::OnUI(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_;
 	UI::TabHolder *tabHolder_;
