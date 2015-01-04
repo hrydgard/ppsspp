@@ -104,7 +104,7 @@ static u32 sceNetTerm() {
 	if (netAdhocctlInited) sceNetAdhocctlTerm();
 	if (netAdhocInited) sceNetAdhocTerm();
 
-	WARN_LOG(SCENET, "UNTESTED sceNetTerm()");
+	WARN_LOG(SCENET, "sceNetTerm()");
 	netInited = false;
 
 	return 0;
@@ -113,9 +113,10 @@ static u32 sceNetTerm() {
 // TODO: should that struct actually be initialized here?
 static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
 	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
-	if (netInited) sceNetTerm();
+	if (netInited) 
+		sceNetTerm();
 
-	ERROR_LOG(SCENET, "UNTESTED sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
+	WARN_LOG(SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
 	netMallocStat.maximum = poolSize;
 	netMallocStat.free = poolSize;

@@ -27,6 +27,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "UI/OnScreenDisplay.h"
 #include "proAdhoc.h" 
 
 uint32_t fakePoolSize                 = 0;
@@ -1425,6 +1426,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
 	if (iResult != 0) {
 		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
+		osm.Show("DNS Error connecting to " + g_Config.proAdhocServer, 8.0f);
 		return iResult;
 	}
 	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
@@ -1444,7 +1446,10 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
 	if (iResult == SOCKET_ERROR) {
 		uint8_t * sip = (uint8_t *)&server_addr.sin_addr.s_addr;
-		ERROR_LOG(SCENET, "Socket error (%i) when connecting to %s/%u.%u.%u.%u:%u", errno, g_Config.proAdhocServer.c_str(), sip[0], sip[1], sip[2], sip[3], ntohs(server_addr.sin_port));
+		char buffer[512];
+		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to %s/%u.%u.%u.%u:%u", errno, g_Config.proAdhocServer.c_str(), sip[0], sip[1], sip[2], sip[3], ntohs(server_addr.sin_port));
+		ERROR_LOG(SCENET, "%s", buffer);
+		osm.Show(std::string(buffer), 8.0f);
 		return iResult;
 	}
 
@@ -1459,6 +1464,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
 	if (sent > 0){
+		osm.Show("Network Initialized", 1.0);
 		return 0;
 	}
 	else{

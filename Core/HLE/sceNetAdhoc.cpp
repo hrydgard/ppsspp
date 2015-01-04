@@ -193,7 +193,6 @@ void __NetAdhocInit() {
 	eventMatchingHandlerUpdate = CoreTiming::RegisterEvent("MatchingHandlerUpdateEvent", __handlerMatchingUpdateCallback);
 	// Create built-in AdhocServer Thread
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
-		//_status = 1;
 		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
