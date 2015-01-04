@@ -37,8 +37,6 @@ bool friendFinderRunning              = false;
 SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
-int eventAdhocctlHandlerUpdate        = -1;
-int eventMatchingHandlerUpdate        = -1;
 int threadStatus                      = ADHOCCTL_STATE_DISCONNECTED;
 
 bool IsAdhocctlInCB = false;
@@ -930,11 +928,8 @@ void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId) {
 }
 
 // Make sure MIPS calls have been fully executed before the next notifyAdhocctlHandlers
-void notifyAdhocctlHandlers(int flag, int error) {
-	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(flag, error));
-	//CoreTiming::ScheduleEvent_Threadsafe(usToCycles(1), eventAdhocctlHandlerUpdate, join32(flag, error));
-	//__KernelCheckCallbacks();
-	//while (__KernelCurHasReadyCallbacks() || __KernelInCallback()) sleep_ms(1);
+void notifyAdhocctlHandlers(u32 flag, u32 error) {
+	__UpdateAdhocctlHandlers(flag, error);
 	// TODO: We should use after action instead of guessing the time like this
 	sleep_ms(20); // Ugly workaround to give time for the mips callback to fully executed, usually only need <16ms
 }
@@ -962,13 +957,8 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	
 	context->IsMatchingInCB = true;
 	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
-	CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventMatchingHandlerUpdate, (u64)args);
-	//CoreTiming::ScheduleEvent_Threadsafe(usToCycles(1), eventMatchingHandlerUpdate, (u64)args); // I don't like guessing the time like this, if only there is a way to prevent callback from returning inside an interrupt
+	__UpdateMatchingHandler((u64) args);
 
-	/*AfterMatchingMipsCall *after = (AfterMatchingMipsCall *)__KernelCreateAction(actionAfterMatchingMipsCall); // Does Action need to resides in the same address space with the thread that runs callback handlers?
-	after->SetID(context->id);
-	__KernelDirectMipsCall(context->handler.entryPoint, after, args, 5, true);*/
-	//__KernelCheckCallbacks();
 	// Make sure MIPS call have been fully executed before the next notifyMatchingHandler
 	int count = 0;
 	while (/*(after != NULL) &&*/ IsMatchingInCallback(context) && (count < 250)) {
