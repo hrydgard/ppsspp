@@ -569,10 +569,12 @@ void FPURegCache::ReleaseSpillLocks() {
 void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	pendingFlush = true;
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::MapReg - imm");
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::MapReg - invalid mips reg %d", i);
+
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg %d", (int)xr);
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -1027,6 +1029,8 @@ int FPURegCache::GetFreeXRegs(X64Reg *res, int n, bool spill) {
 		for (int i = 0; i < aCount; i++) {
 			X64Reg xr = (X64Reg)aOrder[i];
 			int preg = xregs[xr].mipsReg;
+			_assert_msg_(JIT, preg >= -1 && preg < NUM_MIPS_FPRS, "WTF - FPURegCache::GetFreeXRegs - invalid mips reg %d in xr %d", preg, (int)xr);
+
 			// We're only spilling here, so don't overlap.
 			if (preg != -1 && !regs[preg].locked) {
 				StoreFromRegister(preg);
