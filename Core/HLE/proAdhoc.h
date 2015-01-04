@@ -801,8 +801,6 @@ extern int one;
 extern bool friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks; 
-extern int eventAdhocctlHandlerUpdate;
-extern int eventMatchingHandlerUpdate;
 extern int threadStatus;
 // End of Aux vars
 
@@ -921,7 +919,7 @@ SceNetAdhocMatchingContext * findMatchingContext(int id);
 */
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args);
 // Notifiy Adhocctl Handlers
-void notifyAdhocctlHandlers(int flag, int error);
+void notifyAdhocctlHandlers(u32 flag, u32 error);
 
 /*
  * Packet Handler
