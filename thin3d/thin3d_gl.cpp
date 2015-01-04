@@ -41,6 +41,7 @@ static const unsigned short blendFactorToGL[] = {
 	GL_CONSTANT_COLOR,
 };
 
+#ifndef USING_GLES2
 static const unsigned short logicOpToGL[] = {
 	GL_CLEAR,
 	GL_SET,
@@ -59,6 +60,7 @@ static const unsigned short logicOpToGL[] = {
 	GL_OR_REVERSE,
 	GL_OR_INVERTED,
 };
+#endif
 
 static const unsigned short primToGL[] = {
 	GL_POINTS,
@@ -534,8 +536,10 @@ Thin3DBlendState *Thin3DGLContext::CreateBlendState(const T3DBlendStateDesc &des
 	bs->eqAlpha = blendEqToGL[desc.eqAlpha];
 	bs->srcAlpha = blendFactorToGL[desc.srcAlpha];
 	bs->dstAlpha = blendFactorToGL[desc.dstAlpha];
+#ifndef USING_GLES2
 	bs->logicEnabled = desc.logicEnabled;
 	bs->logicOp = logicOpToGL[desc.logicOp];
+#endif
 	return bs;
 }
 
