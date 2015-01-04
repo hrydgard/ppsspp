@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cstdio>
 #include <ctype.h>
+#include <algorithm>
 
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
@@ -226,6 +227,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 	{
 		u8 theSector[2048];
 		blockDevice->ReadBlock(secnum, theSector);
+		lastReadBlock_ = secnum;
 
 		for (int offset = 0; offset < 2048; )
 		{
@@ -494,10 +496,10 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			u32 size = (u32)desc.pathTableLengthLE;
 			u8 *out = Memory::GetPointer(outdataPtr);
 
-			while (size >= 2048) {
-				blockDevice->ReadBlock(block++, out);
-				out += 2048;
-			}
+			int blocks = size / blockDevice->GetBlockSize();
+			blockDevice->ReadBlocks(block, blocks, out);
+			size -= blocks * blockDevice->GetBlockSize();
+			out += blocks * blockDevice->GetBlockSize();
 
 			// The remaining (or, usually, only) partial sector.
 			if (size > 0) {
@@ -519,6 +521,12 @@ int ISOFileSystem::DevType(u32 handle)
 
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
+{
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -527,12 +535,14 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		if (e.isBlockSectorMode)
 		{
 			// Whole sectors! Shortcut to this simple code.
-			for (int i = 0; i < size; i++)
-			{
-				blockDevice->ReadBlock(e.seekPos, pointer + i * 2048);
-				e.seekPos++;
+			blockDevice->ReadBlocks(e.seekPos, (int)size, pointer);
+			if (abs((int)lastReadBlock_ - (int)e.seekPos) > 100) {
+				// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+				usec = 100000;
 			}
-			return (size_t)size;
+			e.seekPos += (int)size;
+			lastReadBlock_ = e.seekPos;
+			return (int)size;
 		}
 
 		u32 positionOnIso;
@@ -559,29 +569,44 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		}
 		//okay, we have size and position, let's rock
 
-		u32 totalRead = 0;
+		const int firstBlockOffset = positionOnIso & 2047;
+		const int firstBlockSize = firstBlockOffset == 0 ? 0 : (int)std::min(size, 2048LL - firstBlockOffset);
+		const int lastBlockSize = (size - firstBlockSize) & 2047;
+		const s64 middleSize = size - firstBlockSize - lastBlockSize;
 		int secNum = positionOnIso / 2048;
-		int posInSector = positionOnIso & 2047;
-		s64 remain = size;		
-
 		u8 theSector[2048];
 
-		while (remain > 0)
-		{
-			blockDevice->ReadBlock(secNum, theSector);
-			size_t bytesToCopy = 2048 - posInSector;
-			if ((s64)bytesToCopy > remain)
-				bytesToCopy = (size_t)remain;
+		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
 
-			memcpy(pointer, theSector + posInSector, bytesToCopy);
-			totalRead += (u32)bytesToCopy;
-			pointer += bytesToCopy;
-			remain -= bytesToCopy;
-			posInSector = 0;
-			secNum++;
+		const u8 *const start = pointer;
+		if (firstBlockSize > 0)
+		{
+			blockDevice->ReadBlock(secNum++, theSector);
+			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
+			pointer += firstBlockSize;
 		}
-		e.seekPos += (unsigned int)size;
-		return totalRead;
+		if (middleSize > 0)
+		{
+			const u32 sectors = (u32)(middleSize / 2048);
+			blockDevice->ReadBlocks(secNum, sectors, pointer);
+			secNum += sectors;
+			pointer += middleSize;
+		}
+		if (lastBlockSize > 0)
+		{
+			blockDevice->ReadBlock(secNum++, theSector);
+			memcpy(pointer, theSector, lastBlockSize);
+			pointer += lastBlockSize;
+		}
+
+		size_t totalBytes = pointer - start;
+		if (abs((int)lastReadBlock_ - (int)secNum) > 100) {
+			// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+			usec = 100000;
+		}
+		lastReadBlock_ = secNum;
+		e.seekPos += (unsigned int)totalBytes;
+		return (size_t)totalBytes;
 	}
 	else
 	{
@@ -591,7 +616,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	}
 }
 
-size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) 
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
+{
+	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
+	return 0;
+}
+
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
@@ -730,7 +761,7 @@ ISOFileSystem::TreeEntry::~TreeEntry() {
 
 void ISOFileSystem::DoState(PointerWrap &p)
 {
-	auto s = p.Section("ISOFileSystem", 1);
+	auto s = p.Section("ISOFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -785,5 +816,11 @@ void ISOFileSystem::DoState(PointerWrap &p)
 				p.Do(path);
 			}
 		}
+	}
+
+	if (s >= 2) {
+		p.Do(lastReadBlock_);
+	} else {
+		lastReadBlock_ = 0;
 	}
 }

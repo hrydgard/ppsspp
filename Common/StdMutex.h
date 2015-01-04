@@ -1,14 +1,13 @@
 
-#ifndef MUTEX_H_
-#define MUTEX_H_
+#pragma once
 
-#define GCC_VER(x,y,z)	((x) * 10000 + (y) * 100 + (z))
+#define GCC_VER(x,y,z) ((x) * 10000 + (y) * 100 + (z))
 #define GCC_VERSION GCC_VER(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 
 // Note: __MAC_10_7 is defined on 10.7+.
 #if (GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ || defined(__APPLE__)) \
 /* GCC 4.4 provides <mutex>, except on these platforms: */ \
-    && !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MACGNUSTD)
+    && !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(MACGNUSTD)
 #include <mutex>
 #else
 
@@ -350,5 +349,4 @@ void swap(unique_lock<Mutex>& x, unique_lock<Mutex>& y)
 
 }
 
-#endif
 #endif

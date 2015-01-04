@@ -66,7 +66,10 @@
 
 namespace MIPSComp
 {
-	void Jit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
+
+	void ArmJit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
 			bool negated;
@@ -91,7 +94,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
+	void ArmJit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
 		SetR0ToEffectiveAddress(rs, offset);
 
 		// There are three valid ranges.  Each one gets a bit.
@@ -126,7 +129,7 @@ namespace MIPSComp
 		SetCC(reverse ? CC_EQ : CC_GT);
 	}
 
-	void Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
+	void ArmJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
@@ -272,7 +275,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_ITypeMem(MIPSOpcode op)
+	void ArmJit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -309,7 +312,7 @@ namespace MIPSComp
 				if (!gpr.IsImm(rs) && rs != rt && (offset <= offsetRange) && offset >= -offsetRange) {
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
-					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
+					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 					switch (o) {
 					case 35: LDR  (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
 					case 37: LDRH (gpr.R(rt), gpr.RPtr(rs), Operand2(offset, TYPE_IMM)); break;
@@ -338,7 +341,7 @@ namespace MIPSComp
 					addrReg = gpr.R(rs);
 				} else {
 					// In this case, only map rt. rs+offset will be in R0.
-					gpr.MapReg(rt, load ? (MAP_NOINIT | MAP_DIRTY) : 0);
+					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 					gpr.SetRegImm(R0, addr);
 					addrReg = R0;
 				}
@@ -389,7 +392,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Cache(MIPSOpcode op) {
+	void ArmJit::Comp_Cache(MIPSOpcode op) {
 		DISABLE;
 	}
 }

@@ -17,11 +17,12 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceImpose.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Common/ChunkFile.h"
-#include "Core/HLE/sceUtility.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
@@ -55,7 +56,7 @@ void __ImposeDoState(PointerWrap &p)
 	p.Do(backlightOffTime);
 }
 
-u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
+static u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
 	DEBUG_LOG(SCEUTILITY, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
@@ -65,7 +66,7 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 	return 0;
 }
 
-u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
+static u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 {
 	DEBUG_LOG(SCEUTILITY, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
 	language = languageVal;
@@ -73,7 +74,7 @@ u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 	return 0;
 }
 
-u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
+static u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
 	DEBUG_LOG(SCEUTILITY, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
@@ -83,24 +84,24 @@ u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 	return 0;
 }
 
-u32 sceImposeSetUMDPopup(int mode) {
+static u32 sceImposeSetUMDPopup(int mode) {
 	DEBUG_LOG(SCEUTILITY, "sceImposeSetUMDPopup(%i)", mode);
 	umdPopup = mode;
 	return 0;
 }
 
-u32 sceImposeGetUMDPopup() {
+static u32 sceImposeGetUMDPopup() {
 	DEBUG_LOG(SCEUTILITY, "sceImposeGetUMDPopup()");
 	return umdPopup;
 }
 
-u32 sceImposeSetBacklightOffTime(int time) {
+static u32 sceImposeSetBacklightOffTime(int time) {
 	DEBUG_LOG(SCEUTILITY, "sceImposeSetBacklightOffTime(%i)", time);
 	backlightOffTime = time;
 	return 0;
 }
 
-u32 sceImposeGetBacklightOffTime() {
+static u32 sceImposeGetBacklightOffTime() {
 	DEBUG_LOG(SCEUTILITY, "sceImposeGetBacklightOffTime()");
 	return backlightOffTime;
 }

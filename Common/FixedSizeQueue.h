@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _FIXED_SIZE_QUEUE_H_
-#define _FIXED_SIZE_QUEUE_H_
+#pragma once
 
 #include <cstring>
 #include "ChunkFile.h"
@@ -224,6 +223,4 @@ private:
 	volatile int curReadBlock;
 	volatile int curWriteBlock;
 };
-
-#endif // _FIXED_SIZE_QUEUE_H_
 

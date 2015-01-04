@@ -23,9 +23,9 @@
 #include "Common/MemoryUtil.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmAsm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace ArmGen;
 
@@ -53,12 +53,6 @@ static const bool enableDebug = false;
 // R7 :  Down counter
 extern volatile CoreState coreState;
 
-void JitAt()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
-
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
 		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
@@ -75,7 +69,9 @@ void DisassembleArm(const u8 *data, int size);
 
 namespace MIPSComp {
 
-void Jit::GenerateFixedCode()
+using namespace ArmJitConstants;
+
+void ArmJit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 
@@ -99,9 +95,10 @@ void Jit::GenerateFixedCode()
 	//   * r2-r4
 	// Really starting to run low on registers already though...
 
-	MOVP2R(R11, Memory::base);
-	MOVP2R(R10, mips_);
-	MOVP2R(R9, GetBasePtr());
+	// R11, R10, R9
+	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(CTXREG, mips_);
+	MOVP2R(JITBASEREG, GetBasePtr());
 
 	// Doing this down here for better pipelining, just in case.
 	if (cpu_info.bNEON) {
@@ -166,17 +163,17 @@ void Jit::GenerateFixedCode()
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
-				// TODO: Fix me, I'm ugly.
-				MOVI2R(R9, (u32)GetBasePtr());
+				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
+				MOVI2R(JITBASEREG, (u32)GetBasePtr());
 #endif
-				ADD(R0, R0, R9);
+				ADD(R0, R0, JITBASEREG);
 				B(R0);
 			SetCC(CC_AL);
 
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
-			QuickCallFunction(R2, (void *)&JitAt);
+			QuickCallFunction(R2, (void *)&MIPSComp::JitAt);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 

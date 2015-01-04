@@ -701,8 +701,7 @@ namespace MIPSInt
 			d[2] = ExpandHalf(s[1] & 0xFFFF);
 			d[3] = ExpandHalf(s[1] >> 16);
 			break;
-		case V_Triple:
-		case V_Quad:
+		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
 			break;
 		}
@@ -733,8 +732,7 @@ namespace MIPSInt
 			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
 			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
 			break;
-		case V_Single:
-		case V_Triple:
+		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
 			break;
 		}
@@ -760,6 +758,8 @@ namespace MIPSInt
 			// Quad is the only option.
 			// This operation is weird. This particular way of working matches hw but does not 
 			// seem quite sane.
+			// I guess it's used for fixed-point math, and fills more bits to facilitate
+			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
 			{
 				u32 value = s[0];
 				u32 value2 = value / 2;
@@ -1042,10 +1042,11 @@ namespace MIPSInt
 		}
 		else
 		{
-			for (int i = 0; i < n; i+=2)
-			{
-				d[i]   = s[i] + s[i+1];
-				d[i+1] = s[i] - s[i+1];
+			d[0] = s[0] + s[1];
+			d[1] = s[0] - s[1];
+			if (n == 4) {
+				d[2] = s[2] + s[3];
+				d[3] = s[2] - s[3];
 			}
 		}
 		ApplyPrefixD(d, sz);

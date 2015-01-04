@@ -885,7 +885,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_add_ps(s, d), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_add_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (source.rgb() * srcfactor + dst.rgb() * dstfactor) / 255;
 #endif
@@ -896,7 +896,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(s, d), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(s, d), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (source.rgb() * srcfactor - dst.rgb() * dstfactor) / 255;
 #endif
@@ -907,7 +907,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 #if defined(_M_SSE)
 		const __m128 s = _mm_mul_ps(_mm_cvtepi32_ps(source.ivec), _mm_cvtepi32_ps(srcfactor.ivec));
 		const __m128 d = _mm_mul_ps(_mm_cvtepi32_ps(dst.ivec), _mm_cvtepi32_ps(dstfactor.ivec));
-		return Vec3<int>(_mm_cvtps_epi32(_mm_div_ps(_mm_sub_ps(d, s), _mm_set_ps1(255.0f))));
+		return Vec3<int>(_mm_cvtps_epi32(_mm_mul_ps(_mm_sub_ps(d, s), _mm_set_ps1(1.0f / 255.0f))));
 #else
 		return (dst.rgb() * dstfactor - source.rgb() * srcfactor) / 255;
 #endif
@@ -993,20 +993,14 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &colo
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-#if defined(_M_SSE)
-		// ToRGBA() on SSE automatically clamps.
+		// ToRGBA() always automatically clamps.
 		new_color = AlphaBlendingResult(prim_color, dst).ToRGB();
 		new_color |= stencil << 24;
-#else
-		new_color = Vec4<int>(AlphaBlendingResult(prim_color, dst).Clamp(0, 255), stencil).ToRGBA();
-#endif
 	} else {
 #if defined(_M_SSE)
 		new_color = Vec3<int>(prim_color.ivec).ToRGB();
 		new_color |= stencil << 24;
 #else
-		if (!clearMode)
-			prim_color = prim_color.Clamp(0, 255);
 		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
 #endif
 	}
@@ -1194,7 +1188,7 @@ void DrawTriangleSlice(
 			u32 texaddr = gstate.getTextureAddress(i);
 			texbufwidthbits[i] = GetTextureBufw(i, texaddr, texfmt) * 8;
 			if (Memory::IsValidAddress(texaddr))
-				texptr[i] = Memory::GetPointer(texaddr);
+				texptr[i] = Memory::GetPointerUnchecked(texaddr);
 			else
 				texptr[i] = 0;
 		}

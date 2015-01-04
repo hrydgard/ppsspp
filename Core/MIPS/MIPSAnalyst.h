@@ -79,6 +79,8 @@ namespace MIPSAnalyst
 
 	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
 	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
+	// This tells us if the reg is clobbered within intrs of addr (e.g. it is surely not used.)
+	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs);
 
 	struct AnalyzedFunction {
 		u32 start;
@@ -107,9 +109,9 @@ namespace MIPSAnalyst
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
 
-	void SetHashMapFilename(std::string filename = "");
+	void SetHashMapFilename(const std::string& filename = "");
 	void LoadBuiltinHashMap();
-	void LoadHashMap(std::string filename);
+	void LoadHashMap(const std::string& filename);
 	void StoreHashMap(std::string filename = "");
 
 	const char *LookupHash(u64 hash, u32 funcSize);

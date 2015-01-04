@@ -65,7 +65,13 @@ public:
 class SequentialHandleAllocator : public IHandleAllocator {
 public:
 	SequentialHandleAllocator() : handle_(1) {}
-	virtual u32 GetNewHandle() { return handle_++; }
+	virtual u32 GetNewHandle() {
+		u32 res = handle_++;
+		if (handle_ < 0) {
+			handle_ = 0;
+		}
+		return res;
+	}
 	virtual void FreeHandle(u32 handle) {}
 private:
 	int handle_;
@@ -105,7 +111,9 @@ public:
 	virtual u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
+	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) = 0;
 	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) = 0;
+	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) = 0;
 	virtual size_t   SeekFile(u32 handle, s32 position, FileMove type) = 0;
 	virtual PSPFileInfo GetFileInfo(std::string filename) = 0;
 	virtual bool     OwnsHandle(u32 handle) = 0;
@@ -117,6 +125,7 @@ public:
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual int      DevType(u32 handle) = 0;
 	virtual int      Flags() = 0;
+	virtual u64      FreeSpace(const std::string &path) = 0;
 };
 
 
@@ -128,7 +137,9 @@ public:
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) {return 0;}
 	void     CloseFile(u32 handle) {}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) {return 0;}
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {return 0;}
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) {return 0;}
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {return 0;}
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) {return 0;}
 	PSPFileInfo GetFileInfo(std::string filename) {PSPFileInfo f; return f;}
 	bool     OwnsHandle(u32 handle) {return false;}
@@ -140,6 +151,7 @@ public:
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	virtual int DevType(u32 handle) { return 0; }
 	virtual int Flags() { return 0; }
+	virtual u64 FreeSpace(const std::string &path) override { return 0; }
 };
 
 

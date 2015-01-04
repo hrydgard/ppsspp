@@ -47,6 +47,7 @@ enum GPUDebugBufferFormat {
 
 	// 565 is just reversed, the others have B and R swapped.
 	GPU_DBG_FORMAT_565_BGRA = 0x04,
+	GPU_DBG_FORMAT_BRSWAP_FLAG = 0x08,
 	GPU_DBG_FORMAT_5551_BGRA = 0x09,
 	GPU_DBG_FORMAT_4444_BGRA = 0x0A,
 	GPU_DBG_FORMAT_8888_BGRA = 0x0B,
@@ -57,6 +58,9 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_8BIT = 0x12,
 	GPU_DBG_FORMAT_24BIT_8X = 0x13,
 	GPU_DBG_FORMAT_24X_8BIT = 0x14,
+
+	// This is used for screenshots, mainly.
+	GPU_DBG_FORMAT_888_RGB = 0x20,
 };
 
 inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
@@ -147,6 +151,10 @@ struct GPUDebugBuffer {
 		case GPU_DBG_FORMAT_24BIT_8X:
 		case GPU_DBG_FORMAT_24X_8BIT:
 			pixelSize = 4;
+			break;
+
+		case GPU_DBG_FORMAT_888_RGB:
+			pixelSize = 3;
 			break;
 
 		case GPU_DBG_FORMAT_8BIT:

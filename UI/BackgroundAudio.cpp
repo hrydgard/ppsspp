@@ -57,7 +57,7 @@ public:
 				Nothing = temp >> 16;
 
 				if (codec == PSP_CODEC_AT3) {
-					// The first two bytes are actually not useful part of the extradata.
+					// The first two bytes are actually not a useful part of the extradata.
 					// We already read 16 bytes, so make sure there's enough left.
 					if (file_.getCurrentChunkSize() >= 32) {
 						file_.readData(at3_extradata, 16);

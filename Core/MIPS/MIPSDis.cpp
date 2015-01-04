@@ -23,8 +23,6 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-#include "Core/MIPS/JitCommon/JitCommon.h"
-
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
 #define _RD   ((op>>11) & 0x1F)

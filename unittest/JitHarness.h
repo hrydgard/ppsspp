@@ -15,25 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cmath>
-#include "math/math_util.h"
+#pragma once
 
-#include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/MIPSCodeUtils.h"
-#include "Common/CPUDetect.h"
-#include "Core/Config.h"
-#include "Core/Reporting.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
-
-namespace MIPSComp {
-
-int Jit::Replace_fabsf() {
-	return -1;
-	// fpr.MapDirtyIn(0, 13);
-	// VABS(fpr.R(0), fpr.R(13));
-	// return 6;  // Number of instructions in the MIPS function
-}
-
-}
+bool TestJit();

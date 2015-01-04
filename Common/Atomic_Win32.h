@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _ATOMIC_WIN32_H_
-#define _ATOMIC_WIN32_H_
+#pragma once
 
 #include "Common.h"
 #ifndef _XBOX
@@ -85,5 +84,3 @@ inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
 }
 
 }
-
-#endif

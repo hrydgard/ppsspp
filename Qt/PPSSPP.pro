@@ -38,7 +38,7 @@ macx|equals(PLATFORM_NAME, "linux") {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libGPU.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl2) {
-		DEFINES += QT_HAS_SDL
+		DEFINES += SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl2
@@ -54,7 +54,7 @@ unix:contains(QT_CONFIG, system-zlib) {
 }
 
 # Qt Multimedia (if SDL is not found)
-!contains(DEFINES, QT_HAS_SDL) {
+!contains(DEFINES, SDL) {
 	lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
 		# Fallback to mobility audio
 		CONFIG += mobility

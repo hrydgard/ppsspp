@@ -15,18 +15,17 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
-
 #ifndef _DOLPHIN_INTEL_CODEGEN_
 #define _DOLPHIN_INTEL_CODEGEN_
 
 #include "Common.h"
+#include "CodeBlock.h"
 
-#ifdef _M_X64
+#if defined(_M_X64) && !defined(_ARCH_64)
 #define _ARCH_64
 #endif
 
-#ifdef _M_X64
+#ifdef _ARCH_64
 #define PTRBITS 64
 #else
 #define PTRBITS 32
@@ -141,6 +140,17 @@ enum FloatOp {
 	floatINVALID = -1,
 };
 
+enum FloatRound {
+	FROUND_NEAREST = 0,
+	FROUND_FLOOR = 1,
+	FROUND_CEIL = 2,
+	FROUND_ZERO = 3,
+	FROUND_MXCSR = 4,
+
+	FROUND_RAISE_PRECISION = 0,
+	FROUND_IGNORE_PRECISION = 8,
+};
+
 class XEmitter;
 
 // RIP addressing does not benefit from micro op fusion on Core arch
@@ -156,7 +166,7 @@ struct OpArg
 		//if scale == 0 never mind offsetting
 		offset = _offset;
 	}
-	bool operator==(OpArg b)
+	bool operator==(const OpArg &b) const
 	{
 		return operandReg == b.operandReg && scale == b.scale && offsetOrBaseReg == b.offsetOrBaseReg &&
 		       indexReg == b.indexReg && offset == b.offset;
@@ -196,6 +206,16 @@ struct OpArg
 		case SCALE_IMM32: return 32;
 		case SCALE_IMM64: return 64;
 		default: return -1;
+		}
+	}
+
+	void SetImmBits(int bits) {
+		switch (bits)
+		{
+			case 8: scale = SCALE_IMM8; break;
+			case 16: scale = SCALE_IMM16; break;
+			case 32: scale = SCALE_IMM32; break;
+			case 64: scale = SCALE_IMM64; break;
 		}
 	}
 
@@ -620,6 +640,29 @@ public:
 	// SSE/SSE2: Useful alternative to shuffle in some cases.
 	void MOVDDUP(X64Reg regOp, OpArg arg);
 
+	// TODO: Actually implement
+#if 0
+	// SSE3: Horizontal operations in SIMD registers. Could be useful for various VFPU things like dot products...
+	void ADDSUBPS(X64Reg dest, OpArg src);
+	void ADDSUBPD(X64Reg dest, OpArg src);
+	void HADDPD(X64Reg dest, OpArg src);
+	void HSUBPS(X64Reg dest, OpArg src);
+	void HSUBPD(X64Reg dest, OpArg src);
+
+	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
+	void DPPD(X64Reg dest, OpArg src, u8 arg);
+
+	// These are probably useful for VFPU emulation.
+	void INSERTPS(X64Reg dest, OpArg src, u8 arg);
+	void EXTRACTPS(OpArg dest, X64Reg src, u8 arg);
+#endif
+
+	// SSE3: Horizontal operations in SIMD registers. Very slow! shufps-based code beats it handily on Ivy.
+	void HADDPS(X64Reg dest, OpArg src);
+
+	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
+	void DPPS(X64Reg dest, OpArg src, u8 arg);
+
 	void UNPCKLPS(X64Reg dest, OpArg src);
 	void UNPCKHPS(X64Reg dest, OpArg src);
 	void UNPCKLPD(X64Reg dest, OpArg src);
@@ -703,6 +746,7 @@ public:
 	void PUNPCKLBW(X64Reg dest, const OpArg &arg);
 	void PUNPCKLWD(X64Reg dest, const OpArg &arg);
 	void PUNPCKLDQ(X64Reg dest, const OpArg &arg);
+	void PUNPCKLQDQ(X64Reg dest, const OpArg &arg);
 
 	void PTEST(X64Reg dest, OpArg arg);
 	void PAND(X64Reg dest, OpArg arg);
@@ -751,7 +795,15 @@ public:
 	void PMAXUB(X64Reg dest, OpArg arg);
 	void PMINSW(X64Reg dest, OpArg arg);
 	void PMINUB(X64Reg dest, OpArg arg);
-	// SSE4 has PMAXSB and PMINSB and PMAXUW and PMINUW too if we need them.
+	// SSE4: More MAX/MIN instructions.
+	void PMINSB(X64Reg dest, OpArg arg);
+	void PMINSD(X64Reg dest, OpArg arg);
+	void PMINUW(X64Reg dest, OpArg arg);
+	void PMINUD(X64Reg dest, OpArg arg);
+	void PMAXSB(X64Reg dest, OpArg arg);
+	void PMAXSD(X64Reg dest, OpArg arg);
+	void PMAXUW(X64Reg dest, OpArg arg);
+	void PMAXUD(X64Reg dest, OpArg arg);
 
 	void PMOVMSKB(X64Reg dest, OpArg arg);
 	void PSHUFD(X64Reg dest, OpArg arg, u8 shuffle);
@@ -793,6 +845,32 @@ public:
 	void BLENDVPS(X64Reg dest, OpArg arg);
 	void BLENDVPD(X64Reg dest, OpArg arg);
 
+	// SSE4: rounding (see FloatRound for mode or use ROUNDNEARSS, etc. helpers.)
+	void ROUNDSS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDSD(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPS(X64Reg dest, OpArg arg, u8 mode);
+	void ROUNDPD(X64Reg dest, OpArg arg, u8 mode);
+
+	inline void ROUNDNEARSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSS(X64Reg dest, OpArg arg) { ROUNDSS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROSD(X64Reg dest, OpArg arg) { ROUNDSD(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPS(X64Reg dest, OpArg arg) { ROUNDPS(dest, arg, FROUND_ZERO); }
+
+	inline void ROUNDNEARPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_NEAREST); }
+	inline void ROUNDFLOORPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_FLOOR); }
+	inline void ROUNDCEILPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_CEIL); }
+	inline void ROUNDZEROPD(X64Reg dest, OpArg arg) { ROUNDPD(dest, arg, FROUND_ZERO); }
+
 	// AVX
 	void VADDSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VSUBSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
@@ -803,13 +881,85 @@ public:
 	void VMULPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VDIVPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VSQRTSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VSHUFPD(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 shuffle);
+	void VUNPCKLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VUNPCKHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
+	void VANDPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDNPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDNPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VXORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VXORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
 	void VPAND(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPANDN(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPOR(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPXOR(X64Reg regOp1, X64Reg regOp2, OpArg arg);
-	void VSHUFPD(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 shuffle);
-	void VUNPCKLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
-	void VUNPCKHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
+	// FMA3
+	void VFMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 
 	// VEX GPR instructions
 	void SARX(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
@@ -900,49 +1050,10 @@ public:
 // Everything that needs to generate X86 code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class XCodeBlock : public XEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
 
+class XCodeBlock : public CodeBlock<XEmitter> {
 public:
-	XCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~XCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size);
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace();
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace();
-
-	bool IsInSpace(const u8 *ptr) const {
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect();
-
-	void ResetCodePtr() {
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const {
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory() override;
 };
 
 }  // namespace

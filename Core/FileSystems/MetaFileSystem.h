@@ -23,7 +23,7 @@
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
 private:
-	u32 current;
+	s32 current;
 	struct MountPoint
 	{
 		std::string prefix;
@@ -60,10 +60,16 @@ public:
 
 	void Shutdown();
 
-	u32 GetNewHandle() {return current++;}
-	void FreeHandle(u32 handle) {}
+	u32 GetNewHandle() {
+		u32 res = current++;
+		if (current < 0) {
+			current = 0;
+		}
+		return res;
+	}
+	void FreeHandle(u32 handle) override {}
 
-	virtual void DoState(PointerWrap &p);
+	void DoState(PointerWrap &p) override;
 
 	IFileSystem *GetHandleOwner(u32 handle);
 	bool MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
@@ -83,17 +89,19 @@ public:
 	std::string NormalizePrefix(std::string prefix) const;
 
 	// Only possible if a file system is a DirectoryFileSystem or similar.
-	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 	
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL);
+	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
 	u32      OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename = NULL);
-	void     CloseFile(u32 handle);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle) {return false;}
+	void     CloseFile(u32 handle) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	PSPFileInfo GetFileInfo(std::string filename) override;
+	bool     OwnsHandle(u32 handle) override { return false; }
 	inline size_t GetSeekPos(u32 handle)
 	{
 		return SeekFile(handle, 0, FILEMOVE_CURRENT);
@@ -101,13 +109,14 @@ public:
 
 	virtual int ChDir(const std::string &dir);
 
-	virtual bool MkDir(const std::string &dirname);
-	virtual bool RmDir(const std::string &dirname);
-	virtual int  RenameFile(const std::string &from, const std::string &to);
-	virtual bool RemoveFile(const std::string &filename);
-	virtual int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
-	virtual int  DevType(u32 handle);
-	virtual int  Flags() { return 0; }
+	bool MkDir(const std::string &dirname) override;
+	bool RmDir(const std::string &dirname) override;
+	int  RenameFile(const std::string &from, const std::string &to) override;
+	bool RemoveFile(const std::string &filename) override;
+	int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
+	int  DevType(u32 handle) override;
+	int  Flags() override { return 0; }
+	u64  FreeSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
 	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);

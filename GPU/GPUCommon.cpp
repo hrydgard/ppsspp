@@ -69,7 +69,7 @@ bool GPUCommon::BusyDrawing() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}
@@ -124,7 +124,7 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}

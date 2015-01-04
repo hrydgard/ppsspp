@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <unordered_map>
 #include <set>
 #include "base/mutex.h"
 #include "ext/cityhash/city.h"
@@ -30,19 +31,23 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "ext/xxhash.h"
 
 using namespace MIPSCodeUtils;
 
 // Not in a namespace because MSVC's debugger doesn't like it
-static std::vector<MIPSAnalyst::AnalyzedFunction> functions;
+typedef std::vector<MIPSAnalyst::AnalyzedFunction> FunctionsVector;
+static FunctionsVector functions;
 recursive_mutex functions_lock;
 
-// TODO: Try multimap instead
 // One function can appear in multiple copies in memory, and they will all have 
 // the same hash and should all be replaced if possible.
-static std::map<u64, std::vector<MIPSAnalyst::AnalyzedFunction*>> hashToFunction;
+#ifdef __SYMBIAN32__
+// Symbian does not have a functional unordered_multimap.
+static std::multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#else
+static std::unordered_multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
+#endif
 
 struct HashMapFunc {
 	char name[64];
@@ -124,6 +129,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
 	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
+	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
 	{ 0x1f53eac122f96b37, 224, "cosf", },
@@ -158,6 +164,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x32e6bc7c151491ed, 68, "memchr", },
 	{ 0x335df69db1073a8d, 96, "wcscpy", },
 	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
+	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
 	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia, Dissidia 012
 	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
@@ -296,6 +303,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
 	{ 0x9734cf721bc0f3a1, 732, "atanf", },
+	{ 0x99c9288185c352ea, 592, "orenoimouto_download_frame_2", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
@@ -653,43 +661,123 @@ namespace MIPSAnalyst {
 	void UpdateHashToFunctionMap() {
 		lock_guard guard(functions_lock);
 		hashToFunction.clear();
+		// Really need to detect C++11 features with better defines.
+#if !defined(__SYMBIAN32__) && !defined(IOS)
+		hashToFunction.reserve(functions.size());
+#endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
-				hashToFunction[f.hash].push_back(&f);
+				hashToFunction.insert(std::make_pair(f.hash, &f));
 			}
 		}
 	}
 
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+	enum RegisterUsage {
+		USAGE_CLOBBERED,
+		USAGE_INPUT,
+		USAGE_UNKNOWN,
+	};
+
+	static RegisterUsage DetermineInOutUsage(u64 inFlag, u64 outFlag, u32 addr, int instrs) {
+		const u32 start = addr;
 		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			const MIPSInfo info = MIPSGetInfo(op);
 
 			// Yes, used.
-			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
-				return true;
-			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
-				return true;
+			if (info & inFlag)
+				return USAGE_INPUT;
 
 			// Clobbered, so not used.
-			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				return false;
-			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				return false;
-			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				return false;
+			if (info & outFlag)
+				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
 
 			// Bail early if we hit a branch (could follow each path for continuing?)
 			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
 				// Still need to check the delay slot (so end after it.)
 				// We'll assume likely are taken.
 				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
 			}
 			addr += 4;
 		}
-		return false;
+		return USAGE_UNKNOWN;
+	}
+
+	static RegisterUsage DetermineRegisterUsage(MIPSGPReg reg, u32 addr, int instrs) {
+		switch (reg) {
+		case MIPS_REG_HI:
+			return DetermineInOutUsage(IN_HI, OUT_HI, addr, instrs);
+		case MIPS_REG_LO:
+			return DetermineInOutUsage(IN_LO, OUT_LO, addr, instrs);
+		case MIPS_REG_FPCOND:
+			return DetermineInOutUsage(IN_FPUFLAG, OUT_FPUFLAG, addr, instrs);
+		case MIPS_REG_VFPUCC:
+			return DetermineInOutUsage(IN_VFPU_CC, OUT_VFPU_CC, addr, instrs);
+		default:
+			break;
+		}
+
+		if (reg > 32) {
+			return USAGE_UNKNOWN;
+		}
+
+		const u32 start = addr;
+		u32 end = addr + instrs * sizeof(u32);
+		bool canClobber = true;
+		while (addr < end) {
+			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSInfo info = MIPSGetInfo(op);
+
+			// Yes, used.
+			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
+				return USAGE_INPUT;
+			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
+				return USAGE_INPUT;
+
+			// Clobbered, so not used.
+			bool clobbered = false;
+			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
+				clobbered = true;
+			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
+				clobbered = true;
+			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
+				clobbered = true;
+			if (clobbered) {
+				if (!canClobber || (info & IS_CONDMOVE))
+					return USAGE_UNKNOWN;
+				return USAGE_CLOBBERED;
+			}
+
+			// Bail early if we hit a branch (could follow each path for continuing?)
+			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
+				// Still need to check the delay slot (so end after it.)
+				// We'll assume likely are taken.
+				end = addr + 8;
+				// The reason for the start != addr check is that we compile delay slots before branches.
+				// That means if we're starting at the branch, it's not safe to allow the delay slot
+				// to clobber, since it might have already been compiled.
+				// As for LIKELY, we don't know if it'll run the branch or not.
+				canClobber = (info & LIKELY) == 0 && start != addr;
+			}
+			addr += 4;
+		}
+		return USAGE_UNKNOWN;
+	}
+
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_INPUT;
+	}
+
+	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs) {
+		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
 	void HashFunctions() {
@@ -1021,19 +1109,34 @@ skip:
 		// the easy way of saving a hashmap by unloading and loading a game. I added
 		// an alternative way.
 
-		// TODO: speedup
-		auto iter = functions.begin();
-		while (iter != functions.end()) {
-			if (iter->start >= startAddr && iter->start <= endAddr) {
-				iter = functions.erase(iter);
-			} else {
-				iter++;
+		// Most of the time, functions from the same module will be contiguous in functions.
+		FunctionsVector::iterator prevMatch = functions.end();
+		size_t originalSize = functions.size();
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
+			const bool hadPrevMatch = prevMatch != functions.end();
+			const bool match = iter->start >= startAddr && iter->start <= endAddr;
+
+			if (!hadPrevMatch && match) {
+				// Entering a range.
+				prevMatch = iter;
+			} else if (hadPrevMatch && !match) {
+				// Left a range.
+				iter = functions.erase(prevMatch, iter);
+				prevMatch = functions.end();
 			}
+		}
+		if (prevMatch != functions.end()) {
+			// Cool, this is the fastest way.
+			functions.erase(prevMatch, functions.end());
 		}
 
 		RestoreReplacedInstructions(startAddr, endAddr);
 
-		// TODO: Also wipe them from hash->function map
+		if (functions.empty()) {
+			hashToFunction.clear();
+		} else if (originalSize != functions.size()) {
+			UpdateHashToFunctionMap();
+		}
 	}
 
 	void ReplaceFunctions() {
@@ -1074,7 +1177,7 @@ skip:
 		return 0;
 	}
 
-	void SetHashMapFilename(std::string filename) {
+	void SetHashMapFilename(const std::string& filename) {
 		if (filename.empty())
 			hashmapFileName = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
 		else
@@ -1112,15 +1215,14 @@ skip:
 		UpdateHashToFunctionMap();
 
 		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
-			auto iter = hashToFunction.find(mf->hash);
-			if (iter == hashToFunction.end()) {
+			auto range = hashToFunction.equal_range(mf->hash);
+			if (range.first == range.second) {
 				continue;
 			}
 
 			// Yay, found a function.
-
-			for (unsigned int i = 0; i < iter->second.size(); i++) {
-				AnalyzedFunction &f = *(iter->second[i]);
+			for (auto iter = range.first; iter != range.second; ++iter) {
+				AnalyzedFunction &f = *iter->second;
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
@@ -1147,7 +1249,7 @@ skip:
 		}
 	}
 
-	void LoadHashMap(std::string filename) {
+	void LoadHashMap(const std::string& filename) {
 		FILE *file = File::OpenCFile(filename, "rt");
 		if (!file) {
 			WARN_LOG(LOADER, "Could not load hash map: %s", filename.c_str());

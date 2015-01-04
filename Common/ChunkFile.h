@@ -28,10 +28,11 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <map>
+#include <unordered_map>
 #include <deque>
 #include <list>
 #include <set>
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 #include <tr1/type_traits>
 #else
 #include <type_traits>
@@ -41,7 +42,7 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 namespace std {
 	using tr1::is_pointer;
 }
@@ -178,7 +179,29 @@ public:
 	}
 
 	template<class K, class T>
-	void DoMap(std::map<K, T> &x, T &default_val)
+	void Do(std::unordered_map<K, T *> &x)
+	{
+		if (mode == MODE_READ)
+		{
+			for (auto it = x.begin(), end = x.end(); it != end; ++it)
+			{
+				if (it->second != NULL)
+					delete it->second;
+			}
+		}
+		T *dv = NULL;
+		DoMap(x, dv);
+	}
+
+	template<class K, class T>
+	void Do(std::unordered_map<K, T> &x)
+	{
+		T dv = T();
+		DoMap(x, dv);
+	}
+
+	template<class M>
+	void DoMap(M &x, typename M::mapped_type &default_val)
 	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
@@ -188,9 +211,9 @@ public:
 				x.clear();
 				while (number > 0)
 				{
-					K first = K();
+					typename M::key_type first = typename M::key_type();
 					Do(first);
-					T second = default_val;
+					typename M::mapped_type second = default_val;
 					Do(second);
 					x[first] = second;
 					--number;
@@ -201,10 +224,10 @@ public:
 		case MODE_MEASURE:
 		case MODE_VERIFY:
 			{
-				typename std::map<K, T>::iterator itr = x.begin();
+				typename M::iterator itr = x.begin();
 				while (number > 0)
 				{
-					K first = itr->first;
+					typename M::key_type first = itr->first;
 					Do(first);
 					Do(itr->second);
 					--number;
@@ -238,7 +261,29 @@ public:
 	}
 
 	template<class K, class T>
-	void DoMultimap(std::multimap<K, T> &x, T &default_val)
+	void Do(std::unordered_multimap<K, T *> &x)
+	{
+		if (mode == MODE_READ)
+		{
+			for (auto it = x.begin(), end = x.end(); it != end; ++it)
+			{
+				if (it->second != NULL)
+					delete it->second;
+			}
+		}
+		T *dv = NULL;
+		DoMultimap(x, dv);
+	}
+
+	template<class K, class T>
+	void Do(std::unordered_multimap<K, T> &x)
+	{
+		T dv = T();
+		DoMultimap(x, dv);
+	}
+
+	template<class M>
+	void DoMultimap(M &x, typename M::mapped_type &default_val)
 	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
@@ -248,9 +293,9 @@ public:
 				x.clear();
 				while (number > 0)
 				{
-					K first = K();
+					typename M::key_type first = typename M::key_type();
 					Do(first);
-					T second = default_val;
+					typename M::mapped_type second = default_val;
 					Do(second);
 					x.insert(std::make_pair(first, second));
 					--number;
@@ -261,7 +306,7 @@ public:
 		case MODE_MEASURE:
 		case MODE_VERIFY:
 			{
-				typename std::multimap<K, T>::iterator itr = x.begin();
+				typename M::iterator itr = x.begin();
 				while (number > 0)
 				{
 					Do(itr->first);
@@ -501,6 +546,11 @@ public:
 			}
 			else
 			{
+				if (shouldExist != 0)
+				{
+					WARN_LOG(COMMON, "Savestate failure: incorrect item marker %d", shouldExist);
+					SetError(ERROR_FAILURE);
+				}
 				if (mode == MODE_READ)
 				{
 					if (prev)

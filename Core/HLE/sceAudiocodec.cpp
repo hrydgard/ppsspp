@@ -75,7 +75,7 @@ void __AudioCodecShutdown() {
 	clearDecoders();
 }
 
-int sceAudiocodecInit(u32 ctxPtr, int codec) {
+static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (IsValidCodec(codec)) {
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
@@ -92,7 +92,7 @@ int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecDecode(u32 ctxPtr, int codec) {
+static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	if (!ctxPtr){
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
@@ -124,22 +124,22 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
+static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
+static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	WARN_LOG(ME, "UNIMPL sceAudiocodecCheckNeedMem(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
+static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	WARN_LOG(ME, "UNIMPL sceAudiocodecGetEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
+static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	if (removeDecoder(ctxPtr)){
 		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;

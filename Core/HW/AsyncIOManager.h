@@ -43,8 +43,29 @@ struct AsyncIOEvent {
 	}
 };
 
-// TODO: Something better.
-typedef size_t AsyncIOResult;
+struct AsyncIOResult {
+	AsyncIOResult() : result(0), finishTicks(0) {
+	}
+
+	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0) {
+	}
+
+	AsyncIOResult(s64 r, int usec) : result(r) {
+		finishTicks = CoreTiming::GetTicks() + usToCycles(usec);
+	}
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("AsyncIOResult", 1);
+		if (!s)
+			return;
+
+		p.Do(result);
+		p.Do(finishTicks);
+	}
+
+	s64 result;
+	u64 finishTicks;
+};
 
 typedef ThreadEventQueue<NoBase, AsyncIOEvent, AsyncIOEventType, IO_EVENT_INVALID, IO_EVENT_SYNC, IO_EVENT_FINISH> IOThreadEventQueue;
 class AsyncIOManager : public IOThreadEventQueue {
@@ -55,8 +76,11 @@ public:
 	void ScheduleOperation(AsyncIOEvent ev);
 	void Shutdown();
 
+	bool HasResult(u32 handle);
 	bool PopResult(u32 handle, AsyncIOResult &result);
+	bool ReadResult(u32 handle, AsyncIOResult &result);
 	bool WaitResult(u32 handle, AsyncIOResult &result);
+	u64 ResultFinishTicks(u32 handle);
 
 protected:
 	virtual void ProcessEvent(AsyncIOEvent ref);

@@ -246,8 +246,11 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	}
 
 	return true;
+}
 
-
+void ParamSFOData::Clear()
+{
+	values.clear();
 }
 
 void ParamSFOData::ValueData::SetData(const u8* data, int size)

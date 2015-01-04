@@ -64,7 +64,7 @@ class AlarmIntrHandler : public IntrHandler
 public:
 	AlarmIntrHandler() : IntrHandler(PSP_SYSTIMER0_INTR) {}
 
-	virtual bool run(PendingInterrupt& pend)
+	bool run(PendingInterrupt& pend) override
 	{
 		u32 error;
 		int alarmID = triggeredAlarm.front();
@@ -83,7 +83,7 @@ public:
 		return true;
 	}
 
-	virtual void handleResult(PendingInterrupt& pend)
+	void handleResult(PendingInterrupt& pend) override
 	{
 		int result = currentMIPS->r[MIPS_REG_V0];
 
@@ -113,7 +113,7 @@ public:
 
 static int alarmTimer = -1;
 
-void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
+static void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {
 	int uid = (int) userdata;
 
@@ -156,7 +156,7 @@ void __KernelScheduleAlarm(Alarm *alarm, u64 micro)
 	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
 }
 
-SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
+static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 {
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;

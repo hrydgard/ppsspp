@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 #include <d3d9.h>
 
@@ -51,11 +51,12 @@ enum {
 	VAI_FLAG_VERTEXFULLALPHA = 1,
 };
 
-
-// Don't bother storing information about draws smaller than this.
-enum {
-	VERTEX_CACHE_THRESHOLD = 20,
-};
+// Avoiding the full include of TextureDecoder.h.
+#ifdef _M_X64
+typedef u64 ReliableHashType;
+#else
+typedef u32 ReliableHashType;
+#endif
 
 // Try to keep this POD.
 class VertexArrayInfoDX9 {
@@ -81,7 +82,7 @@ public:
 		VAI_UNRELIABLE,  // never cache
 	};
 
-	u32 hash;
+	ReliableHashType hash;
 	u32 minihash;
 
 	Status status;
@@ -109,8 +110,8 @@ public:
 	virtual ~TransformDrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
-	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -191,7 +192,7 @@ private:
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 
 	u32 ComputeMiniHash();
-	u32 ComputeHash();  // Reads deferred vertex data.
+	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
@@ -203,8 +204,8 @@ private:
 		void *inds;
 		u32 vertType;
 		u8 indexType;
-		u8 prim;
-		u16 vertexCount;
+		s8 prim;
+		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 	};
@@ -215,7 +216,7 @@ private:
 	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
-	std::map<u32, VertexDecoder *> decoderMap_;
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_;
 	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
@@ -223,8 +224,8 @@ private:
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
-	std::map<u32, VertexArrayInfoDX9 *> vai_;
-	std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
+	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
+	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// Fixed index buffer for easy quad generation from spline/bezier
 	u16 *quadIndices_;

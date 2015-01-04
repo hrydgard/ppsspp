@@ -1203,6 +1203,8 @@ set( CMAKE_ASM_COMPILER_FORCED TRUE )
 set( CMAKE_COMPILER_IS_GNUASM 1)
 set( CMAKE_ASM_SOURCE_FILE_EXTENSIONS s S asm )
 
+set( CMAKE_SIZEOF_VOID_P 4 )
+
 # flags and definitions
 remove_definitions( -DANDROID )
 add_definitions( -DANDROID )

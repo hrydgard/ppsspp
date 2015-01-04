@@ -42,6 +42,7 @@
 
 namespace MIPSComp
 {
+using namespace Gen;
 
 #ifdef _M_IX86
 
@@ -120,6 +121,9 @@ JitOptions::JitOptions()
 	continueBranches = false;
 	continueJumps = false;
 	continueMaxInstructions = 300;
+	enableVFPUSIMD = true;
+	// Set by Asm if needed.
+	reserveR15ForAsm = false;
 }
 
 #ifdef _MSC_VER
@@ -132,7 +136,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
-	asm_.Init(mips, this);
+	asm_.Init(mips, this, &jo);
 	safeMemFuncs.Init(&thunks);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
@@ -407,7 +411,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
-	FixupBranch skip = J_CC(CC_NBE);
+	FixupBranch skip = J_CC(CC_NS);
 	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
 	JMP(asm_.outerLoop, true);  // downcount hit zero - go advance.
 	SetJumpTarget(skip);
@@ -416,8 +420,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(mips_, analysis);
-	fpr.Start(mips_, analysis);
+	gpr.Start(mips_, &js, &jo, analysis);
+	fpr.Start(mips_, &js, &jo, analysis);
 
 	js.numInstructions = 0;
 	while (js.compiling) {
@@ -455,7 +459,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.numInstructions++;
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800)
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
 		{
 			FlushAll();
 			WriteExit(js.compilerPC, js.nextExit++);
@@ -620,6 +624,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
 			SUB(32, M(&mips_->downcount), R(EAX));
 			ApplyRoundingMode();
+			// Need to set flags again, ApplyRoundingMode destroyed them (and EAX.)
 			SUB(32, M(&mips_->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
 			js.compiling = false;
@@ -706,9 +711,6 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 void Jit::WriteExitDestInReg(X64Reg reg)
 {
-	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
-	MOV(32, M(&mips_->pc), R(reg));
-
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
@@ -720,6 +722,7 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		SetJumpTarget(skipCheck);
 	}
 
+	MOV(32, M(&mips_->pc), R(reg));
 	WriteDowncount();
 
 	// Validate the jump to avoid a crash?
@@ -730,27 +733,33 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		CMP(32, R(reg), Imm32(PSP_GetUserMemoryEnd()));
 		FixupBranch tooHigh = J_CC(CC_AE);
 
-		// Need to set neg flag again if necessary.
-		SUB(32, M(&mips_->downcount), Imm32(0));
+		// Need to set neg flag again.
+		SUB(32, M(&mips_->downcount), Imm8(0));
+		if (reg == EAX)
+			J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
 		JMP(asm_.dispatcher, true);
 
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		CallProtectedFunction(Memory::GetPointer, R(reg));
-		CMP(32, R(reg), Imm32(0));
-		FixupBranch skip = J_CC(CC_NE);
+		ABI_CallFunctionA((const void *)&Memory::GetPointer, R(reg));
 
-		// TODO: "Ignore" this so other threads can continue?
+		// If we're ignoring, coreState didn't trip - so trip it now.
 		if (g_Config.bIgnoreBadMemAccess)
-			CallProtectedFunction(Core_UpdateState, Imm32(CORE_ERROR));
+		{
+			CMP(32, R(EAX), Imm32(0));
+			FixupBranch skip = J_CC(CC_NE);
+			ABI_CallFunctionA((const void *)&Core_UpdateState, Imm32(CORE_ERROR));
+			SetJumpTarget(skip);
+		}
 
-		SUB(32, M(&mips_->downcount), Imm32(0));
+		SUB(32, M(&mips_->downcount), Imm8(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
-		SetJumpTarget(skip);
-
-		SUB(32, M(&mips_->downcount), Imm32(0));
-		J_CC(CC_NE, asm_.dispatcher, true);
+	}
+	else if (reg == EAX)
+	{
+		J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
+		JMP(asm_.dispatcher, true);
 	}
 	else
 		JMP(asm_.dispatcher, true);

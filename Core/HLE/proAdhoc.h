@@ -571,29 +571,29 @@ int initNetwork(SceNetAdhocctlAdhocId *adhocid);
 /**
  * Broadcast MAC Check
  * @param addr To-be-checked MAC Address
- * @return 1 if Broadcast MAC or... 0
+ * @return true if Broadcast MAC, false otherwise.
  */
-int isBroadcastMAC(const SceNetEtherAddr * addr);
+bool isBroadcastMAC(const SceNetEtherAddr * addr);
 
 /**
  * Resolve IP to MAC
  * @param ip Peer IP Address
  * @param mac OUT: Peer MAC
- * @return 0 on success or... ADHOC_NO_ENTRY
+ * @return true on success, false otherwise.
  */
-int resolveIP(uint32_t ip, SceNetEtherAddr * mac);
+bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
 
 /**
  * Resolve MAC to IP
  * @param mac Peer MAC Address
  * @param ip OUT: Peer IP
- * @return 0 on success or... ADHOC_NO_ENTRY
+ * @return true on success, false otherwise.
  */
-int resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
+bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
 
 /**
  * Check whether Network Name contains only valid symbols
  * @param group_name To-be-checked Network Name
- * @return 1 if valid or... 0
+ * @return true if valid, false otherwise.
  */
- int validNetworkName(const SceNetAdhocctlGroupName * groupname);
+bool validNetworkName(const SceNetAdhocctlGroupName * groupname);

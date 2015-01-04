@@ -67,7 +67,7 @@ void RunTests()
 #ifdef IOS
 	const std::string baseDirectory = g_Config.flash0Directory + "../";
 #else
-	const std::string baseDirectory = g_Config.memCardDirectory;
+	const std::string baseDirectory = g_Config.memStickDirectory;
 #endif
 
 	CoreParameter coreParam;
@@ -96,7 +96,7 @@ void RunTests()
 		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
 		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
 
-		ILOG("Preparing to execute %s", testName)
+		ILOG("Preparing to execute %s", testName);
 		std::string error_string;
 		output = "";
 		if (!PSP_Init(coreParam, &error_string)) {

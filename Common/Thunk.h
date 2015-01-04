@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _THUNK_H_
-#define _THUNK_H_
+#pragma once
 
 #include <map>
 
@@ -98,5 +97,3 @@ private:
 	int ThunkStackOffset();
 	int ThunkBytesNeeded();
 };
-
-#endif // _THUNK_H_

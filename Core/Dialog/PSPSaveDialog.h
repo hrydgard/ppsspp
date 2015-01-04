@@ -33,6 +33,7 @@
 #define SCE_UTILITY_SAVEDATA_ERROR_LOAD_INTERNAL        (0x8011030b)
 
 #define SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK       (0x80110321)
+#define SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL     (0x80110323)
 #define SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN       (0x80110326)
 #define SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA           (0x80110327)
 #define SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS        (0x80110328)
@@ -72,10 +73,10 @@ public:
 	virtual ~PSPSaveDialog();
 
 	virtual int Init(int paramAddr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 	void ExecuteIOAction();
 

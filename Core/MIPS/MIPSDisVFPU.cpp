@@ -150,7 +150,7 @@ namespace MIPSDis
 	{
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t",name);
+		sprintf(out, "%s\t[",name);
 		static const char *regnam[4] = {"X","Y","Z","W"};
 		static const char *constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
 		for (int i=0; i<4; i++)
@@ -175,16 +175,19 @@ namespace MIPSDis
 			}
 			if (abs && !constants)
 				strcat(out, "|");
-			strcat(out, " ");
+			if (i != 3)
+				strcat(out, ",");
 		}
+
+		strcat(out, "]");
 	}
 
 	void Dis_VPFXD(MIPSOpcode op, char *out)
 	{
 		int data = op & 0xFFFFF;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t", name);
-		static const char *satNames[4] = {"", "0-1", "X", "-1-1"};
+		sprintf(out, "%s\t[", name);
+		static const char *satNames[4] = {"", "0:1", "X", "-1:1"};
 		for (int i=0; i<4; i++)
 		{
 			int sat = (data>>i*2)&3;
@@ -194,8 +197,10 @@ namespace MIPSDis
 			if (mask)
 				strcat(out, "M");
 			if (i < 4 - 1)
-				strcat(out, ", ");
+				strcat(out, ",");
 		}
+
+		strcat(out, "]");
 	}
 
 
@@ -431,7 +436,7 @@ namespace MIPSDis
 		int vs = _VS;
 		int imm = (op>>16) & 0x1f;
 		bool negSin = (imm & 0x10) ? true : false;
-		char c[5] = "....";
+		char c[5] = "0000";
 		char temp[16]={""};
 		if (((imm>>2)&3)==(imm&3))
 		{
@@ -448,10 +453,9 @@ namespace MIPSDis
 		{
 			if (c[i] == 'S' && negSin)
 				temp[pos++] = '-';
-			else
-				temp[pos++] = ' ';
 			temp[pos++] = c[i];
-			temp[pos++] = ' ';
+			if (i != numElems-1)
+				temp[pos++] = ',';
 		}
 		temp[pos++] = ']';
 		temp[pos]=0;

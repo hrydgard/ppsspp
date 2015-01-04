@@ -9,6 +9,7 @@
 #include "i18n/i18n.h"
 
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Windows/D3D9Base.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
@@ -22,8 +23,7 @@ static LPDIRECT3DDEVICE9EX deviceEx;
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
-
-static int xres, yres;
+static D3DPRESENT_PARAMETERS pp;
 
 // TODO: Make config?
 static bool enableGLDebug = true;
@@ -54,7 +54,16 @@ bool IsWin7OrLater() {
 	return (major > 6) || ((major == 6) && (minor >= 1));
 }
 
-bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
+static void GetRes(int &xres, int &yres) {
+	RECT rc;
+	GetClientRect(hWnd, &rc);
+	xres = rc.right - rc.left;
+	yres = rc.bottom - rc.top;
+}
+
+bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
+	hWnd = wnd;
+
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
 	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
@@ -120,12 +129,9 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	else
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	int xres = rc.right - rc.left;
-	int yres = rc.bottom - rc.top;
+	int xres, yres;
+	GetRes(xres, yres);
 
-	D3DPRESENT_PARAMETERS pp;
 	memset(&pp, 0, sizeof(pp));
 	pp.BackBufferWidth = xres;
 	pp.BackBufferHeight = yres;
@@ -133,7 +139,7 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 	pp.MultiSampleType = D3DMULTISAMPLE_NONE;
 	pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	pp.Windowed = windowed;
-	pp.hDeviceWindow = hWnd;
+	pp.hDeviceWindow = wnd;
 	pp.EnableAutoDepthStencil = true;
 	pp.AutoDepthStencilFormat = D3DFMT_D24S8;
 	pp.PresentationInterval = (g_Config.bVSync) ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
@@ -145,10 +151,10 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 			//pp.BackBufferCount = 2;
 			//pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
 		}
-		hr = d3dEx->CreateDeviceEx(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, NULL, &deviceEx);
+		hr = d3dEx->CreateDeviceEx(adapterId, D3DDEVTYPE_HAL, wnd, dwBehaviorFlags, &pp, NULL, &deviceEx);
 		device = deviceEx;
 	} else {
-		hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, hWnd, dwBehaviorFlags, &pp, &device);
+		hr = d3d->CreateDevice(adapterId, D3DDEVTYPE_HAL, wnd, dwBehaviorFlags, &pp, &device);
 	}
 
 	if (FAILED(hr)) {
@@ -186,7 +192,24 @@ bool D3D9_Init(HWND hWnd, bool windowed, std::string *error_message) {
 }
 
 void D3D9_Resize(HWND window) {
-	// TODO!
+	// This should only be called from the emu thread.
+
+	int xres, yres;
+	GetRes(xres, yres);
+	bool w_changed = pp.BackBufferWidth != xres;
+	bool h_changed = pp.BackBufferHeight != yres;
+
+	if (device && (w_changed || h_changed)) {
+		DX9::fbo_shutdown();
+
+		pp.BackBufferWidth = xres;
+		pp.BackBufferHeight = yres;
+		HRESULT hr = device->Reset(&pp);
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "Unable to reset device: %08x", hr);
+		}
+		DX9::fbo_init(d3d);
+	}
 }
 
 void D3D9_Shutdown() {

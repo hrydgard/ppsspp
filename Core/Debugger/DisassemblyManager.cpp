@@ -42,7 +42,11 @@ bool isInInterval(u32 start, u32 size, u32 value)
 
 static u32 computeHash(u32 address, u32 size)
 {
-	return XXH32(Memory::GetPointer(address),size,0xBACD7814);
+#ifdef _M_X64
+	return XXH64(Memory::GetPointer(address), size, 0xBACD7814BACD7814LL);
+#else
+	return XXH32(Memory::GetPointer(address), size, 0xBACD7814);
+#endif
 }
 
 
@@ -356,7 +360,7 @@ void DisassemblyFunction::recheck()
 	if (!PSP_IsInited())
 		return;
 
-	u32 newHash = computeHash(address,size);
+	HashType newHash = computeHash(address,size);
 	if (hash != newHash)
 	{
 		hash = newHash;
@@ -819,7 +823,7 @@ void DisassemblyData::recheck()
 	if (!PSP_IsInited())
 		return;
 
-	u32 newHash = computeHash(address,size);
+	HashType newHash = computeHash(address,size);
 	if (newHash != hash)
 	{
 		hash = newHash;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "android/app-android.h"
 #include "base/display.h"
 #include "base/logging.h"
@@ -44,12 +45,13 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/SaveState.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
+#include "UI/PauseScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/DevScreens.h"
@@ -79,6 +81,13 @@ void EmuScreen::bootGame(const std::string &filename) {
 			bootComplete();
 		}
 		return;
+	}
+
+	//pre-emptive loading of game specific config if possible, to get all the settings
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, filename, 0);
+	if (info && !info->id.empty())
+	{
+		g_Config.loadGameConfig(info->id);
 	}
 
 	invalid_ = true;
@@ -222,9 +231,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu) gpu->DumpNextFrame();
 	} else if (!strcmp(message, "clear jit")) {
-		if (MIPSComp::jit) {
-			MIPSComp::jit->ClearCache();
-		}
+		currentMIPS->ClearJitCache();
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
 		}
@@ -290,6 +297,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		pauseTrigger_ = true;
 		break;
 
+	case VIRTKEY_AXIS_SWAP:
+		KeyMap::SwapAxis();
+		break;
+
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
 		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
@@ -323,11 +334,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(g_Config.iCurrentStateSlot, 0);
+		SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
 		break;
 	case VIRTKEY_LOAD_STATE:
 		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
-			SaveState::LoadSlot(g_Config.iCurrentStateSlot, 0);
+			SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
@@ -397,10 +408,6 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 }
 
 bool EmuScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
-		pauseTrigger_ = true;
-	}
-
 	std::vector<int> pspKeys;
 	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
 
@@ -412,6 +419,14 @@ bool EmuScreen::key(const KeyInput &key) {
 	for (size_t i = 0; i < pspKeys.size(); i++) {
 		pspKey(pspKeys[i], key.flags);
 	}
+
+	if (!pspKeys.size() || key.deviceId == DEVICE_ID_DEFAULT) {
+		if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_BACK) {
+			pauseTrigger_ = true;
+			return true;
+		}
+	}
+
 	return pspKeys.size() > 0;
 }
 
@@ -525,9 +540,9 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 				if (!IsAnalogStickKey(results[i]))
 					pspKey(results[i], KEY_DOWN);
 			}
-			// Also unpress the other direction.
+			// Also unpress the other direction (unless both directions press the same key.)
 			for (size_t i = 0; i < resultsOpposite.size(); i++) {
-				if (!IsAnalogStickKey(resultsOpposite[i]))
+				if (!IsAnalogStickKey(resultsOpposite[i]) && std::find(results.begin(), results.end(), resultsOpposite[i]) == results.end())
 					pspKey(resultsOpposite[i], KEY_UP);
 			}
 		} else if (axisState == 0) {
@@ -551,6 +566,7 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
+	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams((UI::Size)bounds.w, (UI::Size)bounds.h)));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -721,59 +737,64 @@ void EmuScreen::render() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
 
-	ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
+	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu) {
+		ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
 
-	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-		root_->Draw(*screenManager()->getUIContext());
-	}
-
-	if (!osm.IsEmpty()) {
-		osm.Draw(ui_draw2d, screenManager()->getUIContext()->GetBounds());
-	}
-
-	if (g_Config.bShowDebugStats) {
-		char statbuf[4096] = {0};
-		__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-		ui_draw2d.SetFontScale(.7f, .7f);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
-	}
-
-	if (g_Config.iShowFPSCounter) {
-		float vps, fps, actual_fps;
-		__DisplayGetFPS(&vps, &fps, &actual_fps);
-		char fpsbuf[256];
-		switch (g_Config.iShowFPSCounter) {
-		case 1:
-			snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
-		case 2:
-			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
-		case 3:
-			snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
-		default:
-			return;
+		if (root_) {
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+			root_->Draw(*screenManager()->getUIContext());
 		}
 
-		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-		ui_draw2d.SetFontScale(0.7f, 0.7f);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-		ui_draw2d.SetFontScale(1.0f, 1.0f);
+		if (g_Config.bShowDebugStats) {
+			char statbuf[4096] = {0};
+			__DisplayGetDebugStats(statbuf, sizeof(statbuf));
+			ui_draw2d.SetFontScale(.7f, .7f);
+			ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
+			ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+			ui_draw2d.SetFontScale(1.0f, 1.0f);
+		}
+
+		if (g_Config.iShowFPSCounter) {
+			float vps, fps, actual_fps;
+			__DisplayGetFPS(&vps, &fps, &actual_fps);
+			char fpsbuf[256];
+			switch (g_Config.iShowFPSCounter) {
+			case 1:
+				snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+			case 2:
+				snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
+			case 3:
+				snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+			default:
+				return;
+			}
+
+			const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+			ui_draw2d.SetFontScale(0.7f, 0.7f);
+			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			ui_draw2d.SetFontScale(1.0f, 1.0f);
+		}
+
+		ui_draw2d.End();
+		ui_draw2d.Flush();
 	}
 
-	ui_draw2d.End();
-	ui_draw2d.Flush();
-
-	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#if defined(USING_GLES2)
-	bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
-	if (hasDiscard) {
-		//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
-		//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
+#ifdef USING_GLES2
+	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
+	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+		GLenum attachments[3] = { GL_DEPTH, GL_STENCIL };
+		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+	} else if (!gl_extensions.GLES3) {
+		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
+		bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
+		if (hasDiscard) {
+			//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
+			//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
+		}
 	}
 #endif
 }
@@ -790,7 +811,7 @@ void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot();
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(lastSlot, 0, 0);
+		SaveState::LoadSlot(lastSlot, SaveState::Callback(), 0);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }

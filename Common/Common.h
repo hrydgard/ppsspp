@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#pragma once
 
 // DO NOT EVER INCLUDE <windows.h> directly _or indirectly_ from this file
 // since it slows down the build a lot.
@@ -32,10 +31,6 @@
 #if !defined(ARM)
 #define ARM
 #endif
-#endif
-
-#if defined(ARM)
-#define _M_ARM32
 #endif
 
 // Force enable logging in the right modes. For some reason, something had changed
@@ -107,13 +102,6 @@ private:
 #ifndef MAX_PATH
 #define MAX_PATH PATH_MAX
 #endif
-#ifdef _LP64
-#define _M_X64 1
-#else
-#ifndef _M_ARM32
-#define _M_IX86 1
-#endif
-#endif
 
 #define __forceinline inline __attribute__((always_inline))
 #define MEMORY_ALIGNED16(x) __attribute__((aligned(16))) x
@@ -149,5 +137,3 @@ private:
 #endif
 
 #include "Swap.h"
-
-#endif // _COMMON_H_

@@ -25,7 +25,7 @@
 
 static std::map<u32, AuCtx*> aacMap;
 
-AuCtx *getAacCtx(u32 id) {
+static AuCtx *getAacCtx(u32 id) {
 	if (aacMap.find(id) == aacMap.end())
 		return NULL;
 	return aacMap[id];
@@ -46,68 +46,62 @@ void __AACDoState(PointerWrap &p) {
 	p.Do(aacMap);
 }
 
-u32 sceMp4Init()
+static u32 sceMp4Init()
 {
 	INFO_LOG(ME, "sceMp4Init()");
 	return 0;
 }
 
-u32 sceMp4Finish()
+static u32 sceMp4Finish()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4Finish()");
 	return 0;
 }
 
-u32 sceMp4Create(u32 mp4, u32 unknown2, u32 readBufferAddr, u32 readBufferSize)
+static u32 sceMp4Create(u32 mp4, u32 unknown2, u32 readBufferAddr, u32 readBufferSize)
 {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create(mp4 %i,unknown2 %08x,readBufferAddr %08x,readBufferSize %i)", mp4, unknown2, readBufferAddr, readBufferSize);
 	return 0;
 }
 
-u32 sceMp4GetNumberOfSpecificTrack()
+static u32 sceMp4GetNumberOfSpecificTrack()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
 	return 1;
 }
 
-u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
+static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo(mp4 %i, unknown2 %08x)",mp4, unknown2);
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
+static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufAvailableSize(mp4 %i, unknown2 %08x)", mp4, unknown2);
 	return 0;
 }
 
-u32 sceMp4CreatesceMp4GetNumberOfMetaData()
-{
-	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
-	return 0;
-}
-
-u32 sceMp4Delete()
+static u32 sceMp4Delete()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4Delete()");
 	return 0;
 }
 
-u32 sceMp4AacDecodeInitResource(int unknown)
+static u32 sceMp4AacDecodeInitResource(int unknown)
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource(%i)",unknown);
 	return 0;
 }
 
-u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr)
+static u32 sceMp4InitAu(u32 mp4, u32 unknown2, u32 auAddr)
 {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
 	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x)", mp4, unknown2, auAddr);
 	return 0;
 }
 
-u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
+static u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 {
 	// unknown2 = return value of sceMpegAvcResourceGetAvcEsBuf()
 	ERROR_LOG(ME, "UNIMPL sceMp4InitAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %08x)", mp4, unknown2, auAddr, unknown4);
@@ -115,27 +109,27 @@ u32 sceMp4GetAvcAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 }
 
 
-u32 sceMp4GetAvcTrackInfoData()
+static u32 sceMp4GetAvcTrackInfoData()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetAvcTrackInfoData()");
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
+static u32 sceMp4TrackSampleBufConstruct(u32 mp4, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6, u32 unknown7)
 {
 	// unknown4 == value returned by sceMp4_BCA9389C
 	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct(mp4 %i,unknown2 %08x,unknown3 %08x, unknown4 %08x, unknown5 %08x, unknown6 %08x, unknown7 %08x)", mp4, unknown2, unknown3, unknown4, unknown5, unknown6, unknown7);
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
+static u32 sceMp4TrackSampleBufQueryMemSize(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5)
 {
 	u32 value = std::max(unknown2 * unknown3, unknown4 << 1) + (unknown2 << 6) + unknown5 + 256;
 	ERROR_LOG(ME, "sceMp4TrackSampleBufQueryMemSize return %i",value);
 	return value;
 }
 
-u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency)
+static u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency)
 {
 	// Decode audio:
 	// - init: 1 at first call, 0 afterwards
@@ -146,56 +140,56 @@ u32 sceMp4AacDecode(u32 mp4, u32 auAddr, u32 bufferAddr, u32 init, u32 frequency
 	//return -1;
 }
 
-u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
+static u32 sceMp4GetAacAu(u32 mp4, u32 unknown2, u32 auAddr, u32 unknown4)
 {
 	// unknown4: pointer to a 40-bytes structure
 	ERROR_LOG(ME, "sceMp4GetAacAu(mp4 %i,unknown2 %08x,auAddr %08x,unknown4 %i ", mp4, unknown2, auAddr, unknown4);
 	return 0;
 }
 
-u32 sceMp4GetSampleInfo()
+static u32 sceMp4GetSampleInfo()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleInfo()");
 	return 0;
 }
 
-u32 sceMp4GetSampleNumWithTimeStamp()
+static u32 sceMp4GetSampleNumWithTimeStamp()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
 	return 0;
 }
 
-u32 sceMp4TrackSampleBufFlush()
+static u32 sceMp4TrackSampleBufFlush()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufFlush()");
 	return 0;
 }
 
-u32 sceMp4AacDecodeInit(int unknown)
+static u32 sceMp4AacDecodeInit(int unknown)
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit(%i)",unknown);
 	return 0;
 }
 
-u32 sceMp4GetAacTrackInfoData()
+static u32 sceMp4GetAacTrackInfoData()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetAacTrackInfoData()");
 	return 0;
 }
 
-u32 sceMp4GetNumberOfMetaData()
+static u32 sceMp4GetNumberOfMetaData()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
 	return 0;
 }
 
-u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
+static u32 sceMp4RegistTrack(u32 mp4, u32 unknown2, u32 unknown3, u32 callbacks, u32 unknown5)
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack(mp4 %i,unknown2 %i,unknown3 %i,callbacks %i unknown5 %i)",mp4,unknown2,unknown3,callbacks,unknown5);
 	return 0;
 }
 
-u32 sceMp4SearchSyncSampleNum()
+static u32 sceMp4SearchSyncSampleNum()
 {
 	ERROR_LOG(ME, "UNIMPL sceMp4SearchSyncSampleNum()");
 	return 0;
@@ -204,7 +198,7 @@ u32 sceMp4SearchSyncSampleNum()
 
 // sceAac module starts from here
 
-u32 sceAacExit(u32 id)
+static u32 sceAacExit(u32 id)
 {
 	INFO_LOG(ME, "sceAacExit(id %i)", id);
 	if (aacMap.find(id) != aacMap.end()) {
@@ -218,7 +212,7 @@ u32 sceAacExit(u32 id)
 	return 0;
 }
 
-u32 sceAacInit(u32 id)
+static u32 sceAacInit(u32 id)
 {
 	INFO_LOG(ME, "UNIMPL sceAacInit(%08x)", id);
 	if (!Memory::IsValidAddress(id)){
@@ -239,7 +233,7 @@ u32 sceAacInit(u32 id)
 		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
-	if (aac->startPos < 0 || aac->startPos > aac->endPos) {
+	if (aac->startPos > aac->endPos) {
 		ERROR_LOG(ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
 		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
@@ -276,20 +270,20 @@ u32 sceAacInit(u32 id)
 	return id;
 }
 
-u32 sceAacInitResource(u32 numberIds)
+static u32 sceAacInitResource(u32 numberIds)
 {
 	// Do nothing here
 	INFO_LOG_REPORT(ME, "sceAacInitResource(%i)", numberIds);
 	return 0;
 }
 
-u32 sceAacTermResource()
+static u32 sceAacTermResource()
 {
 	ERROR_LOG(ME, "UNIMPL sceAacTermResource()");
 	return 0;
 }
 
-u32 sceAacDecode(u32 id, u32 pcmAddr)
+static u32 sceAacDecode(u32 id, u32 pcmAddr)
 {
 	// return the size of output pcm, <0 error
 	DEBUG_LOG(ME, "sceAacDecode(id %i, bufferAddress %08x)", id, pcmAddr);
@@ -302,7 +296,7 @@ u32 sceAacDecode(u32 id, u32 pcmAddr)
 	return ctx->AuDecode(pcmAddr);
 }
 
-u32 sceAacGetLoopNum(u32 id)
+static u32 sceAacGetLoopNum(u32 id)
 {
 	INFO_LOG(ME, "sceAacGetLoopNum(id %i)", id);
 	auto ctx = getAacCtx(id);
@@ -313,7 +307,7 @@ u32 sceAacGetLoopNum(u32 id)
 	return ctx->AuGetLoopNum();
 }
 
-u32 sceAacSetLoopNum(u32 id, int loop)
+static u32 sceAacSetLoopNum(u32 id, int loop)
 {
 	INFO_LOG(ME, "sceAacSetLoopNum(id %i,loop %d)", id, loop);
 	auto ctx = getAacCtx(id);
@@ -325,7 +319,7 @@ u32 sceAacSetLoopNum(u32 id, int loop)
 	return ctx->AuSetLoopNum(loop);
 }
 
-int sceAacCheckStreamDataNeeded(u32 id)
+static int sceAacCheckStreamDataNeeded(u32 id)
 {
 	// return 1 to read more data stream, 0 don't read, <0 error
 	DEBUG_LOG(ME, "sceAacCheckStreamDataNeeded(%i)", id);
@@ -339,7 +333,7 @@ int sceAacCheckStreamDataNeeded(u32 id)
 	return ctx->AuCheckStreamDataNeeded();
 }
 
-u32 sceAacNotifyAddStreamData(u32 id, int size)
+static u32 sceAacNotifyAddStreamData(u32 id, int size)
 {
 	// check how many bytes we have read from source file
 	DEBUG_LOG(ME, "sceAacNotifyAddStreamData(%i, %08x)", id, size);
@@ -353,7 +347,7 @@ u32 sceAacNotifyAddStreamData(u32 id, int size)
 	return ctx->AuNotifyAddStreamData(size);
 }
 
-u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
+static u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 {
 	// read from stream position srcPos of size bytes into buff
 	DEBUG_LOG(ME, "sceAacGetInfoToAddStreamData(%08X, %08X, %08X, %08X)", id, buff, size, srcPos);
@@ -367,7 +361,7 @@ u32 sceAacGetInfoToAddStreamData(u32 id, u32 buff, u32 size, u32 srcPos)
 	return ctx->AuGetInfoToAddStreamData(buff, size, srcPos);
 }
 
-u32 sceAacGetMaxOutputSample(u32 id)
+static u32 sceAacGetMaxOutputSample(u32 id)
 {
 	DEBUG_LOG(ME, "sceAacGetMaxOutputSample(id %i)", id);
 	auto ctx = getAacCtx(id);
@@ -379,7 +373,7 @@ u32 sceAacGetMaxOutputSample(u32 id)
 	return ctx->AuGetMaxOutputSample();
 }
 
-u32 sceAacGetSumDecodedSample(u32 id)
+static u32 sceAacGetSumDecodedSample(u32 id)
 {
 	DEBUG_LOG(ME, "sceAacGetSumDecodedSample(id %i)", id);
 	auto ctx = getAacCtx(id);
@@ -391,7 +385,7 @@ u32 sceAacGetSumDecodedSample(u32 id)
 	return ctx->AuGetSumDecodedSample();
 }
 
-u32 sceAacResetPlayPosition(u32 id)
+static u32 sceAacResetPlayPosition(u32 id)
 {
 	INFO_LOG(ME, "sceAacResetPlayPosition(id %i)", id);
 	auto ctx = getAacCtx(id);
