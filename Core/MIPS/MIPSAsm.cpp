@@ -73,7 +73,7 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	swprintf(str,64,L".psp\n.org 0x%08X\n",address);
 
 	ArmipsArguments args;
-	args.mode = ArmipsMode::Memory;
+	args.mode = ArmipsMode::MEMORY;
 	args.content = str + ConvertUTF8ToWString(line);
 	args.silent = true;
 	args.memoryFile = &file;
