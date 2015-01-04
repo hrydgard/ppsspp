@@ -50,6 +50,13 @@ enum {
 	GPU_BACKEND_DIRECT3D9 = 1,
 };
 
+// For iIOTimingMethod.
+enum IOTimingMethods {
+	IOTIMING_FAST = 0,
+	IOTIMING_HOST = 1,
+	IOTIMING_REALISTIC = 2,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -65,6 +72,7 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 	bool bFirstRun;
+	bool bGameSpecific;
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
@@ -108,10 +116,12 @@ public:
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
+	int iIOTimingMethod;
 	bool bSeparateIOThread;
 	bool bAtomicAudioLocks;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
+	bool bCacheFullIsoInRam;
 	int iScreenRotation;
 
 	std::string sReportHost;
@@ -124,13 +134,6 @@ public:
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
-
-	int iBackGroundChange; //0=background1 1=background2
-	int iR;
-	int iG;
-	int iB;
-	int iTransparent;
-	bool iTheme_botton;
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
@@ -171,6 +174,7 @@ public:
 	bool bReloadCheats;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
+	bool bDepthRangeHack;
 	bool bTimerHack;
 	bool bAlphaMaskHack;
 	bool bBlockTransferGPU;
@@ -191,7 +195,6 @@ public:
 	int iShowFPSCounter;
 	bool bShowDebugStats;
 
-	bool bLowMem_UI;
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
 	//considers this orientation to be equal to no movement of the analog stick.
@@ -217,8 +220,6 @@ public:
 	bool bDisableDpadDiagonals;
 	// Control Style
 	int iTouchButtonStyle;
-	//	Combo Button Style;
-	int iComboButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
 	//space between PSP buttons
@@ -226,47 +227,18 @@ public:
 	float fActionButtonCenterX, fActionButtonCenterY;
 	float fActionButtonScale;
 	float fActionButtonSpacing;
-
-	float CircleX, CircleY, CircleScale;
-	float CrossX, CrossY, CrossScale;
-	float TriangleX, TriangleY, TriangleScale;
-	float SquareX, SquareY, SquareScale;
-		
 	//radius of the D-pad (PSP cross)
 	// int iDpadRadius;
 	//the D-pad (PSP cross) position
 	float fDpadX, fDpadY;
 	float fDpadScale;
 	float fDpadSpacing;
-
-	float fDpad_LEFTX, fDpad_LEFTY;
-	float fDpad_LEFTScale;
-	
-	float fDpad_UPX, fDpad_UPY;
-	float fDpad_UPScale;
-
-	float fDpad_RIGHTX, fDpad_RIGHTY;
-	float fDpad_RIGHTScale;
-
-	float fDpad_DOWNX, fDpad_DOWNY;
-	float fDpad_DOWNScale;
-
 	//the start key position
 	float fStartKeyX, fStartKeyY;
 	float fStartKeyScale;
 	//the select key position;
 	float fSelectKeyX, fSelectKeyY;
 	float fSelectKeyScale;
-
-	//the faction key position;
-	float fcomboX, fcomboY;
-	float fcomboScale;
-
-	float fcombo1X, fcombo1Y;
-	float fcomboScale1;
-
-	float fcombo2X, fcombo2Y;
-	float fcomboScale2;
 
 	float fUnthrottleKeyX, fUnthrottleKeyY;
 	float fUnthrottleKeyScale;
@@ -284,22 +256,10 @@ public:
 	// Controls Visibility
 	bool bShowTouchControls;
 
-	bool bActionButtonseparation;
-
-	bool bShowTouchDpad_LEFT;
-	bool bShowTouchDpad_UP;
-	bool bShowTouchDpad_RIGHT;
-	bool bShowTouchDpad_DOWN;
-
-
 	bool bShowTouchCircle;
 	bool bShowTouchCross;
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
-
-	bool bShowComboKey;
-	bool bShowComboKey1;
-	bool bShowComboKey2;
 
 	bool bShowTouchStart;
 	bool bShowTouchSelect;
@@ -310,42 +270,6 @@ public:
 
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
-
-	//Combo_key mapping
-	bool cComboCircle;
-	bool cComboCross;
-	bool cComboTriangle;
-	bool cComboSquare;
-	bool cComboLTrigger;
-	bool cComboRTrigger;
-	bool cComboLeft;
-	bool cComboUp;
-	bool cComboRight;
-	bool cComboDown;
-
-	//Combo_key1 mapping
-	bool cComboCircle1;
-	bool cComboCross1;
-	bool cComboTriangle1;
-	bool cComboSquare1;
-	bool cComboLTrigger1;
-	bool cComboRTrigger1;
-	bool cComboLeft1;
-	bool cComboUp1;
-	bool cComboRight1;
-	bool cComboDown1;
-
-	//Combo_key2 mapping
-	bool cComboCircle2;
-	bool cComboCross2;
-	bool cComboTriangle2;
-	bool cComboSquare2;
-	bool cComboLTrigger2;
-	bool cComboRTrigger2;
-	bool cComboLeft2;
-	bool cComboUp2;
-	bool cComboRight2;
-	bool cComboDown2;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;
@@ -420,7 +344,7 @@ public:
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
-	std::string memCardDirectory;
+	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
 
@@ -429,9 +353,19 @@ public:
 	std::string upgradeVersion;
 	std::string dismissedVersion;
 
-	void Load(const char *iniFileName = "ppsspp3.ini", const char *controllerIniFilename = "controls3.ini");
+	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save();
 	void RestoreDefaults();
+	
+	//per game config managment, should maybe be in it's own class
+	void changeGameSpecific(const std::string &gameId = "");
+	bool createGameConfig(const std::string &game_id);
+	bool deleteGameConfig(const std::string& pGameId);
+	bool loadGameConfig(const std::string &game_id);
+	bool saveGameConfig(const std::string &pGameId);
+	void unloadGameConfig();
+	std::string getGameConfigFile(const std::string &gameId);
+	bool hasGameConfig(const std::string &game_id);
 
 	// Used when the file is not found in the search path.  Trailing slash.
 	void SetDefaultPath(const std::string &defaultPath);
@@ -452,10 +386,12 @@ public:
 	
 	
 private:
+	std::string gameId_;
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;
 	std::string defaultPath_;
+	std::string createdPath_;
 };
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
