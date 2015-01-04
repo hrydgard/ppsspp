@@ -214,19 +214,33 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	BindPreviewProgram(texPreviewProgram);
 
 	// TODO: Probably there's a better way and place to do this.
-	if (indices.empty()) {
+	u16 minIndex = 0;
+	u16 maxIndex = count;
+	if (!indices.empty()) {
+		minIndex = 0xFFFF;
+		maxIndex = 0;
 		for (int i = 0; i < count; ++i) {
-			vertices[i].u -= floor(vertices[i].u);
-			vertices[i].v -= floor(vertices[i].v);
-		}
-	} else {
-		for (int i = 0; i < count; ++i) {
-			vertices[indices[i]].u -= floor(vertices[indices[i]].u);
-			vertices[indices[i]].v -= floor(vertices[indices[i]].v);
+			if (minIndex > indices[i]) {
+				minIndex = indices[i];
+			}
+			if (maxIndex < indices[i]) {
+				maxIndex = indices[i];
+			}
 		}
 	}
 
-	ortho.setOrtho(0.0, 1.0, 1.0, 0.0, -1.0, 1.0);
+	const float invTexWidth = 1.0f / gstate_c.curTextureWidth;
+	const float invTexHeight = 1.0f / gstate_c.curTextureHeight;
+	for (u16 i = minIndex; i < maxIndex; ++i) {
+		vertices[i].u *= invTexWidth;
+		vertices[i].v *= invTexHeight;
+		if (vertices[i].u > 1.0f || vertices[i].u < 0.0f)
+			vertices[i].u -= floor(vertices[i].u);
+		if (vertices[i].v > 1.0f || vertices[i].v < 0.0f)
+			vertices[i].v -= floor(vertices[i].v);
+	}
+
+	ortho.setOrtho(0.0f - (float)gstate_c.curTextureXOffset * invTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invTexHeight, -1.0f, 1.0f);
 	glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glEnableVertexAttribArray(texPreviewProgram->a_position);
 	glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data());
