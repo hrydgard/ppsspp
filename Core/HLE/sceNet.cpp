@@ -55,7 +55,7 @@ void __NetInit() {
 	//net::Init();
 #ifdef _MSC_VER
 	WSADATA data;
-	int iResult = WSAStartup(MAKEWORD(2, 2), &data); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
+	int iResult = WSAStartup(MAKEWORD(2, 2), &data);
 	if (iResult != NOERROR){
 		ERROR_LOG(SCENET, "WSA Failed");
 	}
@@ -67,7 +67,7 @@ void __NetShutdown() {
 	__ResetInitNetLib();
 	//net::Shutdown();
 #ifdef _MSC_VER
-	WSACleanup(); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
+	WSACleanup();
 #endif
 }
 

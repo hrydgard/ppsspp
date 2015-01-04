@@ -1406,14 +1406,6 @@ int getPTPSocketCount(void) {
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int iResult = 0;
-/*#ifdef _MSC_VER
-	WSADATA data;
-	iResult = WSAStartup(MAKEWORD(2,2),&data); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
-	if(iResult != NOERROR){
-		ERROR_LOG(SCENET, "WSA failed");
-		return iResult;
-	}
-#endif*/
 	metasocket = (int)INVALID_SOCKET;
 	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (metasocket == INVALID_SOCKET){

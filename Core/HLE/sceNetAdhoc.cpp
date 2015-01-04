@@ -38,8 +38,11 @@
 #include "Core/HLE/proAdhocServer.h"
 
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
+// TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
+bool networkInited;
+
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 
@@ -225,25 +228,23 @@ u32 sceNetAdhocInit() {
 
 static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	INFO_LOG(SCENET, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, currentMIPS->pc);
-	/*if (!g_Config.bEnableWlan) {
-		// Pretend success but don't actually start the friendfinder thread and stuff.
-		// Dunno if this is the way to go...
-		netAdhocctlInited = true;
-		return 0; //Faking success to prevent GTA:VCS stuck in Host/Join screen
-	}*/
 	
-	if (netAdhocctlInited) return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+	if (netAdhocctlInited)
+		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 	
-	if(g_Config.bEnableWlan)
-	{
-		if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) != 0) WARN_LOG(SCENET, "sceNetAdhocctlInit: Faking success");
-
-		if (!friendFinderRunning) {
-			friendFinderRunning = true;
-			friendFinderThread = std::thread(friendFinder);
+	if(g_Config.bEnableWlan) {
+		if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0) {
+			if (!friendFinderRunning) {
+				friendFinderRunning = true;
+				friendFinderThread = std::thread(friendFinder);
+			}
+			networkInited = true;
+		} else {
+			WARN_LOG(SCENET, "sceNetAdhocctlInit: Failed to init the network but faking success");
+			networkInited = false;  // TODO: What needs to check this? Pretty much everything? Maybe we should just set netAdhocctlInited to false..
 		}
-
 	}
+
 	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	return 0;
 }
