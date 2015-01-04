@@ -314,7 +314,7 @@ static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
 	return -1;
 }
 
-static int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
+int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 	DEBUG_LOG(SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
 	int retval = -1;
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd *)fds; // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
