@@ -95,7 +95,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
-	I18NCategory *n = GetI18NCategory("System");  // Networking used to be in System - TODO: Move the translations.. (ugh)
+	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 	I18NCategory *dev = GetI18NCategory("Developer");
 
@@ -382,7 +382,7 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *networkingSettings = new LinearLayout(ORIENT_VERTICAL);
 	networkingSettings->SetSpacing(0);
 	networkingSettingsScroll->Add(networkingSettings);
-	tabHolder->AddTab(s->T("Networking"), networkingSettingsScroll);  // TODO: This string was originally just an item header so in the wrong category
+	tabHolder->AddTab(n->T("Networking"), networkingSettingsScroll);
 
 	networkingSettings->Add(new ItemHeader(n->T("Networking")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
@@ -393,7 +393,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, s->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
