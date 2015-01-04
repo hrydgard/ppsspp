@@ -508,6 +508,9 @@
     <ClCompile Include="HLE\sceUsbGps.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\proAdhocServer.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\udis86\itab.c">
       <Filter>Ext\udis86</Filter>
     </ClCompile>
@@ -974,6 +977,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceUsbGps.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\proAdhocServer.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\udis86\decode.h">
