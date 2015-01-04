@@ -435,6 +435,8 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
 
+	I18NCategory *d = GetI18NCategory("Dialog");
+
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
@@ -456,5 +458,5 @@ void AnalogTestScreen::CreateViews() {
 
 	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	root_->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	root_->Add(new Button(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
