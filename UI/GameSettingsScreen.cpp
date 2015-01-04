@@ -126,6 +126,21 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
+	if (!g_Config.bLowMem_UI)
+	{
+		graphicsSettings->Add(new ItemHeader(gs->T("Changing Background")));
+		static const char *backgroundlist[] = { "1", "2", "3", "4", "5", /*"6", "7"*/ };//changeable
+		PopupMultiChoice *backgroundChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBackGroundChange, gs->T("background"), backgroundlist, 0, ARRAY_SIZE(backgroundlist), gs, screenManager()));
+
+	}
+	graphicsSettings->Add(new ItemHeader(gs->T("Custom Theme")));
+	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iR, 0, 255, gs->T("Red"), 1, screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iG, 0, 255, gs->T("Green"), 1, screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iB, 0, 255, gs->T("Blue"), 1, screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice1(&g_Config.iTransparent, 0, 255, gs->T("Transparency"), 1, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.iTheme_botton, gs->T("Apply to touch botton")));
+
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 #if defined(_WIN32)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D9" };
@@ -351,6 +366,9 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+	CheckBox *ActionButtonseparation = controlsSettings->Add(new CheckBox(&g_Config.bActionButtonseparation, c->T("Action Button separation")));
+	ActionButtonseparation->SetEnabledPtr(&g_Config.bShowTouchControls);
+
 	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
@@ -371,6 +389,10 @@ void GameSettingsScreen::CreateViews() {
 	static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+	static const char *ComboButtonStyles[] = { "ACG", "CV" };
+	View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboButtonStyle, c->T("Combo Button style"), ComboButtonStyles, 0, ARRAY_SIZE(ComboButtonStyles), c, screenManager()));
+	combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
