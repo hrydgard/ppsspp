@@ -403,6 +403,13 @@ static int DefaultAndroidHwScale() {
 }
 
 static ConfigSetting graphicsSettings[] = {
+	ConfigSetting("bLowMem_UI", &g_Config.bLowMem_UI, false),
+	ConfigSetting("Background", &g_Config.iBackGroundChange, 0),
+	ConfigSetting("Theme_botton", &g_Config.iTheme_botton, true),
+	ConfigSetting("RGB-R", &g_Config.iR, 57),
+	ConfigSetting("RGB-G", &g_Config.iG, 153),
+	ConfigSetting("RGB-B", &g_Config.iB, 189),
+	ConfigSetting("Transparent", &g_Config.iTransparent, 255),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
@@ -505,6 +512,46 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true, true, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true, true, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true, true, true),
+	ConfigSetting("ShowTouchDpadLEFT", &g_Config.bShowTouchDpad_LEFT, true),
+	ConfigSetting("ShowTouchDpadUP", &g_Config.bShowTouchDpad_UP, true),
+	ConfigSetting("ShowTouchDpadRIGHT", &g_Config.bShowTouchDpad_RIGHT, true),
+	ConfigSetting("ShowTouchDpadDOWN", &g_Config.bShowTouchDpad_DOWN, true),
+
+	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true),
+	ConfigSetting("ShowComboKey", &g_Config.bShowComboKey, true),
+	ConfigSetting("ShowComboKey1", &g_Config.bShowComboKey1, true),
+	ConfigSetting("ShowComboKey2", &g_Config.bShowComboKey2, true),
+	ConfigSetting("ComboCircle", &g_Config.cComboCircle, false),
+	ConfigSetting("ComboCross", &g_Config.cComboCross, false),
+	ConfigSetting("ComboTriangle", &g_Config.cComboTriangle, false),
+	ConfigSetting("ComboSquare", &g_Config.cComboSquare, false),
+	ConfigSetting("ComboLTrigger", &g_Config.cComboLTrigger, false),
+	ConfigSetting("ComboRTrigger", &g_Config.cComboRTrigger, false),
+	ConfigSetting("ComboLeft", &g_Config.cComboLeft, false),
+	ConfigSetting("ComboUp", &g_Config.cComboUp, false),
+	ConfigSetting("ComboRight", &g_Config.cComboRight, false),
+	ConfigSetting("ComboDown", &g_Config.cComboDown, false),
+	ConfigSetting("ComboCircle1", &g_Config.cComboCircle1, false),
+	ConfigSetting("ComboCross1", &g_Config.cComboCross1, false),
+	ConfigSetting("ComboTriangle1", &g_Config.cComboTriangle1, false),
+	ConfigSetting("ComboSquare1", &g_Config.cComboSquare1, false),
+	ConfigSetting("ComboLTrigger1", &g_Config.cComboLTrigger1, false),
+	ConfigSetting("ComboRTrigger1", &g_Config.cComboRTrigger1, false),
+	ConfigSetting("ComboLeft1", &g_Config.cComboLeft1, false),
+	ConfigSetting("ComboUp1", &g_Config.cComboUp1, false),
+	ConfigSetting("ComboRight1", &g_Config.cComboRight1, false),
+	ConfigSetting("ComboDown1", &g_Config.cComboDown1, false),
+	ConfigSetting("ComboCircle2", &g_Config.cComboCircle2, false),
+	ConfigSetting("ComboCross2", &g_Config.cComboCross2, false),
+	ConfigSetting("ComboTriangle2", &g_Config.cComboTriangle2, false),
+	ConfigSetting("ComboSquare2", &g_Config.cComboSquare2, false),
+	ConfigSetting("ComboLTrigger2", &g_Config.cComboLTrigger2, false),
+	ConfigSetting("ComboRTrigger2", &g_Config.cComboRTrigger2, false),
+	ConfigSetting("ComboLeft2", &g_Config.cComboLeft2, false),
+	ConfigSetting("ComboUp2", &g_Config.cComboUp2, false),
+	ConfigSetting("ComboRight2", &g_Config.cComboRight2, false),
+	ConfigSetting("ComboDown2", &g_Config.cComboDown2, false),
+	ConfigSetting("Action Button separation", &g_Config.bActionButtonseparation, false),
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -532,6 +579,7 @@ static ConfigSetting controlSettings[] = {
 #endif
 
 	ConfigSetting("DisableDpadDiagonals", &g_Config.bDisableDpadDiagonals, false, true, true),
+	ConfigSetting("ComboButtonStyle", &g_Config.iComboButtonStyle, 1, true, true),
 	ConfigSetting("TouchButtonStyle", &g_Config.iTouchButtonStyle, 1, true, true),
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
 
@@ -565,12 +613,49 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f, true, true),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale, true, true),
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
+	ConfigSetting("fcomboX", &g_Config.fcomboX, 0.7),
+	ConfigSetting("fcomboY", &g_Config.fcomboY, 0.5),
+	ConfigSetting("comboKeyScale", &g_Config.fcomboScale, defaultControlScale),
+	ConfigSetting("fcombo1X", &g_Config.fcombo1X, 0.8),
+	ConfigSetting("fcombo1Y", &g_Config.fcombo1Y, 0.5),
+	ConfigSetting("comboKeyScale1", &g_Config.fcomboScale1, defaultControlScale),
+	ConfigSetting("fcombo2X", &g_Config.fcombo2X, 0.9),
+	ConfigSetting("fcombo2Y", &g_Config.fcombo2Y, 0.5),
+	ConfigSetting("comboKeyScale2", &g_Config.fcomboScale2, defaultControlScale),
+	ConfigSetting("CrossX", &g_Config.CrossX, 0.87),
+	ConfigSetting("CrossY", &g_Config.CrossY, 0.9),
+	ConfigSetting("CrossScale", &g_Config.CrossScale, defaultControlScale),
+	ConfigSetting("CircleX", &g_Config.CircleX, 0.94),
+	ConfigSetting("CircleY", &g_Config.CircleY, 0.78),
+	ConfigSetting("CircleScale", &g_Config.CircleScale, defaultControlScale),
+	ConfigSetting("TriangleX", &g_Config.TriangleX, 0.87),
+	ConfigSetting("TriangleY", &g_Config.TriangleY, 0.66),
+	ConfigSetting("TriangleScale", &g_Config.TriangleScale, defaultControlScale),
+	ConfigSetting("SquareX", &g_Config.SquareX, 0.8),
+	ConfigSetting("SquareY", &g_Config.SquareY, 0.78),
+	ConfigSetting("SquareScale", &g_Config.SquareScale, defaultControlScale),
 
+	ConfigSetting("Dpad_LEFTX", &g_Config.fDpad_LEFTX, 0.085),
+	ConfigSetting("Dpad_LEFTY", &g_Config.fDpad_LEFTY, 0.476),
+	ConfigSetting("Dpad_LEFTScale", &g_Config.fDpad_LEFTScale, defaultControlScale),
+
+	ConfigSetting("Dpad_UPX", &g_Config.fDpad_UPX, 0.144),
+	ConfigSetting("Dpad_UPY", &g_Config.fDpad_UPY, 0.385),
+	ConfigSetting("Dpad_UPScale", &g_Config.fDpad_UPScale, defaultControlScale),
+
+	ConfigSetting("Dpad_RIGHTX", &g_Config.fDpad_RIGHTX, 0.204),
+	ConfigSetting("Dpad_RIGHTY", &g_Config.fDpad_RIGHTY, 0.476),
+	ConfigSetting("Dpad_RIGHTScale", &g_Config.fDpad_RIGHTScale, defaultControlScale),
+
+	ConfigSetting("Dpad_DOWNX", &g_Config.fDpad_DOWNX, 0.144),
+	ConfigSetting("Dpad_DOWNY", &g_Config.fDpad_DOWNY, 0.565),
+	ConfigSetting("Dpad_DOWNScale", &g_Config.fDpad_DOWNScale, defaultControlScale),
 	ConfigSetting(false),
 };
 
 static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false, true, true),
+	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 
 	ConfigSetting(false),
 };
@@ -719,10 +804,10 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
-	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
+	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp3.ini");
 
 	const bool useControllerIniFilename = controllerIniFilename != nullptr && strlen(controllerIniFilename) > 0;
-	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls.ini");
+	controllerIniFilename_ = FindConfigFile(useControllerIniFilename ? controllerIniFilename : "controls3.ini");
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
@@ -1214,6 +1299,44 @@ void Config::ResetControlLayout() {
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
 	g_Config.fAnalogStickScale = defaultControlScale;
+	g_Config.fcomboX = 0.7;
+	g_Config.fcomboY = 0.5;
+	g_Config.fcomboScale = defaultControlScale;
+	g_Config.fcombo1X = 0.8;
+	g_Config.fcombo1Y = 0.5;
+	g_Config.fcomboScale1 = defaultControlScale;
+	g_Config.fcombo2X = 0.9;
+	g_Config.fcombo2Y = 0.5;
+	g_Config.fcomboScale2 = defaultControlScale;
+
+	g_Config.CrossX = 0.87;
+	g_Config.CrossY = 0.9;
+	g_Config.CrossScale = defaultControlScale;
+	g_Config.CircleX = 0.94;
+	g_Config.CircleY = 0.78;
+	g_Config.CircleScale = defaultControlScale;
+	g_Config.TriangleX = 0.87;
+	g_Config.TriangleY = 0.66;
+	g_Config.TriangleScale = defaultControlScale;
+	g_Config.SquareX = 0.8;
+	g_Config.SquareY = 0.78;
+	g_Config.SquareScale = defaultControlScale;
+
+	g_Config.fDpad_LEFTX = 0.085;
+	g_Config.fDpad_LEFTY = 0.476;
+	g_Config.fDpad_LEFTScale = defaultControlScale;
+
+	g_Config.fDpad_UPX = 0.144;
+	g_Config.fDpad_UPY = 0.385;
+	g_Config.fDpad_UPScale = defaultControlScale;
+
+	g_Config.fDpad_RIGHTX = 0.204;
+	g_Config.fDpad_RIGHTY = 0.476;
+	g_Config.fDpad_RIGHTScale = defaultControlScale;
+
+	g_Config.fDpad_DOWNX = 0.144;
+	g_Config.fDpad_DOWNY = 0.565;
+	g_Config.fDpad_DOWNScale = defaultControlScale;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {
