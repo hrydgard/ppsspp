@@ -1185,7 +1185,7 @@ bool resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
 bool validNetworkName(const SceNetAdhocctlGroupName * groupname);
 
 // Convert Matching Event Code to String
-char* getMatchingEventStr(int code, char* buf);
+const char* getMatchingEventStr(int code);
 
 // Convert Matching Opcode ID to String
-char* getMatchingOpcodeStr(int code, char* buf);
+const char* getMatchingOpcodeStr(int code);

@@ -1597,8 +1597,8 @@ void split64(u64 num, int buff[]){
 	buff[1] = num2;
 }
 
-char* getMatchingEventStr(int code, char* buf) {
-	if (buf == NULL) return NULL;
+const char* getMatchingEventStr(int code) {
+	const char *buf = NULL;
 	switch (code) {
 	case PSP_ADHOC_MATCHING_EVENT_HELLO:
 		buf = "HELLO"; break;
@@ -1634,8 +1634,8 @@ char* getMatchingEventStr(int code, char* buf) {
 	return buf;
 }
 
-char* getMatchingOpcodeStr(int code, char* buf) {
-	if (buf == NULL) return NULL;
+const char* getMatchingOpcodeStr(int code) {
+	const char *buf = NULL;
 	switch (code) {
 	case PSP_ADHOC_MATCHING_PACKET_PING:
 		buf = "PING"; break;

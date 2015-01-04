@@ -1190,7 +1190,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 	if (netAdhocctlInited)
 	{
 		// Valid Arguments
-		if (mac != NULL && nameAddr != NULL)
+		if (mac != NULL && nameAddr != 0)
 		{
 			SceNetAdhocctlNickname * nickname = NULL;
 			if (Memory::IsValidAddress(nameAddr)) nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
@@ -1285,7 +1285,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	}
 	// Library initialized
 	if (netAdhocctlInited) {
-		if ((size < sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		if ((size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
 		
 		int retval = ERROR_NET_ADHOCCTL_INVALID_ARG; // -1;
 
@@ -2853,7 +2853,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 					if (peer != NULL)
 					{
 						// Valid Optional Data Length
-						if ((optLen == 0 && optDataPtr == NULL) || (optLen > 0 && optDataPtr != NULL))
+						if ((optLen == 0 && optDataPtr == 0) || (optLen > 0 && optDataPtr != 0))
 						{
 							void * opt = NULL;
 							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
@@ -3060,7 +3060,7 @@ int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
 	if (!g_Config.bEnableWlan)
 		return -1;
-	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, NULL);
+	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, 0);
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
@@ -3119,7 +3119,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 			if (context->running)
 			{
 				// Valid Optional Data Length
-				if ((optLenAddr == 0 && optDataAddr == NULL) || (optLenAddr > 0 && optDataAddr != NULL))
+				if ((optLenAddr == 0 && optDataAddr == 0) || (optLenAddr > 0 && optDataAddr != 0))
 				{
 					// Grab Existing Hello Data
 					void * hello = context->hello;
@@ -3202,7 +3202,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		if (context->running)
 		{
 			// Length Buffer available
-			if (sizeAddr != NULL)
+			if (sizeAddr != 0)
 			{
 				int * buflen = (int *)Memory::GetPointer(sizeAddr);
 				SceNetAdhocMatchingMemberInfoEmu * buf2 = NULL;
@@ -3217,7 +3217,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 				int available = sizeof(SceNetAdhocMatchingMemberInfoEmu) * peercount;
 
 				// Length Returner Mode
-				if (buf == NULL)
+				if (buf == 0)
 				{
 					// Get Connected Peer Count
 					*buflen = available;
@@ -4802,8 +4802,7 @@ int matchingEventThread(int matchingId)
 
 					// Log Matching Events
 					if (msg->opcode >= 0) {
-						char buf[16];
-						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode, buf), msg->optlen);
+						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), msg->optlen);
 					}
 
 					context->eventlock->unlock(); // Unlock to prevent race-condition with other threads due to recursive lock
@@ -4991,8 +4990,7 @@ int matchingInputThread(int matchingId)
 			{
 				// Log Receive Success
 				if (context->rxbuf[0] > 1) {
-					char buf[16];
-					INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0], buf));
+					INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0]));
 				}
 
 				// Update Peer Timestamp
