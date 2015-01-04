@@ -41,6 +41,7 @@ void UIContext::Begin() {
 	thin3d_->SetDepthStencilState(depth_);
 	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->SetScissorEnabled(false);
 
 	UIBegin(uishader_);
 }

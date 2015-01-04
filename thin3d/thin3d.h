@@ -32,6 +32,26 @@ enum T3DComparison : int {
 	ALWAYS,
 };
 
+// Had to prefix with LOGIC, too many clashes
+enum T3DLogicOp : int {
+	LOGIC_CLEAR,
+	LOGIC_SET,
+	LOGIC_COPY,
+	LOGIC_COPY_INVERTED,
+	LOGIC_NOOP,
+	LOGIC_INVERT,
+	LOGIC_AND,
+	LOGIC_NAND,
+	LOGIC_OR,
+	LOGIC_NOR,
+	LOGIC_XOR,
+	LOGIC_EQUIV,
+	LOGIC_AND_REVERSE,
+	LOGIC_AND_INVERTED,
+	LOGIC_OR_REVERSE,
+	LOGIC_OR_INVERTED,
+};
+
 enum T3DBlendFactor : int {
 	ZERO,
 	ONE,
@@ -251,6 +271,8 @@ struct T3DBlendStateDesc {
 	T3DBlendEquation eqAlpha;
 	T3DBlendFactor srcAlpha;
 	T3DBlendFactor dstAlpha;
+	bool logicEnabled;
+	T3DLogicOp logicOp;
 	// int colorMask;
 };
 

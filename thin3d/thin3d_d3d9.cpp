@@ -507,6 +507,7 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 	bs->eqAlpha = blendEqToD3D9[desc.eqAlpha];
 	bs->srcAlpha = blendFactorToD3D9[desc.srcAlpha];
 	bs->dstAlpha = blendFactorToD3D9[desc.dstAlpha];
+	// Ignore logic ops, we don't support them in D3D9
 	return bs;
 }
 

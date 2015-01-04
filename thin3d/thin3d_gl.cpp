@@ -41,6 +41,25 @@ static const unsigned short blendFactorToGL[] = {
 	GL_CONSTANT_COLOR,
 };
 
+static const unsigned short logicOpToGL[] = {
+	GL_CLEAR,
+	GL_SET,
+	GL_COPY,
+	GL_COPY_INVERTED,
+	GL_NOOP,
+	GL_INVERT,
+	GL_AND,
+	GL_NAND,
+	GL_OR,
+	GL_NOR,
+	GL_XOR,
+	GL_EQUIV,
+	GL_AND_REVERSE,
+	GL_AND_INVERTED,
+	GL_OR_REVERSE,
+	GL_OR_INVERTED,
+};
+
 static const unsigned short primToGL[] = {
 	GL_POINTS,
 	GL_LINES,
@@ -64,6 +83,8 @@ public:
 	bool enabled;
 	GLuint eqCol, eqAlpha;
 	GLuint srcCol, srcAlpha, dstCol, dstAlpha;
+	bool logicEnabled;
+	GLuint logicOp;
 	// int maskBits;
 	// uint32_t fixedColor;
 
@@ -75,7 +96,10 @@ public:
 		// glstate.blendColor.set(fixedColor);
 
 #if !defined(USING_GLES2)
-		glstate.colorLogicOp.disable();
+		glstate.colorLogicOp.set(logicEnabled);
+		if (logicEnabled) {
+			glstate.logicOp.set(logicOp);
+		}
 #endif
 
 		// glstate.colorMask.set(maskBits & 1, (maskBits >> 1) & 1, (maskBits >> 2) & 1, (maskBits >> 3) & 1);
@@ -510,6 +534,8 @@ Thin3DBlendState *Thin3DGLContext::CreateBlendState(const T3DBlendStateDesc &des
 	bs->eqAlpha = blendEqToGL[desc.eqAlpha];
 	bs->srcAlpha = blendFactorToGL[desc.srcAlpha];
 	bs->dstAlpha = blendFactorToGL[desc.dstAlpha];
+	bs->logicEnabled = desc.logicEnabled;
+	bs->logicOp = logicOpToGL[desc.logicOp];
 	return bs;
 }
 
