@@ -218,6 +218,8 @@ struct Atrac {
 	}
 
 	int Analyze();
+	int AnalyzeAA3();
+
 	u32 getDecodePosBySample(int sample) const {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		return (u32)(firstSampleoffset + sample / atracSamplesPerFrame * atracBytesPerFrame );
@@ -381,6 +383,9 @@ struct Atrac {
 		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
 	}
 #endif // USE_FFMPEG
+
+private:
+	void AnalyzeReset();
 };
 
 struct AtracSingleResetBufferInfo {
@@ -486,8 +491,8 @@ static int getCodecType(u32 addr) {
 	return 0;
 }
 
-int Atrac::Analyze() {
-	// reset some values
+void Atrac::AnalyzeReset() {
+	// Reset some values.
 	codecType = 0;
 	currentSample = 0;
 	endSample = -1;
@@ -498,6 +503,10 @@ int Atrac::Analyze() {
 	loopEndSample = -1;
 	decodePos = 0;
 	atracChannels = 2;
+}
+
+int Atrac::Analyze() {
+	AnalyzeReset();
 
 	if (first.size < 0x100)	{
 		ERROR_LOG_REPORT(ME, "Atrac buffer very small: %d", first.size);
@@ -614,6 +623,63 @@ int Atrac::Analyze() {
 		endSample = (first.filesize / atracBytesPerFrame) * atracSamplesPerFrame;
 	}
 
+	return 0;
+}
+
+int Atrac::AnalyzeAA3() {
+	AnalyzeReset();
+
+	// TODO: Make sure this validation is correct, more testing.
+
+	const u8 *buffer = Memory::GetPointer(first.addr);
+	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
+		// TODO: Error code.
+		return -1;
+	}
+
+	// It starts with an id3 header (replaced with ea3.)  This is the size.
+	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
+
+	// EA3 header starts at id3 header (10) + tagSize.
+	buffer = Memory::GetPointer(first.addr + 10 + tagSize);
+	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
+		// TODO: Error code.
+		return -1;
+	}
+
+	// Based on FFmpeg's code.
+	u32 codecParams = buffer[35] | (buffer[34] << 8) | (buffer[35] << 16);
+	const u32 at3SampleRates[8] = { 32000, 44100, 48000, 88200, 96000, 0 };
+
+	switch (buffer[32]) {
+	case 0:
+		codecType = PSP_MODE_AT_3;
+		atracBytesPerFrame = (codecParams & 0x03FF) * 8;
+		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 1024;
+		atracChannels = 2;
+		break;
+	case 1:
+		codecType = PSP_MODE_AT_3_PLUS;
+		atracBytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
+		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 2048;
+		atracChannels = ((codecParams >> 10) & 7) + 1;
+		break;
+	case 3:
+	case 4:
+	case 5:
+		ERROR_LOG_REPORT(ME, "OMA header contains unsupported codec type: %d", buffer[32]);
+		return -1;
+	default:
+		// TODO: Error code.
+		return -1;
+	}
+
+	dataOff = 0;
+	firstSampleoffset = 0;
+	if (endSample < 0 && atracBytesPerFrame != 0) {
+		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		endSample = (first.filesize / atracBytesPerFrame) * atracSamplesPerFrame;
+	}
 	return 0;
 }
 
@@ -1758,24 +1824,27 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u3
 	return atracID;
 }
 
-static int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr) {
-	int codecType = getCodecType(buffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize, fileSize, metadataSizeAddr);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
-	}
+static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
-	// TODO: Seems to use different error codes?
-	atrac->Analyze();
-	int atracID = createAtrac(atrac, codecType);
+	atrac->first.filesize = fileSize;
+	int ret = atrac->AnalyzeAA3();
+	if (ret < 0) {
+		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): bad data", buffer, bufferSize, fileSize, metadataSizeAddr);
+		delete atrac;
+		return ret;
+	}
+	int atracID = createAtrac(atrac, atrac->codecType);
 	if (atracID < 0) {
-		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
+		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID", buffer, bufferSize, fileSize, metadataSizeAddr);
 		delete atrac;
 		return atracID;
 	}
 	WARN_LOG(ME, "%d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
+	ret = _AtracSetData(atracID, buffer, bufferSize);
+	if (ret < 0)
+		return ret;
 	return atracID;
 }
 
@@ -2080,30 +2149,33 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	return 0;
 }
 
-static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
+static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize, u32 fileSize) {
 	if (readSize > halfBufferSize) {
-		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid read size", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x, %08x): invalid read size", halfBuffer, readSize, halfBufferSize, fileSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 
-	int codecType = getCodecType(halfBuffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
-	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
-	// TODO: Different error codes.
-	atrac->Analyze();
-	int atracID = createAtrac(atrac, codecType);
+	atrac->first.filesize = fileSize;
+	int ret = atrac->AnalyzeAA3();
+	if (ret < 0) {
+		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize, fileSize);
+		delete atrac;
+		return ret;
+	}
+	int atracID = createAtrac(atrac, atrac->codecType);
 	if (atracID < 0) {
-		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize, fileSize);
 		delete atrac;
 		return atracID;
 	}
 	ERROR_LOG(ME, "UNIMPL %d=sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	return createAtrac(atrac, codecType);
+	ret = _AtracSetData(atrac, halfBuffer, halfBufferSize);
+	if (ret < 0)
+		return ret;
+	return atracID;
 }
 
 const HLEFunction sceAtrac3plus[] = {
@@ -2140,8 +2212,8 @@ const HLEFunction sceAtrac3plus[] = {
 	{0x472E3825,WrapI_UU<sceAtracSetMOutDataAndGetID>,"sceAtracSetMOutDataAndGetID"},
 	{0x9CD7DE03,WrapI_UUU<sceAtracSetMOutHalfwayBufferAndGetID>,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0xB3B5D042,WrapI_IU<sceAtracGetOutputChannel>,"sceAtracGetOutputChannel"},
-	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
-	{0x5DD66588,WrapI_UUU<sceAtracSetAA3HalfwayBufferAndGetID>,"sceAtracSetAA3HalfwayBufferAndGetID"},
+	{0x5622B7C1,WrapI_UUUU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
+	{0x5DD66588,WrapI_UUUU<sceAtracSetAA3HalfwayBufferAndGetID>,"sceAtracSetAA3HalfwayBufferAndGetID"},
 	{0x231FC6B7,WrapI_I<_sceAtracGetContextAddress>,"_sceAtracGetContextAddress"},
 	{0x1575D64B,WrapI_IU<sceAtracLowLevelInitDecoder>,"sceAtracLowLevelInitDecoder"},
 	{0x0C116E1B,WrapI_IUUUU<sceAtracLowLevelDecode>,"sceAtracLowLevelDecode"},
