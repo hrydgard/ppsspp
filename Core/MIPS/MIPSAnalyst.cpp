@@ -164,6 +164,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x32e6bc7c151491ed, 68, "memchr", },
 	{ 0x335df69db1073a8d, 96, "wcscpy", },
 	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
+	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
 	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia, Dissidia 012
 	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
