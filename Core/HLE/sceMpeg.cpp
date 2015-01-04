@@ -156,15 +156,15 @@ typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
 struct MpegContext {
-	MpegContext() : mediaengine(NULL) { memcpy(mpegheader, defaultMpegheader, 2048); }
+	MpegContext() : mediaengine(nullptr), ringbufferNeedsReverse(false) {
+		memcpy(mpegheader, defaultMpegheader, 2048);
+	}
 	~MpegContext() {
-		if (mediaengine != NULL) {
-			delete mediaengine;
-		}
+		delete mediaengine;
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("MpegContext", 1);
+		auto s = p.Section("MpegContext", 1, 2);
 		if (!s)
 			return;
 
@@ -197,6 +197,7 @@ struct MpegContext {
 		p.Do(isAnalyzed);
 		p.Do<u32, StreamInfo>(streamMap);
 		p.DoClass(mediaengine);
+		ringbufferNeedsReverse = s < 2;
 	}
 
 	u8 mpegheader[2048];
@@ -229,6 +230,7 @@ struct MpegContext {
 	bool ignoreAvc;
 
 	bool isAnalyzed;
+	bool ringbufferNeedsReverse;
 
 	StreamInfoMap streamMap;
 	MediaEngine *mediaengine;
@@ -242,14 +244,21 @@ static std::map<u32, MpegContext *> mpegMap;
 
 static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
-		return NULL;
+		return nullptr;
 		
 	u32 mpeg = Memory::Read_U32(mpegAddr);
+	auto found = mpegMap.find(mpeg);
+	if (found == mpegMap.end())
+		return nullptr;
 
-	if (mpegMap.find(mpeg) == mpegMap.end())
-		return NULL;
-
-	return mpegMap[mpeg];
+	MpegContext *res = found->second;
+	// Take this opportunity to upgrade savestates if necessary.
+	if (res->ringbufferNeedsReverse) {
+		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(res->mpegRingbufferAddr);
+		ringbuffer->packetsAvail = ringbuffer->packets - ringbuffer->packetsAvail;
+		res->ringbufferNeedsReverse = false;
+	}
+	return res;
 }
 
 static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
