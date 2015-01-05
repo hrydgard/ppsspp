@@ -37,6 +37,8 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/proAdhocServer.h"
 
+#include "base/mutex.h"
+
 // shared in sceNetAdhoc.h since it need to be used from sceNet.cpp also
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
@@ -47,8 +49,12 @@ static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 
 SceUID threadAdhocID;
-Thread *threadAdhoc;
+
+recursive_mutex adhocEvtMtx;
+std::vector<std::pair<u32, u32>> adhocctlEvents;
+std::vector<u64> matchingEvents;
 u32 dummyThreadHackAddr;
+u32_le dummyThreadCode[3];
 
 std::map<int, AdhocctlHandler> adhocctlHandlers;
 
@@ -59,14 +65,6 @@ int sceNetAdhocTerm();
 int sceNetAdhocctlTerm();
 int sceNetAdhocMatchingTerm();
 int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr);
-
-static u32_le dummyThreadCode[4]; /* = {
-	MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 1000),
-	MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
-	MIPS_MAKE_B(-3),
-	MIPS_MAKE_NOP(),
-	//MIPS_MAKE_BREAK(0),
-};*/
 
 void __NetAdhocShutdown() {
 	//Kill AdhocServer Thread
@@ -107,31 +105,15 @@ void __NetAdhocDoState(PointerWrap &p) {
 	Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
 }
 
-static void __UpdateAdhocctlHandlers(int flag, int error) {
-	u32_le args[3] = { 0, 0, 0 };
-	args[0] = flag;
-	args[1] = error;
-
-	//__KernelSwitchToThread(threadIdleID[1], "switch to Adhocctl");
-	for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
-		args[2] = it->second.argument;
-		//__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
-		__KernelCallAddress(threadAdhoc, it->second.entryPoint, NULL, args, 3, true, 0);
-	}
+void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
+	lock_guard adhocGuard(adhocEvtMtx);
+	adhocctlEvents.push_back({ flag, error });
 }
 
 // TODO: MipsCall needs to be called from it's own PSP Thread instead of from any random PSP Thread
 void __UpdateMatchingHandler(u64 ArgsPtr) {
-	u32_le *args = (u32_le *)ArgsPtr;
-	AfterMatchingMipsCall *after = (AfterMatchingMipsCall *)__KernelCreateAction(actionAfterMatchingMipsCall);
-	after->SetContextID(args[0], args[1]);
-	//u32 error;
-	//Thread *t = kernelObjects.Get<Thread>(threadAdhocID, error);
-	//__KernelSwitchToThread(threadIdleID[1], "switch to AdhocMatching"); // __KernelSwitchContext(threadIdleID[1], "switch to AdhocMatching");
-	__KernelCallAddress(threadAdhoc, args[5], after, args, 5, true, 0);
-	//__KernelDirectMipsCall(args[5], after, args, 5, true);
-	// Make sure MIPS call have been fully executed before the next callback invoked
-	//while (/*(after != NULL) &&*/ IsMatchingInCallback(context)) sleep_ms(1); //Must not sleep inside callback handler otherwise Metal Slug XX will gets ThreadQueueList Empty popup
+	lock_guard adhocGuard(adhocEvtMtx);
+	matchingEvents.push_back(ArgsPtr);
 }
 
 static int getBlockingFlag(int id) {
@@ -143,36 +125,6 @@ static int getBlockingFlag(int id) {
 #endif
 }
 
-static void __handlerAdhocctlUpdateCallback(u64 userdata, int cycleslate) {
-	//SceUID cur = __KernelGetCurThread();
-	// TODO: Since we only have access to __KernelDirectMipsCall we need to switch the thread context first to make sure the mipscall executed on the right thread
-	// Since __KernelSwitchToThread will flood the log with errors when current thread is already non-idle thread so we'll try to use any "fake" psp thread, BUT we need to backup ALL registers before the mipscall to prevent registers corruption after returning from mipscall
-	if ((__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) /*||*/)
-	//	((cur != threadAdhocID && cur != threadIdleID[0] && cur != threadIdleID[1]) /*&& !__KernelSwitchToThread(threadAdhocID, "switch to AdhocThread")*/))
-	{
-	//	// Can't do anything now, inside an interrupt.  Let's wait until later.
-		CoreTiming::ScheduleEvent(100, eventAdhocctlHandlerUpdate, userdata);
-		return;
-	}
-	int buff[2];
-	split64(userdata,buff);
-	__UpdateAdhocctlHandlers(buff[0], buff[1]);
-}
-
-static void __handlerMatchingUpdateCallback(u64 userdata, int cycleslate) {
-	//SceUID cur = __KernelGetCurThread();
-	// TODO: Since we only have access to __KernelDirectMipsCall we need to switch the thread context first to make sure the mipscall executed on the right thread
-	// Since __KernelSwitchToThread will flood the log with errors when current thread is already non-idle thread so we'll try to use any "fake" psp thread, BUT we need to backup ALL registers before the mipscall to prevent registers corruption after returning from mipscall
-	if ((__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) /*||*/)
-	//	((cur != threadAdhocID && cur != threadIdleID[0] && cur != threadIdleID[1]) /*&& !__KernelSwitchToThread(threadAdhocID, "switch to AdhocThread")*/))
-	{
-		// Can't do anything now, inside an interrupt.  Let's wait until later.
-		CoreTiming::ScheduleEvent(100, eventMatchingHandlerUpdate, userdata);
-		return;
-	}
-	__UpdateMatchingHandler(userdata);
-}
-
 void __NetAdhocInit() {
 	friendFinderRunning = false;
 	netAdhocInited = false;
@@ -180,17 +132,13 @@ void __NetAdhocInit() {
 	netAdhocMatchingInited = false;
 	adhocctlHandlers.clear();
 	__AdhocServerInit();
-	dummyThreadCode[0] = MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 1000);
-	dummyThreadCode[1] = MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread");
-	dummyThreadCode[2] = MIPS_MAKE_B(-3);
-	dummyThreadCode[3] = MIPS_MAKE_NOP();
-	//dummyThreadCode[4] = MIPS_MAKE_BREAK(0);
+	dummyThreadCode[0] = MIPS_MAKE_SYSCALL("sceNetAdhoc", "__NetTriggerCallbacks");
+	dummyThreadCode[1] = MIPS_MAKE_B(-2);
+	dummyThreadCode[2] = MIPS_MAKE_NOP();
 	u32 blockSize = sizeof(dummyThreadCode);
 	dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
 	Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode)); // This area will be cleared again after loading an old savestate :(
 	actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
-	eventAdhocctlHandlerUpdate = CoreTiming::RegisterEvent("AdhocctlHandlerUpdateEvent", __handlerAdhocctlUpdateCallback);
-	eventMatchingHandlerUpdate = CoreTiming::RegisterEvent("MatchingHandlerUpdateEvent", __handlerMatchingUpdateCallback);
 	// Create built-in AdhocServer Thread
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 		adhocServerRunning = true;
@@ -213,7 +161,7 @@ u32 sceNetAdhocInit() {
 		// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
 		#define PSP_THREAD_ATTR_KERNEL 0x00001000 // PSP_THREAD_ATTR_KERNEL is located in sceKernelThread.cpp instead of sceKernelThread.h :(
 		//threadAdhocID = __KernelCreateThreadInternal("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x30, 4096, PSP_THREAD_ATTR_KERNEL);
-		threadAdhoc = __KernelCreateThread(threadAdhocID, __KernelGetCurThreadModuleId(), "AdhocThread", dummyThreadHackAddr, 0x10, 8192, PSP_THREAD_ATTR_KERNEL); // We don't have access to __KernelCreateThread function that use Thread class from sceKernelThread.h :(
+		threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x10, 0x1000, 0, PSP_THREAD_ATTR_KERNEL);
 		if (threadAdhocID > 0) {
 			__KernelStartThread(threadAdhocID, 0, 0);
 		}
@@ -1136,9 +1084,10 @@ static u32 sceNetAdhocctlDisconnect() {
 		}
 		
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		//__UpdateAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT,0);
-		CoreTiming::ScheduleEvent_Threadsafe_Immediate(eventAdhocctlHandlerUpdate, join32(ADHOCCTL_EVENT_DISCONNECT, 0));
-
+		{
+			lock_guard adhocGuard(adhocEvtMtx);
+			adhocctlEvents.push_back({ ADHOCCTL_EVENT_DISCONNECT, 0 });
+		}
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
 		return 0;
 	}
@@ -1190,7 +1139,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 	if (netAdhocctlInited)
 	{
 		// Valid Arguments
-		if (mac != NULL && nameAddr != NULL)
+		if (mac != NULL && nameAddr != 0)
 		{
 			SceNetAdhocctlNickname * nickname = NULL;
 			if (Memory::IsValidAddress(nameAddr)) nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
@@ -1285,7 +1234,7 @@ int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
 	}
 	// Library initialized
 	if (netAdhocctlInited) {
-		if ((size < sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
+		if ((size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return ERROR_NET_ADHOCCTL_INVALID_ARG;
 		
 		int retval = ERROR_NET_ADHOCCTL_INVALID_ARG; // -1;
 
@@ -2853,7 +2802,7 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 					if (peer != NULL)
 					{
 						// Valid Optional Data Length
-						if ((optLen == 0 && optDataPtr == NULL) || (optLen > 0 && optDataPtr != NULL))
+						if ((optLen == 0 && optDataPtr == 0) || (optLen > 0 && optDataPtr != 0))
 						{
 							void * opt = NULL;
 							if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointer(optDataPtr);
@@ -3060,7 +3009,7 @@ int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
 	if (!g_Config.bEnableWlan)
 		return -1;
-	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, NULL);
+	return sceNetAdhocMatchingCancelTargetWithOpt(matchingId, macAddress, 0, 0);
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
@@ -3119,7 +3068,7 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 			if (context->running)
 			{
 				// Valid Optional Data Length
-				if ((optLenAddr == 0 && optDataAddr == NULL) || (optLenAddr > 0 && optDataAddr != NULL))
+				if ((optLenAddr == 0 && optDataAddr == 0) || (optLenAddr > 0 && optDataAddr != 0))
 				{
 					// Grab Existing Hello Data
 					void * hello = context->hello;
@@ -3202,7 +3151,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		if (context->running)
 		{
 			// Length Buffer available
-			if (sizeAddr != NULL)
+			if (sizeAddr != 0)
 			{
 				int * buflen = (int *)Memory::GetPointer(sizeAddr);
 				SceNetAdhocMatchingMemberInfoEmu * buf2 = NULL;
@@ -3217,7 +3166,7 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 				int available = sizeof(SceNetAdhocMatchingMemberInfoEmu) * peercount;
 
 				// Length Returner Mode
-				if (buf == NULL)
+				if (buf == 0)
 				{
 					// Get Connected Peer Count
 					*buflen = available;
@@ -3504,6 +3453,39 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 	return ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED;
 }
 
+void __NetTriggerCallbacks()
+{
+	{
+		lock_guard adhocGuard(adhocEvtMtx);
+
+		for (auto &params : adhocctlEvents)
+		{
+			int flags = params.first;
+			int error = params.second;
+			u32_le args[3] = { 0, 0, 0 };
+			args[0] = flags;
+			args[1] = error;
+
+			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
+				args[2] = it->second.argument;
+				__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
+			}
+		}
+		adhocctlEvents.clear();
+
+		for (auto &param : matchingEvents)
+		{
+			u32_le *args = (u32_le *) param;
+			AfterMatchingMipsCall *after = (AfterMatchingMipsCall *) __KernelCreateAction(actionAfterMatchingMipsCall);
+			after->SetContextID(args[0], args[1]);
+			__KernelDirectMipsCall(args[5], after, args, 5, true);
+		}
+		matchingEvents.clear();
+	}
+	//magically make this work
+	hleDelayResult(0, "Prevent Adhoc thread from blocking", 1000);
+}
+
 const HLEFunction sceNetAdhoc[] = {
 	{0xE1D621D7, WrapU_V<sceNetAdhocInit>, "sceNetAdhocInit"}, 
 	{0xA62C6F57, WrapI_V<sceNetAdhocTerm>, "sceNetAdhocTerm"}, 
@@ -3531,6 +3513,8 @@ const HLEFunction sceNetAdhoc[] = {
 	{0x73bfd52d, WrapI_II<sceNetAdhocSetSocketAlert>, "sceNetAdhocSetSocketAlert"},
 	{0x4d2ce199, WrapI_IU<sceNetAdhocGetSocketAlert>, "sceNetAdhocGetSocketAlert"},
 	{0x7a662d6b, WrapI_UIII<sceNetAdhocPollSocket>, "sceNetAdhocPollSocket"},
+	// Fake function for PPSSPP's use.
+	{0x756E6E6F, WrapV_V<__NetTriggerCallbacks>, "__NetTriggerCallbacks"},
 };							
 
 const HLEFunction sceNetAdhocMatching[] = {
@@ -4802,8 +4786,7 @@ int matchingEventThread(int matchingId)
 
 					// Log Matching Events
 					if (msg->opcode >= 0) {
-						char buf[16];
-						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode, buf), msg->optlen);
+						INFO_LOG(SCENET, "EventLoop[%d]: Matching Event [%d=%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), msg->optlen);
 					}
 
 					context->eventlock->unlock(); // Unlock to prevent race-condition with other threads due to recursive lock
@@ -4991,8 +4974,7 @@ int matchingInputThread(int matchingId)
 			{
 				// Log Receive Success
 				if (context->rxbuf[0] > 1) {
-					char buf[16];
-					INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0], buf));
+					INFO_LOG(SCENET, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0]));
 				}
 
 				// Update Peer Timestamp

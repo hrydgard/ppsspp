@@ -725,23 +725,24 @@ void EmuScreen::render() {
 	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
-	screenManager()->getUIContext()->RebindTexture();
-	Thin3DContext *thin3d = screenManager()->getThin3DContext();
-
-	T3DViewport viewport;
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = pixel_xres;
-	viewport.Height = pixel_yres;
-	viewport.MaxDepth = 1.0;
-	viewport.MinDepth = 0.0;
-	thin3d->SetViewports(1, &viewport);
-	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
-	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-	thin3d->SetScissorEnabled(false);
-
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu) {
-		ui_draw2d.Begin(thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D), DBMODE_NORMAL);
+
+		Thin3DContext *thin3d = screenManager()->getThin3DContext();
+
+		screenManager()->getUIContext()->Begin();
+
+		T3DViewport viewport;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = pixel_xres;
+		viewport.Height = pixel_yres;
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
+		thin3d->SetViewports(1, &viewport);
+		thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
+		thin3d->SetScissorEnabled(false);
+
+		DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
 
 		if (root_) {
 			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
@@ -751,10 +752,10 @@ void EmuScreen::render() {
 		if (g_Config.bShowDebugStats) {
 			char statbuf[4096] = {0};
 			__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-			ui_draw2d.SetFontScale(.7f, .7f);
-			ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
-			ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-			ui_draw2d.SetFontScale(1.0f, 1.0f);
+			draw2d->SetFontScale(.7f, .7f);
+			draw2d->DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
+			draw2d->DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+			draw2d->SetFontScale(1.0f, 1.0f);
 		}
 
 		if (g_Config.iShowFPSCounter) {
@@ -773,14 +774,13 @@ void EmuScreen::render() {
 			}
 
 			const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-			ui_draw2d.SetFontScale(0.7f, 0.7f);
-			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-			ui_draw2d.DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-			ui_draw2d.SetFontScale(1.0f, 1.0f);
+			draw2d->SetFontScale(0.7f, 0.7f);
+			draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+			draw2d->SetFontScale(1.0f, 1.0f);
 		}
 
-		ui_draw2d.End();
-		ui_draw2d.Flush();
+		screenManager()->getUIContext()->End();
 	}
 
 #ifdef USING_GLES2

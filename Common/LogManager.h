@@ -61,6 +61,27 @@ public:
 	void Log(LogTypes::LOG_LEVELS, const char *msg);
 };
 
+class RingbufferLogListener : public LogListener {
+public:
+	RingbufferLogListener() : curMessage_(0), count_(0), enabled_(false) {}
+	void Log(LogTypes::LOG_LEVELS, const char *msg);
+
+	bool IsEnabled() const { return enabled_; }
+	void SetEnable(bool enable) { enabled_ = enable; }
+
+	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
+	const char *TextAt(int i) { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)]; }
+	LogTypes::LOG_LEVELS LevelAt(int i) { return (LogTypes::LOG_LEVELS)levels_[(curMessage_ - i - 1) & (MAX_LOGS - 1)]; }
+
+private:
+	enum { MAX_LOGS = 128 };
+	char messages_[MAX_LOGS][1024];
+	u8 levels_[MAX_LOGS];
+	int curMessage_;
+	int count_;
+	bool enabled_;
+};
+
 // TODO: A simple buffered log that can be used to display the log in-window
 // on Android etc.
 // class BufferedLogListener { ... }
@@ -105,6 +126,7 @@ private:
 	FileLogListener *fileLog_;
 	ConsoleListener *consoleLog_;
 	DebuggerLogListener *debuggerLog_;
+	RingbufferLogListener *ringLog_;
 	static LogManager *logManager_;  // Singleton. Ugh.
 	std::mutex log_lock_;
 
@@ -155,6 +177,10 @@ public:
 
 	DebuggerLogListener *GetDebuggerListener() const {
 		return debuggerLog_;
+	}
+
+	RingbufferLogListener *GetRingbufferListener() const {
+		return ringLog_;
 	}
 
 	static LogManager* GetInstance() {

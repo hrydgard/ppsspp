@@ -103,6 +103,7 @@ LogManager::LogManager() {
 	consoleLog_ = NULL;
 	debuggerLog_ = NULL;
 #endif
+	ringLog_ = new RingbufferLogListener();
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
@@ -113,6 +114,7 @@ LogManager::LogManager() {
 		if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
 			log_[i]->AddListener(debuggerLog_);
 #endif
+		log_[i]->AddListener(ringLog_);
 #endif
 	}
 }
@@ -284,4 +286,19 @@ void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 #if _MSC_VER
 	OutputDebugStringUTF8(msg);
 #endif
+}
+
+void RingbufferLogListener::Log(LogTypes::LOG_LEVELS level, const char *msg) {
+	if (!enabled_)
+		return;
+	levels_[curMessage_] = (u8)level;
+	int len = (int)strlen(msg);
+	if (len >= sizeof(messages_[0]))
+		len = sizeof(messages_[0]) - 1;
+	memcpy(messages_[curMessage_], msg, len);
+	messages_[curMessage_][len] = 0;
+	curMessage_++;
+	if (curMessage_ >= MAX_LOGS)
+		curMessage_ -= MAX_LOGS;
+	count_++;
 }

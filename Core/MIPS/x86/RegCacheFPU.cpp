@@ -569,10 +569,12 @@ void FPURegCache::ReleaseSpillLocks() {
 void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	pendingFlush = true;
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::MapReg - imm");
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::MapReg - invalid mips reg %d", i);
+
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg %d", (int)xr);
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -615,6 +617,8 @@ static int MMShuffleSwapTo0(int lane) {
 
 void FPURegCache::StoreFromRegister(int i) {
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::StoreFromRegister - it's an imm");
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::StoreFromRegister - invalid mipsreg %i PC=%08x", i, js_->compilerPC);
+
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
 		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
@@ -944,6 +948,9 @@ int FPURegCache::SanityCheck() const {
 				hasMoreRegs = false;
 				continue;
 			}
+			if (xr.mipsRegs[j] >= NUM_MIPS_FPRS) {
+				return 13;
+			}
 			// We can't have a hole in the middle / front.
 			if (!hasMoreRegs)
 				return 9;
@@ -1022,6 +1029,8 @@ int FPURegCache::GetFreeXRegs(X64Reg *res, int n, bool spill) {
 		for (int i = 0; i < aCount; i++) {
 			X64Reg xr = (X64Reg)aOrder[i];
 			int preg = xregs[xr].mipsReg;
+			_assert_msg_(JIT, preg >= -1 && preg < NUM_MIPS_FPRS, "WTF - FPURegCache::GetFreeXRegs - invalid mips reg %d in xr %d", preg, (int)xr);
+
 			// We're only spilling here, so don't overlap.
 			if (preg != -1 && !regs[preg].locked) {
 				StoreFromRegister(preg);

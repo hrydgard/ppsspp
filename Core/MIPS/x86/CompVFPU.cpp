@@ -114,7 +114,6 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 
 		// This puts the value into a temp reg, so we won't write the modified value back.
 		vregs[i] = fpr.GetTempV();
-		fpr.SimpleRegV(origV[regnum], 0);
 		fpr.MapRegV(vregs[i], MAP_NOINIT | MAP_DIRTY);
 
 		if (!constants) {
@@ -124,6 +123,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
+			fpr.SimpleRegV(origV[regnum], 0);
 			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));
 			if (abs) {
 				ANDPS(fpr.VX(vregs[i]), M(&noSignMask));
