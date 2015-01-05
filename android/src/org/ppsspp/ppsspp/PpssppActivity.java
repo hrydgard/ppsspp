@@ -12,12 +12,12 @@ import com.henrikrydgard.libnative.NativeApp;
 
 public class PpssppActivity extends NativeActivity {
 	
-	private static boolean m_hasUnsopportedABI = false;
+	private static boolean m_hasUnsupportedABI = false;
 	
 	static {
 		
 		if(Build.CPU_ABI.equals("armeabi")) {
-			m_hasUnsopportedABI = true;
+			m_hasUnsupportedABI = true;
 		} else {
 			System.loadLibrary("ppsspp_jni");
 		}
@@ -35,7 +35,7 @@ public class PpssppActivity extends NativeActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		
-		if(m_hasUnsopportedABI) {
+		if(m_hasUnsupportedABI) {
 			
 			new Thread() {
 				@Override
