@@ -64,6 +64,8 @@
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 #define ATRAC_ERROR_BUFFER_IS_EMPTY          0x80630023
 #define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
+#define ATRAC_ERROR_AA3_INVALID_DATA         0x80631003
+#define ATRAC_ERROR_AA3_SIZE_TOO_SMALL       0x80631004
 
 #define AT3_MAGIC           0x0270
 #define AT3_PLUS_MAGIC      0xFFFE
@@ -629,22 +631,27 @@ int Atrac::Analyze() {
 int Atrac::AnalyzeAA3() {
 	AnalyzeReset();
 
+	if (first.size < 10) {
+		return ATRAC_ERROR_AA3_SIZE_TOO_SMALL;
+	}
+
 	// TODO: Make sure this validation is correct, more testing.
 
 	const u8 *buffer = Memory::GetPointer(first.addr);
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
-		// TODO: Error code.
-		return -1;
+		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
+	if (first.size < tagSize + 36) {
+		return ATRAC_ERROR_AA3_SIZE_TOO_SMALL;
+	}
 
 	// EA3 header starts at id3 header (10) + tagSize.
 	buffer = Memory::GetPointer(first.addr + 10 + tagSize);
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
-		// TODO: Error code.
-		return -1;
+		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
 	// Based on FFmpeg's code.
@@ -662,16 +669,15 @@ int Atrac::AnalyzeAA3() {
 		codecType = PSP_MODE_AT_3_PLUS;
 		atracBytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
 		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 2048;
-		atracChannels = ((codecParams >> 10) & 7) + 1;
+		atracChannels = (codecParams >> 10) & 7;
 		break;
 	case 3:
 	case 4:
 	case 5:
 		ERROR_LOG_REPORT(ME, "OMA header contains unsupported codec type: %d", buffer[32]);
-		return -1;
+		return ATRAC_ERROR_AA3_INVALID_DATA;
 	default:
-		// TODO: Error code.
-		return -1;
+		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
 	dataOff = 0;
@@ -1535,10 +1541,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
-	ret = _AtracSetData(atracID, buffer, bufferSize, true);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, buffer, bufferSize, true);
 }
 
 static int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
@@ -1568,10 +1571,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 ha
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 }
 
 static u32 sceAtracStartEntry() {
@@ -1780,10 +1780,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	}
 	// This doesn't seem to be part of any available libatrac3plus library.
 	WARN_LOG_REPORT(ME, "%d=sceAtracSetMOutDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
-	ret = _AtracSetData(atracID, buffer, bufferSize, true);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, buffer, bufferSize, true);
 }
 
 static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize) {
@@ -1818,10 +1815,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u3
 		return atracID;
 	}
 	INFO_LOG(ME, "%d=sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
@@ -1842,10 +1836,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return atracID;
 	}
 	WARN_LOG(ME, "%d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
-	ret = _AtracSetData(atracID, buffer, bufferSize);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, buffer, bufferSize, true);
 }
 
 int _AtracGetIDByContext(u32 contextAddr) {
@@ -2172,10 +2163,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32
 		return atracID;
 	}
 	ERROR_LOG(ME, "UNIMPL %d=sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	ret = _AtracSetData(atrac, halfBuffer, halfBufferSize);
-	if (ret < 0)
-		return ret;
-	return atracID;
+	return _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 }
 
 const HLEFunction sceAtrac3plus[] = {
