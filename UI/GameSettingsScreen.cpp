@@ -382,9 +382,10 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *networkingSettings = new LinearLayout(ORIENT_VERTICAL);
 	networkingSettings->SetSpacing(0);
 	networkingSettingsScroll->Add(networkingSettings);
-	tabHolder->AddTab(n->T("Networking"), networkingSettingsScroll);
+	tabHolder->AddTab(ms->T("Networking"), networkingSettingsScroll);
 
-	networkingSettings->Add(new ItemHeader(n->T("Networking")));
+	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
+
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 
 #ifdef _WIN32
