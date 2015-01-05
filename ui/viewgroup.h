@@ -217,6 +217,7 @@ public:
 	void Draw(UIContext &dc);
 
 	void ScrollTo(float newScrollPos);
+	void ScrollToBottom();
 	void ScrollRelative(float distance);
 	bool CanScroll() const;
 	void Update(const InputState &input_state);

@@ -400,6 +400,11 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 
 // ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int align) {
+	// rough estimate
+	if (count_ + strlen(text) * 6 > MAX_VERTS) {
+		Flush(true);
+	}
+
 	const AtlasFont &atlasfont = *atlas->fonts[font];
 	unsigned int cval;
 	float w, h;

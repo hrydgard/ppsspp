@@ -776,6 +776,13 @@ void ScrollView::ClampScrollPos(float &pos) {
 	}
 }
 
+void ScrollView::ScrollToBottom() {
+	float childHeight = views_[0]->GetBounds().h;
+	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	scrollPos_ = scrollMax;
+	scrollTarget_ = scrollMax;
+}
+
 bool ScrollView::CanScroll() const {
 	if (!views_.size())
 		return false;

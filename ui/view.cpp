@@ -564,7 +564,7 @@ void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 
 void TextView::Draw(UIContext &dc) {
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
-	dc.DrawTextRect(text_.c_str(), bounds_, 0xFFFFFFFF, textAlign_);
+	dc.DrawTextRect(text_.c_str(), bounds_, textColor_, textAlign_);
 }
 
 TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)
@@ -677,6 +677,13 @@ void TextEdit::Key(const KeyInput &input) {
 				textChanged = true;
 			}
 			break;
+		case NKCODE_ENTER:
+			{
+				EventParams e;
+				e.s = text_;
+				OnEnter.Trigger(e);
+				break;
+			}
 		}
 
 		if (ctrlDown_) {
