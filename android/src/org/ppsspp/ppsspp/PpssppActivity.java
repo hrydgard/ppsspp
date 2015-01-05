@@ -1,16 +1,26 @@
 package org.ppsspp.ppsspp;
 
+import android.app.AlertDialog;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Looper;
 
+import com.google.analytics.tracking.android.EasyTracker;
 import com.henrikrydgard.libnative.NativeActivity;
 import com.henrikrydgard.libnative.NativeApp;
-import com.google.analytics.tracking.android.EasyTracker;
 
 public class PpssppActivity extends NativeActivity {
+	
+	private static boolean m_hasUnsupportedABI = false;
+	
 	static {
-		System.loadLibrary("ppsspp_jni");
+		
+		if(Build.CPU_ABI.equals("armeabi")) {
+			m_hasUnsupportedABI = true;
+		} else {
+			System.loadLibrary("ppsspp_jni");
+		}
 	}
 
 	// Key used by shortcut.
@@ -24,6 +34,28 @@ public class PpssppActivity extends NativeActivity {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		
+		if(m_hasUnsupportedABI) {
+			
+			new Thread() {
+				@Override
+				public void run() {
+					Looper.prepare();
+					AlertDialog.Builder builder = new AlertDialog.Builder(PpssppActivity.this);
+					builder.setMessage(Build.CPU_ABI + " target is not supported.").setTitle("Error").create().show();
+					Looper.loop();
+				}
+				
+			}.start();
+			
+			try {
+				Thread.sleep(3000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
+			System.exit(-1);
+		}
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
 		// (from app drawer).
