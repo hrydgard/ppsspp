@@ -55,11 +55,25 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	I18NCategory *de = GetI18NCategory("Developer");
 	I18NCategory *sy = GetI18NCategory("System");
 
+#if !defined(MOBILE_DEVICE)
+	parent->Add(new Choice(de->T("Log View")))->OnClick.Handle(this, &DevMenu::OnLogView);
+#endif
 	parent->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
 	parent->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
 	parent->Add(new Choice(de->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
 	parent->Add(new Choice(de->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
 	parent->Add(new Choice(de->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
+
+	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
+	if (ring) {
+		ring->SetEnable(true);
+	}
+}
+
+UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+	screenManager()->push(new LogScreen());
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -100,6 +114,67 @@ void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 	// screenManager()->finishDialog(this, DR_OK);
 }
 
+void LogScreen::UpdateLog() {
+	using namespace UI;
+	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
+	if (!ring)
+		return;
+	vert_->Clear();
+	for (int i = ring->GetCount() - 1; i >= 0; i--) {
+		TextView *v = vert_->Add(new TextView(ring->TextAt(i), FLAG_DYNAMIC_ASCII, false));
+		uint32_t color = 0xFFFFFF;
+		switch (ring->LevelAt(i)) {
+		case LogTypes::LDEBUG: color = 0xE0E0E0; break;
+		case LogTypes::LWARNING: color = 0x50FFFF; break;
+		case LogTypes::LERROR: color = 0x5050FF; break;
+		case LogTypes::LNOTICE: color = 0x30FF30; break;
+		case LogTypes::LINFO: color = 0xFFFFFF; break;
+		}
+		v->SetTextColor(0xFF000000 | color);
+	}
+	toBottom_ = true;
+}
+
+void LogScreen::update(InputState &input) {
+	UIDialogScreenWithBackground::update(input);
+	if (toBottom_) {
+		toBottom_ = false;
+		scroll_->ScrollToBottom();
+	}
+}
+
+void LogScreen::CreateViews() {
+	using namespace UI;
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	root_ = outer;
+
+	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
+	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	bottom->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	cmdLine_ = bottom->Add(new TextEdit("", "Command Line", new LinearLayoutParams(1.0)));
+	cmdLine_->OnEnter.Handle(this, &LogScreen::OnSubmit);
+	bottom->Add(new Button(di->T("Submit")))->OnClick.Handle(this, &LogScreen::OnSubmit);
+
+	vert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	vert_->SetSpacing(0);
+
+	UpdateLog();
+}
+
+UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
+	std::string cmd = cmdLine_->GetText();
+
+	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
+
+	NOTICE_LOG(HLE, "Submitted: %s", cmd.c_str());
+
+	UpdateLog();
+	cmdLine_->SetText("");
+	cmdLine_->SetFocus();
+	return UI::EVENT_DONE;
+}
 
 void LogConfigScreen::CreateViews() {
 	using namespace UI;

@@ -36,6 +36,7 @@ public:
 	virtual void dialogFinished(const Screen *dialog, DialogResult result);
 
 protected:
+	UI::EventReturn OnLogView(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
@@ -52,6 +53,21 @@ private:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
 	UI::EventReturn OnLogLevel(UI::EventParams &e);
 	UI::EventReturn OnLogLevelChange(UI::EventParams &e);
+};
+
+class LogScreen : public UIDialogScreenWithBackground {
+public:
+	LogScreen() : toBottom_(false) {}
+	void CreateViews() override;
+	void update(InputState &input) override;
+
+private:
+	void UpdateLog();
+	UI::EventReturn OnSubmit(UI::EventParams &e);
+	UI::TextEdit *cmdLine_;
+	UI::LinearLayout *vert_;
+	UI::ScrollView *scroll_;
+	bool toBottom_;
 };
 
 class LogLevelScreen : public ListPopupScreen {
