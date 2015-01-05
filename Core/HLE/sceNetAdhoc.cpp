@@ -259,8 +259,14 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 					// Binding Information for local Port
 					sockaddr_in addr;
 					addr.sin_family = AF_INET;
-					addr.sin_addr.s_addr = INADDR_ANY;
-
+					if (g_Config.bBindLocal)
+					{
+						addr.sin_addr = ((sockaddr_in *) &localIP)->sin_addr;
+					}
+					else
+					{
+						addr.sin_addr.s_addr = INADDR_ANY;
+					}
 					//if (port < 7) addr.sin_port = htons(port + 1341); else // <= 443
 					addr.sin_port = htons(port); // This not safe in any way...
 					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?

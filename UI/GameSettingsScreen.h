@@ -76,6 +76,7 @@ private:
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
+	UI::EventReturn OnChangeBindAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
@@ -126,15 +127,16 @@ private:
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 };
 
-class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+class HostnameSelectScreen : public UIDialogScreenWithBackground {
 public:
-	ProAdhocServerScreen() {}	
+	HostnameSelectScreen(std::string &target) : targetConfig(target){}	
 
 protected:
 	virtual void CreateViews();
 
 private:	
 	std::string tempProAdhocServer;
+	std::string &targetConfig;
 	UI::TextView *addrView_;
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
