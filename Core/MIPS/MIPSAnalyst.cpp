@@ -90,6 +90,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
 	{ 0x05aedd0c04b451a1, 356, "sqrt", },
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
+	{ 0x06628f6052cda3c1, 1776, "toheart2_download_frame", }, // To Heart 2 Portable
 	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
 	{ 0x06e2826e02056114, 56, "wcslen", },
 	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force
@@ -118,6 +119,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x16965ca11a4e7dac, 104, "vmmul_q_transp", },
 	{ 0x16afe830a5dd2de2, 40, "vdiv_q", },
 	{ 0x184e834a63a79016, 32, "isnanf", },
+	{ 0x1874ee898c7b9f16, 512, "kokoroconnect_download_frame", }, // Kokoro Connect Yochi Random
 	{ 0x189212bda9c94df1, 736, "atanf", },
 	{ 0x199821ce500ef9d2, 24, "vocp_t", },
 	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
@@ -148,6 +150,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2adc229bef7bbc75, 40, "isnan", },
 	{ 0x2bcf5268dd26345a, 340, "acos", },
 	{ 0x2c4cb2028a1735bf, 600, "floor", },
+	{ 0x2c61a9a06a345b43, 1084, "otomenoheihou_download_frame", }, // Sangoku Koi Senki Otome no Heihou
 	{ 0x2ca5958bb816c72e, 44, "vector_i2f_t", },
 	{ 0x2e7022d9767c9018, 2100, "atan", },
 	{ 0x2f10d3faec84b5bb, 276, "sinf", },
@@ -287,6 +290,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
 	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
 	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile
+	{ 0x8da0164e69e9b531, 1040, "grisaianokajitsu_download_frame", }, // Grisaia no Kajitsu La Fruit de la Grisaia
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
@@ -377,6 +381,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
+	{ 0xca7cb2c0b9410618, 680, "kudwafter_download_frame", }, // Kud Wafter
 	{ 0xcb7a2edd603ecfef, 48, "vtfm_p", },
 	{ 0xcdf64d21418b2667, 24, "vzero_q", },
 	{ 0xce1c95ee25b8e2ea, 448, "fmod", },
@@ -387,6 +392,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
 	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
+	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
@@ -434,6 +440,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5f7826b4a61767c, 40, "matrix_copy_q", },
 	{ 0xf73c094e492bc163, 396, "hypot", },
+	{ 0xf773297d89ff7a63, 532, "kumonohatateni_download_frame", }, // Amatsumi Sora ni Kumo no Hatate ni, and Hanakisou
 	{ 0xf7fc691db0147e25, 96, "strspn", },
 	{ 0xf842aea3baa61f29, 32, "vector_length_t", },
 	{ 0xf8e0902f4099a9d6, 2260, "qsort", },

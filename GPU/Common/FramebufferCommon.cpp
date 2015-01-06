@@ -122,7 +122,9 @@ void FramebufferManagerCommon::EstimateDrawingSize(int &drawing_width, int &draw
 			drawing_height = 272;
 		}
 		// Sometimes region is set larger than the VRAM for the framebuffer.
-		if (region_width <= fb_stride && region_width > drawing_width && region_height <= MAX_FRAMEBUF_HEIGHT) {
+		// However, in one game it's correctly set as a larger height (see #7277) with the same width.
+		// A bit of a hack, but we try to handle that unusual case here.
+		if (region_width <= fb_stride && (region_width > drawing_width || (region_width == drawing_width && region_height > drawing_height)) && region_height <= MAX_FRAMEBUF_HEIGHT) {
 			drawing_width = region_width;
 			drawing_height = std::max(drawing_height, region_height);
 		}

@@ -1,5 +1,6 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
+#include <DxErr.h>
 
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/helper/fbo.h"
@@ -206,7 +207,7 @@ void D3D9_Resize(HWND window) {
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Unable to reset device: %08x", hr);
+			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", DXGetErrorStringA(hr));
 		}
 		DX9::fbo_init(d3d);
 	}

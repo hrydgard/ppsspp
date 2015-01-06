@@ -2638,18 +2638,15 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 		bool transposeDest = false;
 		bool transposeS = false;
 
-		// Apparently not reliable enough yet... monster hunter hd breaks
-		if (false) {
-			if ((vd & 0x20) && sz == M_4x4) {
-				vd ^= 0x20;
-				transposeDest = true;
-			}
+		if ((vd & 0x20) && sz == M_4x4) {
+			vd ^= 0x20;
+			transposeDest = true;
+		}
 
-			// Our algorithm needs a transposed S (which is the usual).
-			if (!(vs & 0x20) && sz == M_4x4) {
-				vs ^= 0x20;
-				transposeS = true;
-			}
+		// Our algorithm needs a transposed S (which is the usual).
+		if (!(vs & 0x20) && sz == M_4x4) {
+			vs ^= 0x20;
+			transposeS = true;
 		}
 
 		// The T matrix we will address individually.
@@ -2666,6 +2663,9 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 
 		// Map all of S's columns into registers.
 		for (int i = 0; i < n; i++) {
+			if (transposeS){
+				fpr.StoreFromRegisterV(scols[i]);
+			}
 			GetVectorRegs(scol[i], vsz, scols[i]);
 			fpr.MapRegsVS(scol[i], vsz, 0);
 			fpr.SpillLockV(scols[i], vsz);
@@ -2725,6 +2725,11 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 			fpr.MapRegsVS(dcol, vsz, MAP_DIRTY | MAP_NOINIT);
 #endif
 			MOVAPS(fpr.VS(dcol), XMM1);
+		}
+		if (transposeS){
+			for (int i = 0; i < n; i++){
+				fpr.DiscardVS(scols[i]);
+			}
 		}
 
 #ifndef _M_X64
