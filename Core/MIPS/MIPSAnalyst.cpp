@@ -436,6 +436,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5f7826b4a61767c, 40, "matrix_copy_q", },
 	{ 0xf73c094e492bc163, 396, "hypot", },
+	{ 0xf773297d89ff7a63, 532, "kumonohatateni_download_frame", }, // Amatsumi Sora ni Kumo no Hatate ni, and Hanakisou
 	{ 0xf7fc691db0147e25, 96, "strspn", },
 	{ 0xf842aea3baa61f29, 32, "vector_length_t", },
 	{ 0xf8e0902f4099a9d6, 2260, "qsort", },
