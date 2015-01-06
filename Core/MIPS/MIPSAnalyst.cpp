@@ -148,6 +148,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2adc229bef7bbc75, 40, "isnan", },
 	{ 0x2bcf5268dd26345a, 340, "acos", },
 	{ 0x2c4cb2028a1735bf, 600, "floor", },
+	{ 0x2c61a9a06a345b43, 1084, "otomenoheihou_download_frame", }, // Sangoku Koi Senki Otome no Heihou
 	{ 0x2ca5958bb816c72e, 44, "vector_i2f_t", },
 	{ 0x2e7022d9767c9018, 2100, "atan", },
 	{ 0x2f10d3faec84b5bb, 276, "sinf", },
