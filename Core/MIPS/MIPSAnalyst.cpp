@@ -377,6 +377,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
+	{ 0xca7cb2c0b9410618, 680, "kudwafter_download_frame", }, // Kud Wafter
 	{ 0xcb7a2edd603ecfef, 48, "vtfm_p", },
 	{ 0xcdf64d21418b2667, 24, "vzero_q", },
 	{ 0xce1c95ee25b8e2ea, 448, "fmod", },
