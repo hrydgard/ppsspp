@@ -145,8 +145,8 @@ void SoftwareTransform(
 
 	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
 
-	int w = gstate.getTextureWidth(0);
-	int h = gstate.getTextureHeight(0);
+	const int w = gstate.getTextureWidth(0);
+	const int h = gstate.getTextureHeight(0);
 	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
 	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 
@@ -396,7 +396,7 @@ void SoftwareTransform(
 	}
 
 	// This means we're using a framebuffer (and one that isn't big enough.)
-	if (gstate_c.curTextureHeight < (u32)gstate.getTextureHeight(0) && maxIndex >= 2) {
+	if (gstate_c.curTextureHeight < (u32)h && maxIndex >= 2) {
 		// Even if not rectangles, this will detect if either of the first two are outside the framebuffer.
 		// HACK: Adding one pixel margin to this detection fixes issues in Assassin's Creed : Bloodlines,
 		// while still keeping BOF working (see below).
