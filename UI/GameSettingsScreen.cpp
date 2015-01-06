@@ -418,6 +418,10 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
+	Choice *One_Key = networkingSettings->Add(new Choice(s->T("One Key Online Setting (Face to face adhoc)")));
+	One_Key->OnClick.Handle(this, &GameSettingsScreen::OnOne_Key);
+	One_Key->SetEnabled(!PSP_IsInited());
+	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
@@ -816,6 +820,19 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	}
 #endif
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnOne_Key(UI::EventParams &e) {
+	g_Config.bFastMemory = false;
+	g_Config.bSeparateCPUThread = 0;
+	g_Config.bEnableWlan = 1;
+	g_Config.proAdhocServer = "192.168.43.1";
+	g_Config.sMACAddress = std::string(CreateRandMAC());
+	g_Config.bEnableAdhocServer = 1;
+	g_Config.bTimerHack = 0;
+
+	return UI::EVENT_DONE;
+
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {	
