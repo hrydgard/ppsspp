@@ -118,6 +118,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x16965ca11a4e7dac, 104, "vmmul_q_transp", },
 	{ 0x16afe830a5dd2de2, 40, "vdiv_q", },
 	{ 0x184e834a63a79016, 32, "isnanf", },
+	{ 0x1874ee898c7b9f16, 512, "kokoroconnect_download_frame", }, // Kokoro Connect Yochi Random
 	{ 0x189212bda9c94df1, 736, "atanf", },
 	{ 0x199821ce500ef9d2, 24, "vocp_t", },
 	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
