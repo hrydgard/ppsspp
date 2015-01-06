@@ -387,6 +387,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
 	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
+	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
