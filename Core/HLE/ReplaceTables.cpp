@@ -864,6 +864,15 @@ static int Hook_kokoroconnect_download_frame() {
 	return 0;
 }
 
+static int Hook_toheart2_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_T2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(_M_X64) || defined(_M_IX86)
@@ -944,6 +953,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "otomenoheihou_download_frame", &Hook_otomenoheihou_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
 	{ "grisaianokajitsu_download_frame", &Hook_grisaianokajitsu_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
 	{ "kokoroconnect_download_frame", &Hook_kokoroconnect_download_frame, 0, REPFLAG_HOOKENTER, 0x60 },
+	{ "toheart2_download_frame", &Hook_toheart2_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
 	{}
 };
 

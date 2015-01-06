@@ -90,6 +90,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
 	{ 0x05aedd0c04b451a1, 356, "sqrt", },
 	{ 0x0654fc8adbe16ef7, 28, "vmul_q", },
+	{ 0x06628f6052cda3c1, 1776, "toheart2_download_frame", }, // To Heart 2 Portable
 	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
 	{ 0x06e2826e02056114, 56, "wcslen", },
 	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force
