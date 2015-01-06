@@ -27,7 +27,7 @@ class MultiTouchButton : public UI::View {
 public:
 	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
 		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
-	}
+		}
 
 	virtual void Key(const KeyInput &input) {}
 	virtual void Update(const InputState &input) {}
@@ -127,4 +127,53 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause);
 
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
+
+class MultiTouchButton1 : public UI::View {
+public:
+	MultiTouchButton1(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
+		}
+
+	virtual void Key(const KeyInput &input) {}
+	virtual void Update(const InputState &input) {}
+	virtual void Touch(const TouchInput &input);
+	virtual void Draw(UIContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual bool IsDown() { return pointerDownMask_ != 0; }
+	// chainable
+	MultiTouchButton1 *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
+	MultiTouchButton1 *SetAngle(float angle) { angle_ = angle; return this; }
+
+protected:
+	uint32_t pointerDownMask_;
+	float scale_;
+
+private:
+	int bgImg_;
+	int img_;
+	float angle_;
+	bool flipImageH_;
+};
+
+
+class PSPButton1 : public MultiTouchButton {
+public:
+	PSPButton1(bool pspButtonBit0, bool pspButtonBit1, bool pspButtonBit2, bool pspButtonBit3, bool pspButtonBit4, bool pspButtonBit5, bool pspButtonBit6, bool pspButtonBit7, bool pspButtonBit8, bool pspButtonBit9, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_0(pspButtonBit0), pspButtonBit_1(pspButtonBit1), pspButtonBit_2(pspButtonBit2), pspButtonBit_3(pspButtonBit3), pspButtonBit_9(pspButtonBit9), pspButtonBit_4(pspButtonBit4), pspButtonBit_5(pspButtonBit5), pspButtonBit_6(pspButtonBit6), pspButtonBit_7(pspButtonBit7), pspButtonBit_8(pspButtonBit8) {
+	}
+	virtual void Touch(const TouchInput &input);
+	virtual bool IsDown1();
+
+private:
+	bool pspButtonBit_0;
+	bool pspButtonBit_1;
+	bool pspButtonBit_2;
+	bool pspButtonBit_3;
+	bool pspButtonBit_4;
+	bool pspButtonBit_5;
+	bool pspButtonBit_6;
+	bool pspButtonBit_7;
+	bool pspButtonBit_8;
+	bool pspButtonBit_9;
+};
 

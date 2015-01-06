@@ -475,7 +475,7 @@ void NativeInit(int argc, const char *argv[],
 
 void NativeInitGraphics() {
 	FPU_SetFastMode();
-
+	int theme = g_Config.iR + g_Config.iG * 16 * 16 + g_Config.iB * 16 * 16 * 16 * 16 + g_Config.iTransparent * 16 * 16 * 16 * 16 * 16 * 16;
 #ifndef _WIN32
 	// Force backend to GL
 	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
@@ -490,8 +490,19 @@ void NativeInitGraphics() {
 #endif
 	}
 
-	ui_draw2d.SetAtlas(&ui_atlas);
-	ui_draw2d_front.SetAtlas(&ui_atlas);
+	if (g_Config.bLowMem_UI)
+	{
+		const char *UI1 = "ui_atlas.zim";
+		ui_draw2d.SetAtlas(&ui_atlas);
+		ui_draw2d_front.SetAtlas(&ui_atlas);
+	}
+	if (!g_Config.bLowMem_UI)
+	{
+		const char *UI1 = "ui_atlas1.zim";
+		ui_draw2d.SetAtlas(&ui_atlas1);
+		ui_draw2d_front.SetAtlas(&ui_atlas1);
+
+	}
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
@@ -514,7 +525,7 @@ void NativeInitGraphics() {
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFFedc24c);
-	ui_theme.itemDownStyle.background = UI::Drawable(0xFFbd9939);
+	ui_theme.itemDownStyle.background = UI::Drawable(theme);
 	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
 	ui_theme.itemDisabledStyle.fgColor = 0x80EEEEEE;
@@ -545,7 +556,10 @@ void NativeInitGraphics() {
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim", T3DImageType::ZIM);
 	if (!uiTexture) {
 #else
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	if (g_Config.bLowMem_UI)
+		uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	if (!g_Config.bLowMem_UI)
+		uiTexture = thin3d->CreateTextureFromFile("ui_atlas1.zim", T3DImageType::ZIM);
 	if (!uiTexture) {
 #endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
