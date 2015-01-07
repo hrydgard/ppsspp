@@ -402,15 +402,24 @@ void SoftwareTransform(
 		// while still keeping BOF working (see below).
 		const float invTexH = 1.0f / gstate_c.curTextureHeight; // size of one texel.
 		bool tlOutside;
+		bool tlAlmostOutside;
 		bool brOutside;
 		if (gstate_c.flipTexture) {
+			// This is flipped for OpenGL, but the same logic as unflipped, so look there.
 			tlOutside = transformed[0].v < -invTexH && transformed[0].v >= 1.0f - heightFactor;
 			brOutside = transformed[1].v < -invTexH && transformed[1].v >= 1.0f - heightFactor;
+			tlAlmostOutside = transformed[0].v <= 0.5f && transformed[0].v >= 1.0f - heightFactor;
 		} else {
+			// If we're outside heightFactor, then v must be wrapping or clamping.  Avoid this workaround.
+			// If we're <= 1.0f, we're inside the framebuffer (workaround not needed.)
+			// We buffer that 1.0f a little more with a texel to avoid some false positives.
 			tlOutside = transformed[0].v <= heightFactor && transformed[0].v > 1.0f + invTexH;
 			brOutside = transformed[1].v <= heightFactor && transformed[1].v > 1.0f + invTexH;
+			// Careful: if br is outside, but tl is well inside, this workaround still doesn't make sense.
+			// We go with halfway, since we overestimate framebuffer heights sometimes but not by much.
+			tlAlmostOutside = transformed[0].v <= heightFactor && transformed[0].v >= 0.5f;
 		}
-		if (tlOutside || brOutside) {
+		if (tlOutside || (brOutside && tlAlmostOutside)) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
 			const u32 bpp = fbman->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
