@@ -259,6 +259,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
+	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
 	{ 0x736b34ebc702d873, 104, "vmmul_q_transp", },
 	{ 0x73a614c08f777d52, 792, "danganronpa2_2_download_frame", }, // Danganronpa 2
 	{ 0x7499a2ce8b60d801, 12, "abs", },
