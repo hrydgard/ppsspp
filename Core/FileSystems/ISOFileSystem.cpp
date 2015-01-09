@@ -528,9 +528,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;
+
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			return 0;
+		}
 		
 		if (e.isBlockSectorMode)
 		{
