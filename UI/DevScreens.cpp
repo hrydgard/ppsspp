@@ -129,6 +129,7 @@ void LogScreen::UpdateLog() {
 		case LogTypes::LERROR: color = 0x5050FF; break;
 		case LogTypes::LNOTICE: color = 0x30FF30; break;
 		case LogTypes::LINFO: color = 0xFFFFFF; break;
+		case LogTypes::LVERBOSE: color = 0xC0C0C0; break;
 		}
 		v->SetTextColor(0xFF000000 | color);
 	}
