@@ -206,7 +206,13 @@ std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints
 
 void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
-		if (GetNextCode()[0] == 0) {
+		auto code = GetNextCode();
+		if (code.empty())
+		{
+			WARN_LOG(COMMON, "CWCHEAT: Tried to skip more codes than there are, the cheat is most likely wrong");
+			break;
+		}
+		if (code[0] == 0) {
 			break;
 		}
 	}
