@@ -107,8 +107,10 @@ static int Replace_memcpy() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
-	if (!bytes)
+	if (!bytes) {
+		RETURN(destPtr);
 		return 10;
+	}
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	currentMIPS->InvalidateICache(srcPtr, bytes);
