@@ -36,10 +36,12 @@ struct ThreadEventQueue : public B {
 	}
 
 	void ScheduleEvent(Event ev) {
-		{
+		if (threadEnabled_) {
 			lock_guard guard(eventsLock_);
 			events_.push_back(ev);
 			eventsWait_.notify_one();
+		} else {
+			events_.push_back(ev);
 		}
 
 		if (!threadEnabled_) {
@@ -48,34 +50,68 @@ struct ThreadEventQueue : public B {
 	}
 
 	bool HasEvents() {
-		lock_guard guard(eventsLock_);
-		return !events_.empty();
+		if (threadEnabled_) {
+			lock_guard guard(eventsLock_);
+			return !events_.empty();
+		} else {
+			return !events_.empty();
+		}
 	}
 
 	void NotifyDrain() {
-		lock_guard guard(eventsLock_);
-		eventsDrain_.notify_one();
+		if (threadEnabled_) {
+			lock_guard guard(eventsLock_);
+			eventsDrain_.notify_one();
+		}
 	}
 
 	Event GetNextEvent() {
-		lock_guard guard(eventsLock_);
-		if (events_.empty()) {
-			NotifyDrain();
-			return EVENT_INVALID;
-		}
+		if (threadEnabled_) {
+			lock_guard guard(eventsLock_);
+			if (events_.empty()) {
+				NotifyDrain();
+				return EVENT_INVALID;
+			}
 
-		Event ev = events_.front();
-		events_.pop_front();
-		return ev;
+			Event ev = events_.front();
+			events_.pop_front();
+			return ev;
+		} else {
+			if (events_.empty()) {
+				return EVENT_INVALID;
+			}
+			Event ev = events_.front();
+			events_.pop_front();
+			return ev;
+		}
 	}
 
 	void RunEventsUntil(u64 globalticks) {
+		if (!threadEnabled_) {
+			do {
+				for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
+					switch (EventType(ev)) {
+					case EVENT_FINISH:
+						// Stop waiting.
+						globalticks = 0;
+						break;
+
+					case EVENT_SYNC:
+						break;
+
+					default:
+						ProcessEvent(ev);
+					}
+				}
+			} while (CoreTiming::GetTicks() < globalticks);
+			return;
+		}
+
 		lock_guard guard(eventsLock_);
 		eventsRunning_ = true;
 		eventsHaveRun_ = true;
-
 		do {
-			while (!HasEvents() && !ShouldExitEventLoop() && threadEnabled_) {
+			while (!HasEvents() && !ShouldExitEventLoop()) {
 				eventsWait_.wait(eventsLock_);
 			}
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
@@ -107,8 +143,12 @@ struct ThreadEventQueue : public B {
 	}
 
 	void SyncBeginFrame() {
-		lock_guard guard(eventsLock_);
-		eventsHaveRun_ = false;
+		if (threadEnabled_) {
+			lock_guard guard(eventsLock_);
+			eventsHaveRun_ = false;
+		} else {
+			eventsHaveRun_ = false;
+		}
 	}
 
 	inline bool ShouldSyncThread(bool force) {
@@ -143,12 +183,14 @@ struct ThreadEventQueue : public B {
 	}
 
 	void FinishEventLoop() {
-		if (threadEnabled_) {
-			lock_guard guard(eventsLock_);
-			// Don't schedule a finish if it's not even running.
-			if (eventsRunning_) {
-				ScheduleEvent(EVENT_FINISH);
-			}
+		if (!threadEnabled_) {
+			return;
+		}
+
+		lock_guard guard(eventsLock_);
+		// Don't schedule a finish if it's not even running.
+		if (eventsRunning_) {
+			ScheduleEvent(EVENT_FINISH);
 		}
 	}
 
