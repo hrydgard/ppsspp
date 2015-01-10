@@ -21,6 +21,7 @@
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/Reporting.h"
 #include "file/zip_read.h"
 #include "util/text/utf8.h"
 
@@ -434,8 +435,12 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 
 size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from virtual umd", size);
+			return 0;
+		}
+
 		// it's the whole iso... it could reference any of the files on the disc.
 		// For now let's just open and close the files on demand. Can certainly be done
 		// better though

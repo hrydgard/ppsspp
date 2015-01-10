@@ -528,9 +528,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;
+
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			return 0;
+		}
 		
 		if (e.isBlockSectorMode)
 		{
@@ -550,8 +554,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 		{
 			positionOnIso = e.sectorStart * 2048 + e.seekPos;
 			
-			if (e.seekPos + size > e.openSize)
-			{
+			if ((s64)e.seekPos + size > (s64)e.openSize) {
 				size = e.openSize - e.seekPos;
 			}
 		}
@@ -560,8 +563,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 			_dbg_assert_msg_(FILESYS, e.file != 0, "Expecting non-raw fd to have a tree entry.");
 
 			//clamp read length
-			if ((s64)e.seekPos > e.file->size - (s64)size)
-			{
+			if ((s64)e.seekPos + size > e.file->size) {
 				size = e.file->size - (s64)e.seekPos;
 			}
 
