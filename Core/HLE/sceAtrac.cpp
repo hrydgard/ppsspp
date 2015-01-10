@@ -387,11 +387,13 @@ struct Atrac {
 			packet->size = 0;
 
 			if (FillPacket()) {
-				if (packet->size >= needed) {
-					memcpy(tempPacket.data + initialSize, packet->data, needed);
-					packet->size -= needed;
-					packet->data += needed;
-				}
+				int to_copy = packet->size >= needed ? needed : packet->size;
+				memcpy(tempPacket.data + initialSize, packet->data, to_copy);
+				packet->size -= to_copy;
+				packet->data += to_copy;
+				tempPacket.size = initialSize + to_copy;
+			} else {
+				tempPacket.size = initialSize;
 			}
 			decodePacket = &tempPacket;
 		}
