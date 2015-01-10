@@ -1288,10 +1288,14 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
+		// TODO: Is this check even needed?  More testing is needed on writableBytes.
 		if (atrac->resetBuffer) {
-			// Reset temp buf for adding more stream data and set full filled buffer 
+			// Reset temp buf for adding more stream data and set full filled buffer.
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		} else {
+			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 		}
+
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
