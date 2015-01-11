@@ -312,7 +312,14 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {return -1;}
+int System_GetPropertyInt(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return 44100;
+	default:
+		return -1;
+	}
+}
 
 InputState input_state;
 
