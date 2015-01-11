@@ -1,6 +1,7 @@
 #include "native/thread/threadutil.h"
 #include "Common/CommonWindows.h"
 #include "Core/Reporting.h"
+#include "Core/Util/AudioFormat.h"
 
 #include <dsound.h>
 
@@ -378,11 +379,7 @@ int WASAPIAudioBackend::RunThread() {
 			// What to do?
 		} else if (pNumAvFrames) {
 			callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
-			// Sigh, another format conversion :)
-			float *ptr = (float *)pData;
-			for (int i = 0; i < (int)(pNumAvFrames * pDeviceFormat->Format.nChannels); i++) {
-				ptr[i] = shortBuf[i] * (1.0f / 32767.0f);
-			}
+			ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
 		}
 
 		hresult = pAudioRenderClient->ReleaseBuffer(pNumAvFrames, flags);

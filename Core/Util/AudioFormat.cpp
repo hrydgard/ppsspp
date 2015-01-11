@@ -59,6 +59,36 @@ void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int 
 	}
 }
 
+void ConvertS16ToF32(float *out, const s16 *in, size_t size) {
+#ifdef _M_SSE
+	const __m128i zero = _mm_setzero_si128();
+	const __m128 scale = _mm_set_ps1(1.0f / 32767.0f);
+	while (size >= 16) {
+		__m128i indata1 = _mm_loadu_si128((__m128i *)in);
+		__m128i indata2 = _mm_loadu_si128((__m128i *)in + 8);
+		// Now we unpack with "sign extension", by unpacking with 0xFFFF if zero is greater.
+		__m128i insign1 = _mm_cmpgt_epi16(zero, indata1);
+		__m128i insign2 = _mm_cmpgt_epi16(zero, indata2);
+		__m128i indata1lo = _mm_unpacklo_epi16(indata1, insign1);
+		__m128i indata1hi = _mm_unpackhi_epi16(indata1, insign1);
+		__m128i indata2lo = _mm_unpacklo_epi16(indata2, insign2);
+		__m128i indata2hi = _mm_unpackhi_epi16(indata2, insign2);
+
+		_mm_storeu_ps(out + 0, _mm_mul_ps(_mm_cvtepi32_ps(indata1lo), scale));
+		_mm_storeu_ps(out + 4, _mm_mul_ps(_mm_cvtepi32_ps(indata1hi), scale));
+		_mm_storeu_ps(out + 8, _mm_mul_ps(_mm_cvtepi32_ps(indata2lo), scale));
+		_mm_storeu_ps(out + 12, _mm_mul_ps(_mm_cvtepi32_ps(indata2hi), scale));
+
+		in += 16;
+		out += 16;
+		size -= 16;
+	}
+#endif
+	for (size_t i = 0; i < size; i++) {
+		out[i] = in[i] * (1.0f / 32767.0f);
+	}
+}
+
 #ifndef _M_SSE
 AdjustVolumeBlockFunc AdjustVolumeBlock = &AdjustVolumeBlockStandard;
 

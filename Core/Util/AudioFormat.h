@@ -34,6 +34,7 @@ static inline s16 ApplySampleVolume(s16 sample, int vol) {
 
 void SetupAudioFormats();
 void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
+void ConvertS16ToF32(float *ou, const s16 *in, size_t size);
 
 #ifdef _M_SSE
 #define AdjustVolumeBlock AdjustVolumeBlockStandard
