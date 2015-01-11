@@ -256,10 +256,13 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 }
 
+// Ugly!
+extern WindowsAudioBackend *winAudioBackend;
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return DSound_GetSampleRate();
+		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
 	default:
 		return -1;
 	}

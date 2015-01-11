@@ -142,6 +142,10 @@ static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
+#ifdef _WIN32
+WindowsAudioBackend *winAudioBackend;
+#endif
+
 Thin3DContext *GetThin3D() {
 	return thin3d;
 }
@@ -235,7 +239,7 @@ int NativeMix(short *audio, int num_samples) {
 	}
 
 #ifdef _WIN32
-	DSound_UpdateSound();
+	winAudioBackend->Update();
 #endif
 
 	return num_samples;
@@ -571,13 +575,15 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 44100);
+	winAudioBackend = CreateAudioBackend(AUDIO_BACKEND_AUTO);
+	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
 }
 
 void NativeShutdownGraphics() {
 #ifdef _WIN32
-	DSound_StopSound();
+	delete winAudioBackend;
+	winAudioBackend = NULL;
 #endif
 
 	screenManager->deviceLost();
