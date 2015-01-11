@@ -229,11 +229,10 @@ int NativeMix(short *audio, int num_samples) {
 		num_samples = __AudioMix(audio, num_samples);
 	}	else {
 		MixBackgroundAudio(audio, num_samples);
-		// memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
 
 #ifdef _WIN32
-	DSound::DSound_UpdateSound();
+	DSound_UpdateSound();
 #endif
 
 	return num_samples;
@@ -569,13 +568,13 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	DSound::DSound_StartSound(MainWindow::GetHWND(), &Win32Mix);
+	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
 }
 
 void NativeShutdownGraphics() {
 #ifdef _WIN32
-	DSound::DSound_StopSound();
+	DSound_StopSound();
 #endif
 
 	screenManager->deviceLost();

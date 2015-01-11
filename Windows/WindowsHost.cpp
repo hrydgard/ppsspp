@@ -128,7 +128,7 @@ void WindowsHost::InitSound()
 
 void WindowsHost::UpdateSound()
 {
-	DSound::DSound_UpdateSound();
+	DSound_UpdateSound();
 }
 
 void WindowsHost::ShutdownSound()
