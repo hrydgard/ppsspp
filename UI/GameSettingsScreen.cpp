@@ -418,7 +418,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
-	Choice *One_Key = networkingSettings->Add(new Choice(s->T("One Key Online Setting (Face to face adhoc)")));
+	Choice *One_Key = networkingSettings->Add(new Choice(n->T("One Key Online Setting (Face to face adhoc)")));
 	One_Key->OnClick.Handle(this, &GameSettingsScreen::OnOne_Key);
 	One_Key->SetEnabled(!PSP_IsInited());
 	
