@@ -267,9 +267,6 @@
     <ClCompile Include="PSPLoaders.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="PSPMixer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="System.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -746,9 +743,6 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="PSPLoaders.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="PSPMixer.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HLE\__sceAudio.h">

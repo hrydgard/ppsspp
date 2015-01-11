@@ -71,10 +71,10 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
-#include "Core/PSPMixer.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
+#include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
 
@@ -178,15 +178,13 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 #endif
 
 // globals
-PMixer *g_mixer = 0;
 #ifndef _WIN32
 static AndroidLogger *logger = 0;
 #endif
 
 std::string boot_filename = "";
 
-void NativeHost::InitSound(PMixer *mixer) {
-	g_mixer = mixer;
+void NativeHost::InitSound() {
 #ifdef IOS
 	iOSCoreAudioInit();
 #endif
@@ -196,12 +194,11 @@ void NativeHost::ShutdownSound() {
 #ifdef IOS
 	iOSCoreAudioShutdown();
 #endif
-	g_mixer = 0;
 }
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-void QtHost::InitSound(PMixer *mixer) { g_mixer = mixer; }
-void QtHost::ShutdownSound() { g_mixer = 0; }
+void QtHost::InitSound() { }
+void QtHost::ShutdownSound() { }
 #endif
 
 std::string NativeQueryConfig(std::string query) {
@@ -228,8 +225,8 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (g_mixer && GetUIState() == UISTATE_INGAME) {
-		num_samples = g_mixer->Mix(audio, num_samples);
+	if (GetUIState() == UISTATE_INGAME) {
+		num_samples = __AudioMix(audio, num_samples);
 	}	else {
 		MixBackgroundAudio(audio, num_samples);
 		// memset(audio, 0, num_samples * 2 * sizeof(short));

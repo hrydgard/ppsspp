@@ -59,8 +59,6 @@
 
 static const int numCPUs = 1;
 
-extern PMixer *g_mixer;
-
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
 
@@ -124,9 +122,8 @@ void WindowsHost::SetWindowTitle(const char *message)
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound(PMixer *mixer)
+void WindowsHost::InitSound()
 {
-	g_mixer = mixer;
 }
 
 void WindowsHost::UpdateSound()
@@ -136,9 +133,6 @@ void WindowsHost::UpdateSound()
 
 void WindowsHost::ShutdownSound()
 {
-	if (g_mixer)
-		delete g_mixer;
-	g_mixer = 0;
 }
 
 void WindowsHost::UpdateUI()

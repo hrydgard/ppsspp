@@ -1314,8 +1314,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MemMapFunctions.cpp
 	Core/PSPLoaders.cpp
 	Core/PSPLoaders.h
-	Core/PSPMixer.cpp
-	Core/PSPMixer.h
 	Core/Reporting.cpp
 	Core/Reporting.h
 	Core/SaveState.cpp

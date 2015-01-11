@@ -101,7 +101,6 @@ set(SRCS
   MemMap.cpp
   MemMapFunctions.cpp
   PSPLoaders.cpp
-  PSPMixer.cpp
   System.cpp
   Core.cpp
   ../git-version.cpp

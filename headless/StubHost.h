@@ -35,7 +35,7 @@ public:
 	bool InitGraphics(std::string *error_message) override {return false;}
 	void ShutdownGraphics() override {}
 
-	void InitSound(PMixer *mixer) override {}
+	void InitSound() override {}
 	void UpdateSound() override {}
 	void ShutdownSound() override {}
 
