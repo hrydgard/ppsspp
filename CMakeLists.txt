@@ -1071,6 +1071,10 @@ else()
 		ext/disarm.cpp)
 endif()
 
+if(ARMV7)
+	set(CORE_NEON Core/Util/AudioFormatNEON.cpp Core/Util/AudioFormatNEON.h)
+endif()
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -1324,6 +1328,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
+	Core/Util/AudioFormat.cpp
+	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
 	Core/Util/BlockAllocator.cpp
@@ -1332,6 +1338,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
+	${CORE_NEON}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
