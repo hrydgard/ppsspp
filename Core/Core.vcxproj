@@ -274,6 +274,7 @@
     <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="HW\AsyncIOManager.cpp" />
     <ClCompile Include="HW\SimpleAudioDec.cpp" />
+    <ClCompile Include="HW\StereoResampler.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -512,6 +513,7 @@
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="HW\AsyncIOManager.h" />
     <ClInclude Include="HW\SimpleAudioDec.h" />
+    <ClInclude Include="HW\StereoResampler.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">

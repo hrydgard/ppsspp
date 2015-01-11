@@ -226,7 +226,8 @@ std::string NativeQueryConfig(std::string query) {
 
 int NativeMix(short *audio, int num_samples) {
 	if (GetUIState() == UISTATE_INGAME) {
-		num_samples = __AudioMix(audio, num_samples);
+		int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
+		num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 	}	else {
 		MixBackgroundAudio(audio, num_samples);
 	}
@@ -568,7 +569,7 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 44100);
+	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 48000);
 #endif
 }
 

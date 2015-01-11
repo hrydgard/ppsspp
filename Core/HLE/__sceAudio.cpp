@@ -35,7 +35,9 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HW/StereoResampler.h"
 
+StereoResampler resampler;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -66,14 +68,6 @@ static s32 *mixBuffer;
 // TODO: Tweak. Hm, there aren't actually even used currently...
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
-
-// TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
-// is bad mojo.
-FixedSizeQueue<s16, 512 * 16> outAudioQueue;
-
-bool __gainAudioQueueLock();
-void __releaseAcquiredLock();
-void __blockForAudioQueueLock();
 
 static inline s16 adjustvolume(s16 sample, int vol) {
 #ifdef ARM
@@ -181,9 +175,7 @@ void __AudioInit() {
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	__blockForAudioQueueLock();
-	outAudioQueue.clear();
-	__releaseAcquiredLock();
+	resampler.Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -199,16 +191,14 @@ void __AudioDoState(PointerWrap &p) {
 
 	p.Do(mixFrequency);
 
-	{	
-		//block until a lock is achieved. Not a good idea at all, but
-		//can't think of a better one...
-		__blockForAudioQueueLock();
-
+	if (s >= 2) {
+		resampler.DoState(p);
+	} else {
+		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
+		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		//release the atomic lock
-		__releaseAcquiredLock();
-		
+		resampler.Clear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -358,28 +348,6 @@ void __AudioSetOutputFrequency(int freq) {
 	mixFrequency = freq;
 }
 
-inline void ClampBufferToS16(s16 *out, s32 *in, size_t size) {
-#ifdef _M_SSE
-	// Size will always be 16-byte aligned as the hwBlockSize is.
-	while (size >= 8) {
-		__m128i in1 = _mm_loadu_si128((__m128i *)in);
-		__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
-		__m128i packed = _mm_packs_epi32(in1, in2);
-		_mm_storeu_si128((__m128i *)out, packed);
-		out += 8;
-		in += 8;
-		size -= 8;
-	}
-	for (size_t i = 0; i < size; i++) {
-		out[i] = clamp_s16(in[i]);
-	}
-#else
-	for (size_t i = 0; i < size; i++) {
-		out[i] = clamp_s16(in[i]);
-	}
-#endif
-}
-
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
@@ -433,35 +401,17 @@ void __AudioUpdate() {
 	}
 
 	if (g_Config.bEnableSound) {
-
-		__blockForAudioQueueLock();
-		/*
-		if (!__gainAudioQueueLock()){
-			return;
-		}
-		*/
-
-		if (outAudioQueue.room() >= hwBlockSize * 2) {
-			s16 *buf1 = 0, *buf2 = 0;
-			size_t sz1, sz2;
-			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
-			ClampBufferToS16(buf1, mixBuffer, sz1);
-			if (buf2) {
-				ClampBufferToS16(buf2, mixBuffer + sz1, sz2);
-			}
-		} else {
-			// This happens quite a lot. There's still something slightly off
-			// about the amount of audio we produce.
-		}
-		//release the atomic lock
-		__releaseAcquiredLock();
+		resampler.PushSamples(mixBuffer, hwBlockSize);
 	}
 }
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames)
-{
+int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
+	resampler.Mix(outstereo, numFrames, false, sampleRate);
+	return numFrames;
+
+	/*
 	// TODO: if mixFrequency != the actual output frequency, resample!
 	int underrun = -1;
 	s16 sampleL = 0;
@@ -476,6 +426,7 @@ int __AudioMix(short *outstereo, int numFrames)
 			 return 0;
 		}
 		
+		resampler.Mix(outstereo, numFrames);
 		outAudioQueue.popPointers(numFrames * 2, &buf1, &sz1, &buf2, &sz2);
 
 		memcpy(outstereo, buf1, sz1 * sizeof(s16));
@@ -496,40 +447,5 @@ int __AudioMix(short *outstereo, int numFrames)
 		VERBOSE_LOG(SCEAUDIO, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	}
 	return underrun >= 0 ? underrun : numFrames;
-}
-
-
-
-/*returns whether the lock was successfully gained or not.
-i.e - whether the lock belongs to you 
-*/
-inline bool __gainAudioQueueLock(){
-	if (g_Config.bAtomicAudioLocks){
-		/*if the previous state was 0, that means the lock was "unlocked". So,
-		we return !0, which is true thanks to C's int to bool conversion
-
-		One the other hand, if it was locked, then the lock would return 1.
-		so, !1 = 0 = false.
-		*/		
-		return atomicLock_.test_and_set() == 0;
-	} else {
-		mutex_.lock();
-		return true;
-	}
-};
-
-inline void __releaseAcquiredLock(){
-	if (g_Config.bAtomicAudioLocks){
-		atomicLock_.clear();
-	} else {
-		mutex_.unlock();
-	}
-}
-
-inline void __blockForAudioQueueLock(){
-	if (g_Config.bAtomicAudioLocks){
-		while ((atomicLock_.test_and_set() == 0)){ }
-	} else {
-		mutex_.lock();
-	}
+	*/
 }

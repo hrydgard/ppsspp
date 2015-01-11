@@ -300,6 +300,9 @@
     <ClCompile Include="HW\MediaEngine.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HW\StereoResampler.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -773,6 +776,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HW\MediaEngine.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\StereoResampler.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
