@@ -13,19 +13,18 @@ public:
 	DSoundState(HWND window, StreamCallback _callback, int sampleRate);
 	bool Init();  // If fails, can safely delete the object
 
-	bool createBuffer();
-	bool writeDataToBuffer(DWORD dwOffset, // Our own write cursor.
-		char* soundData, // Start of our data.
-		DWORD dwSoundBytes); // Size of block to copy.
-
 	inline int ModBufferSize(int x) { return (x + bufferSize) % bufferSize; }
 	int RunThread();
 	void UpdateSound();
 	void StopSound();
-	int GetCurSample();
 	int GetSampleRate() { return sampleRate; }
 
 private:
+	bool CreateBuffer();
+	bool WriteDataToBuffer(DWORD dwOffset, // Our own write cursor.
+		char* soundData, // Start of our data.
+		DWORD dwSoundBytes); // Size of block to copy.
+
 	CRITICAL_SECTION soundCriticalSection;
 	HWND window_;
 	HANDLE soundSyncEvent = NULL;
@@ -62,7 +61,7 @@ int DSound_GetSampleRate() {
 	}
 }
 
-bool DSoundState::createBuffer() {
+bool DSoundState::CreateBuffer() {
 	PCMWAVEFORMAT pcmwf;
 	DSBUFFERDESC dsbdesc;
 
@@ -92,7 +91,7 @@ bool DSoundState::createBuffer() {
 	}
 }
 
-bool DSoundState::writeDataToBuffer(DWORD dwOffset, // Our own write cursor.
+bool DSoundState::WriteDataToBuffer(DWORD dwOffset, // Our own write cursor.
 																		char* soundData, // Start of our data.
 																		DWORD dwSoundBytes) { // Size of block to copy.
 	void *ptr1, *ptr2;
@@ -149,7 +148,7 @@ int DSoundState::RunThread() {
 			//We need to copy the full buffer, regardless of what the mixer claims to have filled
 			//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
 			numBytesRendered = numBytesToRender;
-			writeDataToBuffer(lastPos, (char *) realtimeBuffer, numBytesRendered);
+			WriteDataToBuffer(lastPos, (char *) realtimeBuffer, numBytesRendered);
 
 			currentPos = ModBufferSize(lastPos + numBytesRendered);
 			totalRenderedBytes += numBytesRendered;
@@ -184,7 +183,7 @@ bool DSoundState::Init() {
 	}
 
 	ds->SetCooperativeLevel(window_, DSSCL_PRIORITY);
-	if (!createBuffer())
+	if (!CreateBuffer())
 		return false;
 
 	DWORD num1;
@@ -239,15 +238,6 @@ void DSoundState::StopSound() {
 	DeleteCriticalSection(&soundCriticalSection);
 }
 
-int DSoundState::GetCurSample() {
-	EnterCriticalSection(&soundCriticalSection);
-	int playCursor;
-	dsBuffer->GetCurrentPosition((DWORD *)&playCursor,0);
-	playCursor = ModBufferSize(playCursor-lastPos)+totalRenderedBytes;
-	LeaveCriticalSection(&soundCriticalSection);
-	return playCursor;
-}
-
 void DSound_UpdateSound() {
 	if (g_dsound) {
 		g_dsound->UpdateSound();
@@ -268,12 +258,4 @@ void DSound_StopSound() {
 	g_dsound->StopSound();
 	delete g_dsound;
 	g_dsound = NULL;
-}
-
-int DSound_GetCurSample()	{
-	return g_dsound->GetCurSample();
-}
-
-float DSound_GetTimer() {
-	return (float)g_dsound->GetCurSample()*(1.0f/(4.0f*44100.0f));
 }
