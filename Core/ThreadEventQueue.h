@@ -90,18 +90,7 @@ struct ThreadEventQueue : public B {
 		if (!threadEnabled_) {
 			do {
 				for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
-					switch (EventType(ev)) {
-					case EVENT_FINISH:
-						// Stop waiting.
-						globalticks = 0;
-						break;
-
-					case EVENT_SYNC:
-						break;
-
-					default:
-						ProcessEvent(ev);
-					}
+					ProcessEventIfApplicable(ev, globalticks);
 				}
 			} while (CoreTiming::GetTicks() < globalticks);
 			return;
@@ -121,18 +110,7 @@ struct ThreadEventQueue : public B {
 
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
 				eventsLock_.unlock();
-				switch (EventType(ev)) {
-				case EVENT_FINISH:
-					// Stop waiting.
-					globalticks = 0;
-					break;
-
-				case EVENT_SYNC:
-					break;
-
-				default:
-					ProcessEvent(ev);
-				}
+				ProcessEventIfApplicable(ev, globalticks);
 				eventsLock_.lock();
 			}
 		} while (CoreTiming::GetTicks() < globalticks);
@@ -197,6 +175,21 @@ struct ThreadEventQueue : public B {
 protected:
 	virtual void ProcessEvent(Event ev) = 0;
 	virtual bool ShouldExitEventLoop() = 0;
+
+	inline void ProcessEventIfApplicable(Event &ev, u64 &globalticks) {
+		switch (EventType(ev)) {
+		case EVENT_FINISH:
+			// Stop waiting.
+			globalticks = 0;
+			break;
+
+		case EVENT_SYNC:
+			break;
+
+		default:
+			ProcessEvent(ev);
+		}
+	}
 
 private:
 	bool threadEnabled_;
