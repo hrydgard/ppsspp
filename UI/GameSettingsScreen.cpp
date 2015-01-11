@@ -432,7 +432,14 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("UI Language")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
+	systemSettings->Add(new ItemHeader(s->T("Help the PPSSPP team")));
+	enableReports_ = Reporting::IsEnabled();
+	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	systemSettings->Add(enableReportsCheckbox_);
+
 	systemSettings->Add(new ItemHeader(s->T("Emulation")));
+
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
@@ -448,6 +455,24 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSetRoundingMode, s->T("Respect FPU rounding (disable for old GEB saves)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	systemSettings->Add(new CheckBox(&g_Config.bAtomicAudioLocks, s->T("Atomic Audio locks (experimental)")))->SetEnabled(!PSP_IsInited());
+
+	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
+	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+
+	systemSettings->Add(new ItemHeader(s->T("General")));
+
+#ifdef ANDROID
+	static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+	PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, c->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), c, screenManager()));
+	rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
+#endif
+
+	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
+	if (g_Config.iMaxRecent > 0)
+		systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
+	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, s->T("Auto Load Newest Savestate")));
+
 #if defined(USING_WIN_UI)
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, s->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
@@ -470,12 +495,10 @@ void GameSettingsScreen::CreateViews() {
 			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
 				SavePathInMyDocumentChoice->SetEnabled(false);
 			else
-				SavePathInOtherChoice->SetEnabled(true);			
-		}
-		else
+				SavePathInOtherChoice->SetEnabled(true);
+		} else
 			SavePathInMyDocumentChoice->SetEnabled(false);
-	}
-	else {
+	} else {
 		if (installed_ && (result == S_OK)) {
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 			if (!inputFile.fail() && inputFile.is_open()) {
@@ -492,37 +515,14 @@ void GameSettingsScreen::CreateViews() {
 				}
 			}
 			inputFile.close();
-		}
-		else if (result != S_OK)
+		} else if (result != S_OK)
 			SavePathInMyDocumentChoice->SetEnabled(false);
-	}	
+	}
 #endif
 
 #if defined(_M_X64)
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, s->T("Cache ISO in RAM", "Cache full ISO in RAM (slow startup)")));
 #endif
-
-	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
-	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
-
-	systemSettings->Add(new ItemHeader(s->T("General")));
-
-#ifdef ANDROID
-	static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
-	PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, c->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), c, screenManager()));
-	rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
-#endif
-
-	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
-	if (g_Config.iMaxRecent > 0)
-		systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-	systemSettings->Add(new Choice(s->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
-	systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, s->T("Auto Load Newest Savestate")));
-
-	enableReports_ = Reporting::IsEnabled();
-	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
-	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-	systemSettings->Add(enableReportsCheckbox_);
 
 //#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));

@@ -2141,8 +2141,8 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	std::string error_string;
 	pspFileSystem.SeekFile(handle, pos, FILEMOVE_BEGIN);
 	Module *module = 0;
-	u8 *temp = new u8[size];
-	pspFileSystem.ReadFile(handle, temp, size);
+	u8 *temp = new u8[size - pos];
+	pspFileSystem.ReadFile(handle, temp, size - pos);
 	u32 magic;
 	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;

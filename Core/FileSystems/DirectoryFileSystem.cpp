@@ -25,6 +25,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
+#include "Core/Reporting.h"
 #include "UI/OnScreenDisplay.h"
 
 #ifdef _WIN32
@@ -606,8 +607,12 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
+			return 0;
+		}
+
 		size_t bytesRead = iter->second.hFile.Read(pointer,size);
 		return bytesRead;
 	} else {

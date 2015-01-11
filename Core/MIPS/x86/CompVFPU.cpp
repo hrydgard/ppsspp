@@ -2895,17 +2895,36 @@ void Jit::Comp_Vtfm(MIPSOpcode op) {
 			fpr.StoreFromRegisterV(tregs[i]);
 		}
 
+		// We need the T regs in individual regs, but they could overlap with S regs.
+		// If that happens, we copy the T reg to a temp.
+		auto flushConflictingTRegsToTemps = [&](u8 regs[4]) {
+			for (int i = 0; i < n; ++i) {
+				for (int j = 0; j < n; ++j) {
+					if (regs[i] != tregs[j]) {
+						continue;
+					}
+
+					// They match.  Let's replace this treg with a temp reg.
+					// Note that it will spill if there's contention, unfortunately...
+					tregs[j] = fpr.GetTempV();
+					fpr.MapRegV(tregs[j], MAP_NOINIT);
+					MOVSS(fpr.VX(tregs[j]), fpr.V(regs[i]));
+				}
+			}
+		};
+
 		u8 scol[4][4];
 
 		// Map all of S's columns into registers.
 		for (int i = 0; i < n; i++) {
 			GetVectorRegs(scol[i], sz, scols[i]);
+			flushConflictingTRegsToTemps(scol[i]);
 			fpr.MapRegsVS(scol[i], sz, 0);
 		}
 
 		// Now, work our way through the matrix, loading things as we go.
 		// TODO: With more temp registers, can generate much more efficient code.
-		MOVSS(XMM1, fpr.V(tregs[0]));  // TODO: AVX broadcastss to replace this and the SHUFPS
+		MOVSS(XMM1, fpr.V(tregs[0]));  // TODO: AVX broadcastss to replace this and the SHUFPS (but take care of temps, unless we force store them.)
 		SHUFPS(XMM1, R(XMM1), _MM_SHUFFLE(0, 0, 0, 0));
 		MULPS(XMM1, fpr.VS(scol[0]));
 		for (int j = 1; j < n; j++) {
@@ -2918,7 +2937,10 @@ void Jit::Comp_Vtfm(MIPSOpcode op) {
 				ADDPS(XMM1, fpr.VS(scol[j]));
 			}
 		}
-		// Map the D column.
+		// Map the D column.  Release first in case of overlap.
+		for (int i = 0; i < n; i++) {
+			fpr.ReleaseSpillLockV(scol[i], sz);
+		}
 		fpr.MapRegsVS(dcol, sz, MAP_DIRTY | MAP_NOINIT);
 		MOVAPS(fpr.VS(dcol), XMM1);
 		fpr.ReleaseSpillLocks();

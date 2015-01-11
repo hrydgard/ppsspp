@@ -528,12 +528,15 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;
+
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from umd %s", size, e.file ? e.file->name.c_str() : "device");
+			return 0;
+		}
 		
-		if (e.isBlockSectorMode)
-		{
+		if (e.isBlockSectorMode) {
 			// Whole sectors! Shortcut to this simple code.
 			blockDevice->ReadBlocks(e.seekPos, (int)size, pointer);
 			if (abs((int)lastReadBlock_ - (int)e.seekPos) > 100) {
@@ -545,55 +548,51 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 			return (int)size;
 		}
 
-		u32 positionOnIso;
-		if (e.isRawSector)
-		{
-			positionOnIso = e.sectorStart * 2048 + e.seekPos;
-			
-			if (e.seekPos + size > e.openSize)
-			{
-				size = e.openSize - e.seekPos;
-			}
-		}
-		else
-		{
+		u64 positionOnIso;
+		s64 fileSize;
+		if (e.isRawSector) {
+			positionOnIso = e.sectorStart * 2048ULL + e.seekPos;
+			fileSize = (s64)e.openSize;
+		} else {
 			_dbg_assert_msg_(FILESYS, e.file != 0, "Expecting non-raw fd to have a tree entry.");
-
-			//clamp read length
-			if ((s64)e.seekPos > e.file->size - (s64)size)
-			{
-				size = e.file->size - (s64)e.seekPos;
-			}
-
 			positionOnIso = e.file->startingPosition + e.seekPos;
+			fileSize = e.file->size;
 		}
-		//okay, we have size and position, let's rock
 
+		if ((s64)e.seekPos > fileSize) {
+			WARN_LOG(FILESYS, "Read starting outside of file, at %lld / %lld", (s64)e.seekPos, fileSize);
+			return 0;
+		}
+		if ((s64)e.seekPos + size > fileSize) {
+			// Clamp to the remaining size, but read what we can.
+			const s64 newSize = fileSize - (s64)e.seekPos;
+			WARN_LOG(FILESYS, "Reading beyond end of file, clamping size %lld to %lld", size, newSize);
+			size = newSize;
+		}
+
+		// Okay, we have size and position, let's rock.
 		const int firstBlockOffset = positionOnIso & 2047;
 		const int firstBlockSize = firstBlockOffset == 0 ? 0 : (int)std::min(size, 2048LL - firstBlockOffset);
 		const int lastBlockSize = (size - firstBlockSize) & 2047;
 		const s64 middleSize = size - firstBlockSize - lastBlockSize;
-		int secNum = positionOnIso / 2048;
+		u32 secNum = (u32)(positionOnIso / 2048);
 		u8 theSector[2048];
 
 		_dbg_assert_msg_(FILESYS, (middleSize & 2047) == 0, "Remaining size should be aligned");
 
 		const u8 *const start = pointer;
-		if (firstBlockSize > 0)
-		{
+		if (firstBlockSize > 0) {
 			blockDevice->ReadBlock(secNum++, theSector);
 			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
 			pointer += firstBlockSize;
 		}
-		if (middleSize > 0)
-		{
+		if (middleSize > 0) {
 			const u32 sectors = (u32)(middleSize / 2048);
 			blockDevice->ReadBlocks(secNum, sectors, pointer);
 			secNum += sectors;
 			pointer += middleSize;
 		}
-		if (lastBlockSize > 0)
-		{
+		if (lastBlockSize > 0) {
 			blockDevice->ReadBlock(secNum++, theSector);
 			memcpy(pointer, theSector, lastBlockSize);
 			pointer += lastBlockSize;
@@ -607,9 +606,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 		lastReadBlock_ = secNum;
 		e.seekPos += (unsigned int)totalBytes;
 		return (size_t)totalBytes;
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(FILESYS, "Hey, what are you doing? Reading non-open files?");
 		return 0;

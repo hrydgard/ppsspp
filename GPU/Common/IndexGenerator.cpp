@@ -119,8 +119,7 @@ void IndexGenerator::AddStrip(int numVerts) {
 		prim_ = GE_PRIM_TRIANGLE_STRIP;
 		pureCount_ = numVerts;
 	} else {
-		seenPrims_ |= 1 << GE_PRIM_TRIANGLE_STRIP;
-		seenPrims_ |= 1 << GE_PRIM_TRIANGLES;
+		seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | (1 << GE_PRIM_TRIANGLES);
 		prim_ = GE_PRIM_TRIANGLES;
 		pureCount_ = 0;
 	}
