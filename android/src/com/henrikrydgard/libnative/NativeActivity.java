@@ -62,7 +62,6 @@ public class NativeActivity extends Activity {
 	
 	// Graphics and audio interfaces
 	private NativeGLView mGLSurfaceView;
-	private NativeAudioPlayer audioPlayer;
 	protected NativeRenderer nativeRenderer;
 	
 	private String shortcutParam = "";
@@ -103,7 +102,7 @@ public class NativeActivity extends Activity {
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		try {
-			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
+			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));
 		} catch (NumberFormatException e) {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
 		}
@@ -321,13 +320,7 @@ public class NativeActivity extends Activity {
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 		
-		// Initialize audio and tell PPSSPP to gain audio focus
-		if (!useOpenSL()) {
-			Log.w(TAG, "Falling back to AudioTrack");
-			audioPlayer = new NativeAudioPlayer();
-		}
-		
-		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
         
         mGLSurfaceView = new NativeGLView(this);
@@ -400,7 +393,6 @@ public class NativeActivity extends Activity {
 		nativeRenderer.onDestroyed();
 		NativeApp.audioShutdown();
 		// Probably vain attempt to help the garbage collector...
-		audioPlayer = null;
 		mGLSurfaceView = null;
 		audioFocusChangeListener = null;
 		audioManager = null;
@@ -422,10 +414,7 @@ public class NativeActivity extends Activity {
     protected void onPause() {
         super.onPause();
     	Log.i(TAG, "onPause");
-    	NativeAudioPlayer.loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-        if (audioPlayer != null) {
-        	audioPlayer.stop();
-        }
+    	loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.pause();
         mGLSurfaceView.onPause();
     }
@@ -448,10 +437,7 @@ public class NativeActivity extends Activity {
 			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
 		}
 		
-		NativeAudioPlayer.gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		if (audioPlayer != null) {	
-			audioPlayer.play();
-		}
+		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 	}
     
@@ -468,7 +454,24 @@ public class NativeActivity extends Activity {
 			mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
 		}
     }
-    
+
+	//keep this static so we can call this even if we don't
+	//instantiate NativeAudioPlayer
+	public static void gainAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
+		if (audioManager != null) {
+			audioManager.requestAudioFocus(focusChangeListener,
+					AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+		}
+	}
+	
+	//keep this static so we can call this even if we don't
+	//instantiate NativeAudioPlayer
+	public static void loseAudioFocus(AudioManager audioManager,AudioFocusChangeListener focusChangeListener){
+		if (audioManager != null) {
+			audioManager.abandonAudioFocus(focusChangeListener);
+		}
+	}
+	
     // We simply grab the first input device to produce an event and ignore all others that are connected.
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private InputDeviceState getInputDeviceState(InputEvent event) {

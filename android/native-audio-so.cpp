@@ -49,7 +49,10 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer);
 
 	int sizeInBytes = framesPerBuffer * 2 * sizeof(short);
-	memset(buffer[curBuffer] + renderedFrames * 2, 0, (framesPerBuffer - renderedFrames) * 4);
+	int byteCount = (framesPerBuffer - renderedFrames) * 4;
+	if (byteCount > 0) {
+		memset(buffer[curBuffer] + renderedFrames * 2, 0, byteCount);
+	}
 	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
 
 	// Comment from sample code:

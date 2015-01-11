@@ -52,8 +52,10 @@ static float right_joystick_y_async;
 static float hat_joystick_x_async;
 static float hat_joystick_y_async;
 
-int optimalFramesPerBuffer = 0;
-int optimalSampleRate = 0;
+static int optimalFramesPerBuffer = 0;
+static int optimalSampleRate = 0;
+static int sampleRate = 0;
+static int framesPerBuffer = 0;
 static int androidVersion;
 
 // Should only be used for display detection during startup (for config defaults etc)
@@ -119,6 +121,14 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return display_xres;
 	case SYSPROP_DISPLAY_YRES:
 		return display_yres;
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return sampleRate;
+	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
+		return framesPerBuffer;
+	case SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE:
+		return optimalSampleRate;
+	case SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER:
+		return optimalFramesPerBuffer;
 	default:
 		return -1;
 	}
@@ -134,7 +144,6 @@ InputState input_state;
 
 static bool renderer_inited = false;
 static bool first_lost = true;
-static bool use_opensl_audio = false;
 static std::string library_path;
 
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
@@ -175,7 +184,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
   (JNIEnv *env, jclass, jstring jdevicetype, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
-		jstring jinstallID, jboolean juseNativeAudio, jint jAndroidVersion) {
+		jstring jinstallID, jint jAndroidVersion) {
 	jniEnvUI = env;
 
 	ILOG("NativeApp.init() -- begin");
@@ -220,7 +229,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
 
-
 	// If shortcut_param is not empty, pass it as additional varargs argument to NativeInit() method.
 	// NativeInit() is expected to treat extra argument as boot_filename, which in turn will start game immediately.
 	// NOTE: Will only work if ppsspp started from Activity.onCreate(). Won't work if ppsspp app start from onResume().
@@ -234,42 +242,29 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 	}
 
-	use_opensl_audio = juseNativeAudio;
 	ILOG("NativeApp.init() -- end");
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
-	if (use_opensl_audio) {
-		// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
-		ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
-		optimalSampleRate = 44100;
-		AndroidAudio_Init(&NativeMix, library_path, optimalFramesPerBuffer, optimalSampleRate);
-	} else {
-		ILOG("NativeApp.audioInit() -- Using Java audio :(");
-	}
+	// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
+	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
+	sampleRate = 44100;
+	framesPerBuffer = optimalFramesPerBuffer;
+	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioShutdown(JNIEnv *, jclass) {
-	ILOG("NativeApp.audioShutdown() -- begin");
-	if (use_opensl_audio) {
-		AndroidAudio_Shutdown();
-	}
-	ILOG("NativeApp.audioShutdown() -- end");
+	AndroidAudio_Shutdown();
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeApp.resume() - resuming audio");
-	if (use_opensl_audio) {
-		AndroidAudio_Resume();
-	}
+	AndroidAudio_Resume();
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
-	ILOG("NativeApp.pause() - begin");
-	if (use_opensl_audio) {
-		AndroidAudio_Pause();
-	}
-	ILOG("NativeApp.pause() - end");
+	ILOG("NativeApp.pause() - pausing audio");
+	AndroidAudio_Pause();
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
