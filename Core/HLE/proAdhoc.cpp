@@ -29,6 +29,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "UI/OnScreenDisplay.h"
 #include "proAdhoc.h" 
+#include "i18n/i18n.h"
 
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
@@ -1396,6 +1397,7 @@ int getPTPSocketCount(void) {
 }
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
+	I18NCategory *n = GetI18NCategory("Networking");
 	int iResult = 0;
 	metasocket = (int)INVALID_SOCKET;
 	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -1454,7 +1456,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
 	if (sent > 0){
-		osm.Show("Network Initialized", 1.0);
+		osm.Show(n->T("Network Initialized"), 1.0);
 		return 0;
 	}
 	else{
