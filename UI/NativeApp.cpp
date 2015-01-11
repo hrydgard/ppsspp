@@ -569,7 +569,7 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 48000);
+	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
 }
 

@@ -27,7 +27,8 @@
 #include "Common/CommonTypes.h"
 
 // 16 bit Stereo
-#define MAX_SAMPLES     (1024 * 2) // 64ms
+
+#define MAX_SAMPLES     (2*(1024 * 2)) // 2*64ms - had to double it for nVidia Shield which has huge buffers
 #define INDEX_MASK      (MAX_SAMPLES * 2 - 1)
 
 #define LOW_WATERMARK   1280 // 40 ms

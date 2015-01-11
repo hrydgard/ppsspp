@@ -116,6 +116,8 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 		m_frac &= 0xffff;
 	}
 
+	int realSamples = currentSample;
+
 	// Padding with the last value to reduce clicking
 	short s[2];
 	s[0] = m_buffer[(indexR - 1) & INDEX_MASK];
@@ -132,7 +134,11 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	// Flush cached variable
 	Common::AtomicStore(m_indexR, indexR);
 
-	return numSamples;
+	if (realSamples != numSamples * 2) {
+		ILOG("Underrun! %i / %i", realSamples / 2, numSamples);
+	}
+
+	return realSamples / 2;
 }
 
 unsigned int StereoResampler::Mix(short* samples, unsigned int num_samples, bool consider_framelimit, int sample_rate) {
