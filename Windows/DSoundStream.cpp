@@ -1,5 +1,6 @@
 #include "native/thread/threadutil.h"
 #include "Common/CommonWindows.h"
+#include "Core/Reporting.h"
 
 #include <dsound.h>
 
@@ -136,12 +137,11 @@ unsigned int WINAPI DSoundAudioBackend::soundThread(void *param) {
 	return state->RunThread();
 }
 
+// TODO: Move the init into the thread, like WASAPI?
 int DSoundAudioBackend::RunThread() {
 	setCurrentThreadName("DSound");
 	currentPos_ = 0;
 	lastPos_ = 0;
-	//writeDataToBuffer(0,realtimeBuffer,bufferSize);
-	//  dsBuffer->Lock(0, bufferSize, (void **)&p1, &num1, (void **)&p2, &num2, 0); 
 
 	dsBuffer_->Play(0,0,DSBPLAY_LOOPING);
 
@@ -310,6 +310,10 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 }
 
 int WASAPIAudioBackend::RunThread() {
+	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
+
+	setCurrentThreadName("WASAPI_audio");
+
 	IMMDeviceEnumerator *pDeviceEnumerator;
 	IMMDevice *pDevice;
 	IAudioClient *pAudioInterface;
@@ -339,7 +343,7 @@ int WASAPIAudioBackend::RunThread() {
 		if (!memcmp(&pDeviceFormat->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(pDeviceFormat->SubFormat))) {
 			// printf("float format\n");
 		} else {
-			ERROR_LOG(SCEAUDIO, "Got unexpected WASAPI stream format, expected float!");
+			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI stream format, expected float!");
 		}
 	}
 
@@ -355,7 +359,7 @@ int WASAPIAudioBackend::RunThread() {
 	}
 
 	hresult = pAudioRenderClient->ReleaseBuffer(pNumBufferFrames, flags);
-	hnsActualDuration = (double)REFTIMES_PER_SEC * pNumBufferFrames / pDeviceFormat->Format.nSamplesPerSec;
+	hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * pNumBufferFrames / pDeviceFormat->Format.nSamplesPerSec);
 
 	hresult = pAudioInterface->Start();
 
@@ -376,7 +380,7 @@ int WASAPIAudioBackend::RunThread() {
 			callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
 			// Sigh, another format conversion :)
 			float *ptr = (float *)pData;
-			for (int i = 0; i < pNumAvFrames * pDeviceFormat->Format.nChannels; i++) {
+			for (int i = 0; i < (int)(pNumAvFrames * pDeviceFormat->Format.nChannels); i++) {
 				ptr[i] = shortBuf[i] * (1.0f / 32767.0f);
 			}
 		}
