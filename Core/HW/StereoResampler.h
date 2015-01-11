@@ -75,8 +75,6 @@ protected:
 			, m_input_sample_rate(sample_rate)
 			, m_indexW(0)
 			, m_indexR(0)
-			, m_LVolume(256)
-			, m_RVolume(256)
 			, m_numLeftI(0.0f)
 			, m_frac(0)
 		{
@@ -85,7 +83,6 @@ protected:
 		void PushSamples(const s32* samples, unsigned int num_samples);
 		unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sample_rate);
 		void SetInputSampleRate(unsigned int rate);
-		void SetVolume(unsigned int lvolume, unsigned int rvolume);
 		void Clear();
 
 	private:
@@ -94,9 +91,6 @@ protected:
 		short m_buffer[MAX_SAMPLES * 2];
 		volatile u32 m_indexW;
 		volatile u32 m_indexR;
-		// Volume ranges from 0-256
-		volatile s32 m_LVolume;
-		volatile s32 m_RVolume;
 		float m_numLeftI;
 		u32 m_frac;
 	};

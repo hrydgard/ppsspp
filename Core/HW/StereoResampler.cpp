@@ -53,6 +53,7 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size) {
 }
 
 void StereoResampler::MixerFifo::Clear() {
+	memset(m_buffer, 0, sizeof(m_buffer));
 	// TODO
 }
 
@@ -91,9 +92,6 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 
 	const u32 ratio = (u32)(65536.0f * aid_sample_rate / (float)sample_rate);
 
-	s32 lvolume = m_LVolume;
-	s32 rvolume = m_RVolume;
-
 	// TODO: consider a higher-quality resampling algorithm.
 	// TODO: Add a fast path for 1:1.
 	for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
@@ -102,7 +100,6 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 		s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
 		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
 		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
-		sampleL = (sampleL * lvolume) >> 8;
 		sampleL += samples[currentSample + 1];
 		MathUtil::Clamp(&sampleL, -32767, 32767);
 		samples[currentSample + 1] = sampleL;
@@ -110,7 +107,6 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
 		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
-		sampleR = (sampleR * rvolume) >> 8;
 		sampleR += samples[currentSample];
 		MathUtil::Clamp(&sampleR, -32767, 32767);
 		samples[currentSample] = sampleR;
@@ -124,8 +120,6 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	short s[2];
 	s[0] = m_buffer[(indexR - 1) & INDEX_MASK];
 	s[1] = m_buffer[(indexR - 2) & INDEX_MASK];
-	s[0] = (s[0] * rvolume) >> 8;
-	s[1] = (s[1] * lvolume) >> 8;
 	for (; currentSample < numSamples * 2; currentSample += 2) {
 		int sampleR = s[0] + samples[currentSample];
 		MathUtil::Clamp(&sampleR, -32767, 32767);
@@ -187,12 +181,6 @@ void StereoResampler::SetDMAInputSampleRate(unsigned int rate) {
 
 void StereoResampler::MixerFifo::SetInputSampleRate(unsigned int rate) {
 	m_input_sample_rate = rate;
-}
-
-void StereoResampler::MixerFifo::SetVolume(unsigned int lvolume, unsigned int rvolume)
-{
-	m_LVolume = lvolume + (lvolume >> 7);
-	m_RVolume = rvolume + (rvolume >> 7);
 }
 
 void StereoResampler::DoState(PointerWrap &p) {
