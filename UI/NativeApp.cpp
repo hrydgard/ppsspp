@@ -142,6 +142,10 @@ static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
 
+#ifdef _WIN32
+WindowsAudioBackend *winAudioBackend;
+#endif
+
 Thin3DContext *GetThin3D() {
 	return thin3d;
 }
@@ -219,20 +223,23 @@ std::string NativeQueryConfig(std::string query) {
 
 		sprintf(temp, "%i", scale);
 		return std::string(temp);
+	} else if (query == "force44khz") {
+		return std::string("0");
 	} else {
-		return std::string("");
+		return "";
 	}
 }
 
 int NativeMix(short *audio, int num_samples) {
 	if (GetUIState() == UISTATE_INGAME) {
-		num_samples = __AudioMix(audio, num_samples);
+		int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
+		num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 	}	else {
 		MixBackgroundAudio(audio, num_samples);
 	}
 
 #ifdef _WIN32
-	DSound_UpdateSound();
+	winAudioBackend->Update();
 #endif
 
 	return num_samples;
@@ -568,13 +575,15 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	DSound_StartSound(MainWindow::GetHWND(), &Win32Mix, 44100);
+	winAudioBackend = CreateAudioBackend(AUDIO_BACKEND_AUTO);
+	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
 }
 
 void NativeShutdownGraphics() {
 #ifdef _WIN32
-	DSound_StopSound();
+	delete winAudioBackend;
+	winAudioBackend = NULL;
 #endif
 
 	screenManager->deviceLost();

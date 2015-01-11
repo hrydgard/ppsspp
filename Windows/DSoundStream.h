@@ -1,16 +1,23 @@
-#ifndef __SOUNDSTREAM_H__
-#define __SOUNDSTREAM_H__
+#pragma once
 
 #include "Common/CommonWindows.h"
 
 typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
 
-bool DSound_StartSound(HWND window, StreamCallback _callback, int sampleRate);
-void DSound_UpdateSound();
-void DSound_StopSound();
+class WindowsAudioBackend {
+public:
+	WindowsAudioBackend() {}
+	virtual ~WindowsAudioBackend() {}
+	virtual bool Init(HWND window, StreamCallback _callback, int sampleRate) = 0;
+	virtual void Update() {}  // Doesn't have to do anything
+	virtual int GetSampleRate() = 0;
+};
 
-float DSound_GetTimer();
-int DSound_GetCurSample();
-int DSound_GetSampleRate();
- 
-#endif //__SOUNDSTREAM_H__
+enum AudioBackendType {
+	AUDIO_BACKEND_DSOUND,
+	// AUDIO_BACKEND_WASAPI,   // TODO
+	AUDIO_BACKEND_AUTO
+};
+
+// Factory
+WindowsAudioBackend *CreateAudioBackend(AudioBackendType type);

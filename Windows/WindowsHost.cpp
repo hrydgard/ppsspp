@@ -126,9 +126,13 @@ void WindowsHost::InitSound()
 {
 }
 
+// UGLY!
+extern WindowsAudioBackend *winAudioBackend;
+
 void WindowsHost::UpdateSound()
 {
-	DSound_UpdateSound();
+	if (winAudioBackend)
+		winAudioBackend->Update();
 }
 
 void WindowsHost::ShutdownSound()

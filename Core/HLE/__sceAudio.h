@@ -32,4 +32,4 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
 void __AudioWakeThreads(AudioChannel &chan, int result, int step);
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
-int __AudioMix(short *outstereo, int numSamples);
+int __AudioMix(short *outstereo, int numSamples, int sampleRate);
