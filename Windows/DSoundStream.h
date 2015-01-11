@@ -4,6 +4,8 @@
 
 typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
 
+// Note that the backend may override the passed in sample rate. The actual sample rate
+// should be returned by GetSampleRate though.
 class WindowsAudioBackend {
 public:
 	WindowsAudioBackend() {}
@@ -15,7 +17,7 @@ public:
 
 enum AudioBackendType {
 	AUDIO_BACKEND_DSOUND,
-	// AUDIO_BACKEND_WASAPI,   // TODO
+	AUDIO_BACKEND_WASAPI,   // TODO
 	AUDIO_BACKEND_AUTO
 };
 

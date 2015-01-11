@@ -5,6 +5,21 @@
 
 #include "dsoundstream.h"	
 
+// WASAPI begin
+#include <Objbase.h>
+#include <Mmreg.h>
+#include <MMDeviceAPI.h>
+#include <AudioClient.h>
+#include <AudioPolicy.h>
+
+#pragma comment(lib, "ole32.lib")
+
+const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
+const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
+const IID IID_IAudioClient = __uuidof(IAudioClient);
+const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
+// WASAPI end
+
 #define BUFSIZE 0x4000
 #define MAXWAIT 20   //ms
 
@@ -232,6 +247,181 @@ void DSoundAudioBackend::Update() {
 		SetEvent(soundSyncEvent_);
 }
 
+
+class WASAPIAudioBackend : public WindowsAudioBackend {
+public:
+	WASAPIAudioBackend();
+	~WASAPIAudioBackend() override;
+
+	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
+	void Update() override {}
+	int GetSampleRate() override { return sampleRate_; }
+
+private:
+	int RunThread();
+	static unsigned int WINAPI soundThread(void *param);
+
+	HANDLE hThread_;
+
+	StreamCallback callback_;
+	int sampleRate_;
+
+	volatile int threadData_;
+};
+
+// TODO: Make these adjustable. This is from the example in MSDN.
+// 200 times/sec = 5ms, pretty good :) Wonder if all computers can handle it though.
+#define REFTIMES_PER_SEC  (10000000/200)
+#define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
+
+WASAPIAudioBackend::WASAPIAudioBackend() : hThread_(NULL), sampleRate_(0), callback_(nullptr), threadData_(0) {
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+}
+
+WASAPIAudioBackend::~WASAPIAudioBackend() {
+	CoUninitialize();
+	if (threadData_ == 0) {
+		threadData_ = 1;
+	}
+
+	if (hThread_ != NULL) {
+		WaitForSingleObject(hThread_, 1000);
+		CloseHandle(hThread_);
+		hThread_ = NULL;
+	}
+
+	if (threadData_ == 2) {
+		// blah.
+	}
+}
+
+unsigned int WINAPI WASAPIAudioBackend::soundThread(void *param) {
+	WASAPIAudioBackend *backend = (WASAPIAudioBackend *)param;
+	return backend->RunThread();
+}
+
+bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRate) {
+	threadData_ = 0;
+	callback_ = callback;
+	sampleRate_ = sampleRate;
+	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
+	return true;
+}
+
+int WASAPIAudioBackend::RunThread() {
+	IMMDeviceEnumerator *pDeviceEnumerator;
+	IMMDevice *pDevice;
+	IAudioClient *pAudioInterface;
+	IAudioRenderClient *pAudioRenderClient;
+	WAVEFORMATEXTENSIBLE *pDeviceFormat;
+	DWORD flags = 0;
+	REFERENCE_TIME hnsBufferDuration, hnsActualDuration;
+	UINT32 pNumBufferFrames;
+	UINT32 pNumPaddingFrames, pNumAvFrames;
+	hnsBufferDuration = REFTIMES_PER_SEC;
+
+	HRESULT hresult;
+	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
+		NULL, /*Object is not created as the part of the aggregate */
+		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pDeviceEnumerator);
+
+	hresult = pDeviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &pDevice);
+	hresult = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioInterface);
+	hresult = pAudioInterface->GetMixFormat((WAVEFORMATEX**)&pDeviceFormat);
+	hresult = pAudioInterface->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &pDeviceFormat->Format, NULL);
+	hresult = pAudioInterface->GetService(IID_IAudioRenderClient, (void**)&pAudioRenderClient);
+	hresult = pAudioInterface->GetBufferSize(&pNumBufferFrames);
+
+	sampleRate_ = pDeviceFormat->Format.nSamplesPerSec;
+
+	if (pDeviceFormat->Format.wFormatTag == 0xFFFE) {
+		if (!memcmp(&pDeviceFormat->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(pDeviceFormat->SubFormat))) {
+			// printf("float format\n");
+		} else {
+			ERROR_LOG(SCEAUDIO, "Got unexpected WASAPI stream format, expected float!");
+		}
+	}
+
+	short *shortBuf = new short[pNumBufferFrames * pDeviceFormat->Format.nChannels];
+		
+	BYTE *pData;
+	hresult = pAudioRenderClient->GetBuffer(pNumBufferFrames, &pData);
+
+	int numFloats = pNumBufferFrames * pDeviceFormat->Format.nChannels;
+	float *ptr = (float *)pData;
+	for (int i = 0; i < numFloats; i++) {
+		ptr[i] = 0.0f;
+	}
+
+	hresult = pAudioRenderClient->ReleaseBuffer(pNumBufferFrames, flags);
+	hnsActualDuration = (double)REFTIMES_PER_SEC * pNumBufferFrames / pDeviceFormat->Format.nSamplesPerSec;
+
+	hresult = pAudioInterface->Start();
+
+	while (!threadData_) {
+		Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
+
+		hresult = pAudioInterface->GetCurrentPadding(&pNumPaddingFrames);
+		if (FAILED(hresult)) {
+			// What to do?
+			pNumPaddingFrames = 0;
+		}
+		pNumAvFrames = pNumBufferFrames - pNumPaddingFrames;
+
+		hresult = pAudioRenderClient->GetBuffer(pNumAvFrames, &pData);
+		if (FAILED(hresult)) {
+			// What to do?
+		} else if (pNumAvFrames) {
+			callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
+			// Sigh, another format conversion :)
+			float *ptr = (float *)pData;
+			for (int i = 0; i < pNumAvFrames * pDeviceFormat->Format.nChannels; i++) {
+				ptr[i] = shortBuf[i] * (1.0f / 32767.0f);
+			}
+		}
+
+		hresult = pAudioRenderClient->ReleaseBuffer(pNumAvFrames, flags);
+		if (FAILED(hresult)) {
+			// Not much to do here either...
+		}
+	}
+
+	hresult = pAudioInterface->Stop();
+
+	CoTaskMemFree(pDeviceFormat);
+
+	threadData_ = 2;
+	return 0;
+}
+
 WindowsAudioBackend *CreateAudioBackend(AudioBackendType type) {
-	return new DSoundAudioBackend();
+	switch (type) {
+	case AUDIO_BACKEND_DSOUND:
+		return new DSoundAudioBackend();
+	case AUDIO_BACKEND_WASAPI:
+		return new WASAPIAudioBackend();
+	case AUDIO_BACKEND_AUTO:
+		{
+			OSVERSIONINFOEX osvi;
+			DWORDLONG dwlConditionMask = 0;
+			int op = VER_GREATER_EQUAL;
+			ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+			osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+			osvi.dwMajorVersion = 6;  // Vista is 6.0
+			osvi.dwMinorVersion = 0;
+
+			VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+			VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+
+			BOOL isVistaOrHigher = VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask);
+
+			if (isVistaOrHigher) {
+				return new WASAPIAudioBackend();
+			} else {
+				return new DSoundAudioBackend();
+			}
+		}
+	}
+	return nullptr;
 }
