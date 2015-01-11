@@ -246,10 +246,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
-	// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
-	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
-	sampleRate = 44100;
+	sampleRate = optimalSampleRate;
+	if (NativeQueryConfig("force44khz") != "0") {
+		sampleRate = 44100;
+	}
 	framesPerBuffer = optimalFramesPerBuffer;
+	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
 }
 
