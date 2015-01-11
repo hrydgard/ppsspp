@@ -57,8 +57,6 @@ public:
 
 	void SetDMAInputSampleRate(unsigned int rate);
 
-	recursive_mutex& MixerCritical() { return m_csMixing; }
-
 	float GetCurrentSpeed() const { return m_speed; }
 	void UpdateSpeed(volatile float val) { m_speed = val; }
 
@@ -98,8 +96,6 @@ protected:
 
 	MixerFifo m_dma_mixer;
 	unsigned int m_sampleRate;
-
-	recursive_mutex m_csMixing;
 
 	volatile float m_speed; // Current rate of the emulation (1.0 = 100% speed)
 };

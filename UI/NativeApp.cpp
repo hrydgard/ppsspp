@@ -219,8 +219,10 @@ std::string NativeQueryConfig(std::string query) {
 
 		sprintf(temp, "%i", scale);
 		return std::string(temp);
+	} else if (query == "force44khz") {
+		return std::string("0");
 	} else {
-		return std::string("");
+		return "";
 	}
 }
 
