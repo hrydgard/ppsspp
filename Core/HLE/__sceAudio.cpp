@@ -27,10 +27,11 @@
 #include <emmintrin.h>
 #endif
 
-#include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
@@ -344,7 +345,11 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 }
 
 void __AudioSetOutputFrequency(int freq) {
-	WARN_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	if (freq != 44100) {
+		WARN_LOG_REPORT(SCEAUDIO, "Switching audio frequency to %i", freq);
+	} else {
+		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	}
 	mixFrequency = freq;
 }
 
