@@ -50,13 +50,16 @@ private:
 // TODO: Get rid of this
 static DSoundState *g_dsound;
 
-
 inline int RoundDown128(int x) {
 	return x & (~127);
 }
 
 int DSound_GetSampleRate() {
-	return g_dsound->GetSampleRate();
+	if (g_dsound) {
+		return g_dsound->GetSampleRate();
+	} else {
+		return 0;
+	}
 }
 
 bool DSoundState::createBuffer() {
@@ -246,7 +249,9 @@ int DSoundState::GetCurSample() {
 }
 
 void DSound_UpdateSound() {
-	g_dsound->UpdateSound();
+	if (g_dsound) {
+		g_dsound->UpdateSound();
+	}
 }
 
 bool DSound_StartSound(HWND window, StreamCallback _callback, int sampleRate) {

@@ -5,7 +5,7 @@
 
 typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
 
-bool DSound_StartSound(HWND window, StreamCallback _callback, int sampleRate = 44100);
+bool DSound_StartSound(HWND window, StreamCallback _callback, int sampleRate);
 void DSound_UpdateSound();
 void DSound_StopSound();
 

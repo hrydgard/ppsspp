@@ -30,6 +30,7 @@
 #include "Core/Config.h"
 #include "Core/SaveState.h"
 #include "Windows/EmuThread.h"
+#include "Windows/DSoundStream.h"
 #include "ext/disarm.h"
 
 #include "Common/LogManager.h"
@@ -256,7 +257,12 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 int System_GetPropertyInt(SystemProperty prop) {
-  return -1;
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return DSound_GetSampleRate();
+	default:
+		return -1;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
