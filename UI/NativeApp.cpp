@@ -77,6 +77,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/AudioFormat.h"
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
@@ -266,6 +267,7 @@ void NativeInit(int argc, const char *argv[],
 #endif
 
 	InitFastMath(cpu_info.bNEON);
+	SetupAudioFormats();
 
 	// Sets both FZ and DefaultNaN on ARM, flipping some ARM implementations into "RunFast" mode for VFP.
 	// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
