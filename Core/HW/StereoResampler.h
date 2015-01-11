@@ -41,7 +41,6 @@ class StereoResampler {
 public:
 	StereoResampler()
 		: m_dma_mixer(this, 44100)
-		, m_speed(1.0)
 	{
 	}
 
@@ -53,12 +52,6 @@ public:
 	// Called from main thread
 	// This clamps the samples to 16-bit before starting to work on them.
 	virtual void PushSamples(const s32* samples, unsigned int num_samples);
-	unsigned int GetSampleRate() const { return m_sampleRate; }
-
-	void SetDMAInputSampleRate(unsigned int rate);
-
-	float GetCurrentSpeed() const { return m_speed; }
-	void UpdateSpeed(volatile float val) { m_speed = val; }
 
 	void Clear() {
 		m_dma_mixer.Clear();
@@ -95,7 +88,4 @@ protected:
 	};
 
 	MixerFifo m_dma_mixer;
-	unsigned int m_sampleRate;
-
-	volatile float m_speed; // Current rate of the emulation (1.0 = 100% speed)
 };

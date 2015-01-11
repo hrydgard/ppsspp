@@ -57,12 +57,14 @@ inline void AtomicOr(volatile u32& target, u32 value)
 	_InterlockedOr((volatile LONG*)&target, (LONG)value);
 }
 
+// For the comment below to hold, better only use this with 32-bit types..
 template <typename T>
 inline T AtomicLoad(volatile T& src)
 {
 	return src; // 32-bit reads are always atomic.
 }
 
+// For the comment below to hold, better only use this with 32-bit types..
 template <typename T>
 inline T AtomicLoadAcquire(volatile T& src)
 {
@@ -71,17 +73,19 @@ inline T AtomicLoadAcquire(volatile T& src)
 	return result;
 }
 
+// For the comment below to hold, better only use this with 32-bit types..
 template <typename T, typename U>
 inline void AtomicStore(volatile T& dest, U value)
 {
 	dest = (T)value; // 32-bit writes are always atomic.
 }
 
+// For the comment below to hold, better only use this with 32-bit types..
 template <typename T, typename U>
 inline void AtomicStoreRelease(volatile T& dest, U value)
 {
 	_WriteBarrier(); // Compiler instruction only. x86 stores always have release semantics.
-	dest = (T)value; // 32-bit writes are always atomic.
+	dest = (T)value; // 32-bit writes are always atomic
 }
 
 template <typename T, typename U>

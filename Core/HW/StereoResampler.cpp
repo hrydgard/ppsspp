@@ -54,7 +54,6 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size) {
 
 void StereoResampler::MixerFifo::Clear() {
 	memset(m_buffer, 0, sizeof(m_buffer));
-	// TODO
 }
 
 // Executed from sound stream thread
@@ -156,16 +155,10 @@ void StereoResampler::MixerFifo::PushSamples(const s32 *samples, unsigned int nu
 	}
 
 	Common::AtomicAdd(m_indexW, num_samples * 2);
-
-	return;
 }
 
 void StereoResampler::PushSamples(const int *samples, unsigned int num_samples) {
 	m_dma_mixer.PushSamples(samples, num_samples);
-}
-
-void StereoResampler::SetDMAInputSampleRate(unsigned int rate) {
-	m_dma_mixer.SetInputSampleRate(rate);
 }
 
 void StereoResampler::MixerFifo::SetInputSampleRate(unsigned int rate) {

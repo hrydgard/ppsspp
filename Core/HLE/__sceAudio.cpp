@@ -410,42 +410,4 @@ void __AudioUpdate() {
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
 	resampler.Mix(outstereo, numFrames, false, sampleRate);
 	return numFrames;
-
-	/*
-	// TODO: if mixFrequency != the actual output frequency, resample!
-	int underrun = -1;
-	s16 sampleL = 0;
-	s16 sampleR = 0;
-
-	const s16 *buf1 = 0, *buf2 = 0;
-	size_t sz1, sz2;
-	{
-		//TODO: do rigorous testing to see whether just blind locking will improve speed.
-		if (!__gainAudioQueueLock()){
-			 memset(outstereo, 0, numFrames * 2 * sizeof(short)); 
-			 return 0;
-		}
-		
-		resampler.Mix(outstereo, numFrames);
-		outAudioQueue.popPointers(numFrames * 2, &buf1, &sz1, &buf2, &sz2);
-
-		memcpy(outstereo, buf1, sz1 * sizeof(s16));
-		if (buf2) {
-			memcpy(outstereo + sz1, buf2, sz2 * sizeof(s16));
-		}
-
-		//release the atomic lock
-		__releaseAcquiredLock();
-	}
-
-	int remains = (int)(numFrames * 2 - sz1 - sz2);
-	if (remains > 0)
-		memset(outstereo + numFrames * 2 - remains, 0, remains*sizeof(s16));
-
-	if (sz1 + sz2 < (size_t)numFrames) {
-		underrun = (int)(sz1 + sz2) / 2;
-		VERBOSE_LOG(SCEAUDIO, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
-	}
-	return underrun >= 0 ? underrun : numFrames;
-	*/
 }
