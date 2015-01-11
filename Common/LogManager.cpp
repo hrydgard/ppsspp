@@ -292,7 +292,7 @@ void RingbufferLogListener::Log(LogTypes::LOG_LEVELS level, const char *msg) {
 	if (!enabled_)
 		return;
 	levels_[curMessage_] = (u8)level;
-	int len = (int)strlen(msg);
+	size_t len = (int)strlen(msg);
 	if (len >= sizeof(messages_[0]))
 		len = sizeof(messages_[0]) - 1;
 	memcpy(messages_[curMessage_], msg, len);

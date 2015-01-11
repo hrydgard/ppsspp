@@ -375,6 +375,13 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
+    <ClCompile Include="Util\AudioFormat.cpp" />
+    <ClCompile Include="Util\AudioFormatNEON.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
@@ -569,6 +576,13 @@
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
+    <ClInclude Include="Util\AudioFormat.h" />
+    <ClInclude Include="Util\AudioFormatNEON.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />

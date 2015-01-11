@@ -32,7 +32,11 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/HW/*.cpp \
 	$$P/Core/MIPS/*.cpp \
 	$$P/Core/MIPS/JitCommon/*.cpp \
-	$$P/Core/Util/*.cpp \
+	$$P/Core/Util/AudioFormat.cpp \
+	$$P/Core/Util/BlockAllocator.cpp \
+	$$P/Core/Util/GameManager.cpp \
+	$$P/Core/Util/ppge_atlas.cpp \
+	$$P/Core/Util/PPGeDraw.cpp \
 	$$P/ext/libkirk/*.c # Kirk
 
 HEADERS += $$P/Core/*.h \
@@ -45,7 +49,13 @@ HEADERS += $$P/Core/*.h \
 	$$P/Core/HW/*.h \
 	$$P/Core/MIPS/*.h \
 	$$P/Core/MIPS/JitCommon/*.h \
-	$$P/Core/Util/*.h \
+	$$P/Core/Util/AudioFormat.h \
+	$$P/Core/Util/BlockAllocator.h \
+	$$P/Core/Util/GameManager.h \
+	$$P/Core/Util/ppge_atlas.h \
+	$$P/Core/Util/PPGeDraw.h \
 	$$P/ext/libkirk/*.h
+
+armv7: SOURCES += $$P/Core/Util/AudioFormatNEON.cpp
 
 win32: INCLUDEPATH += $$P/ffmpeg/WindowsInclude

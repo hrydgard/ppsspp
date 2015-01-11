@@ -27,15 +27,17 @@
 #include <emmintrin.h>
 #endif
 
-#include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HW/StereoResampler.h"
+#include "Core/Util/AudioFormat.h"
 
 StereoResampler resampler;
 
@@ -68,53 +70,6 @@ static s32 *mixBuffer;
 // TODO: Tweak. Hm, there aren't actually even used currently...
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
-
-static inline s16 adjustvolume(s16 sample, int vol) {
-#ifdef ARM
-	register int r;
-	asm volatile("smulwb %0, %1, %2\n\t" \
-	             "ssat %0, #16, %0" \
-	             : "=r"(r) : "r"(vol), "r"(sample));
-	return r;
-#else
-	return clamp_s16((sample * vol) >> 16);
-#endif
-}
-
-inline void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
-#ifdef _M_SSE
-	if (leftVol <= 0x7fff && rightVol <= 0x7fff) {
-		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
-		while (size >= 16) {
-			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
-			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
-			_mm_storeu_si128((__m128i *)out, _mm_mulhi_epi16(indata1, volume));
-			_mm_storeu_si128((__m128i *)(out + 8), _mm_mulhi_epi16(indata2, volume));
-			in += 16;
-			out += 16;
-			size -= 16;
-		}
-	} else {
-		// We have to shift inside the loop to avoid the signed multiply issue.
-		leftVol >>= 1;
-		rightVol >>= 1;
-		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);
-		while (size >= 16) {
-			__m128i indata1 = _mm_loadu_si128((__m128i *)in);
-			__m128i indata2 = _mm_loadu_si128((__m128i *)(in + 8));
-			_mm_storeu_si128((__m128i *)out, _mm_slli_epi16(_mm_mulhi_epi16(indata1, volume), 1));
-			_mm_storeu_si128((__m128i *)(out + 8), _mm_slli_epi16(_mm_mulhi_epi16(indata2, volume), 1));
-			in += 16;
-			out += 16;
-			size -= 16;
-		}
-	}
-#endif
-	for (size_t i = 0; i < size; i += 2) {
-		out[i] = adjustvolume(in[i], leftVol);
-		out[i + 1] = adjustvolume(in[i + 1], rightVol);
-	}
-}
 
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
@@ -304,8 +259,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 			// Rare, so unoptimized. Expands to stereo.
 			for (u32 i = 0; i < chan.sampleCount; i++) {
 				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-				chan.sampleQueue.push(adjustvolume(sample, leftVol));
-				chan.sampleQueue.push(adjustvolume(sample, rightVol));
+				chan.sampleQueue.push(ApplySampleVolume(sample, leftVol));
+				chan.sampleQueue.push(ApplySampleVolume(sample, rightVol));
 			}
 		}
 	}
@@ -344,7 +299,11 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 }
 
 void __AudioSetOutputFrequency(int freq) {
-	WARN_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	if (freq != 44100) {
+		WARN_LOG_REPORT(SCEAUDIO, "Switching audio frequency to %i", freq);
+	} else {
+		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	}
 	mixFrequency = freq;
 }
 
