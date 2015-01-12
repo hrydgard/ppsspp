@@ -142,13 +142,13 @@ public:
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
-		glBindBuffer(target_, buffer_);
+		Bind();
 		glBufferData(target_, size, data, usage_);
 		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
-		glBindBuffer(target_, buffer_);
+		Bind();
 		if (size > knownSize_) {
 			// Allocate the buffer.
 			glBufferData(target_, size + offset, NULL, usage_);
@@ -157,7 +157,11 @@ public:
 		glBufferSubData(target_, offset, size, data);
 	}
 	void Bind() {
-		glBindBuffer(target_, buffer_);
+		if (target_ == GL_ARRAY_BUFFER) {
+			glstate.arrayBuffer.bind(buffer_);
+		} else {
+			glstate.elementArrayBuffer.bind(buffer_);
+		}
 	}
 
 	void GLLost() override {
@@ -711,8 +715,6 @@ void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DV
 
 	pipe->Unapply();
 	fmt->Unapply();
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
@@ -730,9 +732,6 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, 
 	
 	pipe->Unapply();
 	fmt->Unapply();
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

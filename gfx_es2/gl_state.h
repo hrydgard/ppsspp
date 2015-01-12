@@ -109,7 +109,7 @@ private:
 	public: \
 		SavedState1_##func() : p1(p1def) { \
 			OpenGLState::state_count++; \
-		}; \
+		} \
 		void set(p1type newp1) { \
 			if(newp1 != p1) { \
 				p1 = newp1; \
@@ -128,7 +128,7 @@ private:
 	public: \
 		SavedState2_##func() : p1(p1def), p2(p2def) { \
 			OpenGLState::state_count++; \
-		}; \
+		} \
 		inline void set(p1type newp1, p2type newp2) { \
 			if(newp1 != p1 || newp2 != p2) { \
 				p1 = newp1; \
@@ -141,27 +141,7 @@ private:
 		} \
 	}
 
-#define STATE2_4(func, p1type, p2type, p1def, p2def, p3def, p4def) \
-	class SavedState2_##func { \
-	p1type p1; \
-	p2type p2; \
-	public: \
-	SavedState2_##func() : p1(p1def), p2(p2def) { \
-	OpenGLState::state_count++; \
-	}; \
-	inline void set(p1type newp1, p2type newp2) { \
-	if(newp1 != p1 || newp2 != p2) { \
-	p1 = newp1; \
-	p2 = newp2; \
-	func(p1, p2, p3def, p4def); \
-	} \
-	} \
-	inline void restore() { \
-	func(p1, p2, p3def, p4def); \
-	} \
-	}
-
-	#define STATE3(func, p1type, p2type, p3type, p1def, p2def, p3def) \
+#define STATE3(func, p1type, p2type, p3type, p1def, p2def, p3def) \
 	class SavedState3_##func { \
 		p1type p1; \
 		p2type p2; \
@@ -169,7 +149,7 @@ private:
 	public: \
 		SavedState3_##func() : p1(p1def), p2(p2def), p3(p3def) { \
 			OpenGLState::state_count++; \
-		}; \
+		} \
 		inline void set(p1type newp1, p2type newp2, p3type newp3) { \
 			if(newp1 != p1 || newp2 != p2 || newp3 != p3) { \
 				p1 = newp1; \
@@ -192,7 +172,7 @@ private:
 	public: \
 		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) { \
 			OpenGLState::state_count++; \
-		}; \
+		} \
 		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
 			if(newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
 				p1 = newp1; \
@@ -214,7 +194,7 @@ private:
 		SavedState4_##func() { \
 			for (int i = 0; i < 4; i++) {p[i] = def;} \
 			OpenGLState::state_count++; \
-		}; \
+		} \
 		inline void set(const float v[4]) { \
 			if(memcmp(p,v,sizeof(float)*4)) { \
 				memcpy(p,v,sizeof(float)*4); \
@@ -223,6 +203,28 @@ private:
 		} \
 		inline void restore() { \
 			func(p[0], p[1], p[2], p[3]); \
+		} \
+	}
+
+#define STATEBIND(func, target) \
+	class SavedBind_##func_##target { \
+		GLuint val_; \
+	public: \
+		SavedBind_##func_##target() { \
+			val_ = 0; \
+			OpenGLState::state_count++; \
+		} \
+		inline void bind(GLuint val) { \
+			if (val_ != val) { \
+				func(target, val); \
+				val_ = val; \
+			} \
+		} \
+		inline void unbind() { \
+			bind(0); \
+		} \
+		inline void restore() { \
+			func(target, val_); \
 		} \
 	}
 
@@ -283,6 +285,9 @@ public:
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
 	STATE1(glStencilMask, GLuint, 0xFF) stencilMask;
+
+	STATEBIND(glBindBuffer, GL_ARRAY_BUFFER) arrayBuffer;
+	STATEBIND(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER) elementArrayBuffer;
 
 	// Only works on Win32, all other platforms are "force-vsync"
 	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)

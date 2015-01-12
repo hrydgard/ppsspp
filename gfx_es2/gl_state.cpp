@@ -75,6 +75,9 @@ void OpenGLState::Restore() {
 	logicOp.restore(); count++;
 #endif
 
+	arrayBuffer.restore(); count++;
+	elementArrayBuffer.restore(); count++;
+
 	if (count != state_count) {
 		FLOG("OpenGLState::Restore is missing some states");
 	}
