@@ -691,24 +691,24 @@ void TransformDrawEngine::DoFlush() {
 						}
 
 						vai->vbo = AllocateBuffer();
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+						glstate.arrayBuffer.bind(vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
 							vai->ebo = AllocateBuffer();
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+							glstate.elementArrayBuffer.bind(vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
 						} else {
 							vai->ebo = 0;
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+							glstate.elementArrayBuffer.bind(vai->ebo);
 						}
 					} else {
 						gpuStats.numCachedDrawCalls++;
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+						glstate.arrayBuffer.bind(vai->vbo);
 						if (vai->ebo)
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+							glstate.elementArrayBuffer.bind(vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
@@ -732,9 +732,9 @@ void TransformDrawEngine::DoFlush() {
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
 					vbo = vai->vbo;
 					ebo = vai->ebo;
-					glBindBuffer(GL_ARRAY_BUFFER, vbo);
+					glstate.arrayBuffer.bind(vbo);
 					if (ebo)
-						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+						glstate.elementArrayBuffer.bind(ebo);
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
@@ -766,8 +766,8 @@ rotateVBO:
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
+			glstate.elementArrayBuffer.unbind();
 
 			prim = indexGen.Prim();
 		}
@@ -791,12 +791,12 @@ rotateVBO:
 			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 #endif
 			if (ebo)
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+				glstate.elementArrayBuffer.unbind();
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
 		if (vbo)
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
 	} else {
 		DecodeVerts();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -833,7 +833,7 @@ rotateVBO:
 			const int vertexSize = sizeof(transformed[0]);
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
 			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 			int attrMask = program->attrMask;
 			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));

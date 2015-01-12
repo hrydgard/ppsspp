@@ -1103,8 +1103,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			GLint a_position = glGetAttribLocation(program, "a_position");
 			GLint a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
 
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
+			glstate.elementArrayBuffer.unbind();
 			glEnableVertexAttribArray(a_position);
 			glEnableVertexAttribArray(a_texcoord0);
 
