@@ -64,8 +64,8 @@ void ConvertS16ToF32(float *out, const s16 *in, size_t size) {
 	const __m128i zero = _mm_setzero_si128();
 	const __m128 scale = _mm_set_ps1(1.0f / 32767.0f);
 	while (size >= 16) {
-		__m128i indata1 = _mm_loadu_si128((__m128i *)in);
-		__m128i indata2 = _mm_loadu_si128((__m128i *)in + 8);
+		__m128i indata1 = _mm_loadu_si128((__m128i *)in + 0);
+		__m128i indata2 = _mm_loadu_si128((__m128i *)in + 1);
 		// Now we unpack with "sign extension", by unpacking with 0xFFFF if zero is greater.
 		__m128i insign1 = _mm_cmpgt_epi16(zero, indata1);
 		__m128i insign2 = _mm_cmpgt_epi16(zero, indata2);
