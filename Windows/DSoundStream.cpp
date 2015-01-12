@@ -248,7 +248,6 @@ void DSoundAudioBackend::Update() {
 		SetEvent(soundSyncEvent_);
 }
 
-
 class WASAPIAudioBackend : public WindowsAudioBackend {
 public:
 	WASAPIAudioBackend();
@@ -340,23 +339,42 @@ int WASAPIAudioBackend::RunThread() {
 
 	sampleRate_ = pDeviceFormat->Format.nSamplesPerSec;
 
-	if (pDeviceFormat->Format.wFormatTag == 0xFFFE) {
+	enum {
+		UNKNOWN_FORMAT = 0,
+		IEEE_FLOAT = 1,
+		PCM16 = 2,
+	} format = UNKNOWN_FORMAT;
+
+	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
+	// try to support it :P
+
+	if (pDeviceFormat->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		if (!memcmp(&pDeviceFormat->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(pDeviceFormat->SubFormat))) {
+			format = IEEE_FLOAT;
 			// printf("float format\n");
 		} else {
-			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI stream format, expected float!");
+			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
+			if (pDeviceFormat->Format.wBitsPerSample == 16 && pDeviceFormat->Format.nChannels == 2) {
+				format = PCM16;
+			}
+		}
+	} else {
+		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
+		if (pDeviceFormat->Format.wBitsPerSample == 16 && pDeviceFormat->Format.nChannels == 2) {
+			format = PCM16;
 		}
 	}
 
-	short *shortBuf = new short[pNumBufferFrames * pDeviceFormat->Format.nChannels];
-		
+	short *shortBuf = nullptr;
+
 	BYTE *pData;
 	hresult = pAudioRenderClient->GetBuffer(pNumBufferFrames, &pData);
-
-	int numFloats = pNumBufferFrames * pDeviceFormat->Format.nChannels;
-	float *ptr = (float *)pData;
-	for (int i = 0; i < numFloats; i++) {
-		ptr[i] = 0.0f;
+	int numSamples = pNumBufferFrames * pDeviceFormat->Format.nChannels;
+	if (format == IEEE_FLOAT) {
+		memset(pData, 0, sizeof(float) * numSamples);
+		shortBuf = new short[pNumBufferFrames * pDeviceFormat->Format.nChannels];
+	} else if (format == PCM16) {
+		memset(pData, 0, sizeof(short) * numSamples);
 	}
 
 	hresult = pAudioRenderClient->ReleaseBuffer(pNumBufferFrames, flags);
@@ -378,8 +396,15 @@ int WASAPIAudioBackend::RunThread() {
 		if (FAILED(hresult)) {
 			// What to do?
 		} else if (pNumAvFrames) {
-			callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
-			ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
+			switch (format) {
+			case IEEE_FLOAT:
+				callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
+				ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
+				break;
+			case PCM16:
+				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, 2);
+				break;
+			}
 		}
 
 		hresult = pAudioRenderClient->ReleaseBuffer(pNumAvFrames, flags);
@@ -388,6 +413,7 @@ int WASAPIAudioBackend::RunThread() {
 		}
 	}
 
+	delete[] shortBuf;
 	hresult = pAudioInterface->Stop();
 
 	CoTaskMemFree(pDeviceFormat);
