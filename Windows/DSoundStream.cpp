@@ -399,7 +399,17 @@ int WASAPIAudioBackend::RunThread() {
 			switch (format) {
 			case IEEE_FLOAT:
 				callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
-				ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
+				if (pDeviceFormat->Format.nChannels == 2) {
+					ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
+				} else {
+					float *ptr = (float *)pData;
+					int chans = pDeviceFormat->Format.nChannels;
+					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
+					for (int i = 0; i < pNumAvFrames; i++) {
+						ptr[i * chans + 0] = (float)shortBuf[i * 2] * (1.0f / 32768.0f);
+						ptr[i * chans + 1] = (float)shortBuf[i * 2 + 1] * (1.0f / 32768.0f);
+					}
+				}
 				break;
 			case PCM16:
 				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, 2);
