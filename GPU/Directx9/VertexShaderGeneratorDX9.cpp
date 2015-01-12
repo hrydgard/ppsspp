@@ -371,7 +371,6 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 #endif
 
 #endif
-
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
@@ -380,10 +379,10 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 			if (hasNormal) {
 				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
-				WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 			} else {
-				WRITE(p, "  float3 worldnormal = mul( mul( float4(0.0, 0.0, 1.0, 0.0), skinMatrix), u_world);\n");
+				WRITE(p, "  float3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
 			}
+			WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 		}
 
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
