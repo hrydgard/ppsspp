@@ -569,6 +569,7 @@ static ConfigSetting controlSettings[] = {
 
 static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableWlan", &g_Config.bEnableWlan, false, true, true),
+	ConfigSetting("SetBindAddress", &g_Config.bBindLocal, false, true, true),
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 	ConfigSetting(false),
 };
@@ -599,6 +600,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "localhost", true, true),
+	ConfigSetting("localBindAddress", &g_Config.localBindAddress, "localhost", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),

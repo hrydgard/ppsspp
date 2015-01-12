@@ -387,10 +387,13 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
+	networkingSettings->Add(new CheckBox(&g_Config.bBindLocal, n->T("Enable bind", "Specify client address")));
 
 #ifdef _WIN32
+	networkingSettings->Add(new PopupTextInputChoice(&g_Config.localBindAddress, n->T("Change bind address"), "", 255, screenManager()));
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #else
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.localBindAddress, n->T("Change bind address"), nullptr))->OnClick.Handle(this, 255, &GameSettingsScreen::OnChangeBindAddress);
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
@@ -807,11 +810,33 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 		}
 	}
 	else
-		screenManager()->push(new ProAdhocServerScreen);
+		screenManager()->push(new HostnameSelectScreen(g_Config.proAdhocServer));
 #else
-	screenManager()->push(new ProAdhocServerScreen);
+	screenManager()->push(new HostnameSelectScreen(g_Config.proAdhocServer));
 #endif
 	
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeBindAddress(UI::EventParams &e)
+{
+#if defined(_WIN32) || defined(USING_QT_UI)	
+	if (!g_Config.bFullScreen) {
+		const size_t name_len = 256;
+
+		char name[name_len];
+		memset(name, 0, sizeof(name));
+
+		if (System_InputBoxGetString("Enter an IP address", g_Config.localBindAddress.c_str(), name, name_len)) {
+			g_Config.localBindAddress = name;
+		}
+	}
+	else
+		screenManager()->push(new HostnameSelectScreen(g_Config.localBindAddress));
+#else
+	screenManager()->push(new HostnameSelectScreen(g_Config.localBindAddress));
+#endif
+
 	return UI::EVENT_DONE;
 }
 
@@ -993,12 +1018,12 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 	return UI::EVENT_DONE;
 }
 
-void ProAdhocServerScreen::CreateViews() {
+void HostnameSelectScreen::CreateViews() {
 	using namespace UI;	
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	
-	tempProAdhocServer = g_Config.proAdhocServer;
+	tempProAdhocServer = targetConfig;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	
@@ -1006,115 +1031,115 @@ void ProAdhocServerScreen::CreateViews() {
 	addrView_ = new TextView(tempProAdhocServer, ALIGN_LEFT, false);
 	leftColumn->Add(addrView_);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE,10));
-	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &ProAdhocServerScreen::On0Click);
-	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
-	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
-	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
-	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
-	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
-	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
-	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
-	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
-	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
-	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
-	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
-	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
-	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
-	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &HostnameSelectScreen::On0Click);
+	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &HostnameSelectScreen::On1Click);
+	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &HostnameSelectScreen::On2Click);
+	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &HostnameSelectScreen::On3Click);
+	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &HostnameSelectScreen::On4Click);
+	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &HostnameSelectScreen::On5Click);
+	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &HostnameSelectScreen::On6Click);
+	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &HostnameSelectScreen::On7Click);
+	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &HostnameSelectScreen::On8Click);
+	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &HostnameSelectScreen::On9Click);
+	rightColumn->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
+	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
+	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &HostnameSelectScreen::OnOKClick);
+	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &HostnameSelectScreen::OnCancelClick);
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 }
 
-UI::EventReturn ProAdhocServerScreen::On0Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On0Click(UI::EventParams &e) {
 	if (tempProAdhocServer.length() > 0)
 		tempProAdhocServer.append("0");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On1Click(UI::EventParams &e) {
 	tempProAdhocServer.append("1");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On2Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On2Click(UI::EventParams &e) {
 	tempProAdhocServer.append("2");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On3Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On3Click(UI::EventParams &e) {
 	tempProAdhocServer.append("3");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On4Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On4Click(UI::EventParams &e) {
 	tempProAdhocServer.append("4");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On5Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On5Click(UI::EventParams &e) {
 	tempProAdhocServer.append("5");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On6Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On6Click(UI::EventParams &e) {
 	tempProAdhocServer.append("6");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On7Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On7Click(UI::EventParams &e) {
 	tempProAdhocServer.append("7");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On8Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On8Click(UI::EventParams &e) {
 	tempProAdhocServer.append("8");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On9Click(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::On9Click(UI::EventParams &e) {
 	tempProAdhocServer.append("9");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
 
-UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
 	if (tempProAdhocServer.length() > 0 && tempProAdhocServer.at(tempProAdhocServer.length() - 1) != '.')
 		tempProAdhocServer.append(".");
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
 	if (tempProAdhocServer.length() > 0)
 		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
+UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 	tempProAdhocServer = "";
 	addrView_->SetText(tempProAdhocServer);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
-	g_Config.proAdhocServer = tempProAdhocServer;
+UI::EventReturn HostnameSelectScreen::OnOKClick(UI::EventParams &e) {
+	targetConfig = tempProAdhocServer;
 	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
-	tempProAdhocServer = g_Config.proAdhocServer;
+UI::EventReturn HostnameSelectScreen::OnCancelClick(UI::EventParams &e) {
+	tempProAdhocServer = targetConfig;
 	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
 }
