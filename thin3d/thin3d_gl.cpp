@@ -715,8 +715,6 @@ void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DV
 
 	pipe->Unapply();
 	fmt->Unapply();
-
-	glstate.arrayBuffer.unbind();
 }
 
 void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
@@ -734,9 +732,6 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, 
 	
 	pipe->Unapply();
 	fmt->Unapply();
-
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
 }
 
 void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
