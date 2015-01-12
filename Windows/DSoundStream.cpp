@@ -382,7 +382,7 @@ int WASAPIAudioBackend::RunThread() {
 
 	hresult = pAudioInterface->Start();
 
-	while (!threadData_) {
+	while (flags != AUDCLNT_BUFFERFLAGS_SILENT) {
 		Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
 
 		hresult = pAudioInterface->GetCurrentPadding(&pNumPaddingFrames);
@@ -417,11 +417,18 @@ int WASAPIAudioBackend::RunThread() {
 			}
 		}
 
+		if (threadData_ != 0) {
+			flags = AUDCLNT_BUFFERFLAGS_SILENT;
+		}
+
 		hresult = pAudioRenderClient->ReleaseBuffer(pNumAvFrames, flags);
 		if (FAILED(hresult)) {
 			// Not much to do here either...
 		}
 	}
+
+	// Wait for last data in buffer to play before stopping.
+	Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
 
 	delete[] shortBuf;
 	hresult = pAudioInterface->Stop();
