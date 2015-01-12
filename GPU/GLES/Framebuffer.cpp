@@ -536,8 +536,8 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glstate.arrayBuffer.unbind();
+	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
@@ -608,8 +608,8 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
 		glUniform4fv(timeLoc_, 1, time);
 	}
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glstate.arrayBuffer.unbind();
+	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
