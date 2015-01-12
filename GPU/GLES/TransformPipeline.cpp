@@ -182,6 +182,8 @@ void TransformDrawEngine::InitDeviceObjects() {
 
 void TransformDrawEngine::DestroyDeviceObjects() {
 	if (!bufferNameCache_.empty()) {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
 	}
@@ -556,6 +558,8 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 }
 
 VertexArrayInfo::~VertexArrayInfo() {
+	glstate.arrayBuffer.unbind();
+	glstate.elementArrayBuffer.unbind();
 	if (vbo)
 		glDeleteBuffers(1, &vbo);
 	if (ebo)
@@ -579,6 +583,8 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	// But let's not keep too many around, will eat up memory.
 	if (bufferNameCache_.size() >= VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
 		GLsizei extra = (GLsizei)bufferNameCache_.size() - VERTEXCACHE_NAME_CACHE_SIZE;
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers(extra, &bufferNameCache_[VERTEXCACHE_NAME_CACHE_SIZE]);
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 	}
@@ -707,8 +713,7 @@ void TransformDrawEngine::DoFlush() {
 					} else {
 						gpuStats.numCachedDrawCalls++;
 						glstate.arrayBuffer.bind(vai->vbo);
-						if (vai->ebo)
-							glstate.elementArrayBuffer.bind(vai->ebo);
+						glstate.elementArrayBuffer.bind(vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
@@ -733,8 +738,7 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					glstate.arrayBuffer.bind(vbo);
-					if (ebo)
-						glstate.elementArrayBuffer.bind(ebo);
+					glstate.elementArrayBuffer.bind(ebo);
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
@@ -790,13 +794,9 @@ rotateVBO:
 #else
 			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 #endif
-			if (ebo)
-				glstate.elementArrayBuffer.unbind();
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
-		if (vbo)
-			glstate.arrayBuffer.unbind();
 	} else {
 		DecodeVerts();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -834,6 +834,7 @@ rotateVBO:
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 			glstate.arrayBuffer.unbind();
+			glstate.elementArrayBuffer.unbind();
 			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 			int attrMask = program->attrMask;
 			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));
