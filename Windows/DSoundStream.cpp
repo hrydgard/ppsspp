@@ -434,6 +434,10 @@ int WASAPIAudioBackend::RunThread() {
 	hresult = pAudioInterface->Stop();
 
 	CoTaskMemFree(pDeviceFormat);
+	pDeviceEnumerator->Release();
+	pDevice->Release();
+	pAudioInterface->Release();
+	pAudioRenderClient->Release();
 
 	threadData_ = 2;
 	return 0;
