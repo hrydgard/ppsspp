@@ -263,6 +263,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60000;
 	default:
 		return -1;
 	}

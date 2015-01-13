@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "base/logging.h"
+#include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
 #include "Common/MathUtil.h"
 #include "Common/Atomics.h"
@@ -29,6 +30,22 @@
 #ifdef _M_SSE
 #include <emmintrin.h>
 #endif
+
+
+StereoResampler::StereoResampler()
+	: m_dma_mixer(this, 44100)
+{
+	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit. 
+	// TODO: should only do this if auto frameskip is off?
+
+	float refresh = System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f;
+
+	// If framerate is "close"...
+	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
+		m_dma_mixer.SetInputSampleRate((int)(44100 * (refresh / 60.0f)));
+	}
+}
+
 
 inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size) {
 #ifdef _M_SSE

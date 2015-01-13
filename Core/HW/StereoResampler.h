@@ -39,10 +39,7 @@
 class StereoResampler {
 
 public:
-	StereoResampler()
-		: m_dma_mixer(this, 44100)
-	{
-	}
+	StereoResampler();
 
 	virtual ~StereoResampler() {}
 

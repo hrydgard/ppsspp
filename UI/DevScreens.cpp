@@ -330,7 +330,14 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Frames per buffer", StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER))));
 	deviceSpecs->Add(new InfoItem("Optimal sample rate", StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
 	deviceSpecs->Add(new InfoItem("Optimal frames per buffer", StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
+
+	deviceSpecs->Add(new ItemHeader("Display Information"));
+	deviceSpecs->Add(new InfoItem("Native Resolution", StringFromFormat("%dx%d",
+		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
+		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
+	deviceSpecs->Add(new InfoItem("Refresh rate", StringFromFormat("%0.3f Hz", (float)System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f)));
 #endif
+
 
 	deviceSpecs->Add(new ItemHeader("Version Information"));
 	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
