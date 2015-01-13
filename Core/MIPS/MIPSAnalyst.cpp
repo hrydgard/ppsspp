@@ -440,6 +440,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
 	{ 0xf52f993e444b6c52, 44, "dl_write_shademode", },
 	{ 0xf56641884b36c638, 468, "scalbn", },
+	{ 0xf5e91870b5b76ddc, 288, "motorstorm_download_frame", }, // MotorStorm: Arctic Edge
 	{ 0xf5f7826b4a61767c, 40, "matrix_copy_q", },
 	{ 0xf73c094e492bc163, 396, "hypot", },
 	{ 0xf773297d89ff7a63, 532, "kumonohatateni_download_frame", }, // Amatsumi Sora ni Kumo no Hatate ni, and Hanakisou
