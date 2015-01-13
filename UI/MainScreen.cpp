@@ -306,7 +306,7 @@ void GameButton::Draw(UIContext &dc) {
 	}
 	if (!ginfo->id.empty() && g_Config.hasGameConfig(ginfo->id))
 	{
-		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+		//dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
@@ -804,6 +804,7 @@ void MainScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 	char versionString[256];
+	//PPSSPP_GIT_VERSION = "PPSSPP_COMPETITION";
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
@@ -826,8 +827,9 @@ void MainScreen::CreateViews() {
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
 	gold->SetIcon(I_ICONGOLD);
 #endif
-	rightColumnItems->Add(new Spacer(25.0));
+	//rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	rightColumnItems->Add(new CheckBox(&g_Config.bLowMem_UI, m->T("LOWMEM_UI")))->OnClick.Handle(this, &MainScreen::OnUI);
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -1102,6 +1104,14 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn MainScreen::OnUI(UI::EventParams &e)
+{
+	NativeShutdownGraphics();
+	NativeInitGraphics();
+	g_Config.Save();
+	
+	return UI::EVENT_DONE;
+}
 void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (dialog->tag() == "store") {
 		backFromStore_ = true;
