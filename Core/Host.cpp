@@ -22,11 +22,6 @@
 
 Host *host;
 
-int PMixer::Mix(short *stereoout, int numSamples) {
-	memset(stereoout, 0, numSamples * 2 * sizeof(short));
-	return numSamples;
-}
-
 bool Host::AttemptLoadSymbolMap() {
 	symbolMap.Clear();
 	return false;

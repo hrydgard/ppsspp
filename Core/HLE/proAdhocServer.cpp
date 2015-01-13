@@ -713,7 +713,7 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
  * @param user Sender User Node
  * @param message Chat Message
  */
-void spread_message(SceNetAdhocctlUserNode * user, char * message)
+void spread_message(SceNetAdhocctlUserNode *user, const char *message)
 {
 	// Global Notice
 	if(user == NULL)

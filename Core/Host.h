@@ -22,13 +22,6 @@
 
 struct InputState;
 
-class PMixer {
-public:
-	PMixer() {}
-	virtual ~PMixer() {}
-	virtual int Mix(short *stereoout, int numSamples);
-};
-
 class Host {
 public:
 	virtual ~Host() {}
@@ -43,7 +36,7 @@ public:
 	virtual bool InitGraphics(std::string *error_string) = 0;
 	virtual void ShutdownGraphics() = 0;
 
-	virtual void InitSound(PMixer *mixer) = 0;
+	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}
 	virtual void UpdateScreen() {}
 	virtual void GoFullscreen(bool) {}

@@ -40,7 +40,7 @@ public:
 	bool InitGraphics(std::string *error_message) override { return true; }
 	void ShutdownGraphics() override {}
 
-	void InitSound(PMixer *mixer) override;
+	void InitSound() override;
 	void UpdateSound() override {}
 	void ShutdownSound() override;
 
@@ -96,7 +96,7 @@ public:
 	virtual bool InitGraphics(std::string *error_message) override { return true; }
 	virtual void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer) override;
+	virtual void InitSound() override;
 	virtual void UpdateSound() override {}
 	virtual void ShutdownSound();
 

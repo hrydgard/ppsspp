@@ -182,6 +182,8 @@ void TransformDrawEngine::InitDeviceObjects() {
 
 void TransformDrawEngine::DestroyDeviceObjects() {
 	if (!bufferNameCache_.empty()) {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
 	}
@@ -556,6 +558,8 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 }
 
 VertexArrayInfo::~VertexArrayInfo() {
+	glstate.arrayBuffer.unbind();
+	glstate.elementArrayBuffer.unbind();
 	if (vbo)
 		glDeleteBuffers(1, &vbo);
 	if (ebo)
@@ -579,6 +583,8 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	// But let's not keep too many around, will eat up memory.
 	if (bufferNameCache_.size() >= VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
 		GLsizei extra = (GLsizei)bufferNameCache_.size() - VERTEXCACHE_NAME_CACHE_SIZE;
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers(extra, &bufferNameCache_[VERTEXCACHE_NAME_CACHE_SIZE]);
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 	}
@@ -691,24 +697,23 @@ void TransformDrawEngine::DoFlush() {
 						}
 
 						vai->vbo = AllocateBuffer();
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+						glstate.arrayBuffer.bind(vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
 							vai->ebo = AllocateBuffer();
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+							glstate.elementArrayBuffer.bind(vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
 						} else {
 							vai->ebo = 0;
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+							glstate.elementArrayBuffer.bind(vai->ebo);
 						}
 					} else {
 						gpuStats.numCachedDrawCalls++;
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
-						if (vai->ebo)
-							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+						glstate.arrayBuffer.bind(vai->vbo);
+						glstate.elementArrayBuffer.bind(vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
@@ -732,9 +737,8 @@ void TransformDrawEngine::DoFlush() {
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
 					vbo = vai->vbo;
 					ebo = vai->ebo;
-					glBindBuffer(GL_ARRAY_BUFFER, vbo);
-					if (ebo)
-						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+					glstate.arrayBuffer.bind(vbo);
+					glstate.elementArrayBuffer.bind(ebo);
 					vertexCount = vai->numVerts;
 					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
@@ -766,8 +770,8 @@ rotateVBO:
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
+			glstate.elementArrayBuffer.unbind();
 
 			prim = indexGen.Prim();
 		}
@@ -790,13 +794,9 @@ rotateVBO:
 #else
 			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 #endif
-			if (ebo)
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
-		if (vbo)
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -833,7 +833,8 @@ rotateVBO:
 			const int vertexSize = sizeof(transformed[0]);
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glstate.arrayBuffer.unbind();
+			glstate.elementArrayBuffer.unbind();
 			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 			int attrMask = program->attrMask;
 			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));

@@ -1,4 +1,4 @@
-// Copyright (C) 2012 PPSSPP Project
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,16 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "MemMap.h"
-#include "Host.h"
+#pragma once
 
-#include "System.h"
-#include "PSPMixer.h"
+#include "Common/CommonTypes.h"
 
-#include "HLE/__sceAudio.h"
-#include "base/NativeApp.h"
-
-int PSPMixer::Mix(short *stereoout, int numSamples)
-{
-  return __AudioMix(stereoout, numSamples);
-}
+void AdjustVolumeBlockNEON(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);

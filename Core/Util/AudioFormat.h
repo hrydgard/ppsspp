@@ -17,19 +17,28 @@
 
 #pragma once
 
-#include "sceAudio.h"
+#include "Common/Common.h"
+#include "Globals.h"
 
-// Easy interface for sceAudio to write to, to keep the complexity in check.
+static inline s16 ApplySampleVolume(s16 sample, int vol) {
+#ifdef ARM
+	register int r;
+	asm volatile("smulwb %0, %1, %2\n\t" \
+	             "ssat %0, #16, %0" \
+	             : "=r"(r) : "r"(vol), "r"(sample));
+	return r;
+#else
+	return clamp_s16((sample * vol) >> 16);
+#endif
+}
 
-void __AudioInit();
-void __AudioDoState(PointerWrap &p);
-void __AudioUpdate();
-void __AudioShutdown();
-void __AudioSetOutputFrequency(int freq);
+void SetupAudioFormats();
+void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
+void ConvertS16ToF32(float *ou, const s16 *in, size_t size);
 
-// May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
-void __AudioWakeThreads(AudioChannel &chan, int result, int step);
-void __AudioWakeThreads(AudioChannel &chan, int result);
-
-int __AudioMix(short *outstereo, int numSamples, int sampleRate);
+#ifdef _M_SSE
+#define AdjustVolumeBlock AdjustVolumeBlockStandard
+#else
+typedef void (*AdjustVolumeBlockFunc)(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
+extern AdjustVolumeBlockFunc AdjustVolumeBlock;
+#endif

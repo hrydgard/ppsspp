@@ -21,6 +21,10 @@ static bool enableGLDebug = false;
 
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
+
+	// According to some sources, doing this *after* swapbuffers can reduce frame latency
+	// at a large performance cost.
+	// glFinish();
 }
 
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
@@ -231,13 +235,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 	}
 
 	hRC = m_hrc;
-
-	/*
-	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VERSION)).c_str(),0,0);
-	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_VENDOR)).c_str(),0,0);
-	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_RENDERER)).c_str(),0,0);
-	MessageBox(0,ConvertUTF8ToWString((const char *)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str(),0,0);
-	*/
 
 	glstate.Initialize();
 	if (wglSwapIntervalEXT)

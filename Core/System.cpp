@@ -36,7 +36,6 @@
 
 #include "Core/Host.h"
 #include "Core/System.h"
-#include "Core/PSPMixer.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernel.h"
@@ -74,13 +73,13 @@ ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static FileLoader *loadedFile;
-static PSPMixer *mixer;
 static std::thread *cpuThread = nullptr;
 static std::thread::id cpuThreadID;
 static recursive_mutex cpuThreadLock;
 static condition_variable cpuThreadCond;
 static condition_variable cpuThreadReplyCond;
 static u64 cpuThreadUntil;
+bool audioInitialized;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
@@ -101,13 +100,13 @@ GlobalUIState GetUIState() {
 }
 
 bool IsAudioInitialised() {
-	return mixer != NULL;
+	return audioInitialized;
 }
 
 void Audio_Init() {
-	if (mixer == NULL) {
-		mixer = new PSPMixer();
-		host->InitSound(mixer);
+	if (!audioInitialized) {
+		audioInitialized = true;
+		host->InitSound();
 	}
 }
 
@@ -248,7 +247,7 @@ void CPU_Shutdown() {
 	HLEShutdown();
 	if (coreParameter.enableSound) {
 		host->ShutdownSound();
-		mixer = 0;  // deleted in ShutdownSound
+		audioInitialized = false;  // deleted in ShutdownSound
 	}
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();

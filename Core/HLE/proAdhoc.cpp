@@ -29,6 +29,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "UI/OnScreenDisplay.h"
 #include "proAdhoc.h" 
+#include "i18n/i18n.h"
 
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
@@ -292,6 +293,7 @@ void deleteFriendByIP(uint32_t ip) {
 		}
 
 		// Set Previous Reference
+		// TODO: Should this be used by something?
 		prev = peer;
 	}
 }
@@ -806,7 +808,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_P2P))
 				spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 
-			INFO_LOG(SCENET, "TimedOut Peer %02X:%02X:%02X:%02X:%02X:%02X (%dms)", peer->mac.data[0], peer->mac.data[1], peer->mac.data[2], peer->mac.data[3], peer->mac.data[4], peer->mac.data[5], (context->timeout/1000));
+			INFO_LOG(SCENET, "TimedOut Peer %02X:%02X:%02X:%02X:%02X:%02X (%lldms)", peer->mac.data[0], peer->mac.data[1], peer->mac.data[2], peer->mac.data[3], peer->mac.data[4], peer->mac.data[5], (context->timeout/1000));
 
 			// Delete Peer from List
 			deletePeer(context, peer);
@@ -1396,6 +1398,7 @@ int getPTPSocketCount(void) {
 }
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
+	I18NCategory *n = GetI18NCategory("Networking");
 	int iResult = 0;
 	metasocket = (int)INVALID_SOCKET;
 	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -1454,7 +1457,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
 	if (sent > 0){
-		osm.Show("Network Initialized", 1.0);
+		osm.Show(n->T("Network Initialized"), 1.0);
 		return 0;
 	}
 	else{

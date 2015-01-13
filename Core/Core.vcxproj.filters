@@ -267,9 +267,6 @@
     <ClCompile Include="PSPLoaders.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="PSPMixer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="System.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -301,6 +298,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HW\MediaEngine.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\StereoResampler.cpp">
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="Util\PPGeDraw.cpp">
@@ -533,6 +533,12 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="Screenshot.cpp" />
+    <ClCompile Include="Util\AudioFormatNEON.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\AudioFormat.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -748,9 +754,6 @@
     <ClInclude Include="PSPLoaders.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="PSPMixer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="HLE\__sceAudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -779,6 +782,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HW\MediaEngine.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\StereoResampler.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
@@ -1007,6 +1013,12 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Screenshot.h" />
+    <ClInclude Include="Util\AudioFormat.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\AudioFormatNEON.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
