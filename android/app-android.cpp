@@ -129,6 +129,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalSampleRate;
 	case SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER:
 		return optimalFramesPerBuffer;
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return (int)(display_hz * 1000.0);
 	default:
 		return -1;
 	}

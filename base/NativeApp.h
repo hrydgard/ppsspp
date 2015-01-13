@@ -130,6 +130,7 @@ enum SystemProperty {
 	SYSPROP_SYSTEMVERSION,
 	SYSPROP_DISPLAY_XRES,
 	SYSPROP_DISPLAY_YRES,
+	SYSPROP_DISPLAY_REFRESH_RATE,  // returns 1000*the refresh rate in Hz as it can be non-integer
 	SYSPROP_MOGA_VERSION,
 
 	// Exposed on Android. Choosing the optimal sample rate for audio

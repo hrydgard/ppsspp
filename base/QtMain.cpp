@@ -73,6 +73,8 @@ int System_GetPropertyInt(SystemProperty prop) {
   switch (prop) {
   case SYSPROP_AUDIO_SAMPLE_RATE:
     return 44100;
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60000;
   default:
     return -1;
   }
