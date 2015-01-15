@@ -405,7 +405,7 @@ int WASAPIAudioBackend::RunThread() {
 					float *ptr = (float *)pData;
 					int chans = pDeviceFormat->Format.nChannels;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
-					for (int i = 0; i < pNumAvFrames; i++) {
+					for (UINT32 i = 0; i < pNumAvFrames; i++) {
 						ptr[i * chans + 0] = (float)shortBuf[i * 2] * (1.0f / 32768.0f);
 						ptr[i * chans + 1] = (float)shortBuf[i * 2 + 1] * (1.0f / 32768.0f);
 					}
