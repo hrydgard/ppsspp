@@ -121,7 +121,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 }
 
 void SoftwareTransform(
-	int prim, u8 *decoded, int vertexCount, u32 vertType, void *inds, int indexType,
+	int prim, u8 *decoded, int vertexCount, u32 vertType, u16 *&inds, int indexType,
 	const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
@@ -462,36 +462,35 @@ void SoftwareTransform(
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
-		TransformedVertex saved;
-		u32 stencilValue = 0;
+		const u16 *indsIn = (const u16 *)inds;
+		u16 *newInds = inds + vertexCount;
+		u16 *indsOut = newInds;
 		for (int i = 0; i < vertexCount; i += 2) {
-			int index = ((const u16*)inds)[i];
-			saved = transformed[index];
-			int index2 = ((const u16*)inds)[i + 1];
-			TransformedVertex &transVtx = transformed[index2];
-			if (i == 0)
-				stencilValue = transVtx.color0[3];
-			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
+			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+			// We have to turn the rectangle into two triangles, so 6 points.
+			// This is 4 verts + 6 indices.
 
 			// bottom right
-			trans[0] = transVtx;
-
-			// bottom left
-			trans[1] = transVtx;
-			trans[1].y = saved.y;
-			trans[1].v = saved.v;
-
-			// top left
-			trans[2] = transVtx;
-			trans[2].x = saved.x;
-			trans[2].y = saved.y;
-			trans[2].u = saved.u;
-			trans[2].v = saved.v;
+			trans[0] = transVtxBR;
 
 			// top right
-			trans[3] = transVtx;
-			trans[3].x = saved.x;
-			trans[3].u = saved.u;
+			trans[1] = transVtxBR;
+			trans[1].y = transVtxTL.y;
+			trans[1].v = transVtxTL.v;
+
+			// top left
+			trans[2] = transVtxBR;
+			trans[2].x = transVtxTL.x;
+			trans[2].y = transVtxTL.y;
+			trans[2].u = transVtxTL.u;
+			trans[2].v = transVtxTL.v;
+
+			// bottom left
+			trans[3] = transVtxBR;
+			trans[3].x = transVtxTL.x;
+			trans[3].u = transVtxTL.u;
 
 			// That's the four corners. Now process UV rotation.
 			if (throughmode)
@@ -504,21 +503,34 @@ void SoftwareTransform(
 			// else
 			//	RotateUV(trans);
 
-			// bottom right
-			trans[4] = trans[0];
-
-			// top left
-			trans[5] = trans[2];
-			trans += 6;
+			// Triangle: BR-TR-TL
+			indsOut[0] = i * 2 + 0;
+			indsOut[1] = i * 2 + 1;
+			indsOut[2] = i * 2 + 2;
+			// Triangle: BL-BR-TL
+			indsOut[3] = i * 2 + 3;
+			indsOut[4] = i * 2 + 0;
+			indsOut[5] = i * 2 + 2;
+			trans += 4;
+			indsOut += 6;
 
 			numTrans += 6;
 		}
+		inds = newInds;
+		drawIndexed = true;
 
 		// We don't know the color until here, so we have to do it now, instead of in StateMapping.
 		// Might want to reconsider the order of things later...
 		if (gstate.isModeClear() && gstate.isClearModeAlphaMask()) {
 			result->setStencil = true;
-			result->stencilValue = stencilValue;
+			if (vertexCount > 1) {
+				// Take the bottom right alpha value of the first rect as the stencil value.
+				// Technically, each rect should individually fill its stencil, but most of the
+				// time they use the same one.
+				result->stencilValue = transformed[indsIn[1]].color0[3];
+			} else {
+				result->stencilValue = 0;
+			}
 		}
 	}
 
