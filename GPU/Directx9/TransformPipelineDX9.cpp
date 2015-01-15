@@ -831,10 +831,11 @@ rotateVBO:
 		SoftwareTransformResult result;
 		memset(&result, 0, sizeof(result));
 
+		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
 			prim, decoded, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
+			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
@@ -849,7 +850,7 @@ rotateVBO:
 
 			pD3Ddevice->SetVertexDeclaration(pSoftVertexDecl);
 			if (drawIndexed) {
-				pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, indexGen.MaxIndex(), D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+				pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
 				pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 			}

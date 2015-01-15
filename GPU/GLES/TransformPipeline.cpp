@@ -821,10 +821,11 @@ rotateVBO:
 		SoftwareTransformResult result;
 		memset(&result, 0, sizeof(result));
 
+		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
 			prim, decoded, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			indexGen.MaxIndex(), framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
+			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
@@ -844,7 +845,8 @@ rotateVBO:
 #if 1  // USING_GLES2
 				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
 #else
-				glDrawRangeElements(glprim[prim], 0, indexGen.MaxIndex(), numTrans, GL_UNSIGNED_SHORT, inds);
+				// This doesn't seem to provide much of a win.
+				glDrawRangeElements(glprim[prim], 0, maxIndex, numTrans, GL_UNSIGNED_SHORT, inds);
 #endif
 			} else {
 				glDrawArrays(glprim[prim], 0, numTrans);

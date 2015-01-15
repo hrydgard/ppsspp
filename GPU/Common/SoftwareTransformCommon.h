@@ -38,5 +38,5 @@ struct SoftwareTransformResult {
 	u8 stencilValue;
 };
 
-void SoftwareTransform(int prim, u8 *decoded, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer,
+void SoftwareTransform(int prim, u8 *decoded, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer,
 	int &numTrans, bool &drawIndexed, SoftwareTransformResult *result);

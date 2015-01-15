@@ -122,7 +122,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 
 void SoftwareTransform(
 	int prim, u8 *decoded, int vertexCount, u32 vertType, u16 *&inds, int indexType,
-	const DecVtxFormat &decVtxFormat, int maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
+	const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -465,6 +465,7 @@ void SoftwareTransform(
 		const u16 *indsIn = (const u16 *)inds;
 		u16 *newInds = inds + vertexCount;
 		u16 *indsOut = newInds;
+		maxIndex = 4 * vertexCount;
 		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
