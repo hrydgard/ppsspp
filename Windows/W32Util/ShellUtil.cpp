@@ -34,9 +34,7 @@ namespace W32Util
 		wchar_t temp[MAX_PATH];
 		SHGetPathFromIDList(idList, temp);
 		if (wcslen(temp))
-		{
 			return ConvertWStringToUTF8(temp);
-		}
 		else
 			return "";
 	}

@@ -285,7 +285,7 @@ void WindowsHost::UpdateConsolePosition()
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 
 	IShellLink* psl; 
-	CoInitialize(0);
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.

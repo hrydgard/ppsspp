@@ -275,11 +275,9 @@ private:
 #define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
 
 WASAPIAudioBackend::WASAPIAudioBackend() : hThread_(NULL), sampleRate_(0), callback_(nullptr), threadData_(0) {
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 }
 
 WASAPIAudioBackend::~WASAPIAudioBackend() {
-	CoUninitialize();
 	if (threadData_ == 0) {
 		threadData_ = 1;
 	}

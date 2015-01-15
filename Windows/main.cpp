@@ -359,6 +359,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 {
 	setCurrentThreadName("Main");
 
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
 	// Windows Vista and above: alert Windows that PPSSPP is DPI aware,
 	// so that we don't flicker in fullscreen on some PCs.
 	MakePPSSPPDPIAware();
@@ -616,5 +618,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	if (g_Config.bRestartRequired) {
 		W32Util::ExitAndRestart();
 	}
+	CoUninitialize();
 	return 0;
 }
