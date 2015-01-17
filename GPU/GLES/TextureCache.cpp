@@ -2037,7 +2037,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 }
 
 // Only used by Qt UI?
-bool TextureCache::DecodeTexture(u8* output, GPUgstate state) {
+bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 	GPUgstate oldState = gstate;
 	gstate = state;
 

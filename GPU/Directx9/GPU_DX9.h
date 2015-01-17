@@ -60,7 +60,7 @@ public:
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized();
 	virtual void ClearShaderCache();
-	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
+	virtual bool DecodeTexture(u8 *dest, const GPUgstate &state) {
 		return textureCache_.DecodeTexture(dest, state);
 	}
 	virtual bool FramebufferDirty();
