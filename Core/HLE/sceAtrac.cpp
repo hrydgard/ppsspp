@@ -498,6 +498,14 @@ void Atrac::AnalyzeReset() {
 	atracChannels = 2;
 }
 
+struct RIFFFmtChunk {
+	u16_le fmtTag;
+	u16_le channels;
+	u32_le samplerate;
+	u32_le avgBytesPerSec;
+	u16_le blockAlign;
+};
+
 int Atrac::Analyze() {
 	AnalyzeReset();
 
@@ -558,19 +566,36 @@ int Atrac::Analyze() {
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
 			{
+				if (codecType != 0) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with multiple fmt definitions");
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+
+				auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first.addr + offset);
 				if (chunkSize >= 16) {
-					int codeMagic = Memory::Read_U16(first.addr + offset);
-					if (codeMagic == AT3_MAGIC)
+					if (at3fmt->fmtTag == AT3_MAGIC)
 						codecType = PSP_MODE_AT_3;
-					else if (codeMagic == AT3_PLUS_MAGIC)
+					else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
 						codecType = PSP_MODE_AT_3_PLUS;
-					else
-						codecType = 0;
-					atracChannels = Memory::Read_U16(first.addr + offset + 2);
-					// int atracSamplerate = Memory::Read_U32(first.addr + offset + 4);    ;Should always be 44100Hz
-					int avgBytesPerSec = Memory::Read_U32(first.addr + offset + 8);
-					atracBitrate = avgBytesPerSec * 8;
-					atracBytesPerFrame = Memory::Read_U16(first.addr + offset + 12);
+					else {
+						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid fmt magic: %04x", at3fmt->fmtTag);
+						return ATRAC_ERROR_UNKNOWN_FORMAT;
+					}
+					atracChannels = at3fmt->channels;
+					if (atracChannels != 1 && atracChannels != 2) {
+						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid channel count: %d", atracChannels);
+						return ATRAC_ERROR_UNKNOWN_FORMAT;
+					}
+					if (at3fmt->samplerate != 44100) {
+						ERROR_LOG_REPORT(ME, "Atrac buffer with unsupported sample rate: %d", at3fmt->samplerate);
+						return ATRAC_ERROR_UNKNOWN_FORMAT;
+					}
+					atracBitrate = at3fmt->avgBytesPerSec * 8;
+					atracBytesPerFrame = at3fmt->blockAlign;
+					if (atracBytesPerFrame == 0) {
+						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid bytes per frame: %d", atracBytesPerFrame);
+						return ATRAC_ERROR_UNKNOWN_FORMAT;
+					}
 				}
 			}
 			break;
@@ -1384,7 +1409,9 @@ int __AtracSetContext(Atrac *atrac) {
 	if (atrac->atracChannels == 1)
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
 
-	// open codec
+	// Explicitly set the block_align value (needed by newer FFmpeg versions, see #5772.)
+	atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
+
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
