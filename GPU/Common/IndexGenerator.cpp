@@ -40,13 +40,13 @@ void IndexGenerator::Reset() {
 }
 
 bool IndexGenerator::PrimCompatible(int prim1, int prim2) {
-	if (prim1 == -1)
+	if (prim1 == GE_PRIM_INVALID || prim2 == GE_PRIM_KEEP_PREVIOUS)
 		return true;
 	return indexedPrimitiveType[prim1] == indexedPrimitiveType[prim2];
 }
 
 bool IndexGenerator::PrimCompatible(int prim) const {
-	if (prim_ == GE_PRIM_INVALID)
+	if (prim_ == GE_PRIM_INVALID || prim == GE_PRIM_KEEP_PREVIOUS)
 		return true;
 	return indexedPrimitiveType[prim] == prim_;
 }
