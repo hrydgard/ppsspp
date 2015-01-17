@@ -562,6 +562,19 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f, true, true),
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f, true, true),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale, true, true),
+#ifdef _WIN32
+	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
+	ConfigSetting("DInputAnalogInverseDeadzone", &g_Config.fDInputAnalogInverseDeadzone, 0.0f, true, true),
+
+	ConfigSetting("XInputLeftAnalogDeadzone", &g_Config.fXInputLeftAnalogDeadzone, 0.24f, true, true),
+	ConfigSetting("XInputRightAnalogDeadzone", &g_Config.fXInputRightAnalogDeadzone, 0.27f, true, true),
+
+	ConfigSetting("XInputLeftAnalogInverseMode", &g_Config.iXInputLeftAnalogInverseMode, 0, true, true),
+	ConfigSetting("XInputLeftAnalogInverseDeadzone", &g_Config.fXInputLeftAnalogInverseDeadzone, 0.0f, true, true),
+
+	ConfigSetting("XInputRightAnalogInverseMode", &g_Config.iXInputRightAnalogInverseMode, 0, true, true),
+	ConfigSetting("XInputRightAnalogInverseDeadzone", &g_Config.fXInputRightAnalogInverseDeadzone, 0.0f, true, true),
+#endif
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 
 	ConfigSetting(false),

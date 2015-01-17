@@ -372,6 +372,23 @@ void GameSettingsScreen::CreateViews() {
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+	static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
+
+	controlsSettings->Add(new ItemHeader(c->T("DInput Analog Settings", "DInput Analog Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, c->T("Inverse Dead Zone Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size"), screenManager()));
+
+	controlsSettings->Add(new ItemHeader(c->T("XInput Analog Settings", "XInput Analog Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Left Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Right Stick)"), screenManager()));
+
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputLeftAnalogInverseMode, c->T("Inverse Dead Zone Mode (Left Stick)"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size (Left Stick)"), screenManager()));
+
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputRightAnalogInverseMode, c->T("Inverse Dead Zone Mode (Right Stick)"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size (Right Stick)"), screenManager()));
+
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));

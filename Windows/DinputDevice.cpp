@@ -177,8 +177,8 @@ DinputDevice::DinputDevice(int devnum) {
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	dipw.diph.dwHow        = DIPH_DEVICE;
 	dipw.diph.dwObj        = 0;
-	// dwData 1000 is deadzone(0% - 10%)
-	dipw.dwData            = 1000;
+	// dwData 10000 is deadzone(0% - 100%), multiply by config scalar
+	dipw.dwData            = (int)(g_Config.fDInputAnalogDeadzone * 10000);
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
@@ -214,6 +214,14 @@ void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
 	lastValue = value;
 }
 
+inline float Signf(float val) {
+	return (0.0f < val) - (val < 0.0f);
+}
+
+inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
+	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
+}
+
 int DinputDevice::UpdateState(InputState &input_state) {
 	if (!pJoystick) return -1;
 
@@ -232,6 +240,36 @@ int DinputDevice::UpdateState(InputState &input_state) {
 	if (analog)	{
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
+		
+		// Linear range mapping (used to invert deadzones)
+		float dz = g_Config.fDInputAnalogDeadzone;
+		int idzm = g_Config.iDInputAnalogInverseMode;
+		float idz = g_Config.fDInputAnalogInverseDeadzone;
+		float md = std::max(dz, idz);
+
+		float magnitude = sqrtf(js.lX * js.lX + js.lY * js.lY);
+		if (idzm == 1)
+		{
+			float xSign = Signf(js.lX);
+			if (xSign != 0.0f) {
+				js.lX = LinearMapf(js.lX, xSign * dz, xSign, xSign * md, xSign);
+			}
+		}
+		else if (idzm == 2)
+		{
+			float ySign = Signf(js.lY);
+			if (ySign != 0.0f) {
+				js.lY = LinearMapf(js.lY, ySign * dz, ySign, ySign * md, ySign);
+			}
+		}
+		else if (idzm == 3)
+		{
+			float xNorm = js.lX / magnitude;
+			float yNorm = js.lY / magnitude;
+			float mapMag = LinearMapf(magnitude, dz, 1.0, md, 1.0);
+			js.lX = xNorm * mapMag;
+			js.lY = yNorm * mapMag;
+		}
 
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
