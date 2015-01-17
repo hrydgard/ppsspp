@@ -185,6 +185,7 @@ std::string GetVideoCardDriverVersion() {
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
 	if (FAILED(hr)) {
 		pIWbemLocator->Release();
+		SysFreeString(bstrServer);
 		CoUninitialize();
 		return retvalue;
 	}
