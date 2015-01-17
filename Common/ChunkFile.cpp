@@ -212,6 +212,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 	if (!pFile.ReadBytes(buffer, sz))
 	{
 		ERROR_LOG(COMMON, "ChunkReader: Error reading file");
+		delete [] buffer;
 		return ERROR_BAD_FILE;
 	}
 
