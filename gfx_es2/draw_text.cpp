@@ -70,6 +70,8 @@ TextDrawer::~TextDrawer() {
 
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
+
+	delete ctx_;
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {

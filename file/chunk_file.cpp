@@ -48,7 +48,7 @@ ChunkFile::ChunkFile(const uint8_t *read_data, int data_size) {
 }
 
 ChunkFile::~ChunkFile() {
-	if (fastMode && data)
+	if (fastMode)
 		delete [] data;
 	else
 		file.close();
