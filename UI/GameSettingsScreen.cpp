@@ -372,6 +372,18 @@ void GameSettingsScreen::CreateViews() {
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+	controlsSettings->Add(new ItemHeader(c->T("DInput Analog Settings", "DInput Analog Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone"), screenManager()));
+
+	controlsSettings->Add(new ItemHeader(c->T("XInput Analog Settings", "XInput Analog Stick Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Left Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogInverseDeadzoneX, 0.0f, 1.0f, c->T("Inverse Dead Zone X (Left Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogInverseDeadzoneY, 0.0f, 1.0f, c->T("Inverse Dead Zone Y (Left Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Right Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogInverseDeadzoneX, 0.0f, 1.0f, c->T("Inverse Dead Zone X (Right Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogInverseDeadzoneY, 0.0f, 1.0f, c->T("Inverse Dead Zone Y (Right Stick)"), screenManager()));
+
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, c->T("Ignore Windows Key")));

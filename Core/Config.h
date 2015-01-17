@@ -276,6 +276,17 @@ public:
 
 	bool bHapticFeedback;
 
+	float fDInputAnalogDeadzone;
+	float fDInputAnalogInverseDeadzone;
+
+	float fXInputLeftAnalogDeadzone;
+	float fXInputLeftAnalogInverseDeadzoneX;
+	float fXInputLeftAnalogInverseDeadzoneY;
+
+	float fXInputRightAnalogDeadzone;
+	float fXInputRightAnalogInverseDeadzoneX;
+	float fXInputRightAnalogInverseDeadzoneY;
+
 	float fAnalogLimiterDeadzone;
 	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
 	// proper options when good enough.
