@@ -316,7 +316,7 @@ void CDisasm::stepOut()
 
 	auto threads = GetThreadsInfo();
 
-	u32 entry, stackTop;
+	u32 entry = cpu->GetPC(), stackTop = 0;
 	for (size_t i = 0; i < threads.size(); i++)
 	{
 		if (threads[i].isCurrent)
