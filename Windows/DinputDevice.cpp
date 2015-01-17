@@ -177,8 +177,8 @@ DinputDevice::DinputDevice(int devnum) {
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	dipw.diph.dwHow        = DIPH_DEVICE;
 	dipw.diph.dwObj        = 0;
-	// dwData 1000 is deadzone(0% - 10%)
-	dipw.dwData            = 1000;
+	// dwData 10000 is deadzone(0% - 100%), multiply by config scalar
+	dipw.dwData            = (int)(g_Config.fDInputAnalogDeadzone * 10000);
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
@@ -253,8 +253,26 @@ int DinputDevice::UpdateState(InputState &input_state) {
 	return -1;
 }
 
+inline float Signf(float val) {
+	return (0.0f < val) - (val < 0.0f);
+}
+
+inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
+	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
+}
+
 static float NormalizedDeadzoneFilter(short value) {
 	float result = (float)value / 10000.0f;
+
+	const float DEADZONE = g_Config.fDInputAnalogDeadzone;
+	const float INV_DEADZONE = g_Config.fDInputAnalogInverseDeadzone;
+
+	// Linear range mapping (used to invert deadzones)
+	float sign = Signf( result );
+	if (sign != 0.0f) {
+		float md = std::max(DEADZONE, INV_DEADZONE);
+		result = LinearMapf(result, sign * DEADZONE, sign, sign * md, sign);
+	}
 
 	// Expand and clamp. Hack to let us reach the corners on most pads.
 	result = std::min(1.0f, std::max(result * 1.2f, -1.0f));
