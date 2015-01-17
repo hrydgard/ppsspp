@@ -96,15 +96,38 @@ void glsl_refresh() {
 	}
 }
 
+// Not wanting to change ReadLocalFile semantics.
+// Needs to use delete [], not delete like auto_ptr, and can't use unique_ptr because of Symbian.
+struct AutoCharArrayBuf {
+	AutoCharArrayBuf(char *buf = nullptr) : buf_(buf) {
+	}
+	~AutoCharArrayBuf() {
+		delete [] buf_;
+		buf_ = nullptr;
+	}
+	void reset(char *buf) {
+		if (buf_) {
+			delete[] buf_;
+		}
+		buf_ = buf;
+	}
+	operator char *() {
+		return buf_;
+	}
+
+private:
+	char *buf_;
+};
+
 bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	struct stat vs, fs;
-	char *vsh_src = 0, *fsh_src = 0;
+	AutoCharArrayBuf vsh_src, fsh_src;
 
 	if (strlen(program->vshader_filename) > 0 && 0 == stat(program->vshader_filename, &vs)) {
 		program->vshader_mtime = vs.st_mtime;
 		if (!program->vshader_source) {
 			size_t sz;
-			vsh_src = (char *)ReadLocalFile(program->vshader_filename, &sz);
+			vsh_src.reset((char *)ReadLocalFile(program->vshader_filename, &sz));
 		}
 	} else {
 		program->vshader_mtime = 0;
@@ -114,7 +137,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 		program->fshader_mtime = fs.st_mtime;
 		if (!program->fshader_source) {
 			size_t sz;
-			fsh_src = (char *)ReadLocalFile(program->fshader_filename, &sz);
+			fsh_src.reset((char *)ReadLocalFile(program->fshader_filename, &sz));
 		}
 	} else {
 		program->fshader_mtime = 0;
@@ -122,26 +145,24 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 
 	if (!program->vshader_source && !vsh_src) {
 		size_t sz;
-		vsh_src = (char *)VFSReadFile(program->vshader_filename, &sz);
+		vsh_src.reset((char *)VFSReadFile(program->vshader_filename, &sz));
 	}
 	if (!program->vshader_source && !vsh_src) {
 		ELOG("File missing: %s", program->vshader_filename);
 		if (error_message) {
 			*error_message = std::string("File missing: ") + program->vshader_filename;
 		}
-		delete [] fsh_src;
 		return false;
 	}
 	if (!program->fshader_source && !fsh_src) {
 		size_t sz;
-		fsh_src = (char *)VFSReadFile(program->fshader_filename, &sz);
+		fsh_src.reset((char *)VFSReadFile(program->fshader_filename, &sz));
 	}
 	if (!program->fshader_source && !fsh_src) {
 		ELOG("File missing: %s", program->fshader_filename);
 		if (error_message) {
 			*error_message = std::string("File missing: ") + program->fshader_filename;
 		}
-		delete [] vsh_src;
 		return false;
 	}
 
@@ -150,7 +171,6 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	if (!CompileShader(vsh_str, vsh, program->vshader_filename, error_message)) {
 		return false;
 	}
-	delete [] vsh_src;
 
 	const GLchar *fsh_str = program->fshader_source ? program->fshader_source : (const GLchar *)(fsh_src);
 	GLuint fsh = glCreateShader(GL_FRAGMENT_SHADER);
@@ -158,7 +178,6 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 		glDeleteShader(vsh);
 		return false;
 	}
-	delete [] fsh_src;
 
 	GLuint prog = glCreateProgram();
 	glAttachShader(prog, vsh);
