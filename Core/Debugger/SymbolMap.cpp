@@ -788,7 +788,7 @@ void SymbolMap::SetLabelName(const char* name, u32 address) {
 		auto symbolKey = std::make_pair(labelInfo->second.module, labelInfo->second.addr);
 		auto label = labels.find(symbolKey);
 		if (label != labels.end()) {
-			strcpy(label->second.name,name);
+			strncpy(label->second.name, name, 128);
 			label->second.name[127] = 0;
 
 			// Refresh the active item if it exists.
