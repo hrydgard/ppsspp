@@ -572,31 +572,36 @@ int Atrac::Analyze() {
 				}
 
 				auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first.addr + offset);
-				if (chunkSize >= 16) {
-					if (at3fmt->fmtTag == AT3_MAGIC)
-						codecType = PSP_MODE_AT_3;
-					else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
-						codecType = PSP_MODE_AT_3_PLUS;
-					else {
-						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid fmt magic: %04x", at3fmt->fmtTag);
-						return ATRAC_ERROR_UNKNOWN_FORMAT;
-					}
-					atracChannels = at3fmt->channels;
-					if (atracChannels != 1 && atracChannels != 2) {
-						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid channel count: %d", atracChannels);
-						return ATRAC_ERROR_UNKNOWN_FORMAT;
-					}
-					if (at3fmt->samplerate != 44100) {
-						ERROR_LOG_REPORT(ME, "Atrac buffer with unsupported sample rate: %d", at3fmt->samplerate);
-						return ATRAC_ERROR_UNKNOWN_FORMAT;
-					}
-					atracBitrate = at3fmt->avgBytesPerSec * 8;
-					atracBytesPerFrame = at3fmt->blockAlign;
-					if (atracBytesPerFrame == 0) {
-						ERROR_LOG_REPORT(ME, "Atrac buffer with invalid bytes per frame: %d", atracBytesPerFrame);
-						return ATRAC_ERROR_UNKNOWN_FORMAT;
-					}
+				if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with too small fmt definition %d", chunkSize);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
 				}
+
+				if (at3fmt->fmtTag == AT3_MAGIC)
+					codecType = PSP_MODE_AT_3;
+				else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
+					codecType = PSP_MODE_AT_3_PLUS;
+				else {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid fmt magic: %04x", at3fmt->fmtTag);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				atracChannels = at3fmt->channels;
+				if (atracChannels != 1 && atracChannels != 2) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid channel count: %d", atracChannels);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				if (at3fmt->samplerate != 44100) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with unsupported sample rate: %d", at3fmt->samplerate);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				atracBitrate = at3fmt->avgBytesPerSec * 8;
+				atracBytesPerFrame = at3fmt->blockAlign;
+				if (atracBytesPerFrame == 0) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid bytes per frame: %d", atracBytesPerFrame);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+
+				// TODO: There are some format specific bytes here which seem to have fixed values?
 			}
 			break;
 		case FACT_CHUNK_MAGIC:
