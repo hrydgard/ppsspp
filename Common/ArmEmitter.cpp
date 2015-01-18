@@ -844,7 +844,9 @@ const char *InstNames[] = { "AND",
                             "ORR",
                             "MOV",
                             "BIC",
-                            "MVN"
+                            "MVN",
+                            "MOVW",
+                            "MOVT",
                             };
 
 void ARMXEmitter::AND (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm); }
