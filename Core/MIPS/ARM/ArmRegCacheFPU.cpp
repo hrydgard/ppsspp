@@ -916,6 +916,8 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 
 	// Find where we want to map it, obeying the constraints we gave.
 	int quad = QGetFreeQuad(start, count, "mapping");
+	if (quad < 0)
+		return INVALID_REG;
 
 	// If parts of our register are elsewhere, and we are dirty, we need to flush them
 	// before we reload in a new location.
