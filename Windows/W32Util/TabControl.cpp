@@ -43,7 +43,7 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 
 	info.lastFocus = tabHandle;
 	info.pageHandle = tabHandle;
-	wcscpy(info.title,title);
+	wcscpy_s(info.title,title);
 	tabs.push_back(info);
 
 	ShowTab(index);
@@ -87,7 +87,7 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 
 	info.lastFocus = handle;
 	info.pageHandle = handle;
-	wcscpy(info.title,title);
+	wcscpy_s(info.title,title);
 	tabs.push_back(info);
 
 	ShowTab(index);
