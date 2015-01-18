@@ -185,6 +185,7 @@ std::string GetVideoCardDriverVersion() {
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
 	if (FAILED(hr)) {
 		pIWbemLocator->Release();
+		SysFreeString(bstrServer);
 		CoUninitialize();
 		return retvalue;
 	}
@@ -287,25 +288,24 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
-void EnableCrashingOnCrashes() { 
-  typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags); 
-  typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags); 
-  const DWORD EXCEPTION_SWALLOWING = 0x1;
+void EnableCrashingOnCrashes() {
+	typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags);
+	typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags);
+	const DWORD EXCEPTION_SWALLOWING = 0x1;
 
-  HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
-  tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32, 
-    "GetProcessUserModeExceptionPolicy"); 
-  tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32, 
-    "SetProcessUserModeExceptionPolicy"); 
-  if (pGetPolicy && pSetPolicy) 
-  { 
-    DWORD dwFlags; 
-    if (pGetPolicy(&dwFlags)) 
-    { 
-      // Turn off the filter 
-      pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING); 
-    } 
-  } 
+	HMODULE kernel32 = LoadLibrary(L"kernel32.dll");
+	tGetPolicy pGetPolicy = (tGetPolicy)GetProcAddress(kernel32,
+		"GetProcessUserModeExceptionPolicy");
+	tSetPolicy pSetPolicy = (tSetPolicy)GetProcAddress(kernel32,
+		"SetProcessUserModeExceptionPolicy");
+	if (pGetPolicy && pSetPolicy) {
+		DWORD dwFlags;
+		if (pGetPolicy(&dwFlags)) {
+			// Turn off the filter.
+			pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING);
+		}
+	}
+	FreeLibrary(kernel32);
 }
 
 bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)

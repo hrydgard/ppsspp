@@ -1130,6 +1130,7 @@ namespace MainWindow
 					break;
 				}
 			}
+			break;
 
     case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.

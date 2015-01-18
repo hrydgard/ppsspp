@@ -639,6 +639,7 @@ void DisassemblyFunction::load()
 						dataSize = 16;
 						break;
 					default:
+						delete macro;
 						return;
 					}
 

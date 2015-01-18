@@ -64,11 +64,11 @@ public:
 	virtual void Draw(UIContext &dc);
 
 	UI::EventReturn OnClicked(UI::EventParams &e) {
+		bool temp = false;
 		if (toggle_) {
 			*toggle_ = !(*toggle_);
+			temp = *toggle_;
 		}
-		bool temp;
-		temp = *toggle_;
 		if (temp) {
 			activatedCheat = text_;
 			processFileOn(activatedCheat);

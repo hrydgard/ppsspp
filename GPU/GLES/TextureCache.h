@@ -95,7 +95,7 @@ public:
 	u32 AllocTextureName();
 
 	// Only used by Qt UI?
-	bool DecodeTexture(u8 *output, GPUgstate state);
+	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
 	// Must stay a POD.

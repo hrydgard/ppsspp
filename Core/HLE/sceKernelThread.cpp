@@ -1500,7 +1500,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
-			Memory::Memcpy(statusPtr, &t->nt, wantedSize);
+			Memory::Memcpy(statusPtr, &t->nt, std::min(wantedSize, (u32)sizeof(t->nt)));
 		// TODO: What is this value?  Basic tests show 0...
 		if (wantedSize > sizeof(t->nt))
 			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));

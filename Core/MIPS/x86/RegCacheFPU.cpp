@@ -242,9 +242,13 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// Single is easy, just map normally but track as a SIMD reg.
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
+		X64Reg vx = VX(v[0]);
+		if (vx == INVALID_REG)
+			return false;
+
 		vregs[v[0]].lane = 1;
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v)].dirty = true;
+			xregs[vx].dirty = true;
 		if ((flags & MAP_NOLOCK) == 0)
 			SpillLockV(v, vsz);
 		Invariant();

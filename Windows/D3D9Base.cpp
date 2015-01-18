@@ -82,12 +82,14 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 		HRESULT result = g_pfnCreate9ex(D3D_SDK_VERSION, &d3dEx);
 		d3d = d3dEx;
 		if (FAILED(result)) {
+			FreeLibrary(hD3D9);
 			*error_message = "D3D9Ex available but context creation failed";
 			return false;
 		}
 	} else {
 		d3d = Direct3DCreate9(D3D_SDK_VERSION);
 		if (!d3d) {
+			FreeLibrary(hD3D9);
 			*error_message = "Failed to create D3D9 context";
 			return false;
 		}

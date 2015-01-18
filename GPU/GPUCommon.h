@@ -111,7 +111,7 @@ public:
 	const std::list<int>& GetDisplayLists() {
 		return dlQueue;
 	}
-	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
+	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) {
 		return false;
 	}
 	std::vector<FramebufferInfo> GetFramebufferList() {

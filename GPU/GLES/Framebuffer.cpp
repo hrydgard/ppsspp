@@ -1195,6 +1195,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			textureCache_->ForgetLastTexture();
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
+				delete nvfb;
 				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 				return;
 			}

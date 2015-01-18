@@ -62,7 +62,7 @@ public:
 	virtual void Resized();
 	virtual void ClearShaderCache();
 	virtual void CleanupBeforeUI();
-	virtual bool DecodeTexture(u8* dest, GPUgstate state) {
+	virtual bool DecodeTexture(u8 *dest, const GPUgstate &state) {
 		return textureCache_.DecodeTexture(dest, state);
 	}
 	virtual bool FramebufferDirty();

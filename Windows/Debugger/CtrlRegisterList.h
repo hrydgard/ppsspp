@@ -45,6 +45,7 @@ class CtrlRegisterList
 	bool *changedCat0Regs;
 	bool ctrlDown;
 
+	u32 getSelectedRegValue(char *out, size_t size);
 	void copyRegisterValue();
 	void editRegisterValue();
 public:
