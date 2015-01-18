@@ -232,7 +232,7 @@ static bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, 
 
 void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -243,7 +243,7 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
+	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
