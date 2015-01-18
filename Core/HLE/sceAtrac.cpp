@@ -73,6 +73,7 @@
 #define PSP_MODE_AT_3       0x00001001
 
 const int RIFF_CHUNK_MAGIC = 0x46464952;
+const int RIFF_WAVE_MAGIC = 0x45564157;
 const int FMT_CHUNK_MAGIC  = 0x20746D66;
 const int DATA_CHUNK_MAGIC = 0x61746164;
 const int SMPL_CHUNK_MAGIC = 0x6C706D73;
@@ -458,9 +459,9 @@ static Atrac *getAtrac(int atracID) {
 	return atracIDs[atracID];
 }
 
-static int createAtrac(Atrac *atrac, int codecType) {
+static int createAtrac(Atrac *atrac) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracIDs); ++i) {
-		if (atracIDTypes[i] == codecType && atracIDs[i] == 0) {
+		if (atracIDTypes[i] == atrac->codecType && atracIDs[i] == 0) {
 			atracIDs[i] = atrac;
 			atrac->atracID = i;
 			return i;
@@ -483,16 +484,6 @@ static int deleteAtrac(int atracID) {
 	return ATRAC_ERROR_BAD_ATRACID;
 }
 
-static int getCodecType(u32 addr) {
-	int at3magic = Memory::Read_U16(addr+20);
-	if (at3magic == AT3_MAGIC) {
-		return PSP_MODE_AT_3;
-	} else if (at3magic == AT3_PLUS_MAGIC) {
-		return PSP_MODE_AT_3_PLUS;
-	}
-	return 0;
-}
-
 void Atrac::AnalyzeReset() {
 	// Reset some values.
 	codecType = 0;
@@ -507,10 +498,19 @@ void Atrac::AnalyzeReset() {
 	atracChannels = 2;
 }
 
+struct RIFFFmtChunk {
+	u16_le fmtTag;
+	u16_le channels;
+	u32_le samplerate;
+	u32_le avgBytesPerSec;
+	u16_le blockAlign;
+};
+
 int Atrac::Analyze() {
 	AnalyzeReset();
 
-	if (first.size < 0x100)	{
+	// 72 is about the size of the minimum required data to even be valid.
+	if (first.size < 72) {
 		ERROR_LOG_REPORT(ME, "Atrac buffer very small: %d", first.size);
 		return ATRAC_ERROR_SIZE_TOO_SMALL;
 	}
@@ -523,16 +523,37 @@ int Atrac::Analyze() {
 	// TODO: Validate stuff.
 
 	if (Memory::Read_U32(first.addr) != RIFF_CHUNK_MAGIC) {
-		ERROR_LOG(ME, "Atrac buffer invalid RIFF header: %08x", first.addr);
+		ERROR_LOG_REPORT(ME, "Atrac buffer invalid RIFF header: %08x", first.addr);
 		return ATRAC_ERROR_UNKNOWN_FORMAT;
 	}
 
-	// RIFF size excluding chunk header.
-	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
-
-	u32 offset = 12;
+	u32 offset = 8;
 	int loopFirstSampleOffset = 0;
 	firstSampleoffset = 0;
+
+	while (Memory::Read_U32(first.addr + offset) != RIFF_WAVE_MAGIC) {
+		// Get the size preceding the magic.
+		int chunk = Memory::Read_U32(first.addr + offset - 4);
+		// Round the chunk size up to the nearest 2.
+		offset += chunk + (chunk & 1);
+		if (offset + 12 > first.size) {
+			ERROR_LOG_REPORT(ME, "Atrac buffer too small without WAVE chunk: %d at %d", first.size, offset);
+			return ATRAC_ERROR_SIZE_TOO_SMALL;
+		}
+		if (Memory::Read_U32(first.addr + offset) != RIFF_CHUNK_MAGIC) {
+			ERROR_LOG_REPORT(ME, "RIFF chunk did not contain WAVE");
+			return ATRAC_ERROR_UNKNOWN_FORMAT;
+		}
+		offset += 8;
+	}
+	offset += 4;
+
+	if (offset != 12) {
+		WARN_LOG_REPORT(ME, "RIFF chunk at offset: %d", offset);
+	}
+
+	// RIFF size excluding chunk header.
+	first.filesize = Memory::Read_U32(first.addr + offset - 8) + 8;
 
 	this->decodeEnd = first.filesize;
 	bool bfoundData = false;
@@ -545,20 +566,42 @@ int Atrac::Analyze() {
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
 			{
-				if (chunkSize >= 16) {
-					int codeMagic = Memory::Read_U16(first.addr + offset);
-					if (codeMagic == AT3_MAGIC)
-						codecType = PSP_MODE_AT_3;
-					else if (codeMagic == AT3_PLUS_MAGIC)
-						codecType = PSP_MODE_AT_3_PLUS;
-					else
-						codecType = 0;
-					atracChannels = Memory::Read_U16(first.addr + offset + 2);
-					// int atracSamplerate = Memory::Read_U32(first.addr + offset + 4);    ;Should always be 44100Hz
-					int avgBytesPerSec = Memory::Read_U32(first.addr + offset + 8);
-					atracBitrate = avgBytesPerSec * 8;
-					atracBytesPerFrame = Memory::Read_U16(first.addr + offset + 12);
+				if (codecType != 0) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with multiple fmt definitions");
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
 				}
+
+				auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first.addr + offset);
+				if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with too small fmt definition %d", chunkSize);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+
+				if (at3fmt->fmtTag == AT3_MAGIC)
+					codecType = PSP_MODE_AT_3;
+				else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
+					codecType = PSP_MODE_AT_3_PLUS;
+				else {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid fmt magic: %04x", at3fmt->fmtTag);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				atracChannels = at3fmt->channels;
+				if (atracChannels != 1 && atracChannels != 2) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid channel count: %d", atracChannels);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				if (at3fmt->samplerate != 44100) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with unsupported sample rate: %d", at3fmt->samplerate);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+				atracBitrate = at3fmt->avgBytesPerSec * 8;
+				atracBytesPerFrame = at3fmt->blockAlign;
+				if (atracBytesPerFrame == 0) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid bytes per frame: %d", atracBytesPerFrame);
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
+
+				// TODO: There are some format specific bytes here which seem to have fixed values?
 			}
 			break;
 		case FACT_CHUNK_MAGIC:
@@ -697,7 +740,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 
 	Atrac *atrac = new Atrac();
 	atrac->codecType = codecType;
-	int atracID = createAtrac(atrac, codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
 		delete atrac;
@@ -1343,7 +1386,9 @@ int __AtracSetContext(Atrac *atrac) {
 	// Load audio buffer
 	if((ret = avformat_open_input((AVFormatContext**)&atrac->pFormatCtx, NULL, NULL, NULL)) != 0) {
 		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
-		return -1;
+		// TODO: This is not exactly correct, but if the header is right and there's not enough data
+		// (which is likely the case here), this is the correct error.
+		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
 
 	if((ret = avformat_find_stream_info(atrac->pFormatCtx, NULL)) < 0) {
@@ -1369,7 +1414,9 @@ int __AtracSetContext(Atrac *atrac) {
 	if (atrac->atracChannels == 1)
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
 
-	// open codec
+	// Explicitly set the block_align value (needed by newer FFmpeg versions, see #5772.)
+	atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
+
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
@@ -1519,11 +1566,6 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		WARN_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): negative bufferSize", buffer, bufferSize);
 		bufferSize = 0x10000000;
 	}
-	int codecType = getCodecType(buffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
-	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1534,7 +1576,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return ret;
 	}
 	atrac->atracOutputChannels = 2;
-	int atracID = createAtrac(atrac, codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
@@ -1549,11 +1591,6 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 ha
 		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
-	int codecType = getCodecType(halfBuffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);		
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
-	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
@@ -1564,7 +1601,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 ha
 		return ret;
 	}
 	atrac->atracOutputChannels = 2;
-	int atracID = createAtrac(atrac, codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
@@ -1752,11 +1789,6 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 }
 
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
-	int codecType = getCodecType(buffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): ATRAC UNKNOWN FORMAT", buffer, bufferSize);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
-	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1772,7 +1804,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		return ATRAC_ERROR_NOT_MONO;
 	}
 	atrac->atracOutputChannels = 1;
-	int atracID = createAtrac(atrac, codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
 		delete atrac;
@@ -1787,11 +1819,6 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u3
 	if (readSize > halfBufferSize) {
 		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
-	}
-	int codecType = getCodecType(halfBuffer);
-	if (codecType == 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): ATRAC UNKNOWN FORMAT", halfBuffer, readSize, halfBufferSize);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
 	}
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
@@ -1808,7 +1835,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u3
 		return ATRAC_ERROR_NOT_MONO;
 	}
 	atrac->atracOutputChannels = 1;
-	int atracID = createAtrac(atrac, codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
 		delete atrac;
@@ -1829,7 +1856,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac, atrac->codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID", buffer, bufferSize, fileSize, metadataSizeAddr);
 		delete atrac;
@@ -2156,7 +2183,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32
 		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac, atrac->codecType);
+	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize, fileSize);
 		delete atrac;
