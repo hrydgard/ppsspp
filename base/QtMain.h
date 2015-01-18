@@ -80,13 +80,9 @@ signals:
 protected:
 	void resizeEvent(QResizeEvent * e)
 	{
-		pixel_xres = e->size().width();
-		pixel_yres = e->size().height();
-		dp_xres = pixel_xres * g_dpi_scale;
-		dp_yres = pixel_yres * g_dpi_scale;
+		UpdateScreenScale(e->size().width(), e->size().height());
 		PSP_CoreParameter().pixelWidth = pixel_xres;
 		PSP_CoreParameter().pixelHeight = pixel_yres;
-		UpdateScreenScale(pixel_xres, pixel_yres);
 	}
 
 	void timerEvent(QTimerEvent *) {
