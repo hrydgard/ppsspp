@@ -64,8 +64,8 @@ namespace W32Util
 		ofn.hwndOwner		= _hParent;
 		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
 
-		if (_strFileName.size () != 0)
-			wcscpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str());
+		if (!_strFileName.empty())
+			wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), MAX_PATH);
 
 		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName (&ofn)))
 		{

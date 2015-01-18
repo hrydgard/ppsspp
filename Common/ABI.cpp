@@ -408,7 +408,7 @@ void XEmitter::ABI_CallFunctionPAA(const void *func, void *param1, const Gen::Op
 	MOV(64, R(ABI_PARAM1), ImmPtr(param1));
 	if (!arg2.IsSimpleReg(ABI_PARAM2))
 		MOV(32, R(ABI_PARAM2), arg2);
-	if (!arg2.IsSimpleReg(ABI_PARAM3))
+	if (!arg3.IsSimpleReg(ABI_PARAM3))
 		MOV(32, R(ABI_PARAM3), arg3);
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
