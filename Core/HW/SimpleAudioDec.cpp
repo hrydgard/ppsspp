@@ -33,36 +33,29 @@ extern "C" {
 
 #endif  // USE_FFMPEG
 
-bool SimpleAudio::GetAudioCodecID(int audioType) {
+int SimpleAudio::GetAudioCodecID(int audioType) {
 #ifdef USE_FFMPEG
 	switch (audioType) {
 	case PSP_CODEC_AAC:
-		audioCodecId = AV_CODEC_ID_AAC;
-		break;
+		return AV_CODEC_ID_AAC;
 	case PSP_CODEC_AT3:
-		audioCodecId = AV_CODEC_ID_ATRAC3;
-		break;
+		return AV_CODEC_ID_ATRAC3;
 	case PSP_CODEC_AT3PLUS:
-		audioCodecId = AV_CODEC_ID_ATRAC3P;
-		break;
+		return AV_CODEC_ID_ATRAC3P;
 	case PSP_CODEC_MP3:
-		audioCodecId = AV_CODEC_ID_MP3;
-		break;
+		return AV_CODEC_ID_MP3;
 	default:
-		audioType = 0;
-		break;
+		return AV_CODEC_ID_NONE;
 	}
-	if (audioType != 0) {
-		return true;
-	}
-	return false;
 #else
-	return false;
+	return 0;
 #endif // USE_FFMPEG
 }
 
 SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
-: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels), outSamples(0), srcPos(0), wanted_resample_freq(44100), codec_(0), codecCtx_(0), swrCtx_(0), extradata_(0) {
+: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels),
+  outSamples(0), srcPos(0), wanted_resample_freq(44100), frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
+  extradata_(0), codecOpen_(false) {
 	Init();
 }
 
@@ -75,7 +68,8 @@ void SimpleAudio::Init() {
 	frame_ = av_frame_alloc();
 
 	// Get Audio Codec ctx
-	if (!GetAudioCodecID(audioType)){
+	int audioCodecId = GetAudioCodecID(audioType);
+	if (!audioCodecId) {
 		ERROR_LOG(ME, "This version of FFMPEG does not support Audio codec type: %08x. Update your submodule.", audioType);
 		return;
 	}
@@ -95,28 +89,38 @@ void SimpleAudio::Init() {
 	codecCtx_->channels = channels_;
 	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 	codecCtx_->sample_rate = sample_rate_;
-	OpenCodec();
+	codecOpen_ = false;
 #endif  // USE_FFMPEG
 }
 
-bool SimpleAudio::OpenCodec() {
+bool SimpleAudio::OpenCodec(int block_align) {
 #ifdef USE_FFMPEG
+	// Some versions of FFmpeg require this set.  May be set in SetExtraData(), but optional.
+	// When decoding, we decode by packet, so we know the size.
+	if (codecCtx_->block_align == 0) {
+		codecCtx_->block_align = block_align;
+	}
+
 	AVDictionary *opts = 0;
 	int retval = avcodec_open2(codecCtx_, codec_, &opts);
 	if (retval < 0) {
 		ERROR_LOG(ME, "Failed to open codec: retval = %i", retval);
 	}
 	av_dict_free(&opts);
-#endif  // USE_FFMPEG
+	codecOpen_ = true;
 	return retval >= 0;
+#else
+	return false;
+#endif  // USE_FFMPEG
 }
 
-bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
+bool SimpleAudio::ResetCodecCtx(int channels, int samplerate) {
 #ifdef USE_FFMPEG
 	if (codecCtx_)
 		avcodec_close(codecCtx_);
 
 	// Find decoder
+	int audioCodecId = GetAudioCodecID(audioType);
 	codec_ = avcodec_find_decoder((AVCodecID)audioCodecId);
 	if (!codec_) {
 		// Eh, we shouldn't even have managed to compile. But meh.
@@ -127,7 +131,7 @@ bool SimpleAudio::ResetCodecCtx(int channels, int samplerate){
 	codecCtx_->channels = channels;
 	codecCtx_->channel_layout = channels==2?AV_CH_LAYOUT_STEREO:AV_CH_LAYOUT_MONO;
 	codecCtx_->sample_rate = samplerate;
-	OpenCodec();
+	codecOpen_ = false;
 	return true;
 #endif
 	return false;
@@ -147,7 +151,7 @@ void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
 		codecCtx_->extradata = extradata_;
 		codecCtx_->extradata_size = size;
 		codecCtx_->block_align = wav_bytes_per_packet;
-		OpenCodec();
+		codecOpen_ = false;
 	}
 #endif
 }
@@ -176,16 +180,12 @@ bool SimpleAudio::IsOK() const {
 #endif
 }
 
-void SaveAudio(const char filename[], uint8_t *outbuf, int size){
-	FILE * pf;
-	pf = fopen(filename, "ab+");
-
-	fwrite(outbuf, size, 1, pf);
-	fclose(pf);
-}
-
-bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
+bool SimpleAudio::Decode(void *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
+	if (!codecOpen_) {
+		OpenCodec(inbytes);
+	}
+
 	AVPacket packet;
 	av_init_packet(&packet);
 	packet.data = static_cast<uint8_t *>(inbuf);
@@ -255,11 +255,11 @@ bool SimpleAudio::Decode(void* inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 #endif  // USE_FFMPEG
 }
 
-int SimpleAudio::GetOutSamples(){
+int SimpleAudio::GetOutSamples() {
 	return outSamples;
 }
 
-int SimpleAudio::GetSourcePos(){
+int SimpleAudio::GetSourcePos() {
 	return srcPos;
 }
 

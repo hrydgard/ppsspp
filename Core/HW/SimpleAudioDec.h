@@ -52,7 +52,7 @@ public:
 	int GetOutSamples();
 	int GetSourcePos();
 	bool ResetCodecCtx(int channels, int samplerate);
-	bool GetAudioCodecID(int audioType); // Get audioCodecId from audioType
+	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
 	void SetExtraData(u8 *data, int size, int wav_bytes_per_packet);
@@ -67,7 +67,7 @@ public:
 
 private:
 	void Init();
-	bool OpenCodec();
+	bool OpenCodec(int block_align);
 
 	u32 ctxPtr;
 	int audioType;
@@ -81,10 +81,10 @@ private:
 	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
-	int audioCodecId; // AV_CODEC_ID_XXX
 
 	// Not savestated, only used by UI.
 	u8 *extradata_;
+	bool codecOpen_;
 };
 
 void AudioClose(SimpleAudio **ctx);
