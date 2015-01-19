@@ -1260,7 +1260,7 @@ namespace MainWindow
 
 				case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
 				{
-					if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].begin() == KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].end())
+					if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].empty())
 					{ 
 						SaveState::NextSlot();
 					}
@@ -1282,7 +1282,7 @@ namespace MainWindow
 
 				case ID_FILE_QUICKLOADSTATE_HC:
 				{
-					if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].end())
+					if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty())
 					{
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
@@ -1298,7 +1298,7 @@ namespace MainWindow
 
 				case ID_FILE_QUICKSAVESTATE_HC:
 				{
-					if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].begin() == KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].end())
+					if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].empty())
 					{
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);

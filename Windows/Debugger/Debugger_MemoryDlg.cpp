@@ -30,6 +30,7 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 				SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
+		break;
 	case WM_KEYUP:
 		if( wParam == VK_RETURN ) return 0;
 		break;

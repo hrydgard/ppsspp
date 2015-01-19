@@ -962,7 +962,6 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
 			}
 		} else {
 			strcpy(out, "no instruction :(");
-			MIPSGetInstruction(op);
 		}
 	}
 }

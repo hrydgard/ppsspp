@@ -131,6 +131,9 @@ int GetFuncIndex(int moduleIndex, u32 nib)
 u32 GetNibByName(const char *moduleName, const char *function)
 {
 	int moduleIndex = GetModuleIndex(moduleName);
+	if (moduleIndex == -1)
+		return -1;
+
 	const HLEModule &module = moduleDB[moduleIndex];
 	for (int i = 0; i < module.numFunctions; i++)
 	{
