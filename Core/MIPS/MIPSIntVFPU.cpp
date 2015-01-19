@@ -703,6 +703,7 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
+			memset(d, 0, sizeof(d));
 			break;
 		}
 		ApplyPrefixD(d, outsize);
@@ -1370,6 +1371,7 @@ namespace MIPSInt
 		{
 			Reporting::ReportMessage("Trying to interpret instruction that can't be interpreted (BADVTFM)");
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted (BADVTFM)");
+			memset(d, 0, sizeof(d));
 		}
 		WriteVector(d, sz, vd);
 		PC += 4;
