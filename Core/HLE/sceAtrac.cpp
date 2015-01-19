@@ -1415,7 +1415,9 @@ int __AtracSetContext(Atrac *atrac) {
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
 
 	// Explicitly set the block_align value (needed by newer FFmpeg versions, see #5772.)
-	atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
+	if (atrac->pCodecCtx->block_align == 0) {
+		atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
+	}
 
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
