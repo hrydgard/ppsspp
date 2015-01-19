@@ -196,6 +196,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x497248c9d12f44fd, 68, "strcpy", },
 	{ 0x4a70207212a4c497, 24, "strlen", },
 	{ 0x4b16a5c602c74c6c, 24, "vsub_t", },
+	{ 0x4bb677dace6ca526, 184, "memset", }, // Final FantasyTactics (jpn)
 	{ 0x4c4bdedcc13ac77c, 624, "dl_write_matrix_5", },
 	{ 0x4c91c556d1aa896b, 104, "dl_write_material_3", },
 	{ 0x4cf38c368078181e, 616, "dl_write_matrix", },
