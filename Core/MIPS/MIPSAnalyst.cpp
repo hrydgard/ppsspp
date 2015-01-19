@@ -230,6 +230,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x5b103d973fd1dd94, 92, "matrix_rot_y", },
 	{ 0x5b9d7e9d4c905694, 196, "_calloc_r", },
 	{ 0x5bf7a77b028e9f66, 324, "sqrtf", },
+	{ 0x5c0b3edc0e48852c, 148, "memmove", }, // Dissidia 1 (US)
 	{ 0x5e898df42c4af6b8, 76, "wcsncmp", },
 	{ 0x5f473780835e3458, 52, "vclamp_q", },
 	{ 0x5fc58ed2c4d48b79, 40, "vtfm_q_transp", },
