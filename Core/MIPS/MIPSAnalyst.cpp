@@ -318,8 +318,9 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
-	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet
-	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc
+	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
+	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
+	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
