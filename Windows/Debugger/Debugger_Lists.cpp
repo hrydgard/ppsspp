@@ -320,6 +320,8 @@ void CtrlBreakpointList::reloadBreakpoints()
 	{
 		bool isMemory;
 		int index = getBreakpointIndex(i, isMemory);
+		if (index < 0)
+			continue;
 
 		if (isMemory)
 			SetCheckState(i,(displayedMemChecks_[index].result & MEMCHECK_BREAK) != 0);
