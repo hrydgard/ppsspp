@@ -286,7 +286,7 @@ namespace MIPSInt
 				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
 			}
 #ifndef COMMON_BIG_ENDIAN
-			ReadVector((float*)Memory::GetPointer(addr), V_Quad, vt);
+			ReadVector(reinterpret_cast<float *>(Memory::GetPointer(addr)), V_Quad, vt);
 #else
 			float svqd[4];
 			ReadVector(svqd, V_Quad, vt);
@@ -650,8 +650,8 @@ namespace MIPSInt
 				}
 			}
 		}
-		ApplyPrefixD((float*)d, sz, true);
-		WriteVector((float*)d, sz, vd);
+		ApplyPrefixD(reinterpret_cast<float *>(d), sz, true);
+		WriteVector(reinterpret_cast<float *>(d), sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -665,8 +665,8 @@ namespace MIPSInt
 		int imm = (op >> 16) & 0x1f;
 		float mult = 1.0f/(float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s[0], sz, vs);
-		ApplySwizzleS((float*)&s[0], sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			d[i] = (float)s[i] * mult;
@@ -684,8 +684,8 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s[0], sz, vs);
-		ApplySwizzleS((float*)&s[0], sz);
+		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 		
 		VectorSize outsize = V_Pair;
 		switch (sz) {
@@ -736,8 +736,8 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD((float*)&d[0], outsize);
-		WriteVector((float*)&d[0], outsize, vd);
+		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);
+		WriteVector(reinterpret_cast<float *>(d), outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -750,7 +750,7 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz = sz;
-		ReadVector((float*)s, sz, vs);
+		ReadVector(reinterpret_cast<float *>(s), sz, vs);
 		// ForbidVPFXS
 
 		switch ((op >> 16) & 3) {
@@ -830,8 +830,8 @@ namespace MIPSInt
 			break;
 		}
 		
-		ApplyPrefixD((float*)d,oz, true);  // Only write mask
-		WriteVector((float*)d,oz,vd);
+		ApplyPrefixD(reinterpret_cast<float *>(d),oz, true);  // Only write mask
+		WriteVector(reinterpret_cast<float *>(d),oz,vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -844,8 +844,8 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz;
-		ReadVector((float*)s, sz, vs);
-		ApplySwizzleS((float*)s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
 		switch ((op >> 16)&3)
 		{
 		case 0: //vi2uc
@@ -917,8 +917,8 @@ namespace MIPSInt
 			oz = V_Single;
 			break;
 		}
-		ApplyPrefixD((float*)d,oz);
-		WriteVector((float*)d,oz,vd);
+		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
+		WriteVector(reinterpret_cast<float *>(d),oz,vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -929,7 +929,7 @@ namespace MIPSInt
 		int vs = _VS;
 		u32 s[4];
 		VectorSize sz = V_Quad;
-		ReadVector((float *)s, sz, vs);
+		ReadVector(reinterpret_cast<float *>(s), sz, vs);
 		u16 colors[4];
 		for (int i = 0; i < 4; i++)
 		{
