@@ -1041,7 +1041,7 @@ namespace MIPSInt
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
-		if (entry && entry->replaceFunc) {
+		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
 			entry->replaceFunc();
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
@@ -1051,7 +1051,11 @@ namespace MIPSInt
 				PC = currentMIPS->r[MIPS_REG_RA];
 			}
 		} else {
-			ERROR_LOG(CPU, "Bad replacement function index %i", index);
+			if (!entry || !entry->replaceFunc) {
+				ERROR_LOG(CPU, "Bad replacement function index %i", index);
+			}
+			// Interpret the original instruction under it.
+			MIPSInterpret(Memory::Read_Instruction(PC, true));
 		}
 	}
 
