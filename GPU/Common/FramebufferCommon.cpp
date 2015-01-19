@@ -611,7 +611,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 			}
 			if (match) {
 				srcYOffset = yOffset;
-				srcXOffset = (byteOffset / bpp) % srcStride;
+				srcXOffset = srcStride == 0 ? 0 : (byteOffset / bpp) % srcStride;
 				srcBuffer = vfb;
 			}
 		}
