@@ -177,7 +177,7 @@ namespace MIPSComp
 				u32 value = gpr.GetImm(rs);
 				int x = 31;
 				int count = 0;
-				while (x >= 0 && (value & (1 << x)))
+				while (x >= 0 && (value & (1 << x))) {
 					count++;
 					x--;
 				}
