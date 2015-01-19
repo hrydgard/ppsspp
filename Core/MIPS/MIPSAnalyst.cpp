@@ -135,6 +135,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1daf6eaf0442391d, 1024, "utawarerumono_download_frame", }, // Utawarerumono portable
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
+	{ 0x1ef9cfe6afd3c035, 180, "memset", }, // Kingdom Hearts (US)
 	{ 0x1f53eac122f96b37, 224, "cosf", },
 	{ 0x2097a8b75c8fe651, 436, "atan2", },
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
@@ -167,6 +168,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x32ceb9a7f72b9385, 440, "_strtoul_r", },
 	{ 0x32e6bc7c151491ed, 68, "memchr", },
 	{ 0x335df69db1073a8d, 96, "wcscpy", },
+	{ 0x33dc6b144cb302c1, 304, "memmove", }, // Kingdom Hearts (US)
 	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
 	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
