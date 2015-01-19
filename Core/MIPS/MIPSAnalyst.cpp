@@ -395,6 +395,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	//{ 0xceb5372d0003d951, 52, "dl_write_stenciltest", },
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
+	{ 0xd019b067b58cf6c3, 700, "memmove", }, // Star Ocean 1 (US)
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
 	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
