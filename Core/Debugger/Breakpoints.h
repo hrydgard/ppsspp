@@ -115,6 +115,7 @@ public:
 	static bool IsAddressBreakPoint(u32 addr);
 	static bool IsAddressBreakPoint(u32 addr, bool* enabled);
 	static bool IsTempBreakPoint(u32 addr);
+	static bool RangeContainsBreakPoint(u32 addr, u32 size);
 	static void AddBreakPoint(u32 addr, bool temp = false);
 	static void RemoveBreakPoint(u32 addr);
 	static void ChangeBreakPoint(u32 addr, bool enable);

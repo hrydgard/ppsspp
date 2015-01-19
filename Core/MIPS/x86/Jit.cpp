@@ -535,6 +535,19 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	if (!MIPS_IS_REPLACEMENT(op.encoding))
 		return false;
 
+	// Make sure we don't replace if there are any breakpoints inside.
+	u32 funcSize = symbolMap.GetFunctionSize(dest);
+	if (funcSize == SymbolMap::INVALID_ADDRESS) {
+		if (CBreakPoints::IsAddressBreakPoint(dest)) {
+			return false;
+		}
+		funcSize = (u32)sizeof(u32);
+	} else {
+		if (CBreakPoints::RangeContainsBreakPoint(dest, funcSize)) {
+			return false;
+		}
+	}
+
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
@@ -572,7 +585,7 @@ bool Jit::ReplaceJalTo(u32 dest) {
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
+	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 	return true;
 }
 
@@ -591,7 +604,18 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		return;
 	}
 
-	if (entry->flags & REPFLAG_DISABLED) {
+	u32 funcSize = symbolMap.GetFunctionSize(js.compilerPC);
+	bool disabled = (entry->flags & REPFLAG_DISABLED) != 0;
+	if (!disabled && funcSize != SymbolMap::INVALID_ADDRESS && funcSize > sizeof(u32)) {
+		// We don't need to disable hooks, the code will still run.
+		if ((entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+			// Any breakpoint at the func entry was already tripped, so we can still run the replacement.
+			// That's a common case - just to see how often the replacement hits.
+			disabled = CBreakPoints::RangeContainsBreakPoint(js.compilerPC + sizeof(u32), funcSize - sizeof(u32));
+		}
+	}
+
+	if (disabled) {
 		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;

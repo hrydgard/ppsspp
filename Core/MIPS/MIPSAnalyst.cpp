@@ -83,7 +83,7 @@ struct HardHashTableEntry {
 static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x006b570008068310, 184, "strtok_r", },
 	{ 0x019ba2099fb88f3c, 48, "vector_normalize_t", },
-	{ 0x0266f96d740c7e03, 912, "memcpy", }, // Final Fantasy 4
+	{ 0x0266f96d740c7e03, 912, "memcpy", }, // Final Fantasy 4 (US)
 	{ 0x02bd2859045d2383, 240, "bcmp", },
 	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
@@ -93,7 +93,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x06628f6052cda3c1, 1776, "toheart2_download_frame", }, // To Heart 2 Portable
 	{ 0x06b243c926fa6ab5, 24, "vf2in_q", },
 	{ 0x06e2826e02056114, 56, "wcslen", },
-	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force
+	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force (US)
 	{ 0x075fa9b234b41e9b, 32, "fmodf", },
 	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
 	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },
@@ -135,6 +135,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1daf6eaf0442391d, 1024, "utawarerumono_download_frame", }, // Utawarerumono portable
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
 	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
+	{ 0x1ef9cfe6afd3c035, 180, "memset", }, // Kingdom Hearts (US)
 	{ 0x1f53eac122f96b37, 224, "cosf", },
 	{ 0x2097a8b75c8fe651, 436, "atan2", },
 	{ 0x21411b3c860822c0, 36, "matrix_scale_q_t", },
@@ -159,25 +160,26 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
 	{ 0x30c9c4f420573eb6, 540, "expf", },
-	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana
+	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana (US)
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
 	{ 0x31f523ef18898e0e, 420, "logf", },
-	{ 0x32215b1d2196377f, 844, "godseaterburst_blit_texture", }, // Gods Eater Burst
+	{ 0x32215b1d2196377f, 844, "godseaterburst_blit_texture", }, // Gods Eater Burst (US)
 	{ 0x32806967fe81568b, 40, "vector_sub_t_2", },
 	{ 0x32ceb9a7f72b9385, 440, "_strtoul_r", },
 	{ 0x32e6bc7c151491ed, 68, "memchr", },
 	{ 0x335df69db1073a8d, 96, "wcscpy", },
+	{ 0x33dc6b144cb302c1, 304, "memmove", }, // Kingdom Hearts (US)
 	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
 	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
-	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia, Dissidia 012
+	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia (US), Dissidia 012 (US)
 	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
 	{ 0x38f19bc3be215acc, 388, "log10f", },
 	{ 0x393047f06eceaba1, 96, "strcspn", },
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
 	{ 0x3ab08b5659de1746, 40, "vsin_s", },
-	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4
+	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4 (US)
 	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
 	{ 0x3ce1806699a91d9d, 148, "dl_write_light", },
 	{ 0x3d5e914011c181d4, 444, "scalbnf", },
@@ -230,6 +232,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x5b103d973fd1dd94, 92, "matrix_rot_y", },
 	{ 0x5b9d7e9d4c905694, 196, "_calloc_r", },
 	{ 0x5bf7a77b028e9f66, 324, "sqrtf", },
+	{ 0x5c0b3edc0e48852c, 148, "memmove", }, // Dissidia 1 (US)
 	{ 0x5e898df42c4af6b8, 76, "wcsncmp", },
 	{ 0x5f473780835e3458, 52, "vclamp_q", },
 	{ 0x5fc58ed2c4d48b79, 40, "vtfm_q_transp", },
@@ -293,7 +296,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8a00e7207e7dbc81, 232, "_exit", },
 	{ 0x8a1f9daadecbaf7f, 104, "vmmul_q_transp", },
 	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
-	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile
+	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile (US)
 	{ 0x8da0164e69e9b531, 1040, "grisaianokajitsu_download_frame", }, // Grisaia no Kajitsu La Fruit de la Grisaia
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
@@ -315,8 +318,9 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
-	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet
-	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc
+	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
+	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
+	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
 	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
@@ -324,6 +328,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
+	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
 	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
@@ -358,7 +363,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
 	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
 	{ 0xb7448c5ffdd3b0fc, 356, "atan2f", },
-	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky
+	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky (US)
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
 	{ 0xb89aa73b6f94ba95, 52, "vclamp_t", },
 	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
@@ -372,6 +377,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
 	{ 0xbfa8c16038b7753d, 868, "sakurasou_download_frame", }, // Sakurasou No Pet Na Kanojo
+	{ 0xbfe07e305abc4cd1, 808, "memmove" }, // Final Fantasy Tactics (US)
 	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
 	{ 0xc1220040b0599a75, 472, "soranokiseki_sc_download_frame", }, // Sora no kiseki SC
@@ -383,7 +389,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc51519f5dab342d4, 224, "cosf", },
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
-	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1
+	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1 (US)
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
 	{ 0xca7cb2c0b9410618, 680, "kudwafter_download_frame", }, // Kud Wafter
 	{ 0xcb7a2edd603ecfef, 48, "vtfm_p", },
@@ -394,6 +400,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	//{ 0xceb5372d0003d951, 52, "dl_write_stenciltest", },
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
+	{ 0xd019b067b58cf6c3, 700, "memmove", }, // Star Ocean 1 (US)
 	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
 	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
@@ -414,7 +421,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
 	{ 0xe086d5c9ce89148f, 212, "bokunonatsuyasumi4_download_frame", }, // Boku no Natsuyasumi 2 and 4,
-	{ 0xe093c2b0194d52b3, 820, "ff1_battle_effect", }, // Final Fantasy 1
+	{ 0xe093c2b0194d52b3, 820, "ff1_battle_effect", }, // Final Fantasy 1 (US)
 	{ 0xe1107cf3892724a0, 460, "_memalign_r", },
 	{ 0xe1724e6e29209d97, 24, "vector_length_t_2", },
 	{ 0xe1a5d939cc308195, 68, "wcscmp", },
@@ -428,7 +435,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xe83a7a9d80a21c11, 4448, "_strtod_r", },
 	{ 0xe894bda909a8a8f9, 1064, "expensive_wipeout_pulse", },
 	{ 0xe8ad7719be44e7c8, 276, "strchr", },
-	{ 0xeabb9c1b4f83d2b4, 52, "memset", }, // Crisis Core
+	{ 0xeabb9c1b4f83d2b4, 52, "memset", }, // Crisis Core (US)
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
 	{ 0xed8918f378e9a563, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation Overworld

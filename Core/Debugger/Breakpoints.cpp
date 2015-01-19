@@ -150,6 +150,18 @@ bool CBreakPoints::IsTempBreakPoint(u32 addr)
 	return bp != INVALID_BREAKPOINT;
 }
 
+bool CBreakPoints::RangeContainsBreakPoint(u32 addr, u32 size)
+{
+	const u32 end = addr + size;
+	for (const auto &bp : breakPoints_)
+	{
+		if (bp.addr >= addr && bp.addr < end)
+			return true;
+	}
+
+	return false;
+}
+
 void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 {
 	size_t bp = FindBreakpoint(addr, true, temp);
