@@ -325,6 +325,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
+	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
 	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
