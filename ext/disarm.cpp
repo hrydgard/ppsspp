@@ -1293,7 +1293,9 @@ lPling:
                 op = num(op, rot);
               }
               else {
-                imm8 = (imm8>>rot) | (imm8<<(32-rot));
+                if (rot != 0) {
+                  imm8 = (imm8>>rot) | (imm8<<(32-rot));
+                }
                 if (c=='*') {
                   *op++='#';
                   if (imm8>256 && ((imm8&(imm8-1))==0)) {
