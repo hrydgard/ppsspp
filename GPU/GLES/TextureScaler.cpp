@@ -25,6 +25,7 @@
 
 #include "Core/Config.h"
 #include "Common/Common.h"
+#include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
@@ -48,48 +49,6 @@
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
 
 namespace {
-	//////////////////////////////////////////////////////////////////// Color space conversion
-
-	// convert 4444 image to 8888, parallelizable
-	void convert4444(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 565 image to 8888, parallelizable
-	void convert565(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				out[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 5551 image to 8888, parallelizable
-	void convert5551(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
 
 	//////////////////////////////////////////////////////////////////// Various image processing
 

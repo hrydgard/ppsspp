@@ -17,6 +17,7 @@
 
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
+#include "Common/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"

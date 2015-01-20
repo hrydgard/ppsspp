@@ -129,6 +129,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/udis86/udis86.c \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/ext/xxhash.c \
+  $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \

@@ -23,6 +23,7 @@
 #endif
 
 #include "Common/FileUtil.h"
+#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -48,8 +49,7 @@ public:
 		}
 	}
 
-	bool put_buf(const void *buf, int len) override
-	{
+	bool put_buf(const void *buf, int len) override {
 		if (fp_) {
 			if (fwrite(buf, len, 1, fp_) != 1) {
 				fclose(fp_);

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -2065,47 +2066,36 @@ bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
+		for (int y = 0; y < h; y++) {
+			u16 *src = (u16*)finalBuf + y*bufw;
+			u32 *dst = (u32*)output + y*w;
+			ConvertRGBA4444ToRGBA8888(dst, src, bufw);
+		}
 		break;
 
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
+		for (int y = 0; y < h; y++) {
+			u16 *src = (u16*)finalBuf + y*bufw;
+			u32 *dst = (u32*)output + y*w;
+			ConvertRGBA5551ToRGBA8888(dst, src, bufw);
+		}
 		break;
 
 	case GL_UNSIGNED_SHORT_5_6_5:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 a = 0xFF;
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
+		for (int y = 0; y < h; y++) {
+			u16 *src = (u16*)finalBuf + y*bufw;
+			u32 *dst = (u32*)output + y*w;
+			ConvertRGB565ToRGBA888F(dst, src, bufw);
+		}
 		break;
 
 	default:
-		for (int y = 0; y < h; y++)
+		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < bufw; x++) {
 				u32 val = ((u32*)finalBuf)[y*bufw + x];
 				((u32*)output)[y*w + x] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
 			}
+		}
 		break;
 	}
 

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
+#include "Common/ColorConv.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -32,7 +33,6 @@
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
-#include "GPU/Software/Colors.h"
 #include "GPU/Software/Rasterizer.h"
 
 static GLuint temp_texture = 0;

@@ -19,6 +19,7 @@
 
 #include "helper/dx_state.h"
 #include "helper/fbo.h"
+#include "Common/ColorConv.h"
 #include "Core/Reporting.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
