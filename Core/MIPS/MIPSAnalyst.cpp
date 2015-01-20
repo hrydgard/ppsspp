@@ -198,10 +198,11 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x497248c9d12f44fd, 68, "strcpy", },
 	{ 0x4a70207212a4c497, 24, "strlen", },
 	{ 0x4b16a5c602c74c6c, 24, "vsub_t", },
-	{ 0x4bb677dace6ca526, 184, "memset", }, // Final FantasyTactics (jpn)
+	{ 0x4bb677dace6ca526, 184, "memset", }, // Final FantasyTactics (JPN)
 	{ 0x4c4bdedcc13ac77c, 624, "dl_write_matrix_5", },
 	{ 0x4c91c556d1aa896b, 104, "dl_write_material_3", },
 	{ 0x4cf38c368078181e, 616, "dl_write_matrix", },
+	{ 0x4d3e7085e01d30e4, 324, "memcpy", }, // PoPoLoCrois (JPN)
 	{ 0x4d72b294501cddfb, 80, "copysign", },
 	{ 0x4ddd83b7f4ed8d4e, 844, "memcpy", },
 	{ 0x4e266783291b0220, 28, "vsub_t", },
@@ -283,6 +284,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x7978a886cf70b1c9, 56, "wcschr", },
 	{ 0x79faa339fff5a80c, 28, "finitef", },
 	{ 0x7c50728008c288e3, 36, "vector_transform_q_4x4", },
+	{ 0x7e33d4eaf573f937, 208, "memset", }, // Toukiden (JPN)
 	{ 0x7f1fc0dce6be120a, 404, "fmod", },
 	{ 0x8126a59ffa504614, 540, "brandish_download_frame", }, // Brandish, Zero no Kiseki, and Ao no Kiseki
 	{ 0x828b98925af9ff8f, 40, "vector_distance_t", },
@@ -298,6 +300,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8a610f34078ce360, 32, "vector_copy_q_t", },
 	{ 0x8c3fd997a544d0b1, 268, "memcpy", }, // Valkyrie Profile (US)
 	{ 0x8da0164e69e9b531, 1040, "grisaianokajitsu_download_frame", }, // Grisaia no Kajitsu La Fruit de la Grisaia
+	{ 0x8dd0546db930ef25, 992, "memmove", }, // PoPoLoCrois (JPN)
 	{ 0x8df2928848857e97, 164, "strcat", },
 	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
