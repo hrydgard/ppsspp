@@ -13,17 +13,18 @@
 // If not, see http://www.gnu.org/licenses/
 
 // Official git repository and contact information can be found at
-// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/. 
 
-// On Visual Studio 2012, include this before anything else so
-// _VARIADIC_MAX gets set to 10, to avoid std::bind compile errors.
-// See header file for reasons why.
-#if defined(_WIN32) && _MSC_VER == 1700
+#if _MSC_VER == 1700
+// Has to be included before TextureScaler.h, else we get those std::bind errors in VS2012.. 
 #include "../native/base/basictypes.h"
 #endif
 
 #include <algorithm>
-#include "GPU/Directx9/TextureScalerDX9.h"
+#include <cstdlib>
+#include <cmath>
+
+#include "GPU/Common/TextureScaler.h"
 
 #include "Core/Config.h"
 #include "Common/Common.h"
@@ -34,12 +35,6 @@
 #include "Common/ThreadPools.h"
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
-#include <stdlib.h>
-#include <math.h>
-#include <D3D9Types.h>
-
-#undef min
-#undef max
 
 #if _M_SSE >= 0x402
 #include <nmmintrin.h>
@@ -52,11 +47,11 @@
 #include "native/base/timeutil.h"
 #endif
 
-/////////////////////////////////////// Helper Functions (mostly math for parallelization)
+// Helper Functions (mostly math for parallelization)
 
 namespace {
 
-	//////////////////////////////////////////////////////////////////// Various image processing
+	// Various image processing
 
 	#define R(_col) ((_col>> 0)&0xFF)
 	#define G(_col) ((_col>> 8)&0xFF)
@@ -179,7 +174,8 @@ namespace {
 									out[y*width + x] += 400; // assume distance at borders, usually makes for better result
 									continue;
 								}
-								out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+								u32 d = data[yy*width + xx];
+								out[y*width + x] += DISTANCE(d, center);
 							}
 						}
 					}
@@ -491,14 +487,12 @@ namespace {
 
 /////////////////////////////////////// Texture Scaler
 
-namespace DX9 {
-
-TextureScalerDX9::TextureScalerDX9() {
+TextureScaler::TextureScaler() {
 	initBicubicWeights();
 }
 
-bool TextureScalerDX9::IsEmptyOrFlat(u32* data, int pixels, u32 fmt) {
-	int pixelsPerWord = (fmt == D3DFMT_A8R8G8B8) ? 1 : 2;
+bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
+	int pixelsPerWord = (fmt == GL_UNSIGNED_BYTE) ? 1 : 2;
 	u32 ref = data[0];
 	for(int i=0; i<pixels/pixelsPerWord; ++i) {
 		if(data[i]!=ref) return false;
@@ -506,7 +500,7 @@ bool TextureScalerDX9::IsEmptyOrFlat(u32* data, int pixels, u32 fmt) {
 	return true;
 }
 
-void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
+void TextureScaler::Scale(u32* &data, GEBufferFormat &dstFmt, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if(IsEmptyOrFlat(data, width*height, dstFmt)) {
@@ -553,7 +547,7 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 
 	// update values accordingly
 	data = outputBuf;
-	dstFmt = D3DFMT_A8R8G8B8;
+	dstFmt = GE_FORMAT_8888;
 	width *= factor;
 	height *= factor;
 
@@ -566,27 +560,27 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 	#endif
 }
 
-void TextureScalerDX9::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
+void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
 	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScalerDX9::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
+void TextureScaler::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
 	bufTmp1.resize(width*height*factor);
 	u32 *tmpBuf = bufTmp1.data();
 	GlobalThreadPool::Loop(std::bind(&bilinearH, factor, source, tmpBuf, width, placeholder::_1, placeholder::_2), 0, height);
 	GlobalThreadPool::Loop(std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScalerDX9::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
+void TextureScaler::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
 	GlobalThreadPool::Loop(std::bind(&scaleBicubicBSpline, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScalerDX9::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
+void TextureScaler::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
 	GlobalThreadPool::Loop(std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScalerDX9::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
+void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
 	// Basic algorithm:
 	// 1) determine a feature mask C based on a sobel-ish filter + splatting, and upscale that mask bilinearly
 	// 2) generate 2 scaled images: A - using Bilinear filtering, B - using xBRZ
@@ -616,7 +610,7 @@ void TextureScalerDX9::ScaleHybrid(int factor, u32* source, u32* dest, int width
 	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, placeholder::_1, placeholder::_2), 0, height*factor);
 }
 
-void TextureScalerDX9::DePosterize(u32* source, u32* dest, int width, int height) {
+void TextureScaler::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
 	GlobalThreadPool::Loop(std::bind(&deposterizeH, source, bufTmp3.data(), width, placeholder::_1, placeholder::_2), 0, height);
 	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, placeholder::_1, placeholder::_2), 0, height);
@@ -624,21 +618,39 @@ void TextureScalerDX9::DePosterize(u32* source, u32* dest, int width, int height
 	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScalerDX9::ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) {
+static void convert4444(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGBA4444ToRGBA8888(out + y * width, data + y * width, width);
+	}
+}
+
+static void convert565(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGB565ToRGBA888F(out + y * width, data + y * width, width);
+	}
+}
+
+static void convert5551(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGBA5551ToRGBA8888(out + y * width, data + y * width, width);
+	}
+}
+
+void TextureScaler::ConvertTo8888(GEBufferFormat format, u32* source, u32* &dest, int width, int height) {
 	switch(format) {
-	case D3DFMT_A8R8G8B8:
+	case GE_FORMAT_8888:
 		dest = source; // already fine
 		break;
 
-	case D3DFMT_A4R4G4B4:
+	case GE_FORMAT_4444:
 		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case D3DFMT_R5G6B5:
+	case GE_FORMAT_565:
 		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case D3DFMT_A1R5G5B5:
+	case GE_FORMAT_5551:
 		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
@@ -646,6 +658,4 @@ void TextureScalerDX9::ConvertTo8888(u32 format, u32* source, u32* &dest, int wi
 		dest = source;
 		ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
 	}
-}
-
 }

@@ -54,28 +54,10 @@ inline u32 RGBA2BGRA(u32 src) {
 	return r | ga | b;
 }
 
-void convert4444(u16* data, u32* out, int width, int l, int u) {
-	for (int y = l; y < u; ++y) {
-		ConvertRGBA4444ToRGBA8888(out + y * width, data + y * width, width);
-	}
-}
-
-void convert565(u16* data, u32* out, int width, int l, int u) {
-	for (int y = l; y < u; ++y) {
-		ConvertRGB565ToRGBA888F(out + y * width, data + y * width, width);
-	}
-}
-
-void convert5551(u16* data, u32* out, int width, int l, int u) {
-	for (int y = l; y < u; ++y) {
-		ConvertRGBA5551ToRGBA8888(out + y * width, data + y * width, width);
-	}
-}
-
-// Used heavily in Test Drive Unlimited
+// Used heavily in Test Drive Unlimited (for no good reason...)
 void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, int numPixels) {
 #if _M_SSE >= 0x401
-	const __m128i maskG = _mm_set1_epi32(0x8000FC00);
+	const __m128i maskG = _mm_set1_epi32(0x0000FC00);
 	const __m128i maskRB = _mm_set1_epi32(0x00F800F8);
 	const __m128i mask = _mm_set1_epi32(0x0000FFFF);
 

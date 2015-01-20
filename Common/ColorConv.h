@@ -35,15 +35,6 @@ inline u8 Convert6To8(u8 v) {
 	return (v << 2) | (v >> 4);
 }
 
-// convert 4444 image to 8888
-void convert4444(u16* data, u32* out, int width, int l, int u);
-
-// convert 565 image to 8888
-void convert565(u16* data, u32* out, int width, int l, int u);
-
-// convert 5551 image to 8888
-void convert5551(u16* data, u32* out, int width, int l, int u);
-
 inline u32 DecodeRGBA4444(u16 src) {
 	const u32 r = (src & 0x000F) << 0;
 	const u32 g = (src & 0x00F0) << 4;
