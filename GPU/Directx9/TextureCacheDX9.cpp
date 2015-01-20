@@ -1704,21 +1704,17 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 
 	u32 *pixelData = (u32 *)finalBuf;
 	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-		GEBufferFormat dstFormat;
+		ScalerPixelFormat dstFormat;
 		switch (dstFmt) {
-		case D3DFMT_A8R8G8B8: dstFormat = GE_FORMAT_8888; break;
-		case D3DFMT_R5G6B5: dstFormat = GE_FORMAT_565; break;
-		case D3DFMT_A4R4G4B4: dstFormat = GE_FORMAT_4444; break;
-		case D3DFMT_A1R5G5B5: dstFormat = GE_FORMAT_5551; break;
+		case D3DFMT_A8R8G8B8: dstFormat = SCALER_FORMAT_8888; break;
+		case D3DFMT_R5G6B5: dstFormat = SCALER_FORMAT_565; break;
+		case D3DFMT_A4R4G4B4: dstFormat = SCALER_FORMAT_4444; break;
+		case D3DFMT_A1R5G5B5: dstFormat = SCALER_FORMAT_5551; break;
 		default: goto dontScale;
 		}
 		scaler.Scale(pixelData, dstFormat, w, h, scaleFactor);
-		switch (dstFormat) {
-		case GE_FORMAT_8888: dstFmt = D3DFMT_A8R8G8B8; break;
-		case GE_FORMAT_565: dstFmt = D3DFMT_R5G6B5; break;
-		case GE_FORMAT_4444: dstFmt = D3DFMT_A4R4G4B4; break;
-		case GE_FORMAT_5551: dstFmt = D3DFMT_A1R5G5B5; break;
-		}
+		// The scaler currently always outputs this.
+		dstFmt = D3DFMT_A8R8G8B8;
 	dontScale:
 		;
 	}

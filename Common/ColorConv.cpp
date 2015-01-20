@@ -269,3 +269,15 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, int numPixels) {
 		dst[x * 4 + 3] = Convert4To8(col >> 12);
 	}
 }
+
+// convert 5551 image to 8888, parallelizable
+void ConvertARGB1555ToRGBA8888(u32 *dst32, const u16 *src, int numPixels) {
+	for (int x = 0; x < numPixels; ++x) {
+		u32 val = src[x];
+		u32 r = Convert5To8((val >> 11) & 0x1F);
+		u32 g = Convert5To8((val >> 6) & 0x1F);
+		u32 b = Convert5To8((val >> 1) & 0x1F);
+		u32 a = (val & 0x1) * 255;
+		dst32[x] = (a << 24) | (b << 16) | (g << 8) | r;
+	}
+}
