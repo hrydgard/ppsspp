@@ -115,13 +115,12 @@ static inline u16 RGBA8888To4444(u32 value) {
 	return r | g | b | a;
 }
 
-void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels);
-void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels);
-void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);
-void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);
-void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels);
-void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
-void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, int numPixels);
+void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, int numPixels);
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, int numPixels);
 
 void ConvertRGB565ToRGBA888F(u32 *dst, const u16 *src, int numPixels);
 void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, int numPixels);

@@ -149,14 +149,13 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 		const u16 *buf16 = (const u16 *)buffer;
 		const u32 *buf32 = (const u32 *)buffer;
 		for (u32 y = 0; y < buf.GetHeight(); y++) {
+			u8 *dst;
+			if (flip) {
+				dst = &temp[(buf.GetHeight() - y - 1) * buf.GetStride() * 3];
+			} else {
+				dst = &temp[y * buf.GetStride() * 3];
+			}
 			for (u32 x = 0; x < buf.GetStride(); x++) {
-				u8 *dst;
-				if (flip) {
-					dst = &temp[(buf.GetHeight() - y - 1) * buf.GetStride() * 3 + x * 3];
-				} else {
-					dst = &temp[y * buf.GetStride() * 3 + x * 3];
-				}
-
 				u8 &r = brswap ? dst[2] : dst[0];
 				u8 &g = dst[1];
 				u8 &b = brswap ? dst[0] : dst[2];
@@ -203,6 +202,7 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 					ERROR_LOG(COMMON, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
 					return nullptr;
 				}
+				dst += 3;
 			}
 		}
 		buffer = temp;

@@ -2091,10 +2091,7 @@ bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 
 	default:
 		for (int y = 0; y < h; y++) {
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u32*)finalBuf)[y*bufw + x];
-				((u32*)output)[y*w + x] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
-			}
+			ConvertBGRA8888ToRGBA8888((u32 *)output + y * w, (u32 *)(finalBuf)+y * bufw, bufw);
 		}
 		break;
 	}

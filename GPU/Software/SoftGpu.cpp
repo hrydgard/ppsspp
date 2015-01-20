@@ -181,8 +181,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
-void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
-{
+void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
@@ -213,21 +212,15 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 
 			switch (displayFormat_) {
 			case GE_FORMAT_565:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGB565(fb_line[x]);
-				}
+				ConvertRGB565ToRGBA888F(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_5551:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA5551(fb_line[x]);
-				}
+				ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_4444:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA4444(fb_line[x]);
-				}
+				ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			default:

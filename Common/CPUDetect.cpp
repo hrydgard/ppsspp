@@ -21,11 +21,12 @@
 #endif
 
 #include <memory.h>
+
 #include "base/logging.h"
 #include "base/basictypes.h"
 
-#include "Common.h"
 #include "CPUDetect.h"
+#include "Common.h"
 #include "StringUtils.h"
 
 #ifdef _WIN32
