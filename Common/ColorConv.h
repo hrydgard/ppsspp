@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (C) 2015 PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,12 +15,27 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
 #pragma once
 
-#include "Common/CommonTypes.h"
+#include "CommonTypes.h"
 
-static inline u32 DecodeRGBA4444(u16 src)
-{
+inline u8 Convert4To8(u8 v) {
+	// Swizzle bits: 00001234 -> 12341234
+	return (v << 4) | (v);
+}
+
+inline u8 Convert5To8(u8 v) {
+	// Swizzle bits: 00012345 -> 12345123
+	return (v << 3) | (v >> 2);
+}
+
+inline u8 Convert6To8(u8 v) {
+	// Swizzle bits: 00123456 -> 12345612
+	return (v << 2) | (v >> 4);
+}
+
+inline u32 DecodeRGBA4444(u16 src) {
 	const u32 r = (src & 0x000F) << 0;
 	const u32 g = (src & 0x00F0) << 4;
 	const u32 b = (src & 0x0F00) << 8;
@@ -30,8 +45,7 @@ static inline u32 DecodeRGBA4444(u16 src)
 	return c | (c << 4);
 }
 
-static inline u32 DecodeRGBA5551(u16 src)
-{
+inline u32 DecodeRGBA5551(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert5To8((src >> 5) & 0x1F);
 	u8 b = Convert5To8((src >> 10) & 0x1F);
@@ -40,8 +54,7 @@ static inline u32 DecodeRGBA5551(u16 src)
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-static inline u32 DecodeRGB565(u16 src)
-{
+inline u32 DecodeRGB565(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert6To8((src >> 5) & 0x3F);
 	u8 b = Convert5To8((src >> 11) & 0x1F);
@@ -49,8 +62,7 @@ static inline u32 DecodeRGB565(u16 src)
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-static inline u32 DecodeRGBA8888(u32 src)
-{
+inline u32 DecodeRGBA8888(u32 src) {
 #if 1
 	return src;
 #else
@@ -63,8 +75,7 @@ static inline u32 DecodeRGBA8888(u32 src)
 #endif
 }
 
-static inline u16 RGBA8888To565(u32 value)
-{
+inline u16 RGBA8888To565(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -74,8 +85,7 @@ static inline u16 RGBA8888To565(u32 value)
 	return (u16)r | ((u16)g << 5) | ((u16)b << 11);
 }
 
-static inline u16 RGBA8888To5551(u32 value)
-{
+inline u16 RGBA8888To5551(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -87,12 +97,24 @@ static inline u16 RGBA8888To5551(u32 value)
 	return (u16)r | ((u16)g << 5) | ((u16)b << 10) | ((u16)a << 15);
 }
 
-static inline u16 RGBA8888To4444(u32 value)
-{
+static inline u16 RGBA8888To4444(u32 value) {
 	const u32 c = value >> 4;
-	const u16 r = (c >>  0) & 0x000F;
-	const u16 g = (c >>  4) & 0x00F0;
-	const u16 b = (c >>  8) & 0x0F00;
+	const u16 r = (c >> 0) & 0x000F;
+	const u16 g = (c >> 4) & 0x00F0;
+	const u16 b = (c >> 8) & 0x0F00;
 	const u16 a = (c >> 12) & 0xF000;
 	return r | g | b | a;
 }
+
+void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, int numPixels);
+void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, int numPixels);
+void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, int numPixels);
+void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, int numPixels);
+
+void ConvertRGB565ToRGBA888F(u32 *dst, const u16 *src, int numPixels);
+void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, int numPixels);
+void ConvertRGBA4444ToRGBA8888(u32 *dst, const u16 *src, int numPixels);
+
+void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, int numPixels);

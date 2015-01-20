@@ -68,7 +68,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "gfx_es2/gpu_features.h"
-#include "GPU/GLES/TextureScaler.h"
+#include "GPU/Common/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"

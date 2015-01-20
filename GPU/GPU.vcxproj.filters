@@ -42,8 +42,8 @@
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Software\Colors.h">
-      <Filter>Software</Filter>
+    <ClInclude Include="Common\TextureScaler.h">
+      <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="Software\Clipper.h">
       <Filter>Software</Filter>
@@ -72,9 +72,6 @@
     <ClInclude Include="GLES\TextureCache.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\TextureScaler.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\TransformPipeline.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -94,9 +91,6 @@
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\TransformPipelineDX9.h">
-      <Filter>DirectX9</Filter>
-    </ClInclude>
-    <ClInclude Include="Directx9\TextureScalerDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
     <ClInclude Include="Directx9\TextureCacheDX9.h">
@@ -257,11 +251,8 @@
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\TextureScalerDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\TextureScaler.cpp">
-      <Filter>GLES</Filter>
+    <ClCompile Include="Common\TextureScaler.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\IndexGenerator.cpp">
       <Filter>Common</Filter>

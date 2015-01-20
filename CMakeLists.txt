@@ -326,6 +326,8 @@ add_library(Common STATIC
 	${CommonExtra}
 	Common/ChunkFile.cpp
 	Common/ChunkFile.h
+	Common/ColorConv.cpp
+	Common/ColorConv.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/md5.cpp
@@ -1378,6 +1380,8 @@ add_library(GPU OBJECT
 	GPU/Common/IndexGenerator.h
 	GPU/Common/TextureDecoder.cpp
 	GPU/Common/TextureDecoder.h
+	GPU/Common/TextureScaler.cpp
+	GPU/Common/TextureScaler.h
 	GPU/Common/TextureCacheCommon.cpp
 	GPU/Common/TextureCacheCommon.h
 	${GPU_NEON}
@@ -1406,8 +1410,6 @@ add_library(GPU OBJECT
 	GPU/GLES/StencilBuffer.cpp
 	GPU/GLES/TextureCache.cpp
 	GPU/GLES/TextureCache.h
-	GPU/GLES/TextureScaler.cpp
-	GPU/GLES/TextureScaler.h
 	GPU/GLES/TransformPipeline.cpp
 	GPU/GLES/TransformPipeline.h
 	GPU/GLES/VertexShaderGenerator.cpp

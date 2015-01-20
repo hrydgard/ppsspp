@@ -21,18 +21,20 @@
 #endif
 
 #include <algorithm>
-#include "GPU/GLES/TextureScaler.h"
+#include <cstdlib>
+#include <cmath>
+
+#include "GPU/Common/TextureScaler.h"
 
 #include "Core/Config.h"
 #include "Common/Common.h"
+#include "Common/ColorConv.h"
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
 #include "Common/ThreadPools.h"
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
-#include <stdlib.h>
-#include <math.h>
 
 #if _M_SSE >= 0x402
 #include <nmmintrin.h>
@@ -45,53 +47,11 @@
 #include "native/base/timeutil.h"
 #endif
 
-/////////////////////////////////////// Helper Functions (mostly math for parallelization)
+// Helper Functions (mostly math for parallelization)
 
 namespace {
-	//////////////////////////////////////////////////////////////////// Color space conversion
 
-	// convert 4444 image to 8888, parallelizable
-	void convert4444(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 565 image to 8888, parallelizable
-	void convert565(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				out[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 5551 image to 8888, parallelizable
-	void convert5551(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	//////////////////////////////////////////////////////////////////// Various image processing
+	// Various image processing
 
 	#define R(_col) ((_col>> 0)&0xFF)
 	#define G(_col) ((_col>> 8)&0xFF)
@@ -214,7 +174,8 @@ namespace {
 									out[y*width + x] += 400; // assume distance at borders, usually makes for better result
 									continue;
 								}
-								out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+								u32 d = data[yy*width + xx];
+								out[y*width + x] += DISTANCE(d, center);
 							}
 						}
 					}
@@ -539,7 +500,7 @@ bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
 	return true;
 }
 
-void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, int factor) {
+void TextureScaler::Scale(u32* &data, GEBufferFormat &dstFmt, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if(IsEmptyOrFlat(data, width*height, dstFmt)) {
@@ -586,7 +547,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 
 	// update values accordingly
 	data = outputBuf;
-	dstFmt = GL_UNSIGNED_BYTE;
+	dstFmt = GE_FORMAT_8888;
 	width *= factor;
 	height *= factor;
 
@@ -657,21 +618,39 @@ void TextureScaler::DePosterize(u32* source, u32* dest, int width, int height) {
 	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
-void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
+static void convert4444(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGBA4444ToRGBA8888(out + y * width, data + y * width, width);
+	}
+}
+
+static void convert565(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGB565ToRGBA888F(out + y * width, data + y * width, width);
+	}
+}
+
+static void convert5551(u16* data, u32* out, int width, int l, int u) {
+	for (int y = l; y < u; ++y) {
+		ConvertRGBA5551ToRGBA8888(out + y * width, data + y * width, width);
+	}
+}
+
+void TextureScaler::ConvertTo8888(GEBufferFormat format, u32* source, u32* &dest, int width, int height) {
 	switch(format) {
-	case GL_UNSIGNED_BYTE:
+	case GE_FORMAT_8888:
 		dest = source; // already fine
 		break;
 
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case GE_FORMAT_4444:
 		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case GE_FORMAT_565:
 		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case GE_FORMAT_5551:
 		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 

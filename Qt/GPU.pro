@@ -36,7 +36,6 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/GLES/StateMapping.cpp \
 	$$P/GPU/GLES/StencilBuffer.cpp \
 	$$P/GPU/GLES/TextureCache.cpp \
-	$$P/GPU/GLES/TextureScaler.cpp \
 	$$P/GPU/GLES/TransformPipeline.cpp \
 	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
@@ -44,6 +43,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
+	$$P/GPU/Common/TextureScaler.cpp \
 	$$P/GPU/Common/TextureCacheCommon.cpp \
 	$$P/GPU/Common/TransformCommon.cpp \
 	$$P/GPU/Common/SoftwareTransformCommon.cpp \
