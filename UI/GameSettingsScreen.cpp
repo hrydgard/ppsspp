@@ -136,9 +136,20 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gs, screenManager()));
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gs->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+#ifdef ANDROID
+    graphicsSettings->Add(new ItemHeader(gs->T("Cardboard Settings", "Cardboard Settings")));
+    CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gs->T("Enable Cardboard", "Enable Cardboard")));
+    cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gs->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager()));
+    cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gs->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager()));
+    cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gs->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager()));
+    cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -312,6 +323,7 @@ void GameSettingsScreen::CreateViews() {
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
+
 	if (PSP_IsInited() || g_Config.iGPUBackend != GPU_BACKEND_OPENGL)
 		softwareGPU->SetEnabled(false);
 
