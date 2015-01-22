@@ -500,7 +500,7 @@ bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
 	return true;
 }
 
-void TextureScaler::Scale(u32* &data, ScalerPixelFormat &dstFmt, int &width, int &height, int factor) {
+void TextureScaler::Scale(u32* &data, GEBufferFormat &dstFmt, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if(IsEmptyOrFlat(data, width*height, dstFmt)) {
@@ -547,7 +547,7 @@ void TextureScaler::Scale(u32* &data, ScalerPixelFormat &dstFmt, int &width, int
 
 	// update values accordingly
 	data = outputBuf;
-	dstFmt = SCALER_FORMAT_8888;
+	dstFmt = GE_FORMAT_8888;
 	width *= factor;
 	height *= factor;
 
@@ -636,33 +636,22 @@ static void convert5551(u16* data, u32* out, int width, int l, int u) {
 	}
 }
 
-static void convert1555(u16* data, u32* out, int width, int l, int u) {
-	for (int y = l; y < u; ++y) {
-		ConvertARGB1555ToRGBA8888(out + y * width, data + y * width, width);
-	}
-}
-
-
-void TextureScaler::ConvertTo8888(ScalerPixelFormat format, u32* source, u32* &dest, int width, int height) {
+void TextureScaler::ConvertTo8888(GEBufferFormat format, u32* source, u32* &dest, int width, int height) {
 	switch(format) {
-	case SCALER_FORMAT_8888:
+	case GE_FORMAT_8888:
 		dest = source; // already fine
 		break;
 
-	case SCALER_FORMAT_4444:
+	case GE_FORMAT_4444:
 		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case SCALER_FORMAT_565:
+	case GE_FORMAT_565:
 		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
-	case SCALER_FORMAT_5551:
+	case GE_FORMAT_5551:
 		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
-		break;
-
-	case SCALER_FORMAT_1555:
-		GlobalThreadPool::Loop(std::bind(&convert1555, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	default:

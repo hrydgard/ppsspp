@@ -118,7 +118,3 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, int numPixels);
 void ConvertRGBA4444ToRGBA8888(u32 *dst, const u16 *src, int numPixels);
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, int numPixels);
-
-// Backwards GL Style
-void ConvertARGB1555ToRGBA8888(u32 *dst, const u16 *src, int numPixels);
-

@@ -24,19 +24,11 @@
 
 #include <vector>
 
-enum ScalerPixelFormat {
-	SCALER_FORMAT_8888,
-	SCALER_FORMAT_565,
-	SCALER_FORMAT_5551,
-	SCALER_FORMAT_1555,
-	SCALER_FORMAT_4444,
-};
-
 class TextureScaler {
 public:
 	TextureScaler();
 
-	void Scale(u32* &data, ScalerPixelFormat &dstfmt, int &width, int &height, int factor);
+	void Scale(u32* &data, GEBufferFormat &dstfmt, int &width, int &height, int factor);
 
 	enum { XBRZ= 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
@@ -46,7 +38,7 @@ private:
 	void ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic = false);
-	void ConvertTo8888(ScalerPixelFormat format, u32* source, u32* &dest, int width, int height);
+	void ConvertTo8888(GEBufferFormat format, u32* source, u32* &dest, int width, int height);
 
 	void DePosterize(u32* source, u32* dest, int width, int height);
 
