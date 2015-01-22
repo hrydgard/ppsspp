@@ -468,6 +468,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
+	NOP();
 	AlignCode4();
 	if (js.lastContinuedPC == 0)
 		b->originalSize = js.numInstructions;

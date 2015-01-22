@@ -2009,17 +2009,14 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		case GL_UNSIGNED_SHORT_4_4_4_4: dstFormat = GE_FORMAT_4444; break;
 		case GL_UNSIGNED_SHORT_5_6_5: dstFormat = GE_FORMAT_565; break;
 		case GL_UNSIGNED_SHORT_5_5_5_1: dstFormat = GE_FORMAT_5551; break;
-		default: goto dontScale;
 		}
 		scaler.Scale(pixelData, dstFormat, w, h, scaleFactor);
 		switch (dstFormat) {
-		case GE_FORMAT_8888: dstFmt = GL_UNSIGNED_BYTE; break;
 		case GE_FORMAT_565: dstFmt = GL_UNSIGNED_SHORT_5_6_5; break;
 		case GE_FORMAT_5551: dstFmt = GL_UNSIGNED_SHORT_5_5_5_1; break;
 		case GE_FORMAT_4444: dstFmt = GL_UNSIGNED_SHORT_4_4_4_4; break;
+		case GE_FORMAT_8888: dstFmt = GL_UNSIGNED_BYTE; break;
 		}
-	dontScale:
-		;
 	}
 
 	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {

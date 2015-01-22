@@ -255,7 +255,7 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, int numPixels) {
 		dst[x * 4] = Convert5To8((col)& 0x1f);
 		dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
 		dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
-		dst[x * 4 + 3] = (col & 0x8000) ? 255 : 0;
+		dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
 	}
 }
 
