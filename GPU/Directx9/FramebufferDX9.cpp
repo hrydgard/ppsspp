@@ -16,8 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "math/lin/matrix4x4.h"
-#include "Common/ColorConv.h"
-#include "Common/CommonTypes.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -40,6 +38,26 @@
 #include <algorithm>
 
 namespace DX9 {
+	inline u16 RGBA8888toRGB565(u32 px) {
+		return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
+	}
+
+	inline u16 RGBA8888toRGBA4444(u32 px) {
+		return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
+	}
+
+	inline u16 RGBA8888toRGBA5551(u32 px) {
+		return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+	}
+
+	inline u16 BGRA8888toRGB565(u32 px) {
+		return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
+	}
+
+	inline u16 BGRA8888toRGBA4444(u32 px) {
+		return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+	}
+
 	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 	void CenterRect(float *x, float *y, float *w, float *h,
@@ -131,6 +149,24 @@ namespace DX9 {
 		}
 	}
 
+	static inline void ARGB8From4444(u16 c, u32 * dst) {
+		*dst = ((c & 0xf) << 4) | (((c >> 4) & 0xf) << 12) | (((c >> 8) & 0xf) << 20) | ((c >> 12) << 28);
+	}
+	static inline void ARGB8From565(u16 c, u32 * dst) {
+		*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x003f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
+	}
+	static inline void ARGB8From5551(u16 c, u32 * dst) {
+		*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
+	}
+
+	// TODO: Swizzle the texture access instead.
+	static inline u32 RGBA2BGRA(u32 src) {
+		const u32 r = (src & 0x000000FF) << 16;
+		const u32 ga = src & 0xFF00FF00;
+		const u32 b = (src & 0x00FF0000) >> 16;
+		return r | ga | b;
+	}
+
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		u8 *convBuf = NULL;
 		D3DLOCKED_RECT rect;
@@ -171,26 +207,40 @@ namespace DX9 {
 		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 			for (int y = 0; y < height; y++) {
 				switch (srcPixelFormat) {
-				// not tested
+					// not tested
 				case GE_FORMAT_565:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGB565ToRGBA888F(dst, src, width);
+						for (int x = 0; x < width; x++) {
+							u16_le col0 = src[x+0];
+							ARGB8From565(col0, &dst[x + 0]);
+						}
 					}
 					break;
+					// faster
 				case GE_FORMAT_5551:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGBA5551ToRGBA8888(dst, src, width);
+						for (int x = 0; x < width; x++) {
+							u16_le col0 = src[x+0];
+							ARGB8From5551(col0, &dst[x + 0]);
+						}
 					}
 					break;
 				case GE_FORMAT_4444:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGBA4444ToRGBA8888(dst, src, width);
+						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
+						for (int x = 0; x < width; x++)
+						{
+							u16_le col = src[x];
+							dst[x * 4 + 0] = (col >> 12) << 4;
+							dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
+							dst[x * 4 + 2] = ((col >> 4) & 0xf) << 4;
+							dst[x * 4 + 3] = (col & 0xf) << 4;
+						}
 					}
 					break;
 
@@ -198,7 +248,10 @@ namespace DX9 {
 					{
 						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertBGRA8888ToRGBA8888(dst, src, width);
+						for (int x = 0; x < width; x++)
+						{
+							dst[x] = RGBA2BGRA(src[x]);
+						}
 					}
 					break;
 				}
@@ -207,11 +260,15 @@ namespace DX9 {
 			for (int y = 0; y < height; y++) {
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-				ConvertBGRA8888ToRGBA8888(dst, src, width);
+				for (int x = 0; x < width; x++)
+				{
+					dst[x] = RGBA2BGRA(src[x]);
+				}
 			}
 		}
 
 		drawPixelsTex_->UnlockRect(0);
+		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 	}
 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -607,6 +664,7 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
+
 		fbo_unbind();
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		currentRenderVfb_ = 0;
@@ -977,7 +1035,9 @@ namespace DX9 {
 			switch (format) {
 			case GE_FORMAT_565: // BGR 565
 				for (u32 y = 0; y < height; ++y) {
-					ConvertBGRA8888ToRGB565(dst16, src32, width);
+					for (u32 x = 0; x < width; ++x) {
+						dst16[x] = BGRA8888toRGB565(src32[x]);
+					}
 					src32 += srcStride;
 					dst16 += dstStride;
 				}
@@ -991,7 +1051,9 @@ namespace DX9 {
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
 				for (u32 y = 0; y < height; ++y) {
-					ConvertBGRA8888ToRGBA4444(dst16, src32, width);
+					for (u32 x = 0; x < width; ++x) {
+						dst16[x] = BGRA8888toRGBA4444(src32[x]);
+					}
 					src32 += srcStride;
 					dst16 += dstStride;
 				}

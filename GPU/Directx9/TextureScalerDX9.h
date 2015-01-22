@@ -19,16 +19,19 @@
 
 #include "Common/MemoryUtil.h"
 #include "../Globals.h"
-#include "gfx/gl_common.h"
-#include "GPU/ge_constants.h"
+#include "helper/global.h"
+//#include "gfx/gl_common.h"
 
 #include <vector>
 
-class TextureScaler {
-public:
-	TextureScaler();
+namespace DX9 {
 
-	void Scale(u32* &data, GEBufferFormat &dstfmt, int &width, int &height, int factor);
+
+class TextureScalerDX9 {
+public:
+	TextureScalerDX9();
+
+	void Scale(u32* &data, u32 &dstfmt, int &width, int &height, int factor);
 
 	enum { XBRZ= 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
@@ -38,14 +41,16 @@ private:
 	void ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic = false);
-	void ConvertTo8888(GEBufferFormat format, u32* source, u32* &dest, int width, int height);
+	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height);
 
 	void DePosterize(u32* source, u32* dest, int width, int height);
 
-	bool IsEmptyOrFlat(u32* data, int pixels, GLenum fmt);
+	bool IsEmptyOrFlat(u32* data, int pixels, u32 fmt);
 
 	// depending on the factor and texture sizes, these can get pretty large 
 	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
 	// of course, scaling factor 5 is totally silly anyway
 	SimpleBuf<u32> bufInput, bufDeposter, bufOutput, bufTmp1, bufTmp2, bufTmp3;
+};
+
 };

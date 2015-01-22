@@ -21,7 +21,6 @@
 #include "base/logging.h"
 
 #include "Common/CPUDetect.h"
-#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
@@ -365,7 +364,8 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
-void VertexDecoder::Step_Color565() const {
+void VertexDecoder::Step_Color565() const
+{
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	c[0] = Convert5To8(cdata & 0x1f);
@@ -375,7 +375,8 @@ void VertexDecoder::Step_Color565() const {
 	// Always full alpha.
 }
 
-void VertexDecoder::Step_Color5551() const {
+void VertexDecoder::Step_Color5551() const
+{
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	c[0] = Convert5To8(cdata & 0x1f);
@@ -385,7 +386,8 @@ void VertexDecoder::Step_Color5551() const {
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] != 0;
 }
 
-void VertexDecoder::Step_Color4444() const {
+void VertexDecoder::Step_Color4444() const
+{
 	u8 *c = decoded_ + decFmt.c0off;
 	u16 cdata = *(u16_le *)(ptr_ + coloff);
 	for (int j = 0; j < 4; j++)
@@ -393,7 +395,8 @@ void VertexDecoder::Step_Color4444() const {
 	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
 }
 
-void VertexDecoder::Step_Color8888() const {
+void VertexDecoder::Step_Color8888() const
+{
 	u8 *c = decoded_ + decFmt.c0off;
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
 	memcpy(c, cdata, sizeof(u8) * 4);

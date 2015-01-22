@@ -45,7 +45,6 @@ win32 {
 
 SOURCES += $$P/Common/ChunkFile.cpp \
 	$$P/Common/ConsoleListener.cpp \
-	$$P/Common/ColorConv.cpp \
 	$$P/Common/FileUtil.cpp \
 	$$P/Common/LogManager.cpp \
 	$$P/Common/KeyMap.cpp \
@@ -58,7 +57,6 @@ SOURCES += $$P/Common/ChunkFile.cpp \
 	$$P/Common/Crypto/*.cpp
 HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/ConsoleListener.h \
-	$$P/Common/ColorConv.h \
 	$$P/Common/FileUtil.h \
 	$$P/Common/LogManager.h \
 	$$P/Common/KeyMap.h \

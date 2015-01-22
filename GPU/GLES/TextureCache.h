@@ -25,7 +25,7 @@
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/TextureScaler.h"
+#include "GPU/GLES/TextureScaler.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;

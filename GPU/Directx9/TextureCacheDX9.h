@@ -24,7 +24,7 @@
 #include "helper/fbo.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/TextureScaler.h"
+#include "GPU/Directx9/TextureScalerDX9.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
@@ -197,7 +197,7 @@ private:
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
-	TextureScaler scaler;
+	TextureScalerDX9 scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;

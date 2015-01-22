@@ -1512,7 +1512,7 @@ void ARM64XEmitter::ABI_PushRegisters(BitSet32 registers)
 		{
 			if (first)
 			{
-				STR(INDEX_PRE, (ARM64Reg)(X0 + it), SP, (u32)-(s32)stack_size);
+				STR(INDEX_PRE, (ARM64Reg)(X0 + it), SP, -stack_size);
 				first = false;
 				current_offset += 16;
 			}
