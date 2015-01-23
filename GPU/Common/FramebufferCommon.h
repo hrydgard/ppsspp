@@ -170,6 +170,7 @@ public:
 			SetColorUpdated(currentRenderVfb_);
 		}
 	}
+	void SetRenderSize(VirtualFramebuffer *vfb);
 
 protected:
 	virtual void DisableState() = 0;

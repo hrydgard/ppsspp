@@ -36,6 +36,7 @@
 
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
@@ -667,44 +668,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 		vfb->bufferHeight = std::max(vfb->bufferHeight, h);
 	}
 
-	if (g_Config.iInternalResolution==1) {
-		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
-	} else {
-		switch (g_Config.iBloomHack) {
-		case 0:
-			vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-			vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
-			break;
-		case 1:
-			if (vfb->bufferWidth <= 128 || vfb->bufferHeight <= 64) {
-				vfb->renderWidth = vfb->bufferWidth;
-				vfb->renderHeight = vfb->bufferHeight;
-			} else {
-				vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-				vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
-			}
-			break;
-		case 2:
-			if (vfb->bufferWidth <= 256 || vfb->bufferHeight <= 128) {
-				vfb->renderWidth = vfb->bufferWidth;
-				vfb->renderHeight = vfb->bufferHeight;
-			} else {
-				vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-				vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
-			}
-			break;
-		case 3:
-			if (vfb->bufferWidth < 480 || vfb->bufferHeight < 272) {
-				vfb->renderWidth = vfb->bufferWidth;
-				vfb->renderHeight = vfb->bufferHeight;
-			} else {
-				vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-				vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
-			}
-			break;
-		}
-	}
+	SetRenderSize(vfb);
 
 	bool trueColor = g_Config.bTrueColor;
 	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
