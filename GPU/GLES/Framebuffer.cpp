@@ -651,8 +651,6 @@ void FramebufferManager::RebindFramebuffer() {
 }
 
 void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
-	float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
-	float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
 	VirtualFramebuffer old = *vfb;
 
 	if (force) {
