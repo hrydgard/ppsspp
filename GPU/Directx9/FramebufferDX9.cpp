@@ -361,8 +361,6 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
-		float renderWidthFactor = (float)vfb->renderWidth / (float)vfb->bufferWidth;
-		float renderHeightFactor = (float)vfb->renderHeight / (float)vfb->bufferHeight;
 		VirtualFramebuffer old = *vfb;
 
 		if (force) {
@@ -378,8 +376,7 @@ namespace DX9 {
 			vfb->bufferHeight = std::max(vfb->bufferHeight, h);
 		}
 
-		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
+		SetRenderSize(vfb);
 
 		bool trueColor = g_Config.bTrueColor;
 		if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {

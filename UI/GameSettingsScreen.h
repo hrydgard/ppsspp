@@ -105,6 +105,7 @@ private:
 	bool vtxCacheEnable_;
 	bool postProcEnable_;
 	bool resolutionEnable_;
+	bool bloomHackEnable_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
