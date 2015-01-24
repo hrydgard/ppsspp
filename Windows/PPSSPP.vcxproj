@@ -141,6 +141,7 @@
       <BaseAddress>0x00400000</BaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
+      <ForceFileOutput>MultiplyDefinedSymbolOnly</ForceFileOutput>
     </Link>
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
@@ -180,6 +181,7 @@
       <FixedBaseAddress>true</FixedBaseAddress>
       <ShowProgress>NotSet</ShowProgress>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
+      <ForceFileOutput>MultiplyDefinedSymbolOnly</ForceFileOutput>
     </Link>
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
