@@ -398,7 +398,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.localBindAddress, n->T("Change bind address"), "", 255, screenManager()));
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #else
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.localBindAddress, n->T("Change bind address"), nullptr))->OnClick.Handle(this, 255, &GameSettingsScreen::OnChangeBindAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.localBindAddress, n->T("Change bind address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeBindAddress);
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
