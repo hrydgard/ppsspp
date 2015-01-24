@@ -1,0 +1,334 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Tests|Win32">
+      <Configuration>Tests</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Tests|x64">
+      <Configuration>Tests</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>libarmips</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)d</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>$(ProjectName)d64</TargetName>
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)tests</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <TargetName>$(ProjectName)tests64</TargetName>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>$(ProjectName)64</TargetName>
+    <IncludePath>.;$(IncludePath)</IncludePath>
+    <OutDir>_Output\</OutDir>
+    <IntDir>_Output\$(ProjectName)\$(Configuration)64\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>armips</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="armips\Archs\Architecture.cpp" />
+    <ClCompile Include="armips\Archs\ARM\Arm.cpp" />
+    <ClCompile Include="armips\Archs\ARM\ArmOpcodes.cpp" />
+    <ClCompile Include="armips\Archs\ARM\ArmRelocator.cpp" />
+    <ClCompile Include="armips\Archs\ARM\CArmInstruction.cpp" />
+    <ClCompile Include="armips\Archs\ARM\CThumbInstruction.cpp" />
+    <ClCompile Include="armips\Archs\ARM\Pool.cpp" />
+    <ClCompile Include="armips\Archs\ARM\ThumbOpcodes.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\CMipsInstruction.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\CMipsMacro.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\Mips.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsElfFile.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsMacros.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsOpcodes.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsPSP.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\PsxRelocator.cpp" />
+    <ClCompile Include="armips\Archs\Z80\CZ80Instruction.cpp" />
+    <ClCompile Include="armips\Archs\Z80\z80.cpp" />
+    <ClCompile Include="armips\Archs\Z80\z80Opcodes.cpp" />
+    <ClCompile Include="armips\Commands\CAssemblerCommand.cpp" />
+    <ClCompile Include="armips\Commands\CAssemblerLabel.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveArea.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveConditional.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveData.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveFile.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveFill.cpp" />
+    <ClCompile Include="armips\Commands\CDirectiveMessage.cpp" />
+    <ClCompile Include="armips\Core\Assembler.cpp" />
+    <ClCompile Include="armips\Core\CMacro.cpp" />
+    <ClCompile Include="armips\Core\Common.cpp" />
+    <ClCompile Include="armips\Core\Directives.cpp" />
+    <ClCompile Include="armips\Core\ELF\ElfFile.cpp" />
+    <ClCompile Include="armips\Core\ELF\ElfRelocator.cpp" />
+    <ClCompile Include="armips\Core\FileManager.cpp" />
+    <ClCompile Include="armips\Core\MathParser.cpp" />
+    <ClCompile Include="armips\Core\Misc.cpp" />
+    <ClCompile Include="armips\Core\SymbolData.cpp" />
+    <ClCompile Include="armips\Core\SymbolTable.cpp" />
+    <ClCompile Include="armips\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Tests|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="armips\Util\ByteArray.cpp" />
+    <ClCompile Include="armips\Util\CommonClasses.cpp" />
+    <ClCompile Include="armips\Util\CRC.cpp" />
+    <ClCompile Include="armips\Util\EncodingTable.cpp" />
+    <ClCompile Include="armips\Util\FileClasses.cpp" />
+    <ClCompile Include="armips\Util\StringFormat.cpp" />
+    <ClCompile Include="armips\Util\Util.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="armips\Archs\Architecture.h" />
+    <ClInclude Include="armips\Archs\ARM\Arm.h" />
+    <ClInclude Include="armips\Archs\ARM\ArmOpcodes.h" />
+    <ClInclude Include="armips\Archs\ARM\ArmRelocator.h" />
+    <ClInclude Include="armips\Archs\ARM\CArmInstruction.h" />
+    <ClInclude Include="armips\Archs\ARM\CThumbInstruction.h" />
+    <ClInclude Include="armips\Archs\ARM\Pool.h" />
+    <ClInclude Include="armips\Archs\ARM\ThumbOpcodes.h" />
+    <ClInclude Include="armips\Archs\MIPS\CMipsInstruction.h" />
+    <ClInclude Include="armips\Archs\MIPS\CMipsMacro.h" />
+    <ClInclude Include="armips\Archs\MIPS\Mips.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsElfFile.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsMacros.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsOpcodes.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsPSP.h" />
+    <ClInclude Include="armips\Archs\MIPS\PsxRelocator.h" />
+    <ClInclude Include="armips\Archs\Z80\CZ80Instruction.h" />
+    <ClInclude Include="armips\Archs\Z80\z80.h" />
+    <ClInclude Include="armips\Archs\Z80\z80Opcodes.h" />
+    <ClInclude Include="armips\Commands\CAssemblerCommand.h" />
+    <ClInclude Include="armips\Commands\CAssemblerLabel.h" />
+    <ClInclude Include="armips\Commands\CDirectiveArea.h" />
+    <ClInclude Include="armips\Commands\CDirectiveConditional.h" />
+    <ClInclude Include="armips\Commands\CDirectiveData.h" />
+    <ClInclude Include="armips\Commands\CDirectiveFile.h" />
+    <ClInclude Include="armips\Commands\CDirectiveFill.h" />
+    <ClInclude Include="armips\Commands\CDirectiveMessage.h" />
+    <ClInclude Include="armips\Core\Assembler.h" />
+    <ClInclude Include="armips\Core\CMacro.h" />
+    <ClInclude Include="armips\Core\Common.h" />
+    <ClInclude Include="armips\Core\Directives.h" />
+    <ClInclude Include="armips\Core\ELF\ElfFile.h" />
+    <ClInclude Include="armips\Core\ELF\ElfRelocator.h" />
+    <ClInclude Include="armips\Core\ELF\ElfTypes.h" />
+    <ClInclude Include="armips\Core\FileManager.h" />
+    <ClInclude Include="armips\Core\MathParser.h" />
+    <ClInclude Include="armips\Core\Misc.h" />
+    <ClInclude Include="armips\Core\SymbolData.h" />
+    <ClInclude Include="armips\Core\SymbolTable.h" />
+    <ClInclude Include="armips\stdafx.h" />
+    <ClInclude Include="armips\Util\ByteArray.h" />
+    <ClInclude Include="armips\Util\CommonClasses.h" />
+    <ClInclude Include="armips\Util\CRC.h" />
+    <ClInclude Include="armips\Util\EncodingTable.h" />
+    <ClInclude Include="armips\Util\FileClasses.h" />
+    <ClInclude Include="armips\Util\StringFormat.h" />
+    <ClInclude Include="armips\Util\Util.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
