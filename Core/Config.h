@@ -50,6 +50,12 @@ enum {
 	GPU_BACKEND_DIRECT3D9 = 1,
 };
 
+enum AudioBackendType {
+	AUDIO_BACKEND_AUTO,
+	AUDIO_BACKEND_DSOUND,
+	AUDIO_BACKEND_WASAPI,
+};
+
 // For iIOTimingMethod.
 enum IOTimingMethods {
 	IOTIMING_FAST = 0,
@@ -186,6 +192,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
+	int iAudioBackend;
 
 	// Audio Hack
 	bool bSoundSpeedHack;

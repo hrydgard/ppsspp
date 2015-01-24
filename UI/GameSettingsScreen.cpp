@@ -325,6 +325,13 @@ void GameSettingsScreen::CreateViews() {
 	audioSettings->Add(new ItemHeader(ms->T("Audio")));
 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
+
+#ifdef _WIN32
+	static const char *backend[] = { "Auto", "WASAPI (fast)", "DirectSound (compatible)" };
+	PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend"), backend, 0, ARRAY_SIZE(backend), a, screenManager()));
+	audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
+#endif
+
 	static const char *latency[] = { "Low", "Medium", "High" };
 	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gs, screenManager()));
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);

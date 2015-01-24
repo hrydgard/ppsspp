@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
+#include "Core/Config.h"
 
 typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
 
@@ -13,12 +14,6 @@ public:
 	virtual bool Init(HWND window, StreamCallback _callback, int sampleRate) = 0;
 	virtual void Update() {}  // Doesn't have to do anything
 	virtual int GetSampleRate() = 0;
-};
-
-enum AudioBackendType {
-	AUDIO_BACKEND_DSOUND,
-	AUDIO_BACKEND_WASAPI,
-	AUDIO_BACKEND_AUTO
 };
 
 // Factory
