@@ -299,6 +299,7 @@ public:
 	// SystemParam
 	std::string sNickName;
 	std::string proAdhocServer;
+	std::string localBindAddress;
 	std::string sMACAddress;
 	int iLanguage;
 	int iTimeFormat;
@@ -314,6 +315,7 @@ public:
 	bool bEnableAdhocServer;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	bool bBindLocal;
 
 	int iPSPModel;
 	int iFirmwareVersion;

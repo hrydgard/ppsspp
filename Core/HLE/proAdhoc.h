@@ -170,6 +170,8 @@ inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
 #define PSP_ADHOCCTL_RECV_TIMEOUT	100000
 #define PSP_ADHOCCTL_PING_TIMEOUT	2000000
 
+extern sockaddr localIP;
+
 #ifdef _MSC_VER 
 #pragma pack(push, 1)
 #endif
