@@ -57,12 +57,12 @@ struct AsyncPBO {
 #endif
 
 struct CardboardSettings {
-    bool enabled;
-    float leftEyeXPosition;
-    float rightEyeXPosition;
-    float screenYPosition;
-    float screenWidth;
-    float screenHeight;
+	bool enabled;
+	float leftEyeXPosition;
+	float rightEyeXPosition;
+	float screenYPosition;
+	float screenWidth;
+	float screenHeight;
 };
 
 class FramebufferManager : public FramebufferManagerCommon {
@@ -124,8 +124,8 @@ public:
 
 	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 
-    // Cardboard Settings Calculator
-    struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
+	// Cardboard Settings Calculator
+	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
 protected:
 	virtual void DisableState() override;

@@ -401,10 +401,10 @@ static int DefaultAndroidHwScale() {
 }
 
 static ConfigSetting graphicsSettings[] = {
-    ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
-    ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
-    ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
-    ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
+	ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
+	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
+	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
+	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),

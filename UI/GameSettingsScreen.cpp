@@ -139,18 +139,6 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gs->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
 	blockTransfer->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-#ifdef ANDROID
-    graphicsSettings->Add(new ItemHeader(gs->T("Cardboard Settings", "Cardboard Settings")));
-    CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gs->T("Enable Cardboard", "Enable Cardboard")));
-    cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gs->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager()));
-    cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gs->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager()));
-    cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gs->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager()));
-    cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
-#endif
-
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gs, screenManager()));
@@ -279,6 +267,18 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	PopupMultiChoice *bufFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gs->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gs, screenManager()));
 	bufFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+#ifdef ANDROID
+	graphicsSettings->Add(new ItemHeader(gs->T("Cardboard Settings", "Cardboard Settings")));
+	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gs->T("Enable Cardboard", "Enable Cardboard")));
+	cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gs->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager()));
+	cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gs->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager()));
+	cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gs->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager()));
+	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+#endif
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gs->T("Timer Hack")));
