@@ -674,6 +674,8 @@ void DrawDownloadsOverlay(UIContext &dc) {
 void NativeRender() {
 	g_GameManager.Update();
 
+	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+
 	T3DViewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
@@ -695,7 +697,6 @@ void NativeRender() {
 #endif
 	}
 
-	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
 	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
@@ -733,6 +734,17 @@ void NativeRender() {
 			D3D9_Resize(0);
 #endif
 		}
+	}
+
+	thin3d->SetScissorEnabled(false);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	} else {
+#ifdef _WIN32
+		DX9::dxstate.depthWrite.set(true);
+		DX9::dxstate.colorMask.set(true, true, true, true);
+#endif
 	}
 }
 
