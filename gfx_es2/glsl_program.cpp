@@ -218,7 +218,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 
 	program->program_ = prog;
 	program->vsh_ = vsh;
-	program->fsh_ = vsh;
+	program->fsh_ = fsh;
 
 	program->sampler0 = glGetUniformLocation(program->program_, "sampler0");
 	program->sampler1 = glGetUniformLocation(program->program_, "sampler1");
