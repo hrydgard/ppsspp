@@ -30,6 +30,9 @@
 #include "UI/OnScreenDisplay.h"
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
+#include <sstream>
+#include <string>
+#include <iostream>
 
 sockaddr localIP;
 uint32_t fakePoolSize                 = 0;
@@ -1456,7 +1459,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		int iResult = bind(metasocket, &localIP, sizeof(sockaddr_in));
 		if (iResult != 0) {
 			ERROR_LOG(SCENET, "Bind Error, bind to (%s) returned %d \n", g_Config.localBindAddress.c_str(),iResult);
-			osm.Show("Bind Error, can't bind to \"" + g_Config.localBindAddress + "\" error code: " + std::to_string(iResult), 8.0f);
+			std::ostringstream ss;
+			ss << iResult;
+			osm.Show("Bind Error, can't bind to \"" + g_Config.localBindAddress + "\" error code: " + ss.str(), 8.0f);
 			return iResult;
 		}
 		freeaddrinfo(localAddr);
