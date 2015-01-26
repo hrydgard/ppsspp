@@ -8,10 +8,13 @@
 #include "ext/jpge/jpgd.h"
 
 static const char * const glsl_fsTexCol =
+"#ifdef GL_ES\n"
+"precision lowp float;\n"
+"#endif\n"
 "varying vec4 oColor0;\n"
 "varying vec2 oTexCoord0;\n"
 "uniform sampler2D Sampler0;\n"
-"void main() { gl_FragColor = oColor0 * texture2D(Sampler0, oTexCoord0); }\n";
+"void main() { gl_FragColor = texture2D(Sampler0, oTexCoord0) * oColor0; }\n";
 
 static const char * const hlslFsTexCol =
 "struct PS_INPUT { float4 color : COLOR0; float2 uv : TEXCOORD0; };\n"
@@ -21,6 +24,9 @@ static const char * const hlslFsTexCol =
 "}\n";
 
 static const char * const glsl_fsCol =
+"#ifdef GL_ES\n"
+"precision lowp float;\n"
+"#endif\n"
 "varying vec4 oColor0;\n"
 "void main() { gl_FragColor = oColor0; }\n";
 
