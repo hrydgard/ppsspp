@@ -293,6 +293,8 @@ static ConfigSetting generalSettings[] = {
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false, true, true),
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
+	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
+
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),

@@ -182,6 +182,7 @@ public:
 	bool bEnableAutoLoad;
 	bool bEnableCheats;
 	bool bReloadCheats;
+	int iCwCheatRefreshRate;
 	bool bDisableStencilTest;
 	bool bAlwaysDepthWrite;
 	bool bDepthRangeHack;

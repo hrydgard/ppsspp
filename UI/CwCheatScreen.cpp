@@ -76,6 +76,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
 	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
+	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, k->T("Refresh Rate"), 1, screenManager()));
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 	rightScroll->SetScrollToTop(false);

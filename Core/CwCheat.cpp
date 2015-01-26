@@ -56,8 +56,10 @@ void __CheatInit() {
 		__CheatStart();
 	}
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 }
 
 void __CheatShutdown() {
@@ -73,11 +75,13 @@ void __CheatDoState(PointerWrap &p) {
 	p.Do(CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	if (s < 2) {
 		// Before this we didn't have a checkpoint, so reset didn't work.
 		// Let's just force one in.
 		CoreTiming::RemoveEvent(CheatEvent);
-		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 	}
 }
 
@@ -91,8 +95,10 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		}
 	}
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 
 	if (!cheatEngine || !cheatsEnabled)
 		return;
