@@ -22,15 +22,21 @@ For build instructions and other development tutorials, see the [wiki](https://g
 What's new in 1.0
 -----------------
 * Many, many bug fixes in JIT and elsewhere, improving compatibility
+* Proper fix for Zenfone and related devices
 * Direct3D 9 supported as a rendering backend on Windows, helps on old GPUs and can be faster than OpenGL in many cases
-* You can now create specific configs for each game
+* You can now create specific configs per game
+* FPU rounding modes much better supported, fixes the Peace Walker boss that was undefeatable. NOTE: This breaks saves in Gods Eater - you must turn off the better rounding, load your save game, turn it on and save.
 * The JIT now uses SSE on x86, improving speed considerably. This does not affect ARM devices, that's for the next version or two.
 * Improved audio output code on both Windows and Android, reducing audio latency on Windows and on some Android systems
 * FFMPEG upgraded, fixed some music hangs ("GHA phase shifts")
 * Some Ad Hoc improvements, coldbird.net is now default adhoc server. Ad Hoc still unfinished and hard to use.
-* A lot of bezier/spline drawing fixes
+* Graphics fixes: Bezier/spline drawing fixes, vertex position fixes, DanganRonpa on Adreno fixed, flat shading fixed, vertex cache improved, some PowerVR blockiness issues fixed, screen scaling filter added, Google Cardboard support
 * Simulate UMD speed better, fixing hangs in several games
 * More Atrac3 fixes, fixing hangs
+* Somewhat better disk full handling
+* Fixes to dynamic unloading of code, fixing problems in GEB and TRM 2/3
+* Updated to SDL2 where applicable (Linux, Mac)
+* Some new features, like analog/dpad-swap hotkey, graphics hack for Phantasy Star, show last bit of debug log in dev tools, etc
 
 What's new in 0.9.9.1
 -------------------

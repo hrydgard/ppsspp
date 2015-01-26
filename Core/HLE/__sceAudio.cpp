@@ -345,6 +345,7 @@ void __AudioUpdate() {
 			firstChannel = false;
 		} else {
 			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
+			// Actually, the cmple/pack trick should work fine...
 			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
