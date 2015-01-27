@@ -106,6 +106,7 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	}
 	fs.close();
 	g_Config.bReloadCheats = true;
+	g_Config.Save();
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
