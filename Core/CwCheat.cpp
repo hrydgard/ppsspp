@@ -40,7 +40,7 @@ static void __CheatStart() {
 	activeCheatFile = GetSysDirectory(DIRECTORY_CHEATS) + gameTitle + ".ini";
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
-	if (!File::Exists(activeCheatFile)) {		
+	if (!File::Exists(activeCheatFile)) {
 		ofstream myCheatFile;
 		myCheatFile.open(activeCheatFile);
 		myCheatFile << "\xEF\xBB\xBF";
