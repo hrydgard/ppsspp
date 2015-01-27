@@ -41,14 +41,10 @@ static void __CheatStart() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
 	if (!File::Exists(activeCheatFile)) {
-#ifndef Symbian
 		ofstream myCheatFile;
-		myCheatFile.open(activeCheatFile);
+		myCheatFile.open(activeCheatFile.c_str());
 		myCheatFile << "\xEF\xBB\xBF";
 		myCheatFile.close();
-#else
-		File::CreateEmptyFile(activeCheatFile);
-#endif
 
 	}
 
