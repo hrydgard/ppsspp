@@ -13,6 +13,8 @@
 #include "util/text/utf8.h"
 #endif
 
+using namespace std;
+
 static int CheatEvent = -1;
 std::string gameTitle;
 std::string activeCheatFile;
@@ -38,8 +40,12 @@ static void __CheatStart() {
 	activeCheatFile = GetSysDirectory(DIRECTORY_CHEATS) + gameTitle + ".ini";
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
-	if (!File::Exists(activeCheatFile)) {
-		File::CreateEmptyFile(activeCheatFile);
+	if (!File::Exists(activeCheatFile)) {		
+		ofstream myCheatFile;
+		myCheatFile.open(activeCheatFile);
+		myCheatFile << "\xEF\xBB\xBF";
+		myCheatFile.close();
+
 	}
 
 	cheatEngine = new CWCheatEngine();
