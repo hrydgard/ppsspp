@@ -15,8 +15,6 @@
 #include "util/text/utf8.h"
 #endif
 
-
-
 static int CheatEvent = -1;
 std::string gameTitle;
 std::string activeCheatFile;
