@@ -396,6 +396,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		int decryptMode = DetermineCryptMode(param);
 		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
 		{
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
 			cryptedData = 0;
