@@ -322,7 +322,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	return data;
 }
 
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string screenshotFilename, std::string &error)
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error)
 {
 	if (pixels.size() < stride * h)
 	{

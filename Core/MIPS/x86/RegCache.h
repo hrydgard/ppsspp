@@ -112,7 +112,7 @@ public:
 	u32 GetImm(MIPSGPReg preg) const;
 
 	void GetState(GPRRegCacheState &state) const;
-	void RestoreState(const GPRRegCacheState state);
+	void RestoreState(const GPRRegCacheState& state);
 
 	MIPSState *mips;
 

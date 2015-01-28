@@ -740,7 +740,7 @@ static void SaveFrame(AVFrame *pFrame, int width, int height)
 
 // check the existence of pmp media context 
 static bool isContextExist(u32 ctxAddr){
-	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+	for (auto it = pmp_ContextList.begin(); it != pmp_ContextList.end(); ++it){
 		if (*it == ctxAddr){
 			return true;
 		}
@@ -1016,7 +1016,7 @@ void __VideoPmpInit() {
 void __VideoPmpShutdown() {
 #ifdef USE_FFMPEG
 	// We need to empty pmp_queue to not leak memory.
-	for (std::list<AVFrame *>::iterator it = pmp_queue.begin(); it != pmp_queue.end(); it++){
+	for (auto it = pmp_queue.begin(); it != pmp_queue.end(); ++it){
 		av_free(*it);
 	}
 	pmp_queue.clear();

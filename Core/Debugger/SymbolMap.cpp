@@ -383,7 +383,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 
 	if (symmask & ST_FUNCTION) {
 		lock_guard guard(lock_);
-		for (auto it = activeFunctions.begin(); it != activeFunctions.end(); it++) {
+		for (auto it = activeFunctions.begin(); it != activeFunctions.end(); ++it) {
 			SymbolEntry entry;
 			entry.address = it->first;
 			entry.size = GetFunctionSize(entry.address);
@@ -396,7 +396,7 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 
 	if (symmask & ST_DATA) {
 		lock_guard guard(lock_);
-		for (auto it = activeData.begin(); it != activeData.end(); it++) {
+		for (auto it = activeData.begin(); it != activeData.end(); ++it) {
 			SymbolEntry entry;
 			entry.address = it->first;
 			entry.size = GetDataSize(entry.address);
@@ -830,7 +830,7 @@ std::string SymbolMap::GetLabelString(u32 address) const {
 
 bool SymbolMap::GetLabelValue(const char* name, u32& dest) {
 	lock_guard guard(lock_);
-	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
+	for (auto it = activeLabels.begin(); it != activeLabels.end(); ++it) {
 		if (strcasecmp(name, it->second.name) == 0) {
 			dest = it->first;
 			return true;
@@ -946,7 +946,7 @@ DataType SymbolMap::GetDataType(u32 startAddress) const {
 void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) const
 {
 	lock_guard guard(lock_);
-	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
+	for (auto it = activeLabels.begin(); it != activeLabels.end(); ++it) {
 		LabelDefinition entry;
 		entry.value = it->first;
 		entry.name = ConvertUTF8ToWString(it->second.name);

@@ -275,7 +275,7 @@ static u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
 
-	for(std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); it++) {
+	for (auto it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
 		if(it->second.entryPoint == handlerPtr) {
 			foundHandler = true;
 			break;

@@ -165,7 +165,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 
 	unregister_gl_resource_holder(this);
 	delete decJitCache_;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); ++iter) {
 		delete iter->second;
 	}
 	delete [] uvScale;
@@ -524,7 +524,7 @@ ReliableHashType TransformDrawEngine::ComputeHash() {
 }
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
-	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
+	for (auto vai = vai_.begin(); vai != vai_.end(); ++vai) {
 		delete vai->second;
 	}
 	vai_.clear();
@@ -914,7 +914,7 @@ void TransformDrawEngine::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); ++iter) {
 		delete iter->second;
 	}
 	decoderMap_.clear();

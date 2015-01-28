@@ -78,7 +78,7 @@ void DialogManager::RemoveDlg(Dialog *dialog)
 bool DialogManager::IsDialogMessage(LPMSG message)
 {
 	WindowList::iterator iter;
-	for (iter = dialogs.begin(); iter != dialogs.end(); iter++) {
+	for (iter = dialogs.begin(); iter != dialogs.end(); ++iter) {
 		if (::IsDialogMessage((*iter)->GetDlgHandle(), message))
 			return true;
 	}
@@ -89,21 +89,21 @@ bool DialogManager::IsDialogMessage(LPMSG message)
 void DialogManager::EnableAll(BOOL enable)
 {
 	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
+	for (iter=dialogs.begin(); iter!=dialogs.end(); ++iter)
 		EnableWindow((*iter)->GetDlgHandle(),enable); 
 }
 
 void DialogManager::UpdateAll()
 {
 	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
+	for (iter=dialogs.begin(); iter!=dialogs.end(); ++iter)
 		(*iter)->Update();
 }
 
 void DialogManager::DestroyAll()
 {
 	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
+	for (iter=dialogs.begin(); iter!=dialogs.end(); ++iter)
 		delete (*iter);
 	dialogs.clear();
 }

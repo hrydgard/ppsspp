@@ -687,7 +687,7 @@ namespace MIPSAnalyst {
 #if !defined(__SYMBIAN32__) && !defined(IOS)
 		hashToFunction.reserve(functions.size());
 #endif
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			AnalyzedFunction &f = *iter;
 			if (f.hasHash && f.size > 16) {
 				hashToFunction.insert(std::make_pair(f.hash, &f));
@@ -806,7 +806,7 @@ namespace MIPSAnalyst {
 		lock_guard guard(functions_lock);
 		std::vector<u32> buffer;
 
-		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
+		for (auto iter = functions.begin(), end = functions.end(); iter != end; ++iter) {
 			AnalyzedFunction &f = *iter;
 
 			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
@@ -1065,7 +1065,7 @@ skip:
 		currentFunction.end = addr + 4;
 		functions.push_back(currentFunction);
 
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			iter->size = iter->end - iter->start + 4;
 			if (insertSymbols && !iter->foundInSymbolMap) {
 				char temp[256];
@@ -1095,7 +1095,7 @@ skip:
 		lock_guard guard(functions_lock);
 
 		// Check if we have this already
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			if (iter->start == startAddr) {
 				// Let's just add it to the hashmap.
 				if (iter->hasHash && size > 16) {

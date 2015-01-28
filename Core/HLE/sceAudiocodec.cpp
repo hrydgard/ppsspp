@@ -60,7 +60,7 @@ static bool removeDecoder(u32 ctxPtr) {
 }
 
 static void clearDecoders() {
-	for (auto it = audioList.begin(), end = audioList.end(); it != end; it++) {
+	for (auto it = audioList.begin(), end = audioList.end(); it != end; ++it) {
 		delete it->second;
 	}
 	audioList.clear();
@@ -197,7 +197,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
 			int i = 0;
-			for (auto it = audioList.begin(), end = audioList.end(); it != end; it++) {
+			for (auto it = audioList.begin(), end = audioList.end(); it != end; ++it) {
 				const SimpleAudio *decoder = it->second;
 				codec_[i] = decoder->GetAudioType();
 				ctxPtr_[i] = decoder->GetCtxPtr();

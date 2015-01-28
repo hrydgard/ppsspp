@@ -693,14 +693,14 @@ void __FontInit() {
 }
 
 void __FontShutdown() {
-	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
+	for (auto iter = fontMap.begin(); iter != fontMap.end(); ++iter) {
 		FontLib *fontLib = iter->second->GetFontLib();
 		if (fontLib)
 			fontLib->CloseFont(iter->second);
 		delete iter->second;
 	}
 	fontMap.clear();
-	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
+	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); ++iter) {
 		delete *iter;
 	}
 	fontLibList.clear();

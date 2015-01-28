@@ -1000,7 +1000,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
 
-	for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); it++) {
+	for (auto it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 		if (it->second.entryPoint == handlerPtr) {
 			foundHandler = true;
 			break;
