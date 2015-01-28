@@ -146,6 +146,12 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 
 UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	std::string cheatFile;
+	g_Config.bReloadCheats = true;
+	g_Config.Save();
+	if (MIPSComp::jit) {
+		MIPSComp::jit->ClearCache();
+	}
+	screenManager()->finishDialog(this, DR_OK);
 #ifdef _WIN32
 	cheatFile = activeCheatFile;
 	// Can't rely on a .txt file extension to auto-open in the right editor,
