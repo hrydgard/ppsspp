@@ -146,8 +146,6 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 
 UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	std::string cheatFile;
-	std::fstream fs;
-	fs.close();
 	g_Config.bReloadCheats = true;
 	g_Config.Save();
 	if (MIPSComp::jit) {
