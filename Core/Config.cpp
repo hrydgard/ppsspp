@@ -417,8 +417,13 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1, true, true),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, true, true),
 	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
+#ifdef ANDROID
+	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 2, true, true),
+	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, true, true, true),
+#else
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
+#endif
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
