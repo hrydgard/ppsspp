@@ -324,7 +324,7 @@ namespace SaveState
 			Load(fn, callback, cbUserData);
 		} else {
 			I18NCategory *s = GetI18NCategory("Screen");
-			osm.Show("Failed to load state. Error in the file system.", 2.0);
+			osm.Show(s->T("Failed to load state. Error in the file system."), 2.0);
 			if (callback)
 				callback(false, cbUserData);
 		}
