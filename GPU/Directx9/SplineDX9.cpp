@@ -67,10 +67,8 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 			points[idx] = simplified_control_points + idx;
 	}
 
-	u8 *decoded2 = decoded + 65536 * 18;
-
 	int count = 0;
-	u8 *dest = decoded2;
+	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
 	patch.type_u = type_u;
@@ -97,7 +95,7 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 	}
 
 	int bytesRead = 0;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(dest, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
