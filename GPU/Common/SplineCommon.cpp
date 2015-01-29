@@ -80,22 +80,23 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
-Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
-void spline_n_4(int i, float t, float *knot, float *splineVal) {
+static void spline_n_4(int i, float t, float *knot, float *splineVal) {
 	knot += i + 1;
 
 	float t0 = (t - knot[0]);
 	float t1 = (t - knot[1]);
 	float t2 = (t - knot[2]);
+	// TODO: All our knots are integers so we should be able to get rid of these divisions.
 	float f30 = t0/(knot[3]-knot[0]);
 	float f41 = t1/(knot[4]-knot[1]);
 	float f52 = t2/(knot[5]-knot[2]);
@@ -114,7 +115,7 @@ void spline_n_4(int i, float t, float *knot, float *splineVal) {
 }
 
 // knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
-void spline_knot(int n, int type, float *knot) {
+static void spline_knot(int n, int type, float *knot) {
 	memset(knot, 0, sizeof(float) * (n + 5));
 	for (int i = 0; i < n - 1; ++i)
 		knot[i + 3] = (float)i;
@@ -135,7 +136,7 @@ void spline_knot(int n, int type, float *knot) {
 	}
 }
 
-void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
+static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
 	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
 	// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
 
@@ -203,7 +204,7 @@ void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePat
 
 }
 
-void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality) {
+static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -211,20 +212,29 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 	int n = spatch.count_u - 1;
 	int m = spatch.count_v - 1;
 
+
+
 	float *knot_u = new float[n + 5];
 	float *knot_v = new float[m + 5];
 	spline_knot(n, spatch.type_u, knot_u);
 	spline_knot(m, spatch.type_v, knot_v);
 
 	// Increase tesselation based on the size. Should be approximately right?
-	// JPCSP is wrong at least because their method results in square loco roco.
 	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
 	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
-	patch_div_s /= quality;
-	patch_div_t /= quality;
+	if (quality > 1) {
+		patch_div_s /= quality;
+		patch_div_t /= quality;
+	}
 
 	if (patch_div_s < 2) patch_div_s = 2;
 	if (patch_div_t < 2) patch_div_t = 2;
+
+	// Downsample until it fits, in case crazy tesselation factors are sent.
+	while ((patch_div_s + 1) * (patch_div_t + 1) > maxVertices) {
+		patch_div_s /= 2;
+		patch_div_t /= 2;
+	}
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -351,21 +361,21 @@ void  _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplineP
 	}
 }
 
-void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
+void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 2);
+		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
 		break;
 	case HIGH_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 1);
+		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
 		break;
 	}
 }
 
-void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	const float third = 1.0f / 3.0f;
 	// Fast and easy way - just draw the control points, generate some very basic normal vector subsitutes.
 	// Very inaccurate though but okay for Loco Roco. Maybe should keep it as an option.
@@ -426,10 +436,16 @@ void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, in
 	}
 }
 
-void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices) {
 	const float third = 1.0f / 3.0f;
 	// Full correct tesselation of bezier patches.
 	// Note: Does not handle splines correctly.
+
+	// Downsample until it fits, in case crazy tesselation factors are sent.
+	while ((tess_u + 1) * (tess_v + 1) > maxVertices) {
+		tess_u /= 2;
+		tess_v /= 2;
+	}
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -518,7 +534,7 @@ void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, i
 	delete[] horiz;
 
 	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
-	// Tesselate.
+	// Combine the vertices into triangles.
 	for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
 			int total = patch.index * (tess_u + 1) * (tess_v + 1);
@@ -534,16 +550,16 @@ void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, i
 	dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
 }
 
-void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_BezierPatchLowQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, tess_u / 2, tess_v / 2, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, tess_u / 2, tess_v / 2, patch, origVertType, maxVertices);
 		break;
 	case HIGH_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType, maxVertices);
 		break;
 	}
 }

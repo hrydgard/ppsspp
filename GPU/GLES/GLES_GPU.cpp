@@ -458,6 +458,7 @@ GLES_GPU::~GLES_GPU() {
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
+	shaderManager_ = nullptr;
 	glstate.SetVSyncInterval(0);
 }
 

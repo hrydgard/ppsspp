@@ -25,6 +25,13 @@
 
 class VertexDecoder;
 
+enum {
+	VERTEX_BUFFER_MAX = 65536,
+	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 48,
+	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 20,
+	SPLINE_BUFFER_SIZE = VERTEX_BUFFER_MAX * 20,
+};
+
 class DrawEngineCommon {
 public:
 	virtual ~DrawEngineCommon();
@@ -42,4 +49,5 @@ protected:
 	// Vertex collector buffers
 	u8 *decoded;
 	u16 *decIndex;
+	u8 *splineBuffer;
 };

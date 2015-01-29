@@ -79,7 +79,8 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 	patch.count_v = count_v;
 	patch.points = points;
 
-	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType);
+	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
+	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertices);
 
 	delete[] points;
 
@@ -95,7 +96,7 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 		gstate_c.uv.vOff = 0;
 	}
 
-	int bytesRead;
+	int bytesRead = 0;
 	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
@@ -154,10 +155,9 @@ void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void
 		}
 	}
 
-	u8 *decoded2 = decoded + 65536 * 18;
+	u8 *dest = splineBuffer;
 
 	int count = 0;
-	u8 *dest = decoded2;
 
 	// Simple approximation of the real tesselation factor.
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
@@ -169,10 +169,11 @@ void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 
+	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 	u16 *inds = quadIndices_;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		BezierPatch& patch = patches[patch_idx];
-		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
+		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType, maxVertices);
 	}
 	delete[] patches;
 
@@ -188,8 +189,8 @@ void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void
 		gstate_c.uv.vOff = 0;
 	}
 
-	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	int bytesRead = 0;
+	SubmitPrim(dest, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
