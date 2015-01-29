@@ -323,6 +323,7 @@ public:
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
 	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.

@@ -234,7 +234,7 @@ bool Thin3DGLShader::Compile(const char *source) {
 
 class Thin3DGLVertexFormat : public Thin3DVertexFormat {
 public:
-	void Apply();
+	void Apply(const void *base = nullptr);
 	void Unapply();
 	void Compile();
 
@@ -335,6 +335,7 @@ public:
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
+	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	const char *GetInfoString(T3DInfo info) const override {
@@ -702,23 +703,23 @@ void Thin3DGLContext::SetRenderState(T3DRenderState rs, uint32_t value) {
 	}
 }
 
-void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
-	Thin3DGLShaderSet *pipe = static_cast<Thin3DGLShaderSet *>(pipeline);
+void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
+	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
-	pipe->Apply();
+	ss->Apply();
 
 	glDrawArrays(primToGL[prim], offset, vertexCount);
 
-	pipe->Unapply();
+	ss->Unapply();
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
-	Thin3DGLShaderSet *pipe = static_cast<Thin3DGLShaderSet *>(pipeline);
+void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
+	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
 	Thin3DGLBuffer *ibuf = static_cast<Thin3DGLBuffer *>(idata);
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
@@ -726,11 +727,24 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, 
 	vbuf->Bind();
 	ibuf->Bind();
 	fmt->Apply();
-	pipe->Apply();
+	ss->Apply();
 	
 	glDrawElements(primToGL[prim], offset, GL_INT, 0);
 	
-	pipe->Unapply();
+	ss->Unapply();
+	fmt->Unapply();
+}
+
+void Thin3DGLContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
+	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
+
+	fmt->Apply(vdata);
+	ss->Apply();
+
+	glDrawArrays(primToGL[prim], 0, vertexCount);
+
+	ss->Unapply();
 	fmt->Unapply();
 }
 
@@ -761,25 +775,26 @@ Thin3DContext *T3DCreateGLContext() {
 	return new Thin3DGLContext();
 }
 
-void Thin3DGLVertexFormat::Apply() {
+void Thin3DGLVertexFormat::Apply(const void *base) {
 	for (int i = 0; i < SEM_MAX; i++) {
 		if (semanticsMask_ & (1 << i)) {
 			glEnableVertexAttribArray(i);
 		}
 	}
+	intptr_t b = (intptr_t)base;
 	for (size_t i = 0; i < components_.size(); i++) {
 		switch (components_[i].type) {
 		case FLOATx2:
-			glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(intptr_t)components_[i].offset);
+			glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 			break;
 		case FLOATx3:
-			glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(intptr_t)components_[i].offset);
+			glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 			break;
 		case FLOATx4:
-			glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(intptr_t)components_[i].offset);
+			glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 			break;
 		case UNORM8x4:
-			glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(intptr_t)components_[i].offset);
+			glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 			break;
 		case INVALID:
 			ELOG("Thin3DGLVertexFormat: Invalid component type applied.");

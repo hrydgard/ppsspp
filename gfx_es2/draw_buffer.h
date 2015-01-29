@@ -138,14 +138,6 @@ public:
 		fontscaley = ys;
 	}
 
-	// Utility to avoid having to include gl.h just for this in UI code.
-	void EnableBlend(bool enable);
-
-	// Rectangular clipping, implemented using scissoring.
-	// Must flush before and after.
-	void SetClipRect(float x1, float y1, float x2, float y2);
-	void NoClip();
-
 	static void DoAlign(int flags, float *x, float *y, float *w, float *h);
 
 	void SetDrawMatrix(const Matrix4x4 &m) {

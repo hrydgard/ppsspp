@@ -417,6 +417,7 @@ public:
 
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
 	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
+	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
 	const char *GetInfoString(T3DInfo info) const override {
@@ -637,6 +638,21 @@ void Thin3DDX9Context::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
 	device_->DrawIndexedPrimitive(primToD3D9[prim], 0, 0, vertexCount, 0, vertexCount / 3);
+}
+
+void Thin3DDX9Context::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
+	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
+
+	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+
+	ss->Apply(device_);
+	fmt->Apply(device_);
+	device_->DrawPrimitiveUP(primToD3D9[prim], vertexCount / 3, vdata, fmt->GetStride());
 }
 
 static uint32_t SwapRB(uint32_t c) {

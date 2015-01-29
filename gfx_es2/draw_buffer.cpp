@@ -38,7 +38,11 @@ void DrawBuffer::Init(Thin3DContext *t3d) {
 		return;
 
 	t3d_ = t3d;
+#ifdef USE_VBO
 	vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
+#else
+	vbuf_ = nullptr;
+#endif
 	inited_ = true;
 
 	std::vector<Thin3DVertexComponent> components;
@@ -52,7 +56,9 @@ void DrawBuffer::Init(Thin3DContext *t3d) {
 }
 
 void DrawBuffer::Shutdown() {
-	vbuf_->Release();
+	if (vbuf_) {
+		vbuf_->Release();
+	}
 	vformat_->Release();
 
 	inited_ = false;
@@ -76,12 +82,15 @@ void DrawBuffer::Flush(bool set_blend_state) {
 
 	if (count_ == 0)
 		return;
-	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
-
-	int offset = 0;
 
 	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_);
+#ifdef USE_VBO
+	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
+	int offset = 0;
 	t3d_->Draw(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, vbuf_, count_, offset);
+#else
+	t3d_->DrawUP(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, (const void *)verts_, count_);
+#endif
 	count_ = 0;
 }
 
@@ -466,21 +475,4 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 				x += c.wx * fontscalex;
 		}
 	}
-}
-
-void DrawBuffer::EnableBlend(bool enable) {
-	glstate.blend.set(enable);
-	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-void DrawBuffer::SetClipRect(float x, float y, float w, float h)
-{
-	// Sigh, OpenGL is upside down.
-	glstate.scissorRect.set(x, dp_yres - y, w, h);
-	glstate.scissorTest.enable();
-}
-
-void DrawBuffer::NoClip()
-{
-	glstate.scissorTest.disable();
 }
