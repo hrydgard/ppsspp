@@ -109,7 +109,8 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(std::string filename, std::string title, int slot) : PopupScreen(title, "Load State", "Back"), filename_(filename), slot_(slot) {}
+	ScreenshotViewScreen(std::string filename, std::string title, int slot, I18NCategory *i18n)
+		: PopupScreen(title, i18n->T("Load State"), i18n->T("Back")), filename_(filename), slot_(slot) {}
 
 	int GetSlot() const {
 		return slot_;
@@ -334,7 +335,8 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	SaveSlotView *v = (SaveSlotView *)e.v;
 	std::string fn = v->GetScreenshotFilename();
 	std::string title = v->GetScreenshotTitle();
-	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot());
+	I18NCategory *p = GetI18NCategory("Pause");
+	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), p);
 	screenManager()->push(screen);
 	return UI::EVENT_DONE;
 }
