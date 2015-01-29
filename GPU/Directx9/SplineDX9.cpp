@@ -95,7 +95,7 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 	}
 
 	int bytesRead = 0;
-	SubmitPrim(dest, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -188,7 +188,7 @@ void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void
 	}
 
 	int bytesRead = 0;
-	SubmitPrim(dest, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 

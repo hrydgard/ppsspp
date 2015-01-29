@@ -71,6 +71,7 @@ void TransformDrawEngine::SubmitSpline(const void *control_points, const void *i
 	}
 
 	int count = 0;
+
 	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
@@ -81,7 +82,7 @@ void TransformDrawEngine::SubmitSpline(const void *control_points, const void *i
 	patch.points = points;
 
 	int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
-	TesselateSplinePatch(splineBuffer, quadIndices_, count, patch, origVertType, maxVertexCount);
+	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
 
 	delete[] points;
 
@@ -191,7 +192,7 @@ void TransformDrawEngine::SubmitBezier(const void *control_points, const void *i
 	}
 
 	int bytesRead;
-	SubmitPrim(dest, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
