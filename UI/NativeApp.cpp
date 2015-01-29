@@ -222,7 +222,8 @@ std::string NativeQueryConfig(std::string query) {
 			scale -= 1;
 		}
 
-		sprintf(temp, "%i", scale);
+		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
+		sprintf(temp, "%i", std::min(scale, max_res));
 		return std::string(temp);
 	} else if (query == "force44khz") {
 		return std::string("0");
