@@ -410,6 +410,8 @@ void GameSettingsScreen::CreateViews() {
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
+	networkingSettings->Add(new Choice(ms->T("Adhoc Multiplayer forum")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
+
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 
 #ifdef _WIN32
@@ -581,6 +583,11 @@ static void RecreateActivity() {
 		I18NCategory *gs = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gs->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
+}
+
+UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
+	LaunchBrowser("http://forums.ppsspp.org/forumdisplay.php?fid=34");
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnImmersiveModeChange(UI::EventParams &e) {
