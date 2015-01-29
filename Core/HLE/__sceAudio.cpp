@@ -40,6 +40,7 @@
 #include "Core/Util/AudioFormat.h"
 
 StereoResampler resampler;
+AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -93,6 +94,7 @@ static void __AudioCPUMHzChange() {
 
 
 void __AudioInit() {
+	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
 	mixFrequency = 44100;
 
 	switch (g_Config.iAudioLatency) {
@@ -370,4 +372,9 @@ void __AudioUpdate() {
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
 	resampler.Mix(outstereo, numFrames, false, sampleRate);
 	return numFrames;
+}
+
+const AudioDebugStats *__AudioGetDebugStats() {
+	resampler.GetAudioDebugStats(&g_AudioDebugStats);
+	return &g_AudioDebugStats;
 }

@@ -26,12 +26,14 @@
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
 
+struct AudioDebugStats;
+
 // 16 bit Stereo
 
 #define MAX_SAMPLES     (2*(1024 * 2)) // 2*64ms - had to double it for nVidia Shield which has huge buffers
 #define INDEX_MASK      (MAX_SAMPLES * 2 - 1)
 
-#define LOW_WATERMARK   1280 // 40 ms
+#define LOW_WATERMARK   1680 // 40 ms
 #define MAX_FREQ_SHIFT  200  // per 32000 Hz
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
 #define CONTROL_AVG     32
@@ -56,7 +58,10 @@ public:
 
 	void DoState(PointerWrap &p);
 
+	void GetAudioDebugStats(AudioDebugStats *stats);
+
 protected:
+	// TODO: Unlike Dolphin we only mix one stream so this inner class can be merged into the outer one.
 	class MixerFifo {
 	public:
 		MixerFifo(StereoResampler *mixer, unsigned sample_rate)
@@ -66,6 +71,10 @@ protected:
 			, m_indexR(0)
 			, m_numLeftI(0.0f)
 			, m_frac(0)
+			, underrunCount_(0)
+			, overrunCount_(0)
+			, aid_sample_rate_(0.0f)
+			, lastBufSize_(0)
 		{
 			memset(m_buffer, 0, sizeof(m_buffer));
 		}
@@ -73,6 +82,7 @@ protected:
 		unsigned int Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sample_rate);
 		void SetInputSampleRate(unsigned int rate);
 		void Clear();
+		void GetAudioDebugStats(AudioDebugStats *stats);
 
 	private:
 		StereoResampler *m_mixer;
@@ -82,6 +92,11 @@ protected:
 		volatile u32 m_indexR;
 		float m_numLeftI;
 		u32 m_frac;
+		int underrunCount_;
+		int overrunCount_;
+		float aid_sample_rate_;
+		int lastBufSize_;
+		int lastPushSize_;
 	};
 
 	MixerFifo m_dma_mixer;

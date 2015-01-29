@@ -206,7 +206,9 @@ public:
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
+
 	bool bShowDebugStats;
+	bool bShowAudioDebug;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
