@@ -44,3 +44,4 @@ void __AudioWakeThreads(AudioChannel &chan, int result);
 
 int __AudioMix(short *outstereo, int numSamples, int sampleRate);
 const AudioDebugStats *__AudioGetDebugStats();
+void __PushExternalAudio(const s32 *audio, int numSamples);  // Should not be used in-game, only at the menu!

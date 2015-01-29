@@ -232,12 +232,12 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (GetUIState() == UISTATE_INGAME) {
-		int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
-		num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
-	}	else {
-		MixBackgroundAudio(audio, num_samples);
+	if (GetUIState() != UISTATE_INGAME) {
+		PlayBackgroundAudio();
 	}
+
+	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
+	num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 
 #ifdef _WIN32
 	winAudioBackend->Update();

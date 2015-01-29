@@ -378,3 +378,11 @@ const AudioDebugStats *__AudioGetDebugStats() {
 	resampler.GetAudioDebugStats(&g_AudioDebugStats);
 	return &g_AudioDebugStats;
 }
+
+void __PushExternalAudio(const s32 *audio, int numSamples) {
+	if (audio) {
+		resampler.PushSamples(audio, numSamples);
+	} else {
+		resampler.Clear();
+	}
+}
