@@ -260,8 +260,10 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, j
 
 	// Some devices have totally bonkers buffer sizes like 8192. They will have terrible latency anyway, so to avoid having to
 	// create extra smart buffering code, we'll just let their regular mixer deal with it, missing the fast path (as if they had one...)
-	if (framesPerBuffer > 1024)
-		framesPerBuffer = 1024;
+	if (framesPerBuffer > 512) {
+		framesPerBuffer = 512;
+		sampleRate = 44100;
+	}
 
 	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
