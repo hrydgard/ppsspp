@@ -1,3 +1,5 @@
+#include "i18n/i18n.h"
+#include "UI/OnScreenDisplay.h"
 #include "Common/StringUtils.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
@@ -39,7 +41,16 @@ static void __CheatStart() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
 	if (!File::Exists(activeCheatFile)) {
-		File::CreateEmptyFile(activeCheatFile);
+		FILE *f = File::OpenCFile(activeCheatFile, "wb");
+		if (f) {
+			fwrite("\xEF\xBB\xBF", 1, 3, f);
+			fclose(f);
+		}
+		if (!File::Exists(activeCheatFile)) {
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Unable to create cheat file, disk may be full"));
+		}
+
 	}
 
 	cheatEngine = new CWCheatEngine();
