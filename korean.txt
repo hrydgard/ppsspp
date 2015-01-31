@@ -1,7 +1,26 @@
-﻿
-ko_KR = "한국어"
-ㄱㄲㄳㄴㄵㄶㄷㄸㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅃㅄㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ
-ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅛㅜㅠㅡㅣ
+﻿# Thanks for your interest in translating PPSSPP.
+#
+# Simply copy this file to a new ini file with your language code,
+# or use it to update an existing file with that name.
+#
+# To see a list of codes, view this page:
+# http://stackoverflow.com/questions/3191664/list-of-all-locales-and-their-short-codes
+#
+# Please note, while translating:
+#
+# Hash/sharp symbols (#) in this file indicate a comment. Lines that begin without one are
+# considered to be a part of the actual translations.
+#
+# The left side of the equals sign indicates "key" values that PPSSPP uses to identify a string.
+# If they don't match correctly, PPSSPP won't use them.
+#
+# Ampersands (&) on the RIGHT side of an equals sign denote an underlined keyboard hotkey.
+# The hotkeys are only supported currently in the DesktopUI section, however.
+#
+# Example 1: &File. This will make it so when you press ALT + F on Windows, it'll open the File menu.
+# Example 2: Homebrew && Demos.  This would show one real ampersand in the menu.
+#
+# Happy translating.
 
 [MainMenu]
 Load = 불러오기...
@@ -51,7 +70,6 @@ Clear Recent Games List = 최근 게임 목록 지우기
 Savestate Slot = 상태 저장 슬롯
 UI Language = UI 언어
 Restore Default Settings = PPSSPP의 설정을 기본으로 복원
-Atomic Audio locks (experimental) = 아토믹 오디오 잠금 (실험적)
 Rewind Snapshot Frequency = 스냅샷 주파수 되감기 (0 = 끄기)
 Auto Load Newest Savestate = 최근 상태 저장 자동 불러오기
 Networking = 네트워킹
@@ -61,8 +79,11 @@ proAdhocServer Address: = proAdhocServer 주소:
 Enable networking = 네트워킹/무선 랜 활성화 (베타)
 VersionCheck = PPSSPP의 새로운 버전을 확인
 PSP Model = PSP 기종
-Force real clock sync (slower, less lag) = 강제 실제 클럭 동기화 (느림, 약간의 렉)
+Force real clock sync (slower, less lag) = 강제 실제 클럭 동기화 (느림, 약간의 지연)
 Respect FPU rounding (disable for old GEB saves) = 부동 소수점 반올림 (이전 GEB 저장을 위해 사용 안함)
+Cache ISO in RAM = ISO 전체를 램에 캐싱 (느린 시작)
+Save path in My Documents = 경로를 내 문서에 저장
+Save path in installed.txt = 경로를 installed.txt에 저장
 
 [Graphics]
 Stretch to Display = 화면 늘이기
@@ -158,6 +179,9 @@ Auto (same as Rendering) = 자동 (렌더링 해상도와 같음)
 Display Resolution (HW scaler) = 화면 해상도 (하드웨어 스케일러)
 Must Restart = 이 설정을 적용하기 위해서는 PPSSPP를 재시작 하십시오.
 Screen Scaling Filter = 화면 크기 조절 필터
+Backend = 처리자
+Direct3D9 = Direct3D9
+OpenGL = OpenGL
 
 [Pause]
 Save State = 상태 저장하기
@@ -270,15 +294,18 @@ Resize = 크기 조정
 SavingFailed = 저장할 수 없습니다.
 LoadingFailed = 불러올 수 없습니다.
 DeleteFailed = 삭제할 수 없습니다.
+ChangingGPUBackends = GPU 처리자를 변경하기 위해서는 PPSSPP를 재시작해야 합니다. 지금 재시작할까요?
+Choose PPSSPP save folder = PPSSPP 저장 폴더 선택
 
 [Error]
 Error loading file = 파일 불러오는 중 오류 :
 PS1 EBOOTs are not supported by PPSSPP. = PS1 EBOOTs는 PPSSPP에서 지원되지 않습니다.
 Failed to load executable: File corrupt = 실행 파일을 불러오지 못했습니다 : 손상된 파일.
-RAR file detected (Require WINRAR) = 파일이 압축되어 있습니다 (RAR).\n먼저 압축을 해제하십오 (WinRAR 시도).
-RAR file detected (Require UnRAR) = 파일이 압축되어 있습니다 (RAR).\n먼저 압축을 해제하십시오 (UnRAR 시도).
-ZIP file detected (Require WINRAR) = 파일이 압축되어 있습니다 (ZIP).\n먼저 압축을 해제하십시오 (WinRAR 시도).
-ZIP file detected (Require UnRAR) = 파일이 압축되어 있습니다 (ZIP).\n먼저 압축을 해제하십시오 (UnRAR 시도).
+RAR file detected (Require WINRAR) = 파일이 RAR 형식으로 압축되어 있습니다.\n먼저 압축을 해제하십시오. (WinRAR로 시도)
+RAR file detected (Require UnRAR) = 파일이 RAR 형식으로 압축되어 있습니다.\n먼저 압축을 해제하십시오. (UnRAR로 시도)
+ZIP file detected (Require WINRAR) = 파일이 ZIP 형식으로 압축되어 있습니다.\n먼저 압축을 해제하십시오. (WinRAR로 시도)
+ZIP file detected (Require UnRAR) = 파일이 ZIP 형식으로 압축되어 있습니다.\n먼저 압축을 해제하십시오. (UnRAR로 시도)
+7z file detected (Require 7-Zip) = 파일이 7z 형식으로 압축되어 있습니다.\n먼저 압축을 해제하십시오. (7-Zip 또는 WinRAR로 시도)
 Just a directory. = 디렉터리 입니다.
 Failed to identify file = 파일을 식별하는데 실패했습니다.
 Error reading file = 파일을 읽는 동안 오류가 발생했습니다.
@@ -287,6 +314,8 @@ PSX game image detected. = MODE2 이미지 파일입니다. PPSSPP는 PS1 게임
 OpenGLDriverError = OpenGL 드라이버 오류
 InsufficientOpenGLDriver = OpenGL 드라이버 지원 부족 감지!\n\n현재 PPSSPP를 실행하는데 필요한 OpenGL 2.0을 지원하지 않는다고 당신의 GPU에서 보고합니다.\n\n당신의 GPU가 OpenGL 2.0과 호환되는지 확인하십시오. 이 경우, 당신의 GPU 공급업체의 웹사이트에서 새로운 그래픽 드라이버를 찾아 설치해야 합니다.\n\n자세한 내용은 http://forums.ppsspp.org 포럼을 방문하십시오.
 PPSSPPDoesNotSupportInternet = PPSSPP는 현재 DLC, PSN, 게임 업데이트에 대한 인터넷 연결을 지원하지 않습니다.
+Disk full while writing data = 데이터를 쓰는 도중 디스크가 꽉 찼습니다.
+Could not save screenshot file = 스크린샷 파일을 저장할 수 없습니다.
 
 [Screen]
 fixed = 속도: 고정
@@ -299,6 +328,7 @@ Save State Failed = 상태를 저장하지 못했습니다!
 PressESC = ESC를 누르면 중지 메뉴가 열립니다.
 Chainfire3DWarning = 경고: 체인파이어 3D가 검출되었습니다. 문제가 발생할 수 있습니다.
 GLToolsWarning = 경고: GLTools가 감지되었습니다. 문제가 발생할 수 있습니다.
+norewind = 되감기 저장 상태가 없습니다.
 
 [PSPCredits]
 created = 만든이:
@@ -335,6 +365,8 @@ Clear All = 모두 지우기
 Default All = 기본값 복원 
 Map a new key for = 새로운 키 입력
 Autoconfigure for device = 디바이스에 맞게 자동 설정
+Autoconfigure = 자동 설정
+Test Analogs = 아날로그 테스트
 
 [MappableControls]
 Up = 방향 패드.상
@@ -358,6 +390,8 @@ Dpad = 방향 패드
 Rewind = 되감기
 Save State = 상태 저장하기
 Load State = 상태 불러오기
+Analog limiter = 아날로그 제한자
+Next Slot = 다음 슬롯
 
 [DesktopUI]
 # If your language does not show well with the default font, you can use Font to specify a different one.
@@ -388,6 +422,8 @@ Switch UMD = UMD 교체
 Debugging = 디버그(&D)
 Load Map File... = 맵 파일 불러오기(&M)...
 Save Map File... = 맵 파일 저장하기(&S)...
+Load .sym File... = sym 파일 불러오기(&A)...
+Save .sym File... = sym 파일 저장하기(&E)...
 Reset Symbol Table = 심볼 테이블 리셋(&Y)
 Dump Next Frame to Log = 로그에 다음 프레임 덤프(&U)
 Take Screenshot = 스크린샷 찍기(&T)
@@ -414,6 +450,9 @@ Postprocessing Shader = 후 처리 셰이더(&G)
 Rendering Resolution = 렌더링 해상도(&R)
 Auto = 자동(&A)
 Window Size = 창 크기(&W)
+Backend = 렌더링 처리자(&B) (PPSSPP 재시작)
+Direct3D9 = Direct3D9(&D)
+OpenGL = OpenGL(&O)
 Rendering Mode = 렌더링 방식(&O)
 Non-Buffered Rendering = 버퍼링되지 않은 렌더링(&N)
 Buffered Rendering = 버퍼링된 렌더링(&B)
@@ -501,3 +540,79 @@ Size = 크기
 MB = MB
 Loading... = 불러오는 중...
 Connection Error = 연결 오류
+
+[Reporting]
+ReportButton = 피드백 남기기
+FeedbackDesc = 에뮬레이션이 어떤가요? 우리에게 알려주세요!
+Overall = 전체적으로
+Perfect = 완벽함
+Plays = 플레이
+In-game = 게임 내에서
+Menu/Intro = 메뉴/인트로
+Nothing = 없음
+Graphics = 그래픽
+Bad = 나쁨
+OK = 괜찮음
+Great = 좋음
+Speed = 속도
+Gameplay = 게임 플레이
+Open Browser = 브라우저 열기
+Submit Feedback = 피드백 전송
+﻿[LangRegionNames]
+ja_JP = "日本語"
+en_US = "English"
+fi_FI = "Suomi"
+fr_FR = "Français"
+es_ES = "Castellano (España)"
+es_LA = "Español (América Latina)"
+de_DE = "Deutsch"
+it_IT = "Italiano"
+nl_NL = "Nederlands"
+pt_PT = "Português"
+pt_BR = "Português Brasileiro"
+ru_RU = "Русский"
+ko_KR = "한국어"
+zh_TW = "繁體中文"
+zh_CN = "简体中文"
+ar_AE = "العربية"
+az_AZ = "Azeri"
+ca_ES = "Català"
+gl_ES = "Galego"
+gr_EL = "Ελληνικά"
+he_IL = "עברית"
+hu_HU = "Magyar"
+id_ID = "Indonesia"
+pl_PL = "Polski"
+ro_RO = "Român"
+sv_SE = "Svenska"
+tr_TR = "Türk"
+uk_UA = "Українська"
+vi_VN = "Tiếng Việt"
+cz_CZ = "Česky"
+tg_PH = "Tagalog"
+th_TH = "ไทย"
+dr_ID = "Duri"
+fa_IR = "فارسی"
+ms_MY = "Melayu"
+da_DK = "Dansk"
+no_NO = "Norsk"
+bg_BG = "български език"
+lt-LT = "Lithuanian"
+
+[SystemLanguage]
+ja_JP = "JAPANESE"
+en_US = "ENGLISH"
+fr_FR = "FRENCH"
+es_ES = "SPANISH"
+gl_ES = "SPANISH"
+es_LA = "SPANISH"
+de_DE = "GERMAN"
+it_IT = "ITALIAN"
+nl_NL = "DUTCH"
+pt_PT = "PORTUGUESE"
+pt_BR = "PORTUGUESE"
+ru_RU = "RUSSIAN"
+ko_KR = "KOREAN"
+th_TH = "THAI"
+zh_TW = "CHINESE_TRADITIONAL"
+zh_CN = "CHINESE_SIMPLIFIED"

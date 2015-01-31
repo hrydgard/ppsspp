@@ -1,54 +1,4 @@
-﻿[LangRegionNames]
-ja_JP = "日本語"
-en_US = "English"
-fi_FI = "Suomi"
-fr_FR = "Français"
-es_ES = "Castellano (España)"
-es_LA = "Español (América Latina)"
-de_DE = "Deutsch"
-it_IT = "Italiano"
-nl_NL = "Nederlands"
-pt_PT = "Português"
-pt_BR = "Português Brasileiro"
-ru_RU = "Русский"
-ko_KR = "한국어"
-zh_TW = "繁體中文"
-zh_CN = "简体中文"
-ar_AE = "العربية"
-az_AZ = "Azeri"
-ca_ES = "Català"
-gr_EL = "Ελληνικά"
-he_IL = "עברית"
-hu_HU = "Magyar"
-id_ID = "Indonesia"
-pl_PL = "Polski"
-ro_RO = "Român"
-sv_SE = "Svenska"
-tr_TR = "Türk"
-uk_UA = "Українська"
-vn_VN = "Vietnamese"
-cz_CZ = "Česky"
-tg_PH = "Tagalog"
-dr_ID = "Duri"
-fa_IR = "فارسی"
-da_DK = "Dansk"
-
-[SystemLanguage]
-ja_JP = "JAPANESE"
-en_US = "ENGLISH"
-fr_FR = "FRENCH"
-es_ES = "SPANISH"
-es_LA = "SPANISH"
-de_DE = "GERMAN"
-it_IT = "ITALIAN"
-nl_NL = "DUTCH"
-pt_PT = "PORTUGUESE"
-pt_BR = "PORTUGUESE"
-ru_RU = "RUSSIAN"
-ko_KR = "KOREAN"
-zh_TW = "CHINESE_TRADITIONAL"
-zh_CN = "CHINESE_SIMPLIFIED"
-# 感谢您参与 PPSSPP 模拟器的界面汉化工作!
+﻿# 感谢您参与 PPSSPP 模拟器的界面汉化工作!
 #
 # 您可以根据本文件创建您本地语言的ini文件
 # 或者对已有的ini文件进行更新
@@ -67,8 +17,9 @@ zh_CN = "CHINESE_SIMPLIFIED"
 # 祝您工作愉快.
 
 [MainMenu]
-Load = 载入游戏 ...
-Browse = 浏览...
+Load = 载入游戏…
+Browse = 浏览…
+# 鸣谢？
 Credits = 开发团队
 Exit = 退出程序
 Recent = 玩过的游戏
@@ -76,26 +27,26 @@ Game Settings = 游戏设置
 Games = 载入新游戏
 Homebrew & Demos = 自制与试玩
 How to get games = 如何获得游戏
-Support PPSSPP = 支持PPSSPP
+Support PPSSPP = 支持 PPSSPP
 How to get homebrew & demos = 如何获得自制游戏与试玩版
-www.ppsspp.org = www.ppsspp.org
+www.ppsspp.org = www.ppsspp.org 
 Home = 主目录
 
 [System]
 General = 常规设置
 Dynarec = 动态重编译 (JIT)
-DynarecisJailed = 动态重编译 (JIT) - (未越狱 - 不可用)
-Fast Memory = 快速内存访问 (不稳定)
-Multithreaded (experimental) = CPU多线程 (试验)
-I/O on thread (experimental) = I/O多线程 (试验)
-Atomic Audio locks (experimental) = 原子音频锁定（试验性）
-Enable Windows native keyboard  = 启用Windows自带键盘
-Rewind Snapshot Frequency = 快照倒回频率(0=关闭)
+DynarecisJailed = 动态重编译 (JIT) -（未越狱 - 不可用）
+Fast Memory = 快速内存访问（不稳定）
+Multithreaded (experimental) = CPU 多线程（试验）
+I/O on thread (experimental) = I/O 多线程（试验）
+Enable Windows native keyboard  = 启用 Windows 自带键盘
+Rewind Snapshot Frequency = 快照倒回频率（0=关闭）
 Auto Load Newest Savestate = 自动载入最新即时存档
 Enable Cheats = 开启金手指
 Day Light Saving = 夏令时
 Change Nickname = 修改昵称
 Developer Tools = 开发者工具
+Help the PPSSPP team = 帮助PPSSPP团队
 Enable Compatibility Server Reports = 向服务器报告兼容性问题
 12HR = 12小时制
 24HR = 24小时制
@@ -107,24 +58,27 @@ Use O to confirm = 使用按钮 O 确认
 YYYYMMDD = YYYYMMDD
 MMDDYYYY = MMDDYYYY
 DDMMYYYY = DDMMYYYY
-Screenshots as PNG = 截图为PNG格式
+Screenshots as PNG = 截图为 PNG 格式
 Time Format = 时间格式
 Date Format = 日期格式
 Confirmation Button = 确认按钮
-Change CPU Clock = 修改CPU频率 (0 = 默认)
+Change CPU Clock = 修改 CPU 频率 (0 = 默认)
 Clear Recent Games List = 清除玩过的游戏列表
 Savestate Slot = 即时存档位置
 UI Language = 界面语言
-Restore Default Settings = 恢复PPSSPP设置到默认值
-Networking = 联网
-Change proAdhocServer Address = 改变pro Adhoc网络地址
-Change Mac Address = 改变Mac网络地址
-proAdhocServer Address: = pro Adhoc网络地址:
-Mac Address: = Mac网络地址:
-Enable networking = 启用联网/无线区域网路(测试)
-VersionCheck = 检查PPSSPP新版本
-PSP Model = PSP机型
-Force real clock sync (slower, less lag) = 强制实际时钟同步(减少延迟, 会降低速度)
+Restore Default Settings = 恢复 PPSSPP 设置到默认值
+VersionCheck = 检查 PPSSPP 新版本
+PSP Model = PSP 机型
+Force real clock sync (slower, less lag) = 强制实际时钟同步（降低速度但减少延迟）
+Respect FPU rounding (disable for old GEB saves) = 遵循浮点四舍五入 (FPU Rounding)（为旧 GEB 存档关闭）
+Cache ISO in RAM = 在内存中缓存ISO(启动慢)
+Save path in My Documents = 存档路径在我的文件
+Save path in installed.txt = 存档路径在installed.txt
+IO timing method = 输入输出计时方法
+Fast (lag on slow storage) = 快速(滞后于慢速存储)
+Host (bugs, less lag) = 主机(少滞后),修正皇牌空战,魔法少女小圆
+Simulate UMD delays = 模拟UMD延迟,修正纸箱战机W
+Failed to load state. Error in the file system. = 无法加载快速存珰。在文件系统错误。
 
 [Graphics]
 Stretch to Display = 拉伸画面
@@ -146,16 +100,16 @@ Auto (1:1) = 自动 (1:1)
 8x PSP = 8倍 PSP
 9x PSP = 9倍 PSP
 10x PSP = 10倍 PSP
-Low quality spline/bezier curves (speed) = B样条曲线 (降低质量提高速度)
-Mipmapping = 多级纹理映射 (Mipmap贴图)
+Mipmapping = 多级纹理映射（Mipmap)
 Alternative Speed = 自定义速度
 Postprocessing Shader = 后处理着色器
 Vertex Decoder JIT = 顶点解码器即时编译
-LowCurves = 低品质样条函数/贝兹曲线(提升速度)
+Low quality spline/bezier curves (speed) = 低品质样条函数/贝兹曲线(提升速度)
+LowCurves = 低品质样条函数/贝兹曲线（提升速度）
 Timer Hack = 定时器修改
-Disable Alpha Test (PowerVR speedup) = 禁用Alpha测试(提升PowerVR设备速度)
+Disable Alpha Test (PowerVR speedup) = 禁用 Alpha 测试（提升 PowerVR 上的速度）
 Unlimited = 不限
-Software Skinning = 减少绘图调用(提升速度)
+Software Skinning = 减少绘图调用（提升速度）
 # 目前不使用
 True Color = 真彩色
 Anisotropic Filtering = 各向异性过滤
@@ -190,15 +144,14 @@ Non-Buffered Rendering = 不缓冲渲染
 Buffered Rendering = 缓冲渲染
 Read Framebuffers To Memory (CPU) = 帧缓冲读入内存 (CPU)
 Read Framebuffers To Memory (GPU) = 帧缓冲读入显存 (GPU)
-Toggled Speed Limit = 速度限制
 Software Rendering = 软件渲染 (试验)
 Debugging = 调试设置
 Dump next frame to log = 转储下一帧到调试日志
 Features = 特效选择
-Force max 60 FPS (helps GoW) = 最大FPS强制为60 (用于<战神>)
+Force max 60 FPS (helps GoW) = 最大FPS强制为60 （用于《战神》）
 Frame Rate Control = 帧率控制
 Mode = 渲染模式
-Simulate Block Transfer = 模拟数据块传输(尚未完成)
+Simulate Block Transfer = 模拟数据块传输（未完成）
 Off = 关闭
 Overlay Information = 叠加信息
 Rendering Mode = 渲染模式
@@ -211,13 +164,30 @@ Texture Coord Speedhack = 加速贴图坐标
 Performance = 性能
 Auto FrameSkip = 自动跳帧
 Small Display = 原始分辨率显示
-Lazy texture caching = 减少缓存存取(提升速度)
-Retain changed textures = 保持贴图与内存(提速,占用内存)
-Immersive Mode = 沉浸模式，支持4.4系统虚拟按键的自动隐藏
+Lazy texture caching = 减少缓存存取（提升速度）
+Retain changed textures = 保持贴图于内存（提速,占用内存）
+Immersive Mode = 沉浸模式，支持 4.4 系统虚拟按键的自动隐藏
 Low = 低
 Medium = 中
 High = 高
-Disable slower effects (speedup) = 停用较慢的渲染效果(提升速度)
+Disable slower effects (speedup) = 停用较慢的渲染效果（提升速度）
+Display Resolution (HW scaler) = 显示分辨率（硬件缩放）
+Must Restart = 重启生效
+Screen Scaling Filter = 萤幕缩放滤镜
+Backend = 引擎模式
+Direct3D9 = Direct3D9
+OpenGL = OpenGL
+Depth Range Hack (Phantasy Star Portable 2) = 深度范围修正(梦幻之星携带版2)
+Lower resolution for effects (reduces artifacts) = 对于影响较低的分辨率(减少纹理)
+Safe = 安全
+Balanced = 均衡
+Aggressive = 激进
+Cardboard Settings = 谷歌纸板设置
+Enable Cardboard = 启用谷歌纸板
+Cardboard Screen Size = 屏幕大小(视区%)
+Cardboard Screen X Shift = 水平%
+Cardboard Screen Y Shift = 垂直%
+hardware transform error - falling back to software = 硬件变换错误,改用软件模式
 
 [Pause]
 Save State = 保存即时存档
@@ -226,13 +196,17 @@ Continue = 继续游戏
 Exit to menu = 返回主菜单
 Game Settings = 游戏设置
 Cheats = 金手指
-Switch UMD = 切换光碟
+Switch UMD = 切换 UMD 光碟
+Settings = 设置
+Create Game Config = 建立游戏配置
+Delete Game Config = 删除游戏配置
 
 [MainSettings]
 Audio = 声音设置
 Graphics = 图像设置
 System = 系统设置
 Controls = 控制设置
+Networking = 联网
 
 [Developer]
 Load language ini = 读取语言配置
@@ -242,18 +216,40 @@ Enable Logging = 启用调试日志
 System Information = 系统信息
 Language = 语言设置
 Logging Channels = 调试日志频道
-RestoreDefaultSettings = 您确定要将所有设置恢复到默认?(按键映射除外)\n该操作无法撤销.\n操作将在PPSSPP重新启动后生效.
+RestoreDefaultSettings = 您确定要将所有设置恢复到默认?（按键映射除外）\n该操作无法撤销。\n\n操作将在 PPSSPP 重新启动后生效.
 Show Developer Menu = 显示开发者菜单
 Dump Decrypted Eboot = 当载入游戏时转储已解密的EBOOT.BIN
+Jit Compare = Jit 比较
+Toggle Freeze = 切换冻结
+Dump Frame GPU Commands =转储帧GPU命令
+Log Level = 日志级别
+Current = 当前
+By Address = 由地址
+Block address = Block address 
+Enter address = 输入地址
+Backspace = 向前删
+Prev = 之前
+Next = 下一个
+Random = 随机
+Random VFPU = 随机VFPU 
+No block = No block 
+RestoreGameDefaultSettings = 你确定你要恢复的游戏特定的设置\n回到PPSSPP默认?
+Log View = 日志查看
+Toggle Audio Debug = 切换音频调试
 
 [Audio]
 Enable Sound = 开启声音
-Enable Atrac3+ = 启用Atrac3+解码器
+Enable Atrac3+ = 启用 Atrac3+ 解码器
 SFX volume = 效果音量
 BGM volume = 背景音量
 Audio Latency = 音频延迟
 Audio hacks = 音讯修正
 Sound speed hack (DOA etc.) = 声音速度修正（生死格斗等）
+Audio backend = 音频引擎(改变需要重新启动)
+Auto = 自动
+WASAPI (fast) = WASAPI (快)
+DirectSound (compatible) = DirectSound (兼容)
+Audio sync = 音频同步(使用重新采样)
 
 [Controls]
 OnScreen = 屏幕虚拟按钮
@@ -266,9 +262,19 @@ Control Mapping = 按键映射
 HapticFeedback = 按键反馈 (震动)
 Custom layout... = 自定义布局
 Customize tilt = 自定义倾斜
+Invert Axes = 轴反转
+Invert Tilt along X axis = 沿X轴倾斜反转
+Invert Tilt along Y axis = 沿Y轴倾斜反转
+Sensitivity = 灵敏度
+Tilt Sensitivity along X axis = 沿X轴倾斜灵敏度
+Tilt Sensitivity along Y axis = 沿Y轴倾斜灵敏度
+Deadzone Radius = 死区半径
+Calibration = 校准
+To Calibrate = 为了校准，保证设备在一个平面上，然后按"校准"
+Calibrate D-Pad = 校准D-Pad
 Visibility = 可见设定
 Show Touch Pause Menu Button = 显示触摸暂停菜单键
-Disable D-Pad diagonals (4-way touch) = 禁止D-Pad对角线(四方向触控)
+Disable D-Pad diagonals (4-way touch) = 禁止D-Pad对角线（四方向触控）
 Button style = 按键样式
 Classic = 传统
 Thin borders = 薄边框
@@ -290,6 +296,7 @@ Landscape = 横向
 Portrait = 纵向
 Landscape Reversed = 横向逆转
 Portrait Reversed = 纵向逆转
+Analog Limiter = 摇杆限制器
 
 [Dialog]
 Back = 返回
@@ -307,38 +314,53 @@ Shift = 翻页
 Save = 保存
 Load = 读取
 NEW DATA = 新建存档
-Confirm Save = 您要将进度写入到这个存档吗?
-Confirm Overwrite = 您要覆盖这个存档吗?
-ConfirmLoad = 您要读取这个存档吗?
-Saving = 保存中\n请稍候...
-Save completed = 已保存.
-Loading = 读取中\n请稍候...
-Load completed = 已读取.
+Confirm Save = 您要将进度写入到这个存档吗？
+Confirm Overwrite = 您要覆盖这个存档吗？
+ConfirmLoad = 您要读取这个存档吗？
+Saving = 保存中\n请稍候……
+Save completed = 已保存。
+Loading = 读取中\n请稍候……
+Load completed = 已读取。
 There is no data = 存档不存在.
-DeleteConfirm = 存档将被删除.\n您确定吗?
-Deleting = 删除中\n请稍候...
-Delete completed = 已删除.
-DeleteConfirmAll = 将删除该游戏的所有存档.\n您确定吗?
-DeleteConfirmGame = 将删除该游戏, 该操作不能撤销.\n您确定吗?
+DeleteConfirm = 存档将被删除。\n您确定吗？
+Deleting = 删除中\n请稍候……
+Delete completed = 已删除。
+DeleteConfirmAll = 将删除该游戏的所有存档。\n您确定吗？
+DeleteConfirmGame = 将删除该游戏, 该操作不能撤销。\n您确定吗？
 Reset = 重设
 Network Connection = 网路连线
+Move = 移动
+Resize = 调整大小
 SavingFailed = 无法储存资料
 LoadingFailed = 无法载入资料
 DeleteFailed = 无法删除资料
+Toggle All = 切换全部
+ChangingGPUBackends = 改变引擎模式后需要PPSSPP重新启动。现在重新启动？
+Choose PPSSPP save folder = 选择PPSSPP存档的文件夹
+DeleteConfirmGameConfig = 游戏设置删除确认
+When you save, it will load on a PSP, but not an older PPSSPP = 当您保存，它会加载一个真正的PSP，但不是旧版本PPSSPP
+Old savedata detected = 检测到旧版本的保存数据
 
 [Error]
-Error loading file = 文件载入错误:
-PS1 EBOOTs are not supported by PPSSPP. = 不支持由PS1 EBOOT生成的游戏镜像.
+Error loading file = 文件载入错误：
+PS1 EBOOTs are not supported by PPSSPP. = 不支持由 PS1 EBOOT 生成的游戏镜像。
 Failed to load executable: File corrupt = 加载可执行文件失败：文件已损坏
-RAR file detected (Require WINRAR) = 这是RAR压缩文件.\n请试着使用WinRAR进行解压缩.
-RAR file detected (Require UnRAR) = 这是RAR压缩文件.\n请试着使用UnRAR进行解压缩.
-ZIP file detected (Require WINRAR) = 这是ZIP压缩文件.\n请试着使用WinRAR进行解压缩.
-ZIP file detected (Require UnRAR) = 这是ZIP压缩文件.\n请试着使用UnRAR进行解压缩.
-Just a directory. = 这是一个文件夹
-Failed to identify file = 无法识别的文件.
-Error reading file = 文件读取错误.
-No EBOOT.PBP, misidentified game = 找不到EBOOT.PBP, 无法正确识别游戏.
-PSX game image deteced. = 抱歉，不支持PSX游戏
+RAR file detected (Require WINRAR) = 这是RAR压缩文件。\n请试着使用 WinRAR 进行解压缩。
+RAR file detected (Require UnRAR) = 这是RAR压缩文件。\n请试着使用 UnRAR 进行解压缩。
+ZIP file detected (Require WINRAR) = 这是ZIP压缩文件。\n请试着使用 WinRAR 进行解压缩。
+ZIP file detected (Require UnRAR) = 这是ZIP压缩文件。\n请试着使用 UnRAR 进行解压缩。
+7z file detected (Require 7-Zip) =这是ZIP压缩文件。\n请试着使用 7-zip或WinRAR 进行解压缩。
+Just a directory. = 这只是个文件夹……
+Failed to identify file = 无法识别的文件。
+Error reading file = 文件读取错误。
+InsufficientOpenGLDriver = 您想尝试使用DirectX9不是吗？\n\nDirectX目前较少的游戏兼容，但在你的GPU也可能是唯一的选择。
+No EBOOT.PBP, misidentified game = 找不到 EBOOT.PBP，无法正确识别游戏。
+PSX game image deteced. = 检测到不支持的 PSX 游戏映像。
+PPSSPPDoesNotSupportInternet = PPSSPP目前不支持连线到网路进行DLC、PSN或游戏的更新
+Disk full while writing data = 寫入數據時硬磁盤資料滿了
+Could not save screenshot file = 无法保存截图文件
+Unable to write savedata, disk may be full = 无法写入保存数据,磁盘可能已满
+Save encryption failed. This save won't work on real PSP = 保存加密失败。这个保存的文件将无法在真正的PSP工作
 
 [Screen]
 fixed = 速度: 固定
@@ -346,37 +368,42 @@ standard = 速度: 标准
 Loaded State = 已读取即时存档
 Saved State = 已保存即时存档
 LoadStateDoesntExist = 即时存档读取失败: 存档不存在
-LoadStateWrongVersion = 即时存档读取失败: 存档是旧版本的PPSSPP生成的!
+LoadStateWrongVersion = 即时存档读取失败: 存档是其他版本的 PPSSPP 生成的!
 Save State Failed = 即时存档保存失败!
-PressESC = 按下ESC键以暂停游戏
-Chainfire3DWarning = 警告: 检测到设备上安装了Chainfile3D(3D神器)，可能会导致问题
+PressESC = 按下 ESC 键以暂停游戏
+Chainfire3DWarning = 警告: 检测到设备上安装了 Chainfile3D(3D神器)，可能会导致问题
+GLToolsWarning =  警告: 检测到设备上安装了 GLTools，可能会导致问题
+norewind = 倒带快速存档不可用
+Load savestate failed = 无法载入即时存档
+Failed to load state = 无法载入即时存档
+Failed to save state = 无法存档即时存档
 
 [PSPCredits]
 created = 作者:
-license = 遵循GPL2.0许可协议的免费软件
-title = 速度快, 移植性高的PSP模拟器
+license = 遵循 GPL 2.0 许可协议的自由软件
+title = 效率高、移植性好的 PSP 模拟器
 contributors = 参与者:
 specialthanks = 鸣谢:
-written = 使用C++编写以保证速度与移植性
-tools = 使用的免费第三方库:
-website = 请访问官方网站:
-list = 以了解兼容性列表, 官方论坛以及开发动态
-check = 海豚模拟器，最好用的Wii/GC模拟器
-info1 = PPSSPP主要用于教学研究,不得用于商业用途.
-info2 = 请确认您持有游戏镜像的正版拷贝
-info3 = 这可以是您购买了游戏的正版光盘
-info4 = 或者通过PSP在PSN商店购买了数字版游戏.
-info5 = PSP是索尼公司的注册商标.
+written = 使用 C++ 编写以保证速度与移植性
+# 第三方自由软件库？
+tools = 使用的第三方开源库:
+website = 请访问官方网站
+list = 以了解兼容性列表、官方论坛以及开发动态
+check = 海豚模拟器，最好用的 Wii/GC 模拟器
+info1 = PPSSPP 主要用于教学研究，不应被用于商业用途。
+info2 = 请确认您持有游戏镜像的正版拷贝：
+info3 = 这可以是您购买了游戏的正版光盘，
+info4 = 或者通过 PSP 在 PSN 商店购买的数字版游戏。
+info5 = PSP® 是索尼公司的注册商标。
 Buy Gold = 购买黄金版
 PPSSPP Forums = PPSSPP官方论坛
-PPSSPP Chinese Forum = 百度<PPSSPP吧>
 this translation by = 界面汉化:
 # translators1-6这6行用于添加汉化人员名单 for up to 6 lines of translator credits.
 # 不需要的行留空，一行4个人这样的排版看起来比较合适.
 # 在这里添加PPSSPP界面汉化人员的名单
 translators1 = sum2012, kaienfr, raven02, aquanull, xiwo4525
 translators2 = xiwo4525, wuspring, zzq920817, W-MS, xzapk
-translators3 = 
+translators3 = Arthur200000
 translators4 =
 translators5 =
 translators6 =
@@ -384,8 +411,10 @@ translators6 =
 [KeyMapping]
 Clear All = 全部清除
 Default All = 恢复默认
-Map a new key for = 按下要映射到的按钮:
+Map a new key for = 映射新按键：
 Autoconfigure for device = 设备自动配置
+Autoconfigure = 自动配置
+Test Analogs = 测试摇杆
 
 [MappableControls]
 Up = 方向键: 上
@@ -409,12 +438,13 @@ Dpad = Dpad
 Rewind = 倒回
 Save State = 即时存档
 Load State = 载入存档
-Analog limiter = 类比限制器
+Analog limiter = 摇杆限制器
+Next Slot = 下一槽
+AxisSwap = 轴交换
 
 [DesktopUI]
 # 如果默认字体在您的设备上显示效果不佳, 请配置Font字段来修改程序字体.
 Font = 微软雅黑
-
 File = 文件(&F)
 Load = 载入(&L)...
 Open Directory... = 打开目录(&D)...
@@ -436,7 +466,7 @@ Stop = 停止(&S)
 Reset = 复位(&E)
 Switch UMD = 切换光碟
 Enable Sound = 开启声音(&O)
-Enable Cheats = 启用金手指(游戏将会复位)(&C)
+Enable Cheats = 启用金手指(&C)（游戏将会复位）
 
 Debugging = 调试(&D)
 Load Map File... = 载入内存镜像文件(&M)...
@@ -449,26 +479,29 @@ Disassembly = 反汇编(&D)...
 Log Console = 控制台日志(&L)
 Memory View... = 查看内存(&M)...
 GE Debugger... = GE调试器(&R)...
-Fast Memory = 快速内存访问(不稳定)(&A)
+Fast Memory = 快速内存访问（不稳定）(&A)
 Ignore Illegal Reads/Writes = 忽略读写错误(&I)
 Extract File... = 提取文件
 
 Game Settings = 设置(&G)
 More Settings... = 更多设置(&M)
-Ignore Windows Key = 忽略Windows键
+Ignore Windows Key = 忽略 Windows 键
 Control Mapping... = 按键映射(&O)
 Fullscreen = 全屏幕(&L)
 Keep PPSSPP On Top = 窗口总在最前(&K)
 Pause When Not Focused = 后台运行时自动暂停 (&P)
 Stretch to Display = 拉伸画面(&S)
 Rendering Resolution = 画面分辨率(&R)
-	Auto = 自动(&A)
+Auto = 自动(&A)
 Window Size = 窗口缩放(&Z)
+Backend = 引擎模式(需要PPSSPP重新启动)(&3)
+Direct3D9 = Direct3D9(&D)
+OpenGL = OpenGL(&O)
 Rendering Mode = 渲染模式(&O)
-	Non-Buffered Rendering = 不缓冲渲染(&N)
-	Buffered Rendering = 缓冲渲染(&B)
-	Read Framebuffers To Memory (CPU) = 帧缓冲读入内存 (&CPU)
-	Read Framebuffers To Memory (GPU) = 帧缓冲读入内存 (&GPU)
+Non-Buffered Rendering = 不缓冲渲染(&N)
+Buffered Rendering = 缓冲渲染(&B)
+Read Framebuffers To Memory (CPU) = 帧缓冲读入内存 (&CPU)
+Read Framebuffers To Memory (GPU) = 帧缓冲读入内存 (&GPU)
 # 跳帧中的"Auto"将使用与前文相同的翻译, 如果您认为需要区分开来, 请在GitHub中提交问题.
 Frame Skipping = 跳帧(&F)
 	Off = 关闭(&O)
@@ -478,6 +511,7 @@ Texture Filtering = 纹理过滤方式(&X)
 	Linear = 线性过滤(&L)
 	Linear on FMV = 在CG中使用线性过滤(&F)
 # 纹理缩放中的"Off"将使用与前文相同的翻译, 如果您认为需要区分开来, 请在GitHub中提交问题.
+# FIXME: &(Kanji) 这样大丈夫？
 Texture Scaling = 纹理缩放方式(&T)
 	xBRZ = &高清过滤
 	Hybrid = &混合
@@ -487,19 +521,20 @@ Texture Scaling = 纹理缩放方式(&T)
 Hardware Transform = 硬件几何变换(&H)
 Vertex Cache = 顶点缓存(&V)
 VSync = 垂直同步(&Y)
-FXAA antialiasing = 快速近似抗锯齿(&A)
+FXAA antialiasing = 快速近似抗锯齿(FXA&A)
 Postprocessing Shader = 后处理着色器
-Show FPS Counter = 显示&FPS计数器
+Show FPS Counter = 显示 &FPS 计数器
 Show Debug Statistics = 显示调试信息(&G)
+Screen Scaling Filter = 萤幕缩放滤镜
 
 Language... = 语言(&L)
 
 Help = 帮助(&H)
-www.ppsspp.org = 访问www.&ppsspp.org
-PPSSPP Forums = PPSSPP官方论坛(&F)
+www.ppsspp.org = 访问 www.&ppsspp.org
+PPSSPP Forums = PPSSPP 官方论坛(&F)
 Buy Gold = 购买黄金版(&G)
-PPSSPP Chinese Forum = 百度<PPSSPP吧>(&T)
-About PPSSPP... = 关于PPSSPP(&A)...
+PPSSPP Chinese Forum = 百度<PPSSPP>吧(&T)
+About PPSSPP... = 关于 PPSSPP(&A)...
 
 [Game]
 Play = 开始游戏
@@ -512,15 +547,21 @@ Delete Save Data = 删除存档
 Remove From Recent = 删除游戏记录
 ConfirmDelete = 确认删除
 Show In Folder = 显示文件夹
+MB = MB
+InstallData = 安装数据
+Create Game Config = 建立游戏配置
+Delete Game Config = 删除游戏配置
 
 [CwCheats]
 Options = 选项
-Import Cheats = 从cheat.db导入金手指
+Import Cheats = 导入金手指
 Enable/Disable All = 启用/禁用所有金手指
 Cheats = 金手指
+Edit Cheat File = 编辑金手指文件
+Refresh Rate = 刷新率
 
 [Upgrade]
-New version of PPSSPP available = 新版本PPSSPP已经就绪
+New version of PPSSPP available = 新版本 PPSSPP 已经就绪
 Download = 下载
 Dismiss = 忽略
 
@@ -528,7 +569,35 @@ Dismiss = 忽略
 Install game from ZIP file? = 从ZIP档案安装游戏?
 Install = 安装
 Delete ZIP file = 删除ZIP档案
-Installed! = 安装完成![DesktopUI]
+Installed! = 安装完成!
+
+[Reporting]
+ReportButton = 报告反馈
+FeedbackDesc = 模拟兼容性怎样？让我们知道
+Overall = 总体
+Perfect = 完美
+Plays = 可玩
+In-game = 在游戏中
+Menu/Intro = 菜单/简介
+Nothing = 没画面
+Graphics = 图形
+Bad = 坏
+OK = 好
+Great = 很好
+Speed = 速度
+Gameplay = 游戏过程
+Open Browser = 打开浏览器
+Submit Feedback = 提交反馈
+
+[Networking]
+Change proAdhocServer Address = 改变 PRO Ad-hoc 网络地址
+Enable built-in PRO Adhoc Server = 启用内置PRO Adhoc服务器
+Change Mac Address = 改变网络 MAC 地址
+proAdhocServer Address: = PRO Ad-hoc 网络地址:
+Enable networking = 启用联网/无线区域网路（测试）
+Network Initialized = 网络已初始化
+Adhoc Multiplayer forum = Ad Hoc 多人游戏论坛
+﻿[DesktopUI]
 Font = Microsoft YaHei
 File = 檔案
 Load = 載入遊戲...
@@ -594,16 +663,20 @@ Ignore Illegal Reads/Writes = 忽略非法讀寫
 More Settings... = 更多設定
 Control Mapping... = 控制映射
 Window Size = 視窗大小
+Backend = 引擎模式(需要PPSSPP重新啟動)
+Direct3D9 = Direct3D9
+OpenGL = OpenGL
 Postprocessing Shader = 後處理著色器
 Pause When Not Focused = 在非使用中時暫停
 Language... = 語言設定
 Ignore Windows Key = 忽略Windows鍵
+Screen Scaling Filter = 螢幕縮放濾鏡
 
 Help = 幫助
 Buy Gold = 購買黃金版
 PPSSPP Forums = PPSSPP官方論壇
 About PPSSPP... = 關於PPSSPP...
-PPSSPP Chinese Forum = PPSSPP中國貼吧
+
 
 [MainMenu]
 Load = 載入遊戲...
@@ -620,11 +693,14 @@ Game Settings = 遊戲設定
 Support PPSSPP = 支持PPSSPP
 DownloadFromStore = 從PPSSPP自製軟體商店下載
 
+
 [MainSettings]
 Graphics = 圖形設定
 Audio = 聲音設定
 Controls = 控制器設定
 System = 系統設定
+Networking = 聯網
+
 
 [Graphics]
 Rendering Mode = 渲染模式
@@ -707,6 +783,24 @@ Small Display = 畫面縮小顯示
 Auto FrameSkip = 自動跳幀
 Immersive Mode = 沉浸模式，支持4.4系統虛擬按鍵的自動隱藏
 Disable slower effects (speedup) = 停用較慢的渲染效果 (提升速度)
+Display Resolution (HW scaler) = 顯示分辨率 (硬件縮放)
+Must Restart = 您必須重新啟動PPSSPP,此更改才生效
+Screen Scaling Filter = 螢幕縮放濾鏡
+Backend = 引擎模式
+Direct3D9 = Direct3D9
+OpenGL = OpenGL
+Depth Range Hack (Phantasy Star Portable 2) = 深度範圍修正(夢幻之星攜帶版2)
+Lower resolution for effects (reduces artifacts) = 對於影響較低的分辨率 (降低纹理)
+Safe = 安全
+Balanced = 均衡
+Aggressive = 激進
+Cardboard Settings = 谷歌紙板設置
+Enable Cardboard = 啟用谷歌紙板
+Cardboard Screen Size = 屏幕大小(視區%)
+Cardboard Screen X Shift = 水平%
+Cardboard Screen Y Shift = 垂直%
+hardware transform error - falling back to software = 硬件變換錯誤,改用軟件模式
+
 
 [Audio]
 SFX volume = 效果音量
@@ -715,12 +809,28 @@ Enable Sound = 開啟聲音
 Audio Latency = 音訊延遲
 Audio hacks = 音訊修正
 Sound speed hack (DOA etc.) = 聲音速度修正 (生死格鬥 etc.)
+Audio backend = 音頻引擎(改變需要重新啟動)
+Auto = 自動
+WASAPI (fast) = WASAPI (快)
+DirectSound (compatible) = DirectSound (兼容)
+Audio sync = 音頻同步(使用重新採樣)
+
 
 [Controls]
 Control Mapping = 控制映射
 Tilt = 類比左右傾斜對應
 Tilt Input Type = 傾斜輸入類型
 Customize tilt = 自定義傾斜
+Invert Axes = 軸反轉
+Invert Tilt along X axis = 沿X軸傾斜反轉
+Invert Tilt along Y axis = 沿Y軸傾斜反轉
+Sensitivity = 靈敏度
+Tilt Sensitivity along X axis = 沿X軸傾斜靈敏度
+Tilt Sensitivity along Y axis = 沿Y軸傾斜靈敏度
+Deadzone Radius = 死區半徑
+Calibration = 校準
+To Calibrate = 為了校準，保證設備在一個平面上，然後按 "校準"
+Calibrate D-Pad = 校準D-Pad
 OnScreen = 顯示虛擬控制器
 Button Opacity = 按鈕透明度
 Button Scaling = 按鈕縮放
@@ -748,6 +858,8 @@ Landscape = 橫向
 Portrait = 縱向
 Landscape Reversed = 橫向逆轉
 Portrait Reversed = 縱向逆轉
+Analog Limiter = 摇杆限制器
+
 
 [System]
 Emulation = 模擬
@@ -756,7 +868,6 @@ Dynarec = 動態重新編譯 (JIT)
 DynarecisJailed = 動態重新編譯 (JIT) - 尚未越獄故無法使用
 Multithreaded (experimental) = CPU多執行緒 (試驗)
 I/O on thread (experimental) = I/O多執行緒 (試驗)
-Atomic Audio locks (experimental) = 原子音訊鎖定 (試驗)
 Enable Windows native keyboard = 啟用Windows自帶鍵盤
 Change CPU Clock = 調整CPU時鐘 (默認值0)
 Cheats = 秘籍 (實驗，見官方論壇)
@@ -766,6 +877,7 @@ General = 一般
 Screenshots as PNG = PNG格式截圖
 Change Nickname = 更改別名
 Clear Recent Games List = 清除最近遊戲記錄
+Help the PPSSPP team = 幫助PPSSPP團隊
 Enable Compatibility Server Reports = 向網路伺服器報告相容性問題
 Developer Tools = 開發者工具
 PSP Settings = PSP設定
@@ -782,15 +894,19 @@ Restore Default Settings = 還原默認設定
 UI Language = 介面語言
 Rewind Snapshot Frequency = 快照倒回頻率 (0=關閉)
 Auto Load Newest Savestate = 自動載入最新即時存檔
-Networking = 聯網
-Change proAdhocServer Address = 改變pro Adhoc網絡地址
-Change Mac Address = 改變Mac網絡地址
-proAdhocServer Address: = pro Adhoc網絡地址:
-Mac Address: = Mac網絡地址:
-Enable networking = 啟用聯網/無線區域網路 (測試)
 VersionCheck = 檢查PPSSPP新版本
 PSP Model = PSP機型
 Force real clock sync (slower, less lag) = 強制實際時鐘同步 (減少延遲, 會降低速度)
+Respect FPU rounding (disable for old GEB saves) = 遵循浮點四捨五入（為舊GEB 存檔關閉）
+Cache ISO in RAM = 在内存中緩存ISO(啟動慢)
+Save path in My Documents = 存璫路徑在我的文件
+Save path in installed.txt = 存璫路徑在installed.txt
+IO timing method = 輸入輸出計時方法
+Fast (lag on slow storage) = 快速(滯後於慢速存儲)
+Host (bugs, less lag) = 主機(少滯後),修正皇牌空戰,魔法少女小圓
+Simulate UMD delays = 模擬UMD延誤,修正紙箱戰機W
+Failed to load state. Error in the file system. = 無法加載快速存璫。在文件系統錯誤。
+
 
 [Developer]
 General = 一般
@@ -804,6 +920,24 @@ RestoreDefaultSettings = 你確定要恢復所有設定(除控制映射)\n返回
 Show Developer Menu = 顯示開發者選單
 Logging Channels = 記錄頻道
 Dump Decrypted Eboot = 當載入遊戲時轉儲已解密的EBOOT.BIN
+Jit Compare = Jit 比較
+Toggle Freeze = 切換凍結
+Dump Frame GPU Commands = 轉儲幀GPU命令
+Log Level = 日誌級別
+Current = 當前
+By Address = 由地址
+Block address = Block address 
+Enter address = 輸入地址
+Backspace = 向前删
+Prev = 之前
+Next = 下一個
+Random = 隨機
+Random VFPU = 隨機VFPU 
+No block = No block 
+RestoreGameDefaultSettings = 你確定你要恢復的遊戲特定的設置\n回到PPSSPP默認？ 
+Log View = 日誌查看
+Toggle Audio Debug = 切換音頻調試
+
 
 [Dialog]
 Back = 返回
@@ -843,6 +977,11 @@ Network Connection = 網路連線
 SavingFailed = 無法儲存資料
 LoadingFailed = 無法載入資料
 DeleteFailed = 無法刪除資料
+ChangingGPUBackends = 改變引擎模式後需要PPSSPP重新啟動。現在重新啟動？
+Choose PPSSPP save folder = 選擇PPSSPP存璫的文件夾
+DeleteConfirmGameConfig = 你真的要刪除這個遊戲的設置？
+When you save, it will load on a PSP, but not an older PPSSPP = 當您保存，它會加載一個真正的PSP，但不是舊版本PPSSPP
+Old savedata detected = 檢測到舊版本的保存數據
 
 [Pause]
 Save State = 即時存檔
@@ -853,6 +992,10 @@ Game Settings = 遊戲設定
 Cheats = 金手指
 Exit to menu = 返回主選單
 Switch UMD = 切換光碟
+Settings = 設置
+Create Game Config = 建立遊戲配置
+Delete Game Config = 刪除遊戲配置
+
 
 [Error]
 Error loading file = 檔案載入錯誤
@@ -862,14 +1005,19 @@ RAR file detected (Require WINRAR) = 檔案是RAR壓縮檔.\ n請先解壓縮 (�
 RAR file detected (Require UnRAR) = 檔案是RAR壓縮檔.\ n請先解壓縮 (需使用UnRAR)
 ZIP file detected (Require WINRAR) = 檔案是ZIP壓縮檔.\ n請先解壓縮 (需使用WinRAR)
 ZIP file detected (Require UnRAR) = 檔案是ZIP壓縮檔.\ n請先解壓縮 (需使用UnRAR)
+7z file detected (Require 7-Zip) = 檔案是7z壓縮檔.\ n請先解壓縮 (需使用7-zip或WinRAR)
 Just a directory. = 只是一個目錄.
 Failed to identify file = 未能識別檔案.
 Error reading file = 讀取檔案錯誤.
 No EBOOT.PBP, misidentified game = 沒有EBOOT.PBP，錯誤識別遊戲.
 PSX game image detected. = 抱歉，不支持PSX遊戲
 OpenGLDriverError = OpenGL驅動程式錯誤
-InsufficientOpenGLDriver = 檢測到對OpenGL驅動程式支持不足\n\nPPSSPP需要GPU支持OpenGL 2.0才能執行\n\n請檢查GPU是否相容OpenGL 2.0並更新顯示卡的驅動程式
+InsufficientOpenGLDriver = 檢測到對OpenGL驅動程式支持不足\n\n您想嘗試​​使用DirectX9嗎？\n\nDirectX目前較少的遊戲兼容，但在你的GPU也可能是唯一的選擇。
 PPSSPPDoesNotSupportInternet = PPSSPP目前不支持連線到網路進行DLC、PSN或遊戲的更新
+Disk full while writing data = 寫入數據時硬磁盤資料滿了
+Could not save screenshot file = 無法保存截圖文件
+Unable to write savedata, disk may be full = 無法寫入保存數據,磁盤可能已滿
+Save encryption failed. This save won't work on real PSP = 保存加密失敗。這個保存的文件將無法在真正的PSP工作
 
 [Screen]
 fixed = 速度：固定
@@ -878,15 +1026,22 @@ Loaded State = 存檔已經載入
 Saved State = 存檔已經儲存
 LoadStateDoesntExist = 無法載入：存檔不存在！
 LoadStateWrongVersion = 無法載入: 存檔為舊版本的PPSSPP的!
-Save State Failed = 存檔無法儲存！
+Save State Failed = 快速存檔無法儲存！
 PressESC = 按下ESC鍵以暫停遊戲
 Chainfire3DWarning = 警告:檢測到Chainfire3D，可能造成問題
+GLToolsWarning = 警告:檢測到GLTools，可能造成問題
+norewind = 倒带快速存璫不可用
+Load savestate failed = 無法載入快速存檔
+Failed to load state = 無法載入快速存檔
+Failed to save state = 無法存檔快速存檔
 
 [CwCheats]
 Options = 設定
 Import Cheats = 由Cheats載入
 Enable/Disable All = 啟用/禁用所有
 Cheats = 金手指
+Edit Cheat File = 編輯金手指文件
+Refresh Rate = 刷新率
 
 [PSPCredits]
 Buy Gold = 購買黃金版
@@ -898,6 +1053,8 @@ Clear All = 全部清除
 Default All = 恢復默認
 Map a new key for = 按下要映射到的按鈕: 
 Autoconfigure for device = 設備自動配置
+Autoconfigure = 自動配置
+Test Analogs = 測試搖桿
 
 [MappableControls]
 Up = 方向鍵: 上
@@ -916,12 +1073,15 @@ RightAn.Up = 右搖桿: 上
 RightAn.Down = 右搖桿: 下
 RightAn.Left = 右搖桿: 左
 RightAn.Right = 右搖桿: 右
-Analog Stick = 類比搖桿
+Analog Stick = 搖桿
 Dpad = Dpad
 Rewind = 倒回
 Save State = 即時存檔
 Load State = 載入存檔
-Analog limiter = 類比限制器
+Analog limiter = 搖桿限制器
+Next Slot = 下一槽
+AxisSwap = 軸交換
+
 
 [Game]
 Play = 開始遊戲
@@ -934,17 +1094,23 @@ Delete Save Data = 刪除存檔
 Remove From Recent = 刪除此記錄
 ConfirmDelete = 確定
 Show In Folder = 顯示資料夾
+MB = MB
+InstallData = 安裝數據
+Create Game Config = 建立遊戲配置
+Delete Game Config = 刪除遊戲配置
 
 [Upgrade]
 New version of PPSSPP available = 新版本PPSSPP已經就緒
 Download = 下載
 Dismiss = 忽略
 
+
 [InstallZip]
 Install game from ZIP file? = 從ZIP檔案安裝遊戲?
 Install = 安裝
 Delete ZIP file = 刪除ZIP檔案
 Installed! = 安裝完成!
+
 
 [Store]
 Install = 安裝
@@ -955,3 +1121,89 @@ MB = MB
 Loading... = 載入中...
 Connection Error = 連線錯誤
 
+
+[Reporting]
+ReportButton = 報告反饋 
+FeedbackDesc = 模擬兼容性怎樣？讓我們知道
+Overall = 總体
+Perfect = 完美
+Plays = 可玩
+In-game = 在遊戲中
+Menu/Intro = 菜單/簡介 
+Nothing = 沒晝面
+Graphics = 圖形
+Bad = 壞
+OK = 好
+Great = 很好
+Speed = 速度
+Gameplay = 遊戲過程
+Open Browser = 打開瀏覽器
+Submit Feedback = 提交反饋
+
+
+[Networking]
+Change proAdhocServer Address = 改變pro Adhoc網絡地址
+Enable built-in PRO Adhoc Server = 啟用內置PRO Adhoc服務器
+Change Mac Address = 改變Mac網絡地址
+proAdhocServer Address: = pro Adhoc網絡地址:
+Enable networking = 啟用聯網/無線區域網路 (測試)
+Network Initialized = 網絡已初始化
+Adhoc Multiplayer forum = Ad Hoc 多人遊戲論壇
+﻿[LangRegionNames]
+ja_JP = "日本語"
+en_US = "English"
+fi_FI = "Suomi"
+fr_FR = "Français"
+es_ES = "Castellano (España)"
+es_LA = "Español (América Latina)"
+de_DE = "Deutsch"
+it_IT = "Italiano"
+nl_NL = "Nederlands"
+pt_PT = "Português"
+pt_BR = "Português Brasileiro"
+ru_RU = "Русский"
+ko_KR = "한국어"
+zh_TW = "繁體中文"
+zh_CN = "简体中文"
+ar_AE = "العربية"
+az_AZ = "Azeri"
+ca_ES = "Català"
+gl_ES = "Galego"
+gr_EL = "Ελληνικά"
+he_IL = "עברית"
+hu_HU = "Magyar"
+id_ID = "Indonesia"
+pl_PL = "Polski"
+ro_RO = "Român"
+sv_SE = "Svenska"
+tr_TR = "Türk"
+uk_UA = "Українська"
+vi_VN = "Tiếng Việt"
+cz_CZ = "Česky"
+tg_PH = "Tagalog"
+th_TH = "ไทย"
+dr_ID = "Duri"
+fa_IR = "فارسی"
+ms_MY = "Melayu"
+da_DK = "Dansk"
+no_NO = "Norsk"
+bg_BG = "български език"
+lt-LT = "Lithuanian"
+
+[SystemLanguage]
+ja_JP = "JAPANESE"
+en_US = "ENGLISH"
+fr_FR = "FRENCH"
+es_ES = "SPANISH"
+gl_ES = "SPANISH"
+es_LA = "SPANISH"
+de_DE = "GERMAN"
+it_IT = "ITALIAN"
+nl_NL = "DUTCH"
+pt_PT = "PORTUGUESE"
+pt_BR = "PORTUGUESE"
+ru_RU = "RUSSIAN"
+ko_KR = "KOREAN"
+th_TH = "THAI"
+zh_TW = "CHINESE_TRADITIONAL"
+zh_CN = "CHINESE_SIMPLIFIED"
