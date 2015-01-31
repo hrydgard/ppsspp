@@ -348,7 +348,12 @@ void GameSettingsScreen::CreateViews() {
 
 	static const char *latency[] = { "Low", "Medium", "High" };
 	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gs, screenManager()));
+
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
+	if (System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE) == 44100) {
+		CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (using resampling)")));
+		resampling->SetEnabledPtr(&g_Config.bEnableSound);
+	}
 
 	audioSettings->Add(new ItemHeader(a->T("Audio hacks")));
 	audioSettings->Add(new CheckBox(&g_Config.bSoundSpeedHack, a->T("Sound speed hack (DOA etc.)")));

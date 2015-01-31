@@ -484,6 +484,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, true, true),
 	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1, true, true),
 	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false, true, true),
+	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
 
 	ConfigSetting(false),
 };

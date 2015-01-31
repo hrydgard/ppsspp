@@ -209,6 +209,7 @@ public:
 
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
+	bool bAudioResampler;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
