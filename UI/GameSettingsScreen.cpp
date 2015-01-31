@@ -342,7 +342,7 @@ void GameSettingsScreen::CreateViews() {
 
 #ifdef _WIN32
 	static const char *backend[] = { "Auto", "WASAPI (fast)", "DirectSound (compatible)" };
-	PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend"), backend, 0, ARRAY_SIZE(backend), a, screenManager()));
+	PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (change requires restart)"), backend, 0, ARRAY_SIZE(backend), a, screenManager()));
 	audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
 
