@@ -291,6 +291,10 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
+		// Farsi also only works on Windows.
+		if (tempLangs[i].name.find("fa_IR") != std::string::npos) {
+			continue;
+		}
 #endif
 		FileInfo lang = tempLangs[i];
 		langs_.push_back(lang);
