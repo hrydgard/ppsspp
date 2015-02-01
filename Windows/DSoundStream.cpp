@@ -1,7 +1,7 @@
+#include "Common/CommonWindows.h"
 #include <dsound.h>
 
 #include "native/thread/threadutil.h"
-#include "Common/CommonWindows.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Windows/W32Util/Misc.h"
@@ -320,13 +320,37 @@ int WASAPIAudioBackend::RunThread() {
 	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		NULL, /*Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pDeviceEnumerator);
+	if (FAILED(hresult)) goto bail;
 
 	hresult = pDeviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &pDevice);
+	if (FAILED(hresult)) {
+		pDeviceEnumerator->Release();
+		goto bail;
+	}
+
 	hresult = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioInterface);
+	if (FAILED(hresult)) {
+		pDevice->Release();
+		pDeviceEnumerator->Release();
+		goto bail;
+	}
+
 	hresult = pAudioInterface->GetMixFormat((WAVEFORMATEX**)&pDeviceFormat);
 	hresult = pAudioInterface->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &pDeviceFormat->Format, NULL);
 	hresult = pAudioInterface->GetService(IID_IAudioRenderClient, (void**)&pAudioRenderClient);
+	if (FAILED(hresult)) {
+		pDevice->Release();
+		pDeviceEnumerator->Release();
+		pAudioInterface->Release();
+		goto bail;
+	}
 	hresult = pAudioInterface->GetBufferSize(&pNumBufferFrames);
+	if (FAILED(hresult)) {
+		pDevice->Release();
+		pDeviceEnumerator->Release();
+		pAudioInterface->Release();
+		goto bail;
+	}
 
 	sampleRate_ = pDeviceFormat->Format.nSamplesPerSec;
 
@@ -430,6 +454,7 @@ int WASAPIAudioBackend::RunThread() {
 	pAudioInterface->Release();
 	pAudioRenderClient->Release();
 
+bail:
 	threadData_ = 2;
 	CoUninitialize();
 	return 0;

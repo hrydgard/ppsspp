@@ -140,7 +140,7 @@ public:
 
 		screenshotFilename_ = SaveState::GenerateSaveSlotFilename(slot, "jpg");
 		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
-		Add(new UI::Spacer(10));
+		Add(new Spacer(5));
 
 		AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
 		fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
@@ -159,6 +159,17 @@ public:
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 
 			fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
+
+			std::string dateStr = SaveState::GetSlotDateAsString(slot_);
+			std::vector<std::string> dateStrs;
+			SplitString(dateStr, ' ', dateStrs);
+			if (!dateStrs.empty() && !dateStrs[0].empty()) {
+				LinearLayout *strs = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+				Add(strs);
+				for (size_t i = 0; i < dateStrs.size(); i++) {
+					strs->Add(new TextView(dateStrs[i], new LinearLayoutParams(0.0, G_VCENTER)));
+				}
+			}
 		} else {
 			fv->SetFilename("");
 		}
