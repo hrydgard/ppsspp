@@ -343,8 +343,8 @@ void GameSettingsScreen::CreateViews() {
 
 #ifdef _WIN32
 	if (IsVistaOrHigher()) {
-		static const char *backend[] = { "Auto", "DirectSound (compatible)", "WASAPI (fast)" };
-		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (change requires restart)"), backend, 0, ARRAY_SIZE(backend), a, screenManager()));
+		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
+		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a, screenManager()));
 		audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
 	}
 #endif
@@ -354,7 +354,7 @@ void GameSettingsScreen::CreateViews() {
 
 	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
 	if (System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE) == 44100) {
-		CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (using resampling)")));
+		CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (resampling)")));
 		resampling->SetEnabledPtr(&g_Config.bEnableSound);
 	}
 

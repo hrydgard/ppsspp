@@ -210,6 +210,7 @@ void D3D9_Resize(HWND window) {
 		HRESULT hr = device->Reset(&pp);
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", DXGetErrorStringA(hr));
+			PanicAlert("Unable to reset D3D9 device: %s", DXGetErrorStringA(hr));
 		}
 		DX9::fbo_init(d3d);
 	}

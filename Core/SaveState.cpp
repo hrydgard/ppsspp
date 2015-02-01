@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "i18n/i18n.h"
 
 #include "Common/StdMutex.h"
@@ -308,6 +309,11 @@ namespace SaveState
 		}
 	}
 
+	int GetCurrentSlot()
+	{
+		return g_Config.iCurrentStateSlot;
+	}
+
 	void NextSlot()
 	{
 		I18NCategory *sy = GetI18NCategory("System");
@@ -315,6 +321,7 @@ namespace SaveState
 		char msg[128];
 		snprintf(msg, sizeof(msg), "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
+		NativeMessageReceived("slotchanged", "");
 	}
 
 	void LoadSlot(int slot, Callback callback, void *cbUserData)

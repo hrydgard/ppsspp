@@ -728,15 +728,6 @@ void NativeRender() {
 		TakeScreenshot();
 	}
 
-	if (resized) {
-		resized = false;
-		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
-#ifdef _WIN32
-			D3D9_Resize(0);
-#endif
-		}
-	}
-
 	thin3d->SetScissorEnabled(false);
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -746,6 +737,15 @@ void NativeRender() {
 		DX9::dxstate.depthWrite.set(true);
 		DX9::dxstate.colorMask.set(true, true, true, true);
 #endif
+	}
+
+	if (resized) {
+		resized = false;
+		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+#ifdef _WIN32
+			D3D9_Resize(0);
+#endif
+		}
 	}
 }
 

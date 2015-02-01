@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "android/app-android.h"
 #include "base/display.h"
 #include "base/logging.h"
+#include "base/timeutil.h"
 
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
@@ -63,7 +65,7 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
 }
 
@@ -241,6 +243,22 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
+		}
+	} else if (!strcmp(message, "slotchanged")) {
+		if (saveStatePreview_) {
+			int curSlot = SaveState::GetCurrentSlot();
+			std::string fn;
+			if (SaveState::HasSaveInSlot(curSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(curSlot, "jpg");
+			}
+
+			saveStatePreview_->SetFilename(fn);
+			if (!fn.empty()) {
+				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
+				saveStatePreviewShownTime_ = time_now_d();
+			} else {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
 		}
 	}
 }
@@ -561,13 +579,19 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 }
 
 void EmuScreen::CreateViews() {
+	using namespace UI;
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
-		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
-	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams((UI::Size)bounds.w, (UI::Size)bounds.h)));
+	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_->SetFixedSize(160, 90);
+	saveStatePreview_->SetColor(0x90FFFFFF);
+	saveStatePreview_->SetVisibility(V_GONE);
+	root_->Add(saveStatePreview_);
+	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -667,6 +691,10 @@ void EmuScreen::update(InputState &input) {
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));
+	}
+
+	if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
+		saveStatePreview_->SetVisibility(UI::V_GONE);
 	}
 }
 

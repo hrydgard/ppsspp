@@ -38,6 +38,9 @@ namespace SaveState
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(int slot);
 	bool HasScreenshotInSlot(int slot);
+
+	int GetCurrentSlot();
+
 	// Returns -1 if there's no newest slot.
 	int GetNewestSlot();
 

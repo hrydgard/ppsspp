@@ -28,6 +28,8 @@
 
 struct AxisInput;
 
+class AsyncImageFileView;
+
 class EmuScreen : public UIScreen {
 public:
 	EmuScreen(const std::string &filename);
@@ -82,4 +84,7 @@ private:
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX];
+
+	double saveStatePreviewShownTime_;
+	AsyncImageFileView *saveStatePreview_;
 };
