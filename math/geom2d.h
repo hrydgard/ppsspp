@@ -59,6 +59,9 @@ struct Bounds {
 	Point Center() const {
 		return Point(centerX(), centerY());
 	}
+	Bounds Expand(float amount) const {
+		return Bounds(x - amount, y - amount, w + amount * 2, h + amount * 2);
+	}
 
 	float x;
 	float y;
