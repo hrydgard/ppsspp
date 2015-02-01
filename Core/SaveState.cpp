@@ -398,8 +398,9 @@ namespace SaveState
 		for (int i = 0; i < SAVESTATESLOTS; i++) {
 			std::string fn = GenerateSaveSlotFilename(i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
-				tm time = File::GetModifTime(fn);
-				if (newestDate < time) {
+				tm time;
+				bool success = File::GetModifTime(fn, time);
+				if (success && newestDate < time) {
 					newestDate = time;
 					newestSlot = i;
 				}
@@ -411,10 +412,13 @@ namespace SaveState
 	std::string GetSlotDateAsString(int slot) {
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (File::Exists(fn)) {
-			tm time = File::GetModifTime(fn);
-			char buf[256];
-			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
-			return std::string(buf);
+			tm time;
+			if (File::GetModifTime(fn, time)) {
+				char buf[256];
+				// TODO: Use local time format? Americans and some others might not like ISO standard :)
+				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				return std::string(buf);
+			}
 		}
 		return "";
 	}
