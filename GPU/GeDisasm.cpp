@@ -110,8 +110,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	case GE_CMD_PRIM:
 		{
 			u32 count = data & 0xFFFF;
-			u32 type = data >> 16;
-			static const char* types[7] = {
+			u32 type = (data >> 16) & 7;
+			static const char* types[8] = {
 				"POINTS",
 				"LINES",
 				"LINE_STRIP",
@@ -119,6 +119,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 				"TRIANGLE_STRIP",
 				"TRIANGLE_FAN",
 				"RECTANGLES",
+				"CONTINUE_PREVIOUS",
 			};
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
 				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
