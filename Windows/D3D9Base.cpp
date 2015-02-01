@@ -14,6 +14,7 @@
 #include "Windows/D3D9Base.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
+#include "Windows/W32Util/Misc.h"
 
 static bool has9Ex = false;
 static LPDIRECT3D9 d3d;
@@ -195,6 +196,11 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 }
 
 void D3D9_Resize(HWND window) {
+	//Fix WinXP full screen issue
+#ifdef _WIN32
+	if (!IsVistaOrHigher())
+		return;
+#endif
 	// This should only be called from the emu thread.
 
 	int xres, yres;
