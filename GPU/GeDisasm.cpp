@@ -81,12 +81,9 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w[-2] = '\0';
 }
 
-void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
+void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
-
-	char *buffer = origbuf + snprintf(origbuf, bufsize, "%08x: ", op);
-	bufsize -= (int)(buffer - origbuf);
 
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
@@ -254,7 +251,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
 	case GE_CMD_VERTEXTYPE:
 		{
 			int len = snprintf(buffer, bufsize, "SetVertexType: ");
-			GeDescribeVertexType(op, buffer + len, 256 - len);
+			GeDescribeVertexType(op, buffer + len, bufsize - len);
 		}
 		break;
 
