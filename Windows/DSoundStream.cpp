@@ -1,9 +1,10 @@
+#include <dsound.h>
+
 #include "native/thread/threadutil.h"
 #include "Common/CommonWindows.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
-
-#include <dsound.h>
+#include "Windows/W32Util/Misc.h"
 
 #include "dsoundstream.h"	
 
@@ -71,6 +72,35 @@ inline int RoundDown128(int x) {
 	return x & (~127);
 }
 
+unsigned int WINAPI DSoundAudioBackend::soundThread(void *param) {
+	DSoundAudioBackend *dsound = (DSoundAudioBackend *)param;
+	return dsound->RunThread();
+}
+
+bool DSoundAudioBackend::WriteDataToBuffer(DWORD offset, // Our own write cursor.
+																		char* soundData, // Start of our data.
+																		DWORD soundBytes) { // Size of block to copy.
+	void *ptr1, *ptr2;
+	DWORD numBytes1, numBytes2;
+	// Obtain memory address of write block. This will be in two parts if the block wraps around.
+	HRESULT hr = dsBuffer_->Lock(offset, soundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
+	// If the buffer was lost, restore and retry lock.
+	/*
+	if (DSERR_BUFFERLOST == hr) {
+	dsBuffer->Restore();
+	hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
+	} */
+	if (SUCCEEDED(hr)) { 
+		memcpy(ptr1, soundData, numBytes1);
+		if (ptr2)
+			memcpy(ptr2, soundData+numBytes1, numBytes2);
+		// Release the data back to DirectSound.
+		dsBuffer_->Unlock(ptr1, numBytes1, ptr2, numBytes2);
+		return true;
+	}
+	return false;
+}
+
 bool DSoundAudioBackend::CreateBuffer() {
 	PCMWAVEFORMAT pcmwf;
 	DSBUFFERDESC dsbdesc;
@@ -101,45 +131,33 @@ bool DSoundAudioBackend::CreateBuffer() {
 	}
 }
 
-bool DSoundAudioBackend::WriteDataToBuffer(DWORD offset, // Our own write cursor.
-																		char* soundData, // Start of our data.
-																		DWORD soundBytes) { // Size of block to copy.
-	void *ptr1, *ptr2;
-	DWORD numBytes1, numBytes2;
-	// Obtain memory address of write block. This will be in two parts if the block wraps around.
-	HRESULT hr = dsBuffer_->Lock(offset, soundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
-
-	// If the buffer was lost, restore and retry lock.
-	/*
-	if (DSERR_BUFFERLOST == hr) {
-	dsBuffer->Restore();
-	hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
-	} */
-	if (SUCCEEDED(hr)) { 
-		memcpy(ptr1, soundData, numBytes1);
-		if (ptr2)
-			memcpy(ptr2, soundData+numBytes1, numBytes2);
-
-		// Release the data back to DirectSound.
-		dsBuffer_->Unlock(ptr1, numBytes1, ptr2, numBytes2);
-		return true;
-	}/* 
-		else
-		{
-		char temp[8];
-		sprintf(temp,"%i\n",hr);
-		OutputDebugStringUTF8(temp);
-		}*/
-	return false;
-}
-
-unsigned int WINAPI DSoundAudioBackend::soundThread(void *param) {
-	DSoundAudioBackend *state = (DSoundAudioBackend *)param;
-	return state->RunThread();
-}
-
-// TODO: Move the init into the thread, like WASAPI?
 int DSoundAudioBackend::RunThread() {
+	if (FAILED(DirectSoundCreate8(0, &ds_, 0))) {
+		ds_ = NULL;
+		threadData_ = 2;
+		return 1;
+	}
+
+	ds_->SetCooperativeLevel(window_, DSSCL_PRIORITY);
+	if (!CreateBuffer()) {
+		ds_->Release();
+		ds_ = NULL;
+		threadData_ = 2;
+		return 1;
+	}
+
+	soundSyncEvent_ = CreateEvent(0, false, false, 0);
+	InitializeCriticalSection(&soundCriticalSection);
+
+	DWORD num1;
+	short *p1;
+
+	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, 0, 0, 0);
+
+	memset(p1, 0, num1);
+	dsBuffer_->Unlock(p1, num1, 0, 0);
+	totalRenderedBytes_ = -bufferSize_;
+
 	setCurrentThreadName("DSound");
 	currentPos_ = 0;
 	lastPos_ = 0;
@@ -170,6 +188,9 @@ int DSoundAudioBackend::RunThread() {
 	}
 	dsBuffer_->Stop();
 
+	dsBuffer_->Release();
+	ds_->Release();
+
 	threadData_ = 2;
 	return 0;
 }
@@ -196,15 +217,6 @@ DSoundAudioBackend::~DSoundAudioBackend() {
 		hThread_ = NULL;
 	}
 
-	if (threadData_ == 2) {
-		if (dsBuffer_ != NULL)
-			dsBuffer_->Release();
-		dsBuffer_ = NULL;
-		if (ds_ != NULL)
-			ds_->Release();
-		ds_ = NULL;
-	}
-
 	if (soundSyncEvent_ != NULL) {
 		CloseHandle(soundSyncEvent_);
 	}
@@ -218,26 +230,6 @@ bool DSoundAudioBackend::Init(HWND window, StreamCallback _callback, int sampleR
 	callback_ = _callback;
 	sampleRate_ = sampleRate;
 	threadData_ = 0;
-	if (FAILED(DirectSoundCreate8(0, &ds_, 0))) {
-		ds_ = NULL;
-		return false;
-	}
-
-	ds_->SetCooperativeLevel(window_, DSSCL_PRIORITY);
-	if (!CreateBuffer())
-		return false;
-
-	soundSyncEvent_ = CreateEvent(0, false, false, 0);
-	InitializeCriticalSection(&soundCriticalSection);
-
-	DWORD num1;
-	short *p1; 
-
-	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, 0, 0, 0); 
-
-	memset(p1,0,num1);
-	dsBuffer_->Unlock(p1,num1,0,0);
-	totalRenderedBytes_ = -bufferSize_;
 	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
 	return true;
@@ -310,6 +302,7 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 int WASAPIAudioBackend::RunThread() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	setCurrentThreadName("WASAPI_audio");
 
 	IMMDeviceEnumerator *pDeviceEnumerator;
@@ -438,36 +431,21 @@ int WASAPIAudioBackend::RunThread() {
 	pAudioRenderClient->Release();
 
 	threadData_ = 2;
+	CoUninitialize();
 	return 0;
 }
 
 WindowsAudioBackend *CreateAudioBackend(AudioBackendType type) {
-	switch (type) {
-	case AUDIO_BACKEND_DSOUND:
-		return new DSoundAudioBackend();
-	case AUDIO_BACKEND_WASAPI:
-		return new WASAPIAudioBackend();
-	case AUDIO_BACKEND_AUTO:
-		{
-			OSVERSIONINFOEX osvi;
-			DWORDLONG dwlConditionMask = 0;
-			int op = VER_GREATER_EQUAL;
-			ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-			osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-			osvi.dwMajorVersion = 6;  // Vista is 6.0
-			osvi.dwMinorVersion = 0;
-
-			VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
-			VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
-
-			BOOL isVistaOrHigher = VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask);
-
-			if (isVistaOrHigher) {
-				return new WASAPIAudioBackend();
-			} else {
-				return new DSoundAudioBackend();
-			}
+	if (IsVistaOrHigher()) {
+		switch (type) {
+		case AUDIO_BACKEND_WASAPI:
+		case AUDIO_BACKEND_AUTO:
+			return new WASAPIAudioBackend();
+		case AUDIO_BACKEND_DSOUND:
+		default:
+			return new DSoundAudioBackend();
 		}
+	} else {
+		return new DSoundAudioBackend();
 	}
-	return nullptr;
 }
