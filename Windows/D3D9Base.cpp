@@ -12,6 +12,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Windows/D3D9Base.h"
+#include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
 
@@ -68,29 +69,34 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
 	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
-
 	if (!hD3D9) {
 		ELOG("Missing d3d9.dll");
-		*error_message = "D3D9.dll missing";
+		*error_message = "D3D9.dll missing - try reinstalling DirectX.";
+		return false;
+	}
+
+	int d3dx_version = LoadD3DX9Dynamic();
+	if (!d3dx_version) {
+		*error_message = "D3DX DLL not found! Try reinstalling DirectX.";
 		return false;
 	}
 
 	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9, "Direct3DCreate9Ex");
-	has9Ex = (g_pfnCreate9ex != NULL);
+	has9Ex = (g_pfnCreate9ex != NULL) && IsVistaOrHigher();
 
 	if (has9Ex) {
 		HRESULT result = g_pfnCreate9ex(D3D_SDK_VERSION, &d3dEx);
 		d3d = d3dEx;
 		if (FAILED(result)) {
 			FreeLibrary(hD3D9);
-			*error_message = "D3D9Ex available but context creation failed";
+			*error_message = "D3D9Ex available but context creation failed. Try reinstalling DirectX.";
 			return false;
 		}
 	} else {
 		d3d = Direct3DCreate9(D3D_SDK_VERSION);
 		if (!d3d) {
 			FreeLibrary(hD3D9);
-			*error_message = "Failed to create D3D9 context";
+			*error_message = "Failed to create D3D9 context. Try reinstalling DirectX.";
 			return false;
 		}
 	}
@@ -169,8 +175,6 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 	device->BeginScene();
 	DX9::pD3Ddevice = device;
 	DX9::pD3DdeviceEx = deviceEx;
-
-	LoadD3DX9Dynamic();
 
 	if (!DX9::CompileShaders(*error_message)) {
 		*error_message = "Unable to compile shaders: " + *error_message;

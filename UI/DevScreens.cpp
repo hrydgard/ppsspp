@@ -41,6 +41,11 @@
 #include "UI/DevScreens.h"
 #include "UI/GameSettingsScreen.h"
 
+#ifdef _WIN32
+// Want to avoid including the full header here as it includes d3dx.h
+int GetD3DXVersion();
+#endif
+
 static const char *logLevelList[] = {
 	"Notice",
 	"Error",
@@ -330,6 +335,9 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
+	}
 #endif
 
 #ifdef ANDROID
