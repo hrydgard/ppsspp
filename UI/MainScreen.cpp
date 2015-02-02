@@ -76,8 +76,8 @@ public:
 	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
 		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdFrameCount_(0), holdEnabled_(true) {}
 
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		if (gridStyle_) {
 			w = 144;
 			h = 80;
@@ -92,7 +92,7 @@ public:
 	void SetHoldEnabled(bool hold) {
 		holdEnabled_ = hold;
 	}
-	virtual void Touch(const TouchInput &input) {
+	void Touch(const TouchInput &input) override {
 		UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
 		if (input.flags & TOUCH_UP) {
@@ -100,7 +100,7 @@ public:
 		}
 	}
 
-	virtual void Key(const KeyInput &key) {
+	bool Key(const KeyInput &key) override {
 		std::vector<int> pspKeys;
 		bool showInfo = false;
 
@@ -120,13 +120,13 @@ public:
 
 		if (showInfo) {
 			TriggerOnHoldClick();
-			return;
+			return true;
 		}
 
-		Clickable::Key(key);
+		return Clickable::Key(key);
 	}
 
-	virtual void Update(const InputState &input_state) {
+	void Update(const InputState &input_state) override {
 		if (down_ && holdEnabled_)
 			holdFrameCount_++;
 		else
@@ -137,7 +137,7 @@ public:
 		}
 	}
 
-	virtual void FocusChanged(int focusFlags) {
+	void FocusChanged(int focusFlags) override {
 		UI::Clickable::FocusChanged(focusFlags);
 		TriggerOnHighlight(focusFlags);
 	}

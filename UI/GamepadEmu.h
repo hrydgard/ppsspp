@@ -29,7 +29,7 @@ public:
 		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
 	}
 
-	virtual void Key(const KeyInput &input) {}
+	virtual bool Key(const KeyInput &input) { return false; }
 	virtual void Update(const InputState &input) {}
 	virtual void Touch(const TouchInput &input);
 	virtual void Draw(UIContext &dc);
@@ -56,7 +56,7 @@ public:
 		: MultiTouchButton(bgImg, img, scale, layoutParams), value_(value) {
 
 	}
-	virtual void Touch(const TouchInput &input);
+	virtual void Touch(const TouchInput &input) override;
 	virtual bool IsDown() { return *value_; }
 
 private:
@@ -68,7 +68,7 @@ public:
 	PSPButton(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
-	virtual void Touch(const TouchInput &input);
+	void Touch(const TouchInput &input) override;
 	virtual bool IsDown();
 
 private:
@@ -79,11 +79,11 @@ class PSPDpad : public UI::View {
 public:
 	PSPDpad(int arrowIndex, int overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams);
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	bool Key(const KeyInput &input) override { return false; }
+	void Update(const InputState &input) override {}
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 private:
 	void ProcessTouch(float x, float y, bool down);
@@ -101,11 +101,11 @@ class PSPStick : public UI::View {
 public:
 	PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams);
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	bool Key(const KeyInput &input) override { return false; }
+	void Update(const InputState &input) override {}
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 private:
 	void ProcessTouch(float x, float y, bool down);
