@@ -95,6 +95,9 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 		numInds = count;
 	}
 
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1;
+
 	// Will need 4 coords and 6 points per rectangle (currently 2 each.)
 	newVerts.resize(numInds * 2);
 	newInds.resize(numInds * 3);

@@ -460,6 +460,8 @@ void SoftwareTransform(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
+		//rectangles always need 2 vertices, disregard the last one if there's an odd number
+		vertexCount = vertexCount & ~1;
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
