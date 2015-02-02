@@ -87,11 +87,12 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		dc.Flush();
 		dc.GetThin3DContext()->SetTexture(0, texture_);
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
-		if (!text_.empty()) {
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
-		}
 		dc.Flush();
 		dc.RebindTexture();
+		if (!text_.empty()) {
+			dc.DrawText(text_.c_str(), bounds_.centerX()+1, bounds_.centerY()+1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+		}
 	} else {
 		if (!filename_.empty()) {
 			// draw a black rectangle to represent the missing screenshot.
