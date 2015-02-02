@@ -258,13 +258,14 @@ void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins scrollMargins(0, 20, 0, 0);
+	Margins actionMenuMargins(0, 20, 15, 0);
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *i = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, actionMenuMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
 	root_->Add(leftColumn);
 
 	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
