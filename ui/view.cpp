@@ -252,15 +252,17 @@ bool IsTabRightKeyCode(int keyCode) {
 	}
 }
 
-void Clickable::Key(const KeyInput &key) {
+bool Clickable::Key(const KeyInput &key) {
 	if (!HasFocus() && key.deviceId != DEVICE_ID_MOUSE) {
 		down_ = false;
-		return;
+		return false;
 	}
 	// TODO: Replace most of Update with this.
+	bool ret = false;
 	if (key.flags & KEY_DOWN) {
 		if (IsAcceptKeyCode(key.keyCode)) {
 			down_ = true;
+			ret = true;
 		}
 	}
 	if (key.flags & KEY_UP) {
@@ -268,11 +270,13 @@ void Clickable::Key(const KeyInput &key) {
 			if (down_) {
 				Click();
 				down_ = false;
+				ret = true;
 			}
 		} else if (IsEscapeKeyCode(key.keyCode)) {
 			down_ = false;
 		}
 	}
+	return ret;
 }
 
 void StickyChoice::Touch(const TouchInput &input) {
@@ -292,9 +296,9 @@ void StickyChoice::Touch(const TouchInput &input) {
 	}
 }
 
-void StickyChoice::Key(const KeyInput &key) {
+bool StickyChoice::Key(const KeyInput &key) {
 	if (!HasFocus()) {
-		return;
+		return false;
 	}
 
 	// TODO: Replace most of Update with this.
@@ -302,8 +306,10 @@ void StickyChoice::Key(const KeyInput &key) {
 		if (IsAcceptKeyCode(key.keyCode)) {
 			down_ = true;
 			Click();
+			return true;
 		}
 	}
+	return false;
 }
 
 void StickyChoice::FocusChanged(int focusFlags) {
@@ -633,9 +639,9 @@ void TextEdit::Touch(const TouchInput &touch) {
 	}
 }
 
-void TextEdit::Key(const KeyInput &input) {
+bool TextEdit::Key(const KeyInput &input) {
 	if (!HasFocus())
-		return;
+		return false;
 	bool textChanged = false;
 	// Process navigation keys. These aren't chars.
 	if (input.flags & KEY_DOWN) {
@@ -684,6 +690,9 @@ void TextEdit::Key(const KeyInput &input) {
 				OnEnter.Trigger(e);
 				break;
 			}
+		case NKCODE_BACK:
+		case NKCODE_ESCAPE:
+			return false;
 		}
 
 		if (ctrlDown_) {
@@ -761,6 +770,7 @@ void TextEdit::Key(const KeyInput &input) {
 		e.v = this;
 		OnTextChange.Trigger(e);
 	}
+	return true;
 }
 
 void TextEdit::InsertAtCaret(const char *text) {
@@ -818,7 +828,7 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 	h = image.h;
 }
 
-void Slider::Key(const KeyInput &input) {
+bool Slider::Key(const KeyInput &input) {
 	if (HasFocus() && (input.flags & KEY_DOWN)) {
 		switch (input.keyCode) {
 		case NKCODE_DPAD_LEFT:
@@ -843,8 +853,13 @@ void Slider::Key(const KeyInput &input) {
 		case NKCODE_MOVE_END:
 			*value_ = maxValue_;
 			break;
+		default:
+			return false;
 		}
 		Clamp();
+		return true;
+	} else {
+		return false;
 	}
 }
 
@@ -888,7 +903,7 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 	h = 50;
 }
 
-void SliderFloat::Key(const KeyInput &input) {
+bool SliderFloat::Key(const KeyInput &input) {
 	if (HasFocus() && (input.flags & KEY_DOWN)) {
 		switch (input.keyCode) {
 		case NKCODE_DPAD_LEFT:
@@ -913,8 +928,13 @@ void SliderFloat::Key(const KeyInput &input) {
 		case NKCODE_MOVE_END:
 			*value_ = maxValue_;
 			break;
+		default:
+			return true;
 		}
 		Clamp();
+		return true;
+	} else {
+		return false;
 	}
 }
 

@@ -64,7 +64,8 @@ bool UIScreen::key(const KeyInput &key) {
 }
 
 bool UIDialogScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
+	bool retval = UIScreen::key(key);
+	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
 		if (finished_) {
 			ELOG("Screen already finished");
 		} else {
@@ -72,9 +73,8 @@ bool UIDialogScreen::key(const KeyInput &key) {
 			screenManager()->finishDialog(this, DR_BACK);
 		}
 		return true;
-	} else {
-		return UIScreen::key(key);
 	}
+	return retval;
 }
 
 bool UIScreen::axis(const AxisInput &axis) {

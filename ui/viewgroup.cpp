@@ -83,13 +83,15 @@ void ViewGroup::Touch(const TouchInput &input) {
 	}
 }
 
-void ViewGroup::Key(const KeyInput &input) {
+bool ViewGroup::Key(const KeyInput &input) {
 	lock_guard guard(modifyLock_);
+	bool ret = false;
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
-			(*iter)->Key(input);
+			ret = ret || (*iter)->Key(input);
 	}
+	return ret;
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
@@ -639,7 +641,7 @@ void ScrollView::Layout() {
 	views_[0]->Layout();
 }
 
-void ScrollView::Key(const KeyInput &input) {
+bool ScrollView::Key(const KeyInput &input) {
 	if (visibility_ != V_VISIBLE)
 		return ViewGroup::Key(input);
 
@@ -666,7 +668,7 @@ void ScrollView::Key(const KeyInput &input) {
 			break;
 		}
 	}
-	ViewGroup::Key(input);
+	return ViewGroup::Key(input);
 }
 
 const float friction = 0.92f;
@@ -1028,15 +1030,18 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 	}
 };
 
-void ChoiceStrip::Key(const KeyInput &input) {
+bool ChoiceStrip::Key(const KeyInput &input) {
+	bool ret = false;
 	if (input.flags & KEY_DOWN) {
 		if (IsTabLeftKeyCode(input.keyCode) && selected_ > 0) {
 			SetSelection(selected_ - 1);
+			ret = true;
 		} else if (IsTabRightKeyCode(input.keyCode) && selected_ < (int)views_.size() - 1) {
 			SetSelection(selected_ + 1);
+			ret = true;
 		}
 	}
-	ViewGroup::Key(input);
+	return ret || ViewGroup::Key(input);
 }
 
 void ChoiceStrip::Draw(UIContext &dc) {
@@ -1188,8 +1193,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 		}
 	}
 
-	root->Key(key);
-	retval = true;
+	retval = root->Key(key);
 
 	// Ignore volume keys and stuff here. Not elegant but need to propagate bools through the view hierarchy as well...
 	switch (key.keyCode) {

@@ -305,7 +305,7 @@ public:
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
 	// touch response from the frame rate. Same with Key and Axis.
-	virtual void Key(const KeyInput &input) {}
+	virtual bool Key(const KeyInput &input) { return false; }
 	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update(const InputState &input_state) {}
@@ -392,10 +392,10 @@ public:
 	InertView(LayoutParams *layoutParams)
 		: View(layoutParams) {}
 
-	virtual void Key(const KeyInput &input) {}
-	virtual void Touch(const TouchInput &input) {}
-	virtual bool CanBeFocused() const { return false; }
-	virtual void Update(const InputState &input_state) {}
+	bool Key(const KeyInput &input) override { return false; }
+	void Touch(const TouchInput &input) override {}
+	bool CanBeFocused() const override { return false; }
+	void Update(const InputState &input_state) override {}
 };
 
 
@@ -405,10 +405,10 @@ public:
 	Clickable(LayoutParams *layoutParams)
 		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false){}
 
-	virtual void Key(const KeyInput &input);
-	virtual void Touch(const TouchInput &input);
+	bool Key(const KeyInput &input) override;
+	void Touch(const TouchInput &input) override;
 
-	virtual void FocusChanged(int focusFlags);
+	void FocusChanged(int focusFlags) override;
 
 	Event OnClick;
 
@@ -432,8 +432,8 @@ public:
 	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	const std::string &GetText() const { return text_; }
 
 private:
@@ -451,14 +451,15 @@ public:
 		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {
 		step_ = step <= 0 ? 1 : step;
 	}
-	virtual void Draw(UIContext &dc);
-	virtual void Key(const KeyInput &input);
-	virtual void Touch(const TouchInput &input);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Draw(UIContext &dc) override;
+	bool Key(const KeyInput &input) override;
+	void Touch(const TouchInput &input) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
 
 	// OK to call this from the outside after having modified *value_
 	void Clamp();
+
 private:
 	int *value_;
 	bool showPercent_;
@@ -473,10 +474,10 @@ class SliderFloat : public Clickable {
 public:
 	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {}
-	virtual void Draw(UIContext &dc);
-	virtual void Key(const KeyInput &input);
-	virtual void Touch(const TouchInput &input);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Draw(UIContext &dc) override;
+	bool Key(const KeyInput &input) override;
+	void Touch(const TouchInput &input) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	// OK to call this from the outside after having modified *value_
 	void Clamp();
@@ -495,9 +496,9 @@ public:
 	TriggerButton(uint32_t *bitField, uint32_t bit, int imageBackground, int imageForeground, LayoutParams *layoutParams)
 		: View(layoutParams), down_(0.0), bitField_(bitField), bit_(bit), imageBackground_(imageBackground), imageForeground_(imageForeground) {}
 
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 private:
 	int down_;  // bitfield of pressed fingers, translates into bitField
@@ -516,16 +517,16 @@ private:
 class Item : public InertView {
 public:
 	Item(LayoutParams *layoutParams);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 };
 
 class ClickableItem : public Clickable {
 public:
 	ClickableItem(LayoutParams *layoutParams);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	// Draws the item background.
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 };
 
 // Use to trigger something or open a submenu screen.
@@ -539,8 +540,8 @@ public:
 		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
 
 	virtual void HighlightChanged(bool highlighted);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
 	virtual void SetCentered(bool c) {
 		centered_ = c;
 	}
@@ -572,9 +573,9 @@ public:
 	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = 0)
 		: Choice(buttonImage, layoutParams) {}
 
-	virtual void Key(const KeyInput &key);
-	virtual void Touch(const TouchInput &touch);
-	virtual void FocusChanged(int focusFlags);
+	bool Key(const KeyInput &key) override;
+	void Touch(const TouchInput &touch) override;
+	void FocusChanged(int focusFlags) override;
 
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
@@ -590,7 +591,7 @@ public:
 	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = 0)
 		: Item(layoutParams), text_(text), rightText_(rightText) {}
 
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 private:
 	std::string text_;
@@ -600,7 +601,8 @@ private:
 class ItemHeader : public Item {
 public:
 	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0);
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
+
 private:
 	std::string text_;
 };
@@ -612,7 +614,7 @@ public:
 			layoutParams_->width = FILL_PARENT;
 			layoutParams_->height = 64;
 	}
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 private:
 	std::string text_;
 };
@@ -624,7 +626,7 @@ public:
 		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
-	virtual void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 	EventReturn OnClicked(EventParams &e);
 	//allow external agents to toggle the checkbox
@@ -646,7 +648,7 @@ public:
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = size_; h = size_;
 	}
-	virtual void Draw(UIContext &dc) {}
+	void Draw(UIContext &dc) override {}
 private:
 	float size_;
 };
@@ -659,8 +661,9 @@ public:
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	virtual void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+
 	void SetText(const std::string &text) { text_ = text; }
 	void SetSmall(bool small) { small_ = small; }
 	void SetTextColor(uint32_t color) { textColor_ = color; }
@@ -679,10 +682,10 @@ public:
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	virtual void Draw(UIContext &dc) override;
-	virtual void Key(const KeyInput &key) override;
-	virtual void Touch(const TouchInput &touch) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+	bool Key(const KeyInput &key) override;
+	void Touch(const TouchInput &touch) override;
 
 	Event OnTextChange;
 	Event OnEnter;
@@ -709,8 +712,8 @@ public:
 	ImageView(int atlasImage, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
 
 private:
 	int atlasImage_;
@@ -724,8 +727,8 @@ public:
 	TextureView(Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
 
 	void SetTexture(Texture *texture) { texture_ = texture; }
 	void SetColor(uint32_t color) { color_ = color; }
@@ -743,8 +746,8 @@ public:
 	Thin3DTextureView(Thin3DTexture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
 
 	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
 	void SetColor(uint32_t color) { color_ = color; }
@@ -760,8 +763,8 @@ public:
 	ProgressBar(LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), progress_(0.0) {}
 
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual void Draw(UIContext &dc);
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
 
 	void SetProgress(float progress) {
 		if (progress > 1.0f) {

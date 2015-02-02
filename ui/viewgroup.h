@@ -24,16 +24,16 @@ public:
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
-	virtual void Key(const KeyInput &input);
-	virtual void Touch(const TouchInput &input);
-	virtual void Axis(const AxisInput &input);
+	virtual bool Key(const KeyInput &input) override;
+	virtual void Touch(const TouchInput &input) override;
+	virtual void Axis(const AxisInput &input) override;
 
 	// By default, a container will layout to its own bounds.
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
 	virtual void Layout() = 0;
 	virtual void Update(const InputState &input_state);
 
-	virtual void Draw(UIContext &dc);
+	virtual void Draw(UIContext &dc) override;
 
 	// These should be unused.
 	virtual float GetContentWidth() const { return 0.0f; }
@@ -47,7 +47,7 @@ public:
 		return view;
 	}
 
-	virtual bool SetFocus();
+	virtual bool SetFocus() override;
 	virtual bool SubviewFocused(View *view);
 	virtual void RemoveSubview(View *view);
 
@@ -212,7 +212,7 @@ public:
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
-	void Key(const KeyInput &input);
+	bool Key(const KeyInput &input);
 	void Touch(const TouchInput &input);
 	void Draw(UIContext &dc);
 
@@ -259,11 +259,10 @@ public:
 
 	void HighlightChoice(unsigned int choice);
 
-
-	virtual void Key(const KeyInput &input);
+	bool Key(const KeyInput &input) override;
 
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
-	void Draw(UIContext &dc);
+	void Draw(UIContext &dc) override;
 
 	Event OnChoice;
 
