@@ -11,6 +11,8 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
+
 #ifdef _WIN32
 #include "util/text/utf8.h"
 #endif
@@ -280,6 +282,12 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	return codesList;
 }
 
+void CWCheatEngine::InvalidateICache(u32 addr, int size) {
+	if (MIPSComp::jit) {
+		MIPSComp::jit->GetBlockCache()->InvalidateICache(addr & ~3, 4);
+	}
+}
+
 void CWCheatEngine::Run() {
 	exit2 = false;
 	while (!exit2) {
@@ -299,7 +307,8 @@ void CWCheatEngine::Run() {
 
 			switch (comm >> 28) {
 			case 0: // 8-bit write.But need more check
-				if (Memory::IsValidAddress(addr)){
+				if (Memory::IsValidAddress(addr)) {
+					InvalidateICache(addr & ~3, 4);
 					if (arg < 0x00000100) // 8-bit 
 						Memory::Write_U8((u8) arg, addr);
 					else if (arg < 0x00010000) // 16-bit
@@ -309,18 +318,21 @@ void CWCheatEngine::Run() {
 				}
 				break;
 			case 0x1: // 16-bit write
-				if (Memory::IsValidAddress(addr)){
+				if (Memory::IsValidAddress(addr)) {
+					InvalidateICache(addr & ~3, 4);
 					Memory::Write_U16((u16) arg, addr);
 				}
 				break;
 			case 0x2: // 32-bit write
 				if (Memory::IsValidAddress(addr)){
+					InvalidateICache(addr & ~3, 4);
 					Memory::Write_U32((u32) arg, addr);
 				}
 				break;
 			case 0x3: // Increment/Decrement
 				{
 					addr = GetAddress(arg & 0x0FFFFFFF);
+					InvalidateICache(addr & ~3, 4);
 					value = 0;
 					int increment = 0;
 					// Read value from memory
@@ -382,6 +394,8 @@ void CWCheatEngine::Run() {
 
 					int maxAddr = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * 4;
+
+					InvalidateICache(addr, maxAddr - addr);
 					for (int a  = 0; a < maxAddr; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							Memory::Write_U32((u32) data, addr);
@@ -395,8 +409,10 @@ void CWCheatEngine::Run() {
 				code = GetNextCode();
 				if (true) {
 					int destAddr = GetAddress(code[0]);
+					int len = arg;
+					InvalidateICache(destAddr, len);
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
-						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
+						Memory::Memcpy(destAddr, Memory::GetPointer(addr), len);
 					}
 				}
 				break;
@@ -406,6 +422,7 @@ void CWCheatEngine::Run() {
 					int arg2 = code[0];
 					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;
+					InvalidateICache(addr + baseOffset, 4);
 					int base = Memory::Read_U32(addr + baseOffset);
 					int count = arg2 & 0xFFFF;
 					int type = (arg2 >> 16) & 0xF;
@@ -454,6 +471,7 @@ void CWCheatEngine::Run() {
 						}
 					}
 
+					InvalidateICache((base + offset) & ~3, 4);
 					switch (type) {
 					case 0: // 8 bit write
 						Memory::Write_U8((u8) arg, base + offset);
@@ -482,6 +500,7 @@ void CWCheatEngine::Run() {
 				switch (arg >> 16) {
 				case 0x0000: // 8-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 | val2), addr);
@@ -489,6 +508,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0002: // 8-bit AND.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 & val2), addr);
@@ -496,6 +516,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0004: // 8-bit XOR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 ^ val2), addr);
@@ -503,6 +524,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0001: // 16-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 | val2), addr);
@@ -510,6 +532,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0003: // 16-bit AND.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 & val2), addr);
@@ -517,6 +540,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0005: // 16-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 ^ val2), addr);
@@ -533,6 +557,7 @@ void CWCheatEngine::Run() {
 					bool is8Bit = (data >> 16) == 0x0000;
 					int maxAddr = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * (is8Bit ? 1 : 2);
+					InvalidateICache(addr, maxAddr - addr);
 					for (int a = 0; a < maxAddr; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							if (is8Bit) {
@@ -551,6 +576,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0xC: // Code stopper
 				if (Memory::IsValidAddress(addr)) { 
+					InvalidateICache(addr, 4);
 					value = Memory::Read_U32(addr);
 					if ((u32)value != arg) {
 						SkipAllCodes();
