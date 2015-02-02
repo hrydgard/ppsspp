@@ -119,6 +119,10 @@ int LoadD3DX9Dynamic(bool debugVersion) {
 	}
 
 	hm_d3dx = loadDllLastVersion(&d3dx_version, debugVersion);
+	if (!hm_d3dx) {
+		ELOG("Failed to find D3DX dll.");
+		return 0;
+	}
 	void* ptr = NULL;
 	const int NERROR = -1;
 	int _begin = 0;
@@ -131,7 +135,7 @@ int LoadD3DX9Dynamic(bool debugVersion) {
 		ELOG("Failed to load %i D3DX functions. This will not go well.", failedFunctions);
 	}
 
-	return d3dx_version;
+	return failedFunctions > 0 ? 0 : d3dx_version;
 }
 
 int GetD3DXVersion() {
