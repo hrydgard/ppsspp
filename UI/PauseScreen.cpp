@@ -82,6 +82,10 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 			textureFailed_ = true;
 	}
 
+	if (HasFocus()) {
+		dc.FillRect(dc.theme->itemFocusedStyle.background, bounds_.Expand(3));
+	}
+
 	// TODO: involve sizemode
 	if (texture_) {
 		dc.Flush();
@@ -126,7 +130,7 @@ protected:
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) {
 		// TODO: Find an appropriate size for the image view
-		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)));
+		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)))->SetCanBeFocused(false);
 	}
 
 private:

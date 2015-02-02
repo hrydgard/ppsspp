@@ -590,6 +590,7 @@ void EmuScreen::CreateViews() {
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
 	saveStatePreview_->SetVisibility(V_GONE);
+	saveStatePreview_->SetCanBeFocused(false);
 	root_->Add(saveStatePreview_);
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 }
