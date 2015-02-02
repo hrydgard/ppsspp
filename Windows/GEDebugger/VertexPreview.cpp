@@ -102,7 +102,7 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 	u16 v = 0;
 	GPUDebugVertex *vert = &newVerts[0];
 	u16 *ind = &newInds[0];
-	for (size_t i = 0, end = numInds; i < end; i += 2) {
+	for (size_t i = 0, end = numInds; i+1 < end; i += 2) {
 		const auto &orig_tl = useInds ? vertices[indices[i]] : vertices[i];
 		const auto &orig_br = useInds ? vertices[indices[i + 1]] : vertices[i + 1];
 
