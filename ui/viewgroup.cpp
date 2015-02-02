@@ -368,6 +368,7 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	}
 }
 
+// TODO: This code needs some cleanup/restructuring...
 void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
@@ -402,11 +403,12 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 		if (orientation_ == ORIENT_HORIZONTAL) {
 			MeasureSpec v = vert;
-			if (v.type == UNSPECIFIED) v = MeasureSpec(AT_MOST, measuredHeight_);
-			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), vert - (float)(margins.top + margins.bottom));
+			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
+				v = MeasureSpec(AT_MOST, measuredHeight_);
+			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)(margins.top + margins.bottom));
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
-			if (h.type == UNSPECIFIED) h = MeasureSpec(AT_MOST, measuredWidth_);
+			if (h.type == UNSPECIFIED && measuredWidth_ != 0) h = MeasureSpec(AT_MOST, measuredWidth_);
 			views_[i]->Measure(dc, h - (float)(margins.left + margins.right), MeasureSpec(UNSPECIFIED, measuredHeight_));
 		}
 
@@ -432,7 +434,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 	weightZeroSum += spacing_ * (numVisible - 1);
 
-	// Awright, got the sum. Let's take the remaining space after the fixed-size views,
+	// Alright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
 		MeasureBySpec(layoutParams_->width, weightZeroSum, horiz, &measuredWidth_);
@@ -448,8 +450,14 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
-				int marginSum = linLayoutParams->margins.left + linLayoutParams->margins.right;
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum), MeasureSpec(EXACTLY, measuredHeight_));
+				Margins margins = defaultMargins_;
+				if (linLayoutParams->HasMargins())
+					margins = linLayoutParams->margins;
+				int marginSum = margins.left + margins.right;
+				MeasureSpec v = vert;
+				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
+					v = MeasureSpec(AT_MOST, measuredHeight_);
+				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum), v - (float)(margins.top + margins.bottom));
 			}
 		}
 	} else {
@@ -459,7 +467,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 		float unit = (measuredHeight_ - weightZeroSum) / weightSum;
 
-		// Redistribute! and remeasure children!
+		// Redistribute the stretchy ones! and remeasure the children!
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->GetVisibility() == V_GONE)
 				continue;
@@ -468,14 +476,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
-				int marginSum = linLayoutParams->margins.top + linLayoutParams->margins.bottom;
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, measuredWidth_), MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum));
+				Margins margins = defaultMargins_;
+				if (linLayoutParams->HasMargins())
+					margins = linLayoutParams->margins;
+				int marginSum = margins.top + margins.bottom;
+				MeasureSpec h = horiz;
+				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0)
+					h = MeasureSpec(AT_MOST, measuredWidth_);
+				views_[i]->Measure(dc, h - (float)(margins.left + margins.right), MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum));
 			}
 		}
 	}
 }
 
-// TODO: Stretch and squeeze!
 // weight != 0 = fill remaining space.
 void LinearLayout::Layout() {
 	const Bounds &bounds = bounds_;
@@ -700,6 +713,8 @@ void ScrollView::Draw(UIContext &dc) {
 	}
 
 	dc.PushScissor(bounds_);
+	// For debugging layout issues, this can be useful.
+	// dc.FillRect(Drawable(0x60FF00FF), bounds_);
 	views_[0]->Draw(dc);
 	dc.PopScissor();
 
