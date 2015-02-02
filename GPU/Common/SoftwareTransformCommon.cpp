@@ -460,6 +460,8 @@ void SoftwareTransform(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
+		//rectangles always need 2 vertices, disregard the last one if there's an odd number
+		vertexCount = vertexCount & ~1;
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
@@ -467,7 +469,7 @@ void SoftwareTransform(
 		u16 *newInds = inds + vertexCount;
 		u16 *indsOut = newInds;
 		maxIndex = 4 * vertexCount;
-		for (int i = 0; i + 1 < vertexCount; i += 2) {
+		for (int i = 0; i < vertexCount; i += 2) {
 			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
 

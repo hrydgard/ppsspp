@@ -174,7 +174,9 @@ void IndexGenerator::AddLineStrip(int numVerts) {
 void IndexGenerator::AddRectangles(int numVerts) {
 	u16 *outInds = inds_;
 	const int startIndex = index_;
-	for (int i = 0; i +1 < numVerts; i += 2) {
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numVerts = numVerts & ~1;
+	for (int i = 0; i < numVerts; i += 2) {
 		*outInds++ = startIndex + i;
 		*outInds++ = startIndex + i + 1;
 	}
@@ -387,7 +389,9 @@ void IndexGenerator::TranslateLineStrip(int numInds, const u16 *_inds, int index
 void IndexGenerator::TranslateRectangles(int numInds, const u8 *inds, int indexOffset) {
 	indexOffset = index_ - indexOffset;
 	u16 *outInds = inds_;
-	for (int i = 0; i + 1 < numInds; i += 2) {
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1; 
+	for (int i = 0; i < numInds; i += 2) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i+1];
 	}
@@ -401,6 +405,8 @@ void IndexGenerator::TranslateRectangles(int numInds, const u16 *_inds, int inde
 	indexOffset = index_ - indexOffset;
 	const u16_le *inds = (u16_le*)_inds;
 	u16 *outInds = inds_;
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1;
 	for (int i = 0; i < numInds; i += 2) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i+1];
