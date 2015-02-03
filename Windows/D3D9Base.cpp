@@ -46,7 +46,7 @@ Thin3DContext *D3D9_CreateThin3DContext() {
 	return T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 
-typedef HRESULT (*DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
+typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
 
 bool IsWin7OrLater() {
 	DWORD version = GetVersion();
