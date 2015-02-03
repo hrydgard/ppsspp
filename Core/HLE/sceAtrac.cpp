@@ -91,9 +91,9 @@ static const int atracDecodeDelay = 2300;
 #ifdef USE_FFMPEG
 
 extern "C" {
-#include <libavformat/avformat.h>
-#include <libswresample/swresample.h>
-#include <libavutil/samplefmt.h>
+#include "libavformat/avformat.h"
+#include "libswresample/swresample.h"
+#include "libavutil/samplefmt.h"
 }
 
 #endif // USE_FFMPEG
