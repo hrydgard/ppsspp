@@ -20,6 +20,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Core/System.h"
+#include "Core/Config.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
@@ -257,6 +258,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 }
 
 void CGEDebugger::CleanupPrimPreview() {
-	glsl_destroy(previewProgram);
-	glsl_destroy(texPreviewProgram);
+	if (previewProgram) {
+		glsl_destroy(previewProgram);
+	}
+	if (texPreviewProgram) {
+		glsl_destroy(texPreviewProgram);
+	}
 }

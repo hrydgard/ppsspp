@@ -26,6 +26,7 @@ static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
 static D3DPRESENT_PARAMETERS pp;
+static HMODULE hD3D9;
 
 // TODO: Make config?
 static bool enableGLDebug = true;
@@ -68,7 +69,7 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
-	HMODULE hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
+	hD3D9 = LoadLibrary(TEXT("d3d9.dll"));
 	if (!hD3D9) {
 		ELOG("Missing d3d9.dll");
 		*error_message = "D3D9.dll missing - try reinstalling DirectX.";
@@ -100,7 +101,6 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 			return false;
 		}
 	}
-	FreeLibrary(hD3D9);
 
 	D3DCAPS9 d3dCaps;
 
@@ -231,4 +231,6 @@ void D3D9_Shutdown() {
 	DX9::pD3DdeviceEx = nullptr;
 	device = nullptr;
 	hWnd = nullptr;
+	FreeLibrary(hD3D9);
+	hD3D9 = nullptr;
 }
