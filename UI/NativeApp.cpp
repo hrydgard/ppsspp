@@ -476,7 +476,9 @@ void NativeInit(int argc, const char *argv[],
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
-	gl_lost_manager_init();
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost_manager_init();
+	}
 }
 
 void NativeInitGraphics() {
@@ -772,8 +774,11 @@ void NativeUpdate(InputState &input) {
 void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
-	gl_lost();
-	glstate.Restore();
+
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost();
+		glstate.Restore();
+	}
 	// Should dirty EVERYTHING
 }
 
@@ -941,7 +946,9 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
-	gl_lost_manager_shutdown();
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost_manager_shutdown();
+	}
 
 	screenManager->shutdown();
 	delete screenManager;

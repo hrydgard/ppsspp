@@ -1,23 +1,26 @@
 #include "stdafx.h"
+#include "CommonWindows.h"
+
 #include <WinUser.h>
 #include <shellapi.h>
+#include <commctrl.h>
+
 #include "Misc.h"
 #include "util/text/utf8.h"
-#include <commctrl.h>
 
 bool IsVistaOrHigher() {
 	OSVERSIONINFOEX osvi;
 	DWORDLONG dwlConditionMask = 0;
 	int op = VER_GREATER_EQUAL;
-	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
-	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
 	osvi.dwMajorVersion = 6;  // Vista is 6.0
 	osvi.dwMinorVersion = 0;
 
 	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
 	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
 
-	return (bool)VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask);
+	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
 }
 
 namespace W32Util
