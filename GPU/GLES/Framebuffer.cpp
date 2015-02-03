@@ -669,6 +669,8 @@ void FramebufferManager::RebindFramebuffer() {
 	} else {
 		fbo_unbind();
 	}
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
+		glstate.viewport.restore();
 }
 
 void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
