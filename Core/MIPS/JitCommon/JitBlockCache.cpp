@@ -593,6 +593,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	const u32 pAddr = address & 0x1FFFFFFF;
 	const u32 pEnd = pAddr + length;
 
+	if (pEnd < pAddr) {
+		ERROR_LOG(JIT, "Bad InvalidateICache: %08x with len=%d", address, length);
+		return;
+	}
+
 	// Blocks may start and end in overlapping ways, and destroying one invalidates iterators.
 	// So after destroying one, we start over.
 	do {

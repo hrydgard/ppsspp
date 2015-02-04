@@ -392,11 +392,11 @@ void CWCheatEngine::Run() {
 					int data = code[0];
 					int dataAdd = code[1];
 
-					int maxAddr = (arg >> 16) & 0xFFFF;
+					int count = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * 4;
 
-					InvalidateICache(addr, maxAddr - addr);
-					for (int a  = 0; a < maxAddr; a++) {
+					InvalidateICache(addr, count * stepAddr);
+					for (int a  = 0; a < count; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							Memory::Write_U32((u32) data, addr);
 						}
@@ -471,7 +471,6 @@ void CWCheatEngine::Run() {
 						}
 					}
 
-					InvalidateICache((base + offset) & ~3, 4);
 					switch (type) {
 					case 0: // 8 bit write
 						Memory::Write_U8((u8) arg, base + offset);
