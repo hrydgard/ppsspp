@@ -659,7 +659,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 			if (f) {
 				std::string utfstring("\xEF\xBB\xBF");
 				utfstring.append(folder);
-				fwrite(&utfstring, utfstring.length()+ 1, utfstring.length() + 3, f);
+				fwrite(utfstring.c_str(), 1, utfstring.length(), f);
 				fclose(f);
 			}
 			installed_ = false;
