@@ -738,7 +738,6 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	// if (g_Config.bPrescaleUV)
 	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
 
-	I18NCategory *gs = GetI18NCategory("Graphics");
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -769,6 +768,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
+			I18NCategory *gs = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			osm.Show(gs->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
 			delete vs;

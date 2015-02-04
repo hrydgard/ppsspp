@@ -331,6 +331,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 			Flush();
 		}
 	}
+	Flush();
 }
 
 void TransformDrawEngine::DecodeVerts() {

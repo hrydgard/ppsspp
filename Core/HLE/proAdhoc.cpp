@@ -1398,7 +1398,6 @@ int getPTPSocketCount(void) {
 }
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
-	I18NCategory *n = GetI18NCategory("Networking");
 	int iResult = 0;
 	metasocket = (int)INVALID_SOCKET;
 	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -1412,8 +1411,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	// Resolve dns
 	addrinfo * resultAddr;
-    addrinfo * ptr;
-    in_addr serverIp;
+	addrinfo * ptr;
+	in_addr serverIp;
 	serverIp.s_addr = INADDR_NONE;
 
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
@@ -1456,7 +1455,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
-	if (sent > 0){
+	if (sent > 0) {
+		I18NCategory *n = GetI18NCategory("Networking");
 		osm.Show(n->T("Network Initialized"), 1.0);
 		return 0;
 	}
