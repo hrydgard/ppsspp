@@ -52,6 +52,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyImages["L"] = I_L;
 	keyImages["R"] = I_R;
 
+	keyToggles.clear();
 	keyToggles["Circle"] = &g_Config.bShowTouchCircle;
 	keyToggles["Cross"] = &g_Config.bShowTouchCross;
 	keyToggles["Square"] = &g_Config.bShowTouchSquare;
