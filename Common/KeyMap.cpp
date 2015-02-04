@@ -953,6 +953,12 @@ void AutoConfForPad(const std::string &name) {
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
+
+#ifndef MOBILE_DEVICE
+	// Add a couple of convenient keyboard mappings by default, too.
+	g_controllerMap[VIRTKEY_PAUSE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
+	g_controllerMap[VIRTKEY_UNTHROTTLE].push_back(KeyDef(DEVICE_ID_KEYBOARD, NKCODE_TAB));
+#endif
 }
 
 const std::set<std::string> &GetSeenPads() {
