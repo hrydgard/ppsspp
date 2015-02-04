@@ -583,7 +583,7 @@ void CWCheatEngine::Run() {
 				}
 				break;
 			case 0xD: // Test commands & Jocker codes
-				if (arg >> 28 == 0x0 || arg >> 28 == 0x2) { // 8Bit & 16Bit ignore next line cheat code
+				if ((arg >> 28) == 0x0 || (arg >> 28) == 0x2) { // 8Bit & 16Bit ignore next line cheat code
 					bool is8Bit = (arg >> 28) == 0x2;
 					addr = GetAddress(comm & 0x0FFFFFFF);
 					if (Memory::IsValidAddress(addr)) {
@@ -611,7 +611,7 @@ void CWCheatEngine::Run() {
 					}
 					break;
 				}
-				else if (arg >> 28 == 0x1 || arg >> 28 == 0x3) { // Buttons dependent ignore cheat code
+				else if ((arg >> 28) == 0x1 || (arg >> 28) == 0x3) { // Buttons dependent ignore cheat code
 					// Button	Code
 					// SELECT	0x00000001
 					// START	0x00000008
@@ -635,19 +635,22 @@ void CWCheatEngine::Run() {
 					// NOTE		0x00800000
 					u32 buttonStatus = __CtrlPeekButtons();
 					int skip = (comm & 0xFF) + 1;
-					if (arg >> 28 == 0x1)
-						if (buttonStatus == (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+					u32 mask = arg & 0x0FFFFFFF;
+					if ((arg >> 28) == 0x1)
+						// Old, too specific check: if (buttonStatus == (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+						if ((buttonStatus & mask) == mask)	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
 							break;
 						else
 							SkipCodes(skip);
-					else
-						if (buttonStatus != (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
-							break;
-						else
+					else // (arg >> 28) == 2?
+						// Old, too specific check: if (buttonStatus != (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
+						if ((buttonStatus & mask) == mask)	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
 							SkipCodes(skip);
+						else
+							break;
 					break;
 				}
-				else if (arg >> 28 == 0x4 || arg >> 28 == 0x5 || arg >> 28 == 0x6 || arg >> 28 == 0x7) {
+				else if ((arg >> 28) == 0x4 || (arg >> 28) == 0x5 || (arg >> 28) == 0x6 || (arg >> 28) == 0x7) {
 					int addr1 = GetAddress(comm & 0x0FFFFFFF);
 					int addr2 = GetAddress(arg & 0x0FFFFFFF);
 					code = GetNextCode();
