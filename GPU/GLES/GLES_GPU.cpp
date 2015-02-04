@@ -2160,6 +2160,8 @@ void GLES_GPU::ClearShaderCache() {
 void GLES_GPU::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
 	shaderManager_->DirtyLastShader();
+	glstate.arrayBuffer.bind(0);
+	glstate.elementArrayBuffer.bind(0);
 }
 
 std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList() {
