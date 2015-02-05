@@ -261,21 +261,21 @@ int DinputDevice::UpdateState(InputState &input_state) {
 			{
 				short xSign = Signs(js.lX);
 				if (xSign != 0.0f) {
-					js.lX = LinearMaps(js.lX, xSign * (short)(dz * 10000), xSign * 10000, xSign * (short)(md * 10000), (xSign * 10000 * st) - (short)(md * 10000) );
+					js.lX = LinearMaps(js.lX, xSign * (short)(dz * 10000), xSign * 10000, xSign * (short)(md * 10000), xSign * 10000 * st);
 				}
 			}
 			else if (idzm == 2)
 			{
 				short ySign = Signs(js.lY);
 				if (ySign != 0.0f) {
-					js.lY = LinearMaps(js.lY, ySign * (short)(dz * 10000.0f), ySign * 10000, ySign * (short)(md * 10000.0f), (ySign * 10000 * st) - (short)(md * 10000));
+					js.lY = LinearMaps(js.lY, ySign * (short)(dz * 10000.0f), ySign * 10000, ySign * (short)(md * 10000.0f), ySign * 10000 * st);
 				}
 			}
 			else if (idzm == 3)
 			{
 				float xNorm = (float)js.lX / magnitude;
 				float yNorm = (float)js.lY / magnitude;
-				float mapMag = LinearMaps(magnitude, dz * 10000.0f, 10000.0f, md * 10000.0f, (10000.0f * st) - (short)(md * 10000));
+				float mapMag = LinearMaps(magnitude, dz * 10000.0f, 10000.0f, md * 10000.0f, 10000.0f * st);
 				js.lX = (short)(xNorm * mapMag);
 				js.lY = (short)(yNorm * mapMag);
 			}

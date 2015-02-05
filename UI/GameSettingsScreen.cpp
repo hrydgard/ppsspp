@@ -376,15 +376,15 @@ void GameSettingsScreen::CreateViews() {
 
 	controlsSettings->Add(new ItemHeader(c->T("DInput Analog Settings", "DInput Analog Settings")));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone"), screenManager()));
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, c->T("Inverse Dead Zone Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, c->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Analog Mapper Low End (Inverse Deadzone)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, c->T("Analog Mapper High End (Axis Sensitivity)"), screenManager()));
 
 	controlsSettings->Add(new ItemHeader(c->T("XInput Analog Settings", "XInput Analog Settings")));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone"), screenManager()));
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, c->T("Inverse Dead Zone Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, c->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Analog Mapper Low End (Inverse Deadzone)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, c->T("Analog Mapper High End (Axis Sensitivity)"), screenManager()));
 
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)

@@ -156,21 +156,21 @@ static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, floa
 		{
 			float xSign = Signf(s.x);
 			if (xSign != 0.0f) {
-				s.x = LinearMapf(s.x, xSign * dz, xSign, xSign * md, (xSign * st) - md);
+				s.x = LinearMapf(s.x, xSign * dz, xSign, xSign * md, xSign * st);
 			}
 		}
 		else if (idzm == 2)
 		{
 			float ySign = Signf(s.y);
 			if (ySign != 0.0f) {
-				s.y = LinearMapf(s.y, ySign * dz, ySign, ySign * md, (ySign * st) - md);
+				s.y = LinearMapf(s.y, ySign * dz, ySign, ySign * md, ySign * st);
 			}
 		}
 		else if (idzm == 3)
 		{
 			float xNorm = s.x / magnitude;
 			float yNorm = s.y / magnitude;
-			float mapMag = LinearMapf(magnitude, dz, 1.0f, md, (1.0f * st) - md);
+			float mapMag = LinearMapf(magnitude, dz, 1.0f, md, st);
 			s.x = xNorm * mapMag;
 			s.y = yNorm * mapMag;
 		}
