@@ -238,7 +238,7 @@ void CWCheatEngine::SkipCodes(int count) {
 }
 
 void CWCheatEngine::SkipAllCodes() {
-	currentCode = codes.size();
+	currentCode = codes.size() - 1;
 }
 
 int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
@@ -554,10 +554,10 @@ void CWCheatEngine::Run() {
 					int dataAdd = code[1];
 
 					bool is8Bit = (data >> 16) == 0x0000;
-					int maxAddr = (arg >> 16) & 0xFFFF;
+					int count = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * (is8Bit ? 1 : 2);
-					InvalidateICache(addr, maxAddr - addr);
-					for (int a = 0; a < maxAddr; a++) {
+					InvalidateICache(addr, count * stepAddr);
+					for (int a = 0; a < count; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							if (is8Bit) {
 								Memory::Write_U8((u8) (data & 0xFF), addr);
