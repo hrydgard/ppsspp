@@ -208,8 +208,7 @@ void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
-	//axis.value = NormalizedDeadzoneFilter(value);
-	axis.value = (float)value / 10000.0f;
+	axis.value = (float)value / 10000.0f; // Convert axis to normalised float
 	NativeAxis(axis);
 
 	lastValue = value;
@@ -241,6 +240,13 @@ int DinputDevice::UpdateState(InputState &input_state) {
 	if (analog)	{
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
+
+		// Circle to Square mapping, cribbed from XInputDevice
+		float sx = js.lX;
+		float sy = js.lY;
+		float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
+		js.lX = (short)(sx * scaleFactor);
+		js.lY = (short)(sy * scaleFactor);
 		
 		// Linear range mapping (used to invert deadzones)
 		float dz = g_Config.fDInputAnalogDeadzone;
@@ -280,6 +286,9 @@ int DinputDevice::UpdateState(InputState &input_state) {
 			js.lY = 0;
 		}
 
+		js.lX = (short)std::min(10000.0f, std::max((float)js.lX, -10000.0f));
+		js.lY = (short)std::min(10000.0f, std::max((float)js.lY, -10000.0f));
+
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
@@ -298,15 +307,6 @@ int DinputDevice::UpdateState(InputState &input_state) {
 		return UPDATESTATE_SKIP_PAD;
 	}
 	return -1;
-}
-
-static float NormalizedDeadzoneFilter(short value) {
-	float result = (float)value / 10000.0f;
-
-	// Expand and clamp. Hack to let us reach the corners on most pads.
-	result = std::min(1.0f, std::max(result * 1.2f, -1.0f));
-
-	return result;
 }
 
 void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {

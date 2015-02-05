@@ -564,22 +564,14 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale, true, true),
 #ifdef _WIN32
 	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
+	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
 	ConfigSetting("DInputAnalogInverseDeadzone", &g_Config.fDInputAnalogInverseDeadzone, 0.0f, true, true),
 	ConfigSetting("DInputAnalogSensitivity", &g_Config.fDInputAnalogSensitivity, 1.0f, true, true),
 
-	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
-	ConfigSetting("DInputAnalogInverseDeadzone", &g_Config.fDInputAnalogInverseDeadzone, 0.0f, true, true),
-
-	ConfigSetting("XInputLeftAnalogDeadzone", &g_Config.fXInputLeftAnalogDeadzone, 0.24f, true, true),
-	ConfigSetting("XInputRightAnalogDeadzone", &g_Config.fXInputRightAnalogDeadzone, 0.27f, true, true),
-
-	ConfigSetting("XInputLeftAnalogInverseMode", &g_Config.iXInputLeftAnalogInverseMode, 0, true, true),
-	ConfigSetting("XInputLeftAnalogInverseDeadzone", &g_Config.fXInputLeftAnalogInverseDeadzone, 0.0f, true, true),
-	ConfigSetting("XInputLeftAnalogSensitivity", &g_Config.fXInputLeftAnalogSensitivity, 1.0f, true, true),
-
-	ConfigSetting("XInputRightAnalogInverseMode", &g_Config.iXInputRightAnalogInverseMode, 0, true, true),
-	ConfigSetting("XInputRightAnalogInverseDeadzone", &g_Config.fXInputRightAnalogInverseDeadzone, 0.0f, true, true),
-	ConfigSetting("XInputRightAnalogSensitivity", &g_Config.fXInputRightAnalogSensitivity, 1.0f, true, true),
+	ConfigSetting("XInputAnalogDeadzone", &g_Config.fXInputAnalogDeadzone, 0.24f, true, true),
+	ConfigSetting("XInputAnalogInverseMode", &g_Config.iXInputAnalogInverseMode, 0, true, true),
+	ConfigSetting("XInputAnalogInverseDeadzone", &g_Config.fXInputAnalogInverseDeadzone, 0.0f, true, true),
+	ConfigSetting("XInputAnalogSensitivity", &g_Config.fXInputAnalogSensitivity, 1.0f, true, true),
 #endif
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
 

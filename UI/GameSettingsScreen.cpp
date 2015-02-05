@@ -381,16 +381,10 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity"), screenManager()));
 
 	controlsSettings->Add(new ItemHeader(c->T("XInput Analog Settings", "XInput Analog Settings")));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Left Stick)"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone (Right Stick)"), screenManager()));
-
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputLeftAnalogInverseMode, c->T("Inverse Dead Zone Mode (Left Stick)"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size (Left Stick)"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputLeftAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity (Left Stick)"), screenManager()));
-
-	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputRightAnalogInverseMode, c->T("Inverse Dead Zone Mode (Right Stick)"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size (Right Stick)"), screenManager()));
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputRightAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity (Right Stick)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, c->T("Dead Zone"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, c->T("Inverse Dead Zone Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Inverse Dead Zone Size"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, c->T("Sensitivity"), screenManager()));
 
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)

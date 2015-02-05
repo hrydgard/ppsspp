@@ -235,13 +235,13 @@ int XinputDevice::UpdateState(InputState &input_state) {
 		}
 		ApplyButtons(state, input_state);
 
-		const float LEFT_STICK_DEADZONE = g_Config.fXInputLeftAnalogDeadzone;
-		const int LEFT_STICK_INV_MODE = g_Config.iXInputLeftAnalogInverseMode;
-		const float LEFT_STICK_INV_DEADZONE = g_Config.fXInputLeftAnalogInverseDeadzone;
-		const float LEFT_STICK_SENSITIVITY = g_Config.fXInputLeftAnalogSensitivity;
+		const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
+		const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
+		const float STICK_INV_DEADZONE = g_Config.fXInputAnalogInverseDeadzone;
+		const float STICK_SENSITIVITY = g_Config.fXInputAnalogSensitivity;
 
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbLX, prevState.Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, LEFT_STICK_DEADZONE)) {
-			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, LEFT_STICK_DEADZONE, LEFT_STICK_INV_MODE, LEFT_STICK_INV_DEADZONE, LEFT_STICK_SENSITIVITY);
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbLX, prevState.Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE)) {
+			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
@@ -257,13 +257,8 @@ int XinputDevice::UpdateState(InputState &input_state) {
 			}
 		}
 
-		const float RIGHT_STICK_DEADZONE = g_Config.fXInputRightAnalogDeadzone;
-		const int RIGHT_STICK_INV_MODE = g_Config.iXInputRightAnalogInverseMode;
-		const float RIGHT_STICK_INV_DEADZONE = g_Config.fXInputRightAnalogInverseDeadzone;
-		const float RIGHT_STICK_SENSITIVITY = g_Config.fXInputRightAnalogSensitivity;
-
-		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbRX, prevState.Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, RIGHT_STICK_DEADZONE)) {
-			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, RIGHT_STICK_DEADZONE, RIGHT_STICK_INV_MODE, RIGHT_STICK_INV_DEADZONE, RIGHT_STICK_SENSITIVITY);
+		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbRX, prevState.Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE)) {
+			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, STICK_DEADZONE, STICK_INV_MODE, STICK_INV_DEADZONE, STICK_SENSITIVITY);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
