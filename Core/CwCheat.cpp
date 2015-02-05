@@ -238,7 +238,7 @@ void CWCheatEngine::SkipCodes(int count) {
 }
 
 void CWCheatEngine::SkipAllCodes() {
-	currentCode = codes.size();
+	currentCode = codes.size() - 1;
 }
 
 int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
