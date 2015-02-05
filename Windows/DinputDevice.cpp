@@ -208,17 +208,18 @@ void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
-	axis.value = NormalizedDeadzoneFilter(value);
+	//axis.value = NormalizedDeadzoneFilter(value);
+	axis.value = (float)value / 10000.0f;
 	NativeAxis(axis);
 
 	lastValue = value;
 }
 
-inline float Signf(float val) {
-	return (0.0f < val) - (val < 0.0f);
+inline float Signs(short val) {
+	return (0 < val) - (val < 0);
 }
 
-inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
+inline float LinearMaps(short val, short a0, short a1, short b0, short b1) {
 	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
 }
 
@@ -246,29 +247,37 @@ int DinputDevice::UpdateState(InputState &input_state) {
 		int idzm = g_Config.iDInputAnalogInverseMode;
 		float idz = g_Config.fDInputAnalogInverseDeadzone;
 		float md = std::max(dz, idz);
+		float st = g_Config.fDInputAnalogSensitivity;
 
 		float magnitude = sqrtf(js.lX * js.lX + js.lY * js.lY);
-		if (idzm == 1)
-		{
-			float xSign = Signf(js.lX);
-			if (xSign != 0.0f) {
-				js.lX = LinearMapf(js.lX, xSign * dz, xSign, xSign * md, xSign);
+		if (magnitude > dz * 10000.0f) {
+			if (idzm == 1)
+			{
+				short xSign = Signs(js.lX);
+				if (xSign != 0.0f) {
+					js.lX = LinearMaps(js.lX, xSign * (short)(dz * 10000), xSign * 10000, xSign * (short)(md * 10000), (xSign * 10000 * st) - (short)(md * 10000) );
+				}
+			}
+			else if (idzm == 2)
+			{
+				short ySign = Signs(js.lY);
+				if (ySign != 0.0f) {
+					js.lY = LinearMaps(js.lY, ySign * (short)(dz * 10000.0f), ySign * 10000, ySign * (short)(md * 10000.0f), (ySign * 10000 * st) - (short)(md * 10000));
+				}
+			}
+			else if (idzm == 3)
+			{
+				float xNorm = (float)js.lX / magnitude;
+				float yNorm = (float)js.lY / magnitude;
+				float mapMag = LinearMaps(magnitude, dz * 10000.0f, 10000.0f, md * 10000.0f, (10000.0f * st) - (short)(md * 10000));
+				js.lX = (short)(xNorm * mapMag);
+				js.lY = (short)(yNorm * mapMag);
 			}
 		}
-		else if (idzm == 2)
+		else
 		{
-			float ySign = Signf(js.lY);
-			if (ySign != 0.0f) {
-				js.lY = LinearMapf(js.lY, ySign * dz, ySign, ySign * md, ySign);
-			}
-		}
-		else if (idzm == 3)
-		{
-			float xNorm = js.lX / magnitude;
-			float yNorm = js.lY / magnitude;
-			float mapMag = LinearMapf(magnitude, dz, 1.0, md, 1.0);
-			js.lX = xNorm * mapMag;
-			js.lY = yNorm * mapMag;
+			js.lX = 0;
+			js.lY = 0;
 		}
 
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);

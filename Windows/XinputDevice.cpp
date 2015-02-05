@@ -128,7 +128,7 @@ inline float LinearMapf(float val, float a0, float a1, float b0, float b1) {
 	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
 }
 
-static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz) {
+static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, float idz, float st) {
 	Stick s(x, y, 1.0 / 32767.0f);
 
 	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
@@ -156,21 +156,21 @@ static Stick NormalizedDeadzoneFilter(short x, short y, float dz, int idzm, floa
 		{
 			float xSign = Signf(s.x);
 			if (xSign != 0.0f) {
-				s.x = LinearMapf(s.x, xSign * dz, xSign, xSign * md, xSign);
+				s.x = LinearMapf(s.x, xSign * dz, xSign, xSign * md, (xSign * st) - md);
 			}
 		}
 		else if (idzm == 2)
 		{
 			float ySign = Signf(s.y);
 			if (ySign != 0.0f) {
-				s.y = LinearMapf(s.y, ySign * dz, ySign, ySign * md, ySign);
+				s.y = LinearMapf(s.y, ySign * dz, ySign, ySign * md, (ySign * st) - md);
 			}
 		}
 		else if (idzm == 3)
 		{
 			float xNorm = s.x / magnitude;
 			float yNorm = s.y / magnitude;
-			float mapMag = LinearMapf(magnitude, dz, 1.0, md, 1.0);
+			float mapMag = LinearMapf(magnitude, dz, 1.0f, md, (1.0f * st) - md);
 			s.x = xNorm * mapMag;
 			s.y = yNorm * mapMag;
 		}
@@ -238,9 +238,10 @@ int XinputDevice::UpdateState(InputState &input_state) {
 		const float LEFT_STICK_DEADZONE = g_Config.fXInputLeftAnalogDeadzone;
 		const int LEFT_STICK_INV_MODE = g_Config.iXInputLeftAnalogInverseMode;
 		const float LEFT_STICK_INV_DEADZONE = g_Config.fXInputLeftAnalogInverseDeadzone;
+		const float LEFT_STICK_SENSITIVITY = g_Config.fXInputLeftAnalogSensitivity;
 
 		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbLX, prevState.Gamepad.sThumbLY, state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, LEFT_STICK_DEADZONE)) {
-			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, LEFT_STICK_DEADZONE, LEFT_STICK_INV_MODE, LEFT_STICK_INV_DEADZONE);
+			Stick left = NormalizedDeadzoneFilter(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY, LEFT_STICK_DEADZONE, LEFT_STICK_INV_MODE, LEFT_STICK_INV_DEADZONE, LEFT_STICK_SENSITIVITY);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
@@ -259,9 +260,10 @@ int XinputDevice::UpdateState(InputState &input_state) {
 		const float RIGHT_STICK_DEADZONE = g_Config.fXInputRightAnalogDeadzone;
 		const int RIGHT_STICK_INV_MODE = g_Config.iXInputRightAnalogInverseMode;
 		const float RIGHT_STICK_INV_DEADZONE = g_Config.fXInputRightAnalogInverseDeadzone;
+		const float RIGHT_STICK_SENSITIVITY = g_Config.fXInputRightAnalogSensitivity;
 
 		if (NormalizedDeadzoneDiffers(prevState.Gamepad.sThumbRX, prevState.Gamepad.sThumbRY, state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, RIGHT_STICK_DEADZONE)) {
-			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, RIGHT_STICK_DEADZONE, RIGHT_STICK_INV_MODE, LEFT_STICK_INV_DEADZONE);
+			Stick right = NormalizedDeadzoneFilter(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY, RIGHT_STICK_DEADZONE, RIGHT_STICK_INV_MODE, RIGHT_STICK_INV_DEADZONE, RIGHT_STICK_SENSITIVITY);
 
 			AxisInput axis;
 			axis.deviceId = DEVICE_ID_X360_0;
