@@ -418,7 +418,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x6: // Pointer commands
 				code = GetNextCode();
-				if (true) {
+				if (code.size() >= 2) {
 					int arg2 = code[0];
 					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;
@@ -429,6 +429,10 @@ void CWCheatEngine::Run() {
 					for (int i = 1; i < count; i ++ ) {
 						if (i+1 < count) {
 							code = GetNextCode();
+							if (code.size() < 2) {
+								// Code broken. Should warn but would be very spammy...
+								break;
+							}
 							int arg3 = code[0];
 							int arg4 = code[1];
 							int comm3 = arg3 >> 28;
@@ -549,7 +553,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x8: // 8-bit and 16-bit patch code
 				code = GetNextCode();
-				if (true) {
+				if (code.size() >= 2) {
 					int data = code[0];
 					int dataAdd = code[1];
 
@@ -654,7 +658,7 @@ void CWCheatEngine::Run() {
 					int addr1 = GetAddress(comm & 0x0FFFFFFF);
 					int addr2 = GetAddress(arg & 0x0FFFFFFF);
 					code = GetNextCode();
-					if (true)
+					if (code.size() >= 2)
 						if (Memory::IsValidAddress(addr1) && Memory::IsValidAddress(addr2)) {
 							int comm2 = code[0];
 							int arg2 = code[1];
