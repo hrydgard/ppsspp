@@ -37,9 +37,10 @@ namespace xbrz
 using a modified approach of xBR:
 http://board.byuu.org/viewtopic.php?f=10&t=2248
 - new rule set preserving small image features
+- highly optimized for performance
 - support alpha channel
 - support multithreading
-- support 64 bit architectures
+- support 64-bit architectures
 - support processing image slices
 */
 
@@ -51,7 +52,6 @@ enum class ColorFormat //from high bits -> low bits, 8 bit per channel
 
 /*
 -> map source (srcWidth * srcHeight) to target (scale * width x scale * height) image, optionally processing a half-open slice of rows [yFirst, yLast) only
--> color format: ARGB (BGRA byte order), alpha channel unused
 -> support for source/target pitch in bytes!
 -> if your emulator changes only a few image slices during each cycle (e.g. DOSBox) then there's no need to run xBRZ on the complete image:
    Just make sure you enlarge the source image slice by 2 rows on top and 2 on bottom (this is the additional range the xBRZ algorithm is using during analysis)
@@ -59,7 +59,7 @@ enum class ColorFormat //from high bits -> low bits, 8 bit per channel
    in the target image data if you are using multiple threads for processing each enlarged slice!
 
 THREAD-SAFETY: - parts of the same image may be scaled by multiple threads as long as the [yFirst, yLast) ranges do not overlap!
-               - there is a minor inefficiency for the first row of a slice, so avoid processing single rows only
+               - there is a minor inefficiency for the first row of a slice, so avoid processing single rows only; suggestion: process 6 rows at least
 */
 void scale(size_t factor, //valid range: 2 - 5
            const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight,
