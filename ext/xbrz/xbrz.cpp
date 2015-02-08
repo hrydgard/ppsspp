@@ -438,7 +438,8 @@ public:
 
 private:
 	std::vector<float> buffer; //consumes 64 MB memory; using double is 2% faster, but takes 128 MB
-} distYCbCrBuffer;
+};
+DistYCbCrBuffer *distYCbCrBuffer = nullptr;
 
 
 inline
@@ -1122,7 +1123,7 @@ struct ColorDistanceRGB
 {
 	static double dist(uint32_t pix1, uint32_t pix2, double luminanceWeight)
 	{
-		return distYCbCrBuffer.dist(pix1, pix2);
+		return distYCbCrBuffer->dist(pix1, pix2);
 
 		//if (pix1 == pix2) //about 4% perf boost
 		//	return 0;
@@ -1144,7 +1145,7 @@ struct ColorDistanceARGB
 			3. if a1 = 1,  distance should be: 255 * (1 - a2) + a2 * distYCbCr()
 		*/
 
-		return std::min(a1, a2) * distYCbCrBuffer.dist(pix1, pix2) + 255 * abs(a1 - a2);
+		return std::min(a1, a2) * distYCbCrBuffer->dist(pix1, pix2) + 255 * abs(a1 - a2);
 
 		//if (pix1 == pix2)
 		//	return 0;
@@ -1156,6 +1157,9 @@ struct ColorDistanceARGB
 
 void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, ColorFormat colFmt, const xbrz::ScalerCfg& cfg, int yFirst, int yLast)
 {
+	if (distYCbCrBuffer == nullptr)
+		distYCbCrBuffer = new DistYCbCrBuffer();
+
 	switch (colFmt)
 	{
 		case ColorFormat::ARGB:
@@ -1184,6 +1188,13 @@ void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth
 			}
 	}
 	assert(false);
+}
+
+
+void xbrz::shutdown()
+{
+	delete distYCbCrBuffer;
+	distYCbCrBuffer = nullptr;
 }
 
 

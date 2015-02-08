@@ -530,6 +530,10 @@ TextureScaler::TextureScaler() {
 	initBicubicWeights();
 }
 
+TextureScaler::~TextureScaler() {
+	xbrz::shutdown();
+}
+
 bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
 	int pixelsPerWord = (fmt == GL_UNSIGNED_BYTE) ? 1 : 2;
 	u32 ref = data[0];
