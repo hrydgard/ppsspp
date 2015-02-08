@@ -23,7 +23,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 
 static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
-	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(data + datalen)) {
+	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(data + datalen - 1)) {
 		ERROR_LOG(HLE, "sceAdler32(adler=%08x, data=%08x, datalen=%08x) - bad address(es)", adler, data, datalen);
 		return -1;
 	}
