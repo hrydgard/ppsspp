@@ -2196,7 +2196,6 @@ int sceKernelFreeTlspl(SceUID uid)
 		return error;
 }
 
-// Parameters are an educated guess.
 int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr)
 {
 	DEBUG_LOG(SCEKERNEL, "sceKernelReferTlsplStatus(%08x, %08x)", uid, infoPtr);
@@ -2204,8 +2203,8 @@ int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr)
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
 	if (tls)
 	{
-		// TODO: Check size.
-		Memory::WriteStruct(infoPtr, &tls->ntls);
+		if (Memory::Read_U32(infoPtr) != 0)
+			Memory::WriteStruct(infoPtr, &tls->ntls);
 		return 0;
 	}
 	else
