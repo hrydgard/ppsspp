@@ -1157,9 +1157,6 @@ struct ColorDistanceARGB
 
 void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, ColorFormat colFmt, const xbrz::ScalerCfg& cfg, int yFirst, int yLast)
 {
-	if (distYCbCrBuffer == nullptr)
-		distYCbCrBuffer = new DistYCbCrBuffer();
-
 	switch (colFmt)
 	{
 		case ColorFormat::ARGB:
@@ -1188,6 +1185,13 @@ void xbrz::scale(size_t factor, const uint32_t* src, uint32_t* trg, int srcWidth
 			}
 	}
 	assert(false);
+}
+
+
+void xbrz::init()
+{
+	if (distYCbCrBuffer == nullptr)
+		distYCbCrBuffer = new DistYCbCrBuffer();
 }
 
 

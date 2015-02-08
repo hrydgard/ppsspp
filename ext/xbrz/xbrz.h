@@ -67,6 +67,8 @@ void scale(size_t factor, //valid range: 2 - 5
            const ScalerCfg& cfg = ScalerCfg(),
            int yFirst = 0, int yLast = std::numeric_limits<int>::max()); //slice of source image
 
+void init();
+
 void shutdown();
 
 void nearestNeighborScale(const uint32_t* src, int srcWidth, int srcHeight,

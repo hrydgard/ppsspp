@@ -30,6 +30,7 @@ namespace DX9 {
 class TextureScalerDX9 {
 public:
 	TextureScalerDX9();
+	~TextureScalerDX9();
 
 	void Scale(u32* &data, u32 &dstfmt, int &width, int &height, int factor);
 
