@@ -213,6 +213,7 @@
     <ClCompile Include="HLE\proAdhoc.cpp" />
     <ClCompile Include="HLE\proAdhocServer.cpp" />
     <ClCompile Include="HLE\ReplaceTables.cpp" />
+    <ClCompile Include="HLE\sceAdler.cpp" />
     <ClCompile Include="HLE\sceAtrac.cpp" />
     <ClCompile Include="HLE\sceAudio.cpp" />
     <ClCompile Include="HLE\sceAudiocodec.cpp" />
@@ -458,6 +459,7 @@
     <ClInclude Include="HLE\proAdhoc.h" />
     <ClInclude Include="HLE\proAdhocServer.h" />
     <ClInclude Include="HLE\ReplaceTables.h" />
+    <ClInclude Include="HLE\sceAdler.h" />
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceAudiocodec.h" />

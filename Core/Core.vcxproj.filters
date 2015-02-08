@@ -165,6 +165,9 @@
     <ClCompile Include="HLE\sceKernelMutex.cpp">
       <Filter>HLE\Kernel</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceAdler.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceAtrac.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -642,6 +645,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceKernelMutex.h">
       <Filter>HLE\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAdler.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceAtrac.h">
       <Filter>HLE\Libraries</Filter>
