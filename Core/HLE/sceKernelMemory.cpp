@@ -1851,6 +1851,7 @@ enum
 {
 	PSP_ERROR_UNKNOWN_TLSPL_ID = 0x800201D0,
 	PSP_ERROR_TOO_MANY_TLSPL   = 0x800201D1,
+	PSP_ERROR_TLSPL_IN_USE     = 0x800201D2,
 };
 
 enum
@@ -2092,19 +2093,37 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	return id;
 }
 
-// Parameters are an educated guess.
 int sceKernelDeleteTlspl(SceUID uid)
 {
-	WARN_LOG(SCEKERNEL, "sceKernelDeleteTlspl(%08x)", uid);
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
 	if (tls)
 	{
-		// TODO: Wake waiting threads, probably?
+		bool inUse = false;
+		for (SceUID threadID : tls->usage)
+		{
+			if (threadID != 0 && threadID != __KernelGetCurThread())
+				inUse = true;
+		}
+		if (inUse)
+		{
+			error = PSP_ERROR_TLSPL_IN_USE;
+			WARN_LOG(SCEKERNEL, "%08x=sceKernelDeleteTlspl(%08x): in use", error, uid);
+			return error;
+		}
+
+		WARN_LOG(SCEKERNEL, "sceKernelDeleteTlspl(%08x)", uid);
+
+		for (SceUID threadID : tls->waitingThreads)
+			HLEKernel::ResumeFromWait(threadID, WAITTYPE_TLSPL, uid, 0);
+		hleReSchedule("deleted tlspl");
+
 		userMemory.Free(tls->address);
 		tlsplUsedIndexes[tls->ntls.index] = false;
 		kernelObjects.Destroy<TLSPL>(uid);
 	}
+	else
+		ERROR_LOG(SCEKERNEL, "%08x=sceKernelDeleteTlspl(%08x): bad tlspl", error, uid);
 	return error;
 }
 
