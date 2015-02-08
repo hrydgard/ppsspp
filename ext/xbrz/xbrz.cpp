@@ -1145,7 +1145,11 @@ struct ColorDistanceARGB
 			3. if a1 = 1,  distance should be: 255 * (1 - a2) + a2 * distYCbCr()
 		*/
 
-		return std::min(a1, a2) * distYCbCrBuffer->dist(pix1, pix2) + 255 * abs(a1 - a2);
+		const double d = distYCbCrBuffer->dist(pix1, pix2);
+		if (a1 > a2)
+			return a2 * d + 255 * (a1 - a2);
+		else
+			return a1 * d + 255 * (a2 - a1);
 
 		//if (pix1 == pix2)
 		//	return 0;
