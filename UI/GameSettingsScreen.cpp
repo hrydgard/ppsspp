@@ -565,6 +565,9 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 	if (g_Config.bAutoFrameSkip && g_Config.iFrameSkip == 0) {
 		g_Config.iFrameSkip = 1;
 	}
+	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -619,6 +622,10 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		g_Config.bAutoFrameSkip = false;
+	}
 	return UI::EVENT_DONE;
 }
 

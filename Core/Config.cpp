@@ -35,6 +35,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "HLE/sceUtility.h"
 
 #ifndef USING_QT_UI
@@ -868,6 +869,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
+
+	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	}
 }
 
 void Config::Save() {
