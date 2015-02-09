@@ -5,6 +5,7 @@
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
+#include "gfx_es2/gl_state.h"
 
 UIContext::UIContext()
 	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
@@ -42,7 +43,6 @@ void UIContext::Begin() {
 	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d_->SetTexture(0, uitexture_);
 	thin3d_->SetScissorEnabled(false);
-
 	UIBegin(uishader_);
 }
 

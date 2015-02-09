@@ -92,7 +92,7 @@ HMODULE loadDllLastVersion(unsigned int* version, bool debugVersion) {
 	}
 
 	std::wstring dllfname;
-	makeD3DX9dllFilename_by_versionW(dllfname, *version, debugVersion);
+	makeD3DX9dllFilename_by_versionW(dllfname, version ? *version : 0, debugVersion);
 	HMODULE hm = ::LoadLibraryW(dllfname.c_str());
 	return hm;
 }
@@ -123,7 +123,6 @@ int LoadD3DX9Dynamic(bool debugVersion) {
 		ELOG("Failed to find D3DX dll.");
 		return 0;
 	}
-	void* ptr = NULL;
 	const int NERROR = -1;
 	int _begin = 0;
 
