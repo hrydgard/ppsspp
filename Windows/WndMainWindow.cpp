@@ -552,12 +552,12 @@ namespace MainWindow
 
 		for (auto i = info.begin(); i != info.end(); ++i) {
 			checkedStatus = MF_UNCHECKED;
-			availableShaders.push_back(i->section);
-			if (g_Config.sPostShaderName == i->section) {
+			availableShaders.push_back(i->name);
+			if (g_Config.sPostShaderName == i->name) {
 				checkedStatus = MF_CHECKED;
 			}
 
-			translatedShaderName = ps->T(i->section.c_str());
+			translatedShaderName = ps->T(i->name.c_str());
 
 			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}

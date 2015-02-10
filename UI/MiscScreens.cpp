@@ -255,7 +255,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 	std::vector<std::string> items;
 	int selected = -1;
 	for (int i = 0; i < (int)shaders_.size(); i++) {
-		if (shaders_[i].section == g_Config.sPostShaderName)
+		if (shaders_[i].name == g_Config.sPostShaderName)
 			selected = i;
 		items.push_back(ps->T(shaders_[i].name.c_str()));
 	}
@@ -265,7 +265,7 @@ PostProcScreen::PostProcScreen(const std::string &title) : ListPopupScreen(title
 void PostProcScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
-	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].section;
+	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].name;
 }
 
 NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
