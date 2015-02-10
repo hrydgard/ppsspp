@@ -735,11 +735,11 @@ namespace MainWindow
 			break;
 
 		case FB_READFBOMEMORY_CPU:
-			osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+			osm.Show(g->T("Read Framebuffers To Memory (CPU)"));
 			break;
 
 		case FB_READFBOMEMORY_GPU:
-			osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+			osm.Show(g->T("Read Framebuffers To Memory (GPU)"));
 			break;
 		}
 
