@@ -334,11 +334,13 @@ void IndexGenerator::TranslateFan(int numInds, const u16 *_inds, int indexOffset
 void IndexGenerator::TranslateLineList(int numInds, const u8 *inds, int indexOffset) {
 	indexOffset = index_ - indexOffset;
 	u16 *outInds = inds_;
+	numInds = numInds & ~1;
 	for (int i = 0; i < numInds; i += 2) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i+1];
 	}
 	inds_ = outInds;
+	count_ += numInds;
 	prim_ = GE_PRIM_LINES;
 	seenPrims_ |= (1 << GE_PRIM_LINES) | SEEN_INDEX8;
 }
@@ -361,6 +363,7 @@ void IndexGenerator::TranslateLineList(int numInds, const u16 *_inds, int indexO
 	indexOffset = index_ - indexOffset;
 	const u16_le *inds = (u16_le*)_inds;
 	u16 *outInds = inds_;
+	numInds = numInds & ~1;
 	for (int i = 0; i < numInds; i += 2) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i+1];
