@@ -922,6 +922,15 @@ static int Hook_photokano_download_frame() {
 	return 0;
 }
 
+static int Hook_photokano_download_frame_2() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(_M_X64) || defined(_M_IX86)
@@ -1008,6 +1017,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "motorstorm_download_frame", &Hook_motorstorm_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "utawarerumono_download_frame", &Hook_utawarerumono_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "photokano_download_frame", &Hook_photokano_download_frame, 0, REPFLAG_HOOKENTER, 0x2C },
+	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{}
 };
 

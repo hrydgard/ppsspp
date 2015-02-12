@@ -451,6 +451,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf4d797cef4ac88cd, 684, "_free_r", },
 	{ 0xf4ea7d2ec943fa02, 224, "sinf", },
 	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
+	{ 0xf527d906d69005a0, 848, "photokano_download_frame_2", }, // Photo Kano
 	{ 0xf52f993e444b6c52, 44, "dl_write_shademode", },
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5e91870b5b76ddc, 288, "motorstorm_download_frame", }, // MotorStorm: Arctic Edge
