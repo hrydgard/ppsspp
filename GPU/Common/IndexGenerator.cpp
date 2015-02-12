@@ -237,6 +237,8 @@ void IndexGenerator::TranslatePoints(int numInds, const u16 *_inds, int indexOff
 void IndexGenerator::TranslateList(int numInds, const u8 *inds, int indexOffset) {
 	indexOffset = index_ - indexOffset;
 	u16 *outInds = inds_;
+	int numTris = numInds / 3;  // Round to whole triangles
+	numInds = numTris * 3;
 	for (int i = 0; i < numInds; i += 3) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i + 1];
@@ -285,6 +287,8 @@ void IndexGenerator::TranslateList(int numInds, const u16 *_inds, int indexOffse
 	const u16_le *inds = (u16_le*)_inds;
 	indexOffset = index_ - indexOffset;
 	u16 *outInds = inds_;
+	int numTris = numInds / 3;  // Round to whole triangles
+	numInds = numTris * 3;
 	for (int i = 0; i < numInds; i += 3) {
 		*outInds++ = indexOffset + inds[i];
 		*outInds++ = indexOffset + inds[i + 1];
