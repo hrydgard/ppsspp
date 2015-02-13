@@ -230,6 +230,7 @@ void CPU_Init() {
 
 	if (coreParameter.updateRecent) {
 		g_Config.AddRecent(filename);
+		g_Config.Save();
 	}
 
 	coreState = coreParameter.startPaused ? CORE_STEPPING : CORE_RUNNING;
