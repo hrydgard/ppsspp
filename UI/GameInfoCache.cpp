@@ -59,7 +59,6 @@ bool GameInfo::DeleteGame() {
 			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
 			if (i != g_Config.recentIsos.end()) {
 				g_Config.recentIsos.erase(i);
-				g_Config.Save();
 			}
 			return true;
 		}

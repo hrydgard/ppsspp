@@ -301,7 +301,6 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 		if (!strcmp((*it).c_str(), gamePath_.c_str())) {
 #endif
 			g_Config.recentIsos.erase(it);
-			g_Config.Save();
 			screenManager()->switchScreen(new MainScreen());
 			return UI::EVENT_DONE;
 		}

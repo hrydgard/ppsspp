@@ -395,8 +395,8 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
-		g_Config.deleteGameConfig(info->id);
 		g_Config.unloadGameConfig();
+		g_Config.deleteGameConfig(info->id);
 		screenManager()->RecreateAllViews();
 	}
 }
