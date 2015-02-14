@@ -76,7 +76,6 @@ void GameSettingsScreen::CreateViews() {
 
 	if (bEditThenRestore)
 	{
-		g_Config.changeGameSpecific(gameID_);
 		g_Config.loadGameConfig(gameID_);
 	}
 

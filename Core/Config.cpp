@@ -1104,6 +1104,7 @@ bool Config::hasGameConfig(const std::string &pGameId)
 
 void Config::changeGameSpecific(const std::string &pGameId)
 {
+	Save();
 	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }
