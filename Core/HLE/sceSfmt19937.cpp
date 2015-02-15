@@ -43,7 +43,7 @@ static int sceSfmt19937InitByArray(u32 sfmt, u32 seeds, int seedslen) {
 	INFO_LOG(HLE, "sceSfmt19937InitByArray(sfmt=%08x, seeds=%08x, seedslen=%08x)", sfmt, seeds, seedslen);
 
 	sfmt_t *psfmt = (sfmt_t *)Memory::GetPointerUnchecked(sfmt);
-	u32 *pseeds = (u32 *)Memory::GetPointerUnchecked(seeds);
+	uint32_t *pseeds = (uint32_t *)Memory::GetPointerUnchecked(seeds);
 	sfmt_init_by_array(psfmt, pseeds, seedslen);
 
 	return 0;
@@ -83,7 +83,7 @@ static int sceSfmt19937FillArray32(u32 sfmt, u32 array, int arraylen) {
 	INFO_LOG(HLE, "sceSfmt19937FillArray32(sfmt=%08x, ar=%08x, arlen=%08x)", sfmt, array, arraylen);
 
 	sfmt_t *psfmt = (sfmt_t *)Memory::GetPointerUnchecked(sfmt);
-	u32 *parray = (u32 *)Memory::GetPointerUnchecked(array);
+	uint32_t *parray = (uint32_t *)Memory::GetPointerUnchecked(array);
 	sfmt_fill_array32(psfmt, parray, arraylen);
 
 	return 0;
@@ -97,7 +97,7 @@ static int sceSfmt19937FillArray64(u32 sfmt, u64 array, int arraylen) {
 	INFO_LOG(HLE, "sceSfmt19937FillArray64(sfmt=%08x, ar=%08x, arlen=%08x)", sfmt, array, arraylen);
 
 	sfmt_t *psfmt = (sfmt_t *)Memory::GetPointerUnchecked(sfmt);
-	u64 *parray = (u64 *)Memory::GetPointerUnchecked(array);
+	uint64_t *parray = (uint64_t *)Memory::GetPointerUnchecked(array);
 	sfmt_fill_array64(psfmt, parray, arraylen);
 
 	return 0;
