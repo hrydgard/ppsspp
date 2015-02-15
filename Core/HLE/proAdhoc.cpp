@@ -30,11 +30,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
-#include <sstream>
-#include <string>
-#include <iostream>
 
-sockaddr localIP;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
 int one                               = 1;
@@ -1403,7 +1399,6 @@ int getPTPSocketCount(void) {
 
 int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	I18NCategory *n = GetI18NCategory("Networking");
-	//TODO: this is all IPv4 only
 	int iResult = 0;
 	metasocket = (int)INVALID_SOCKET;
 	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -1423,7 +1418,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 
 	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(),0,NULL,&resultAddr);
 	if (iResult != 0) {
-		ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", g_Config.proAdhocServer.c_str(), iResult);
+		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
 		osm.Show("DNS Error connecting to " + g_Config.proAdhocServer, 8.0f);
 		return iResult;
 	}
@@ -1434,46 +1429,14 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			break;
 		}
 	}
-	freeaddrinfo(resultAddr);
-
-	// Resolve dns for client
-	if (g_Config.bBindLocal)
-	{
-
-		addrinfo *localAddr;
-
-		iResult = getaddrinfo(g_Config.localBindAddress.c_str(), 0, NULL, &localAddr);
-		if (iResult != 0) {
-			ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", g_Config.localBindAddress.c_str(), iResult);
-			osm.Show("DNS Error, can't resolve client bind " + g_Config.localBindAddress, 8.0f);
-			return iResult;
-		}
-		for (ptr = localAddr; ptr != NULL; ptr = ptr->ai_next) {
-			switch (ptr->ai_family) {
-			case AF_INET:
-				memcpy(&localIP, ptr->ai_addr, sizeof(sockaddr));
-				break;
-			}
-		}
-		((sockaddr_in *) &localIP)->sin_port = SERVER_PORT; //NOTE: maybe use SERVER_PORT or 0 here
-		int iResult = bind(metasocket, &localIP, sizeof(sockaddr_in));
-		if (iResult != 0) {
-			ERROR_LOG(SCENET, "Bind Error, bind to (%s) returned %d \n", g_Config.localBindAddress.c_str(),iResult);
-			std::ostringstream ss;
-			ss << iResult;
-			osm.Show("Bind Error, can't bind to \"" + g_Config.localBindAddress + "\" error code: " + ss.str(), 8.0f);
-			return iResult;
-		}
-		freeaddrinfo(localAddr);
-	}
-
+	
 	memset(&parameter, 0, sizeof(parameter));
 	strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
 	parameter.channel = 1; // Fake Channel 1
 	getLocalMac(&parameter.bssid.mac_addr);
 
 	server_addr.sin_addr = serverIp;
-	iResult = connect(metasocket, (sockaddr *) &server_addr, sizeof(server_addr));
+	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
 	if (iResult == SOCKET_ERROR) {
 		uint8_t * sip = (uint8_t *)&server_addr.sin_addr.s_addr;
 		char buffer[512];
