@@ -360,13 +360,7 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 
 	if (neigh.view) {
 		neigh.view->SetFocus();
-
 		root->SubviewFocused(neigh.view);
-
-		//if (neigh.parent != 0) {
-			// Let scrollviews and similar know that a child has been focused.
-			//neigh.parent->SubviewFocused(neigh.view);
-		//}
 	}
 }
 
@@ -741,22 +735,24 @@ bool ScrollView::SubviewFocused(View *view) {
 
 	const Bounds &vBounds = view->GetBounds();
 
-	// Scroll so that the focused view is visible.
+	// Scroll so that the focused view is visible, and a bit more so that headers etc gets visible too, in most cases.
+	const float overscroll = std::min(view->GetBounds().h / 1.5f, GetBounds().h / 4.0f);
+
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (vBounds.x2() > bounds_.x2()) {
-			ScrollTo(scrollPos_ + vBounds.x2() - bounds_.x2());
+			ScrollTo(scrollPos_ + vBounds.x2() - bounds_.x2() + overscroll);
 		}
 		if (vBounds.x < bounds_.x) {
-			ScrollTo(scrollPos_ + (vBounds.x - bounds_.x));
+			ScrollTo(scrollPos_ + (vBounds.x - bounds_.x) - overscroll);
 		}
 		break;
 	case ORIENT_VERTICAL:
 		if (vBounds.y2() > bounds_.y2()) {
-			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2());
+			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2() + overscroll);
 		}
 		if (vBounds.y < bounds_.y) {
-			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y));
+			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y) - overscroll);
 		}
 		break;
 	}

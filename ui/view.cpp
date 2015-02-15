@@ -570,6 +570,10 @@ void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 
 void TextView::Draw(UIContext &dc) {
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
+	if (shadow_) {
+		uint32_t shadowColor = 0x80000000;
+		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1, 1), shadowColor, textAlign_);
+	}
 	dc.DrawTextRect(text_.c_str(), bounds_, textColor_, textAlign_);
 }
 

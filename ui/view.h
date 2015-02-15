@@ -656,10 +656,10 @@ private:
 class TextView : public InertView {
 public:
 	TextView(const std::string &text, LayoutParams *layoutParams = 0) 
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false) {}
 
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -667,12 +667,13 @@ public:
 	void SetText(const std::string &text) { text_ = text; }
 	void SetSmall(bool small) { small_ = small; }
 	void SetTextColor(uint32_t color) { textColor_ = color; }
-
+	void SetShadow(bool shadow) { shadow_ = shadow; }
 private:
 	std::string text_;
 	int textAlign_;
 	uint32_t textColor_;
 	bool small_;
+	bool shadow_;
 };
 
 class TextEdit : public View {
