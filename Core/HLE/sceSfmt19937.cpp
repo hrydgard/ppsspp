@@ -15,12 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Mersenne Twister random number generator module.
+
 #include "ext/sfmt19937/SFMT.h"
 
-#include "sceSfmt19937.h"
 #include "Common/Log.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceSfmt19937.h"
+
 
 static int sceSfmt19937InitGenRand(u32 sfmt, u32 seed) {
 	if (!Memory::IsValidAddress(sfmt)) {
