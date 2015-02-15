@@ -57,7 +57,7 @@ bool Exists(const std::string &filename);
 bool IsDirectory(const std::string &filename);
 
 // Returns struct with modification date of file
-tm GetModifTime(const std::string &filename);
+bool GetModifTime(const std::string &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
 u64 GetSize(const std::string &filename);

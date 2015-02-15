@@ -40,6 +40,7 @@
 #include "Core/Util/AudioFormat.h"
 
 StereoResampler resampler;
+AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -93,6 +94,7 @@ static void __AudioCPUMHzChange() {
 
 
 void __AudioInit() {
+	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
 	mixFrequency = 44100;
 
 	switch (g_Config.iAudioLatency) {
@@ -345,6 +347,7 @@ void __AudioUpdate() {
 			firstChannel = false;
 		} else {
 			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
+			// Actually, the cmple/pack trick should work fine...
 			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
@@ -369,4 +372,17 @@ void __AudioUpdate() {
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
 	resampler.Mix(outstereo, numFrames, false, sampleRate);
 	return numFrames;
+}
+
+const AudioDebugStats *__AudioGetDebugStats() {
+	resampler.GetAudioDebugStats(&g_AudioDebugStats);
+	return &g_AudioDebugStats;
+}
+
+void __PushExternalAudio(const s32 *audio, int numSamples) {
+	if (audio) {
+		resampler.PushSamples(audio, numSamples);
+	} else {
+		resampler.Clear();
+	}
 }

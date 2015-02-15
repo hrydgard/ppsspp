@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+
 #include "android/app-android.h"
 #include "base/display.h"
 #include "base/logging.h"
+#include "base/timeutil.h"
 
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
@@ -47,6 +49,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/__sceAudio.h"
 
 #include "UI/ui_atlas.h"
 #include "UI/OnScreenDisplay.h"
@@ -62,7 +65,7 @@
 #include "UI/InstallZipScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false) {
+	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
 }
 
@@ -240,6 +243,22 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
+		}
+	} else if (!strcmp(message, "slotchanged")) {
+		if (saveStatePreview_) {
+			int curSlot = SaveState::GetCurrentSlot();
+			std::string fn;
+			if (SaveState::HasSaveInSlot(curSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(curSlot, "jpg");
+			}
+
+			saveStatePreview_->SetFilename(fn);
+			if (!fn.empty()) {
+				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
+				saveStatePreviewShownTime_ = time_now_d();
+			} else {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
 		}
 	}
 }
@@ -560,13 +579,20 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 }
 
 void EmuScreen::CreateViews() {
+	using namespace UI;
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
-		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
-	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams((UI::Size)bounds.w, (UI::Size)bounds.h)));
+	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
+	saveStatePreview_->SetFixedSize(160, 90);
+	saveStatePreview_->SetColor(0x90FFFFFF);
+	saveStatePreview_->SetVisibility(V_GONE);
+	saveStatePreview_->SetCanBeFocused(false);
+	root_->Add(saveStatePreview_);
+	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -667,6 +693,10 @@ void EmuScreen::update(InputState &input) {
 		pauseTrigger_ = false;
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
+
+	if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
+		saveStatePreview_->SetVisibility(UI::V_GONE);
+	}
 }
 
 void EmuScreen::checkPowerDown() {
@@ -679,6 +709,56 @@ void EmuScreen::checkPowerDown() {
 		bootPending_ = false;
 		invalid_ = true;
 	}
+}
+
+static void DrawDebugStats(DrawBuffer *draw2d) {
+	char statbuf[4096] = { 0 };
+	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
+	draw2d->SetFontScale(.7f, .7f);
+	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->SetFontScale(1.0f, 1.0f);
+}
+
+static void DrawAudioDebugStats(DrawBuffer *draw2d) {
+	char statbuf[1024] = { 0 };
+	const AudioDebugStats *stats = __AudioGetDebugStats();
+	snprintf(statbuf, sizeof(statbuf),
+		"Audio buffer: %d/%d (low watermark: %d)\n"
+		"Underruns: %d\n"
+		"Overruns: %d\n"
+		"Sample rate: %d\n"
+		"Push size: %d\n",
+		stats->buffered, stats->bufsize, stats->watermark,
+		stats->underrunCount,
+		stats->overrunCount,
+		stats->instantSampleRate,
+		stats->lastPushSize);
+	draw2d->SetFontScale(0.7f, 0.7f);
+	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->SetFontScale(1.0f, 1.0f);
+}
+
+static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
+	float vps, fps, actual_fps;
+	__DisplayGetFPS(&vps, &fps, &actual_fps);
+	char fpsbuf[256];
+	switch (g_Config.iShowFPSCounter) {
+	case 1:
+		snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
+	case 2:
+		snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
+	case 3:
+		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
+	default:
+		return;
+	}
+
+	draw2d->SetFontScale(0.7f, 0.7f);
+	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 void EmuScreen::render() {
@@ -725,10 +805,10 @@ void EmuScreen::render() {
 	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
-	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu) {
-
+	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE) {
 		Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
+		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
 		T3DViewport viewport;
@@ -739,8 +819,6 @@ void EmuScreen::render() {
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
 		thin3d->SetViewports(1, &viewport);
-		thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_STANDARD_ALPHA));
-		thin3d->SetScissorEnabled(false);
 
 		DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
 
@@ -750,34 +828,15 @@ void EmuScreen::render() {
 		}
 
 		if (g_Config.bShowDebugStats) {
-			char statbuf[4096] = {0};
-			__DisplayGetDebugStats(statbuf, sizeof(statbuf));
-			draw2d->SetFontScale(.7f, .7f);
-			draw2d->DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
-			draw2d->DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-			draw2d->SetFontScale(1.0f, 1.0f);
+			DrawDebugStats(draw2d);
+		}
+
+		if (g_Config.bShowAudioDebug) {
+			DrawAudioDebugStats(draw2d);
 		}
 
 		if (g_Config.iShowFPSCounter) {
-			float vps, fps, actual_fps;
-			__DisplayGetFPS(&vps, &fps, &actual_fps);
-			char fpsbuf[256];
-			switch (g_Config.iShowFPSCounter) {
-			case 1:
-				snprintf(fpsbuf, sizeof(fpsbuf), "Speed: %0.1f%%", vps / (59.94f / 100.0f)); break;
-			case 2:
-				snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps); break;
-			case 3:
-				snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f)); break;
-			default:
-				return;
-			}
-
-			const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-			draw2d->SetFontScale(0.7f, 0.7f);
-			draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-			draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-			draw2d->SetFontScale(1.0f, 1.0f);
+			DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
 		}
 
 		screenManager()->getUIContext()->End();

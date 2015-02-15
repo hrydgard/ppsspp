@@ -570,7 +570,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 				prev = 0;
 			}
 			GeDisassembleOp(list.pc, op, prev, temp, 256);
-			NOTICE_LOG(G3D, "%s", temp);
+			NOTICE_LOG(G3D, "%08x: %s", op, temp);
 		}
 		gstate.cmdmem[cmd] = op;
 

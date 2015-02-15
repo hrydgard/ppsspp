@@ -443,32 +443,31 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #endif
 }
 
-tm GetModifTime(const std::string &filename)
+bool GetModifTime(const std::string &filename, tm &return_time)
 {
-	tm return_time = {0};
+	memset(&return_time, 0, sizeof(return_time));
 	if (!Exists(filename))
 	{
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
-		return return_time;
+		return false;
 	}
 
 	if (IsDirectory(filename))
 	{
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
-		return return_time;
+		return false;
 	}
+
 	struct stat64 buf;
 	if (stat64(filename.c_str(), &buf) == 0)
 	{
-		DEBUG_LOG(COMMON, "GetCreateTime: %s: %lld",
-				filename.c_str(), (long long)buf.st_mtime);
-		localtime_r((time_t*)&buf.st_mtime,&return_time);
-		return return_time;
+		INFO_LOG(COMMON, "GetCreateTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
+		localtime_r((time_t*)&buf.st_mtime, &return_time);
+		return true;
 	}
 
-	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s",
-			filename.c_str(), GetLastErrorMsg());
-	return return_time;
+	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s", filename.c_str(), GetLastErrorMsg());
+	return false;
 }
 
 // Returns the size of filename (64bit)

@@ -494,7 +494,7 @@ bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 	{
 		int yAdjustIndex = consumeBits(8, fontdata, charPtr);
 
-		if (yAdjustIndex < header.xAdjustTableLength) {
+		if (yAdjustIndex < header.yAdjustTableLength) {
 			glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
 			glyph.yAdjustV = yAdjustTable[1][yAdjustIndex];
 		}

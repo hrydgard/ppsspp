@@ -76,6 +76,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
 	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
+	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, k->T("Refresh Rate"), 1, screenManager()));
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 	rightScroll->SetScrollToTop(false);
@@ -105,6 +106,7 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	}
 	fs.close();
 	g_Config.bReloadCheats = true;
+	g_Config.Save();
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
@@ -144,6 +146,12 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 
 UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	std::string cheatFile;
+	g_Config.bReloadCheats = true;
+	g_Config.Save();
+	if (MIPSComp::jit) {
+		MIPSComp::jit->ClearCache();
+	}
+	screenManager()->finishDialog(this, DR_OK);
 #ifdef _WIN32
 	cheatFile = activeCheatFile;
 	// Can't rely on a .txt file extension to auto-open in the right editor,

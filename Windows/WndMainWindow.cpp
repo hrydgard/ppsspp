@@ -727,6 +727,7 @@ namespace MainWindow
 		switch(g_Config.iRenderingMode) {
 		case FB_NON_BUFFERED_MODE:
 			osm.Show(g->T("Non-Buffered Rendering"));
+			g_Config.bAutoFrameSkip = false;
 			break;
 
 		case FB_BUFFERED_MODE:
@@ -734,11 +735,11 @@ namespace MainWindow
 			break;
 
 		case FB_READFBOMEMORY_CPU:
-			osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+			osm.Show(g->T("Read Framebuffers To Memory (CPU)"));
 			break;
 
 		case FB_READFBOMEMORY_GPU:
-			osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+			osm.Show(g->T("Read Framebuffers To Memory (GPU)"));
 			break;
 		}
 
@@ -1343,6 +1344,8 @@ namespace MainWindow
 
 				case ID_OPTIONS_FRAMESKIP_AUTO:
 					g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
+					if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
+						g_Config.iRenderingMode = FB_BUFFERED_MODE;
 					break;
 
 				case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;

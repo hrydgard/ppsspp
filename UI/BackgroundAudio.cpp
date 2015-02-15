@@ -6,6 +6,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/HW/SimpleAudioDec.h"
+#include "Core/HLE/__sceAudio.h"
 #include "Common/FixedSizeQueue.h"
 #include "GameInfoCache.h"
 
@@ -120,7 +121,7 @@ public:
 
 	bool IsOK() { return raw_data_ != 0; }
 
-	bool Read(short *buffer, int len) {
+	bool Read(int *buffer, int len) {
 		if (!raw_data_)
 			return false;
 		while (bgQueue.size() < (size_t)(len * 2)) {
@@ -163,6 +164,8 @@ static std::string bgGamePath;
 static int playbackOffset;
 static AT3PlusReader *at3Reader;
 static double gameLastChanged;
+static double lastPlaybackTime;
+static int buffer[44100];
 
 void SetBackgroundAudioGame(const std::string &path) {
 	time_update();
@@ -183,7 +186,7 @@ void SetBackgroundAudioGame(const std::string &path) {
 	bgGamePath = path;
 }
 
-int MixBackgroundAudio(short *buffer, int size) {
+int PlayBackgroundAudio() {
 	time_update();
 
 	lock_guard lock(bgMutex);
@@ -198,12 +201,21 @@ int MixBackgroundAudio(short *buffer, int size) {
 		if (gameInfo->sndFileData.size()) {
 			const std::string &data = gameInfo->sndFileData;
 			at3Reader = new AT3PlusReader(data);
+			lastPlaybackTime = 0.0;
 		}
 	}
 
-	if (!at3Reader || !at3Reader->Read(buffer, size)) {
-		memset(buffer, 0, size * 2 * sizeof(s16));
+	double now = time_now();
+	if (at3Reader) {
+		const int sz = (now - lastPlaybackTime) * 44100;
+		if (sz >= 16 && sz < ARRAY_SIZE(buffer)/2) {
+			if (at3Reader->Read(buffer, sz))
+				__PushExternalAudio(buffer, sz);
+		}
+		lastPlaybackTime = now;
+	} else {
+		__PushExternalAudio(0, 0);
 	}
+
 	return 0;
 }
-

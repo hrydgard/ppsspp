@@ -95,8 +95,8 @@ static bool pmp_oldStateLoaded = false; // for dostate
 #ifdef USE_FFMPEG 
 
 extern "C" {
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
+#include "libavformat/avformat.h"
+#include "libswscale/swscale.h"
 }
 static AVPixelFormat pmp_want_pix_fmt;
 

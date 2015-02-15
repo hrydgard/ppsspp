@@ -24,7 +24,10 @@
 #include "Common/ChunkFile.h"
 #include "Common/MathUtil.h"
 #include "Common/Atomics.h"
+#include "Core/Config.h"
 #include "Core/HW/StereoResampler.h"
+#include "Core/HLE/__sceAudio.h"
+#include "Core/System.h"
 #include "Globals.h"
 
 #ifdef _M_SSE
@@ -87,41 +90,57 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	u32 indexR = Common::AtomicLoad(m_indexR);
 	u32 indexW = Common::AtomicLoad(m_indexW);
 
-	// Drift prevention mechanism
-	float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
-	m_numLeftI = (numLeft + m_numLeftI*(CONTROL_AVG - 1)) / CONTROL_AVG;
-	float offset = (m_numLeftI - LOW_WATERMARK) * CONTROL_FACTOR;
-	if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
-	if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
+	// We force on the audio resampler if the output sample rate doesn't match the input.
+	if (!g_Config.bAudioResampler && sample_rate == m_input_sample_rate) {
+		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
+			u32 indexR2 = indexR + 2; //next sample
+			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
+			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
+			samples[currentSample] = l1;
+			samples[currentSample + 1] = r1;
+			indexR += 2;
+		}
+		aid_sample_rate_ = sample_rate;
+	} else {
+		// Drift prevention mechanism
+		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
+		m_numLeftI = (numLeft + m_numLeftI*(CONTROL_AVG - 1)) / CONTROL_AVG;
+		float offset = (m_numLeftI - LOW_WATERMARK) * CONTROL_FACTOR;
+		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
+		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
-	float aid_sample_rate = m_input_sample_rate + offset;
+		aid_sample_rate_ = m_input_sample_rate + offset;
 	
-	/* Hm?
-	u32 framelimit = SConfig::GetInstance().m_Framelimit;
-	if (consider_framelimit && framelimit > 1) {
-		aid_sample_rate = aid_sample_rate * (framelimit - 1) * 5 / 59.994;
-	}*/
+		/* Hm?
+		u32 framelimit = SConfig::GetInstance().m_Framelimit;
+		if (consider_framelimit && framelimit > 1) {
+			aid_sample_rate = aid_sample_rate * (framelimit - 1) * 5 / 59.994;
+		}*/
 
-	const u32 ratio = (u32)(65536.0f * aid_sample_rate / (float)sample_rate);
+		const u32 ratio = (u32)(65536.0f * aid_sample_rate_ / (float)sample_rate);
 
-	// TODO: consider a higher-quality resampling algorithm.
-	// TODO: Add a fast path for 1:1.
-	for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
-		u32 indexR2 = indexR + 2; //next sample
-		s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
-		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
-		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
-		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
-		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
-		samples[currentSample] = clamp_s16(sampleL);  // Do we even need to clamp after interpolation?
-		samples[currentSample + 1] = clamp_s16(sampleR);
-		m_frac += ratio;
-		indexR += 2 * (u16)(m_frac >> 16);
-		m_frac &= 0xffff;
+		// TODO: consider a higher-quality resampling algorithm.
+		// TODO: Add a fast path for 1:1.
+		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
+			u32 indexR2 = indexR + 2; //next sample
+			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
+			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
+			s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
+			s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
+			int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
+			int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
+			samples[currentSample] = sampleL;
+			samples[currentSample + 1] = sampleR;
+			m_frac += ratio;
+			indexR += 2 * (u16)(m_frac >> 16);
+			m_frac &= 0xffff;
+		}
 	}
 
 	int realSamples = currentSample;
+
+	if (currentSample < numSamples * 2)
+		underrunCount_++;
 
 	// Padding with the last value to reduce clicking
 	short s[2];
@@ -138,6 +157,7 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	//if (realSamples != numSamples * 2) {
 	//	ILOG("Underrun! %i / %i", realSamples / 2, numSamples);
 	//}
+	lastBufSize_ = (m_indexW - m_indexR) & INDEX_MASK;
 
 	return realSamples / 2;
 }
@@ -155,14 +175,20 @@ void StereoResampler::MixerFifo::PushSamples(const s32 *samples, unsigned int nu
 	// needs to get updates to not deadlock.
 	u32 indexW = Common::AtomicLoad(m_indexW);
 
+	u32 cap = MAX_SAMPLES * 2;
+	// If unthottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
+	if (PSP_CoreParameter().unthrottle)
+		cap = LOW_WATERMARK * 2;
+
 	// Check if we have enough free space
 	// indexW == m_indexR results in empty buffer, so indexR must always be smaller than indexW
-	if (num_samples * 2 + ((indexW - Common::AtomicLoad(m_indexR)) & INDEX_MASK) >= MAX_SAMPLES * 2)
+	if (num_samples * 2 + ((indexW - Common::AtomicLoad(m_indexR)) & INDEX_MASK) >= cap) {
+		if (!PSP_CoreParameter().unthrottle)
+			overrunCount_++;
+		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?
 		return;
+	}
 
-	// AyuanX: Actual re-sampling work has been moved to sound thread
-	// to alleviate the workload on main thread
-	// and we simply store raw data here to make fast mem copy
 	int over_bytes = num_samples * 4 - (MAX_SAMPLES * 2 - (indexW & INDEX_MASK)) * sizeof(short);
 	if (over_bytes > 0) {
 		ClampBufferToS16(&m_buffer[indexW & INDEX_MASK], samples, (num_samples * 4 - over_bytes) / 2);
@@ -172,6 +198,19 @@ void StereoResampler::MixerFifo::PushSamples(const s32 *samples, unsigned int nu
 	}
 
 	Common::AtomicAdd(m_indexW, num_samples * 2);
+	lastPushSize_ = num_samples;
+}
+
+void StereoResampler::MixerFifo::GetAudioDebugStats(AudioDebugStats *stats) {
+	stats->buffered = lastBufSize_;
+	stats->underrunCount += underrunCount_;
+	underrunCount_ = 0;
+	stats->overrunCount += overrunCount_;
+	overrunCount_ = 0;
+	stats->watermark = LOW_WATERMARK;
+	stats->bufsize = MAX_SAMPLES * 2;
+	stats->instantSampleRate = aid_sample_rate_;
+	stats->lastPushSize = lastPushSize_;
 }
 
 void StereoResampler::PushSamples(const int *samples, unsigned int num_samples) {
@@ -186,4 +225,8 @@ void StereoResampler::DoState(PointerWrap &p) {
 	auto s = p.Section("resampler", 1);
 	if (!s)
 		return;
+}
+
+void StereoResampler::GetAudioDebugStats(AudioDebugStats *stats) {
+	m_dma_mixer.GetAudioDebugStats(stats);
 }

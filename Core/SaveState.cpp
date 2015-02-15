@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "i18n/i18n.h"
 
 #include "Common/StdMutex.h"
@@ -308,6 +309,11 @@ namespace SaveState
 		}
 	}
 
+	int GetCurrentSlot()
+	{
+		return g_Config.iCurrentStateSlot;
+	}
+
 	void NextSlot()
 	{
 		I18NCategory *sy = GetI18NCategory("System");
@@ -315,6 +321,7 @@ namespace SaveState
 		char msg[128];
 		snprintf(msg, sizeof(msg), "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
+		NativeMessageReceived("slotchanged", "");
 	}
 
 	void LoadSlot(int slot, Callback callback, void *cbUserData)
@@ -323,8 +330,8 @@ namespace SaveState
 		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
 		} else {
-			I18NCategory *s = GetI18NCategory("Screen");
-			osm.Show("Failed to load state. Error in the file system.", 2.0);
+			I18NCategory *sy = GetI18NCategory("System");
+			osm.Show(sy->T("Failed to load state. Error in the file system."), 2.0);
 			if (callback)
 				callback(false, cbUserData);
 		}
@@ -391,8 +398,9 @@ namespace SaveState
 		for (int i = 0; i < SAVESTATESLOTS; i++) {
 			std::string fn = GenerateSaveSlotFilename(i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
-				tm time = File::GetModifTime(fn);
-				if (newestDate < time) {
+				tm time;
+				bool success = File::GetModifTime(fn, time);
+				if (success && newestDate < time) {
 					newestDate = time;
 					newestSlot = i;
 				}
@@ -404,10 +412,13 @@ namespace SaveState
 	std::string GetSlotDateAsString(int slot) {
 		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
 		if (File::Exists(fn)) {
-			tm time = File::GetModifTime(fn);
-			char buf[256];
-			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
-			return std::string(buf);
+			tm time;
+			if (File::GetModifTime(fn, time)) {
+				char buf[256];
+				// TODO: Use local time format? Americans and some others might not like ISO standard :)
+				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				return std::string(buf);
+			}
 		}
 		return "";
 	}

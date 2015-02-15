@@ -59,3 +59,42 @@ private:
 	// hack
 	bool finishNextFrame_;
 };
+
+class PrioritizedWorkQueue;
+
+// TextureView takes a texture that is assumed to be alive during the lifetime
+// of the view. TODO: Actually make async using the task.
+class AsyncImageFileView : public UI::Clickable {
+public:
+	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
+		: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+	~AsyncImageFileView() {
+		delete texture_;
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+
+	void SetFilename(std::string filename);
+	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
+	void SetColor(uint32_t color) { color_ = color; }
+	void SetOverlayText(std::string text) { text_ = text; }
+	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
+	void SetCanBeFocused(bool can) { canFocus_ = can; }
+
+	bool CanBeFocused() const override { return canFocus_; }
+
+	const std::string &GetFilename() const { return filename_; }
+
+private:
+	bool canFocus_;
+	std::string filename_;
+	std::string text_;
+	uint32_t color_;
+	UI::ImageSizeMode sizeMode_;
+
+	Thin3DTexture *texture_;
+	bool textureFailed_;
+	float fixedSizeW_;
+	float fixedSizeH_;
+};

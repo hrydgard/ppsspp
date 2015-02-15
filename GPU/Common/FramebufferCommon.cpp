@@ -759,7 +759,7 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		vfb->renderHeight = vfb->bufferHeight;
 	}
 	else {
-		vfb->renderWidth = vfb->bufferWidth * renderWidthFactor;
-		vfb->renderHeight = vfb->bufferHeight * renderHeightFactor;
+		vfb->renderWidth = (u16)(vfb->bufferWidth * renderWidthFactor);
+		vfb->renderHeight = (u16)(vfb->bufferHeight * renderHeightFactor);
 	}
 }

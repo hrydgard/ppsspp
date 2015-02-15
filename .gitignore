@@ -25,7 +25,9 @@ Windows/x64
 Windows/ipch
 Windows/bin-release
 ui_atlas.zim.png
+ui_atlas_high.zim.png
 android/assets
+ext/_Output
 # For Mac
 .DS_Store
 

@@ -13,6 +13,7 @@ extern "C" {
 SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 	if (init_SDL)
 	{
+		SDL_setenv("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1", 0);
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO);
 	}
 	fillMapping();

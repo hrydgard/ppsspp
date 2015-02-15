@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 // Here's how to evaluate them fast:
@@ -69,10 +70,9 @@ void TransformDrawEngine::SubmitSpline(const void *control_points, const void *i
 			points[idx] = simplified_control_points + idx;
 	}
 
-	u8 *decoded2 = decoded + 65536 * 18;
-
 	int count = 0;
-	u8 *dest = decoded2;
+
+	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
 	patch.type_u = type_u;
@@ -81,7 +81,8 @@ void TransformDrawEngine::SubmitSpline(const void *control_points, const void *i
 	patch.count_v = count_v;
 	patch.points = points;
 
-	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType);
+	int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
+	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
 
 	delete[] points;
 
@@ -98,7 +99,7 @@ void TransformDrawEngine::SubmitSpline(const void *control_points, const void *i
 	}
 
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 
@@ -123,6 +124,7 @@ void TransformDrawEngine::SubmitBezier(const void *control_points, const void *i
 		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
 
 	// Simplify away bones and morph before proceeding
+	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
 	u8 *temp_buffer = decoded + 65536 * 18;
 
@@ -156,10 +158,8 @@ void TransformDrawEngine::SubmitBezier(const void *control_points, const void *i
 		}
 	}
 
-	u8 *decoded2 = decoded + 65536 * 18;
-
 	int count = 0;
-	u8 *dest = decoded2;
+	u8 *dest = splineBuffer;
 
 	// Simple approximation of the real tesselation factor.
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
@@ -172,9 +172,10 @@ void TransformDrawEngine::SubmitBezier(const void *control_points, const void *i
 	if (tess_v < 4) tess_v = 4;
 
 	u16 *inds = quadIndices_;
+	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 		BezierPatch& patch = patches[patch_idx];
-		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
+		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType, maxVertices);
 	}
 	delete[] patches;
 
@@ -191,7 +192,7 @@ void TransformDrawEngine::SubmitBezier(const void *control_points, const void *i
 	}
 
 	int bytesRead;
-	SubmitPrim(decoded2, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
 	Flush();
 

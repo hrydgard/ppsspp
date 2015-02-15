@@ -42,39 +42,16 @@
 #include "gfx_es2/draw_buffer.h"
 #include "ui/ui_context.h"
 
-// TextureView takes a texture that is assumed to be alive during the lifetime
-// of the view. TODO: Actually make async using the task.
-class AsyncImageFileView : public UI::Clickable {
-public:
-	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(NULL), textureFailed_(false) {}
-	~AsyncImageFileView() {
-		delete texture_;
-	}
-
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-
-	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
-	void SetColor(uint32_t color) { color_ = color; }
-
-	const std::string &GetFilename() const { return filename_; }
-
-private:
-	std::string filename_;
-	uint32_t color_;
-	UI::ImageSizeMode sizeMode_;
-
-	Thin3DTexture *texture_;
-	bool textureFailed_;
-};
-
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	// TODO: involve sizemode
 	if (texture_) {
 		float texw = (float)texture_->Width();
 		float texh = (float)texture_->Height();
 		switch (sizeMode_) {
+		case UI::IS_FIXED:
+			w = fixedSizeW_;
+			h = fixedSizeH_;
+			break;
 		case UI::IS_DEFAULT:
 		default:
 			w = texw;
@@ -87,11 +64,26 @@ void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, flo
 	}
 }
 
+void AsyncImageFileView::SetFilename(std::string filename) {
+	if (filename_ != filename) {
+		textureFailed_ = false;
+		filename_ = filename;
+		if (texture_) {
+			texture_->Release();
+			texture_ = nullptr;
+		}
+	}
+}
+
 void AsyncImageFileView::Draw(UIContext &dc) {
-	if (!texture_ && !textureFailed_) {
+	if (!texture_ && !textureFailed_ && !filename_.empty()) {
 		texture_ = dc.GetThin3DContext()->CreateTextureFromFile(filename_.c_str(), DETECT);
 		if (!texture_)
 			textureFailed_ = true;
+	}
+
+	if (HasFocus()) {
+		dc.FillRect(dc.theme->itemFocusedStyle.background, bounds_.Expand(3));
 	}
 
 	// TODO: involve sizemode
@@ -101,15 +93,28 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();
+		if (!text_.empty()) {
+			dc.DrawText(text_.c_str(), bounds_.centerX()+1, bounds_.centerY()+1, 0x80000000, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+		}
 	} else {
-		// draw a dark gray rectangle to represent the texture.
-		dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+		if (!filename_.empty()) {
+			// draw a black rectangle to represent the missing screenshot.
+			dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+		} else {
+			// draw a dark gray rectangle to represent no save state.
+			dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+		}
+		if (!text_.empty()) {
+			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+		}
 	}
 }
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(std::string filename, std::string title, int slot) : PopupScreen(title, "Load State", "Back"), filename_(filename), slot_(slot) {}
+	ScreenshotViewScreen(std::string filename, std::string title, int slot, I18NCategory *i18n)
+		: PopupScreen(title, i18n->T("Load State"), "Back"), filename_(filename), slot_(slot) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
 		return slot_;
@@ -125,7 +130,7 @@ protected:
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) {
 		// TODO: Find an appropriate size for the image view
-		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)));
+		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)))->SetCanBeFocused(false);
 	}
 
 private:
@@ -136,22 +141,42 @@ private:
 class SaveSlotView : public UI::LinearLayout {
 public:
 	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
+		using namespace UI;
+
 		screenshotFilename_ = SaveState::GenerateSaveSlotFilename(slot, "jpg");
 		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
-		Add(new UI::Spacer(10));
-		Add(new UI::TextView(StringFromFormat("%i", slot_ + 1), 0, false, new UI::LinearLayoutParams(0.0, UI::G_CENTER)));
-		AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, UI::IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
+		Add(new Spacer(5));
+
+		AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
+		fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
 
 		I18NCategory *i = GetI18NCategory("Pause");
 
-		saveStateButton_ = Add(new UI::Button(i->T("Save State"), new UI::LinearLayoutParams(0.0, UI::G_VCENTER)));
+		LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		buttons->SetSpacing(2.0);
+		Add(buttons);
+
+		saveStateButton_ = buttons->Add(new Button(i->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
 		saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
 
 		if (SaveState::HasSaveInSlot(slot)) {
-			loadStateButton_ = Add(new UI::Button(i->T("Load State"), new UI::LinearLayoutParams(0.0, UI::G_VCENTER)));
+			loadStateButton_ = buttons->Add(new Button(i->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 
 			fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
+
+			std::string dateStr = SaveState::GetSlotDateAsString(slot_);
+			std::vector<std::string> dateStrs;
+			SplitString(dateStr, ' ', dateStrs);
+			if (!dateStrs.empty() && !dateStrs[0].empty()) {
+				LinearLayout *strs = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+				Add(strs);
+				for (size_t i = 0; i < dateStrs.size(); i++) {
+					strs->Add(new TextView(dateStrs[i], new LinearLayoutParams(0.0, G_VCENTER)))->SetShadow(true);
+				}
+			}
+		} else {
+			fv->SetFilename("");
 		}
 	}
 
@@ -161,7 +186,8 @@ public:
 
 	void Draw(UIContext &dc) {
 		if (g_Config.iCurrentStateSlot == slot_) {
-			dc.FillRect(UI::Drawable(0x40FFFFFF), GetBounds());
+			dc.FillRect(UI::Drawable(0x70000000), GetBounds().Expand(3));
+			dc.FillRect(UI::Drawable(0x70FFFFFF), GetBounds().Expand(3));
 		}
 		UI::LinearLayout::Draw(dc);
 	}
@@ -238,26 +264,27 @@ void GamePauseScreen::CreateViews() {
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins scrollMargins(0, 20, 0, 0);
+	Margins actionMenuMargins(0, 20, 15, 0);
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *i = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(520, FILL_PARENT, actionMenuMargins));
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
 	root_->Add(leftColumn);
-
-	root_->Add(new Spacer(new LinearLayoutParams(1.0)));
 
 	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
+	leftColumnItems->Add(new Spacer(0.0));
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
 		slot->OnStateSaved.Handle(this, &GamePauseScreen::OnState);
 		slot->OnScreenshotClicked.Handle(this, &GamePauseScreen::OnScreenshotClicked);
 	}
+	leftColumnItems->Add(new Spacer(0.0));
 
 	if (g_Config.iRewindFlipFrequency > 0) {
 		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(i->T("Rewind")));
@@ -334,8 +361,10 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	SaveSlotView *v = (SaveSlotView *)e.v;
 	std::string fn = v->GetScreenshotFilename();
 	std::string title = v->GetScreenshotTitle();
-	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot());
+	I18NCategory *p = GetI18NCategory("Pause");
+	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), p);
 	screenManager()->push(screen);
+	g_Config.iCurrentStateSlot = v->GetSlot();
 	return UI::EVENT_DONE;
 }
 
@@ -370,8 +399,8 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
-		g_Config.deleteGameConfig(info->id);
 		g_Config.unloadGameConfig();
+		g_Config.deleteGameConfig(info->id);
 		screenManager()->RecreateAllViews();
 	}
 }

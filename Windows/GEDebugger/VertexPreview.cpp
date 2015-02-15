@@ -20,6 +20,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Core/System.h"
+#include "Core/Config.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
@@ -94,6 +95,9 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 		useInds = false;
 		numInds = count;
 	}
+
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1;
 
 	// Will need 4 coords and 6 points per rectangle (currently 2 each.)
 	newVerts.resize(numInds * 2);
@@ -254,6 +258,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 }
 
 void CGEDebugger::CleanupPrimPreview() {
-	glsl_destroy(previewProgram);
-	glsl_destroy(texPreviewProgram);
+	if (previewProgram) {
+		glsl_destroy(previewProgram);
+	}
+	if (texPreviewProgram) {
+		glsl_destroy(texPreviewProgram);
+	}
 }

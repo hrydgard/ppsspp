@@ -222,7 +222,8 @@ std::string NativeQueryConfig(std::string query) {
 			scale -= 1;
 		}
 
-		sprintf(temp, "%i", scale);
+		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
+		sprintf(temp, "%i", std::min(scale, max_res));
 		return std::string(temp);
 	} else if (query == "force44khz") {
 		return std::string("0");
@@ -232,12 +233,12 @@ std::string NativeQueryConfig(std::string query) {
 }
 
 int NativeMix(short *audio, int num_samples) {
-	if (GetUIState() == UISTATE_INGAME) {
-		int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
-		num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
-	}	else {
-		MixBackgroundAudio(audio, num_samples);
+	if (GetUIState() != UISTATE_INGAME) {
+		PlayBackgroundAudio();
 	}
+
+	int sample_rate = System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE);
+	num_samples = __AudioMix(audio, num_samples, sample_rate > 0 ? sample_rate : 44100);
 
 #ifdef _WIN32
 	winAudioBackend->Update();
@@ -475,7 +476,9 @@ void NativeInit(int argc, const char *argv[],
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
-	gl_lost_manager_init();
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost_manager_init();
+	}
 }
 
 void NativeInitGraphics() {
@@ -577,7 +580,7 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
-	winAudioBackend = CreateAudioBackend(AUDIO_BACKEND_AUTO);
+	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
 }
@@ -674,6 +677,8 @@ void DrawDownloadsOverlay(UIContext &dc) {
 void NativeRender() {
 	g_GameManager.Update();
 
+	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+
 	T3DViewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
@@ -695,7 +700,6 @@ void NativeRender() {
 #endif
 	}
 
-	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
 	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
@@ -724,6 +728,17 @@ void NativeRender() {
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
+	}
+
+	thin3d->SetScissorEnabled(false);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	} else {
+#ifdef _WIN32
+		DX9::dxstate.depthWrite.set(true);
+		DX9::dxstate.colorMask.set(true, true, true, true);
+#endif
 	}
 
 	if (resized) {
@@ -759,8 +774,11 @@ void NativeUpdate(InputState &input) {
 void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
-	gl_lost();
-	glstate.Restore();
+
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost();
+		glstate.Restore();
+	}
 	// Should dirty EVERYTHING
 }
 
@@ -928,7 +946,9 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
-	gl_lost_manager_shutdown();
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		gl_lost_manager_shutdown();
+	}
 
 	screenManager->shutdown();
 	delete screenManager;

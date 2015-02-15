@@ -51,6 +51,7 @@
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 struct FrameBufferState {
 	u32 topaddr;
@@ -527,6 +528,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	curFrameTime = time_now_d();
 	
 	// Auto-frameskip automatically if speed limit is set differently than the default.
+	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.

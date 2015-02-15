@@ -458,6 +458,7 @@ GLES_GPU::~GLES_GPU() {
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
+	shaderManager_ = nullptr;
 	glstate.SetVSyncInterval(0);
 }
 
@@ -2159,6 +2160,8 @@ void GLES_GPU::ClearShaderCache() {
 void GLES_GPU::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
 	shaderManager_->DirtyLastShader();
+	glstate.arrayBuffer.bind(0);
+	glstate.elementArrayBuffer.bind(0);
 }
 
 std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList() {

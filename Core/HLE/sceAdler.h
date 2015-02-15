@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,33 +17,4 @@
 
 #pragma once
 
-#include "MiscScreens.h"
-
-#include <map>
-
-namespace UI {
-	class CheckBox;
-}
-
-class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
-public:
-	TouchControlVisibilityScreen() : toggleSwitch(true){ }
-
-	virtual void CreateViews();
-	virtual void onFinish(DialogResult result);
-
-protected:
-	virtual UI::EventReturn OnToggleAll(UI::EventParams &e);
-
-private:
-	std::map<std::string, bool*> keyToggles;
-	bool toggleSwitch;
-
-	class ChoiceEventHandler{
-	public:
-		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
-		UI::EventReturn onChoiceClick(UI::EventParams &e);
-	private:
-		UI::CheckBox *checkbox_;
-	};
-};
+void Register_sceAdler();

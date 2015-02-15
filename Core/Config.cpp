@@ -35,6 +35,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "HLE/sceUtility.h"
 
 #ifndef USING_QT_UI
@@ -293,6 +294,8 @@ static ConfigSetting generalSettings[] = {
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false, true, true),
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
+	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
+
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
@@ -401,6 +404,10 @@ static int DefaultAndroidHwScale() {
 }
 
 static ConfigSetting graphicsSettings[] = {
+	ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
+	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
+	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
+	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GPUBackend", &g_Config.iGPUBackend, 0),
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
@@ -470,8 +477,10 @@ static ConfigSetting graphicsSettings[] = {
 
 static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, true, true),
+	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, true, true),
 	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1, true, true),
 	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false, true, true),
+	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
 
 	ConfigSetting(false),
 };
@@ -862,6 +871,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)
 		sMACAddress = CreateRandMAC();
+
+	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		g_Config.iRenderingMode = FB_BUFFERED_MODE;
+	}
 }
 
 void Config::Save() {
@@ -1093,6 +1106,7 @@ bool Config::hasGameConfig(const std::string &pGameId)
 
 void Config::changeGameSpecific(const std::string &pGameId)
 {
+	Save();
 	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }
