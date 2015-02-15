@@ -169,6 +169,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\disarm.cpp" />
+    <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="..\git-version.cpp" />
@@ -263,6 +264,12 @@
     <ClCompile Include="HLE\sceGameUpdate.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
+    <ClCompile Include="HLE\sceSfmt19937.cpp">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_XKEYCHECK_H;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">_XKEYCHECK_H;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_XKEYCHECK_H;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">_XKEYCHECK_H;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="HLE\sceSha256.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
@@ -408,6 +415,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\disarm.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT.h" />
     <ClInclude Include="..\ext\snappy\snappy-internal.h" />
     <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />
     <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
@@ -508,6 +519,7 @@
     <ClInclude Include="HLE\sceGameUpdate.h" />
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
+    <ClInclude Include="HLE\sceSfmt19937.h" />
     <ClInclude Include="HLE\sceSha256.h" />
     <ClInclude Include="HLE\sceSsl.h" />
     <ClInclude Include="HLE\sceUmd.h" />

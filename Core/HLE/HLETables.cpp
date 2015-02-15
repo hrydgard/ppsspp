@@ -71,6 +71,7 @@
 #include "sceUsbGps.h"
 #include "sceSha256.h"
 #include "sceAdler.h"
+#include "sceSfmt19937.h"
 
 #define N(s) s
 
@@ -334,5 +335,6 @@ void RegisterAllModules() {
 	Register_sceLibFttt();
 	Register_sceSha256();
 	Register_sceAdler();
+	Register_sceSfmt19937();
 }
 
