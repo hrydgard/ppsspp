@@ -311,7 +311,7 @@ namespace MainWindow
 		}
 	}
 
-	void ToggleFullscreen(HWND hWnd, bool goingFullscreen = false) {
+	void ToggleFullscreen(HWND hWnd, bool goingFullscreen) {
 		// Make sure no rendering is happening during the switch.
 		Core_NotifyWindowHidden(true);
 		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
@@ -372,6 +372,7 @@ namespace MainWindow
 
 		g_inModeSwitch = false;
 		Core_NotifyWindowHidden(false);
+		WindowsRawInput::NotifyMenu();
 	}
 
 	RECT DetermineWindowRectangle() {
@@ -1530,10 +1531,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FULLSCREEN:
-					g_Config.bFullScreen = !g_Config.bFullScreen;
-
-					ToggleFullscreen(hwndMain, g_Config.bFullScreen);
-
+					PostMessage(hWnd, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
 					break;
 
 				case ID_OPTIONS_VERTEXCACHE:
@@ -1618,6 +1616,10 @@ namespace MainWindow
 					break;
 				}
 			}
+			break;
+
+		case WM_USER_TOGGLE_FULLSCREEN:
+			ToggleFullscreen(hwndMain, !g_Config.bFullScreen);
 			break;
 
 		case WM_INPUT:

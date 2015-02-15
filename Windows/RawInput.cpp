@@ -86,6 +86,9 @@ namespace WindowsRawInput {
 		info.cbSize = sizeof(info);
 		if (GetMenuBarInfo(MainWindow::GetHWND(), OBJID_MENU, 0, &info) != 0) {
 			menuActive = info.fBarFocused != FALSE;
+		} else {
+			// In fullscreen mode, we remove the menu
+			menuActive = false;
 		}
 		return menuActive;
 	}
