@@ -804,3 +804,8 @@ template<int func(void *, u32, int)> void WrapI_VUI(){
 	u32 retval = func(Memory::GetPointer(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
+
+template<int func(u32, u64, int)> void WrapI_UU64I() {
+	int retval = func(PARAM(0), PARAM64(2), PARAM(4));
+	RETURN(retval);
+}

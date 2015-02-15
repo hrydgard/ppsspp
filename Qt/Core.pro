@@ -37,7 +37,8 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/Util/GameManager.cpp \
 	$$P/Core/Util/ppge_atlas.cpp \
 	$$P/Core/Util/PPGeDraw.cpp \
-	$$P/ext/libkirk/*.c # Kirk
+	$$P/ext/libkirk/*.c \ # Kirk
+	$$P/ext/sfmt19937/*.c
 
 HEADERS += $$P/Core/*.h \
 	$$P/Core/Debugger/*.h \
@@ -54,7 +55,8 @@ HEADERS += $$P/Core/*.h \
 	$$P/Core/Util/GameManager.h \
 	$$P/Core/Util/ppge_atlas.h \
 	$$P/Core/Util/PPGeDraw.h \
-	$$P/ext/libkirk/*.h
+	$$P/ext/libkirk/*.h \
+	$$P/ext/sfmt19937/*.h
 
 armv7: SOURCES += $$P/Core/Util/AudioFormatNEON.cpp
 

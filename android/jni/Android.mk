@@ -119,6 +119,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
   $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/sfmt19937/SFMT.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/ext/udis86/decode.c \
@@ -268,6 +269,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSfmt19937.cpp \
   $(SRC)/Core/HLE/sceSha256.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \

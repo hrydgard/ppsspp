@@ -1005,6 +1005,15 @@ add_library(kirk STATIC
 	ext/libkirk/kirk_engine.h)
 include_directories(ext/libkirk)
 
+add_library(sfmt19937 STATIC
+	ext/sfmt19937/SFMT.c
+	ext/sfmt19937/SFMT.h
+	ext/sfmt19937/SFMT-common.h
+	ext/sfmt19937/SFMT-params.h
+	ext/sfmt19937/SFMT-params19937.h
+)
+include_directories(ext/sfmt19937)
+
 add_library(xbrz STATIC
 	ext/xbrz/xbrz.cpp
 	ext/xbrz/xbrz.h
@@ -1252,6 +1261,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceRtc.h
 	Core/HLE/sceSas.cpp
 	Core/HLE/sceSas.h
+	Core/HLE/sceSfmt19937.cpp
+	Core/HLE/sceSfmt19937.h
 	Core/HLE/sceSha256.cpp
 	Core/HLE/sceSha256.h
 	Core/HLE/sceSsl.cpp
@@ -1346,7 +1357,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 setup_target_project(${CoreLibName} Core)
 
