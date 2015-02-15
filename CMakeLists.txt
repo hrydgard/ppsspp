@@ -1357,7 +1357,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 setup_target_project(${CoreLibName} Core)
 
