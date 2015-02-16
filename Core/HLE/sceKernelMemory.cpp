@@ -1887,12 +1887,16 @@ struct TLSPL : public KernelObject
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("TLS", 1);
+		auto s = p.Section("TLS", 1, 2);
 		if (!s)
 			return;
 
 		p.Do(ntls);
 		p.Do(address);
+		if (s >= 2)
+			p.Do(alignment);
+		else
+			alignment = 4;
 		p.Do(waitingThreads);
 		p.Do(next);
 		p.Do(usage);
@@ -1900,6 +1904,7 @@ struct TLSPL : public KernelObject
 
 	NativeTlspl ntls;
 	u32 address;
+	u32 alignment;
 	std::vector<SceUID> waitingThreads;
 	int next;
 	std::vector<SceUID> usage;
@@ -1937,7 +1942,7 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 	{
 		SceUID uid = tls->GetUID();
 
-		u32 alignedSize = (tls->ntls.blockSize + 3) & ~3;
+		u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
 		u32 freedAddress = tls->address + freeBlock * alignedSize;
 
 		// Whenever freeing a block, clear it (even if it's not going to wake anyone.)
@@ -2048,9 +2053,6 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 	}
 
-	// Upalign to a multiple of 4.  Strangely, the sceKernelReferTlsplStatus value is the original.
-	u32 alignedSize = (blockSize + 3) & ~3;
-
 	int index = -1;
 	for (int i = 0; i < TLSPL_NUM_INDEXES; ++i)
 		if (tlsplUsedIndexes[i] == false)
@@ -2064,6 +2066,30 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateTlspl(): ran out of indexes for TLS pools", PSP_ERROR_TOO_MANY_TLSPL);
 		return PSP_ERROR_TOO_MANY_TLSPL;
 	}
+
+	// Unless otherwise specified, we align to 4 bytes (a mips word.)
+	u32 alignment = 4;
+	if (optionsPtr != 0)
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size > 8)
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s) unsupported options parameter, size = %d", name, size);
+		if (size >= 8)
+			alignment = Memory::Read_U32(optionsPtr + 4);
+
+		// Note that 0 intentionally is allowed.
+		if ((alignment & (alignment - 1)) != 0)
+		{
+			ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s): alignment is not a power of 2: %d", name, alignment);
+			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		}
+		// This goes for 0, 1, and 2.  Can't have less than 4 byte alignment.
+		if (alignment < 4)
+			alignment = 4;
+	}
+
+	// Upalign.  Strangely, the sceKernelReferTlsplStatus value is the original.
+	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
 
 	u32 totalSize = alignedSize * count;
 	u32 blockPtr = userMemory.Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
@@ -2091,19 +2117,10 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	tls->ntls.freeBlocks = count;
 	tls->ntls.numWaitThreads = 0;
 	tls->address = blockPtr;
+	tls->alignment = alignment;
 	tls->usage.resize(count, 0);
 
 	WARN_LOG(SCEKERNEL, "%08x=sceKernelCreateTlspl(%s, %d, %08x, %d, %d, %08x)", id, name, partition, attr, blockSize, count, optionsPtr);
-
-	// TODO: just alignment?
-	if (optionsPtr != 0)
-	{
-		u32 size = Memory::Read_U32(optionsPtr);
-		if (size > 4)
-			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s) unsupported options parameter, size = %d", name, size);
-	}
-	if ((attr & PSP_TLSPL_ATTR_PRIORITY) != 0)
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateTlspl(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -2191,7 +2208,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 			return -1;
 		}
 
-		u32 alignedSize = (tls->ntls.blockSize + 3) & ~3;
+		u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
 		u32 allocAddress = tls->address + allocBlock * alignedSize;
 
 		// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
