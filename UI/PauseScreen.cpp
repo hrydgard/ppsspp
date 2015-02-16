@@ -159,11 +159,11 @@ public:
 		saveStateButton_ = buttons->Add(new Button(i->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
 		saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
 
+		fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
+
 		if (SaveState::HasSaveInSlot(slot)) {
 			loadStateButton_ = buttons->Add(new Button(i->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
-
-			fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
 
 			std::string dateStr = SaveState::GetSlotDateAsString(slot_);
 			std::vector<std::string> dateStrs;
@@ -274,10 +274,11 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
 	root_->Add(leftColumn);
 
-	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
 	leftColumnItems->Add(new Spacer(0.0));
+	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(i, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		slot->OnStateLoaded.Handle(this, &GamePauseScreen::OnState);
@@ -358,13 +359,16 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 }
 
 UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
-	SaveSlotView *v = (SaveSlotView *)e.v;
-	std::string fn = v->GetScreenshotFilename();
-	std::string title = v->GetScreenshotTitle();
-	I18NCategory *p = GetI18NCategory("Pause");
-	Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), p);
-	screenManager()->push(screen);
+	SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
+	int slot = v->GetSlot();
 	g_Config.iCurrentStateSlot = v->GetSlot();
+	if (SaveState::HasSaveInSlot(slot)) {
+		std::string fn = v->GetScreenshotFilename();
+		std::string title = v->GetScreenshotTitle();
+		I18NCategory *p = GetI18NCategory("Pause");
+		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), p);
+		screenManager()->push(screen);
+	}
 	return UI::EVENT_DONE;
 }
 
