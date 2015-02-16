@@ -92,7 +92,7 @@ static int sceSfmt19937FillArray32(u32 sfmt, u32 array, int arraylen) {
 	return 0;
 }
 
-static int sceSfmt19937FillArray64(u32 sfmt, u64 array, int arraylen) {
+static int sceSfmt19937FillArray64(u32 sfmt, u32 array, int arraylen) {
 	if (!Memory::IsValidAddress(sfmt) || !Memory::IsValidAddress(array) || !Memory::IsValidAddress(array + 8 * (arraylen - 1))) {
 		ERROR_LOG(HLE, "sceSfmt19937FillArray64(sfmt=%08x, ar=%08x, arlen=%08x)  - bad address(es)", sfmt, array, arraylen);
 		return -1;
@@ -113,7 +113,7 @@ const HLEFunction sceSfmt19937[] =
 	{ 0xB33FE749, WrapU_U<sceSfmt19937GenRand32>, "sceSfmt19937GenRand32" },
 	{ 0xD5AC9F99, WrapU64_U<sceSfmt19937GenRand64>, "sceSfmt19937GenRand64" },
 	{ 0xDB025BFA, WrapI_UUI<sceSfmt19937FillArray32>, "sceSfmt19937FillArray32" },
-	{ 0xEE2938C4, WrapI_UU64I<sceSfmt19937FillArray64>, "sceSfmt19937FillArray64" },
+	{ 0xEE2938C4, WrapI_UUI<sceSfmt19937FillArray64>, "sceSfmt19937FillArray64" },
 };
 
 void Register_sceSfmt19937()
