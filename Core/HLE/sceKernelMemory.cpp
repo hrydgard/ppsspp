@@ -1910,6 +1910,16 @@ KernelObject *__KernelTlsplObject()
 	return new TLSPL;
 }
 
+static void __KernelSortTlsplThreads(TLSPL *tls)
+{
+	// Remove any that are no longer waiting.
+	SceUID uid = tls->GetUID();
+	HLEKernel::CleanupWaitingThreads(WAITTYPE_TLSPL, uid, tls->waitingThreads);
+
+	if ((tls->ntls.attr & PSP_FPL_ATTR_PRIORITY) != 0)
+		std::stable_sort(tls->waitingThreads.begin(), tls->waitingThreads.end(), __KernelThreadSortPriority);
+}
+
 int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 {
 	// Find the current thread's block.
@@ -1944,9 +1954,9 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 			}
 		}
 
+		__KernelSortTlsplThreads(tls);
 		while (!tls->waitingThreads.empty())
 		{
-			// TODO: What order do they wake in?
 			SceUID waitingThreadID = tls->waitingThreads[0];
 			tls->waitingThreads.erase(tls->waitingThreads.begin());
 
@@ -1955,7 +1965,6 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 				continue;
 
 			// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
-			// TODO: Is the block wiped or anything?
 			tls->usage[freeBlock] = waitingThreadID;
 			__KernelResumeThreadFromWait(waitingThreadID, freedAddress);
 
@@ -2039,7 +2048,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 	}
 
-	// Upalign to a multiple of 4.  Strangely, the ReferTlsStatus value is the original.
+	// Upalign to a multiple of 4.  Strangely, the sceKernelReferTlsplStatus value is the original.
 	u32 alignedSize = (blockSize + 3) & ~3;
 
 	int index = -1;
@@ -2217,6 +2226,10 @@ int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr)
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
 	if (tls)
 	{
+		// Update the waiting threads in case of deletions, etc.
+		__KernelSortTlsplThreads(tls);
+		tls->ntls.numWaitThreads = (int) tls->waitingThreads.size();
+
 		if (Memory::Read_U32(infoPtr) != 0)
 			Memory::WriteStruct(infoPtr, &tls->ntls);
 		return 0;
