@@ -1957,7 +1957,7 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 			// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
 			// TODO: Is the block wiped or anything?
 			tls->usage[freeBlock] = waitingThreadID;
-			__KernelResumeThreadFromWait(waitingThreadID, freeBlock);
+			__KernelResumeThreadFromWait(waitingThreadID, freedAddress);
 
 			// Gotta watch the thread to quit as well, since they've allocated now.
 			tlsplThreadEndChecks.insert(std::make_pair(waitingThreadID, uid));
