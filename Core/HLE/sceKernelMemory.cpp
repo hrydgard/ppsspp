@@ -2205,7 +2205,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 		{
 			tls->waitingThreads.push_back(threadID);
 			__KernelWaitCurThread(WAITTYPE_TLSPL, uid, 1, 0, false, "allocate tls");
-			return -1;
+			return 0;
 		}
 
 		u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
@@ -2218,7 +2218,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 		return allocAddress;
 	}
 	else
-		return error;
+		return 0;
 }
 
 // Parameters are an educated guess.
