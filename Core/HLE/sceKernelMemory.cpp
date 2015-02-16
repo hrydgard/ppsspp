@@ -1971,9 +1971,9 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 		++tls->ntls.freeBlocks;
 		return 0;
 	}
-	// TODO: Correct error code.
+	// We say "okay" even though nothing was freed.
 	else
-		return -1;
+		return 0;
 }
 
 void __KernelTlsplThreadEnd(SceUID threadID)
