@@ -2011,7 +2011,15 @@ void __KernelTlsplThreadEnd(SceUID threadID)
 		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
 
 		if (tls)
+		{
 			__KernelFreeTls(tls, threadID);
+
+			// Restart the loop, freeing mutated it.
+			locked = tlsplThreadEndChecks.equal_range(threadID);
+			iter = locked.first;
+			if (locked.first == locked.second)
+				break;
+		}
 	}
 	tlsplThreadEndChecks.erase(locked.first, locked.second);
 }
