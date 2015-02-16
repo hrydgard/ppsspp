@@ -1927,6 +1927,12 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 	{
 		SceUID uid = tls->GetUID();
 
+		u32 alignedSize = (tls->ntls.blockSize + 3) & ~3;
+		u32 freedAddress = tls->address + freeBlock * alignedSize;
+
+		// Whenever freeing a block, clear it (even if it's not going to wake anyone.)
+		Memory::Memset(freedAddress, 0, tls->ntls.blockSize);
+
 		// First, let's remove the end check for the freeing thread.
 		auto freeingLocked = tlsplThreadEndChecks.equal_range(threadID);
 		for (TlsplMap::iterator iter = freeingLocked.first; iter != freeingLocked.second; ++iter)
@@ -2141,6 +2147,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 	{
 		SceUID threadID = __KernelGetCurThread();
 		int allocBlock = -1;
+		bool needsClear = false;
 
 		// If the thread already has one, return it.
 		for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
@@ -2164,6 +2171,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 				tls->usage[allocBlock] = threadID;
 				tlsplThreadEndChecks.insert(std::make_pair(threadID, uid));
 				--tls->ntls.freeBlocks;
+				needsClear = true;
 			}
 		}
 
@@ -2175,7 +2183,13 @@ int sceKernelGetTlsAddr(SceUID uid)
 		}
 
 		u32 alignedSize = (tls->ntls.blockSize + 3) & ~3;
-		return tls->address + allocBlock * alignedSize;
+		u32 allocAddress = tls->address + allocBlock * alignedSize;
+
+		// We clear the blocks upon first allocation (and also when they are freed, both are necessary.)
+		if (needsClear)
+			Memory::Memset(allocAddress, 0, tls->ntls.blockSize);
+
+		return allocAddress;
 	}
 	else
 		return error;
