@@ -35,8 +35,6 @@ if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 endif()
 
-#include(CheckIncludeFile)
-#check_include_file(/opt/vc/include/bcm_host.h RPI)
 if(EXISTS "/opt/vc/include/bcm_host.h")
 	message(STATUS "RaspberryPI VC Found")
 	set(RPI ON)
