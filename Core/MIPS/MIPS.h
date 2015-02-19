@@ -59,6 +59,8 @@ enum MIPSGPReg {
 	MIPS_REG_A4=8,
 	MIPS_REG_A5=9,
 
+	MIPS_REG_T0=8,  //alternate names for A4/A5
+	MIPS_REG_T1=9,
 	MIPS_REG_T2=10,
 	MIPS_REG_T3=11,
 	MIPS_REG_T4=12,

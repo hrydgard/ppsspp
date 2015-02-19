@@ -144,6 +144,51 @@ static int Replace_memcpy() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy_jak() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 bytes = PARAM(2);
+	bool skip = false;
+	if (!bytes) {
+		RETURN(destPtr);
+		return 10;
+	}
+
+	currentMIPS->InvalidateICache(srcPtr, bytes);
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
+
+		if (!dst || !src) {
+			// Already logged.
+		} else if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+			// Jak style overlap.
+			for (int i = 0; i < (int)bytes; i++) {
+				dst[i] = src[i];
+			}
+		} else {
+			memmove(dst, src, bytes);
+		}
+	}
+	RETURN(destPtr);
+
+	// Jak relies on more registers coming out right than the ABI specifies.
+	// See the disassembly of the function for the explanations for these...
+	currentMIPS->r[MIPS_REG_T0] = 0;
+	currentMIPS->r[MIPS_REG_A0] = -1;
+	currentMIPS->r[MIPS_REG_A2] = 0;
+	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
+	return 10 + bytes / 4;  // approximation
+}
+
 static int Replace_memcpy16() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -953,17 +998,19 @@ static const ReplacementTableEntry entries[] = {
 	{ "sinf", &Replace_sinf, 0, REPFLAG_DISABLED },
 	{ "cosf", &Replace_cosf, 0, REPFLAG_DISABLED },
 	{ "tanf", &Replace_tanf, 0, REPFLAG_DISABLED },
-
 	{ "atanf", &Replace_atanf, 0, REPFLAG_DISABLED },
 	{ "sqrtf", &Replace_sqrtf, 0, REPFLAG_DISABLED },
 	{ "atan2f", &Replace_atan2f, 0, REPFLAG_DISABLED },
 	{ "floorf", &Replace_floorf, 0, REPFLAG_DISABLED },
 	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
+
 	{ "memcpy", &Replace_memcpy, 0, 0 },
+	{ "memcpy_jak", &Replace_memcpy_jak, 0, 0 },
 	{ "memcpy16", &Replace_memcpy16, 0, 0 },
 	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
 	{ "memmove", &Replace_memmove, 0, 0 },
 	{ "memset", &Replace_memset, 0, 0 },
+
 	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
 	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
