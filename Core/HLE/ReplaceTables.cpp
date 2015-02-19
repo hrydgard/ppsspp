@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
@@ -149,11 +150,13 @@ static int Replace_memcpy_jak() {
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
-	if (!bytes) {
+	if (bytes == 0) {
 		RETURN(destPtr);
-		return 10;
+		currentMIPS->r[MIPS_REG_T0] = bytes;
+		currentMIPS->r[MIPS_REG_A0] = bytes - 1;
+		currentMIPS->r[MIPS_REG_A2] = bytes - 1;
+		return 5;
 	}
-
 	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -163,30 +166,24 @@ static int Replace_memcpy_jak() {
 		const u8 *src = Memory::GetPointer(srcPtr);
 
 		if (!dst || !src) {
-			// Already logged.
-		} else if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
+		} else {
 			// Jak style overlap.
-			for (int i = 0; i < (int)bytes; i++) {
+			for (int i = 0; i < bytes; i++) {
 				dst[i] = src[i];
 			}
-		} else {
-			memmove(dst, src, bytes);
 		}
 	}
-	RETURN(destPtr);
 
 	// Jak relies on more registers coming out right than the ABI specifies.
 	// See the disassembly of the function for the explanations for these...
 	currentMIPS->r[MIPS_REG_T0] = 0;
 	currentMIPS->r[MIPS_REG_A0] = -1;
-	currentMIPS->r[MIPS_REG_A2] = 0;
+	currentMIPS->r[MIPS_REG_A1] = srcPtr + bytes;
+	currentMIPS->r[MIPS_REG_A2] = -1;
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
+	RETURN(destPtr);
 
-#ifndef MOBILE_DEVICE
-	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
-	return 10 + bytes / 4;  // approximation
+	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
 
 static int Replace_memcpy16() {
@@ -296,6 +293,42 @@ static int Replace_memset() {
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
 	return 10 + bytes / 4;  // approximation
+}
+
+static int Replace_memset_jak() {
+	u32 destPtr = PARAM(0);
+	u8 value = PARAM(1);
+	u32 bytes = PARAM(2);
+
+	if (bytes == 0) {
+		currentMIPS->r[MIPS_REG_A2] = bytes - 1;
+		currentMIPS->r[MIPS_REG_A3] = bytes - 1;
+		currentMIPS->r[MIPS_REG_T0] = destPtr;
+		currentMIPS->r[MIPS_REG_T1] = 0;
+		RETURN(destPtr);
+		return 5;
+	}
+
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->PerformMemorySet(destPtr, value, bytes);
+	}
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		if (dst) {
+			memset(dst, value, bytes);
+		}
+	}
+
+	currentMIPS->r[MIPS_REG_T0] = destPtr + bytes;
+	currentMIPS->r[MIPS_REG_A2] = -1;
+	currentMIPS->r[MIPS_REG_A3] = -1;
+	RETURN(destPtr);
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
+	return 5 + bytes * 10 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
 }
 
 static int Replace_strlen() {
@@ -1010,7 +1043,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
 	{ "memmove", &Replace_memmove, 0, 0 },
 	{ "memset", &Replace_memset, 0, 0 },
-
+	{ "memset_jak", &Replace_memset_jak, 0, 0 },
 	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
 	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
