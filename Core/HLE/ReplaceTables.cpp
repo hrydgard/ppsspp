@@ -152,9 +152,6 @@ static int Replace_memcpy_jak() {
 	bool skip = false;
 	if (bytes == 0) {
 		RETURN(destPtr);
-		currentMIPS->r[MIPS_REG_T0] = bytes;
-		currentMIPS->r[MIPS_REG_A0] = bytes - 1;
-		currentMIPS->r[MIPS_REG_A2] = bytes - 1;
 		return 5;
 	}
 	currentMIPS->InvalidateICache(srcPtr, bytes);
@@ -178,8 +175,7 @@ static int Replace_memcpy_jak() {
 	// See the disassembly of the function for the explanations for these...
 	currentMIPS->r[MIPS_REG_T0] = 0;
 	currentMIPS->r[MIPS_REG_A0] = -1;
-	currentMIPS->r[MIPS_REG_A1] = srcPtr + bytes;
-	currentMIPS->r[MIPS_REG_A2] = -1;
+	currentMIPS->r[MIPS_REG_A2] = 0;
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
 
@@ -301,10 +297,6 @@ static int Replace_memset_jak() {
 	u32 bytes = PARAM(2);
 
 	if (bytes == 0) {
-		currentMIPS->r[MIPS_REG_A2] = bytes - 1;
-		currentMIPS->r[MIPS_REG_A3] = bytes - 1;
-		currentMIPS->r[MIPS_REG_T0] = destPtr;
-		currentMIPS->r[MIPS_REG_T1] = 0;
 		RETURN(destPtr);
 		return 5;
 	}
@@ -328,7 +320,7 @@ static int Replace_memset_jak() {
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
-	return 5 + bytes * 10 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
+	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
 }
 
 static int Replace_strlen() {
