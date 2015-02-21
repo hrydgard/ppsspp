@@ -482,9 +482,8 @@ void TransformDrawEngine::ApplyBlendState() {
 	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
-	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
-	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
-	// the factors to zero). So let's do that.
+	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
+	// apply the stencil to the alpha, since that's what should be stored.
 	GLenum alphaEq = GL_FUNC_ADD;
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
