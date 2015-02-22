@@ -121,7 +121,7 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 		}
 	} else {
 		memcpy(*image, zim + 16, datasize - 16);
-		if (datasize - 16 != total_data_size) {
+		if (datasize - 16 != (size_t)total_data_size) {
 			ELOG("Wrong size data in ZIM: %i vs %i", (int)(datasize-16), (int)total_data_size);
 		}
 	}
