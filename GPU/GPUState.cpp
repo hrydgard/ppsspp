@@ -36,6 +36,7 @@
 #include <emmintrin.h>
 #endif
 
+extern u32 oldRenderingMode = 0; //0 = default 1 = non-buffered rendering 2 = buffered rendering 3 = Read Framebuffer to memory (CPU) 4 = Read Framebuffer to memory (GPU) 5 =software vendering 6 = unknown vendering;
 // This must be aligned so that the matrices within are aligned.
 GPUgstate MEMORY_ALIGNED16(gstate);
 // Let's align this one too for good measure.
@@ -52,6 +53,13 @@ static void SetGPU(T *obj) {
 }
 
 bool GPU_Init() {
+	if (oldRenderingMode == 0) {
+		if (g_Config.bSoftwareRendering)
+			oldRenderingMode = 5;
+		else
+			oldRenderingMode = g_Config.iRenderingMode + 1;
+	}
+	
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
@@ -266,7 +274,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 4);
+	auto s = p.Section("GPUStateCache", 0, 5);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -300,6 +308,10 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
+	if (s >= 5)
+		p.Do(oldRenderingMode);
+	else
+		oldRenderingMode = 6;
 	if (s >= 3) {
 		p.Do(textureSimpleAlpha);
 	} else {
