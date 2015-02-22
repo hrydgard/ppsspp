@@ -204,7 +204,24 @@ static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 }
 
-static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+static inline void AccumulateWeighted(Vec3f &out, const Vec3Packedf &in, const Vec4f &w) {
+#ifdef _M_SSE
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(_mm_loadu_ps(in.AsArray()), w.vec));
+#else
+	out += in * w.x;
+#endif
+}
+
+static inline void AccumulateWeighted(Vec4f &out, const Vec4f &in, const Vec4f &w) {
+#ifdef _M_SSE
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
+#else
+	out += in * w;
+#endif
+}
+
+template <bool origNrm, bool origCol, bool origTc>
+static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -253,19 +270,18 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
 			Vec4f vert_color(0, 0, 0, 0);
-			vert->pos.SetZero();
-			if (origVertType & GE_VTYPE_NRM_MASK) {
-				vert->nrm.SetZero();
-			} else {
-				vert->nrm.SetZero();
-				vert->nrm.z = 1.0f;
+			Vec3f vert_pos;
+			vert_pos.SetZero();
+			Vec3f vert_nrm;
+			if (origNrm) {
+				vert_nrm.SetZero();
 			}
-			if (origVertType & GE_VTYPE_COL_MASK) {
+			if (origCol) {
 				vert_color.SetZero();
 			} else {
 				memcpy(vert->color, spatch.points[0]->color, 4);
 			}
-			if (origVertType & GE_VTYPE_TC_MASK) {
+			if (origTc) {
 				vert->uv[0] = 0.0f;
 				vert->uv[1] = 0.0f;
 			} else {
@@ -293,31 +309,37 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 					float f = u_spline * v_spline;
 
 					if (f > 0.0f) {
+#ifdef _M_SSE
+						Vec4f fv(_mm_set_ps1(f));
+#else
+						Vec4f fv = Vec4f::AssignToAll(f);
+#endif
 						int idx = spatch.count_u * (iv + jj) + (iu + ii);
 						SimpleVertex *a = spatch.points[idx];
-						vert->pos += a->pos * f;
-						if (origVertType & GE_VTYPE_TC_MASK) {
+						AccumulateWeighted(vert_pos, a->pos, fv);
+						if (origTc) {
 							vert->uv[0] += a->uv[0] * f;
 							vert->uv[1] += a->uv[1] * f;
 						}
-						if (origVertType & GE_VTYPE_COL_MASK) {
+						if (origCol) {
 							Vec4f a_color = Vec4f::FromRGBA(a->color_32);
-#ifdef _M_SSE
-							vert_color.vec = _mm_add_ps(vert_color.vec, _mm_mul_ps(a_color.vec, _mm_set_ps1(f)));
-#else
-							vert_color += a_color * f;
-#endif
+							AccumulateWeighted(vert_color, a_color, fv);
 						}
-						if (origVertType & GE_VTYPE_NRM_MASK) {
-							vert->nrm += a->nrm * f;
+						if (origNrm) {
+							AccumulateWeighted(vert_nrm, a->nrm, fv);
 						}
 					}
 				}
 			}
-			if (origVertType & GE_VTYPE_NRM_MASK) {
-				vert->nrm.Normalize();
+			vert->pos = vert_pos;
+			if (origNrm) {
+				vert_nrm.Normalize();
+				vert->nrm = vert_nrm;
+			} else {
+				vert->nrm.SetZero();
+				vert->nrm.z = 1.0f;
 			}
-			if (origVertType & GE_VTYPE_COL_MASK) {
+			if (origCol) {
 				vert->color_32 = vert_color.ToRGBA();
 			}
 		}
@@ -327,7 +349,7 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 	delete[] knot_v;
 
 	// Hacky normal generation through central difference.
-	if (gstate.isLightingEnabled() && (origVertType & GE_VTYPE_NRM_MASK) == 0) {
+	if (gstate.isLightingEnabled() && !origNrm) {
 		for (int v = 0; v < patch_div_t + 1; v++) {
 			for (int u = 0; u < patch_div_s + 1; u++) {
 				int l = std::max(0, u - 1);
@@ -361,16 +383,45 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 	}
 }
 
+template <bool origNrm, bool origCol>
+static inline void SplinePatchFullQualityDispatch3(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origTc = (origVertType & GE_VTYPE_TC_MASK) != 0;
+
+	if (origTc)
+		SplinePatchFullQuality<origNrm, origCol, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQuality<origNrm, origCol, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
+template <bool origNrm>
+static inline void SplinePatchFullQualityDispatch2(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origCol = (origVertType & GE_VTYPE_COL_MASK) != 0;
+
+	if (origCol)
+		SplinePatchFullQualityDispatch3<origNrm, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQualityDispatch3<origNrm, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
+static void SplinePatchFullQualityDispatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origNrm = (origVertType & GE_VTYPE_NRM_MASK) != 0;
+
+	if (origNrm)
+		SplinePatchFullQualityDispatch2<true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQualityDispatch2<false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
 void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
+		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
 		break;
 	case HIGH_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
+		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
 		break;
 	}
 }
