@@ -273,7 +273,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 6);
+	auto s = p.Section("GPUStateCache", 0, 5);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -307,13 +307,10 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
-	if (s >= 6)
+	if (s >= 5)
 		p.Do(oldRenderingMode);
 	else
 		oldRenderingMode = 6;
-	if (s >= 5) {
-		p.Do(textureSimpleAlpha);
-	}
 	if (s >= 3) {
 		p.Do(textureSimpleAlpha);
 	} else {
