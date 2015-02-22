@@ -208,7 +208,7 @@ int PlayBackgroundAudio() {
 	double now = time_now();
 	if (at3Reader) {
 		const int sz = (now - lastPlaybackTime) * 44100;
-		if (sz >= 16 && sz < ARRAY_SIZE(buffer)/2) {
+		if (sz >= 16 && sz < (int)ARRAY_SIZE(buffer) / 2) {
 			if (at3Reader->Read(buffer, sz))
 				__PushExternalAudio(buffer, sz);
 		}

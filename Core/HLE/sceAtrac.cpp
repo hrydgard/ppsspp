@@ -406,7 +406,7 @@ struct AtracResetBufferInfo {
 const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
 static Atrac *atracIDs[PSP_NUM_ATRAC_IDS];
-static int atracIDTypes[PSP_NUM_ATRAC_IDS];
+static u32 atracIDTypes[PSP_NUM_ATRAC_IDS];
 
 void __AtracInit() {
 	atracInited = true;
@@ -1547,7 +1547,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		int ret = atrac->Analyze();
 		if (ret < 0) {
 			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
-		} else if ((int)atrac->codecType != atracIDTypes[atracID]) {
+		} else if (atrac->codecType != atracIDTypes[atracID]) {
 			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
 		} else {

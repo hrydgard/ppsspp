@@ -91,7 +91,7 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	u32 indexW = Common::AtomicLoad(m_indexW);
 
 	// We force on the audio resampler if the output sample rate doesn't match the input.
-	if (!g_Config.bAudioResampler && sample_rate == m_input_sample_rate) {
+	if (!g_Config.bAudioResampler && sample_rate == (int)m_input_sample_rate) {
 		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
 			u32 indexR2 = indexR + 2; //next sample
 			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
