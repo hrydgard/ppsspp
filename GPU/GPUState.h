@@ -23,6 +23,8 @@
 #include "ge_constants.h"
 #include "Common/Common.h"
 
+u32 oldRenderingMode = 0; //0 = default 1 = non-buffered rendering 2 = buffered rendering 3 = Read Framebuffer to memory (CPU) 4 = Read Framebuffer to memory (GPU) 5 =software vendering 6 = unknown vendering
+
 class PointerWrap;
 
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.

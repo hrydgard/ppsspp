@@ -52,6 +52,13 @@ static void SetGPU(T *obj) {
 }
 
 bool GPU_Init() {
+	if (oldRenderingMode == 0) {
+		if (g_Config.bSoftwareRendering)
+			oldRenderingMode = 5;
+		else
+			oldRenderingMode = g_Config.iRenderingMode + 1;
+	}
+	
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
@@ -266,7 +273,7 @@ struct GPUStateCache_v0
 };
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 4);
+	auto s = p.Section("GPUStateCache", 0, 6);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -300,6 +307,13 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
 
+	if (s >= 6)
+		p.Do(oldRenderingMode);
+	else
+		oldRenderingMode = 6;
+	if (s >= 5) {
+		p.Do(textureSimpleAlpha);
+	}
 	if (s >= 3) {
 		p.Do(textureSimpleAlpha);
 	} else {

@@ -44,6 +44,8 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
 
+extern u32 oldRenderingMode = 0; //0 = default 1 = non-buffered rendering 2 = buffered rendering 3 = Read Framebuffer to memory (CPU) 4 = Read Framebuffer to memory (GPU) 5 =software vendering 6 = unknown vendering;
+
 namespace SaveState
 {
 	struct SaveStart
@@ -523,7 +525,17 @@ namespace SaveState
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					std::string LoadedState = s->T("Loaded State");
+					LoadedState.append("\n");
+					LoadedState.append(s->T("Loaded State"));
+					if (oldRenderingMode == 1)
+						LoadedState.append(s->T("non-buffered rendering"));
+					else if (oldRenderingMode == 2)
+						LoadedState.append(s->T("buffered rendering"));
+					else if (oldRenderingMode == 3)
+						LoadedState.append(s->T("unknown rendering"));
+					osm.Show(LoadedState, 2.0);
+					//osm.Show(s->T("Loaded State"), 2.0);
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
