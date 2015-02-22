@@ -44,7 +44,6 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
 
-extern u32 oldRenderingMode = 0; //0 = default 1 = non-buffered rendering 2 = buffered rendering 3 = Read Framebuffer to memory (CPU) 4 = Read Framebuffer to memory (GPU) 5 =software vendering 6 = unknown vendering;
 
 namespace SaveState
 {
@@ -483,6 +482,27 @@ namespace SaveState
 		return hasLoadedState;
 	}
 
+	static inline void ShowLoadedStateMessage()
+	{
+		I18NCategory *s = GetI18NCategory("Screen");
+		I18NCategory *gs = GetI18NCategory("Graphics");
+		std::string LoadedStateStr = s->T("Loaded State");
+		LoadedStateStr.append("\n");
+		if (oldRenderingMode == 1)
+			LoadedStateStr.append(gs->T("Old save is Non-Buffered Rendering"));
+		else if (oldRenderingMode == 2)
+			LoadedStateStr.append(gs->T("Old save is Buffered Rendering"));
+		else if (oldRenderingMode == 3)
+			LoadedStateStr.append(gs->T("Old save is Read Framebuffers To Memory (CPU)"));
+		else if (oldRenderingMode == 4)
+			LoadedStateStr.append(gs->T("Old save is Read Framebuffers To Memory (GPU)"));
+		else if (oldRenderingMode == 5)
+			LoadedStateStr.append(gs->T("Old save is Software Rendering"));
+		else if (oldRenderingMode == 6)
+			LoadedStateStr.append(gs->T("Old save is Unknown rendering"));
+		osm.Show(LoadedStateStr, 2.0);
+	}
+
 	void Process()
 	{
 #ifndef MOBILE_DEVICE
@@ -525,17 +545,7 @@ namespace SaveState
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					std::string LoadedState = s->T("Loaded State");
-					LoadedState.append("\n");
-					LoadedState.append(s->T("Loaded State"));
-					if (oldRenderingMode == 1)
-						LoadedState.append(s->T("non-buffered rendering"));
-					else if (oldRenderingMode == 2)
-						LoadedState.append(s->T("buffered rendering"));
-					else if (oldRenderingMode == 3)
-						LoadedState.append(s->T("unknown rendering"));
-					osm.Show(LoadedState, 2.0);
-					//osm.Show(s->T("Loaded State"), 2.0);
+					ShowLoadedStateMessage();
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
@@ -576,14 +586,14 @@ namespace SaveState
 				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					ShowLoadedStateMessage();
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleFailure()) {
 						// Well, we did rewind, even if too much...
-						osm.Show(s->T("Loaded State"), 2.0);
+						ShowLoadedStateMessage();
 						callbackResult = true;
 						hasLoadedState = true;
 					} else {
