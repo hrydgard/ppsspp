@@ -1,13 +1,9 @@
 package com.henrikrydgard.libnative;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -30,10 +26,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.os.Vibrator;
 import android.text.InputType;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -164,11 +158,6 @@ public class NativeActivity extends Activity {
 	
 	public void setShortcutParam(String shortcutParam) {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
-	}
-	
-	private boolean useOpenSL() {
-    	// Native OpenSL became available on Gingerbread. Let's use it!
-	    return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD);
 	}
 	
 	public void Initialize() {
