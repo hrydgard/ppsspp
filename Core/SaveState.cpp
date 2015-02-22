@@ -44,7 +44,6 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
 
-
 namespace SaveState
 {
 	struct SaveStart
