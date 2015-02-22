@@ -165,7 +165,7 @@ static int Replace_memcpy_jak() {
 		if (!dst || !src) {
 		} else {
 			// Jak style overlap.
-			for (int i = 0; i < bytes; i++) {
+			for (u32 i = 0; i < bytes; i++) {
 				dst[i] = src[i];
 			}
 		}
@@ -1095,14 +1095,14 @@ static const ReplacementTableEntry entries[] = {
 
 
 static std::map<u32, u32> replacedInstructions;
-static std::map<std::string, int> replacementNameLookup;
+static std::map<std::string, std::vector<int> > replacementNameLookup;
 
 void Replacement_Init() {
 	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
 		const auto entry = &entries[i];
 		if (!entry->name || (entry->flags & REPFLAG_DISABLED) != 0)
 			continue;
-		replacementNameLookup[entry->name] = i;
+		replacementNameLookup[entry->name].push_back(i);
 	}
 }
 
@@ -1117,17 +1117,18 @@ int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
 }
 
-int GetReplacementFuncIndex(u64 hash, int funcSize) {
+std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize) {
 	const char *name = MIPSAnalyst::LookupHash(hash, funcSize);
+	std::vector<int> emptyResult;
 	if (!name) {
-		return -1;
+		return emptyResult;
 	}
 
 	auto index = replacementNameLookup.find(name);
 	if (index != replacementNameLookup.end()) {
 		return index->second;
 	}
-	return -1;
+	return emptyResult;
 }
 
 const ReplacementTableEntry *GetReplacementFunc(int i) {
@@ -1148,8 +1149,8 @@ static void WriteReplaceInstruction(u32 address, int index) {
 }
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
-	int index = GetReplacementFuncIndex(hash, size);
-	if (index >= 0) {
+	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
+	for (int index : indexes) {
 		auto entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
