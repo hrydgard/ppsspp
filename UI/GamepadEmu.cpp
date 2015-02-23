@@ -457,19 +457,24 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 
 	const int halfW = xres / 2;
 
+	const int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
+
+	// These platforms always need the pause menu button to be shown.
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MAEMO)
+	root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+#endif
+
 	if (g_Config.bShowTouchControls) {
-		int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
-		int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
-		int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
-		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
-		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
-		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
+		const int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
+		const int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
+		const int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
+		const int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
+		const int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 		if (g_Config.bShowTouchPause)
-#endif
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
-
+#endif
 		if (g_Config.bShowTouchCircle)
 			root->Add(new PSPButton(CTRL_CIRCLE, roundImage, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
 
