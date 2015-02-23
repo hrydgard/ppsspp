@@ -107,9 +107,9 @@ public:
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					pos[2] = pos[2] > 65535.0f ? 1.0f : (pos[2] < 0.0f ? 0.0f : pos[2] * (1.0f / 65535.0f));
+					const float z = (int)pos[2] * (1.0f / 65535.0f);
+					pos[2] = z > 1.0f ? 1.0f : (z < 0.0f ? 0.0f : z);
 				}
-				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
 			break;
 		case DEC_S16_3:
@@ -149,7 +149,7 @@ public:
 		}
 	}
 
-	void ReadPosZ16(float pos[3]) const {
+	void ReadPosThroughZ16(float pos[3]) const {
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			{
@@ -157,9 +157,9 @@ public:
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					pos[2] = pos[2] > 65535.0f ? 65535.0f : (pos[2] < 0.0f ? 0.0f : pos[2]);
+					const float z = (int)pos[2];
+					pos[2] = z > 65535.0f ? 65535.0f : (z < 0.0f ? 0.0f : z);
 				}
-				// TODO: Does non-through need conversion?
 			}
 			break;
 		case DEC_S16_3:
@@ -174,7 +174,6 @@ public:
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = s[i] * (1.0f / 32768.0f);
-					// TODO: Does depth need conversion?
 				}
 			}
 			break;
@@ -190,7 +189,6 @@ public:
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = b[i] * (1.0f / 128.0f);
-					// TODO: Does depth need conversion?
 				}
 			}
 			break;
