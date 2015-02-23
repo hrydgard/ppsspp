@@ -368,7 +368,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
-	bool needsConstantAlpha = false;
+	GLenum constantAlphaGL = GL_ONE;
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
@@ -388,7 +388,13 @@ void TransformDrawEngine::ApplyBlendState() {
 		default:
 			break;
 		}
-		needsConstantAlpha = constantAlpha < 1.0f;
+
+		// Otherwise it will stay GL_ONE.
+		if (constantAlpha <= 0.0f) {
+			constantAlphaGL = GL_ZERO;
+		} else if (constantAlpha < 1.0f) {
+			constantAlphaGL = GL_CONSTANT_ALPHA;
+		}
 	}
 
 	// Shortcut by using GL_ONE where possible, no need to set blendcolor
@@ -415,7 +421,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		glstate.blendColor.set(blendColor);
 	};
 	auto defaultBlendColor = [&]() {
-		if (needsConstantAlpha) {
+		if (constantAlphaGL == GL_CONSTANT_ALPHA) {
 			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
 			glstate.blendColor.set(blendColor);
 		}
@@ -531,21 +537,17 @@ void TransformDrawEngine::ApplyBlendState() {
 			break;
 		case STENCIL_VALUE_UNIFORM:
 			// This won't give a correct value (it multiplies) but it may be better than random values.
-			if (needsConstantAlpha) {
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ZERO);
-			} else {
-				glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
-			}
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ZERO);
 			break;
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_INCR_8:
 			// This won't give a correct value always, but it will try to increase at least.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ONE);
 			break;
 		case STENCIL_VALUE_DECR_4:
 		case STENCIL_VALUE_DECR_8:
 			// This won't give a correct value always, but it will try to decrease at least.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_CONSTANT_ALPHA, GL_ONE);
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ONE);
 			alphaEq = GL_FUNC_SUBTRACT;
 			break;
 		case STENCIL_VALUE_INVERT:
