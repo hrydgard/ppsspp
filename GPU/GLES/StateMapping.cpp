@@ -439,7 +439,7 @@ void TransformDrawEngine::ApplyBlendState() {
 			setBlendColorv(fixB);
 			glBlendFuncB = GL_CONSTANT_COLOR;
 		} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
-			if (blendColorSimilar(fixA, Vec3f::AssignToAll(constantAlpha) - fixB)) {
+			if (blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f) - fixB)) {
 				glBlendFuncA = GL_CONSTANT_COLOR;
 				glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
 				setBlendColorv(fixA);
