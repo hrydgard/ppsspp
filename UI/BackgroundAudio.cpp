@@ -9,6 +9,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Common/FixedSizeQueue.h"
 #include "GameInfoCache.h"
+#include "Core/Config.h"
 
 // Really simple looping in-memory AT3 player that also takes care of reading the file format.
 // Turns out that AT3 files used for this are modified WAVE files so fairly easy to parse.
@@ -173,6 +174,10 @@ void SetBackgroundAudioGame(const std::string &path) {
 	lock_guard lock(bgMutex);
 	if (path == bgGamePath) {
 		// Do nothing
+		return;
+	}
+
+	if (!g_Config.bEnableSound) {
 		return;
 	}
 
