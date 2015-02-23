@@ -276,15 +276,7 @@ private:
 
 class TabHolder : public LinearLayout {
 public:
-	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
-		: LinearLayout(Opposite(orientation), layoutParams),
-			stripSize_(stripSize), currentTab_(0) {
-		SetSpacing(0.0f);
-		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
-		tabStrip_->SetTopTabs(true);
-		Add(tabStrip_);
-		tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
-	}
+	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0);
 
 	template <class T>
 	T *AddTab(const std::string &title, T *tabContents) {
@@ -310,6 +302,7 @@ private:
 	EventReturn OnTabClick(EventParams &e);
 
 	ChoiceStrip *tabStrip_;
+	ScrollView *tabScroll_;
 
 	float stripSize_;
 	int currentTab_;

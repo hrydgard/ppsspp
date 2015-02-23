@@ -59,6 +59,22 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 			active_ = 0;
 		}
 	}
+
+	if (touch.id == 0 && p.distanceX > p.distanceY) {
+		if (p.down) {
+			double timeDown = time_now_d() - p.downTime;
+			if (!active_ && p.distanceX * timeDown > 3) {
+				active_ |= GESTURE_DRAG_HORIZONTAL;
+				// Kill the drag
+				TouchInput inp2 = touch;
+				inp2.flags = TOUCH_UP | TOUCH_CANCEL;
+				return inp2;
+			}
+		} else {
+			active_ = 0;
+		}
+	}
+
 	return touch;
 }
 

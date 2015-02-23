@@ -574,7 +574,9 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	Margins margins;
 	if (views_.size()) {
 		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+		if (!linLayoutParams->Is(LP_LINEAR)) {
+			linLayoutParams = 0;
+		}
 		if (linLayoutParams) {
 			margins = linLayoutParams->margins;
 		}
@@ -586,9 +588,11 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 
 	if (views_.size()) {
 		if (orientation_ == ORIENT_HORIZONTAL) {
-			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(AT_MOST, measuredHeight_ - (margins.top + margins.bottom)));
+			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED));
+			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		} else {
 			views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
+			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY && measuredHeight_ < views_[0]->GetBounds().h)
 			measuredHeight_ = views_[0]->GetBounds().h;
@@ -610,7 +614,6 @@ void ScrollView::Layout() {
 
 	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
 	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
-
 
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
@@ -648,17 +651,17 @@ bool ScrollView::Key(const KeyInput &input) {
 			ScrollRelative(250);
 			break;
 		case NKCODE_PAGE_DOWN:
-			ScrollRelative(bounds_.h - 50);
+			ScrollRelative((orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w) - 50);
 			break;
 		case NKCODE_PAGE_UP:
-			ScrollRelative(-bounds_.h + 50);
+			ScrollRelative(-(orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w) + 50);
 			break;
 		case NKCODE_MOVE_HOME:
 			ScrollTo(0);
 			break;
 		case NKCODE_MOVE_END:
 			if (views_.size())
-				ScrollTo(views_[0]->GetBounds().h);
+				ScrollTo(orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w);
 			break;
 		}
 	}
@@ -673,9 +676,12 @@ void ScrollView::Touch(const TouchInput &input) {
 		scrollStart_ = scrollPos_;
 		inertia_ = 0.0f;
 	}
+
+	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
+
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info)) {
+		if (!IsDragCaptured(input.id) && gesture_.GetGestureInfo(gesture, info)) {
 			inertia_ = info[1];
 		}
 	}
@@ -684,7 +690,7 @@ void ScrollView::Touch(const TouchInput &input) {
 	if (CanScroll() && !IsDragCaptured(input.id)) {
 		input2 = gesture_.Update(input, bounds_);
 		float info[4];
-		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info) && !(input.flags & TOUCH_DOWN)) {
+		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
 			ClampScrollPos(pos);
 			scrollPos_ = pos;
@@ -778,8 +784,8 @@ void ScrollView::ClampScrollPos(float &pos) {
 		return;
 	}
 
-	float childHeight = views_[0]->GetBounds().h;
-	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
+	float scrollMax = std::max(0.0f, childSize - (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w));
 
 	if (pos < 0.0f) {
 		pos = 0.0f;
@@ -799,7 +805,14 @@ void ScrollView::ScrollToBottom() {
 bool ScrollView::CanScroll() const {
 	if (!views_.size())
 		return false;
-	return views_[0]->GetBounds().h > bounds_.h;
+	switch (orientation_) {
+	case ORIENT_VERTICAL:
+		return views_[0]->GetBounds().h > bounds_.h;
+	case ORIENT_HORIZONTAL:
+		return views_[0]->GetBounds().w > bounds_.w;
+	default:
+		return false;
+	}
 }
 
 void ScrollView::Update(const InputState &input_state) {
@@ -953,6 +966,27 @@ void GridLayout::Layout() {
 			x += itemBounds.w + settings_.spacing;
 		}
 	}
+}
+
+TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams)
+	: LinearLayout(Opposite(orientation), layoutParams),
+		tabStrip_(nullptr), tabScroll_(nullptr),
+		stripSize_(stripSize),
+		currentTab_(0) {
+	SetSpacing(0.0f);
+	if (orientation == ORIENT_HORIZONTAL) {
+		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		tabStrip_->SetTopTabs(true);
+		tabScroll_ = new ScrollView(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
+		tabScroll_->Add(tabStrip_);
+		Add(tabScroll_);
+	} else {
+		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(stripSize, WRAP_CONTENT));
+		tabStrip_->SetTopTabs(true);
+		Add(tabStrip_);
+		tabScroll_ = nullptr;
+	}
+	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
