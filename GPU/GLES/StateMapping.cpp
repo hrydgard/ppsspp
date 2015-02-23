@@ -693,7 +693,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
-			glstate.stencilMask.set(~abits);
+
+			if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+				glstate.stencilMask.set(abits <= 0x7f ? 0xff : 0x00);
+			} else {
+				glstate.stencilMask.set(~abits);
+			}
 		} else {
 			glstate.stencilTest.disable();
 		}
