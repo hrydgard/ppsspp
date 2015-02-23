@@ -24,6 +24,8 @@ What's new in 1.0.1
 * Some cheat code bugfixes
 * Adler32 and Mersenne Twister modules added (fix some obscure games)
 * Fix for Jak & Daxter slowdown
+* Graphics hack for Phantasy Star for Direct3D9
+* Fix PowerVr compatibility which break from v0.9.5-959-g4998044
 
 What's new in 1.0
 -----------------
