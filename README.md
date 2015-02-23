@@ -22,10 +22,10 @@ What's new in 1.0.1
 -------------------
 * Bugfixes like the save state scroll issue, cosmetic issues like overscroll
 * Some cheat code bugfixes
-* Adler32 and Mersenne Twister modules added (fix some obscure games)
+* Adler32 and Mersenne Twister modules added (fixes some obscure games)
 * Fix for Jak & Daxter slowdown
-* Graphics hack for Phantasy Star for Direct3D9
-* Fix PowerVr compatibility which break from v0.9.5-959-g4998044
+* Graphics hack for Phantasy Star Portable 2 for Direct3D9
+* Fix compatibility with some PowerVR devices broken since v0.9.5-959-g4998044
 
 What's new in 1.0
 -----------------
