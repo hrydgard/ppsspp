@@ -81,7 +81,7 @@ namespace DX9 {
 		dxstate.colorMask.set(true, true, true, true);
 		dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
 		dxstate.stencilMask.set(0xFF);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
 	}
 
 	void FramebufferManagerDX9::ClearDepthBuffer() {
@@ -89,7 +89,7 @@ namespace DX9 {
 		dxstate.depthWrite.set(TRUE);
 		dxstate.colorMask.set(false, false, false, false);
 		dxstate.stencilFunc.set(D3DCMP_NEVER, 0, 0);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
 	}
 
 	void FramebufferManagerDX9::DisableState() {
