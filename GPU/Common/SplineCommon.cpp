@@ -124,16 +124,43 @@ static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf
 static void spline_n_4(int i, float t, float *knot, float *splineVal) {
 	knot += i + 1;
 
+#ifdef _M_SSE
+	const __m128 knot012 = _mm_loadu_ps(&knot[0]);
+	const __m128 knot345 = _mm_loadu_ps(&knot[3]);
+	const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
+	const __m128 f30_41_52 = _mm_div_ps(t012, _mm_sub_ps(knot345, knot012));
+
+	const __m128 knot343 = _mm_shuffle_ps(knot345, knot345, _MM_SHUFFLE(3, 0, 1, 0));
+	const __m128 knot122 = _mm_shuffle_ps(knot012, knot012, _MM_SHUFFLE(3, 2, 2, 1));
+	const __m128 t122 = _mm_shuffle_ps(t012, t012, _MM_SHUFFLE(3, 2, 2, 1));
+	const __m128 f31_42_32 = _mm_div_ps(t122, _mm_sub_ps(knot343, knot122));
+
+	// It's still faster to use SSE, even with this.
+	float MEMORY_ALIGNED16(ff30_41_52[4]);
+	float MEMORY_ALIGNED16(ff31_42_32[4]);
+	_mm_store_ps(ff30_41_52, f30_41_52);
+	_mm_store_ps(ff31_42_32, f31_42_32);
+
+	const float &f30 = ff30_41_52[0];
+	const float &f41 = ff30_41_52[1];
+	const float &f52 = ff30_41_52[2];
+	const float &f31 = ff31_42_32[0];
+	const float &f42 = ff31_42_32[1];
+	const float &f32 = ff31_42_32[2];
+#else
+	// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
 	float t0 = (t - knot[0]);
 	float t1 = (t - knot[1]);
 	float t2 = (t - knot[2]);
-	// TODO: All our knots are integers so we should be able to get rid of these divisions.
+	// TODO: All our knots are integers so we should be able to get rid of these divisions (How?)
 	float f30 = t0/(knot[3]-knot[0]);
 	float f41 = t1/(knot[4]-knot[1]);
 	float f52 = t2/(knot[5]-knot[2]);
 	float f31 = t1/(knot[3]-knot[1]);
 	float f42 = t2/(knot[4]-knot[2]);
 	float f32 = t2/(knot[3]-knot[2]);
+#endif
+
 	float a = (1-f30)*(1-f31);
 	float b = (f31*f41);
 	float c = (1-f41)*(1-f42);
