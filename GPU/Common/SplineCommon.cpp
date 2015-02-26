@@ -18,15 +18,33 @@
 #include <string.h>
 #include <algorithm>
 
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-
 #include "Core/Config.h"
 
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+
+inline __m128 SSECrossProduct(__m128 a, __m128 b)
+{
+	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 1, 0, 2)));
+	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 0, 2, 1)));
+	return _mm_sub_ps(left, right);
+}
+
+inline __m128 SSENormalizeMultiplier(__m128 v)
+{
+	const __m128 sq = _mm_mul_ps(v, v);
+	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
+	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
+	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
+
+	__m128 rt = _mm_rsqrt_ss(res);
+	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
+}
+#endif
 
 
 #define START_OPEN 1
@@ -350,20 +368,47 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	// Hacky normal generation through central difference.
 	if (gstate.isLightingEnabled() && !origNrm) {
-		for (int v = 0; v < patch_div_t + 1; v++) {
-			for (int u = 0; u < patch_div_s + 1; u++) {
-				int l = std::max(0, u - 1);
-				int t = std::max(0, v - 1);
-				int r = std::min(patch_div_s, u + 1);
-				int b = std::min(patch_div_t, v + 1);
+#ifdef _M_SSE
+		const __m128 facing = (gstate.patchfacing & 1) != 0 ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
+#endif
 
-				const Vec3Packedf &right = vertices[v * (patch_div_s + 1) + r].pos - vertices[v * (patch_div_s + 1) + l].pos;
+		for (int v = 0; v < patch_div_t + 1; v++) {
+			Vec3f vl_pos = vertices[v * (patch_div_s + 1)].pos;
+			Vec3f vc_pos = vertices[v * (patch_div_s + 1)].pos;
+
+			for (int u = 0; u < patch_div_s + 1; u++) {
+				const int l = std::max(0, u - 1);
+				const int t = std::max(0, v - 1);
+				const int r = std::min(patch_div_s, u + 1);
+				const int b = std::min(patch_div_t, v + 1);
+
+				const Vec3f vr_pos = vertices[v * (patch_div_s + 1) + r].pos;
+
+#ifdef _M_SSE
+				const __m128 right = _mm_sub_ps(vr_pos.vec, vl_pos.vec);
+
+				const Vec3f vb_pos = vertices[b * (patch_div_s + 1) + u].pos;
+				const Vec3f vt_pos = vertices[t * (patch_div_s + 1) + u].pos;
+				const __m128 down = _mm_sub_ps(vb_pos.vec, vt_pos.vec);
+
+				const __m128 crossed = SSECrossProduct(right, down);
+				const __m128 normalize = SSENormalizeMultiplier(crossed);
+
+				Vec3f finalNrm = _mm_mul_ps(normalize, _mm_mul_ps(crossed, facing));
+				vertices[v * (patch_div_s + 1) + u].nrm = finalNrm;
+#else
+				const Vec3Packedf &right = vr_pos - vl_pos;
 				const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
 
 				vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
 				if (gstate.patchfacing & 1) {
 					vertices[v * (patch_div_s + 1) + u].nrm *= -1.0f;
 				}
+#endif
+
+				// Rotate for the next one to the right.
+				vl_pos = vc_pos;
+				vc_pos = vr_pos;
 			}
 		}
 	}
