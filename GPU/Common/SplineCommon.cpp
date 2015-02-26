@@ -46,6 +46,9 @@ inline __m128 SSENormalizeMultiplierSSE2(__m128 v)
 	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
 }
 
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
+
 inline __m128 SSENormalizeMultiplierSSE4(__m128 v)
 {
 	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
@@ -57,6 +60,13 @@ inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
 		return SSENormalizeMultiplierSSE4(v);
 	return SSENormalizeMultiplierSSE2(v);
 }
+#else
+inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	return SSENormalizeMultiplierSSE2(v);
+}
+#endif
+
 #endif
 
 
