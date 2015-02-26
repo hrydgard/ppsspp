@@ -18,6 +18,7 @@
 #include <string.h>
 #include <algorithm>
 
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
 
 #include "GPU/Common/SplineCommon.h"
@@ -34,15 +35,27 @@ inline __m128 SSECrossProduct(__m128 a, __m128 b)
 	return _mm_sub_ps(left, right);
 }
 
-inline __m128 SSENormalizeMultiplier(__m128 v)
+inline __m128 SSENormalizeMultiplierSSE2(__m128 v)
 {
 	const __m128 sq = _mm_mul_ps(v, v);
 	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
 	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
 	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
 
-	__m128 rt = _mm_rsqrt_ss(res);
+	const __m128 rt = _mm_rsqrt_ss(res);
 	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
+}
+
+inline __m128 SSENormalizeMultiplierSSE4(__m128 v)
+{
+	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
+}
+
+inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	if (useSSE4)
+		return SSENormalizeMultiplierSSE4(v);
+	return SSENormalizeMultiplierSSE2(v);
 }
 #endif
 
@@ -238,7 +251,7 @@ static inline void AccumulateWeighted(Vec4f &out, const Vec4f &in, const Vec4f &
 #endif
 }
 
-template <bool origNrm, bool origCol, bool origTc>
+template <bool origNrm, bool origCol, bool origTc, bool useSSE4>
 static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
@@ -351,7 +364,12 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			}
 			vert->pos = vert_pos;
 			if (origNrm) {
+#ifdef _M_SSE
+				const __m128 normalize = SSENormalizeMultiplier(useSSE4, vert_nrm.vec);
+				vert_nrm.vec = _mm_mul_ps(vert_nrm.vec, normalize);
+#else
 				vert_nrm.Normalize();
+#endif
 				vert->nrm = vert_nrm;
 			} else {
 				vert->nrm.SetZero();
@@ -392,7 +410,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				const __m128 down = _mm_sub_ps(vb_pos.vec, vt_pos.vec);
 
 				const __m128 crossed = SSECrossProduct(right, down);
-				const __m128 normalize = SSENormalizeMultiplier(crossed);
+				const __m128 normalize = SSENormalizeMultiplier(useSSE4, crossed);
 
 				Vec3f finalNrm = _mm_mul_ps(normalize, _mm_mul_ps(crossed, facing));
 				vertices[v * (patch_div_s + 1) + u].nrm = finalNrm;
@@ -428,14 +446,22 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	}
 }
 
+template <bool origNrm, bool origCol, bool origTc>
+static inline void SplinePatchFullQualityDispatch4(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	if (cpu_info.bSSE4_1)
+		SplinePatchFullQuality<origNrm, origCol, origTc, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQuality<origNrm, origCol, origTc, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
 template <bool origNrm, bool origCol>
 static inline void SplinePatchFullQualityDispatch3(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	bool origTc = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
 	if (origTc)
-		SplinePatchFullQuality<origNrm, origCol, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+		SplinePatchFullQualityDispatch4<origNrm, origCol, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
 	else
-		SplinePatchFullQuality<origNrm, origCol, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+		SplinePatchFullQualityDispatch4<origNrm, origCol, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
 }
 
 template <bool origNrm>
