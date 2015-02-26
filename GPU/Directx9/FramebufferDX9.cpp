@@ -435,8 +435,7 @@ namespace DX9 {
 		}
 		if (vfb->drawnFormat != vfb->format) {
 			// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
-			// TODO
-			//ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+			ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 		}
 
 		// ugly...
@@ -453,8 +452,7 @@ namespace DX9 {
 		if (vfbFormatChanged) {
 			textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 			if (vfb->drawnFormat != vfb->format) {
-				// TODO
-				//ReformatFramebufferFrom(vfb, vfb->drawnFormat);
+				ReformatFramebufferFrom(vfb, vfb->drawnFormat);
 			}
 		}
 
@@ -466,6 +464,53 @@ namespace DX9 {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 			shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 		}
+	}
+
+	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
+		if (!useBufferedRendering_ || !vfb->fbo) {
+			return;
+		}
+
+		fbo_bind_as_render_target(vfb->fbo);
+
+		// Technically, we should at this point re-interpret the bytes of the old format to the new.
+		// That might get tricky, and could cause unnecessary slowness in some games.
+		// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
+		// (it uses 565 to write zeros to the buffer, than 4444 to actually render the shadow.)
+		//
+		// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
+		// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
+		// to exactly reproduce in 4444 and 8888 formats.
+
+		if (old == GE_FORMAT_565) {
+			dxstate.scissorTest.disable();
+			dxstate.depthWrite.set(FALSE);
+			dxstate.colorMask.set(false, false, false, true);
+			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
+			dxstate.stencilMask.set(0xFF);
+
+			float coord[20] = {
+				-1.0f,-1.0f,0, 0,0,
+				1.0f,-1.0f,0, 0,0,
+				1.0f,1.0f,0, 0,0,
+				-1.0f,1.0f,0, 0,0,
+			};
+
+			dxstate.cullMode.set(false, false);
+			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+			pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
+			pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
+			shaderManager_->DirtyLastShader();
+			pD3Ddevice->SetTexture(0, nullptr);
+
+			// This should clear stencil and alpha without changing the other colors.
+			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
+			if (FAILED(hr)) {
+				ERROR_LOG_REPORT(G3D, "ReformatFramebufferFrom() failed: %08x", hr);
+			}
+		}
+
+		RebindFramebuffer();
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
