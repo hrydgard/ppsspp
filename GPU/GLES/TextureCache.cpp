@@ -1150,7 +1150,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, framebuffer);
 
-			gstate_c.textureFullAlpha = framebuffer->drawnFormat == GE_FORMAT_565;
+			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 		}
 
