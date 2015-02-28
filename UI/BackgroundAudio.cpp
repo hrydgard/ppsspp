@@ -168,6 +168,15 @@ static double gameLastChanged;
 static double lastPlaybackTime;
 static int buffer[44100];
 
+static void ClearBackgroundAudio() {
+	if (at3Reader) {
+		at3Reader->Shutdown();
+		delete at3Reader;
+		at3Reader = 0;
+	}
+	playbackOffset = 0;
+}
+
 void SetBackgroundAudioGame(const std::string &path) {
 	time_update();
 
@@ -178,16 +187,12 @@ void SetBackgroundAudioGame(const std::string &path) {
 	}
 
 	if (!g_Config.bEnableSound) {
+		ClearBackgroundAudio();
 		return;
 	}
 
+	ClearBackgroundAudio();
 	gameLastChanged = time_now_d();
-	if (at3Reader) {
-		at3Reader->Shutdown();
-		delete at3Reader;
-		at3Reader = 0;
-	}
-	playbackOffset = 0;
 	bgGamePath = path;
 }
 
@@ -195,6 +200,14 @@ int PlayBackgroundAudio() {
 	time_update();
 
 	lock_guard lock(bgMutex);
+
+	// Immediately stop the sound if it is turned off while playing.
+	if (!g_Config.bEnableSound) {
+		ClearBackgroundAudio();
+		__PushExternalAudio(0, 0);
+		return 0;
+	}
+
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
 	if (!at3Reader && bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
