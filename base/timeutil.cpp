@@ -60,8 +60,10 @@ double real_time_now() {
 
 		return (double)diff / (double)_frequency;
 	}
-#endif
-
+	struct timespec time;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
+	return time.tv_sec + time.tv_nsec / 1.0e9;
+#else
 	static time_t start;
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -70,6 +72,7 @@ double real_time_now() {
 	}
 	tv.tv_sec -= start;
 	return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+#endif
 }
 
 #endif
