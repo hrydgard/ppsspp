@@ -493,6 +493,13 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &u
 			return size;
 		}
 
+		if (iter->second.type == VFILETYPE_LBN && iter->second.curOffset + size > iter->second.size) {
+			// Clamp to the remaining size, but read what we can.
+			const s64 newSize = iter->second.size - iter->second.curOffset;
+			WARN_LOG(FILESYS, "VirtualDiscFileSystem: Reading beyond end of file, clamping size %lld to %lld", size, newSize);
+			size = newSize;
+		}
+
 		size_t bytesRead = iter->second.Read(pointer, size);
 		iter->second.curOffset += bytesRead;
 		return bytesRead;
