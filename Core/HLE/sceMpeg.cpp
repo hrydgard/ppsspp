@@ -1677,11 +1677,11 @@ static u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 			}
 			break;
 		default:
-			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
+			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unknown streamID", mpeg, streamUid);
 			break;
 		}
 	} else {
-			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
+		ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unknown streamID", mpeg, streamUid);
 	}
 	return 0;
 }
@@ -1699,7 +1699,7 @@ static u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i)", mpeg, stream_addr, mode);
+	ERROR_LOG_REPORT_ONCE(mpegChangeAvcAu, ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i)", mpeg, stream_addr, mode);
 	return 0;
 }
 
@@ -1711,7 +1711,7 @@ static u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x)", mpeg, streamUid, auAddr, attrAddr);
+	ERROR_LOG_REPORT_ONCE(mpegPcmAu, ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x)", mpeg, streamUid, auAddr, attrAddr);
 	return 0;
 }
 
@@ -1911,7 +1911,7 @@ static u32 sceMpegAvcResourceFinish(u32 mpeg)
 
 static u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
 {
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
+	ERROR_LOG_REPORT_ONCE(mpegResourceEsBuf, ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
 	return 0;
 }
 
