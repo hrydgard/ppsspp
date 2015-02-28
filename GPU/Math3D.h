@@ -561,7 +561,9 @@ public:
 
 	// Only implemented for T=int and T=float
 	static Vec4 FromRGBA(unsigned int rgba);
+	static Vec4 FromRGBA(const u8 *rgba);
 	unsigned int ToRGBA() const;
+	void ToRGBA(u8 *rgba) const;
 
 	static Vec4 AssignToAll(const T& f)
 	{
@@ -1012,6 +1014,12 @@ inline Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
 #endif
 }
 
+template<typename T>
+inline Vec4<T> Vec4<T>::FromRGBA(const u8 *rgba)
+{
+	return Vec4<T>::FromRGBA(*(unsigned int *)rgba);
+}
+
 template<>
 inline Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
 {
@@ -1049,6 +1057,12 @@ __forceinline unsigned int Vec4<int>::ToRGBA() const
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16) | (clamp_u8(a()) << 24);
 #endif
+}
+
+template<typename T>
+__forceinline void Vec4<T>::ToRGBA(u8 *rgba) const
+{
+	*(u32 *)rgba = ToRGBA();
 }
 
 }; // namespace Math3D
