@@ -160,24 +160,51 @@ void CheckGLExtensions() {
 #endif
 
 #if defined(USING_GLES2)
-	// Try to load GLES 3.0 only if "3.0" found in version
-	// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
-	// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
-	// TODO: Do something way more robust!
-	bool gl_3_0_in_string = strstr(versionStr, "3.0") && strstr(glslVersionStr, "3.0");
-	bool gl_3_1_in_string = strstr(versionStr, "3.1") && strstr(glslVersionStr, "3.1");  // intentionally left out .1
-	if ((gl_3_0_in_string || gl_3_1_in_string) && gl3stubInit()) {
-		gl_extensions.ver[0] = 3;
-		if (gl_3_1_in_string) {
+#ifdef GL_MAJOR_VERSION
+	// Before grabbing the values, reset the error.
+	glGetError();
+	glGetIntegerv(GL_MAJOR_VERSION, &gl_extensions.ver[0]);
+	glGetIntegerv(GL_MINOR_VERSION, &gl_extensions.ver[1]);
+	if (glGetError() != GL_NO_ERROR) {
+		gl_extensions.ver[0] = 2;
+		gl_extensions.ver[1] = 0;
+	}
+#endif
+
+	// If the above didn't give us a version, or gave us a crazy version, fallback.
+	if (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5) {
+		// Try to load GLES 3.0 only if "3.0" found in version
+		// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
+		// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
+		bool gl_3_0_in_string = strstr(versionStr, "3.0") && strstr(glslVersionStr, "3.0");
+		bool gl_3_1_in_string = strstr(versionStr, "3.1") && strstr(glslVersionStr, "3.1");  // intentionally left out .1
+		if ((gl_3_0_in_string || gl_3_1_in_string) && gl3stubInit()) {
+			gl_extensions.ver[0] = 3;
+			if (gl_3_1_in_string) {
+				gl_extensions.ver[1] = 1;
+			}
+			gl_extensions.GLES3 = true;
+			// Though, let's ban Mali from the GLES 3 path for now, see #4078
+			if (strstr(renderer, "Mali") != 0) {
+				gl_extensions.GLES3 = false;
+			}
+		} else {
+			// Just to be safe.
+			gl_extensions.ver[0] = 2;
+			gl_extensions.ver[1] = 0;
+		}
+	} else {
+		// Otherwise, let's trust GL_MAJOR_VERSION.  Note that Mali is intentionally not banned here.
+		if (gl_extensions.ver[0] >= 3) {
+			gl_extensions.GLES3 = gl3stubInit();
+		}
+	}
+
+	if (gl_extensions.GLES3) {
+		if (gl_extensions.ver[1] >= 1) {
 			ILOG("OpenGL ES 3.1 support detected!\n");
-			gl_extensions.ver[1] = 1;
 		} else {
 			ILOG("OpenGL ES 3.0 support detected!\n");
-		}
-		gl_extensions.GLES3 = true;
-		// Though, let's ban Mali from the GLES 3 path for now, see #4078
-		if (strstr(renderer, "Mali") != 0) {
-			gl_extensions.GLES3 = false;
 		}
 	}
 #else
