@@ -249,12 +249,10 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 
 	AddBlockMap(block_num);
 
-	u32 latestExit = 0;
 	if (block_link) {
 		for (int i = 0; i < MAX_JIT_BLOCK_EXITS; i++) {
 			if (b.exitAddress[i] != INVALID_EXIT) {
 				links_to_.insert(std::make_pair(b.exitAddress[i], block_num));
-				latestExit = std::max(latestExit, b.exitAddress[i]);
 			}
 		}
 
@@ -262,15 +260,16 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 		LinkBlockExits(block_num);
 	}
 
+	const u32 blockEnd = b.originalAddress + b.originalSize * 4 - 4;
 	if (Memory::IsScratchpadAddress(b.originalAddress)) {
-		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_SCRATCH], b.originalAddress, latestExit);
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_SCRATCH], b.originalAddress, blockEnd);
 	}
 	const u32 halfUserMemory = (PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase()) / 2;
 	if (b.originalAddress < PSP_GetUserMemoryBase() + halfUserMemory) {
-		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMBOTTOM], b.originalAddress, latestExit);
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMBOTTOM], b.originalAddress, blockEnd);
 	}
-	if (latestExit > PSP_GetUserMemoryBase() + halfUserMemory) {
-		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMTOP], b.originalAddress, latestExit);
+	if (blockEnd > PSP_GetUserMemoryBase() + halfUserMemory) {
+		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMTOP], b.originalAddress, blockEnd);
 	}
 
 #if defined USE_OPROFILE && USE_OPROFILE
