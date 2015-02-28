@@ -125,6 +125,7 @@ public:
 	bool Read(int *buffer, int len) {
 		if (!raw_data_)
 			return false;
+
 		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outBytes;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
@@ -225,14 +226,16 @@ int PlayBackgroundAudio() {
 
 	double now = time_now();
 	if (at3Reader) {
-		const int sz = (now - lastPlaybackTime) * 44100;
-		if (sz >= 16 && sz < (int)ARRAY_SIZE(buffer) / 2) {
+		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
+		sz = std::min((int)ARRAY_SIZE(buffer) / 2, sz);
+		if (sz >= 16) {
 			if (at3Reader->Read(buffer, sz))
 				__PushExternalAudio(buffer, sz);
+			lastPlaybackTime = now;
 		}
-		lastPlaybackTime = now;
 	} else {
 		__PushExternalAudio(0, 0);
+		lastPlaybackTime = now;
 	}
 
 	return 0;
