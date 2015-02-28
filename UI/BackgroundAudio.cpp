@@ -125,6 +125,7 @@ public:
 	bool Read(int *buffer, int len) {
 		if (!raw_data_)
 			return false;
+
 		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outBytes;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
@@ -168,6 +169,15 @@ static double gameLastChanged;
 static double lastPlaybackTime;
 static int buffer[44100];
 
+static void ClearBackgroundAudio() {
+	if (at3Reader) {
+		at3Reader->Shutdown();
+		delete at3Reader;
+		at3Reader = 0;
+	}
+	playbackOffset = 0;
+}
+
 void SetBackgroundAudioGame(const std::string &path) {
 	time_update();
 
@@ -178,16 +188,12 @@ void SetBackgroundAudioGame(const std::string &path) {
 	}
 
 	if (!g_Config.bEnableSound) {
+		ClearBackgroundAudio();
 		return;
 	}
 
+	ClearBackgroundAudio();
 	gameLastChanged = time_now_d();
-	if (at3Reader) {
-		at3Reader->Shutdown();
-		delete at3Reader;
-		at3Reader = 0;
-	}
-	playbackOffset = 0;
 	bgGamePath = path;
 }
 
@@ -195,6 +201,14 @@ int PlayBackgroundAudio() {
 	time_update();
 
 	lock_guard lock(bgMutex);
+
+	// Immediately stop the sound if it is turned off while playing.
+	if (!g_Config.bEnableSound) {
+		ClearBackgroundAudio();
+		__PushExternalAudio(0, 0);
+		return 0;
+	}
+
 	// If there's a game, and some time has passed since the selected game
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
 	if (!at3Reader && bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
@@ -212,14 +226,16 @@ int PlayBackgroundAudio() {
 
 	double now = time_now();
 	if (at3Reader) {
-		const int sz = (now - lastPlaybackTime) * 44100;
-		if (sz >= 16 && sz < (int)ARRAY_SIZE(buffer) / 2) {
+		int sz = lastPlaybackTime <= 0.0 ? 44100 / 60 : (int)((now - lastPlaybackTime) * 44100);
+		sz = std::min((int)ARRAY_SIZE(buffer) / 2, sz);
+		if (sz >= 16) {
 			if (at3Reader->Read(buffer, sz))
 				__PushExternalAudio(buffer, sz);
+			lastPlaybackTime = now;
 		}
-		lastPlaybackTime = now;
 	} else {
 		__PushExternalAudio(0, 0);
+		lastPlaybackTime = now;
 	}
 
 	return 0;
