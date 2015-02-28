@@ -683,9 +683,12 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		if (g_Config.bBlockTransferGPU && !srcBuffer->memoryUpdated) {
 			const int srcBpp = srcBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 			const float srcXFactor = (float)bpp / srcBpp;
-			if (srcHeight <= 0 || srcY + srcHeight > srcBuffer->bufferHeight) {
+			const bool tooTall = srcY + srcHeight > srcBuffer->bufferHeight;
+			if (srcHeight <= 0 || (tooTall && srcY != 0)) {
 				WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x skipped, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 			} else {
+				if (tooTall)
+					WARN_LOG_ONCE(btdheight, G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcY, srcHeight, srcBuffer->bufferHeight);
 				ReadFramebufferToMemory(srcBuffer, true, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcWidth * srcXFactor), srcHeight);
 			}
 		}
