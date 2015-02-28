@@ -1710,6 +1710,29 @@ static u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 		WARN_LOG(ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x): bad mpeg handle", mpeg, streamUid, auAddr, attrAddr);
 		return -1;
 	}
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
+		// Would have crashed before, TODO test behavior
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamUid, auAddr, attrAddr);
+		return -1;
+	}
+	if (!Memory::IsValidAddress(streamUid)) {
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x):  didn't get a fake stream", mpeg, streamUid, auAddr, attrAddr);
+		return ERROR_MPEG_INVALID_ADDR;
+	}
+	SceMpegAu atracAu;
+	atracAu.read(auAddr);
+	auto streamInfo = ctx->streamMap.find(streamUid);
+	if (!streamInfo._Ptr) {
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x):  bad streamUid ", mpeg, streamUid, auAddr, attrAddr);
+		return -1;
+	}
+
+	atracAu.write(auAddr);
+	u32 attr = 1 << 7; // Sampling rate (1 = 44.1kHz).
+	attr |= 2;         // Number of channels (1 - MONO / 2 - STEREO).
+	if (Memory::IsValidAddress(attrAddr))
+		Memory::Write_U32(attr, attrAddr);
 
 	ERROR_LOG_REPORT_ONCE(mpegPcmAu, ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x)", mpeg, streamUid, auAddr, attrAddr);
 	return 0;
