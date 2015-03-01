@@ -758,7 +758,8 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 		}
 
-		// Can't really do REPLACE_BLEND_COPY_FBO in ps_2_0...
+		// Can do REPLACE_BLEND_COPY_FBO in ps_2_0, but need to apply viewport in the vertex shader
+		// so that we can have the output position here to sample the texture at.
 
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
 			WRITE(p, "  v.a = v.a * 2.0;\n");
