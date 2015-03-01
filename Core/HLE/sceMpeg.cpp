@@ -1633,7 +1633,7 @@ static int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 		return -1;
 	}
 
-	ERROR_LOG(ME, "sceMpegQueryPcmEsSize - bad pointers(%08x, %08x, %08x)", mpeg, esSizeAddr, outSizeAddr);
+	ERROR_LOG(ME, "sceMpegQueryPcmEsSize(%08x, %08x, %08x)", mpeg, esSizeAddr, outSizeAddr);
 
 	Memory::Write_U32(MPEG_PCM_ES_SIZE, esSizeAddr);
 	Memory::Write_U32(MPEG_PCM_ES_OUTPUT_SIZE, outSizeAddr);
