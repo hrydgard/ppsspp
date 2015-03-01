@@ -42,6 +42,10 @@
 
 #include "Core/Debugger/Breakpoints.h"
 
+// Time until we stop considering the core active without user input.
+// Should this be configurable?  2 hours currently.
+static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
+
 static event m_hStepEvent;
 static recursive_mutex m_hStepMutex;
 static event m_hInactiveEvent;
@@ -49,6 +53,8 @@ static recursive_mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
 static bool windowHidden = false;
+static double lastActivity = 0.0;
+static double lastKeepAwake = 0.0;
 
 #ifdef _WIN32
 InputState input_state;
@@ -59,6 +65,10 @@ extern InputState input_state;
 void Core_NotifyWindowHidden(bool hidden) {
 	windowHidden = hidden;
 	// TODO: Wait until we can react?
+}
+
+void Core_NotifyActivity() {
+	lastActivity = time_now_d();
 }
 
 void Core_ListenShutdown(Core_ShutdownFunc func) {
@@ -200,6 +210,17 @@ void Core_RunLoop() {
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			GPU_SwapBuffers();
+
+			// Keep the system awake for longer than normal for cutscenes and the like.
+			const double now = time_now_d();
+			if (now < lastActivity + ACTIVITY_IDLE_TIMEOUT) {
+				// Only resetting it ever prime number seconds in case the call is expensive.
+				// Using a prime number to ensure there's no interaction with other periodic events.
+				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
+					SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+					lastKeepAwake = now;
+				}
+			}
 		}
 #endif
 	}
