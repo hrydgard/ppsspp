@@ -152,7 +152,7 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address)
 {
 	if (!em_address.IsValid())
 	{
@@ -182,7 +182,7 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_
 	_string = stringBuffer;
 }
 
-void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le> em_address)
+void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le>& em_address)
 {
 	if (!em_address.IsValid())
 	{

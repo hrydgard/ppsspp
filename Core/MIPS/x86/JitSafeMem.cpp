@@ -234,7 +234,7 @@ bool JitSafeMem::PrepareSlowWrite()
 		return false;
 }
 
-void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg src, int suboffset)
+void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffset)
 {
 	if (iaddr_ != (u32) -1)
 		jit_->MOV(32, R(EAX), Imm32((iaddr_ + suboffset) & alignMask_));

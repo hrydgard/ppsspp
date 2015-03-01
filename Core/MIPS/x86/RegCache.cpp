@@ -396,7 +396,7 @@ void GPRRegCache::GetState(GPRRegCacheState &state) const {
 	memcpy(state.xregs, xregs, sizeof(xregs));
 }
 
-void GPRRegCache::RestoreState(const GPRRegCacheState state) {
+void GPRRegCache::RestoreState(const GPRRegCacheState& state) {
 	memcpy(regs, state.regs, sizeof(regs));
 	memcpy(xregs, state.xregs, sizeof(xregs));
 }

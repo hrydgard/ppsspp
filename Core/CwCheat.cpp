@@ -131,7 +131,8 @@ void CWCheatEngine::Exit() {
 	exit2 = true;
 }
 
-static inline std::vector<std::string> makeCodeParts(const std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+// Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+static inline std::vector<std::string> makeCodeParts(const std::vector<std::string>& CodesList) {
 	std::string currentcode;
 	std::vector<std::string> finalList;
 	char split_char = '\n';

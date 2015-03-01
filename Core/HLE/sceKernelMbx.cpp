@@ -71,7 +71,7 @@ struct Mbx : public KernelObject
 		bool inserted = false;
 		if (nmb.attr & SCE_KERNEL_MBA_THPRI)
 		{
-			for (std::vector<MbxWaitingThread>::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
+			for (auto it = waitingThreads.begin(); it != waitingThreads.end(); ++it)
 			{
 				if (__KernelGetThreadPrio(id) < __KernelGetThreadPrio(it->threadID))
 				{
