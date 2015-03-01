@@ -234,6 +234,7 @@ public:
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
+	bool bGamepadOnlyFocused;
 	// Control Style
 	int iTouchButtonStyle;
 	// Control Positions
