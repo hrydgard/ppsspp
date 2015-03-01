@@ -105,11 +105,14 @@ static D3DBLEND toDualSource(D3DBLEND blendfunc) {
 #endif
 }
 
-static D3DBLEND blendColor2Func(u32 fix) {
+static D3DBLEND blendColor2Func(u32 fix, bool &approx) {
 	if (fix == 0xFFFFFF)
 		return D3DBLEND_ONE;
 	if (fix == 0)
 		return D3DBLEND_ZERO;
+
+	// Otherwise, it's approximate if we pick ONE/ZERO.
+	approx = true;
 
 	const Vec3f fix3 = Vec3f::FromRGB(fix);
 	if (fix3.x >= 0.99 && fix3.y >= 0.99 && fix3.z >= 0.99)
@@ -332,6 +335,7 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
+	D3DBLEND constantAlphaDX = D3DBLEND_ONE;
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
@@ -351,11 +355,20 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 		default:
 			break;
 		}
+
+		// Otherwise it will stay GL_ONE.
+		if (constantAlpha <= 0.0f) {
+			constantAlphaDX = D3DBLEND_ZERO;
+		} else if (constantAlpha < 1.0f) {
+			constantAlphaDX = D3DBLEND_BLENDFACTOR;
+		}
 	}
 
 	// Shortcut by using D3DBLEND_ONE where possible, no need to set blendcolor
-	D3DBLEND glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
-	D3DBLEND glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
+	bool approxFuncA = false;
+	D3DBLEND glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA(), approxFuncA) : aLookup[blendFuncA];
+	bool approxFuncB = false;
+	D3DBLEND glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB(), approxFuncB) : bLookup[blendFuncB];
 
 	if (usePreSrc) {
 		glBlendFuncA = D3DBLEND_ONE;
@@ -370,36 +383,38 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 		glBlendFuncB = toDualSource(glBlendFuncB);
 	}
 
+	auto setBlendColorv = [&](const Vec3f &c) {
+		const float blendColor[4] = {c.x, c.y, c.z, constantAlpha};
+		dxstate.blendColor.set(blendColor);
+	};
+	auto defaultBlendColor = [&]() {
+		if (constantAlphaDX == D3DBLEND_BLENDFACTOR) {
+			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
+			dxstate.blendColor.set(blendColor);
+		}
+	};
+
 	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
-		Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
-		Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
+		const Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
+		const Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
 		if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB != D3DBLEND_UNK) {
 			// Can use blendcolor trivially.
-			const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-			dxstate.blendColor.set(blendColor);
+			setBlendColorv(fixA);
 			glBlendFuncA = D3DBLEND_BLENDFACTOR;
 		} else if (glBlendFuncA != D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
 			// Can use blendcolor trivially.
-			const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-			dxstate.blendColor.set(blendColor);
+			setBlendColorv(fixB);
 			glBlendFuncB = D3DBLEND_BLENDFACTOR;
 		} else if (glBlendFuncA == D3DBLEND_UNK && glBlendFuncB == D3DBLEND_UNK) {
-			if (blendColorSimilar(fixA, Vec3f::AssignToAll(constantAlpha) - fixB)) {
+			if (blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f) - fixB)) {
 				glBlendFuncA = D3DBLEND_BLENDFACTOR;
 				glBlendFuncB = D3DBLEND_INVBLENDFACTOR;
-				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-				dxstate.blendColor.set(blendColor);
+				setBlendColorv(fixA);
 			} else if (blendColorSimilar(fixA, fixB)) {
 				glBlendFuncA = D3DBLEND_BLENDFACTOR;
 				glBlendFuncB = D3DBLEND_BLENDFACTOR;
-				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-				dxstate.blendColor.set(blendColor);
+				setBlendColorv(fixA);
 			} else {
-				static bool didReportBlend = false;
-				if (!didReportBlend)
-					Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-				didReportBlend = true;
-
 				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
 				// Let's approximate, at least.  Close is better than totally off.
 				const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
@@ -407,40 +422,35 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 				if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
 					glBlendFuncA = nearZeroA ? D3DBLEND_ZERO : D3DBLEND_ONE;
 					glBlendFuncB = D3DBLEND_BLENDFACTOR;
-					const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-					dxstate.blendColor.set(blendColor);
-				// We need to pick something.  Let's go with A as the fixed color.
+					setBlendColorv(fixB);
 				} else {
+					// We need to pick something.  Let's go with A as the fixed color.
 					glBlendFuncA = D3DBLEND_BLENDFACTOR;
 					glBlendFuncB = nearZeroB ? D3DBLEND_ZERO : D3DBLEND_ONE;
-					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-					dxstate.blendColor.set(blendColor);
+					setBlendColorv(fixA);
 				}
 			}
 		} else {
 			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
-			// For now let's just pick whichever was fixed instead of checking error.
-			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc) {
+			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc && approxFuncA) {
 				glBlendFuncA = D3DBLEND_BLENDFACTOR;
-				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, constantAlpha};
-				dxstate.blendColor.set(blendColor);
-			} else {
+				setBlendColorv(fixA);
+			} else if (approxFuncB) {
 				glBlendFuncB = D3DBLEND_BLENDFACTOR;
-				const float blendColor[4] = {fixB.x, fixB.y, fixB.z, constantAlpha};
-				dxstate.blendColor.set(blendColor);
+				setBlendColorv(fixB);
+			} else {
+				defaultBlendColor();
 			}
 		}
-	} else if (constantAlpha < 1.0f) {
-		const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
-		dxstate.blendColor.set(blendColor);
+	} else {
+		defaultBlendColor();
 	}
 
 	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
-	// do any blending in the alpha channel as that doesn't seem to happen on PSP. So lacking a better option,
-	// the only value we can set alpha to here without multipass and dual source alpha is zero (by setting
-	// the factors to zero). So let's do that.
+	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
+	// apply the stencil to the alpha, since that's what should be stored.
 	D3DBLENDOP alphaEq = D3DBLENDOP_ADD;
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
@@ -482,24 +492,20 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 			break;
 		case STENCIL_VALUE_UNIFORM:
 			// This won't give a correct value (it multiplies) but it may be better than random values.
-			if (constantAlpha < 1.0f) {
-				// TODO: Does this work as the alpha component of the fixed blend factor?
-				dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ZERO);
-			} else {
-				dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_ONE, D3DBLEND_ZERO);
-			}
+			// TODO: Does this work as the alpha component of the fixed blend factor?
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, constantAlphaDX, D3DBLEND_ZERO);
 			break;
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_INCR_8:
 			// This won't give a correct value always, but it will try to increase at least.
 			// TODO: Does this work as the alpha component of the fixed blend factor?
-			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ONE);
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, constantAlphaDX, D3DBLEND_ONE);
 			break;
 		case STENCIL_VALUE_DECR_4:
 		case STENCIL_VALUE_DECR_8:
 			// This won't give a correct value always, but it will try to decrease at least.
 			// TODO: Does this work as the alpha component of the fixed blend factor?
-			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, D3DBLEND_BLENDFACTOR, D3DBLEND_ONE);
+			dxstate.blendFunc.set(glBlendFuncA, glBlendFuncB, constantAlphaDX, D3DBLEND_ONE);
 			alphaEq = D3DBLENDOP_SUBTRACT;
 			break;
 		case STENCIL_VALUE_INVERT:

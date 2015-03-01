@@ -465,7 +465,6 @@ void TransformDrawEngine::ApplyBlendState() {
 			}
 		} else {
 			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
-			// For now let's just pick whichever was fixed instead of checking error.
 			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc && approxFuncA) {
 				glBlendFuncA = GL_CONSTANT_COLOR;
 				setBlendColorv(fixA);
