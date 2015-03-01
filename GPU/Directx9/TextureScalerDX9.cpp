@@ -538,6 +538,10 @@ TextureScalerDX9::TextureScalerDX9() {
 	initBicubicWeights();
 }
 
+TextureScalerDX9::~TextureScalerDX9() {
+	xbrz::shutdown();
+}
+
 bool TextureScalerDX9::IsEmptyOrFlat(u32* data, int pixels, u32 fmt) {
 	int pixelsPerWord = (fmt == D3DFMT_A8R8G8B8) ? 1 : 2;
 	u32 ref = data[0];
@@ -609,6 +613,7 @@ void TextureScalerDX9::Scale(u32* &data, u32 &dstFmt, int &width, int &height, i
 
 void TextureScalerDX9::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
+	xbrz::init();
 	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, placeholder::_1, placeholder::_2), 0, height);
 }
 

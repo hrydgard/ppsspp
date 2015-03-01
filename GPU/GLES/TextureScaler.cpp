@@ -530,6 +530,10 @@ TextureScaler::TextureScaler() {
 	initBicubicWeights();
 }
 
+TextureScaler::~TextureScaler() {
+	xbrz::shutdown();
+}
+
 bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
 	int pixelsPerWord = (fmt == GL_UNSIGNED_BYTE) ? 1 : 2;
 	u32 ref = data[0];
@@ -601,6 +605,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 
 void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
+	xbrz::init();
 	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, placeholder::_1, placeholder::_2), 0, height);
 }
 
