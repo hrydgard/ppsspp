@@ -211,7 +211,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
-		if (!strcmp(ext, ".ppst")) {
+		if (ext != nullptr && !strcmp(ext, ".ppst")) {
 			SaveState::Load(value, &AfterStateLoad);
 		} else {
 			PSP_Shutdown();
