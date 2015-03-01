@@ -482,6 +482,17 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 				NULL,
 				NULL
 			);
+
+		int *inv_coefficients;
+		int *coefficients;
+		int srcRange, dstRange;
+		int brightness, contrast, saturation;
+
+		if (sws_getColorspaceDetails(m_sws_ctx, &inv_coefficients, &srcRange, &coefficients, &dstRange, &brightness, &contrast, &saturation) != -1) {
+			srcRange = 0;
+			dstRange = 0;
+			sws_setColorspaceDetails(m_sws_ctx, inv_coefficients, srcRange, coefficients, dstRange, brightness, contrast, saturation);
+		}
 	}
 #endif
 }
