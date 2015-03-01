@@ -416,9 +416,15 @@ void TransformDrawEngine::DecodeVertsStep() {
 		}
 
 		const int vertexCount = indexUpperBound - indexLowerBound + 1;
+
+		// This check is a workaround for Pangya Fantasy Golf, which sends bogus index data when switching items in "My Room" sometimes.
+		if (decodedVerts_ + vertexCount > VERTEX_BUFFER_MAX) {
+			return;
+		}
+
 		// 3. Decode that range of vertex data.
-		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
+		int stride = (int)dec_->GetDecVtxFmt().stride;
+		dec_->DecodeVerts(decoded + decodedVerts_ * stride, dc.verts, indexLowerBound, indexUpperBound);
 		decodedVerts_ += vertexCount;
 
 		// 4. Advance indexgen vertex counter.
