@@ -1083,6 +1083,7 @@ namespace MainWindow
 			{
 				bool pause = true;
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+					WindowsRawInput::GainFocus();
 					InputDevice::GainFocus();
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
