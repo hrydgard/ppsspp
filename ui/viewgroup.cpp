@@ -3,6 +3,7 @@
 #include "base/functional.h"
 #include "base/logging.h"
 #include "base/mutex.h"
+#include "base/timeutil.h"
 #include "input/keycodes.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -1172,9 +1173,9 @@ static int frameCount;
 struct HeldKey {
 	int key;
 	int deviceId;
-	int startFrame;
+	double triggerTime;
 
-	// Ignores startFrame
+	// Ignores startTime
 	bool operator <(const HeldKey &other) const {
 		if (key < other.key) return true;
 		return false;
@@ -1184,8 +1185,8 @@ struct HeldKey {
 
 static std::set<HeldKey> heldKeys;
 
-static const int repeatDelay = 15;  // 250ms
-static const int repeatInterval = 5;  // 66ms
+const double repeatDelay = 15 * (1.0 / 60.0f);  // 15 frames like before.
+const double repeatInterval = 5 * (1.0 / 60.0f);  // 5 frames like before.
 
 bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 	bool retval = false;
@@ -1197,7 +1198,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 			HeldKey hk;
 			hk.key = key.keyCode;
 			hk.deviceId = key.deviceId;
-			hk.startFrame = frameCount;
+			hk.triggerTime = time_now_d() + repeatDelay;
 
 			// Check if the key is already held. If it is, ignore it. This is to avoid
 			// multiple key repeat mechanisms colliding.
@@ -1217,7 +1218,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 			HeldKey hk;
 			hk.key = key.keyCode;
 			hk.deviceId = key.deviceId;
-			hk.startFrame = 0; // irrelevant
+			hk.triggerTime = 0.0; // irrelevant
 			heldKeys.erase(hk);
 			retval = true;
 		}
@@ -1238,19 +1239,27 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 }
 
 static void ProcessHeldKeys(ViewGroup *root) {
-	for (auto iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
-		if (iter->startFrame < frameCount - repeatDelay) {
-			int frame = frameCount - (iter->startFrame + repeatDelay);
-			if ((frame % repeatInterval) == 0) {
-				KeyInput key;
-				key.keyCode = iter->key;
-				key.deviceId = iter->deviceId;
-				key.flags = KEY_DOWN;
-				KeyEvent(key, root);
+	double now = time_now_d();
 
-				lock_guard lock(focusLock);
-				focusMoves.push_back(key.keyCode);
-			}
+restart:
+
+	for (std::set<HeldKey>::iterator iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
+		if (iter->triggerTime < now) {
+			KeyInput key;
+			key.keyCode = iter->key;
+			key.deviceId = iter->deviceId;
+			key.flags = KEY_DOWN;
+			KeyEvent(key, root);
+
+			lock_guard lock(focusLock);
+			focusMoves.push_back(key.keyCode);
+
+			// Cannot modify the current item when looping over a set, so let's do this instead.
+			HeldKey hk = *iter;
+			heldKeys.erase(hk);
+			hk.triggerTime = now + repeatInterval;
+			heldKeys.insert(hk);
+			goto restart;
 		}
 	}
 }
