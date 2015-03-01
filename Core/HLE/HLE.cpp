@@ -358,9 +358,8 @@ inline static void SetDeadbeefRegs()
 	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
 	// Set all the arguments and temp regs.
 	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));
-	// Using a magic number since there's confusion/disagreement on reg names.
-	currentMIPS->r[24] = 0xDEADBEEF;
-	currentMIPS->r[25] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T8] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T9] = 0xDEADBEEF;
 
 	currentMIPS->lo = 0xDEADBEEF;
 	currentMIPS->hi = 0xDEADBEEF;
