@@ -74,7 +74,7 @@ bool MainScreen::showHomebrewTab = false;
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
-		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdFrameCount_(0), holdEnabled_(true) {}
+		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdStart_(0), holdEnabled_(true) {}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -95,8 +95,11 @@ public:
 	void Touch(const TouchInput &input) override {
 		UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
+		if (hovering_ && (input.flags & TOUCH_DOWN)) {
+			holdStart_ = time_now_d();
+		}
 		if (input.flags & TOUCH_UP) {
-			holdFrameCount_ = 0;
+			holdStart_ = 0;
 		}
 	}
 
@@ -127,12 +130,8 @@ public:
 	}
 
 	void Update(const InputState &input_state) override {
-		if (down_ && holdEnabled_)
-			holdFrameCount_++;
-		else
-			holdFrameCount_ = 0;
 		// Hold button for 1.5 seconds to launch the game options
-		if (holdFrameCount_ > 90) {
+		if (holdEnabled_ && holdStart_ != 0.0 && holdStart_ < time_now_d() - 1.5) {
 			TriggerOnHoldClick();
 		}
 	}
@@ -147,7 +146,7 @@ public:
 
 private:
 	void TriggerOnHoldClick() {
-		holdFrameCount_ = 0;
+		holdStart_ = 0.0;
 		UI::EventParams e;
 		e.v = this;
 		e.s = gamePath_;
@@ -166,7 +165,7 @@ private:
 	std::string gamePath_;
 	std::string title_;
 
-	int holdFrameCount_;
+	double holdStart_;
 	bool holdEnabled_;
 	bool hovering_;
 };
@@ -221,8 +220,10 @@ void GameButton::Draw(UIContext &dc) {
 
 	Bounds overlayBounds = bounds_;
 	u32 overlayColor = 0;
-	if (holdEnabled_)
-		overlayColor = whiteAlpha((holdFrameCount_ - 15) * 0.01f);
+	if (holdEnabled_ && holdStart_ != 0.0) {
+		double time_held = time_now_d() - holdStart_;
+		overlayColor = whiteAlpha(time_held / 2.5f);
+	}
 
 	// Render button
 	int dropsize = 10;
@@ -249,10 +250,14 @@ void GameButton::Draw(UIContext &dc) {
 	if (texture) {
 		dc.Draw()->Flush();
 		dc.GetThin3DContext()->SetTexture(0, texture);
-		if (holdFrameCount_ > 60) {
-			// Blink before launching by holding
-			if (((holdFrameCount_ >> 3) & 1) == 0)
-				color = darkenColor(color);
+		if (holdStart_ != 0.0) {
+			double time_held = time_now_d() - holdStart_;
+			int holdFrameCount = (int)(time_held * 60.0f);
+			if (holdFrameCount > 60) {
+				// Blink before launching by holding
+				if (((holdFrameCount >> 3) & 1) == 0)
+					color = darkenColor(color);
+			}
 		}
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
