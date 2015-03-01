@@ -182,7 +182,7 @@ static int sceAudioGetChannelRestLen(u32 chan) {
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
 	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
+	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLen(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
 
@@ -192,7 +192,7 @@ static int sceAudioGetChannelRestLength(u32 chan) {
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
 	int remainingSamples = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
+	VERBOSE_LOG(SCEAUDIO, "%d=sceAudioGetChannelRestLength(%08x)", remainingSamples, chan);
 	return remainingSamples;
 }
 
