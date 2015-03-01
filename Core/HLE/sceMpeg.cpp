@@ -1723,7 +1723,7 @@ static u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 	SceMpegAu atracAu;
 	atracAu.read(auAddr);
 	auto streamInfo = ctx->streamMap.find(streamUid);
-	if (!streamInfo._Ptr) {
+	if (streamInfo == ctx->streamMap.end()) {
 		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x):  bad streamUid ", mpeg, streamUid, auAddr, attrAddr);
 		return -1;
 	}
