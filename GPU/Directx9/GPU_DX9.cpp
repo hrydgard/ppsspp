@@ -403,6 +403,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	framebufferManager_.SetShaderManager(shaderManager_);
 	framebufferManager_.SetTransformDrawEngine(&transformDraw_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
+	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
 
 	// Sanity check gstate
@@ -525,7 +526,7 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
-	// depalShaderCache_.Decimate();
+	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 
 	if (dumpNextFrame_) {
