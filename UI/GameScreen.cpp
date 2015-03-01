@@ -113,8 +113,6 @@ void GameScreen::CreateViews() {
 #ifdef _WIN32
 	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
-
-	UI::SetFocusedView(play);
 }
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
