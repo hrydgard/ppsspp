@@ -868,18 +868,34 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 	return 0;
 }
 
+static void DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
+
+	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
+	// At least, on real firmware a wait >= 16500 into the frame will wait two.
+	if (cyclesToNextVblank <= usToCycles(115)) {
+		++vblanks;
+	}
+
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, reason);
+}
+
+static void DisplayWaitForVblanksCB(const char *reason, int vblanks) {
+	DisplayWaitForVblanks(reason, vblanks, true);
+}
+
 static u32 sceDisplayWaitVblankStart() {
 	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStart()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start waited");
+	DisplayWaitForVblanks("vblank start waited", 1);
 	return 0;
 }
 
 static u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
 		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblank()");
-		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank waited");
+		DisplayWaitForVblanks("vblank waited", 1);
 		return 0;
 	} else {
 		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblank() - not waiting since in vBlank");
@@ -899,16 +915,15 @@ static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 	if (__IsInInterrupt())
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start multi waited");
+
+	DisplayWaitForVblanks("vblank start multi waited", vblanks);
 	return 0;
 }
 
 static u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
 		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB()");
-		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank waited");
+		DisplayWaitForVblanksCB("vblank waited", 1);
 		return 0;
 	} else {
 		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB() - not waiting since in vBlank");
@@ -920,8 +935,7 @@ static u32 sceDisplayWaitVblankCB() {
 
 static u32 sceDisplayWaitVblankStartCB() {
 	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartCB()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start waited");
+	DisplayWaitForVblanksCB("vblank start waited", 1);
 	return 0;
 }
 
@@ -935,8 +949,8 @@ static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 	if (__IsInInterrupt())
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start multi waited");
+
+	DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
 	return 0;
 }
 
