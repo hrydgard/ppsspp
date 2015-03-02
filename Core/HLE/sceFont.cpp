@@ -1355,7 +1355,7 @@ static int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 gly
 }
 
 const HLEFunction sceLibFont[] = {
-	{0x67f17ed7, WrapU_UU<sceFontNewLib>, "sceFontNewLib"},
+	{0x67f17ed7, WrapU_UU<sceFontNewLib>, "sceFontNewLib", HLE_CLEAR_STACK_BYTES, 0x590},
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
 	{0x48293280, WrapI_UFF<sceFontSetResolution>, "sceFontSetResolution"},
 	{0x27f6e642, WrapI_UU<sceFontGetNumFontList>, "sceFontGetNumFontList"},
@@ -1366,14 +1366,14 @@ const HLEFunction sceLibFont[] = {
 	{0x5333322d, WrapI_UUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
 	{0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen"},
 	{0x57fcb733, WrapU_UCUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},
-	{0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory"},
+	{0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory", HLE_CLEAR_STACK_BYTES, 0x440},
 	{0x3aea8cb6, WrapI_U<sceFontClose>, "sceFontClose"},
 	{0x0da7535e, WrapI_UU<sceFontGetFontInfo>, "sceFontGetFontInfo"},
-	{0xdcc80c2f, WrapI_UUU<sceFontGetCharInfo>, "sceFontGetCharInfo"},
+	{0xdcc80c2f, WrapI_UUU<sceFontGetCharInfo>, "sceFontGetCharInfo", HLE_CLEAR_STACK_BYTES, 0x100},
 	{0xaa3de7b5, WrapI_UUU<sceFontGetShadowInfo>, "sceFontGetShadowInfo"},
 	{0x5c3e4a9e, WrapI_UUU<sceFontGetCharImageRect>, "sceFontGetCharImageRect"},
 	{0x48b06520, WrapI_UUU<sceFontGetShadowImageRect>, "sceFontGetShadowImageRect"},
-	{0x980f4895, WrapI_UUU<sceFontGetCharGlyphImage>, "sceFontGetCharGlyphImage"},
+	{0x980f4895, WrapI_UUU<sceFontGetCharGlyphImage>, "sceFontGetCharGlyphImage", HLE_CLEAR_STACK_BYTES, 0x120},
 	{0xca1e6945, WrapI_UUUIIII<sceFontGetCharGlyphImage_Clip>, "sceFontGetCharGlyphImage_Clip"},
 	{0x74b21701, WrapF_IFU<sceFontPixelToPointH>, "sceFontPixelToPointH"},
 	{0xf8f0752e, WrapF_IFU<sceFontPixelToPointV>, "sceFontPixelToPointV"},
