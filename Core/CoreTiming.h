@@ -15,8 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _CORETIMING_H
-#define _CORETIMING_H
+#pragma once
 
 #include <string>
 #include "Common/CommonTypes.h"
@@ -128,5 +127,3 @@ namespace CoreTiming
 	extern int slicelength;
 
 }; // end of namespace
-
-#endif

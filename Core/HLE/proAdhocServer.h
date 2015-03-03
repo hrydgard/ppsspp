@@ -21,8 +21,7 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
-#ifndef _PROADHOCSERVER_H_
-#define _PROADHOCSERVER_H_
+#pragma once
 
 #include <stdint.h>
 #include <time.h>
@@ -383,5 +382,3 @@ int proAdhocServerThread(int port); // (int argc, char * argv[])
 //extern int _status;
 extern bool adhocServerRunning;
 extern std::thread adhocServerThread;
-
-#endif
