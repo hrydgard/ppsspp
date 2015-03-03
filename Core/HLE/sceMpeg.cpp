@@ -72,6 +72,7 @@ static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
+static const int avcCscDelayMs = 4000;
 static const int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
 static const int avcEmptyDelayMs = 320;
 static const int mpegDecodeErrorDelayMs = 100;
@@ -1860,10 +1861,13 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
-	// Do not hleDelayResult
+	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6
 	// https://github.com/hrydgard/ppsspp/issues/5535
-	return 0;
+	// If do not use DelayResult,Wil cause flickering in Dengeki no Pilot: Tenkuu no Kizuna
+	// https://github.com/hrydgard/ppsspp/issues/7549
+
+	return hleDelayResult(0, "mpeg avc csc", avcCscDelayMs);
 }
 
 static u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
