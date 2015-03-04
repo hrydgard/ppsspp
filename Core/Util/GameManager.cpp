@@ -29,6 +29,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
+#include "i18n/i18n.h"
 
 GameManager g_GameManager;
 
@@ -120,6 +121,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		return false;
 	}
 
+	I18NCategory *s = GetI18NCategory("System");
 	installInProgress_ = true;
 
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
@@ -178,7 +180,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		installProgress_ = 0.0f;
 		installInProgress_ = false;
-		installError_ = "Not a PSP game";
+		installError_ = s->T("Not a PSP game");
 		InstallDone();
 		return false;
 	}
@@ -282,7 +284,7 @@ bail:
 	// We end up here if disk is full or couldn't write to storage for some other reason.
 	installProgress_ = 0.0f;
 	installInProgress_ = false;
-	installError_ = "Storage full";
+	installError_ = s->T("Storage full");
 	if (deleteAfter) {
 		deleteFile(zipfile.c_str());
 	}
