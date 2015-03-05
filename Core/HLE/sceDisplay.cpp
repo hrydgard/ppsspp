@@ -879,7 +879,7 @@ static void DisplayWaitForVblanks(const char *reason, int vblanks, bool callback
 	}
 
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, reason);
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
 }
 
 static void DisplayWaitForVblanksCB(const char *reason, int vblanks) {
