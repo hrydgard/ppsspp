@@ -25,6 +25,8 @@
 #include "GPU/ge_constants.h"
 #ifdef ARM
 #include "Common/ArmEmitter.h"
+#elif defined(ARM64)
+#include "Common/Arm64Emitter.h"
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 #elif defined(MIPS)
@@ -436,8 +438,7 @@ struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
 };
 
-class VertexDecoder
-{
+class VertexDecoder {
 public:
 	VertexDecoder();
 
@@ -577,6 +578,8 @@ public:
 
 #ifdef ARM
 class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
+#elif defined(ARM64)
+class VertexDecoderJitCache : public Arm64Gen::ARM64CodeBlock {
 #elif defined(_M_IX86) || defined(_M_X64)
 class VertexDecoderJitCache : public Gen::XCodeBlock {
 #elif defined(MIPS)

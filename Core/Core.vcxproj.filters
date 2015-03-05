@@ -551,6 +551,16 @@
     <ClCompile Include="HLE\sceSfmt19937.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompBranch.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64CompFPU.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64CompLoadStore.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64CompReplace.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64CompVFPU.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64Jit.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64RegCache.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64RegCacheFPU.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64Asm.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64CompALU.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1049,6 +1059,10 @@
     <ClInclude Include="HLE\sceSfmt19937.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64Jit.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64RegCache.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64RegCacheFPU.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64Asm.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

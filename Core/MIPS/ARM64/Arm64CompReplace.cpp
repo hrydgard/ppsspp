@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,18 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
-#include <vector>
-#include <string>
-
-#include "Common/Common.h"
-
-// TODO: Find a better place for these.
-std::vector<std::string> DisassembleArm2(const u8 *data, int size);
-std::vector<std::string> DisassembleArm64(const u8 *data, int size);
-std::vector<std::string> DisassembleX86(const u8 *data, int size);
+#include "Common/CPUDetect.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/ARM64/Arm64Jit.h"
+#include "Core/MIPS/ARM64/Arm64RegCache.h"
 
 namespace MIPSComp {
-	void JitAt();
+
+int Arm64Jit::Replace_fabsf() {
+	// TODO ARM64
+	// fpr.MapDirtyIn(0, 12);
+	// VABS(fpr.R(0), fpr.R(12));
+	return 4;  // Number of instructions in the MIPS function
+}
+
 }

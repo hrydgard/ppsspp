@@ -1,0 +1,153 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#pragma once
+
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Common/Arm64Emitter.h"
+
+namespace Arm64JitConstants {
+
+// Bogus mappings, TODO ARM64
+const Arm64Gen::ARM64Reg JITBASEREG = Arm64Gen::W0;
+const Arm64Gen::ARM64Reg CTXREG = Arm64Gen::X1;
+const Arm64Gen::ARM64Reg MEMBASEREG = Arm64Gen::X2;
+const Arm64Gen::ARM64Reg SCRATCHREG1 = Arm64Gen::W3;
+const Arm64Gen::ARM64Reg SCRATCHREG2 = Arm64Gen::W4;
+const Arm64Gen::ARM64Reg DOWNCOUNTREG = Arm64Gen::W5;
+
+enum {
+	TOTAL_MAPPABLE_MIPSREGS = 36,
+};
+
+enum RegMIPSLoc {
+	ML_IMM,
+	ML_ARMREG,
+	// In an arm reg, but also has a known immediate value.
+	ML_ARMREG_IMM,
+	ML_MEM,
+};
+
+// These collide with something on Blackberry.
+#undef MAP_NOINIT
+#undef MAP_READ
+
+// Initing is the default so the flag is reversed.
+enum {
+	MAP_DIRTY = 1,
+	MAP_NOINIT = 2 | MAP_DIRTY,
+};
+
+}
+
+// R1 to R6: mapped MIPS regs
+// R8 = flags (maybe we could do better here?)
+// R9 = code pointers
+// R10 = MIPS context
+// R11 = base pointer
+// R14 = scratch (actually LR)
+
+
+typedef int MIPSReg;
+
+struct RegARM {
+	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
+	bool isDirty;  // Should the register be written back?
+};
+
+struct RegMIPS {
+	// Where is this MIPS register?
+	Arm64JitConstants::RegMIPSLoc loc;
+	// Data (only one of these is used, depending on loc. Could make a union).
+	u32 imm;
+	Arm64Gen::ARM64Reg reg;  // reg index
+	bool spillLock;  // if true, this register cannot be spilled.
+	// If loc == ML_MEM, it's back in its location in the CPU context struct.
+};
+
+namespace MIPSComp {
+	struct Arm64JitOptions;
+	struct JitState;
+}
+
+class Arm64RegCache {
+public:
+	Arm64RegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo);
+	~Arm64RegCache() {}
+
+	void Init(Arm64Gen::ARM64XEmitter *emitter);
+	void Start(MIPSAnalyst::AnalysisResults &stats);
+
+	// Protect the arm register containing a MIPS register from spilling, to ensure that
+	// it's being kept allocated.
+	void SpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
+	void ReleaseSpillLock(MIPSGPReg reg);
+	void ReleaseSpillLocks();
+
+	void SetImm(MIPSGPReg reg, u32 immVal);
+	bool IsImm(MIPSGPReg reg) const;
+	u32 GetImm(MIPSGPReg reg) const;
+	// Optimally set a register to an imm value (possibly using another register.)
+	void SetRegImm(Arm64Gen::ARM64Reg reg, u32 imm);
+
+	// Returns an ARM register containing the requested MIPS register.
+	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
+
+	bool IsMapped(MIPSGPReg reg);
+	bool IsMappedAsPointer(MIPSGPReg reg);
+
+	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
+	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad = true);
+	void MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
+	void MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad = true);
+	void MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
+	void FlushArmReg(Arm64Gen::ARM64Reg r);
+	void FlushR(MIPSGPReg r);
+	void FlushBeforeCall();
+	void FlushAll();
+	void DiscardR(MIPSGPReg r);
+
+	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+
+	void SetEmitter(Arm64Gen::ARM64XEmitter *emitter) { emit_ = emitter; }
+
+	// For better log output only.
+	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
+
+	int GetMipsRegOffset(MIPSGPReg r);
+
+private:
+	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
+	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
+	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
+	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
+		
+	MIPSState *mips_;
+	Arm64Gen::ARM64XEmitter *emit_;
+	MIPSComp::JitState *js_;
+	MIPSComp::Arm64JitOptions *jo_;
+	u32 compilerPC_;
+
+	enum {
+		NUM_ARMREG = 32,  // 31 actual registers, plus the zero register.
+		NUM_MIPSREG = Arm64JitConstants::TOTAL_MAPPABLE_MIPSREGS,
+	};
+
+	RegARM ar[NUM_ARMREG];
+	RegMIPS mr[NUM_MIPSREG];
+};

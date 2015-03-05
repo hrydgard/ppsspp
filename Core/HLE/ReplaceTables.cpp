@@ -1003,6 +1003,8 @@ static int Hook_photokano_download_frame_2() {
 
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
+#elif defined(ARM64)
+#define JITFUNC(f) (&MIPSComp::Arm64Jit::f)
 #elif defined(_M_X64) || defined(_M_IX86)
 #define JITFUNC(f) (&MIPSComp::Jit::f)
 #elif defined(MIPS)

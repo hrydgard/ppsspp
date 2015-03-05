@@ -211,6 +211,8 @@ void MIPSState::Init() {
 	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
 #ifdef ARM
 			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#elif defined(ARM64)
+			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)
@@ -218,6 +220,8 @@ void MIPSState::Init() {
 #else
 			MIPSComp::jit = new MIPSComp::FakeJit(this);
 #endif
+	} else {
+		MIPSComp::jit = nullptr;
 	}
 }
 
@@ -236,6 +240,8 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		if (!MIPSComp::jit) {
 #ifdef ARM
 			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#elif defined(ARM64)
+			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)

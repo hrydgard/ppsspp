@@ -283,6 +283,8 @@ const char *GetCompilerABI() {
 	return "armeabi-v7a";
 #elif defined(ARM)
 	return "armeabi";
+#elif defined(ARM64)
+	return "arm64";
 #elif defined(_M_IX86)
 	return "x86";
 #elif defined(_M_X64)

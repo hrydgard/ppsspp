@@ -51,7 +51,6 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp
 endif
 
-# ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
@@ -72,7 +71,28 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/GPU/Common/VertexDecoderArm.cpp \
+  $(SRC)/ext/disarm.cpp \
   ArmEmitterTest.cpp
+endif
+
+ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
+ARCH_FILES := \
+  $(SRC)/GPU/Common/TextureDecoderNEON.cpp \
+  $(SRC)/Core/Util/AudioFormatNEON.cpp \
+  $(SRC)/Common/Arm64Emitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64CompReplace.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64Asm.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
+  $(SRC)/Core/Util/DisArm64.cpp \
+  $(SRC)/GPU/Common/VertexDecoderArm64.cpp
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
@@ -112,7 +132,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
-  $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/amctrl.c \
   $(SRC)/ext/libkirk/SHA1.c \
