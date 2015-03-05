@@ -118,6 +118,9 @@ private:
 	float scale_;
 	bool dragging_[MAX_POINTERS];
 	bool lastPointerDown_[MAX_POINTERS];
+
+	float centerX_;
+	float centerY_;
 };
 
 //initializes the layout from Config. if a default layout does not exist,

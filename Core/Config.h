@@ -239,6 +239,9 @@ public:
 	int iTouchButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
+	// Floating analog stick (recenters on thumb on press).
+	bool bAutoCenterTouchAnalog;
+
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)
 	float fActionButtonCenterX, fActionButtonCenterY;

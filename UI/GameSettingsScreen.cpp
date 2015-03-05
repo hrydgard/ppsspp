@@ -388,6 +388,10 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+	// Re-centers itself to the touch location on touch-down.
+	CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, c->T("Auto-centering analog stick")));
+	floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+
 	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)

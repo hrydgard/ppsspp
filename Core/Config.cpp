@@ -543,6 +543,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("GamepadOnlyFocused", &g_Config.bGamepadOnlyFocused, false, true, true),
 	ConfigSetting("TouchButtonStyle", &g_Config.iTouchButtonStyle, 1, true, true),
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
+	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
 
 	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
 	ConfigSetting("ActionButtonSpacing2", &g_Config.fActionButtonSpacing, 1.0f, true, true),
