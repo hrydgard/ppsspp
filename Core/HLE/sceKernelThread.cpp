@@ -2538,6 +2538,14 @@ u32 __KernelGetCurThreadStack()
 	return 0;
 }
 
+u32 __KernelGetCurThreadStackStart()
+{
+	Thread *t = __GetCurrentThread();
+	if (t)
+		return t->currentStack.start;
+	return 0;
+}
+
 SceUID sceKernelGetThreadId()
 {
 	VERBOSE_LOG(SCEKERNEL, "%i = sceKernelGetThreadId()", currentThread);
