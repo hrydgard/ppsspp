@@ -437,6 +437,9 @@
       <Project>{004b8d11-2be3-4bd9-ab40-2be04cf2096f}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="PPSSPP.manifest" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
