@@ -1368,7 +1368,7 @@ const HLEFunction sceLibFont[] = {
 	{ 0x5333322d, WrapI_UUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber", HLE_CLEAR_STACK_BYTES, 0x20 },
 	{ 0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen", HLE_CLEAR_STACK_BYTES, 0x460 },
 	{ 0x57fcb733, WrapU_UCUU<sceFontOpenUserFile>, "sceFontOpenUserFile" },
-	{ 0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory"/*, HLE_CLEAR_STACK_BYTES, 0x440 from JPCSP*/ },
+	{ 0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory", HLE_CLEAR_STACK_BYTES, 0x440 /*from JPCSP*/ },
 	{ 0x3aea8cb6, WrapI_U<sceFontClose>, "sceFontClose", HLE_CLEAR_STACK_BYTES, 0x54 },
 	{ 0x0da7535e, WrapI_UU<sceFontGetFontInfo>, "sceFontGetFontInfo" },
 	{ 0xdcc80c2f, WrapI_UUU<sceFontGetCharInfo>, "sceFontGetCharInfo", HLE_CLEAR_STACK_BYTES, 0x110 },
