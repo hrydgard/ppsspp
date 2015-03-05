@@ -312,13 +312,6 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_blend_minmax = true;
 	gl_extensions.EXT_unpack_subimage = true;
 #endif
-
-	// Disable 24D8S buffers on Mali. See issue #7218
-	if (gl_extensions.gpuVendor == GPU_VENDOR_ARM) {
-		gl_extensions.OES_depth24 = false;
-		gl_extensions.OES_packed_depth_stencil = false;
-	}
-
 	// GLES 3 subsumes many ES2 extensions.
 	if (gl_extensions.GLES3) {
 		gl_extensions.EXT_unpack_subimage = true;
