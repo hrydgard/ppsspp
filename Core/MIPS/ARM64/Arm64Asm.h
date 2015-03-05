@@ -17,36 +17,6 @@
 
 #pragma once
 
-struct JitBlock;
+#include "Core/MIPS/MIPS.h"
 
-#ifdef USING_QT_UI
-#undef emit
-#endif
-
-#if defined(ARM)
-#include "../ARM/ArmJit.h"
-typedef MIPSComp::ArmJit NativeJit;
-#elif defined(ARM64)
-#include "../ARM64/Arm64Jit.h"
-typedef MIPSComp::Arm64Jit NativeJit;
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "../x86/Jit.h"
-typedef MIPSComp::Jit NativeJit;
-#elif defined(MIPS)
-#include "../MIPS/MipsJit.h"
-typedef MIPSComp::Jit NativeJit;
-//#elif defined(ARM64)
-//#include "../ARM64/Arm64Jit.h"
-//typedef MIPSComp::Arm64Jit NativeJit;
-#else
-#include "../fake/FakeJit.h"
-typedef MIPSComp::FakeJit NativeJit;
-#endif
-
-namespace MIPSComp {
-	extern NativeJit *jit;
-
-	typedef void (NativeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
-	typedef int (NativeJit::*MIPSReplaceFunc)();
-
-}
+// Runtime generated assembly routines, like the Dispatcher.

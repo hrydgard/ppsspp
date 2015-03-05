@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,18 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "base/logging.h"
+#include "Common/CPUDetect.h"
+#include "Core/Config.h"
+#include "Core/Reporting.h"
+#include "Common/Arm64Emitter.h"
+#include "GPU/GPUState.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
-#include <vector>
-#include <string>
+JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
+	// TODO ARM64
+	return NULL;
+}
 
-#include "Common/Common.h"
-
-// TODO: Find a better place for these.
-std::vector<std::string> DisassembleArm2(const u8 *data, int size);
-std::vector<std::string> DisassembleArm64(const u8 *data, int size);
-std::vector<std::string> DisassembleX86(const u8 *data, int size);
-
-namespace MIPSComp {
-	void JitAt();
+bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
+	return false;
 }

@@ -3,6 +3,8 @@
 // Refer to the license.txt file included.
 
 #include <limits>
+#include <algorithm>
+#include <cmath>
 
 #include "Arm64Emitter.h"
 #include "MathUtil.h"
@@ -193,11 +195,11 @@ void ARM64XEmitter::EncodeCompareBranchInst(u32 op, ARM64Reg Rt, const void* ptr
 	bool b64Bit = Is64Bit(Rt);
 	s64 distance = (s64)ptr - (s64)m_code;
 
-	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, (int)distance);
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x34 << 24) | (op << 24) | \
@@ -209,11 +211,11 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 	bool b64Bit = Is64Bit(Rt);
 	s64 distance = (s64)ptr - (s64)m_code;
 
-	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, (int)distance);
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
@@ -224,11 +226,11 @@ void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
 {
 	s64 distance = (s64)ptr - s64(m_code);
 
-	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, (int)distance);
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0x3FFFFFF && distance < 0x3FFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, distance >= -0x3FFFFFF && distance < 0x3FFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
 	Write32((op << 31) | (0x5 << 26) | (distance & 0x3FFFFFF));
 }
@@ -566,7 +568,7 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			Not = true;
 		case 0: // CBZ
 		{
-			_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
+			_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, (int)distance);
 			bool b64Bit = Is64Bit(branch.reg);
 			ARM64Reg reg = DecodeReg(branch.reg);
 			inst = (b64Bit << 31) | (0x1A << 25) | (Not << 24) | ((distance << 5) & 0xFFFFE0) | reg;
@@ -580,7 +582,7 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			Not = true;
 		case 3: // TBZ
 		{
-			_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
+			_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, (int)distance);
 			ARM64Reg reg = DecodeReg(branch.reg);
 			inst = ((branch.bit & 0x20) << 26) | (0x1B << 25) | (Not << 24) | ((branch.bit & 0x1F) << 19) | (distance << 5) | reg;
 		}
@@ -677,7 +679,7 @@ void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 	s64 distance = (s64)ptr - (s64(m_code) + 8);
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, distance);
+	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
 	Write32((0x54 << 24) | (distance << 5) | cond);
 }
@@ -1488,7 +1490,7 @@ void ARM64XEmitter::ADRP(ARM64Reg Rd, s32 imm)
 // Wrapper around MOVZ+MOVK
 void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 {
-	unsigned parts = Is64Bit(Rd) ? 4 : 2;
+	unsigned int parts = Is64Bit(Rd) ? 4 : 2;
 	BitSet32 upload_part(0);
 	bool need_movz = false;
 
@@ -1513,7 +1515,7 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 	// XXX: Support rotating immediates to save instructions
 	if (optimize)
 	{
-		for (unsigned i = 0; i < parts; ++i)
+		for (unsigned int i = 0; i < parts; ++i)
 		{
 			if ((imm >> (i * 16)) & 0xFFFF)
 				upload_part[i] = 1;

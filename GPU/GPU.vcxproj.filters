@@ -350,6 +350,9 @@
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
+    <ClCompile Include="Common\VertexDecoderArm64.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

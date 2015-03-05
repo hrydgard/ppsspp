@@ -18,7 +18,7 @@
 #include <arm_neon.h>
 #include "GPU/Common/TextureDecoder.h"
 
-#ifndef ARM
+#if !defined(ARM) && !defined(ARM64)
 #error Should not be compiled on non-ARM.
 #endif
 
@@ -29,7 +29,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#ifdef IOS
+#if defined(IOS) || defined(ARM64)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);
