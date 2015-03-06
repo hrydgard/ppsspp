@@ -459,12 +459,12 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if !defined(_MSC_VER) 
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
 #else
-		srcTick -= -timezone * 1000000ULL;
+		srcTick -= -_timezone * 1000000ULL;
 #endif
 		Memory::Write_U64(srcTick, tickUTCPtr);
 	}
@@ -482,12 +482,12 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if !defined(_MSC_VER) 
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
 #else
-		srcTick += -timezone * 1000000ULL;
+		srcTick += -_timezone * 1000000ULL;
 #endif
 		Memory::Write_U64(srcTick, tickLocalPtr);
 	}
@@ -1015,12 +1015,12 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if !defined(_MSC_VER) 
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		tz_seconds = time->tm_gmtoff;
 #else
-		tz_seconds = -timezone;
+		tz_seconds = -_timezone;
 #endif
 
 	DEBUG_LOG(SCERTC, "sceRtcFormatRFC2822LocalTime(%08x, %08x)", outPtr, srcTickPtr);
@@ -1050,12 +1050,12 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#if defined(__GLIBC__) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if !defined(_MSC_VER) 
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		tz_seconds = time->tm_gmtoff;
 #else
-		tz_seconds = -timezone;
+		tz_seconds = -_timezone;
 #endif
 
 	DEBUG_LOG(SCERTC, "sceRtcFormatRFC3339LocalTime(%08x, %08x)", outPtr, srcTickPtr);
