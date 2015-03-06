@@ -181,6 +181,7 @@
   <ItemGroup>
     <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="JitHarness.cpp" />
+    <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="TestArmEmitter.cpp" />
     <ClCompile Include="TestX64Emitter.cpp" />

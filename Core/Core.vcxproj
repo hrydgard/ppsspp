@@ -449,6 +449,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Util\BlockAllocator.cpp" />
+    <ClCompile Include="Util\DisArm64.cpp" />
     <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="Util\ppge_atlas.cpp" />
@@ -680,6 +681,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Util\BlockAllocator.h" />
+    <ClInclude Include="Util\DisArm64.h" />
     <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />
