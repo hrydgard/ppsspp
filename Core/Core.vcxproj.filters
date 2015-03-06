@@ -567,6 +567,7 @@
     <ClCompile Include="MIPS\ARM64\Arm64RegCacheFPU.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64Asm.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64CompALU.cpp" />
+    <ClCompile Include="Core\Util\DisArm64.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1078,6 +1079,7 @@
     <ClInclude Include="MIPS\ARM64\Arm64RegCache.h" />
     <ClInclude Include="MIPS\ARM64\Arm64RegCacheFPU.h" />
     <ClInclude Include="MIPS\ARM64\Arm64Asm.h" />
+    <ClInclude Include="Core\Util\DisArm64.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

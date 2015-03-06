@@ -73,7 +73,6 @@ using namespace Arm64JitConstants;
 
 void Arm64Jit::GenerateFixedCode()
 {
-
 	// Uncomment if you want to see the output...
 	// INFO_LOG(JIT, "THE DISASM ========================");
 	// DisassembleArm(enterCode, GetCodePtr() - enterCode);

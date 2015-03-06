@@ -7,7 +7,7 @@
 
 #include "UnitTest.h"
 
-bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
+static bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
 	memcpy(&instr, emit.GetCodePtr() - 4, 4);
 	char disasm[512];
@@ -16,7 +16,7 @@ bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	return true;
 }
 
-void DisassembleARMBetween(const u8 *start, const u8 *end) {
+static void DisassembleARMBetween(const u8 *start, const u8 *end) {
 	while (start < end) {
 		char disasm[512];
 		uint32_t instr;

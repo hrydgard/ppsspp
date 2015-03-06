@@ -614,6 +614,8 @@ void JitCompareScreen::UpdateDisasm() {
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
+#elif defined(ARM64)
+	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
