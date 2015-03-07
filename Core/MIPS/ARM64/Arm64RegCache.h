@@ -24,6 +24,7 @@
 namespace Arm64JitConstants {
 
 // Bogus mappings, TODO ARM64
+const Arm64Gen::ARM64Reg FLAGTEMPREG = Arm64Gen::X25;
 const Arm64Gen::ARM64Reg JITBASEREG = Arm64Gen::X26;
 const Arm64Gen::ARM64Reg CTXREG = Arm64Gen::X27;
 const Arm64Gen::ARM64Reg MEMBASEREG = Arm64Gen::X28;
@@ -113,6 +114,7 @@ public:
 	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
+	void MapIn(MIPSGPReg rs);
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
 	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
@@ -136,7 +138,6 @@ public:
 private:
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
-	int FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm);
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 		
 	MIPSState *mips_;
@@ -146,7 +147,7 @@ private:
 	u32 compilerPC_;
 
 	enum {
-		NUM_ARMREG = 32,  // 31 actual registers, plus the zero register.
+		NUM_ARMREG = 32,  // 31 actual registers, plus the zero/sp register which is not mappable.
 		NUM_MIPSREG = Arm64JitConstants::TOTAL_MAPPABLE_MIPSREGS,
 	};
 

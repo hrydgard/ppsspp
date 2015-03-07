@@ -37,8 +37,7 @@ namespace MIPSComp
 struct Arm64JitOptions
 {
 	Arm64JitOptions()  {
-		enableBlocklink = true;
-		downcountInRegister = true;
+		enableBlocklink = false;
 		useBackJump = false;
 		useForwardJump = false;
 		cachePointers = true;
@@ -54,7 +53,6 @@ struct Arm64JitOptions
 
 	bool useNEONVFPU;
 	bool enableBlocklink;
-	bool downcountInRegister;
 	bool useBackJump;
 	bool useForwardJump;
 	bool cachePointers;
@@ -278,7 +276,7 @@ public:
 	const u8 *enterCode;
 
 	const u8 *outerLoop;
-	const u8 *outerLoopPCInR0;
+	const u8 *outerLoopPCInSCRATCH1;
 	const u8 *dispatcherCheckCoreState;
 	const u8 *dispatcherPCInSCRATCH1;
 	const u8 *dispatcher;
