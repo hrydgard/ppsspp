@@ -16,7 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 // Basic ARM64 disassembler.
+
 // No promises of accuracy, mostly just made to debug JIT code.
+// Contains just enough to sort of understand what's going on without having to resort to an
+// external disassembler all the time...
 
 #include <stdlib.h>
 
@@ -43,8 +46,20 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		int offset = SignExtend26(w & 0x03FFFFFF) << 2;
 		uint64_t target = addr + offset;
 		snprintf(instr->text, sizeof(instr->text), "b%s %08x%08x", (w >> 31) ? "l" : "", (target >> 32), (target & 0xFFFFFFFF));
+	} else if (((w >> 25) & 0x3F) == 0x1A) {
+		snprintf(instr->text, sizeof(instr->text), "(comp & branch %08x)", w);
+	} else if (((w >> 25) & 0x3F) == 0x1B) {
+		snprintf(instr->text, sizeof(instr->text), "(test & branch %08x)", w);
+	} else if (((w >> 25) & 0x7F) == 0x2A) {
+		snprintf(instr->text, sizeof(instr->text), "(cond-branch %08x)", w);
+	} else if ((w >> 24) == 0xD4) {
+		snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
+	} else if (((w >> 20) & 0xFFC) == 0xD50) {
+		snprintf(instr->text, sizeof(instr->text), "(system-reg %08x)", w);
+	} else if (((w >> 25) & 0x7F) == 0x6B) {
+		snprintf(instr->text, sizeof(instr->text), "(branch-reg %08x)", w);
 	} else {
-		snprintf(instr->text, sizeof(instr->text), "(BRX %08x)", w);
+		snprintf(instr->text, sizeof(instr->text), "(BRX ?? %08x)", w);
 	}
 }
 
@@ -56,12 +71,20 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 	int rd = w & 0x1F;
 	int rn = (w >> 5) & 0x1F;
 	int rm = (w >> 16) & 0x1F;
+	char r = ((w >> 31) & 1) ? 'x' : 'w';
 
 	if (((w >> 21) & 0xF) == 9) {
 		bool S = (w >> 29) & 1;
-		char r = ((w >> 31) & 1) ? 'x' : 'w';
 		bool sub = (w >> 30) & 1;
-		snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, rd, r, rn, r, rm);
+		if (rd == 31 && S) {
+			// It's a CMP
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d", "cmp", S ? "s" : "", r, rn, r, rm);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, rd, r, rn, r, rm);
+		}
+	} else if (((w >> 23) & 0x3f) == 0x25) {
+		int imm16 = (w >> 5) & 0xFFFF;
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x", "movew", r, rd, imm16);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);
 	}

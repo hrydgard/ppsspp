@@ -909,6 +909,9 @@ void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 
 	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
+	// Let's not overrun the opcode bits with the sign extension.
+	distance &= 0x7FFFF;
+
 	Write32((0x54 << 24) | (distance << 5) | cond);
 }
 
@@ -1007,18 +1010,41 @@ void ARM64XEmitter::_MSR(PStateField field, u8 imm)
 	u32 op1 = 0, op2 = 0;
 	switch (field)
 	{
-		case FIELD_SPSel:
-			op1 = 0; op2 = 5;
+		case FIELD_SPSel: op1 = 0; op2 = 5; break;
+		case FIELD_DAIFSet: op1 = 3; op2 = 6; break;
+		case FIELD_DAIFClr: op1 = 3; op2 = 7; break;
+		default:
+			_assert_msg_(JIT, false, "Invalid PStateField to do a imm move to");
+			break;
+	}
+	EncodeSystemInst(0, op1, 4, imm, op2, WSP);
+}
+
+static void GetSystemReg(PStateField field, int &o0, int &op1, int &CRn, int &CRm, int &op2) {
+	switch (field) {
+	case FIELD_NZCV:
+		o0 = 3; op1 = 3; CRn = 4; CRm = 2; op2 = 0;
 		break;
-		case FIELD_DAIFSet:
-			op1 = 3; op2 = 6;
-		break;
-		case FIELD_DAIFClr:
-			op1 = 3; op2 = 7;
+	default:
+		_assert_msg_(JIT, false, "Invalid PStateField to do a register move from/to");
 		break;
 	}
-	EncodeSystemInst(0, op1, 3, imm, op2, WSP);
 }
+
+void ARM64XEmitter::_MSR(PStateField field, ARM64Reg Rt) {
+	int o0, op1, CRn, CRm, op2;
+	_assert_msg_(JIT, Is64Bit(Rt), "MSR: Rt must be 64-bit");
+	GetSystemReg(field, o0, op1, CRn, CRm, op2);
+	EncodeSystemInst(o0, op1, CRn, CRm, op2, DecodeReg(Rt));
+}
+
+void ARM64XEmitter::MRS(ARM64Reg Rt, PStateField field) {
+	int o0, op1, CRn, CRm, op2;
+	_assert_msg_(JIT, Is64Bit(Rt), "MRS: Rt must be 64-bit");
+	GetSystemReg(field, o0, op1, CRn, CRm, op2);
+	EncodeSystemInst(o0 | 4, op1, CRn, CRm, op2, DecodeReg(Rt));
+}
+
 void ARM64XEmitter::HINT(SystemHint op)
 {
 	EncodeSystemInst(0, 3, 2, 0, op, WSP);
