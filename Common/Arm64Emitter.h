@@ -511,8 +511,13 @@ public:
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ANDS(Rd, Rn, Rm, ArithOption(Rd, 0)); }
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, 0)); }
 
+	// Convenience wrappers around ORR. These match the official convenience syntax.
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
+	void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void LSL(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void ASR(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void ROR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 
 	// Logical (immediate)
 	void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
@@ -621,12 +626,16 @@ public:
 
 	// Wrapper around MOVZ+MOVK
 	void MOVI2R(ARM64Reg Rd, u64 imm, bool optimize = true);
+	template <class P>
+	void MOVP2R(ARM64Reg Rd, P *ptr) {
+		MOVI2R(Rd, (uintptr_t)ptr);
+	}
 
-	// Wrapper around AND x, y, imm etc
-	void ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
-	void ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
-	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) { ANDSI2R(Is64Bit(Rn) ? SP : WSP, Rn, imm, scratch); }
-	void ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
+	// Wrapper around AND x, y, imm etc. If you are sure the imm will work, no need to pass a scratch register.
+	void ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG) { ANDSI2R(Is64Bit(Rn) ? SP : WSP, Rn, imm, scratch); }
+	void ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
 
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);

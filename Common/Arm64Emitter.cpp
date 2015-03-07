@@ -1328,6 +1328,22 @@ void ARM64XEmitter::MVN(ARM64Reg Rd, ARM64Reg Rm)
 {
 	ORN(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, 0));
 }
+void ARM64XEmitter::LSL(ARM64Reg Rd, ARM64Reg Rm, int shift)
+{
+	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, shift));
+}
+void ARM64XEmitter::LSR(ARM64Reg Rd, ARM64Reg Rm, int shift)
+{
+	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSR, shift));
+}
+void ARM64XEmitter::ASR(ARM64Reg Rd, ARM64Reg Rm, int shift)
+{
+	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_ASR, shift));
+}
+void ARM64XEmitter::ROR(ARM64Reg Rd, ARM64Reg Rm, int shift)
+{
+	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_ROR, shift));
+}
 
 // Logical (immediate)
 void ARM64XEmitter::AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
@@ -3023,6 +3039,7 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		AND(Rd, Rn, imm_r, imm_s);
 	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
 		MOVI2R(scratch, imm);
 		AND(Rd, Rn, scratch);
 	}
@@ -3033,6 +3050,7 @@ void ARM64XEmitter::ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ORR(Rd, Rn, imm_r, imm_s);
 	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
 		MOVI2R(scratch, imm);
 		ORR(Rd, Rn, scratch);
 	}
@@ -3043,6 +3061,7 @@ void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ANDS(Rd, Rn, imm_r, imm_s);
 	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
 		MOVI2R(scratch, imm);
 		ANDS(Rd, Rn, scratch);
 	}
