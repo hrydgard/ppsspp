@@ -505,7 +505,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
-		return;  // Syscall wrote exit code.
+		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		INFO_LOG(JIT, "jreg DelaySlotIsNice");
 		if (andLink)
@@ -593,7 +593,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc) {
-		MOVI2R(W0, (u32)(intptr_t)GetSyscallInfo(op));
+		MOVI2R(X0, (intptr_t)GetSyscallInfo(op));
 		// Already flushed, so X1 is safe.
 		QuickCallFunction(X1, quickFunc);
 	} else {

@@ -53,7 +53,7 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
 	// TODO: Add static allocation of top MIPS registers like SP
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W23, W24, W25, W27, W28, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15, W0, W1,
+		W19, W20, W21, W22, W23, W24, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15, W0, W1,
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;

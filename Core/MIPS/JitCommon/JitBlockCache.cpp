@@ -624,6 +624,9 @@ int JitBlockCache::GetBlockExitSize() {
 	return 0;
 #elif defined(_M_IX86) || defined(_M_X64)
 	return 15;
+#elif defined(ARM64)
+	// Will depend on the sequence found to encode the destination address.
+	return 0;
 #else
 #warning GetBlockExitSize unimplemented
 	return 0;
