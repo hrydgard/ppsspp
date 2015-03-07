@@ -435,7 +435,6 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
-	ILOG("ICH BIN IN SYSCALL %p", info);
 	const u32 flags = info->flags;
 
 	if (flags & HLE_CLEAR_STACK_BYTES) {

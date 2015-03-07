@@ -949,8 +949,14 @@ void ARM64XEmitter::BL(const void* ptr)
 }
 
 void ARM64XEmitter::QuickCallFunction(ARM64Reg scratchreg, const void *func) {
-	// TODO: Add special code to use the scratch reg if the call distance is too great.
-	BL(func);
+	s64 distance = (s64)func - (s64)m_code;
+	if (distance >= -0x3FFFFFF && distance < 0x3FFFFFF) {
+		WARN_LOG(DYNA_REC, "Distance too far in function call! Using scratch.");
+		MOVI2R(scratchreg, (uintptr_t)func);
+		BLR(scratchreg);
+	} else {
+		BL(func);
+	}
 }
 
 

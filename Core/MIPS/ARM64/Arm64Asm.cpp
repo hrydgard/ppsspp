@@ -73,7 +73,7 @@ static const bool enableDebug = true;
 // x26 : JIT base reg
 // x27 : MIPS state (Could eliminate by placing the MIPS state right at the memory base)
 // x28 : Memory base pointer.
-// x29 : Down counter
+// x24 : Down counter
 
 extern volatile CoreState coreState;
 
@@ -174,14 +174,7 @@ void Arm64Jit::GenerateFixedCode() {
 			LSR(SCRATCH2, SCRATCH2, 24);
 			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE>>24);
 			FixupBranch skipJump = B(CC_NEQ);
-				// IDEA - we have 26 bits, why not just use offsets from base of code?
-				// Another idea: Shift the bloc number left by two in the op, this would let us do
-				// LDR(R0, R9, R0); here, replacing the next instructions.
-#ifdef IOS
-				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
-				MOVI2R(JITBASEREG, (uintptr_t)GetBasePtr());
-#endif
-				ADD(SCRATCH1_64, SCRATCH1_64, JITBASEREG);
+				ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
 			// No block found, let's jit

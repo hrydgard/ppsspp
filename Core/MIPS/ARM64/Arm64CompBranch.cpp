@@ -498,7 +498,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	ARM64Reg destReg = X18;
+	ARM64Reg destReg = OTHERTEMPREG;
 	if (IsSyscall(delaySlotOp)) {
 		gpr.MapReg(rs);
 		MovToPC(gpr.R(rs));  // For syscall to be able to return.
@@ -539,7 +539,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	} else {
 		// Delay slot - this case is very rare, might be able to free up R8.
 		gpr.MapReg(rs);
-		MOV(X18, gpr.R(rs));
+		MOV(destReg, gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
@@ -593,7 +593,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc) {
-		MOVI2R(X0, (intptr_t)GetSyscallInfo(op));
+		MOVI2R(X0, (uintptr_t)GetSyscallInfo(op));
 		// Already flushed, so X1 is safe.
 		QuickCallFunction(X1, quickFunc);
 	} else {
