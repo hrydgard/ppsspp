@@ -24,12 +24,14 @@
 namespace Arm64JitConstants {
 
 // Bogus mappings, TODO ARM64
-const Arm64Gen::ARM64Reg JITBASEREG = Arm64Gen::W0;
-const Arm64Gen::ARM64Reg CTXREG = Arm64Gen::X1;
-const Arm64Gen::ARM64Reg MEMBASEREG = Arm64Gen::X2;
-const Arm64Gen::ARM64Reg SCRATCHREG1 = Arm64Gen::W3;
-const Arm64Gen::ARM64Reg SCRATCHREG2 = Arm64Gen::W4;
-const Arm64Gen::ARM64Reg DOWNCOUNTREG = Arm64Gen::W5;
+const Arm64Gen::ARM64Reg JITBASEREG = Arm64Gen::X26;
+const Arm64Gen::ARM64Reg CTXREG = Arm64Gen::X27;
+const Arm64Gen::ARM64Reg MEMBASEREG = Arm64Gen::X28;
+const Arm64Gen::ARM64Reg DOWNCOUNTREG = Arm64Gen::W29;  // no need to use the full register width
+const Arm64Gen::ARM64Reg SCRATCH1_64 = Arm64Gen::X16;
+const Arm64Gen::ARM64Reg SCRATCH2_64 = Arm64Gen::X17;
+const Arm64Gen::ARM64Reg SCRATCH1 = Arm64Gen::W16;
+const Arm64Gen::ARM64Reg SCRATCH2 = Arm64Gen::W17;
 
 enum {
 	TOTAL_MAPPABLE_MIPSREGS = 36,

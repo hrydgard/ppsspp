@@ -244,8 +244,8 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 		// Take the branch
 		if (andLink)
 		{
-			gpr.SetRegImm(SCRATCHREG1, js.compilerPC + 8);
-			STR(INDEX_UNSIGNED, SCRATCHREG1, CTXREG, MIPS_REG_RA * 4);
+			gpr.SetRegImm(SCRATCH1, js.compilerPC + 8);
+			STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, MIPS_REG_RA * 4);
 		}
 
 		WriteExit(targetAddr, js.nextExit++);

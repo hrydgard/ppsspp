@@ -439,6 +439,12 @@ void LogoScreen::render() {
 
 #ifdef _WIN32
 	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+#elif defined(ANDROID)
+#ifdef ARM64
+	dc.SetFontScale(2.0f, 2.0f);
+	dc.DrawText("EXPERIMENTAL ARM64 BUILD", bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFF3030FF, alphaText), ALIGN_CENTER);
+	dc.SetFontScale(1.0f, 1.0f);
+#endif
 #endif
 
 	dc.End();

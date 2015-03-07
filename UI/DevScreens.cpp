@@ -631,6 +631,9 @@ void JitCompareScreen::UpdateDisasm() {
 }
 
 UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	u32 addr;
 	if (blockAddr_->GetText().size() > 8)
@@ -666,6 +669,10 @@ UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	if (Memory::IsValidAddress(e.a)) {
 		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
@@ -677,6 +684,10 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
@@ -687,6 +698,9 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
@@ -714,6 +728,9 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 
 
 UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	std::vector<int> blockNum;
 	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);

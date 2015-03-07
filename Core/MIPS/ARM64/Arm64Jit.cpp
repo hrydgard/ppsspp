@@ -104,20 +104,20 @@ void Arm64Jit::FlushAll()
 void Arm64Jit::FlushPrefixV()
 {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCHREG1, js.prefixS);
-		STR(INDEX_UNSIGNED, SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		gpr.SetRegImm(SCRATCH1, js.prefixS);
+		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCHREG1, js.prefixT);
-		STR(INDEX_UNSIGNED, SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		gpr.SetRegImm(SCRATCH1, js.prefixT);
+		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0) {
-		gpr.SetRegImm(SCRATCHREG1, js.prefixD);
-		STR(INDEX_UNSIGNED, SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		gpr.SetRegImm(SCRATCH1, js.prefixD);
+		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
@@ -442,7 +442,7 @@ void Arm64Jit::WriteExit(u32 destination, int exit_num)
 		b->linkStatus[exit_num] = true;
 	} else {
 		gpr.SetRegImm(X0, destination);
-		B((const void *)dispatcherPCInR0);	
+		B((const void *)dispatcherPCInSCRATCH1);	
 	}
 }
 

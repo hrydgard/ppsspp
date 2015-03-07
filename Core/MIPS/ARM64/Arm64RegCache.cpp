@@ -328,8 +328,8 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		if (r != MIPS_REG_ZERO) {
-			SetRegImm(SCRATCHREG1, mr[r].imm);
-			emit_->STR(INDEX_UNSIGNED, SCRATCHREG1, CTXREG, GetMipsRegOffset(r));
+			SetRegImm(SCRATCH1, mr[r].imm);
+			emit_->STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, GetMipsRegOffset(r));
 		}
 		break;
 
