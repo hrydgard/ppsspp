@@ -40,6 +40,19 @@ bool IsPowerOfTwo(uint64_t x) {
 
 #define V8_UINT64_C(x) ((uint64_t)(x))
 
+static bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
+	if (input < 4096) {
+		*val = input;
+		*shift = false;
+		return true;
+	} else if ((input & 0xFFF000) == input) {
+		*val = input >> 12;
+		*shift = true;
+		return true;
+	}
+	return false;
+}
+
 static bool IsImmLogical(uint64_t value,
                           unsigned int width,
                           unsigned int *n,
@@ -3065,7 +3078,7 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		AND(Rd, Rn, imm_r, imm_s);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		AND(Rd, Rn, scratch);
 	}
@@ -3076,7 +3089,7 @@ void ARM64XEmitter::ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ORR(Rd, Rn, imm_r, imm_s);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
+		_assert_msg_(JIT, scratch != INVALID_REG, "ORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ORR(Rd, Rn, scratch);
 	}
@@ -3087,11 +3100,46 @@ void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ANDS(Rd, Rn, imm_r, imm_s);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm)
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ANDS(Rd, Rn, scratch);
 	}
 }
 
+void ARM64XEmitter::ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		ADD(Rd, Rn, val, shift);
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		MOVI2R(scratch, imm);
+		ADD(Rd, Rn, scratch);
+	}
 }
 
+void ARM64XEmitter::SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		SUB(Rd, Rn, val, shift);
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		MOVI2R(scratch, imm);
+		SUB(Rd, Rn, scratch);
+	}
+}
+
+void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		SUBS(Rd, Rn, val, shift);
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		MOVI2R(scratch, imm);
+		SUBS(Rd, Rn, scratch);
+	}
+}
+
+}  // namespace
