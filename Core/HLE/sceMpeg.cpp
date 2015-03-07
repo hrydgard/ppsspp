@@ -1851,15 +1851,21 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): bad mpeg handle", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 		return -1;
 	}
-
-	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
-
 	int x = Memory::Read_U32(rangeAddr);
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width = Memory::Read_U32(rangeAddr + 8);
 	int height = Memory::Read_U32(rangeAddr + 12);
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
+	if (((x | y | width | height) & 0xF) != 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_MPEG_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);		
+		return ERROR_MPEG_INVALID_VALUE;
+	}
+	if (x < 0 || y < 0 || width < 0 || height < 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
 
+	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
 	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6
