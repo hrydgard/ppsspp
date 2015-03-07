@@ -160,7 +160,7 @@ void CPUInfo::Detect()
 {
 	// Set some defaults here
 	HTT = false;
-#ifdef _M_ARM_64
+#ifdef ARM64
 	OS64bit = true;
 	CPU64bit = true;
 	Mode64bit = true;
