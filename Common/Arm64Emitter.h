@@ -129,6 +129,13 @@ enum ExtendType
 	EXTEND_SXTX = 7,
 };
 
+// The only system registers accessible from EL0 (user space)
+enum SystemRegister {  // Three digits : Op1, CRm, Op2
+	SYSREG_NZCV = 0x320,
+	SYSREG_FPCR = 0x340,
+	SYSREG_FPSR = 0x341,
+};
+
 struct FixupBranch
 {
 	u8* ptr;
@@ -157,6 +164,7 @@ enum PStateField
 	FIELD_SPSel = 0,
 	FIELD_DAIFSet,
 	FIELD_DAIFClr,
+	FIELD_NZCV,
 };
 
 enum SystemHint
@@ -414,6 +422,10 @@ public:
 
 	// System
 	void _MSR(PStateField field, u8 imm);
+
+	void _MSR(PStateField field, ARM64Reg Rt);
+	void MRS(ARM64Reg Rt, PStateField field);
+
 	void HINT(SystemHint op);
 	void CLREX();
 	void DSB(BarrierType type);
