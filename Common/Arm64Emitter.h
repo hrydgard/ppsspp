@@ -675,8 +675,8 @@ public:
 	ARM64Reg ABI_SetupLambda(const std::function<T(Args...)>* f)
 	{
 		auto trampoline = &ARM64XEmitter::CallLambdaTrampoline<T, Args...>;
-		MOVI2R(X30, (u64)trampoline);
-		MOVI2R(X0, (u64)const_cast<void*>((const void*)f));
+		MOVI2R(X30, (uintptr_t)trampoline);
+		MOVI2R(X0, (uintptr_t)const_cast<void*>((const void*)f));
 		return X30;
 	}
 

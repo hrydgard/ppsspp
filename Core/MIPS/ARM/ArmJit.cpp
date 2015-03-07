@@ -423,7 +423,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (u32)entry->replaceFunc);
+			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
 			BL(R0);
 		}
 		ApplyRoundingMode();
@@ -482,7 +482,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (u32)entry->replaceFunc);
+			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
 			BL(R0);
 		}
 

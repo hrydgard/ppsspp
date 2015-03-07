@@ -854,7 +854,7 @@ public:
 
 	// Load pointers without casting
 	template <class T> void MOVP2R(ARMReg reg, T *val) {
-		MOVI2R(reg, (u32)(intptr_t)(void *)val);
+		MOVI2R(reg, (uintptr_t)(void *)val);
 	}
 
 	void MOVIU2F(ARMReg dest, u32 val, ARMReg tempReg, bool negate = false) {

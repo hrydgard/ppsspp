@@ -170,7 +170,7 @@ void Arm64Jit::CompileDelaySlot(int flags)
 	// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 	// delay slot, we're screwed.
 	if (flags & DELAYSLOT_SAFE)
-		MRS(FLAGTEMPREG, FIELD_NZCV);  // Save flags register. X18 is preserved through function calls and is not allocated.
+		MRS(FLAGTEMPREG, FIELD_NZCV);  // Save flags register. FLAGTEMPREG is preserved through function calls and is not allocated.
 
 	js.inDelaySlot = true;
 	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
@@ -238,8 +238,6 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	js.compiling = true;
 	js.inDelaySlot = false;
 	js.PrefixStart();
-
-	logBlocks = 1;
 
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
@@ -369,6 +367,7 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 
 void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 {
+	ERROR_LOG(JIT, "Comp_ReplacementFunc not implemented");
 	// TODO ARM64
 }
 
@@ -413,7 +412,8 @@ void Arm64Jit::RestoreDowncount() {
 }
 
 void Arm64Jit::WriteDownCount(int offset) {
-	SUBSI2R(DOWNCOUNTREG, DOWNCOUNTREG, offset, SCRATCH1);
+	int theDowncount = js.downcountAmount + offset;
+	SUBSI2R(DOWNCOUNTREG, DOWNCOUNTREG, theDowncount, SCRATCH1);
 }
 
 void Arm64Jit::WriteDownCountR(ARM64Reg reg) {
