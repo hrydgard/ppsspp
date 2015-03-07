@@ -50,35 +50,18 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 }
 
 const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
-	// Note that R0 is reserved as scratch for now.
-	// R12 is also potentially usable.
-	// R4-R7 are registers we could use for static allocation or downcount.
-	// R8 is used to preserve flags in nasty branches.
-	// R9 and upwards are reserved for jit basics.
-	// R14 (LR) is used as a scratch reg (overwritten on calls/return.)
-
-	// TODO ARM64
-	if (jo_->downcountInRegister) {
-		static const ARM64Reg allocationOrder[] = {
-			X1, X2, X3, X4, X5, X6, X12,
-		};
-		count = sizeof(allocationOrder) / sizeof(const int);
-		return allocationOrder;
-	} else {
-		static const ARM64Reg allocationOrder2[] = {
-			X1, X2, X3, X4, X5, X6, X7, X12,
-		};
-		count = sizeof(allocationOrder2) / sizeof(const int);
-		return allocationOrder2;
-	}
+	// See register alloc remarks in Arm64Asm.cpp
+	// TODO: Add static allocation of top MIPS registers like SP
+	static const ARM64Reg allocationOrder[] = {
+		W19, W20, W21, W22, W23, W24, W25, W27, W28, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15, W0, W1,
+	};
+	count = sizeof(allocationOrder) / sizeof(const int);
+	return allocationOrder;
 }
 
 void Arm64RegCache::FlushBeforeCall() {
-	// R4-R11 are preserved. Others need flushing.
-	FlushArmReg(X1);
-	FlushArmReg(X2);
-	FlushArmReg(X3);
-	FlushArmReg(X12);
+	// TODO: More optimal
+	FlushAll();
 }
 
 bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
@@ -105,9 +88,13 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 		} else {
 			switch (mr[mipsReg].loc) {
 			case ML_MEM:
-				emit_->LDR(INDEX_UNSIGNED, reg, CTXREG, GetMipsRegOffset(mipsReg));
+			{
+				int offset = GetMipsRegOffset(mipsReg);
+				INFO_LOG(JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
+				emit_->LDR(INDEX_UNSIGNED, reg, CTXREG, offset);
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
+			}
 			case ML_IMM:
 				SetRegImm(reg, mr[mipsReg].imm);
 				ar[reg].isDirty = true;  // IMM is always dirty.
@@ -190,20 +177,6 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	int allocCount;
 	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
 
-	ARM64Reg desiredReg = INVALID_REG;
-	// Try to "statically" allocate the first 6 regs after v0.
-	int desiredOrder = allocCount - (6 - (mipsReg - (int)MIPS_REG_V0));
-	if (desiredOrder >= 0 && desiredOrder < allocCount)
-		desiredReg = allocOrder[desiredOrder];
-
-	if (desiredReg != INVALID_REG) {
-		if (ar[desiredReg].mipsReg == MIPS_REG_INVALID) {
-			// With this placement, we may be able to optimize flush.
-			MapRegTo(desiredReg, mipsReg, mapFlags);
-			return desiredReg;
-		}
-	}
-
 allocate:
 	for (int i = 0; i < allocCount; i++) {
 		ARM64Reg reg = allocOrder[i];
@@ -238,6 +211,10 @@ allocate:
 	// Uh oh, we have all them spilllocked....
 	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
+}
+
+void Arm64RegCache::MapIn(MIPSGPReg rs) {
+	MapReg(rs);
 }
 
 void Arm64RegCache::MapInIn(MIPSGPReg rd, MIPSGPReg rs) {
@@ -340,7 +317,7 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
-				emit_->STR(INDEX_UNSIGNED, (ARM64Reg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
+				emit_->STR(INDEX_UNSIGNED, mr[r].reg, CTXREG, GetMipsRegOffset(r));
 			}
 			ar[mr[r].reg].isDirty = false;
 		}
@@ -358,58 +335,6 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 	mr[r].loc = ML_MEM;
 	mr[r].reg = INVALID_REG;
 	mr[r].imm = 0;
-}
-
-// Note: if allowFlushImm is set, this also flushes imms while checking the sequence.
-int Arm64RegCache::FlushGetSequential(MIPSGPReg startMipsReg, bool allowFlushImm) {
-	// Only start a sequence on a dirty armreg.
-	// TODO: Could also start with an imm?
-	const auto &startMipsInfo = mr[startMipsReg];
-	if ((startMipsInfo.loc != ML_ARMREG && startMipsInfo.loc != ML_ARMREG_IMM) || startMipsInfo.reg == INVALID_REG || !ar[startMipsInfo.reg].isDirty) {
-		return 0;
-	}
-
-	int allocCount;
-	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
-
-	int c = 1;
-	// The sequence needs to have ascending arm regs for STMIA.
-	int lastArmReg = startMipsInfo.reg;
-	// Can't use HI/LO, only regs in the main r[] array.
-	for (int r = (int)startMipsReg + 1; r < 32; ++r) {
-		if ((mr[r].loc == ML_ARMREG || mr[r].loc == ML_ARMREG_IMM) && mr[r].reg != INVALID_REG) {
-			if ((int)mr[r].reg > lastArmReg && ar[mr[r].reg].isDirty) {
-				++c;
-				lastArmReg = mr[r].reg;
-				continue;
-			}
-		// If we're not allowed to flush imms, don't even consider them.
-		} else if (allowFlushImm && mr[r].loc == ML_IMM && MIPSGPReg(r) != MIPS_REG_ZERO) {
-			// Okay, let's search for a free (and later) reg to put this imm into.
-			bool found = false;
-			for (int j = 0; j < allocCount; ++j) {
-				ARM64Reg immReg = allocOrder[j];
-				if ((int)immReg > lastArmReg && ar[immReg].mipsReg == MIPS_REG_INVALID) {
-					++c;
-					lastArmReg = immReg;
-
-					// Even if the sequence fails, we'll need it in a reg anyway, might as well be this one.
-					MapRegTo(immReg, MIPSGPReg(r), 0);
-					found = true;
-					break;
-				}
-			}
-			if (found) {
-				continue;
-			}
-		}
-
-		// If it didn't hit a continue above, the chain is over.
-		// There's no way to skip a slot with STMIA.
-		break;
-	}
-
-	return c;
 }
 
 void Arm64RegCache::FlushAll() {

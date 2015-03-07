@@ -35,13 +35,22 @@
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 
 #include "Core/MIPS/ARM64/Arm64Jit.h"
-
-#include "ext/disarm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace Arm64JitConstants;
 
 void DisassembleArm64Print(const u8 *data, int size) {
-	ILOG("ARM64 TODO");
+	std::vector<std::string> lines = DisassembleArm64(data, size);
+	for (auto s : lines) {
+		ILOG("%s", s.c_str());
+	}
+	ILOG("+++");
+	// A format friendly to Online Disassembler which gets endianness wrong
+	for (size_t i = 0; i < lines.size(); i++) {
+		uint32_t opcode = ((uint32_t *)data)[i];
+		ILOG("%08x", swap32(opcode));
+	}
+	ILOG("===");
 }
 
 namespace MIPSComp
@@ -124,6 +133,7 @@ void Arm64Jit::FlushPrefixV()
 
 void Arm64Jit::ClearCache()
 {
+	ILOG("ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace();
 	GenerateFixedCode();
@@ -155,14 +165,31 @@ void Arm64Jit::EatInstruction(MIPSOpcode op) {
 
 void Arm64Jit::CompileDelaySlot(int flags)
 {
-	// TODO ARM64
+	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
+	// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
+	// delay slot, we're screwed.
+	if (flags & DELAYSLOT_SAFE)
+		MRS(FLAGTEMPREG, FIELD_NZCV);  // Save flags register. X18 is preserved through function calls and is not allocated.
+
+	js.inDelaySlot = true;
+	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
+	MIPSCompileOp(op);
+	js.inDelaySlot = false;
+
+	if (flags & DELAYSLOT_FLUSH)
+		FlushAll();
+	if (flags & DELAYSLOT_SAFE)
+		_MSR(FIELD_NZCV, FLAGTEMPREG);  // Restore flags register
 }
 
 
 void Arm64Jit::Compile(u32 em_address) {
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
+		INFO_LOG(JIT, "Space left: %i", GetSpaceLeft());
 		ClearCache();
 	}
+
+	INFO_LOG(JIT, "In Compile, at %08x!", em_address);
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
@@ -213,37 +240,31 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	js.inDelaySlot = false;
 	js.PrefixStart();
 
+	logBlocks = 1;
+
 	// We add a downcount flag check before the block, used when entering from a linked block.
 	// The last block decremented downcounter, and the flag should still be available.
 	// Got three variants here of where we position the code, needs detailed benchmarking.
 
 	FixupBranch bail;
-	/*
 	if (jo.useBackJump) {
 		// Moves the MOVI2R and B *before* checkedEntry, and just branch backwards there.
 		// Speedup seems to be zero unfortunately but I guess it may vary from device to device.
 		// Not intrusive so keeping it around here to experiment with, may help on ARMv6 due to
 		// large/slow construction of 32-bit immediates?
-		JumpTarget backJump = GetCodePtr();
-		gpr.SetRegImm(R0, js.blockStart);
-		B((const void *)outerLoopPCInR0);
+		const u8 *backJump = GetCodePtr();
+		MOVI2R(SCRATCH1, js.blockStart);
+		B((const void *)outerLoopPCInSCRATCH1);
 		b->checkedEntry = GetCodePtr();
-		SetCC(CC_LT);
-		B(backJump);
-		SetCC(CC_AL);
+		B(CC_LT, backJump);
 	} else if (jo.useForwardJump) {
 		b->checkedEntry = GetCodePtr();
-		SetCC(CC_LT);
-		bail = B();
-		SetCC(CC_AL);
+		bail = B(CC_LT);
 	} else {
 		b->checkedEntry = GetCodePtr();
-		SetCC(CC_LT);
-		gpr.SetRegImm(R0, js.blockStart);
-		B((const void *)outerLoopPCInR0);
-		SetCC(CC_AL);
-	}*/
-	// TODO ARM64
+		MOVI2R(SCRATCH1, js.blockStart);
+		B(CC_LT, (const void *)outerLoopPCInSCRATCH1);
+	}
 
 	b->normalEntry = GetCodePtr();
 	// TODO: this needs work
@@ -281,9 +302,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	}
 
 	if (jo.useForwardJump) {
-		//SetJumpTarget(bail);
-		//gpr.SetRegImm(R0, js.blockStart);
-		//B((const void *)outerLoopPCInR0);
+		SetJumpTarget(bail);
+		gpr.SetRegImm(SCRATCH1, js.blockStart);
+		B((const void *)outerLoopPCInSCRATCH1);
 	}
 
 	char temp[256];
@@ -298,7 +319,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(JIT, "=============== ARM ===============");
+		INFO_LOG(JIT, "=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
 		DisassembleArm64Print(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
 	if (logBlocks > 0)
@@ -317,6 +338,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
+
 	return b->normalEntry;
 }
 
@@ -359,18 +381,16 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op)
 		SaveDowncount();
 		// TODO: Perhaps keep the rounding mode for interp?
 		RestoreRoundingMode();
-		// gpr.SetRegImm(SCRATCHREG1, js.compilerPC);
-		// MovToPC(SCRATCHREG1);
-		//gpr.SetRegImm(R0, op.encoding);
-		//QuickCallFunction(R1, (void *)func);
-		// TODO ARM64
+		MOVI2R(SCRATCH1, js.compilerPC);
+		MovToPC(SCRATCH1);
+		MOVI2R(W0, op.encoding);
+		QuickCallFunction(SCRATCH2_64, (void *)func);
 		ApplyRoundingMode();
 		RestoreDowncount();
 	}
 
 	const MIPSInfo info = MIPSGetInfo(op);
-	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
-	{
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
 			js.PrefixUnknown();
@@ -386,28 +406,19 @@ void Arm64Jit::MovToPC(ARM64Reg r) {
 }
 
 void Arm64Jit::SaveDowncount() {
-	if (jo.downcountInRegister)
-		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
 
 void Arm64Jit::RestoreDowncount() {
-	if (jo.downcountInRegister)
-		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
 
 void Arm64Jit::WriteDownCount(int offset) {
 	// TODO ARM64
 }
 
-// Abuses R2
 void Arm64Jit::WriteDownCountR(ARM64Reg reg) {
-	if (jo.downcountInRegister) {
-		SUBS(DOWNCOUNTREG, DOWNCOUNTREG, reg);
-	} else {
-		LDR(INDEX_UNSIGNED, X2, CTXREG, offsetof(MIPSState, downcount));
-		SUBS(X2, X2, reg);
-		STR(INDEX_UNSIGNED, X2, CTXREG, offsetof(MIPSState, downcount));
-	}
+	SUBS(DOWNCOUNTREG, DOWNCOUNTREG, reg);
 }
 
 void Arm64Jit::RestoreRoundingMode(bool force) {
@@ -441,7 +452,7 @@ void Arm64Jit::WriteExit(u32 destination, int exit_num)
 		B(blocks.GetBlock(block)->checkedEntry);
 		b->linkStatus[exit_num] = true;
 	} else {
-		gpr.SetRegImm(X0, destination);
+		MOVI2R(SCRATCH1, destination);
 		B((const void *)dispatcherPCInSCRATCH1);	
 	}
 }

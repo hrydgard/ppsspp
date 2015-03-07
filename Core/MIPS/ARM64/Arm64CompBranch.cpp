@@ -124,9 +124,14 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		// We might be able to flip the condition (EQ/NEQ are easy.)
 		const bool canFlip = cc == CC_EQ || cc == CC_NEQ;
 
-		// TODO ARM64: Optimize for immediates
-		gpr.MapInIn(rs, rt);
-		CMP(gpr.R(rs), gpr.R(rt));
+		// TODO ARM64: Optimize for immediates other than zero
+		if (rt == 0) {
+			gpr.MapIn(rs);
+			CMP(gpr.R(rs), 0);
+		} else {
+			gpr.MapInIn(rs, rt);
+			CMP(gpr.R(rs), gpr.R(rt));
+		}
 
 		Arm64Gen::FixupBranch ptr;
 		if (!likely) {
@@ -493,7 +498,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	ARM64Reg destReg = X8;
+	ARM64Reg destReg = X18;
 	if (IsSyscall(delaySlotOp)) {
 		gpr.MapReg(rs);
 		MovToPC(gpr.R(rs));  // For syscall to be able to return.
@@ -502,6 +507,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall wrote exit code.
 	} else if (delaySlotIsNice) {
+		INFO_LOG(JIT, "jreg DelaySlotIsNice");
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
@@ -533,7 +539,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	} else {
 		// Delay slot - this case is very rare, might be able to free up R8.
 		gpr.MapReg(rs);
-		MOV(W8, gpr.R(rs));
+		MOV(X18, gpr.R(rs));
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
@@ -586,15 +592,12 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	SaveDowncount();
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc)
-	{
-		gpr.SetRegImm(W0, (u32)(intptr_t)GetSyscallInfo(op));
+	if (quickFunc) {
+		MOVI2R(W0, (u32)(intptr_t)GetSyscallInfo(op));
 		// Already flushed, so X1 is safe.
 		QuickCallFunction(X1, quickFunc);
-	}
-	else
-	{
-		gpr.SetRegImm(W0, op.encoding);
+	} else {
+		MOVI2R(W0, op.encoding);
 		QuickCallFunction(X1, (void *)&CallSyscall);
 	}
 	ApplyRoundingMode();

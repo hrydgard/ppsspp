@@ -99,6 +99,12 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 				lines.push_back(StringFromFormat("BKPT 1 (x%i)", bkpt_count));
 				bkpt_count = 0;
 			}
+			if (true) {
+				uint64_t addr = (intptr_t)(data + i);
+				char buf2[16];
+				snprintf(buf2, sizeof(buf2), "%04x%08x", addr >> 32, addr & 0xFFFFFFFF);
+				buf = std::string(buf2) + " " + buf;
+			}
 			lines.push_back(buf);
 		}
 	}

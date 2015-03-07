@@ -31,7 +31,7 @@ using namespace Arm64Gen;
 
 //static int temp32; // unused?
 
-static const bool enableDebug = false;
+static const bool enableDebug = true;
 
 //static bool enableStatistics = false; //unused?
 
@@ -68,8 +68,9 @@ static const bool enableDebug = false;
 // saving them when we call out of the JIT. We will perform regular dynamic register allocation in the rest (x0-x15)
 
 // STATIC ALLOCATION ARM64 (these are all callee-save registers):
+// x25 : MSR/MRS temporary (to be eliminated later)
 // x26 : JIT base reg
-// x27 : MIPS state
+// x27 : MIPS state (Could eliminate by placing the MIPS state right at the memory base)
 // x28 : Memory base pointer.
 // x29 : Down counter
 
@@ -102,7 +103,6 @@ void Arm64Jit::GenerateFixedCode() {
 
 	ABI_PushRegisters(regs_to_save);
 
-
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.
 	// R13 cannot be used as it's the stack pointer.
@@ -119,7 +119,7 @@ void Arm64Jit::GenerateFixedCode() {
 
 	RestoreDowncount();
 	MovFromPC(SCRATCH1);
-	outerLoopPCInR0 = GetCodePtr();
+	outerLoopPCInSCRATCH1 = GetCodePtr();
 	MovToPC(SCRATCH1);
 	outerLoop = GetCodePtr();
 		SaveDowncount();
@@ -159,8 +159,7 @@ void Arm64Jit::GenerateFixedCode() {
 
 			// Debug
 			if (enableDebug) {
-				// MOV(SCRATCH1, R13);
-				// QuickCallFunction(R1, (void *)&ShowPC);
+				QuickCallFunction(SCRATCH1, (void *)&ShowPC);
 			}
 
 			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
@@ -168,7 +167,7 @@ void Arm64Jit::GenerateFixedCode() {
 			ANDI2R(SCRATCH2, SCRATCH1, 0xFF000000);   // rotation is to the right, in 2-bit increments.
 			ANDI2R(SCRATCH1, SCRATCH1, 0x00FFFFFF);  // TODO: Replace this and the next op by a bit field extract
 			LSR(SCRATCH2, SCRATCH2, 24);
-			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE);
+			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE>>24);
 			FixupBranch skipJump = B(CC_NEQ);
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
@@ -207,9 +206,12 @@ void Arm64Jit::GenerateFixedCode() {
 
 	ABI_PopRegisters(regs_to_save);
 
-	INFO_LOG(JIT, "THE DISASM ========================");
-	DisassembleArm64(enterCode, GetCodePtr() - enterCode);
-	INFO_LOG(JIT, "END OF THE DISASM ========================");
+	INFO_LOG(JIT, "THE DISASM : %p ========================", enterCode);
+	std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
+	for (auto s : lines) {
+		INFO_LOG(JIT, "%s", s.c_str());
+	}
+	INFO_LOG(JIT, "END OF THE DISASM : %p ========================", GetCodePtr());
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();

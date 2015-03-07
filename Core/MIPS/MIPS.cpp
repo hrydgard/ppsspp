@@ -237,6 +237,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	PSP_CoreParameter().cpuCore = desired;
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
+		INFO_LOG(CPU, "Switching to JIT");
 		if (!MIPSComp::jit) {
 #ifdef ARM
 			MIPSComp::jit = new MIPSComp::ArmJit(this);
@@ -253,6 +254,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 
 	case CPU_INTERPRETER:
+		INFO_LOG(CPU, "Switching to interpreter");
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 		break;
