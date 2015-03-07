@@ -6,6 +6,7 @@
 #elif defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include "EGL/egl.h"
 // At least Nokia platforms need the three below
 #include <KHR/khrplatform.h>
 typedef char GLchar;
