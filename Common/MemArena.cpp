@@ -229,7 +229,13 @@ u8* MemArena::Find4GBBase()
 	return reinterpret_cast<u8*>(0x2300000000ULL);
 #endif
 
-#else // 32 bit
+#elif defined(ARM64)
+
+	// Very precarious - mmap cannot return an error when trying to map already used pages.
+	// This makes the Windows approach above unusable on Linux, so we will simply pray...
+	return reinterpret_cast<u8*>(0x2300000000ULL);
+
+#else
 
 #ifdef _WIN32
 	u8* base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);

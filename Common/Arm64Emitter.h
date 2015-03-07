@@ -79,7 +79,7 @@ enum ARM64Reg
 	INVALID_REG = 0xFFFFFFFF
 };
 
-inline bool Is64Bit(ARM64Reg reg) { return reg & 0x20; }
+inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
 inline bool IsDouble(ARM64Reg reg) { return (reg & 0xC0) == 0x80; }
 inline bool IsQuad(ARM64Reg reg) { return (reg & 0xC0) == 0xC0; }
@@ -500,6 +500,17 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+
+	// Wrap the above for saner syntax
+	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { AND(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void BIC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BIC(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ORR(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void ORN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ORN(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EOR(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EON(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ANDS(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, 0)); }
+
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
 
@@ -611,6 +622,12 @@ public:
 	// Wrapper around MOVZ+MOVK
 	void MOVI2R(ARM64Reg Rd, u64 imm, bool optimize = true);
 
+	// Wrapper around AND x, y, imm etc
+	void ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
+	void ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
+	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) { ANDSI2R(Is64Bit(Rn) ? SP : WSP, Rn, imm, scratch); }
+	void ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch);
+
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
 	void ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask = BitSet32(0));
@@ -636,6 +653,12 @@ public:
 		MOVI2R(X30, (u64)trampoline);
 		MOVI2R(X0, (u64)const_cast<void*>((const void*)f));
 		return X30;
+	}
+
+	// Plain function call
+	void QuickCallFunction(ARM64Reg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(ARM64Reg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
 	}
 };
 
@@ -747,6 +770,7 @@ public:
 
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
+
 
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
