@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -77,11 +78,15 @@ static const bool enableDebug = true;
 extern volatile CoreState coreState;
 
 void ShowPC(u32 sp) {
+	static int count = 0;
 	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+		ELOG("ShowPC : %08x  ArmSP : %08x %d", currentMIPS->pc, sp, count);
 	} else {
-		ERROR_LOG(JIT, "Universe corrupt?");
+		ELOG("Universe corrupt?");
 	}
+	//if (count > 2000)
+	//	exit(0);
+	count++;
 }
 
 void DisassembleArm(const u8 *data, int size);
@@ -174,7 +179,7 @@ void Arm64Jit::GenerateFixedCode() {
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
 				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
-				MOVI2R(JITBASEREG, (u32)GetBasePtr());
+				MOVI2R(JITBASEREG, (uintptr_t)GetBasePtr());
 #endif
 				ADD(SCRATCH1_64, SCRATCH1_64, JITBASEREG);
 				BR(SCRATCH1_64);

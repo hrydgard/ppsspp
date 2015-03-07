@@ -47,9 +47,10 @@ void DisassembleArm64Print(const u8 *data, int size) {
 	ILOG("+++");
 	// A format friendly to Online Disassembler which gets endianness wrong
 	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t opcode = ((uint32_t *)data)[i];
-		ILOG("%08x", swap32(opcode));
+		uint32_t opcode = ((const uint32_t *)data)[i];
+		ILOG("%d/%d: %08x", (int)(i+1), (int)lines.size(), swap32(opcode));
 	}
+	ILOG("===");
 	ILOG("===");
 }
 
@@ -189,8 +190,6 @@ void Arm64Jit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
-	INFO_LOG(JIT, "In Compile, at %08x!", em_address);
-
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
@@ -309,17 +308,17 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(JIT, "=============== mips ===============");
+		ILOG("=============== mips ===============");
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
-			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
+			ILOG("M: %08x   %s", cpc, temp);
 		}
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(JIT, "=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
+		ILOG("=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
 		DisassembleArm64Print(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
 	if (logBlocks > 0)
@@ -414,7 +413,7 @@ void Arm64Jit::RestoreDowncount() {
 }
 
 void Arm64Jit::WriteDownCount(int offset) {
-	// TODO ARM64
+	SUBSI2R(DOWNCOUNTREG, DOWNCOUNTREG, offset, SCRATCH1);
 }
 
 void Arm64Jit::WriteDownCountR(ARM64Reg reg) {
