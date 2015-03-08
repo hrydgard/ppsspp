@@ -281,7 +281,7 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch)
+			if (gl_extensions.ANY_shader_framebuffer_fetch)
 				return !gstate_c.allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -340,14 +340,14 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch)
+				if (gl_extensions.ANY_shader_framebuffer_fetch)
 					return !gstate_c.allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch)
+				if (gl_extensions.ANY_shader_framebuffer_fetch)
 					return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
@@ -496,7 +496,6 @@ void GenerateFragmentShader(char *buffer) {
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool bitwiseOps = false;
-	bool fetchLastFrag = false;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
@@ -525,11 +524,12 @@ void GenerateFragmentShader(char *buffer) {
 	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
 	if (gl_extensions.NV_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-		fetchLastFrag = true;
 	}
 	if (gl_extensions.EXT_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-		fetchLastFrag = true;
+	}
+	if (gl_extensions.ARM_shader_framebuffer_fetch) {
+		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
 	}
 
 	WRITE(p, "precision lowp float;\n");
@@ -605,7 +605,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
-		if (!fetchLastFrag && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (!gl_extensions.ANY_shader_framebuffer_fetch && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			if (!texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
@@ -943,7 +943,7 @@ void GenerateFragmentShader(char *buffer) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (fetchLastFrag) {
+			if (gl_extensions.ANY_shader_framebuffer_fetch) {
 				WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
