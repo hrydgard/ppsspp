@@ -1172,6 +1172,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAudio.cpp
 	Core/HLE/sceAudiocodec.cpp
 	Core/HLE/sceAudiocodec.h
+	Core/HLE/sceAudioRouting.cpp
+	Core/HLE/sceAudioRouting.h
 	Core/HLE/sceAudio.h
 	Core/HLE/sceCcc.h
 	Core/HLE/sceCcc.cpp
