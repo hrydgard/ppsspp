@@ -496,6 +496,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool bitwiseOps = false;
+	const char *lastFragData = nullptr;
 
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
@@ -523,11 +524,14 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (gl_extensions.EXT_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+		lastFragData = "gl_lastFragData[0]";
 	} else if (gl_extensions.NV_shader_framebuffer_fetch) {
 		// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
 		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+		lastFragData = "gl_lastFragData[0]";
 	} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+		lastFragData = "gl_lastFragColorARM";
 	}
 
 	WRITE(p, "precision lowp float;\n");
@@ -928,7 +932,6 @@ void GenerateFragmentShader(char *buffer) {
 			case GE_SRCBLEND_DSTALPHA:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
-			// TODO: Double inverse, or inverse double?  Following softgpu for now...
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
@@ -942,7 +945,7 @@ void GenerateFragmentShader(char *buffer) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
 			if (gl_extensions.ANY_shader_framebuffer_fetch) {
-				WRITE(p, "  lowp vec4 destColor = gl_LastFragData[0];\n");
+				WRITE(p, "  lowp vec4 destColor = %s;\n", lastFragData);
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);
 			} else {
