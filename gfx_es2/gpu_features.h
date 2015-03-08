@@ -67,9 +67,15 @@ struct GLExtensions {
 	bool NV_framebuffer_blit;
 	bool PBO_NV; // GL_NV_pixel_buffer_object
 
+	// ARM
+	bool ARM_shader_framebuffer_fetch;
+
 	// EGL
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
+
+	// Convenience (in case we need to know which, but can treat them mostly the same.)
+	bool ANY_shader_framebuffer_fetch;
 
 	// Bugs
 	int bugs;

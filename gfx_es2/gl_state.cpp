@@ -266,6 +266,8 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
 	gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
 	gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
+	gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
+	gl_extensions.ANY_shader_framebuffer_fetch = gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
 
 #if defined(ANDROID) || defined(BLACKBERRY)
