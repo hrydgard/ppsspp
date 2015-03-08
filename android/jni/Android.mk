@@ -233,7 +233,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
-  $(SRC)/Core/HLE/sceG729 \
+  $(SRC)/Core/HLE/sceG729.cpp \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceFont.cpp \
   $(SRC)/Core/HLE/sceHeap.cpp \
