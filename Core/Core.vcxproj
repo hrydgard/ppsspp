@@ -226,6 +226,7 @@
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
     <ClCompile Include="HLE\sceFont.cpp" />
+    <ClCompile Include="HLE\sceG729" />
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHeap.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
@@ -478,6 +479,7 @@
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />
+    <ClInclude Include="HLE\sceG729" />
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHeap.h" />
     <ClInclude Include="HLE\sceHprm.h" />

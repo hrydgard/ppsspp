@@ -1187,6 +1187,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceDisplay.h
 	Core/HLE/sceDmac.cpp
 	Core/HLE/sceDmac.h
+	Core/HLE/sceG729.cpp
+	Core/HLE/sceG729.h
 	Core/HLE/sceGameUpdate.cpp
 	Core/HLE/sceGameUpdate.h
 	Core/HLE/sceGe.cpp

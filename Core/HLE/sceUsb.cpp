@@ -176,21 +176,12 @@ const HLEFunction sceUsbCam[] =
 	{ 0xF8847F60, 0, "sceUsbCamPollReadMicEnd" },
 };
 
-const HLEFunction sceG729[] =
-{
-	{ 0x13f1028a, 0, "sceUsbstorBootSetCapacity" },
-	{ 0x17c11696, 0, "sceUsbstorBootSetLoadAddr" },
-	{ 0x3489d1f3, 0, "sceUsbstorBootGetDataSize" },
-	{ 0x5a409d1b, 0, "sceUsbstorBootSetStatus" },
-	{ 0x594BBF95, 0, "sceUsbstorBootRegisterNotify" },
-	{ 0x594BBF95, 0, "sceUsbstorBootUnregisterNotify" },
-};
-
 void Register_sceUsb()
 {
 	RegisterModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
 	RegisterModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
 	RegisterModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
+	RegisterModule("sceG729", ARRAY_SIZE(sceG729), sceG729);
 }
 
 void Register_sceUsbCam()
