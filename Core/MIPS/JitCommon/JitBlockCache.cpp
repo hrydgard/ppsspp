@@ -49,6 +49,8 @@
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
+#elif defined(ARM64)
+#include "Core/MIPS/ARM64/Arm64Asm.h"
 #else
 // FakeJit doesn't need an emitter, no blocks will be created
 #include "Core/MIPS/MIPS.h"
@@ -72,6 +74,9 @@ using namespace ArmGen;
 using namespace ArmJitConstants;
 #elif defined(_M_X64) || defined(_M_IX86)
 using namespace Gen;
+#elif defined(ARM64)
+using namespace Arm64Gen;
+using namespace Arm64JitConstants;
 #endif
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
@@ -438,6 +443,9 @@ void JitBlockCache::LinkBlockExits(int i) {
 					}
 				}
 				b.linkStatus[e] = true;
+#elif defined(ARM64)
+				ARM64XEmitter emit(b.exitPtrs[e]);
+				// TODO ARM64 - must be done before enabling block linking
 #endif
 			}
 		}
@@ -584,6 +592,18 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	XEmitter emit((u8 *)b->checkedEntry);
 	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
 	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
+
+#elif defined(ARM64)
+
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. works.
+	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	ARM64XEmitter emit((u8 *)b->checkedEntry);
+	emit.MOVI2R(SCRATCH1, b->originalAddress);
+	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
+	emit.B(MIPSComp::jit->dispatcher);
+	emit.FlushIcache();
+
 #endif
 }
 

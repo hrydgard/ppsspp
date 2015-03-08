@@ -81,6 +81,12 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 }
 #endif
 
+std::string AddAddress(const std::string &buf, uint64_t addr) {
+	char buf2[16];
+	snprintf(buf2, sizeof(buf2), "%04x%08x", addr >> 32, addr & 0xFFFFFFFF);
+	return std::string(buf2) + " " + buf;
+}
+
 #if !defined(ARM)
 std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 	std::vector<std::string> lines;
@@ -89,7 +95,23 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 	int bkpt_count = 0;
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
+		uint64_t addr = (intptr_t)codePtr;
 		u32 inst = codePtr[0];
+		u32 next = (i < size - 4) ? codePtr[1] : 0;
+		// MAGIC SPECIAL CASE for MOVZ+MOVK readability!
+		if (((inst >> 21) & 0x3FF) == 0x294 && ((next >> 21) & 0x3FF) == 0x395) {
+			u32 low = (inst >> 5) & 0xFFFF;
+			u32 hi = (next >> 5) & 0xFFFF;
+			int reg0 = inst & 0x1F;
+			int reg1 = next & 0x1F;
+			char r = (inst >> 31) ? 'x' : 'w';
+			if (reg0 == reg1) {
+				snprintf(temp, sizeof(temp), "movi32 %c%d, %04x%04x", r, reg0, hi, low);
+				lines.push_back(AddAddress(temp, addr));
+				i += 4;
+				continue;
+			}
+		}
 		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false);
 		std::string buf = temp;
 		if (buf == "BKPT 1") {
@@ -100,10 +122,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 				bkpt_count = 0;
 			}
 			if (true) {
-				uint64_t addr = (intptr_t)(data + i);
-				char buf2[16];
-				snprintf(buf2, sizeof(buf2), "%04x%08x", addr >> 32, addr & 0xFFFFFFFF);
-				buf = std::string(buf2) + " " + buf;
+				buf = AddAddress(buf, addr);
 			}
 			lines.push_back(buf);
 		}
