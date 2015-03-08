@@ -429,7 +429,7 @@ static int sceNetResolverInit()
 
 static int sceNetUpnpInit(int unknown1,int unknown2)
 {
-	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2 );	
+	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);	
 	return 0;
 }
 
