@@ -315,8 +315,6 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 #endif
 }
 
-
-
 // Exception generation
 static const u32 ExcEnc[][3] = {
 	{0, 0, 1}, // SVC
@@ -2311,7 +2309,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 
 	if (size == 8)
 	{
-		S = index & 4;
+		S = (index & 4) != 0;
 		opcode = 0;
 		encoded_size = index & 3;
 		if (index & 8)
@@ -2322,7 +2320,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 	}
 	else if (size == 16)
 	{
-		S = index & 2;
+		S = (index & 2) != 0;
 		opcode = 2;
 		encoded_size = (index & 1) << 1;
 		if (index & 4)
@@ -2333,7 +2331,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 	}
 	else if (size == 32)
 	{
-		S = index & 1;
+		S = (index & 1) != 0;
 		opcode = 4;
 		encoded_size = 0;
 		if (index & 2)
@@ -2364,7 +2362,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 
 	if (size == 8)
 	{
-		S = index & 4;
+		S = (index & 4) != 0;
 		opcode = 0;
 		encoded_size = index & 3;
 		if (index & 8)
@@ -2375,7 +2373,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 	}
 	else if (size == 16)
 	{
-		S = index & 2;
+		S = (index & 2) != 0;
 		opcode = 2;
 		encoded_size = (index & 1) << 1;
 		if (index & 4)
@@ -2386,7 +2384,7 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 	}
 	else if (size == 32)
 	{
-		S = index & 1;
+		S = (index & 1) != 0;
 		opcode = 4;
 		encoded_size = 0;
 		if (index & 2)
@@ -2422,7 +2420,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 
 	if (size == 8)
 	{
-		S = index & 4;
+		S = (index & 4) != 0;
 		opcode = 0;
 		encoded_size = index & 3;
 		if (index & 8)
@@ -2433,7 +2431,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 	}
 	else if (size == 16)
 	{
-		S = index & 2;
+		S = (index & 2) != 0;
 		opcode = 2;
 		encoded_size = (index & 1) << 1;
 		if (index & 4)
@@ -2444,7 +2442,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
 	}
 	else if (size == 32)
 	{
-		S = index & 1;
+		S = (index & 1) != 0;
 		opcode = 4;
 		encoded_size = 0;
 		if (index & 2)
@@ -2475,7 +2473,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 
 	if (size == 8)
 	{
-		S = index & 4;
+		S = (index & 4) != 0;
 		opcode = 0;
 		encoded_size = index & 3;
 		if (index & 8)
@@ -2486,7 +2484,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 	}
 	else if (size == 16)
 	{
-		S = index & 2;
+		S = (index & 2) != 0;
 		opcode = 2;
 		encoded_size = (index & 1) << 1;
 		if (index & 4)
@@ -2497,7 +2495,7 @@ void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 	}
 	else if (size == 32)
 	{
-		S = index & 1;
+		S = (index & 1) != 0;
 		opcode = 4;
 		encoded_size = 0;
 		if (index & 2)

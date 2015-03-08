@@ -36,8 +36,34 @@ int SignExtend26(int x) {
 	return (x & 0x02000000) ? (0xFC000000 | x) : x;
 }
 
+int SignExtend19(int x) {
+	return (x & 0x00040000) ? (0xFFF80000 | x) : x;
+}
+
 static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *instr) {
-	snprintf(instr->text, sizeof(instr->text), "(DPI %08x)", w);
+	int Rd = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
+	char r = ((w >> 31) & 1) ? 'x' : 'w';
+	if (((w >> 23) & 0x3f) == 0x25) {
+		int imm16 = (w >> 5) & 0xFFFF;
+		int opc = (w >> 29) & 3;
+		int shift = ((w >> 22) & 0x3) << 16;
+		const char *opnames[4] = { "movn", "(undef)", "movz", "movk" };
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x << %d", opnames[opc], r, Rd, imm16, shift);
+	} else if (((w >> 24) & 0x1F) == 0x10) {
+		int op = w >> 31;
+		int imm = SignExtend19((w >> 5) & 0x7FFFF);
+		if (op & 1) imm <<= 12;
+		u64 daddr = addr + imm;
+		snprintf(instr->text, sizeof(instr->text), "%s x%d, 0x%04x%08x", op ? "adrp" : "adr", w, daddr >> 32, daddr & 0xFFFFFFFF);
+	} else if (((w >> 24) & 0x1F) == 0x11) {
+		int imm = ((w >> 10) & 0xFFF);
+		int shift = ((w >> 22) & 0x3) << 16;
+		imm <<= shift;
+		snprintf(instr->text, sizeof(instr->text), "add/sub %c%d, %c%d, %d", r, Rd, r, Rn, imm);
+	} else {
+		snprintf(instr->text, sizeof(instr->text), "(DPI %08x)", w);
+	}
 }
 
 static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr) {
@@ -82,9 +108,6 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, rd, r, rn, r, rm);
 		}
-	} else if (((w >> 23) & 0x3f) == 0x25) {
-		int imm16 = (w >> 5) & 0xFFFF;
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x", "movew", r, rd, imm16);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);
 	}
