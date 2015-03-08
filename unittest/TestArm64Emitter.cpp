@@ -31,9 +31,12 @@ bool TestArm64Emitter() {
 
 	u32 code[512];
 	ARM64XEmitter emitter((u8 *)code);
+	ARM64FloatEmitter fp(&emitter);
 	emitter.ADD(X1, X2, X30);
 	RET(CheckLast(emitter, "8b3e6041 add x1, x2, x30"));
 	emitter.SUB(W1, W2, W30);
 	RET(CheckLast(emitter, "4b3e4041 sub w1, w2, w30"));
+	// fp.FMUL(Q0, Q1, Q2);
+	// RET(CheckLast(emitter, "4b3e4041 sub w1, w2, w30"));
 	return true;
 }

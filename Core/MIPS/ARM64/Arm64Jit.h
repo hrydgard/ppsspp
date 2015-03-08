@@ -266,6 +266,8 @@ private:
 	Arm64RegCache gpr;
 	ArmRegCacheFPU fpr;
 
+	Arm64Gen::ARM64FloatEmitter fp;
+	
 	MIPSState *mips_;
 
 	int dontLogBlocks;
