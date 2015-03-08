@@ -181,7 +181,6 @@ void Register_sceUsb()
 	RegisterModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
 	RegisterModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
 	RegisterModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
-	RegisterModule("sceG729", ARRAY_SIZE(sceG729), sceG729);
 }
 
 void Register_sceUsbCam()
