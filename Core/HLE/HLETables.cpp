@@ -341,5 +341,6 @@ void RegisterAllModules() {
 	Register_sceAudioRouting();
 	Register_sceUsbCam();
 	Register_sceG729();
+	Register_sceNetUpnp();
 }
 
