@@ -33,16 +33,30 @@ static int sceAudioRoutingGetMode() {
 }
 
 static int sceAudioRoutingSetVolumeMode(int mode) {
-	DEBUG_LOG(HLE, "sceAudioRoutingSetVolumeMode");
+	DEBUG_LOG(HLE, "sceAudioRoutingSetVolumeMode %d",mode);
 	int previousMode = audioRoutineVolumeMode;
-	audioRoutineVolumeMode = mode;
+	audioRoutineVolumeMode = audioRoutingMode;
+	return previousMode;
+}
+
+static int sceAudioRoutingGetVolumeMode() {
+	DEBUG_LOG(HLE, "sceAudioRoutingGetMode");
+	return 0;
+}
+
+static int sceAudioRoutingSetMode(int mode) {
+	DEBUG_LOG(HLE, "sceAudioRoutingSetMode %d",mode);
+	int previousMode = audioRoutingMode;
+	audioRoutingMode = mode;
 	return previousMode;
 }
 
 const HLEFunction sceAudioRouting[] =
 {
 	{0x39240E7D, WrapI_V<sceAudioRoutingGetMode>, "sceAudioRoutingGetMode" },
-	{0x28235C56, WrapI_I<sceAudioRoutingSetVolumeMode>, "sceAudioRoutingSetVolumeMode" },
+	{0x28235C56, WrapI_V<sceAudioRoutingGetVolumeMode>, "sceAudioRoutingGetVolumeMode" },
+	{0x36FD8AA9, WrapI_I<sceAudioRoutingSetMode>, "sceAudioRoutingSetMode" },
+	{0xBB548475, WrapI_I<sceAudioRoutingSetVolumeMode>, "sceAudioRoutingSetVolumeMode" },
 };
 
 void Register_sceAudioRouting()
