@@ -339,5 +339,6 @@ void RegisterAllModules() {
 	Register_sceSfmt19937();
 	Register_sceAudioRouting();
 	Register_sceUsbCam();
+	Register_sceG729();
 }
 
