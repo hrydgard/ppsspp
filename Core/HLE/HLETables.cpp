@@ -73,6 +73,7 @@
 #include "sceSha256.h"
 #include "sceAdler.h"
 #include "sceSfmt19937.h"
+#include "sceG729.h"
 
 #define N(s) s
 
