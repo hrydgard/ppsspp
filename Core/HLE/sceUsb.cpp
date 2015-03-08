@@ -122,9 +122,64 @@ const HLEFunction sceUsbstorBoot[] =
 	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
 };
 
+const HLEFunction sceUsbCam[] =
+{
+	{ 0x17F7B2FB, 0, "sceUsbCamSetupVideo" },
+	{ 0xF93C4669, 0, "sceUsbCamAutoImageReverseSW" },
+	{ 0x574A8C3F, 0, "sceUsbCamStartVideo" },
+	{ 0x6CF32CB9, 0, "sceUsbCamStopVideo" },
+	{ 0x03ED7A82, 0, "sceUsbCamSetupMic" },
+	{ 0x82A64030, 0, "sceUsbCamStartMic" },
+	{ 0x7DAC0C71, 0, "sceUsbCamReadVideoFrameBlocking" },
+	{ 0x99D86281, 0, "sceUsbCamReadVideoFrame" },
+	{ 0x41E73E95, 0, "sceUsbCamPollReadVideoFrameEnd" },
+	{ 0xF90B2293, 0, "sceUsbCamWaitReadVideoFrameEnd" },
+	{ 0x4C34F553, 0, "sceUsbCamGetLensDirection" },
+	{ 0x3F0CF289, 0, "sceUsbCamSetupStill" },
+	{ 0x0A41A298, 0, "sceUsbCamSetupStillEx" },
+	{ 0x61BE5CAC, 0, "sceUsbCamStillInputBlocking" },
+	{ 0xFB0A6C5D, 0, "sceUsbCamStillInput" },
+	{ 0x7563AFA1, 0, "sceUsbCamStillWaitInputEnd" },
+	{ 0x1A46CFE7, 0, "sceUsbCamStillPollInputEnd" },
+	{ 0xA720937C, 0, "sceUsbCamStillCancelInput" },
+	{ 0xE5959C36, 0, "sceUsbCamStillGetInputLength" },
+	{ 0xCFE9E999, 0, "sceUsbCamSetupVideoEx" },
+	{ 0xDF9D0C92, 0, "sceUsbCamGetReadVideoFrameSize" },
+	{ 0x6E205974, 0, "sceUsbCamSetSaturation" },
+	{ 0x4F3D84D5, 0, "sceUsbCamSetBrightness" },
+	{ 0x09C26C7E, 0, "sceUsbCamSetContrast" },
+	{ 0x622F83CC, 0, "sceUsbCamSetSharpness" },
+	{ 0xD4876173, 0, "sceUsbCamSetImageEffectMode" },
+	{ 0x1D686870, 0, "sceUsbCamSetEvLevel" },
+	{ 0x951BEDF5, 0, "sceUsbCamSetReverseMode" },
+	{ 0xC484901F, 0, "sceUsbCamSetZoom" },
+	{ 0x383E9FA8, 0, "sceUsbCamGetSaturation" },
+	{ 0x70F522C5, 0, "sceUsbCamGetBrightness" },
+	{ 0xA063A957, 0, "sceUsbCamGetContrast" },
+	{ 0xFDB68C23, 0, "sceUsbCamGetSharpness" },
+	{ 0x994471E0, 0, "sceUsbCamGetImageEffectMode" },
+	{ 0x2BCD50C0, 0, "sceUsbCamGetEvLevel" },
+	{ 0xD5279339, 0, "sceUsbCamGetReverseMode" },
+	{ 0x9E8AAF8D, 0, "sceUsbCamGetZoom" },
+	{ 0x11A1F128, 0, "sceUsbCamGetAutoImageReverseState" },
+	{ 0x08AEE98A, 0, "sceUsbCamSetMicGain" },
+	{ 0x2E930264, 0, "sceUsbCamSetupMicEx" },
+	{ 0x36636925, 0, "sceUsbCamReadMicBlocking" },
+	{ 0x3DC0088E, 0, "sceUsbCamReadMic" },
+	{ 0x41EE8797, 0, "sceUsbCamUnregisterLensRotationCallback" },
+	{ 0x5145868A, 0, "sceUsbCamStopMic" },
+	{ 0x5778B452, 0, "sceUsbCamGetMicDataLength" },
+	{ 0x6784E6A8, 0, "sceUsbCamSetAntiFlicker" },
+	{ 0xAA7D94BA, 0, "sceUsbCamGetAntiFlicker" },
+	{ 0xB048A67D, 0, "sceUsbCamWaitReadMicEnd" },
+	{ 0xD293A100, 0, "sceUsbCamRegisterLensRotationCallback" },
+	{ 0xF8847F60, 0, "sceUsbCamPollReadMicEnd" },
+};
+
 void Register_sceUsb()
 {
 	RegisterModule("sceUsbstor", ARRAY_SIZE(sceUsbstor), sceUsbstor);
 	RegisterModule("sceUsbstorBoot", ARRAY_SIZE(sceUsbstorBoot), sceUsbstorBoot);
 	RegisterModule("sceUsb", ARRAY_SIZE(sceUsb), sceUsb);
+	RegisterModule("sceUsbCam", ARRAY_SIZE(sceUsbCam), sceUsbCam);
 }
