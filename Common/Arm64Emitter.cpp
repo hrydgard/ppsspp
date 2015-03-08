@@ -1787,7 +1787,9 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 {
 	unsigned int parts = Is64Bit(Rd) ? 4 : 2;
 	BitSet32 upload_part(0);
-	bool need_movz = false;
+
+	// Always start with a movz! Kills the dependency on the register.
+	bool use_movz = true;
 
 	if (!imm)
 	{
@@ -1814,8 +1816,6 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 		{
 			if ((imm >> (i * 16)) & 0xFFFF)
 				upload_part[i] = 1;
-			else
-				need_movz = true;
 		}
 	}
 
@@ -1851,10 +1851,10 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	for (unsigned i = 0; i < parts; ++i)
 	{
-		if (need_movz && upload_part[i])
+		if (use_movz && upload_part[i])
 		{
 			MOVZ(Rd, (imm >> (i * 16)) & 0xFFFF, (ShiftAmount)i);
-			need_movz = false;
+			use_movz = false;
 		}
 		else
 		{
