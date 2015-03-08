@@ -226,12 +226,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/__sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
+  $(SRC)/Core/HLE/sceAudioRouting.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp.arm \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
+  $(SRC)/Core/HLE/sceG729.cpp \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceFont.cpp \
   $(SRC)/Core/HLE/sceHeap.cpp \

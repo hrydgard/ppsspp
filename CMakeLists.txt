@@ -1172,6 +1172,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAudio.cpp
 	Core/HLE/sceAudiocodec.cpp
 	Core/HLE/sceAudiocodec.h
+	Core/HLE/sceAudioRouting.cpp
+	Core/HLE/sceAudioRouting.h
 	Core/HLE/sceAudio.h
 	Core/HLE/sceCcc.h
 	Core/HLE/sceCcc.cpp
@@ -1185,6 +1187,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceDisplay.h
 	Core/HLE/sceDmac.cpp
 	Core/HLE/sceDmac.h
+	Core/HLE/sceG729.cpp
+	Core/HLE/sceG729.h
 	Core/HLE/sceGameUpdate.cpp
 	Core/HLE/sceGameUpdate.h
 	Core/HLE/sceGe.cpp

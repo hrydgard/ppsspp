@@ -177,6 +177,12 @@
     <ClCompile Include="HLE\sceAudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceAudiocodec.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceAudioRouting.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceCcc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -187,6 +193,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceDmac.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceG729.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceGe.cpp">
@@ -451,9 +460,6 @@
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\sceAudiocodec.cpp">
-      <Filter>HLE\Libraries</Filter>
-    </ClCompile>
     <ClCompile Include="HDRemaster.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -664,6 +670,12 @@
     <ClInclude Include="HLE\sceAudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceAudiocodec.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAudioRouting.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceCcc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -704,6 +716,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceMt19937.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceG729.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceGameUpdate.h">
@@ -924,9 +939,6 @@
     </ClInclude>
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
-    </ClInclude>
-    <ClInclude Include="HLE\sceAudiocodec.h">
-      <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HDRemaster.h">
       <Filter>Core</Filter>

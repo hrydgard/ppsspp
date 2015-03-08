@@ -15,11 +15,26 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/FunctionWrappers.h"
 
-void Register_sceUsb();
+const HLEFunction sceG729[] =
+{
+	{ 0x13F1028A, 0, "sceG729DecodeExit" },
+	{ 0x17C11696, 0, "sceG729DecodeInitResource" },
+	{ 0x3489D1F3, 0, "sceG729DecodeCore" },
+	{ 0x55E14F75, 0, "sceG729DecodeInit" },
+	{ 0x5A409D1B, 0, "sceG729EncodeExit" },
+	{ 0x74804D93, 0, "sceG729DecodeReset" },
+	{ 0x890B86AE, 0, "sceG729DecodeTermResource" },
+	{ 0x8C87A2CA, 0, "sceG729EncodeReset" },
+	{ 0x94714D50, 0, "sceG729EncodeTermResource" },
+	{ 0xAA1E5462, 0, "sceG729EncodeInitResource" },
+	{ 0xCFCD367C, 0, "sceG729EncodeInit" },
+	{ 0xDB7259D5, 0, "sceG729EncodeCore" },
+};
 
-void __UsbInit();
-void __UsbDoState(PointerWrap &p);
-
-void Register_sceUsbCam();
+void Register_sceG729()
+{
+	RegisterModule("sceG729", ARRAY_SIZE(sceG729), sceG729);
+}
