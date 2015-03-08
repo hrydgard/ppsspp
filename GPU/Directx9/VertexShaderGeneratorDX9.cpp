@@ -232,7 +232,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture && hasTexcoord) {
-			if (doTextureProjection && !throughmode)
+			if (doTextureProjection)
 				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
 			else
 				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
