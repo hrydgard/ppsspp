@@ -257,14 +257,14 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "%s mediump vec3 normal;\n", attribute);
 
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection)
+		if (!useHWTransform && doTextureProjection && !throughmode)
 			WRITE(p, "%s vec3 texcoord;\n", attribute);
 		else
 			WRITE(p, "%s vec2 texcoord;\n", attribute);
 	}
 	if (hasColor) {
 		WRITE(p, "%s lowp vec4 color0;\n", attribute);
-		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
+		if (lmode && !useHWTransform && !throughmode)  // only software transform supplies color1 as vertex data
 			WRITE(p, "%s lowp vec3 color1;\n", attribute);
 	}
 
@@ -337,7 +337,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, varying);
-	if (lmode) {
+	if (lmode && !throughmode) {
 		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, varying);
 	}
 	if (doTexture) {
@@ -362,15 +362,19 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			WRITE(p, "  v_texcoord = texcoord;\n");
+			if (throughmode && doTextureProjection) {
+				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
+			} else {
+				WRITE(p, "  v_texcoord = texcoord;\n");
+			}
 		}
 		if (hasColor) {
 			WRITE(p, "  v_color0 = color0;\n");
-			if (lmode)
+			if (lmode && !throughmode)
 				WRITE(p, "  v_color1 = color1;\n");
 		} else {
 			WRITE(p, "  v_color0 = u_matambientalpha;\n");
-			if (lmode)
+			if (lmode && !throughmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 		if (enableFog) {
@@ -580,9 +584,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			if (lmode) {
 				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 				// v_color1 only exists when lmode = 1.
-				if (specularIsZero) {
+				if (specularIsZero && !throughmode) {
 					WRITE(p, "  v_color1 = vec3(0.0);\n");
-				} else {
+				} else if (!throughmode) {
 					WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 				}
 			} else {
@@ -599,7 +603,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			} else {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
-			if (lmode)
+			if (lmode && !throughmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 
