@@ -521,14 +521,12 @@ void GenerateFragmentShader(char *buffer) {
 	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 	highpTexcoord = highpFog;
 
-	// GL_NV_shader_framebuffer_fetch available on mobile platform and ES 2.0 only but not desktop
-	if (gl_extensions.NV_shader_framebuffer_fetch) {
-		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-	}
 	if (gl_extensions.EXT_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-	}
-	if (gl_extensions.ARM_shader_framebuffer_fetch) {
+	} else if (gl_extensions.NV_shader_framebuffer_fetch) {
+		// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
+		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+	} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
 	}
 
