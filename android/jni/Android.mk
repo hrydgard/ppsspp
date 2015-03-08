@@ -226,6 +226,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/__sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
+  $(SRC)/Core/HLE/sceAudioRouting.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp.arm \

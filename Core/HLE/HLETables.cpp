@@ -22,6 +22,7 @@
 #include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceAudiocodec.h"
+#include "sceAudioRouting.h"
 #include "sceCcc.h"
 #include "sceChnnlsv.h"
 #include "sceCtrl.h"
@@ -336,5 +337,6 @@ void RegisterAllModules() {
 	Register_sceSha256();
 	Register_sceAdler();
 	Register_sceSfmt19937();
+	Register_sceAudioRouting();
 }
 
