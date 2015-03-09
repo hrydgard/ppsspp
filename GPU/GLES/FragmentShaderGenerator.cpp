@@ -397,7 +397,6 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
-		bool alphaTestAgainstZero = IsAlphaTestAgainstZero();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -430,28 +429,28 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		id0 |= (lmode & 1) << 11;
 #if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
-			// 4 bits total.
+			// 5 bits total.
 			id0 |= 1 << 12;
 			id0 |= gstate.getAlphaTestFunction() << 13;
+			id0 |= (IsAlphaTestAgainstZero() & 1) << 16;
 		}
 #endif
 		if (enableColorTest) {
 			// 3 bits total.
-			id0 |= 1 << 16;
-			id0 |= gstate.getColorTestFunction() << 17;
+			id0 |= 1 << 17;
+			id0 |= gstate.getColorTestFunction() << 18;
 		}
-		id0 |= (enableFog & 1) << 19;
-		id0 |= (doTextureProjection & 1) << 20;
-		id0 |= (enableColorDoubling & 1) << 21;
+		id0 |= (enableFog & 1) << 20;
+		id0 |= (doTextureProjection & 1) << 21;
+		id0 |= (enableColorDoubling & 1) << 22;
 		// 2 bits
-		id0 |= (stencilToAlpha) << 22;
+		id0 |= (stencilToAlpha) << 23;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
-			id0 |= ReplaceAlphaWithStencilType() << 24;
+			id0 |= ReplaceAlphaWithStencilType() << 25;
 		}
 
-		id0 |= (alphaTestAgainstZero & 1) << 28;
 		if (enableAlphaTest)
 			gpuStats.numAlphaTestedDraws++;
 		else
