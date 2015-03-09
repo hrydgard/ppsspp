@@ -54,6 +54,7 @@ enum ReplaceBlendType {
 
 bool IsAlphaTestAgainstZero();
 bool IsAlphaTestTriviallyTrue();
+bool IsColorTestAgainstZero();
 bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);

@@ -22,6 +22,7 @@
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
+static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
 FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0) {
 	scratchpad_ = new u8[256 * 4];
@@ -37,6 +38,13 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		return;
 	}
 
+	bool alphaNeedsTexture = gstate.isAlphaTestEnabled() && !IsAlphaTestAgainstZero() && !IsAlphaTestTriviallyTrue();
+	bool colorNeedsTexture = gstate.isColorTestEnabled() && !IsColorTestAgainstZero() && !IsColorTestTriviallyTrue();
+	if (!alphaNeedsTexture && !colorNeedsTexture) {
+		// Common case: testing against zero.  Just skip it, faster not to bind anything.
+		return;
+	}
+
 	const FragmentTestID id = GenerateTestID();
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
@@ -44,10 +52,6 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		GLuint tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
-			return;
-		}
-		if (!gstate.isColorTestEnabled() && (IsAlphaTestAgainstZero() || IsAlphaTestTriviallyTrue())) {
-			// Common case: testing against zero.  Just skip it.
 			return;
 		}
 		glActiveTexture(unit);
@@ -161,13 +165,18 @@ void FragmentTestCache::Clear(bool deleteThem) {
 }
 
 void FragmentTestCache::Decimate() {
-	for (auto tex = cache_.begin(); tex != cache_.end(); ) {
-		if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-			glDeleteTextures(1, &tex->second.texture);
-			cache_.erase(tex++);
-		} else {
-			++tex;
+	if (--decimationCounter_ <= 0) {
+		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
+			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+				glDeleteTextures(1, &tex->second.texture);
+				cache_.erase(tex++);
+			} else {
+				++tex;
+			}
 		}
+
+		decimationCounter_ = FRAGTEST_DECIMATION_INTERVAL;
 	}
+
 	lastTexture_ = 0;
 }
