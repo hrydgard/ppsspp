@@ -115,6 +115,10 @@ bool IsAlphaTestAgainstZero() {
 	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 }
 
+bool IsColorTestAgainstZero() {
+	return gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF;
+}
+
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
 	true,  // GE_SRCBLEND_INVDSTCOLOR,
@@ -436,19 +440,20 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		}
 #endif
 		if (enableColorTest) {
-			// 3 bits total.
+			// 4 bits total.
 			id0 |= 1 << 17;
 			id0 |= gstate.getColorTestFunction() << 18;
+			id0 |= (IsColorTestAgainstZero() & 1) << 20;
 		}
-		id0 |= (enableFog & 1) << 20;
-		id0 |= (doTextureProjection & 1) << 21;
-		id0 |= (enableColorDoubling & 1) << 22;
+		id0 |= (enableFog & 1) << 21;
+		id0 |= (doTextureProjection & 1) << 22;
+		id0 |= (enableColorDoubling & 1) << 23;
 		// 2 bits
-		id0 |= (stencilToAlpha) << 23;
+		id0 |= (stencilToAlpha) << 24;
 	
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
-			id0 |= ReplaceAlphaWithStencilType() << 25;
+			id0 |= ReplaceAlphaWithStencilType() << 26;
 		}
 
 		if (enableAlphaTest)
@@ -456,7 +461,6 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		else
 			gpuStats.numNonAlphaTestedDraws++;
 
-		// 29 is free.
 		// 2 bits.
 		id0 |= ReplaceLogicOpType() << 30;
 
@@ -573,6 +577,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
 	bool alphaTestAgainstZero = IsAlphaTestAgainstZero();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
+	bool colorTestAgainstZero = IsColorTestAgainstZero();
 	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
@@ -617,7 +622,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "uniform sampler2D testtex;\n");
 		} else {
 			WRITE(p, "uniform vec4 u_alphacolorref;\n");
-			if (bitwiseOps && (enableColorTest || !alphaTestAgainstZero)) {
+			if (bitwiseOps && ((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
 				WRITE(p, "uniform ivec4 u_alphacolormask;\n");
 			}
 		}
@@ -652,7 +657,7 @@ void GenerateFragmentShader(char *buffer) {
 				WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
 			}
 		}
-		if (enableColorTest) {
+		if (enableColorTest && !colorTestAgainstZero) {
 			if (bitwiseOps) {
 				WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
 			} else if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
@@ -810,7 +815,7 @@ void GenerateFragmentShader(char *buffer) {
 		// So we have to scale to account for the difference.
 		std::string alphaTestXCoord = "0";
 		if (g_Config.bFragmentTestCache) {
-			if (enableColorTest) {
+			if (enableColorTest && !colorTestAgainstZero) {
 				WRITE(p, "  vec4 vScale256 = v * %f + %f;\n", 255.0 / 256.0, 0.5 / 256.0);
 				alphaTestXCoord = "vScale256.a";
 			} else if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -860,7 +865,21 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (enableColorTest) {
-			if (g_Config.bFragmentTestCache) {
+			if (colorTestAgainstZero) {
+				GEComparison colorTestFunc = gstate.getColorTestFunction();
+				// When testing against 0 (common), we can avoid some math.
+				// 0.002 is approximately half of 1.0 / 255.0.
+				if (colorTestFunc == GE_COMP_NOTEQUAL) {
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) discard;\n");
+				} else if (colorTestFunc != GE_COMP_NEVER) {
+					// Anything else is a test for == 0.
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) discard;\n");
+				} else {
+					// NEVER has been logged as used by games, although it makes little sense - statically failing.
+					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
+					WRITE(p, "  discard;\n");
+				}
+			} else if (g_Config.bFragmentTestCache) {
 				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", texture);
 				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", texture);
 				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);

@@ -38,6 +38,13 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		return;
 	}
 
+	bool alphaNeedsTexture = gstate.isAlphaTestEnabled() && !IsAlphaTestAgainstZero() && !IsAlphaTestTriviallyTrue();
+	bool colorNeedsTexture = gstate.isColorTestEnabled() && !IsColorTestAgainstZero() && !IsColorTestTriviallyTrue();
+	if (!alphaNeedsTexture && !colorNeedsTexture) {
+		// Common case: testing against zero.  Just skip it, faster not to bind anything.
+		return;
+	}
+
 	const FragmentTestID id = GenerateTestID();
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
@@ -45,10 +52,6 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		GLuint tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
-			return;
-		}
-		if (!gstate.isColorTestEnabled() && (IsAlphaTestAgainstZero() || IsAlphaTestTriviallyTrue())) {
-			// Common case: testing against zero.  Just skip it.
 			return;
 		}
 		glActiveTexture(unit);
