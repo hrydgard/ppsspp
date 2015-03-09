@@ -2023,12 +2023,16 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-		GLenum err = glGetError();
-		if (err == GL_OUT_OF_MEMORY) {
-			lowMemoryMode_ = true;
-			Decimate();
-			// Try again.
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
+		if (!lowMemoryMode_) {
+			GLenum err = glGetError();
+			if (err == GL_OUT_OF_MEMORY) {
+				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+				lowMemoryMode_ = true;
+				decimationCounter_ = 0;
+				Decimate();
+				// Try again, now that we've cleared out textures in lowMemoryMode_.
+				glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
+			}
 		}
 	}
 
