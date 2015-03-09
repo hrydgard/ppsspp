@@ -979,7 +979,7 @@ void FramebufferManager::BindFramebufferColor(int stage, VirtualFramebuffer *fra
 		fbo_bind_color_as_texture(framebuffer->fbo, 0);
 	}
 
-	if (stage != GL_TEXTURE1) {
+	if (stage != GL_TEXTURE0) {
 		glActiveTexture(stage);
 	}
 }

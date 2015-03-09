@@ -209,7 +209,7 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	GLint u_pal = glGetUniformLocation(program, "pal");
 
 	glUniform1i(u_tex, 0);
-	glUniform1i(u_pal, 1);
+	glUniform1i(u_pal, 3);
 
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);

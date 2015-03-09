@@ -416,7 +416,7 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id0 = 1;
 	} else {
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
@@ -504,7 +504,7 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 void GenerateFragmentShaderDX9(char *buffer) {
 	char *p = buffer;
 
-	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;

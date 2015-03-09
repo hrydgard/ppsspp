@@ -214,7 +214,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
@@ -257,7 +257,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "%s mediump vec3 normal;\n", attribute);
 
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection)
+		if (!useHWTransform && doTextureProjection && !throughmode)
 			WRITE(p, "%s vec3 texcoord;\n", attribute);
 		else
 			WRITE(p, "%s vec2 texcoord;\n", attribute);
@@ -362,7 +362,11 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
-			WRITE(p, "  v_texcoord = texcoord;\n");
+			if (throughmode && doTextureProjection) {
+				WRITE(p, "  v_texcoord = vec3(texcoord, 1.0);\n");
+			} else {
+				WRITE(p, "  v_texcoord = texcoord;\n");
+			}
 		}
 		if (hasColor) {
 			WRITE(p, "  v_color0 = color0;\n");
