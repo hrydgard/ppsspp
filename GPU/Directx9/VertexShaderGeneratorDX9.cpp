@@ -232,10 +232,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(vertTypeGetNumBoneWeights(vertType))]);
 		}
 		if (doTexture && hasTexcoord) {
-			if (doTextureProjection)
-				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
-			else
-				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
+			WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
 		}
 		if (hasColor)  {
 			WRITE(p, "  float4 color0 : COLOR0;\n");
@@ -249,10 +246,19 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	} else {
 		WRITE(p, "struct VS_IN {\n");
 		WRITE(p, "  float4 position : POSITION;\n");
-		WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
-		WRITE(p, "  float4 color0 : COLOR0;\n");
+		if (doTexture && hasTexcoord) {
+			if (doTextureProjection && !throughmode)
+				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
+			else
+				WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
+		}
+		if (hasColor) {
+			WRITE(p, "  float4 color0 : COLOR0;\n");
+		}
 		// only software transform supplies color1 as vertex data
-		WRITE(p, "  float4 color1 : COLOR1;\n");
+		if (lmode && !throughmode) {
+			WRITE(p, "  float4 color1 : COLOR1;\n");
+		}
 		WRITE(p, "};\n");
 	}
 
