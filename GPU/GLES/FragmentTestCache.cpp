@@ -22,6 +22,7 @@
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
+static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
 FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0) {
 	scratchpad_ = new u8[256 * 4];
@@ -161,13 +162,18 @@ void FragmentTestCache::Clear(bool deleteThem) {
 }
 
 void FragmentTestCache::Decimate() {
-	for (auto tex = cache_.begin(); tex != cache_.end(); ) {
-		if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-			glDeleteTextures(1, &tex->second.texture);
-			cache_.erase(tex++);
-		} else {
-			++tex;
+	if (--decimationCounter_ <= 0) {
+		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
+			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+				glDeleteTextures(1, &tex->second.texture);
+				cache_.erase(tex++);
+			} else {
+				++tex;
+			}
 		}
+
+		decimationCounter_ = FRAGTEST_DECIMATION_INTERVAL;
 	}
+
 	lastTexture_ = 0;
 }
