@@ -72,6 +72,7 @@ public:
 	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 
 	void DiscardRegContentsIfCached(MIPSGPReg preg);
+	void DiscardR(MIPSGPReg preg);
 	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
 
 	void FlushR(Gen::X64Reg reg); 
@@ -112,7 +113,7 @@ public:
 	u32 GetImm(MIPSGPReg preg) const;
 
 	void GetState(GPRRegCacheState &state) const;
-	void RestoreState(const GPRRegCacheState state);
+	void RestoreState(const GPRRegCacheState& state);
 
 	MIPSState *mips;
 

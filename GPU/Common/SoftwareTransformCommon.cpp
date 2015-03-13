@@ -158,7 +158,7 @@ void SoftwareTransform(
 		// not really sure what a sensible value might be.
 		fog_slope = fog_slope < 0.0f ? -10000.0f : 10000.0f;
 	}
-	if (my_isnan(fog_slope))	{
+	if (my_isnan(fog_slope)) {
 		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
 		// Just put the fog far away at a large finite distance.
 		// Infinities and NaNs are rather unpredictable in shaders on many GPUs
@@ -170,34 +170,50 @@ void SoftwareTransform(
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	// We flip in the fragment shader for GE_TEXMAP_TEXTURE_MATRIX.
 	const bool flipV = gstate_c.flipTexture && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX;
-	for (int index = 0; index < maxIndex; index++) {
-		reader.Goto(index);
-
-		float v[3] = {0, 0, 0};
-		Vec4f c0 = Vec4f(1, 1, 1, 1);
-		Vec4f c1 = Vec4f(0, 0, 0, 0);
-		float uv[3] = {0, 0, 1};
-		float fogCoef = 1.0f;
-
-		if (throughmode) {
+	if (throughmode) {
+		for (int index = 0; index < maxIndex; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
-			reader.ReadPos(v);
+			reader.Goto(index);
+			// TODO: Write to a flexible buffer, we don't always need all four components.
+			TransformedVertex &vert = transformed[index];
+			reader.ReadPos(vert.pos);
+
 			if (reader.hasColor0()) {
-				reader.ReadColor0(&c0.x);
-				// c1 is already 0.
+				reader.ReadColor0_8888(vert.color0);
 			} else {
-				c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+				vert.color0_32 = gstate.getMaterialAmbientRGBA();
 			}
 
 			if (reader.hasUV()) {
-				reader.ReadUV(uv);
+				reader.ReadUV(vert.uv);
 
-				uv[0] *= uscale;
-				uv[1] *= vscale;
+				vert.u *= uscale;
+				vert.v *= vscale;
 			}
-			fogCoef = 1.0f;
+			else
+			{
+				vert.u = 0.0f;
+				vert.v = 0.0f;
+			}
 			// Scale UV?
-		} else {
+
+			if (flipV) {
+				vert.v = 1.0f - vert.v;
+			}
+
+			// Ignore color1 and fog, never used in throughmode anyway.
+			// The w of uv is also never used (hardcoded to 1.0.)
+		}
+	} else {
+		for (int index = 0; index < maxIndex; index++) {
+			reader.Goto(index);
+
+			float v[3] = {0, 0, 0};
+			Vec4f c0 = Vec4f(1, 1, 1, 1);
+			Vec4f c1 = Vec4f(0, 0, 0, 0);
+			float uv[3] = {0, 0, 1};
+			float fogCoef = 1.0f;
+
 			// We do software T&L for now
 			float out[3];
 			float pos[3];
@@ -369,17 +385,17 @@ void SoftwareTransform(
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 			fogCoef = (v[2] + fog_end) * fog_slope;
-		}
 
-		// TODO: Write to a flexible buffer, we don't always need all four components.
-		memcpy(&transformed[index].x, v, 3 * sizeof(float));
-		transformed[index].fog = fogCoef;
-		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-		if (flipV) {
-			transformed[index].v = 1.0f - transformed[index].v;
+			// TODO: Write to a flexible buffer, we don't always need all four components.
+			memcpy(&transformed[index].x, v, 3 * sizeof(float));
+			transformed[index].fog = fogCoef;
+			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
+			if (flipV) {
+				transformed[index].v = 1.0f - transformed[index].v;
+			}
+			transformed[index].color0_32 = c0.ToRGBA();
+			transformed[index].color1_32 = c1.ToRGBA();
 		}
-		transformed[index].color0_32 = c0.ToRGBA();
-		transformed[index].color1_32 = c1.ToRGBA();
 	}
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and

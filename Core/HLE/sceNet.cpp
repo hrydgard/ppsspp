@@ -34,6 +34,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/Reporting.h"
 
 static bool netInited;
 static bool netInetInited;
@@ -425,6 +426,37 @@ static int sceNetResolverInit()
 	return 0;
 }
 
+
+static int sceNetUpnpInit(int unknown1,int unknown2)
+{
+	ERROR_LOG_REPORT_ONCE(sceNetUpnpInit, SCENET, "UNIMPLsceNetUpnpInit %d,%d",unknown1,unknown2);	
+	return 0;
+}
+
+static int sceNetUpnpStart()
+{
+	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStart");
+	return 0;
+}
+
+static int sceNetUpnpStop()
+{
+	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpStop");
+	return 0;
+}
+
+static int sceNetUpnpTerm()
+{
+	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpTerm");
+	return 0;
+}
+
+static int sceNetUpnpGetNatInfo()
+{
+	ERROR_LOG(SCENET, "UNIMPLsceNetUpnpGetNatInfo");
+	return 0;
+}
+
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, WrapU_UUUUU<sceNetInit>, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
@@ -507,6 +539,15 @@ const HLEFunction sceWlanDrv[] = {
 	{0x93440B11, WrapU_V<sceWlanDevIsPowerOn>, "sceWlanDevIsPowerOn"},
 };
 
+// see http://www.kingx.de/forum/showthread.php?tid=35164
+const HLEFunction sceNetUpnp[] = {
+	{ 0x27045362, WrapI_V<sceNetUpnpGetNatInfo>, "sceNetUpnpGetNatInfo" },
+	{ 0x3432B2E5, WrapI_V<sceNetUpnpStart>, "sceNetUpnpStart" },	
+	{ 0x3E32ED9E, WrapI_V<sceNetUpnpStop>, "sceNetUpnpStop" },
+	{ 0x540491EF, WrapI_V<sceNetUpnpTerm>, "sceNetUpnpTerm" },
+	{ 0xE24220B5, WrapI_II<sceNetUpnpInit>, "sceNetUpnpInit" },
+};
+
 void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
 	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
@@ -516,4 +557,8 @@ void Register_sceNet() {
 
 void Register_sceWlanDrv() {
 	RegisterModule("sceWlanDrv", ARRAY_SIZE(sceWlanDrv), sceWlanDrv);
+}
+
+void Register_sceNetUpnp() {
+	RegisterModule("sceNetUpnp", ARRAY_SIZE(sceNetUpnp), sceNetUpnp);
 }

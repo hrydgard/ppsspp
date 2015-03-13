@@ -419,7 +419,7 @@ void IndexGenerator::TranslateRectangles(int numInds, const u16 *_inds, int inde
 		*outInds++ = indexOffset + inds[i+1];
 	}
 	inds_ = outInds;
-	count_ += numInds * 2;
+	count_ += numInds;
 	prim_ = GE_PRIM_RECTANGLES;
 	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | SEEN_INDEX16;
 }

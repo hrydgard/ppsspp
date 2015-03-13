@@ -22,6 +22,7 @@
 #include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceAudiocodec.h"
+#include "sceAudioRouting.h"
 #include "sceCcc.h"
 #include "sceChnnlsv.h"
 #include "sceCtrl.h"
@@ -71,6 +72,8 @@
 #include "sceUsbGps.h"
 #include "sceSha256.h"
 #include "sceAdler.h"
+#include "sceSfmt19937.h"
+#include "sceG729.h"
 
 #define N(s) s
 
@@ -334,5 +337,10 @@ void RegisterAllModules() {
 	Register_sceLibFttt();
 	Register_sceSha256();
 	Register_sceAdler();
+	Register_sceSfmt19937();
+	Register_sceAudioRouting();
+	Register_sceUsbCam();
+	Register_sceG729();
+	Register_sceNetUpnp();
 }
 

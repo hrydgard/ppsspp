@@ -27,6 +27,7 @@
 class TextureScaler {
 public:
 	TextureScaler();
+	~TextureScaler();
 
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 

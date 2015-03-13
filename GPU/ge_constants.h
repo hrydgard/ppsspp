@@ -15,8 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _GE_CONSTANTS_H
-#define _GE_CONSTANTS_H
+#pragma once
 
 enum GECommand
 {
@@ -564,5 +563,3 @@ enum GEPaletteFormat
 	GE_CMODE_16BIT_ABGR4444,
 	GE_CMODE_32BIT_ABGR8888,
 };
-
-#endif

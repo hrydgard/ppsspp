@@ -32,6 +32,7 @@ enum {
 	HLE_NOT_IN_INTERRUPT = 1 << 8,
 	// Don't allow the call if dispatch or interrupts are disabled.
 	HLE_NOT_DISPATCH_SUSPENDED = 1 << 9,
+	HLE_CLEAR_STACK_BYTES = 1 << 10
 };
 
 struct HLEFunction
@@ -40,6 +41,7 @@ struct HLEFunction
 	HLEFunc func;
 	const char *name;
 	u32 flags;
+	u32 stackBytesToClear;
 };
 
 struct HLEModule

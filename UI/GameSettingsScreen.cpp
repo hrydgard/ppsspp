@@ -369,6 +369,10 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(c->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
+#if defined(USING_WIN_UI)
+	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, c->T("Ignore gamepads when not focused")));
+#endif
+
 #if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, c->T("HapticFeedback", "Haptic Feedback (vibration)")));
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons"};
@@ -383,6 +387,10 @@ void GameSettingsScreen::CreateViews() {
 	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
 	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
 	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+	// Re-centers itself to the touch location on touch-down.
+	CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, c->T("Auto-centering analog stick")));
+	floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 	// Some Windows touch devices don't have a back button or other button to call up the menu.
@@ -404,6 +412,22 @@ void GameSettingsScreen::CreateViews() {
 	static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 	style->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+#ifdef _WIN32
+	static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
+
+	controlsSettings->Add(new ItemHeader(c->T("DInput Analog Settings", "DInput Analog Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, c->T("Deadzone Radius"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, c->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, c->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), screenManager()));
+
+	controlsSettings->Add(new ItemHeader(c->T("XInput Analog Settings", "XInput Analog Settings")));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, c->T("Deadzone Radius"), screenManager()));
+	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, c->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), c, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, c->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, c->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), screenManager()));
+#endif
 
 	controlsSettings->Add(new ItemHeader(c->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
@@ -496,7 +520,6 @@ void GameSettingsScreen::CreateViews() {
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
-	const std::string path = File::GetExeDirectory();
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
 	if (!installed_ && result == S_OK) {
@@ -641,10 +664,8 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
-	const std::string path = File::GetExeDirectory();
 	installed_ = File::Exists(installedFile);
 	if (otherinstalled_) {
-		const std::string PPSSPPpath = File::GetExeDirectory();
 		File::Delete(PPSSPPpath + "installed.txt");
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
 		otherinstalled_ = false;

@@ -211,7 +211,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
-		if (!strcmp(ext, ".ppst")) {
+		if (ext != nullptr && !strcmp(ext, ".ppst")) {
 			SaveState::Load(value, &AfterStateLoad);
 		} else {
 			PSP_Shutdown();
@@ -285,6 +285,8 @@ inline float clamp1(float x) {
 }
 
 bool EmuScreen::touch(const TouchInput &touch) {
+	Core_NotifyActivity();
+
 	if (root_) {
 		root_->Touch(touch);
 		return true;
@@ -427,6 +429,8 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 }
 
 bool EmuScreen::key(const KeyInput &key) {
+	Core_NotifyActivity();
+
 	std::vector<int> pspKeys;
 	KeyMap::KeyToPspButton(key.deviceId, key.keyCode, &pspKeys);
 
@@ -470,6 +474,8 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 }
 
 bool EmuScreen::axis(const AxisInput &axis) {
+	Core_NotifyActivity();
+
 	if (axis.value > 0) {
 		processAxis(axis, 1);
 		return true;

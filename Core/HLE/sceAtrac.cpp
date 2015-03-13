@@ -406,7 +406,7 @@ struct AtracResetBufferInfo {
 const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
 static Atrac *atracIDs[PSP_NUM_ATRAC_IDS];
-static int atracIDTypes[PSP_NUM_ATRAC_IDS];
+static u32 atracIDTypes[PSP_NUM_ATRAC_IDS];
 
 void __AtracInit() {
 	atracInited = true;
@@ -1547,7 +1547,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		int ret = atrac->Analyze();
 		if (ret < 0) {
 			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
-		} else if ((int)atrac->codecType != atracIDTypes[atracID]) {
+		} else if (atrac->codecType != atracIDTypes[atracID]) {
 			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
 		} else {
@@ -1940,69 +1940,74 @@ static int _sceAtracGetContextAddress(int atracID) {
 	return atrac->atracContext.ptr;
 }
 
-// TODO: Use proper structs with named member instead, or something. This is embarrassing.
+struct At3HeaderMap {
+	u16 bytes;
+	u16 channels;
+	u8 headerVal1;
+	u8 headerVal2;
+
+	bool Matches(const Atrac *at) const {
+		return bytes == at->atracBytesPerFrame && channels == at->atracChannels;
+	}
+};
+
 static const u8 at3HeaderTemplate[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
-static const u16 at3HeaderMap[][4] = {
+static const At3HeaderMap at3HeaderMap[] = {
     { 0x00C0, 0x1, 0x8,  0x00 },
     { 0x0098, 0x1, 0x8,  0x00 },
     { 0x0180, 0x2, 0x10, 0x00 },
     { 0x0130, 0x2, 0x10, 0x00 },
     { 0x00C0, 0x2, 0x10, 0x01 }
 };
-static const int at3HeaderMapSize = sizeof(at3HeaderMap) / (sizeof(u16) * 4);
+
+struct At3plusHeaderMap {
+	u16 bytes;
+	u16 channels;
+	u16 headerVal;
+
+	bool Matches(const Atrac *at) const {
+		return bytes == at->atracBytesPerFrame && channels == at->atracChannels;
+	}
+};
 
 static const u8 at3plusHeaderTemplate[] = { 0x52, 0x49, 0x46, 0x46, 0x00, 0xb5, 0xff, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x34, 0x00, 0x00, 0x00, 0xfe, 0xff, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00, 0xa0, 0x1f, 0x00, 0x00, 0xe8, 0x02, 0x00, 0x00, 0x22, 0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0xbf, 0xaa, 0x23, 0xe9, 0x58, 0xcb, 0x71, 0x44, 0xa1, 0x19, 0xff, 0xfa, 0x01, 0xe4, 0xce, 0x62, 0x01, 0x00, 0x28, 0x5c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x61, 0x63, 0x74, 0x08, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x08, 0x00, 0x00, 0x64, 0x61, 0x74, 0x61, 0xa8, 0xb4, 0xff, 0x00 };
-static const u16 at3plusHeaderMap[][3] = {
-	{ 0x00C0, 0x1, 0x0 },
-	{ 0x1724, 0x0, 0x0 },
-	{ 0x0180, 0x1, 0x0 },
-	{ 0x2224, 0x0, 0x0 },
-	{ 0x0178, 0x1, 0x0 },
-	{ 0x2E24, 0x0, 0x0 },
+static const At3plusHeaderMap at3plusHeaderMap[] = {
+	{ 0x00C0, 0x1, 0x1724 },
+	{ 0x0180, 0x1, 0x2224 },
+	{ 0x0178, 0x1, 0x2E24 },
 
-	{ 0x0230, 0x1, 0x0 },
-	{ 0x4524, 0x0, 0x0 },
-	{ 0x02E8, 0x1, 0x0 },
-	{ 0x5C24, 0x0, 0x0 },
+	{ 0x0230, 0x1, 0x4524 },
+	{ 0x02E8, 0x1, 0x5C24 },
+	{ 0x0118, 0x1, 0x2224 },
 
-	{ 0x0118, 0x2, 0x0 },
-	{ 0x2228, 0x0, 0x0 },
-	{ 0x0178, 0x2, 0x0 },
-	{ 0x2E28, 0x0, 0x0 },
+	{ 0x0118, 0x2, 0x2228 },
+	{ 0x0178, 0x2, 0x2E28 },
 
-	{ 0x0230, 0x2, 0x0 },
-	{ 0x4528, 0x0, 0x0 },
-	{ 0x02E8, 0x2, 0x0 },
-	{ 0x5C28, 0x0, 0x0 },
+	{ 0x0230, 0x2, 0x4528 },
+	{ 0x02E8, 0x2, 0x5C28 },
 
-	{ 0x03A8, 0x2, 0x0 },
-	{ 0x7428, 0x0, 0x0 },
-	{ 0x0460, 0x2, 0x0 },
-	{ 0x8B28, 0x0, 0x0 },
+	{ 0x03A8, 0x2, 0x7428 },
+	{ 0x0460, 0x2, 0x8B28 },
 
-	{ 0x05D0, 0x2, 0x0 },
-	{ 0xB928, 0x0, 0x0 },
-	{ 0x0748, 0x2, 0x0 },
-	{ 0xE828, 0x0, 0x0 },
+	{ 0x05D0, 0x2, 0xB928 },
+	{ 0x0748, 0x2, 0xE828 },
 
-	{ 0x0800, 0x2, 0x0 },
-	{ 0xFF28, 0x0, 0x0 }
+	{ 0x0800, 0x2, 0xFF28 },
 };
-static const int at3plusHeaderMapSize = sizeof(at3plusHeaderMap) / (sizeof(u16)* 3);
 
 static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
-	for (int i = 0; i < at3HeaderMapSize; i ++) {
-		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3HeaderTemplate) - 8;
-			*(u16*)(at3Header + 0x16) = atrac->atracChannels;
-			*(u16*)(at3Header + 0x20) = atrac->atracBytesPerFrame;
+	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+		if (at3HeaderMap[i].Matches(atrac)) {
+			*(u32 *)(at3Header + 0x04) = dataSize + sizeof(at3HeaderTemplate) - 8;
+			*(u16 *)(at3Header + 0x16) = atrac->atracChannels;
+			*(u16 *)(at3Header + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
-			*(u32*)(at3Header + 0x1c) = atrac->atracBitrate * 1000 / 8;
-			at3Header[0x29] = (u8)at3HeaderMap[i][2];
-			at3Header[0x2c] = (u8)at3HeaderMap[i][3];
-			at3Header[0x2e] = (u8)at3HeaderMap[i][3];
-			*(u32*)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
+			*(u32 *)(at3Header + 0x1c) = atrac->atracBitrate * 1000 / 8;
+			at3Header[0x29] = at3HeaderMap[i].headerVal1;
+			at3Header[0x2c] = at3HeaderMap[i].headerVal2;
+			at3Header[0x2e] = at3HeaderMap[i].headerVal2;
+			*(u32 *)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
@@ -2010,16 +2015,16 @@ static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8)
 }
 
 static bool initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
-	for (int i = 0; i < at3plusHeaderMapSize; i += 2) {
-		if (at3plusHeaderMap[i][0] == atrac->atracBytesPerFrame && at3plusHeaderMap[i][1] == atrac->atracChannels) {
-			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
-			*(u16*)(at3plusHeader + 0x16) = atrac->atracChannels;
-			*(u16*)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
+	for (size_t i = 0; i < ARRAY_SIZE(at3plusHeaderMap); ++i) {
+		if (at3plusHeaderMap[i].Matches(atrac)) {
+			*(u32 *)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
+			*(u16 *)(at3plusHeader + 0x16) = atrac->atracChannels;
+			*(u16 *)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
-			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
-			*(u16*)(at3plusHeader + 0x3e) = at3plusHeaderMap[i + 1][0];
-			*(u32*)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
+			*(u32 *)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
+			*(u16 *)(at3plusHeader + 0x3e) = at3plusHeaderMap[i].headerVal;
+			*(u32 *)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
@@ -2143,9 +2148,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
-				}
-				if (res == ATDECODE_GOTFRAME)
 					break;
+				}
 			}
 		}
 

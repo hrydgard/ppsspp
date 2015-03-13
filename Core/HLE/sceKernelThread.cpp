@@ -2538,6 +2538,14 @@ u32 __KernelGetCurThreadStack()
 	return 0;
 }
 
+u32 __KernelGetCurThreadStackStart()
+{
+	Thread *t = __GetCurrentThread();
+	if (t)
+		return t->currentStack.start;
+	return 0;
+}
+
 SceUID sceKernelGetThreadId()
 {
 	VERBOSE_LOG(SCEKERNEL, "%i = sceKernelGetThreadId()", currentThread);
@@ -3608,7 +3616,7 @@ bool __KernelCheckCallbacks() {
 	bool processed = false;
 
 	u32 error;
-	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++) {
+	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter) {
 		Thread *thread = kernelObjects.Get<Thread>(*iter, error);
 		if (thread && __KernelCheckThreadCallbacks(thread, false)) {
 			processed = true;
@@ -3690,7 +3698,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 	std::vector<DebugThreadInfo> threadList;
 
 	u32 error;
-	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
+	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter)
 	{
 		Thread *t = kernelObjects.Get<Thread>(*iter, error);
 		if (!t)

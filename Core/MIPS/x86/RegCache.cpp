@@ -241,6 +241,21 @@ void GPRRegCache::DiscardRegContentsIfCached(MIPSGPReg preg) {
 	}
 }
 
+void GPRRegCache::DiscardR(MIPSGPReg preg) {
+	if (regs[preg].away) {
+		if (regs[preg].location.IsSimpleReg()) {
+			DiscardRegContentsIfCached(preg);
+		} else {
+			regs[preg].away = false;
+			if (preg == MIPS_REG_ZERO) {
+				regs[preg].location = Imm32(0);
+			} else {
+				regs[preg].location = GetDefaultLocation(preg);
+			}
+		}
+	}
+}
+
 
 void GPRRegCache::SetImm(MIPSGPReg preg, u32 immValue) {
 	// ZERO is always zero.  Let's just make sure.
@@ -396,7 +411,7 @@ void GPRRegCache::GetState(GPRRegCacheState &state) const {
 	memcpy(state.xregs, xregs, sizeof(xregs));
 }
 
-void GPRRegCache::RestoreState(const GPRRegCacheState state) {
+void GPRRegCache::RestoreState(const GPRRegCacheState& state) {
 	memcpy(regs, state.regs, sizeof(regs));
 	memcpy(xregs, state.xregs, sizeof(xregs));
 }

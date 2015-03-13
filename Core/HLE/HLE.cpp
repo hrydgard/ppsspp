@@ -358,9 +358,8 @@ inline static void SetDeadbeefRegs()
 	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
 	// Set all the arguments and temp regs.
 	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));
-	// Using a magic number since there's confusion/disagreement on reg names.
-	currentMIPS->r[24] = 0xDEADBEEF;
-	currentMIPS->r[25] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T8] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T9] = 0xDEADBEEF;
 
 	currentMIPS->lo = 0xDEADBEEF;
 	currentMIPS->hi = 0xDEADBEEF;
@@ -436,18 +435,24 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
 	const u32 flags = info->flags;
-	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
-	{
+
+	if (flags & HLE_CLEAR_STACK_BYTES) {
+		u32 stackStart = __KernelGetCurThreadStackStart();
+		if (currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear >= stackStart) {
+			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear);
+		}
+	}
+
+	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled()) {
 		DEBUG_LOG(HLE, "%s: dispatch suspended", info->name);
 		RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
 	}
-	else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
-	{
+	else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt()) {
 		DEBUG_LOG(HLE, "%s: in interrupt", info->name);
 		RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
-	}
-	else
+	} else {
 		info->func();
+	}
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
 		hleFinishSyscall(*info);
@@ -517,6 +522,7 @@ void CallSyscall(MIPSOpcode op)
 		time_update();
 		start = time_now_d();
 	}
+
 	const HLEFunction *info = GetSyscallInfo(op);
 	if (!info) {
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);

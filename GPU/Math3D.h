@@ -180,6 +180,9 @@ public:
 typedef Vec2<float> Vec2f;
 
 template<typename T>
+class Vec3Packed;
+
+template<typename T>
 class Vec3
 {
 public:
@@ -205,6 +208,11 @@ public:
 #if defined(_M_SSE)
 	Vec3(const __m128 &_vec) : vec(_vec) {}
 	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+	Vec3(const Vec3Packed<T> &_xyz) {
+		vec = _mm_loadu_ps(_xyz.AsArray());
+	}
+#else
+	Vec3(const Vec3Packed<T> &_xyz) : x(_xyz.x), y(_xyz.y), z(_xyz.z) {}
 #endif
 
 	template<typename T2>
@@ -369,6 +377,9 @@ public:
 	Vec3Packed(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3Packed(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3Packed(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
+	Vec3Packed(const Vec3<T>& _xyz) {
+		memcpy(&x, _xyz.AsArray(), sizeof(float) * 3);
+	}
 
 	template<typename T2>
 	Vec3Packed<T2> Cast() const

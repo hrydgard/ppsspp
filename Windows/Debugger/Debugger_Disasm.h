@@ -1,7 +1,6 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#ifndef _DISASM_H
-#define _DISASM_H
+#pragma once
 
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/TabControl.h"
@@ -64,5 +63,3 @@ public:
 	void Goto(u32 addr);
 	void NotifyMapLoaded();
 };
-
-#endif

@@ -217,7 +217,7 @@ protected:
 	}
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
 #if defined(USING_WIN_UI)

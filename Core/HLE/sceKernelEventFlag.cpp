@@ -633,7 +633,7 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 	}
 	else
 	{
-		ERROR_LOG(SCEKERNEL, "sceKernelReferEventFlagStatus(%i, %08x): invalid event flag", id, statusPtr);
+		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferEventFlagStatus(%i, %08x): invalid event flag", error, id, statusPtr);
 		return error;
 	}
 }

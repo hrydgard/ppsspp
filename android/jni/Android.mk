@@ -119,6 +119,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
   $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/sfmt19937/SFMT.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/ext/udis86/decode.c \
@@ -147,6 +148,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
+  $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
@@ -224,12 +226,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/__sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudio.cpp.arm \
   $(SRC)/Core/HLE/sceAudiocodec.cpp.arm \
+  $(SRC)/Core/HLE/sceAudioRouting.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCcc.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp.arm \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
+  $(SRC)/Core/HLE/sceG729.cpp \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceFont.cpp \
   $(SRC)/Core/HLE/sceHeap.cpp \
@@ -268,6 +272,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSfmt19937.cpp \
   $(SRC)/Core/HLE/sceSha256.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \

@@ -169,6 +169,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\disarm.cpp" />
+    <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="..\git-version.cpp" />
@@ -217,6 +218,7 @@
     <ClCompile Include="HLE\sceAtrac.cpp" />
     <ClCompile Include="HLE\sceAudio.cpp" />
     <ClCompile Include="HLE\sceAudiocodec.cpp" />
+    <ClCompile Include="HLE\sceAudioRouting.cpp" />
     <ClCompile Include="HLE\sceCcc.cpp" />
     <ClCompile Include="HLE\sceChnnlsv.cpp" />
     <ClCompile Include="HLE\sceCtrl.cpp" />
@@ -224,6 +226,7 @@
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
     <ClCompile Include="HLE\sceFont.cpp" />
+    <ClCompile Include="HLE\sceG729.cpp" />
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHeap.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
@@ -263,6 +266,7 @@
     <ClCompile Include="HLE\sceGameUpdate.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
+    <ClCompile Include="HLE\sceSfmt19937.cpp" />
     <ClCompile Include="HLE\sceSha256.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
@@ -408,6 +412,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\disarm.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
+    <ClInclude Include="..\ext\sfmt19937\SFMT.h" />
     <ClInclude Include="..\ext\snappy\snappy-internal.h" />
     <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />
     <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
@@ -463,6 +471,7 @@
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceAudiocodec.h" />
+    <ClInclude Include="HLE\sceAudioRouting.h" />
     <ClInclude Include="HLE\sceCcc.h" />
     <ClInclude Include="HLE\sceCtrl.h" />
     <ClInclude Include="HLE\sceChnnlsv.h" />
@@ -470,6 +479,7 @@
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />
+    <ClInclude Include="HLE\sceG729.h" />
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHeap.h" />
     <ClInclude Include="HLE\sceHprm.h" />
@@ -508,6 +518,7 @@
     <ClInclude Include="HLE\sceGameUpdate.h" />
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
+    <ClInclude Include="HLE\sceSfmt19937.h" />
     <ClInclude Include="HLE\sceSha256.h" />
     <ClInclude Include="HLE\sceSsl.h" />
     <ClInclude Include="HLE\sceUmd.h" />

@@ -58,6 +58,8 @@ namespace WindowsRawInput {
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static bool menuActive;
+	static bool focused = true;
+	static bool mouseRightDown = false;
 
 	void Init() {
 		RAWINPUTDEVICE dev[3];
@@ -86,6 +88,9 @@ namespace WindowsRawInput {
 		info.cbSize = sizeof(info);
 		if (GetMenuBarInfo(MainWindow::GetHWND(), OBJID_MENU, 0, &info) != 0) {
 			menuActive = info.fBarFocused != FALSE;
+		} else {
+			// In fullscreen mode, we remove the menu
+			menuActive = false;
 		}
 		return menuActive;
 	}
@@ -168,7 +173,18 @@ namespace WindowsRawInput {
 		return 0;
 	}
 
-	void ProcessMouse(RAWINPUT *raw, bool foreground) {
+	static bool MouseInWindow(HWND hWnd) {
+		POINT pt;
+		if (GetCursorPos(&pt) != 0) {
+			RECT rt;
+			if (GetWindowRect(hWnd, &rt) != 0) {
+				return PtInRect(&rt, pt) != 0;
+			}
+		}
+		return true;
+	}
+
+	void ProcessMouse(HWND hWnd, RAWINPUT *raw, bool foreground) {
 		if (menuActive && UpdateMenuActive()) {
 			// Ignore mouse input while a menu is active, it's probably interacting with the menu.
 			return;
@@ -190,12 +206,27 @@ namespace WindowsRawInput {
 			key.flags = KEY_DOWN;
 			key.keyCode = windowsTransTable[VK_RBUTTON];
 			NativeTouch(touch);
-			NativeKey(key);
+			if (MouseInWindow(hWnd)) {
+				NativeKey(key);
+			}
+			mouseRightDown = true;
 		} else if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
 			key.flags = KEY_UP;
 			key.keyCode = windowsTransTable[VK_RBUTTON];
 			NativeTouch(touch);
-			NativeKey(key);
+			if (MouseInWindow(hWnd)) {
+				if (!mouseRightDown) {
+					// This means they were focused outside, and right clicked inside.
+					// Seems intentional, so send a down first.
+					key.flags = KEY_DOWN;
+					NativeKey(key);
+					key.flags = KEY_UP;
+					NativeKey(key);
+				} else {
+					NativeKey(key);
+				}
+			}
+			mouseRightDown = false;
 		}
 
 		// TODO : Smooth and translate to an axis every frame.
@@ -226,7 +257,7 @@ namespace WindowsRawInput {
 			break;
 
 		case RIM_TYPEMOUSE:
-			ProcessMouse(raw, foreground);
+			ProcessMouse(hWnd, raw, foreground);
 			break;
 
 		case RIM_TYPEHID:
@@ -238,6 +269,10 @@ namespace WindowsRawInput {
 		return DefWindowProc(hWnd, WM_INPUT, wParam, lParam);
 	}
 
+	void GainFocus() {
+		focused = true;
+	}
+
 	void LoseFocus() {
 		// Force-release all held keys on the keyboard to prevent annoying stray inputs.
 		KeyInput key;
@@ -247,6 +282,7 @@ namespace WindowsRawInput {
 			key.keyCode = *i;
 			NativeKey(key);
 		}
+		focused = false;
 	}
 
 	void NotifyMenu() {

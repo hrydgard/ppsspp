@@ -80,4 +80,5 @@ private:
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
 	u8 *scratchpad_;
 	GLuint lastTexture_;
+	int decimationCounter_;
 };

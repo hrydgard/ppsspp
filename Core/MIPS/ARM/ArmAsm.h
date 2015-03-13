@@ -15,12 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _JIT64ASM_H
-#define _JIT64ASM_H
+#pragma once
 
 #include "Core/MIPS/MIPS.h"
 
 // Runtime generated assembly routines, like the Dispatcher.
-
-
-#endif	// _JIT64ASM_H

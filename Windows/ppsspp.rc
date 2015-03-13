@@ -53,7 +53,7 @@ IDB_IMAGE_PSP           IMAGE                   "pspmode.png"
 // RT_MANIFEST
 //
 
-1                       RT_MANIFEST             "rt_manif.bin"
+1                       RT_MANIFEST             "PPSSPP.manifest"
 
 
 

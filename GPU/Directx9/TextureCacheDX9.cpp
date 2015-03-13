@@ -26,6 +26,8 @@
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Directx9/helper/dx_state.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -897,21 +899,84 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		// TODO: Depal
-		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
-		// But let's still not use random memory.
-		if (entry->framebuffer->fbo) {
-			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-			// Keep the framebuffer alive.
-			// TODO: Dangerous if it sets a new one?
-			entry->framebuffer->last_frame_used = gpuStats.numFlips;
-		} else {
-			pD3Ddevice->SetTexture(0, NULL);
-			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		LPDIRECT3DPIXELSHADER9 pshader = nullptr;
+		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+			pshader = depalShaderCache_->GetDepalettizePixelShader(framebuffer->drawnFormat);
 		}
 
-		gstate_c.textureFullAlpha = framebuffer->format == GE_FORMAT_565;
-		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
+		if (pshader) {
+			LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
+
+			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+			fbo_bind_as_render_target(depalFBO);
+
+			float xoff = -0.5f / framebuffer->renderWidth;
+			float yoff = 0.5f / framebuffer->renderHeight;
+
+			const float pos[12 + 8] = {
+				-1 + xoff, 1 + yoff, 0,    0, 0,
+				1 + xoff, 1 + yoff, 0,     1, 0,
+				1 + xoff, -1 + yoff, 0,    1, 1,
+				-1 + xoff, -1 + yoff, 0,   0, 1,
+			};
+
+			shaderManager_->DirtyLastShader();
+
+			pD3Ddevice->SetPixelShader(pshader);
+			pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
+			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+			pD3Ddevice->SetTexture(1, clutTexture);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+			framebufferManager_->BindFramebufferColor(0, framebuffer, true);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+			pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+			pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+			D3DVIEWPORT9 vp;
+			vp.MinZ = 0;
+			vp.MaxZ = 1;
+			vp.X = 0;
+			vp.Y = 0;
+			vp.Width = framebuffer->renderWidth;
+			vp.Height = framebuffer->renderHeight;
+			pD3Ddevice->SetViewport(&vp);
+
+			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pos, (3 + 2) * sizeof(float));
+			if (FAILED(hr)) {
+				ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+			}
+
+			framebufferManager_->RebindFramebuffer();
+			fbo_bind_color_as_texture(depalFBO, 0);
+			dxstate.Restore();
+			dxstate.viewport.restore();
+
+			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+			const u32 clutBase = gstate.getClutIndexStartPos();
+			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+			const u32 clutExtendedColors = (clutTotalBytes_ / bytesPerColor) + clutBase;
+
+			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutExtendedColors, clutExtendedColors, 1);
+			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
+			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
+		} else {
+			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
+			framebufferManager_->BindFramebufferColor(0, framebuffer);
+
+			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
+			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
+		}
 
 		// Keep the framebuffer alive.
 		framebuffer->last_frame_used = gpuStats.numFlips;

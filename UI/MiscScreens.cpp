@@ -88,7 +88,6 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_yres = yres;
 	}
 	
-	dc.GetThin3DContext()->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xff774422, 0.0, 0);
 	int img = I_BG;
 #ifdef GOLD
 	img = I_BG_GOLD;

@@ -236,11 +236,12 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 
 #ifdef USING_QT_UI
 	if (success) {
+		u8 *flipbuffer = nullptr;
+		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer);
 		// TODO: Handle other formats (e.g. Direct3D, raw framebuffers.)
-		const u8 *buffer = buf.GetData();
 		QImage image(buffer, buf.GetStride(), buf.GetHeight(), QImage::Format_RGB888);
-		image = image.mirrored();
 		success = image.save(filename, fmt == SCREENSHOT_PNG ? "PNG" : "JPG");
+		delete [] flipbuffer;
 	}
 #else
 	if (success) {

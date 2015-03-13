@@ -752,7 +752,21 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 
 void Jit::Comp_Syscall(MIPSOpcode op)
 {
-	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
+	if (!g_Config.bSkipDeadbeefFilling)
+	{
+		// All of these will be overwritten with DEADBEEF anyway.
+		gpr.DiscardR(MIPS_REG_COMPILER_SCRATCH);
+		// We need to keep A0 - T3, which are used for args.
+		gpr.DiscardR(MIPS_REG_T4);
+		gpr.DiscardR(MIPS_REG_T5);
+		gpr.DiscardR(MIPS_REG_T6);
+		gpr.DiscardR(MIPS_REG_T7);
+		gpr.DiscardR(MIPS_REG_T8);
+		gpr.DiscardR(MIPS_REG_T9);
+
+		gpr.DiscardR(MIPS_REG_HI);
+		gpr.DiscardR(MIPS_REG_LO);
+	}
 	FlushAll();
 
 	// If we're in a delay slot, this is off by one.

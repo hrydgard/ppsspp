@@ -55,6 +55,9 @@
     <Filter Include="Ext\udis86">
       <UniqueIdentifier>{435eb15d-386c-44df-97b4-343a1d6524ec}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\sfmt19937">
+      <UniqueIdentifier>{8f56c2fd-7706-49f7-8a1d-64dcffad9ad0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -174,6 +177,12 @@
     <ClCompile Include="HLE\sceAudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceAudiocodec.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceAudioRouting.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceCcc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -184,6 +193,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceDmac.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceG729.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceGe.cpp">
@@ -448,9 +460,6 @@
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\sceAudiocodec.cpp">
-      <Filter>HLE\Libraries</Filter>
-    </ClCompile>
     <ClCompile Include="HDRemaster.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -541,6 +550,12 @@
     </ClCompile>
     <ClCompile Include="Util\AudioFormat.cpp">
       <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\sfmt19937\SFMT.c">
+      <Filter>Ext\sfmt19937</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSfmt19937.cpp">
+      <Filter>HLE\Libraries</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -655,6 +670,12 @@
     <ClInclude Include="HLE\sceAudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceAudiocodec.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAudioRouting.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceCcc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -695,6 +716,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceMt19937.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceG729.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceGameUpdate.h">
@@ -916,9 +940,6 @@
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\sceAudiocodec.h">
-      <Filter>HLE\Libraries</Filter>
-    </ClInclude>
     <ClInclude Include="HDRemaster.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -1024,6 +1045,21 @@
     </ClInclude>
     <ClInclude Include="Util\AudioFormatNEON.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sfmt19937\SFMT.h">
+      <Filter>Ext\sfmt19937</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sfmt19937\SFMT-common.h">
+      <Filter>Ext\sfmt19937</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params.h">
+      <Filter>Ext\sfmt19937</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h">
+      <Filter>Ext\sfmt19937</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSfmt19937.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

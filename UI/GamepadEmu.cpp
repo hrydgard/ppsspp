@@ -218,7 +218,7 @@ void PSPDpad::Draw(UIContext &dc) {
 }
 
 PSPStick::PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: UI::View(layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stick_(stick), scale_(scale) {
+	: UI::View(layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
 	stick_size_ = 50;
 }
 
@@ -234,8 +234,13 @@ void PSPStick::Draw(UIContext &dc) {
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0x808080, opacity);
 
-	float stickX = bounds_.centerX();
-	float stickY = bounds_.centerY();
+	if (centerX_ < 0.0f) {
+		centerX_ = bounds_.centerX();
+		centerY_ = bounds_.centerY();
+	}
+
+	float stickX = centerX_;
+	float stickY = centerY_;
 
 	float dx, dy;
 	__CtrlPeekAnalog(stick_, &dx, &dy);
@@ -247,6 +252,13 @@ void PSPStick::Draw(UIContext &dc) {
 void PSPStick::Touch(const TouchInput &input) {
 	if (input.flags & TOUCH_DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+			if (g_Config.bAutoCenterTouchAnalog) {
+				centerX_ = input.x;
+				centerY_ = input.y;
+			} else {
+				centerX_ = bounds_.centerX();
+				centerY_ = bounds_.centerY();
+			}
 			dragPointerId_ = input.id;
 			ProcessTouch(input.x, input.y, true);
 		}
@@ -259,17 +271,19 @@ void PSPStick::Touch(const TouchInput &input) {
 	if (input.flags & TOUCH_UP) {
 		if (input.id == dragPointerId_) {
 			dragPointerId_ = -1;
+			centerX_ = bounds_.centerX();
+			centerY_ = bounds_.centerY();
 			ProcessTouch(input.x, input.y, false);
 		}
 	}
 }
 
 void PSPStick::ProcessTouch(float x, float y, bool down) {
-	if (down) {
+	if (down && centerX_ >= 0.0f) {
 		float inv_stick_size = 1.0f / (stick_size_ * scale_);
 
-		float dx = (x - bounds_.centerX()) * inv_stick_size;
-		float dy = (y - bounds_.centerY()) * inv_stick_size;
+		float dx = (x - centerX_) * inv_stick_size;
+		float dy = (y - centerY_) * inv_stick_size;
 		// Do not clamp to a circle! The PSP has nearly square range!
 
 		// Old code to clamp to a circle
@@ -457,19 +471,24 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 
 	const int halfW = xres / 2;
 
+	const int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
+
+	// These platforms always need the pause menu button to be shown.
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MAEMO)
+	root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
+#endif
+
 	if (g_Config.bShowTouchControls) {
-		int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
-		int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
-		int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
-		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
-		int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
-		int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
+		const int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
+		const int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
+		const int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
+		const int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
+		const int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 		if (g_Config.bShowTouchPause)
-#endif
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
-
+#endif
 		if (g_Config.bShowTouchCircle)
 			root->Add(new PSPButton(CTRL_CIRCLE, roundImage, I_CIRCLE, Action_button_scale, new AnchorLayoutParams(Action_circle_button_X, Action_circle_button_Y, NONE, NONE, true)));
 

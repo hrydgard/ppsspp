@@ -18,15 +18,56 @@
 #include <string.h>
 #include <algorithm>
 
-#if defined(_M_SSE)
-#include <emmintrin.h>
-#endif
-
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
 
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+
+inline __m128 SSECrossProduct(__m128 a, __m128 b)
+{
+	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 1, 0, 2)));
+	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 0, 2, 1)));
+	return _mm_sub_ps(left, right);
+}
+
+inline __m128 SSENormalizeMultiplierSSE2(__m128 v)
+{
+	const __m128 sq = _mm_mul_ps(v, v);
+	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
+	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
+	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
+
+	const __m128 rt = _mm_rsqrt_ss(res);
+	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
+}
+
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
+
+inline __m128 SSENormalizeMultiplierSSE4(__m128 v)
+{
+	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
+}
+
+inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	if (useSSE4)
+		return SSENormalizeMultiplierSSE4(v);
+	return SSENormalizeMultiplierSSE2(v);
+}
+#else
+inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	return SSENormalizeMultiplierSSE2(v);
+}
+#endif
+
+#endif
 
 
 #define START_OPEN 1
@@ -80,29 +121,56 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-static Vec3Packedf Bernstein3D(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3D(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
-static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf p0, const Vec3Packedf p1, const Vec3Packedf p2, const Vec3Packedf p3, float x) {
+static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
 static void spline_n_4(int i, float t, float *knot, float *splineVal) {
 	knot += i + 1;
 
+#ifdef _M_SSE
+	const __m128 knot012 = _mm_loadu_ps(&knot[0]);
+	const __m128 knot345 = _mm_loadu_ps(&knot[3]);
+	const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
+	const __m128 f30_41_52 = _mm_div_ps(t012, _mm_sub_ps(knot345, knot012));
+
+	const __m128 knot343 = _mm_shuffle_ps(knot345, knot345, _MM_SHUFFLE(3, 0, 1, 0));
+	const __m128 knot122 = _mm_shuffle_ps(knot012, knot012, _MM_SHUFFLE(3, 2, 2, 1));
+	const __m128 t122 = _mm_shuffle_ps(t012, t012, _MM_SHUFFLE(3, 2, 2, 1));
+	const __m128 f31_42_32 = _mm_div_ps(t122, _mm_sub_ps(knot343, knot122));
+
+	// It's still faster to use SSE, even with this.
+	float MEMORY_ALIGNED16(ff30_41_52[4]);
+	float MEMORY_ALIGNED16(ff31_42_32[4]);
+	_mm_store_ps(ff30_41_52, f30_41_52);
+	_mm_store_ps(ff31_42_32, f31_42_32);
+
+	const float &f30 = ff30_41_52[0];
+	const float &f41 = ff30_41_52[1];
+	const float &f52 = ff30_41_52[2];
+	const float &f31 = ff31_42_32[0];
+	const float &f42 = ff31_42_32[1];
+	const float &f32 = ff31_42_32[2];
+#else
+	// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
 	float t0 = (t - knot[0]);
 	float t1 = (t - knot[1]);
 	float t2 = (t - knot[2]);
-	// TODO: All our knots are integers so we should be able to get rid of these divisions.
+	// TODO: All our knots are integers so we should be able to get rid of these divisions (How?)
 	float f30 = t0/(knot[3]-knot[0]);
 	float f41 = t1/(knot[4]-knot[1]);
 	float f52 = t2/(knot[5]-knot[2]);
 	float f31 = t1/(knot[3]-knot[1]);
 	float f42 = t2/(knot[4]-knot[2]);
 	float f32 = t2/(knot[3]-knot[2]);
+#endif
+
 	float a = (1-f30)*(1-f31);
 	float b = (f31*f41);
 	float c = (1-f41)*(1-f42);
@@ -204,7 +272,24 @@ static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 }
 
-static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+static inline void AccumulateWeighted(Vec3f &out, const Vec3Packedf &in, const Vec4f &w) {
+#ifdef _M_SSE
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(_mm_loadu_ps(in.AsArray()), w.vec));
+#else
+	out += in * w.x;
+#endif
+}
+
+static inline void AccumulateWeighted(Vec4f &out, const Vec4f &in, const Vec4f &w) {
+#ifdef _M_SSE
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
+#else
+	out += in * w;
+#endif
+}
+
+template <bool origNrm, bool origCol, bool origTc, bool useSSE4>
+static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -253,19 +338,18 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
 			Vec4f vert_color(0, 0, 0, 0);
-			vert->pos.SetZero();
-			if (origVertType & GE_VTYPE_NRM_MASK) {
-				vert->nrm.SetZero();
-			} else {
-				vert->nrm.SetZero();
-				vert->nrm.z = 1.0f;
+			Vec3f vert_pos;
+			vert_pos.SetZero();
+			Vec3f vert_nrm;
+			if (origNrm) {
+				vert_nrm.SetZero();
 			}
-			if (origVertType & GE_VTYPE_COL_MASK) {
+			if (origCol) {
 				vert_color.SetZero();
 			} else {
 				memcpy(vert->color, spatch.points[0]->color, 4);
 			}
-			if (origVertType & GE_VTYPE_TC_MASK) {
+			if (origTc) {
 				vert->uv[0] = 0.0f;
 				vert->uv[1] = 0.0f;
 			} else {
@@ -293,31 +377,42 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 					float f = u_spline * v_spline;
 
 					if (f > 0.0f) {
+#ifdef _M_SSE
+						Vec4f fv(_mm_set_ps1(f));
+#else
+						Vec4f fv = Vec4f::AssignToAll(f);
+#endif
 						int idx = spatch.count_u * (iv + jj) + (iu + ii);
 						SimpleVertex *a = spatch.points[idx];
-						vert->pos += a->pos * f;
-						if (origVertType & GE_VTYPE_TC_MASK) {
+						AccumulateWeighted(vert_pos, a->pos, fv);
+						if (origTc) {
 							vert->uv[0] += a->uv[0] * f;
 							vert->uv[1] += a->uv[1] * f;
 						}
-						if (origVertType & GE_VTYPE_COL_MASK) {
+						if (origCol) {
 							Vec4f a_color = Vec4f::FromRGBA(a->color_32);
-#ifdef _M_SSE
-							vert_color.vec = _mm_add_ps(vert_color.vec, _mm_mul_ps(a_color.vec, _mm_set_ps1(f)));
-#else
-							vert_color += a_color * f;
-#endif
+							AccumulateWeighted(vert_color, a_color, fv);
 						}
-						if (origVertType & GE_VTYPE_NRM_MASK) {
-							vert->nrm += a->nrm * f;
+						if (origNrm) {
+							AccumulateWeighted(vert_nrm, a->nrm, fv);
 						}
 					}
 				}
 			}
-			if (origVertType & GE_VTYPE_NRM_MASK) {
-				vert->nrm.Normalize();
+			vert->pos = vert_pos;
+			if (origNrm) {
+#ifdef _M_SSE
+				const __m128 normalize = SSENormalizeMultiplier(useSSE4, vert_nrm.vec);
+				vert_nrm.vec = _mm_mul_ps(vert_nrm.vec, normalize);
+#else
+				vert_nrm.Normalize();
+#endif
+				vert->nrm = vert_nrm;
+			} else {
+				vert->nrm.SetZero();
+				vert->nrm.z = 1.0f;
 			}
-			if (origVertType & GE_VTYPE_COL_MASK) {
+			if (origCol) {
 				vert->color_32 = vert_color.ToRGBA();
 			}
 		}
@@ -327,21 +422,48 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 	delete[] knot_v;
 
 	// Hacky normal generation through central difference.
-	if (gstate.isLightingEnabled() && (origVertType & GE_VTYPE_NRM_MASK) == 0) {
-		for (int v = 0; v < patch_div_t + 1; v++) {
-			for (int u = 0; u < patch_div_s + 1; u++) {
-				int l = std::max(0, u - 1);
-				int t = std::max(0, v - 1);
-				int r = std::min(patch_div_s, u + 1);
-				int b = std::min(patch_div_t, v + 1);
+	if (gstate.isLightingEnabled() && !origNrm) {
+#ifdef _M_SSE
+		const __m128 facing = (gstate.patchfacing & 1) != 0 ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
+#endif
 
-				const Vec3Packedf &right = vertices[v * (patch_div_s + 1) + r].pos - vertices[v * (patch_div_s + 1) + l].pos;
+		for (int v = 0; v < patch_div_t + 1; v++) {
+			Vec3f vl_pos = vertices[v * (patch_div_s + 1)].pos;
+			Vec3f vc_pos = vertices[v * (patch_div_s + 1)].pos;
+
+			for (int u = 0; u < patch_div_s + 1; u++) {
+				const int l = std::max(0, u - 1);
+				const int t = std::max(0, v - 1);
+				const int r = std::min(patch_div_s, u + 1);
+				const int b = std::min(patch_div_t, v + 1);
+
+				const Vec3f vr_pos = vertices[v * (patch_div_s + 1) + r].pos;
+
+#ifdef _M_SSE
+				const __m128 right = _mm_sub_ps(vr_pos.vec, vl_pos.vec);
+
+				const Vec3f vb_pos = vertices[b * (patch_div_s + 1) + u].pos;
+				const Vec3f vt_pos = vertices[t * (patch_div_s + 1) + u].pos;
+				const __m128 down = _mm_sub_ps(vb_pos.vec, vt_pos.vec);
+
+				const __m128 crossed = SSECrossProduct(right, down);
+				const __m128 normalize = SSENormalizeMultiplier(useSSE4, crossed);
+
+				Vec3f finalNrm = _mm_mul_ps(normalize, _mm_mul_ps(crossed, facing));
+				vertices[v * (patch_div_s + 1) + u].nrm = finalNrm;
+#else
+				const Vec3Packedf &right = vr_pos - vl_pos;
 				const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
 
 				vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
 				if (gstate.patchfacing & 1) {
 					vertices[v * (patch_div_s + 1) + u].nrm *= -1.0f;
 				}
+#endif
+
+				// Rotate for the next one to the right.
+				vl_pos = vc_pos;
+				vc_pos = vr_pos;
 			}
 		}
 	}
@@ -361,16 +483,53 @@ static void _SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const S
 	}
 }
 
+template <bool origNrm, bool origCol, bool origTc>
+static inline void SplinePatchFullQualityDispatch4(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	if (cpu_info.bSSE4_1)
+		SplinePatchFullQuality<origNrm, origCol, origTc, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQuality<origNrm, origCol, origTc, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
+template <bool origNrm, bool origCol>
+static inline void SplinePatchFullQualityDispatch3(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origTc = (origVertType & GE_VTYPE_TC_MASK) != 0;
+
+	if (origTc)
+		SplinePatchFullQualityDispatch4<origNrm, origCol, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQualityDispatch4<origNrm, origCol, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
+template <bool origNrm>
+static inline void SplinePatchFullQualityDispatch2(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origCol = (origVertType & GE_VTYPE_COL_MASK) != 0;
+
+	if (origCol)
+		SplinePatchFullQualityDispatch3<origNrm, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQualityDispatch3<origNrm, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
+static void SplinePatchFullQualityDispatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+	bool origNrm = (origVertType & GE_VTYPE_NRM_MASK) != 0;
+
+	if (origNrm)
+		SplinePatchFullQualityDispatch2<true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+	else
+		SplinePatchFullQualityDispatch2<false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
+}
+
 void TesselateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
 		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
+		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
 		break;
 	case HIGH_QUALITY:
-		_SplinePatchFullQuality(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
+		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
 		break;
 	}
 }

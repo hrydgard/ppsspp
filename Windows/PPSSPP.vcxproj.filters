@@ -277,9 +277,6 @@
     <None Include="icon1.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="rt_manif.bin">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="stop1.ico">
       <Filter>Resource Files</Filter>
     </None>
@@ -324,6 +321,9 @@
       <Filter>Other Platforms</Filter>
     </None>
     <None Include="..\assets\knownfuncs.ini">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="PPSSPP.manifest">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

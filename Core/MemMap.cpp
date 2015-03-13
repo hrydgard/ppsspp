@@ -480,7 +480,7 @@ Opcode Read_Opcode_JIT(u32 address)
 
 // WARNING! No checks!
 // We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
+void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 {
 	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }

@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMap.h"
@@ -144,6 +145,43 @@ static int Replace_memcpy() {
 	return 10 + bytes / 4;  // approximation
 }
 
+static int Replace_memcpy_jak() {
+	u32 destPtr = PARAM(0);
+	u32 srcPtr = PARAM(1);
+	u32 bytes = PARAM(2);
+	bool skip = false;
+	if (bytes == 0) {
+		RETURN(destPtr);
+		return 5;
+	}
+	currentMIPS->InvalidateICache(srcPtr, bytes);
+	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	}
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		const u8 *src = Memory::GetPointer(srcPtr);
+
+		if (!dst || !src) {
+		} else {
+			// Jak style overlap.
+			for (u32 i = 0; i < bytes; i++) {
+				dst[i] = src[i];
+			}
+		}
+	}
+
+	// Jak relies on more registers coming out right than the ABI specifies.
+	// See the disassembly of the function for the explanations for these...
+	currentMIPS->r[MIPS_REG_T0] = 0;
+	currentMIPS->r[MIPS_REG_A0] = -1;
+	currentMIPS->r[MIPS_REG_A2] = 0;
+	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
+	RETURN(destPtr);
+
+	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
+}
+
 static int Replace_memcpy16() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -251,6 +289,38 @@ static int Replace_memset() {
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
 #endif
 	return 10 + bytes / 4;  // approximation
+}
+
+static int Replace_memset_jak() {
+	u32 destPtr = PARAM(0);
+	u8 value = PARAM(1);
+	u32 bytes = PARAM(2);
+
+	if (bytes == 0) {
+		RETURN(destPtr);
+		return 5;
+	}
+
+	bool skip = false;
+	if (Memory::IsVRAMAddress(destPtr)) {
+		skip = gpu->PerformMemorySet(destPtr, value, bytes);
+	}
+	if (!skip && bytes != 0) {
+		u8 *dst = Memory::GetPointer(destPtr);
+		if (dst) {
+			memset(dst, value, bytes);
+		}
+	}
+
+	currentMIPS->r[MIPS_REG_T0] = destPtr + bytes;
+	currentMIPS->r[MIPS_REG_A2] = -1;
+	currentMIPS->r[MIPS_REG_A3] = -1;
+	RETURN(destPtr);
+
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
+	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
 }
 
 static int Replace_strlen() {
@@ -953,17 +1023,19 @@ static const ReplacementTableEntry entries[] = {
 	{ "sinf", &Replace_sinf, 0, REPFLAG_DISABLED },
 	{ "cosf", &Replace_cosf, 0, REPFLAG_DISABLED },
 	{ "tanf", &Replace_tanf, 0, REPFLAG_DISABLED },
-
 	{ "atanf", &Replace_atanf, 0, REPFLAG_DISABLED },
 	{ "sqrtf", &Replace_sqrtf, 0, REPFLAG_DISABLED },
 	{ "atan2f", &Replace_atan2f, 0, REPFLAG_DISABLED },
 	{ "floorf", &Replace_floorf, 0, REPFLAG_DISABLED },
 	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
+
 	{ "memcpy", &Replace_memcpy, 0, 0 },
+	{ "memcpy_jak", &Replace_memcpy_jak, 0, 0 },
 	{ "memcpy16", &Replace_memcpy16, 0, 0 },
 	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
 	{ "memmove", &Replace_memmove, 0, 0 },
 	{ "memset", &Replace_memset, 0, 0 },
+	{ "memset_jak", &Replace_memset_jak, 0, 0 },
 	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
 	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
@@ -1023,14 +1095,14 @@ static const ReplacementTableEntry entries[] = {
 
 
 static std::map<u32, u32> replacedInstructions;
-static std::map<std::string, int> replacementNameLookup;
+static std::map<std::string, std::vector<int> > replacementNameLookup;
 
 void Replacement_Init() {
 	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
 		const auto entry = &entries[i];
 		if (!entry->name || (entry->flags & REPFLAG_DISABLED) != 0)
 			continue;
-		replacementNameLookup[entry->name] = i;
+		replacementNameLookup[entry->name].push_back(i);
 	}
 }
 
@@ -1045,17 +1117,18 @@ int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
 }
 
-int GetReplacementFuncIndex(u64 hash, int funcSize) {
+std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize) {
 	const char *name = MIPSAnalyst::LookupHash(hash, funcSize);
+	std::vector<int> emptyResult;
 	if (!name) {
-		return -1;
+		return emptyResult;
 	}
 
 	auto index = replacementNameLookup.find(name);
 	if (index != replacementNameLookup.end()) {
 		return index->second;
 	}
-	return -1;
+	return emptyResult;
 }
 
 const ReplacementTableEntry *GetReplacementFunc(int i) {
@@ -1076,8 +1149,8 @@ static void WriteReplaceInstruction(u32 address, int index) {
 }
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
-	int index = GetReplacementFuncIndex(hash, size);
-	if (index >= 0) {
+	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
+	for (int index : indexes) {
 		auto entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.

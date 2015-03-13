@@ -1006,7 +1006,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
 
-	for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); it++) {
+	for (auto it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 		if (it->second.entryPoint == handlerPtr) {
 			foundHandler = true;
 			break;
@@ -3025,7 +3025,7 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 
 	if (!Memory::IsValidAddress(optLenAddr)) return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
 
-	s32_le * optlen = (s32_le *)optLenAddr;
+	s32_le *optlen = PSPPointer<s32_le>::Create(optLenAddr);
 
 	// Multithreading Lock
 	peerlock.lock();

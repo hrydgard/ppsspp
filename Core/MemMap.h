@@ -141,7 +141,7 @@ MemoryInitedLock Lock();
 // used by JIT to read instructions. Does not resolve replacements.
 Opcode Read_Opcode_JIT(const u32 _Address);
 // used by JIT. Reads in the "Locked cache" mode
-void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
+void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
 
 // Should be used by analyzers, disassemblers etc. Does resolve replacements.
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);

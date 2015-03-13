@@ -463,6 +463,10 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
+#elif defined(_MSC_VER)
+		long timezone_val;
+		_get_timezone(&timezone_val);
+		srcTick -= -timezone_val * 1000000ULL;
 #else
 		srcTick -= -timezone * 1000000ULL;
 #endif
@@ -486,6 +490,10 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
+#elif defined(_MSC_VER)
+		long timezone_val;
+		_get_timezone(&timezone_val);
+		srcTick += -timezone_val * 1000000ULL;
 #else
 		srcTick += -timezone * 1000000ULL;
 #endif
@@ -1019,6 +1027,10 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		tz_seconds = time->tm_gmtoff;
+#elif defined(_MSC_VER)
+		long timezone_val;
+		_get_timezone(&timezone_val);
+		tz_seconds = -timezone_val;
 #else
 		tz_seconds = -timezone;
 #endif
@@ -1054,6 +1066,10 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		tz_seconds = time->tm_gmtoff;
+#elif defined(_MSC_VER)
+		long timezone_val;
+		_get_timezone(&timezone_val);
+		tz_seconds = -timezone_val;
 #else
 		tz_seconds = -timezone;
 #endif
