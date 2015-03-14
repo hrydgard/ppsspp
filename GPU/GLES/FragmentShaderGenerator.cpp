@@ -527,14 +527,14 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (gl_extensions.EXT_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_lastFragData[0]";
+		lastFragData = "gl_LastFragData[0]";
 	} else if (gl_extensions.NV_shader_framebuffer_fetch) {
 		// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
 		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_lastFragData[0]";
+		lastFragData = "gl_LastFragData[0]";
 	} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
 		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_lastFragColorARM";
+		lastFragData = "gl_LastFragColorARM";
 	}
 
 	WRITE(p, "precision lowp float;\n");
