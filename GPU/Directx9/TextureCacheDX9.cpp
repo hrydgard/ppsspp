@@ -1022,7 +1022,8 @@ bool TextureCacheDX9::SetOffsetTexture(u32 offset) {
 		return false;
 	}
 
-	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
+	const u16 dim = gstate.getTextureDimension(0);
+	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter == cache.end()) {
 		return false;
@@ -1068,6 +1069,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		return;
 	}
 
+	const u16 dim = gstate.getTextureDimension(0);
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 
@@ -1080,7 +1082,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	bool hasClut = gstate.isTextureFormatIndexed();
 
 	// Ignore uncached/kernel when caching.
-	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
+	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1088,7 +1090,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			UpdateCurrentClut();
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-		cachekey |= cluthash;
+		cachekey ^= cluthash;
 	} else {
 		cluthash = 0;
 	}
@@ -1111,7 +1113,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
-		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
 
 		// Check for FBO - slow!
