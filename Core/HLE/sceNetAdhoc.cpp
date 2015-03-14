@@ -3019,7 +3019,7 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 
 	if (!Memory::IsValidAddress(optLenAddr)) return ERROR_NET_ADHOC_MATCHING_INVALID_ARG;
 
-	s32_le * optlen = (s32_le *)optLenAddr;
+	s32_le *optlen = PSPPointer<s32_le>::Create(optLenAddr);
 
 	// Multithreading Lock
 	peerlock.lock();
