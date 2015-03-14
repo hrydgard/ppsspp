@@ -1115,7 +1115,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
-		// and to discard extraFBOs_ after using them.
 
 		const float u0 = offsetX / (float)vfb->bufferWidth;
 		const float v0 = offsetY / (float)vfb->bufferHeight;
@@ -1166,6 +1165,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+			}
+
+			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+				fbo_bind_as_render_target(extraFBOs_[0]);
+				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}
 		} else {
 			if (g_Config.bEnableCardboard) {
