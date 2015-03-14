@@ -757,9 +757,6 @@ namespace DX9 {
 			float x, y, w, h;
 			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
-			// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
-			// and to discard extraFBOs_ after using them.
-
 			const float u0 = offsetX / (float)vfb->bufferWidth;
 			const float v0 = offsetY / (float)vfb->bufferHeight;
 			const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
