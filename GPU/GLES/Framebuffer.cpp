@@ -1086,6 +1086,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	vfb->last_frame_displayed = gpuStats.numFlips;
 	vfb->dirtyAfterDisplay = false;
 	vfb->reallyDirtyAfterDisplay = false;
 
@@ -1822,15 +1823,16 @@ void FramebufferManager::DecimateFBOs() {
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 		}
 
-		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			continue;
+		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
+			if (age > FBO_OLD_AGE) {
+				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+				DestroyFramebuf(vfb);
+				vfbs_.erase(vfbs_.begin() + i--);
+			}
 		}
 
-		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-			DestroyFramebuf(vfb);
-			vfbs_.erase(vfbs_.begin() + i--);
-		}
+		// Let's also "decimate" the usageFlags.
+		UpdateFramebufUsage(vfb);
 	}
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
