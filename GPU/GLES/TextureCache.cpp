@@ -1385,8 +1385,10 @@ void TextureCache::SetTexture(bool force) {
 		}
 
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
-			// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
-			match = false;
+			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
+				match = false;
+			}
 		}
 
 		if (match) {
