@@ -732,6 +732,7 @@ namespace DX9 {
 		}
 
 		vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+		vfb->last_frame_displayed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = false;
 		vfb->reallyDirtyAfterDisplay = false;
 
@@ -755,9 +756,6 @@ namespace DX9 {
 			// Output coordinates
 			float x, y, w, h;
 			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-
-			// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
-			// and to discard extraFBOs_ after using them.
 
 			const float u0 = offsetX / (float)vfb->bufferWidth;
 			const float v0 = offsetY / (float)vfb->bufferHeight;
@@ -1152,15 +1150,16 @@ namespace DX9 {
 				ReadFramebufferToMemory(vfb, false, 0, 0, vfb->width, vfb->height);
 			}
 
-			if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-				continue;
+			if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
+				if (age > FBO_OLD_AGE) {
+					INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+					DestroyFramebuf(vfb);
+					vfbs_.erase(vfbs_.begin() + i--);
+				}
 			}
 
-			if (age > FBO_OLD_AGE) {
-				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-				DestroyFramebuf(vfb);
-				vfbs_.erase(vfbs_.begin() + i--);
-			}
+			// Let's also "decimate" the usageFlags.
+			UpdateFramebufUsage(vfb);
 		}
 
 		for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {

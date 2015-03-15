@@ -50,6 +50,7 @@ struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_attached;
 	int last_frame_render;
+	int last_frame_displayed;
 	bool memoryUpdated;
 	bool depthUpdated;
 
@@ -195,6 +196,8 @@ protected:
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 
+	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
+
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->dirtyAfterDisplay = true;
@@ -230,5 +233,6 @@ protected:
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {
 		FBO_OLD_AGE = 5,
+		FBO_OLD_USAGE_FLAG = 15,
 	};
 };

@@ -851,8 +851,8 @@ void EmuScreen::render() {
 #ifdef USING_GLES2
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
-		GLenum attachments[3] = { GL_DEPTH, GL_STENCIL };
-		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+		GLenum attachments[2] = { GL_DEPTH, GL_STENCIL };
+		glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, attachments);
 	} else if (!gl_extensions.GLES3) {
 		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 		bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO

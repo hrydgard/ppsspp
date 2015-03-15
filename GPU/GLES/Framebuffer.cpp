@@ -1086,6 +1086,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	vfb->last_frame_displayed = gpuStats.numFlips;
 	vfb->dirtyAfterDisplay = false;
 	vfb->reallyDirtyAfterDisplay = false;
 
@@ -1114,7 +1115,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
-		// and to discard extraFBOs_ after using them.
 
 		const float u0 = offsetX / (float)vfb->bufferWidth;
 		const float v0 = offsetY / (float)vfb->bufferHeight;
@@ -1165,6 +1165,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+			}
+
+			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+				fbo_bind_as_render_target(extraFBOs_[0]);
+				GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}
 		} else {
 			if (g_Config.bEnableCardboard) {
@@ -1756,6 +1762,18 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		}
 	}
 
+	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+#ifdef USING_GLES2
+		// GLES3 doesn't support using GL_READ_FRAMEBUFFER here.
+		fbo_bind_as_render_target(vfb->fbo);
+		const GLenum target = GL_FRAMEBUFFER;
+#else
+		const GLenum target = GL_READ_FRAMEBUFFER;
+#endif
+		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+		glInvalidateFramebuffer(target, 3, attachments);
+	}
+
 	fbo_unbind_read();
 }
 
@@ -1778,6 +1796,20 @@ void FramebufferManager::EndFrame() {
 	if (updateVRAM_)
 		PackFramebufferAsync_(NULL);
 #endif
+
+	// Let's explicitly invalidate any temp FBOs used during this frame.
+	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+		for (auto temp : tempFBOs_) {
+			if (temp.second.last_frame_used < gpuStats.numFlips) {
+				continue;
+			}
+
+			fbo_bind_as_render_target(temp.second.fbo);
+			GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
+			glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+		}
+		fbo_unbind();
+	}
 }
 
 void FramebufferManager::DeviceLost() {
@@ -1822,15 +1854,16 @@ void FramebufferManager::DecimateFBOs() {
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 		}
 
-		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			continue;
+		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
+			if (age > FBO_OLD_AGE) {
+				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+				DestroyFramebuf(vfb);
+				vfbs_.erase(vfbs_.begin() + i--);
+			}
 		}
 
-		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-			DestroyFramebuf(vfb);
-			vfbs_.erase(vfbs_.begin() + i--);
-		}
+		// Let's also "decimate" the usageFlags.
+		UpdateFramebufUsage(vfb);
 	}
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {

@@ -333,6 +333,7 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		vfb->last_frame_render = gpuStats.numFlips;
 		vfb->last_frame_used = 0;
 		vfb->last_frame_attached = 0;
+		vfb->last_frame_displayed = 0;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
@@ -765,4 +766,19 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		vfb->renderWidth = (u16)(vfb->bufferWidth * renderWidthFactor);
 		vfb->renderHeight = (u16)(vfb->bufferHeight * renderHeightFactor);
 	}
+}
+
+void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
+	auto checkFlag = [&](u16 flag, int last_frame) {
+		if (vfb->usageFlags & flag) {
+			const int age = frameLastFramebufUsed_ - last_frame;
+			if (age > FBO_OLD_USAGE_FLAG) {
+				vfb->usageFlags &= ~flag;
+			}
+		}
+	};
+
+	checkFlag(FB_USAGE_DISPLAYED_FRAMEBUFFER, vfb->last_frame_displayed);
+	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
+	checkFlag(FB_USAGE_RENDERTARGET, vfb->last_frame_render);
 }
