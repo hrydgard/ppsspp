@@ -137,19 +137,24 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	int size = w >> 30;
 	int imm9 = SignExtend9((w >> 12) & 0x1FF);
-	int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 	int Rt = (w & 0x1F);
 	int Rn = ((w >> 5) & 0x1F);
+	int Rm = ((w >> 16) & 0x1F);
+	int option = (w >> 13) & 0x7;
 	int opc = (w >> 22) & 0x3;
+	char r = size == 3 ? 'x' : 'w';
 	const char *opname[4] = { "str", "ldr", "(unk)", "(unk)" };
 	const char *sizeSuffix[4] = { "b", "w", "", "" };
 
-	if (((w >> 27) & 7) == 7) {
+	if (((w >> 21) & 1) == 1) {
+		// register offset
+		snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + w%d]", opname[opc], sizeSuffix[size], r, Rt, Rn, Rm);
+		return;
+	} else if (((w >> 27) & 7) == 7) {
 		int V = (w >> 26) & 1;
 		if (V == 0) {
-			char r = size == 3 ? 'x' : 'w';
 			bool index_unsigned = ((w >> 24) & 3) == 1;
-
+			int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 			if (index_unsigned) {
 				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + %d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
 				return;

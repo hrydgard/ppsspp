@@ -255,8 +255,8 @@ private:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 
 	// Utils
-	void SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset);
-	void SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, Arm64Gen::ARM64Reg tempReg, bool reverse = false);
+	void SetScratch1ToEffectiveAddress(MIPSGPReg rs, s16 offset);
+	void SetCCAndSCRATCH1ForSafeAddress(MIPSGPReg rs, s16 offset, Arm64Gen::ARM64Reg tempReg, bool reverse = false);
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
 	JitBlockCache blocks;
