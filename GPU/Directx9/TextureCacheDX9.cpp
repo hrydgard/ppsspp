@@ -1114,6 +1114,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
+		const char *reason = "different params";
 
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
@@ -1125,6 +1126,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			} else {
 				// Make sure we re-evaluate framebuffers.
 				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+				reason = "detached framebuf";
 				match = false;
 			}
 		}
@@ -1189,6 +1191,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 			if (hashFail) {
 				match = false;
+				reason = "hash fail";
 				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
 					entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
@@ -1226,6 +1229,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
+				reason = "scaling";
 			}
 		}
 
@@ -1246,7 +1250,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
-			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
 				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
