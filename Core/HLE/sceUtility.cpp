@@ -255,6 +255,18 @@ static u32 sceUtilityUnloadModule(u32 module)
 		return hleDelayResult(0, "utility module unloaded", 400);
 }
 
+static int sceUtilityLoadUsbModule(u32 module)
+{
+	ERROR_LOG_REPORT(SCEUTILITY, "Unimp sceUtilityLoadUsbModule(%i)", module);
+	return 0;
+}
+
+static int sceUtilityUnloadUsbModule(u32 module)
+{
+	ERROR_LOG(SCEUTILITY, "Unimp sceUtilityUnloadUsbModule(%i)", module);
+	return 0;
+}
+
 static int sceUtilityMsgDialogInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_MSG)
@@ -809,8 +821,8 @@ const HLEFunction sceUtility[] =
 	{0xD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>, "sceUtilityScreenshotGetStatus"},
 	{0x86A03A27, &WrapI_U<sceUtilityScreenshotContStart>, "sceUtilityScreenshotContStart"},
 
-	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
-	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
+	{0x0D5BC6D2, &WrapI_U<sceUtilityLoadUsbModule>, "sceUtilityLoadUsbModule"},
+	{0xF64910F0, &WrapI_U<sceUtilityUnloadUsbModule>, "sceUtilityUnloadUsbModule"},
 
 	{0x24AC31EB, &WrapI_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
 	{0x32E32DCB, &WrapI_V<sceUtilityGamedataInstallShutdownStart>, "sceUtilityGamedataInstallShutdownStart"},
