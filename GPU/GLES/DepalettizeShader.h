@@ -47,8 +47,10 @@ public:
 
 private:
 	u32 GenerateShaderID(GEBufferFormat pixelFormat);
+	bool CreateVertexShader();
 
 	bool useGL3_;
+	bool vertexShaderFailed_;
 	GLuint vertexShader_;
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;

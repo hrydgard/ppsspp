@@ -94,18 +94,34 @@ DepalShaderCache::DepalShaderCache() {
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
 
+	vertexShaderFailed_ = false;
+	vertexShader_ = 0;
+}
+
+DepalShaderCache::~DepalShaderCache() {
+	Clear();
+	if (vertexShader_) {
+		glDeleteShader(vertexShader_);
+	}
+}
+
+bool DepalShaderCache::CreateVertexShader() {
+	if (vertexShaderFailed_) {
+		return false;
+	}
+
 	vertexShader_ = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShader_, 1, useGL3_ ? &depalVShader300 : &depalVShader100, 0);
 	glCompileShader(vertexShader_);
 
 	if (!CheckShaderCompileSuccess(vertexShader_, useGL3_ ? depalVShader300 : depalVShader100)) {
-		// ...
+		glDeleteShader(vertexShader_);
+		vertexShader_ = 0;
+		// Don't try to recompile.
+		vertexShaderFailed_ = true;
 	}
-}
 
-DepalShaderCache::~DepalShaderCache() {
-	Clear();
-	glDeleteShader(vertexShader_);
+	return !vertexShaderFailed_;
 }
 
 u32 DepalShaderCache::GenerateShaderID(GEBufferFormat pixelFormat) {
@@ -152,7 +168,9 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 void DepalShaderCache::Clear() {
 	for (auto shader = cache_.begin(); shader != cache_.end(); ++shader) {
 		glDeleteShader(shader->second->fragShader);
-		glDeleteProgram(shader->second->program);
+		if (shader->second->program) {
+			glDeleteProgram(shader->second->program);
+		}
 		delete shader->second;
 	}
 	cache_.clear();
@@ -183,6 +201,13 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 		return shader->second->program;
 	}
 
+	if (vertexShader_ == 0) {
+		if (!CreateVertexShader()) {
+			// The vertex shader failed, no need to bother trying the fragment.
+			return 0;
+		}
+	}
+
 	char *buffer = new char[2048];
 
 	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_300 : GLSL_140);
@@ -211,6 +236,11 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	glUniform1i(u_tex, 0);
 	glUniform1i(u_pal, 3);
 
+	DepalShader *depal = new DepalShader();
+	depal->program = program;
+	depal->fragShader = fragShader;
+	cache_[id] = depal;
+
 	GLint linkStatus = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
 	if (linkStatus != GL_TRUE) {
@@ -227,17 +257,14 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 			delete[] errorbuf;	// we're dead!
 		}
 
-		delete[] buffer;
-		return 0;
+		// Since it failed, let's mark it in the cache so we don't keep retrying.
+		// That will only make it slower.
+		depal->program = 0;
+
+		// We will delete the shader later in Clear().
+		glDeleteProgram(program);
 	}
 
-	DepalShader *depal = new DepalShader();
-	depal->program = program;
-	depal->fragShader = fragShader;
-
-	cache_[id] = depal;
-
 	delete[] buffer;
-
 	return depal->program;
 }
