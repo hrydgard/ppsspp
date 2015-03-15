@@ -406,7 +406,7 @@ public:
 	// Unconditional Branch (register)
 	void BR(ARM64Reg Rn);
 	void BLR(ARM64Reg Rn);
-	void RET(ARM64Reg Rn);
+	void RET(ARM64Reg Rn = X30);
 	void ERET();
 	void DRPS();
 
