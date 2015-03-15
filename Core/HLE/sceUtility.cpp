@@ -50,6 +50,12 @@
 #define PSP_AV_MODULE_AAC         6
 #define PSP_AV_MODULE_G729        7
 
+#define PSP_USB_MODULE_PSPCM 1
+#define PSP_USB_MODULE_ACC 2
+#define PSP_USB_MODULE_MIC 3 // Requires PSP_USB_MODULE_ACC loading first
+#define PSP_USB_MODULE_CAM 4 // Requires PSP_USB_MODULE_ACC loading first
+#define PSP_USB_MODULE_GPS 5 // Requires PSP_USB_MODULE_ACC loading first
+
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
 const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
@@ -742,6 +748,28 @@ static int sceUtilityGameSharingGetStatus()
 	return 0;
 }
 
+static u32 sceUtilityLoadUsbModule(u32 module)
+{
+	if (module < 1 || module > 5)
+	{
+		ERROR_LOG(SCEUTILITY, "sceUtilityLoadUsbModule(%i): invalid module id", module);
+	}
+
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
+	return 0;
+}
+
+static u32 sceUtilityUnloadUsbModule(u32 module)
+{
+	if (module < 1 || module > 5)
+	{
+		ERROR_LOG(SCEUTILITY, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
+	}
+
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
+	return 0;
+}
+
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
@@ -809,8 +837,8 @@ const HLEFunction sceUtility[] =
 	{0xD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>, "sceUtilityScreenshotGetStatus"},
 	{0x86A03A27, &WrapI_U<sceUtilityScreenshotContStart>, "sceUtilityScreenshotContStart"},
 
-	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
-	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
+	{0x0D5BC6D2, &WrapU_U<sceUtilityLoadUsbModule>, "sceUtilityLoadUsbModule"},
+	{0xF64910F0, &WrapU_U<sceUtilityUnloadUsbModule>, "sceUtilityUnloadUsbModule"},
 
 	{0x24AC31EB, &WrapI_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
 	{0x32E32DCB, &WrapI_V<sceUtilityGamedataInstallShutdownStart>, "sceUtilityGamedataInstallShutdownStart"},
