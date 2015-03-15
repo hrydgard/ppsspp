@@ -40,7 +40,7 @@ bool IsPowerOfTwo(uint64_t x) {
 
 #define V8_UINT64_C(x) ((uint64_t)(x))
 
-static bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
+bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
 	if (input < 4096) {
 		*val = input;
 		*shift = false;
@@ -53,11 +53,7 @@ static bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
 	return false;
 }
 
-static bool IsImmLogical(uint64_t value,
-                          unsigned int width,
-                          unsigned int *n,
-                          unsigned int *imm_s,
-                          unsigned int *imm_r) {
+bool IsImmLogical(uint64_t value, unsigned int width, unsigned int *n, unsigned int *imm_s, unsigned int *imm_r) {
   //DCHECK((n != NULL) && (imm_s != NULL) && (imm_r != NULL));
   // DCHECK((width == kWRegSizeInBits) || (width == kXRegSizeInBits));
 
@@ -450,11 +446,11 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 	bool b64Bit = Is64Bit(Rt);
 	s64 distance = (s64)ptr - (s64)m_code;
 
-	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, (int)distance);
+	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %llx", __FUNCTION__, distance);
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
+	_assert_msg_(DYNA_REC, distance >= -0x3FFF && distance < 0x3FFF, "%s: Received too large distance: %llx", __FUNCTION__, distance);
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
@@ -465,11 +461,11 @@ void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
 {
 	s64 distance = (s64)ptr - s64(m_code);
 
-	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %lx", __FUNCTION__, (int)distance);
+	_assert_msg_(DYNA_REC, !(distance & 0x3), "%s: distance must be a multiple of 4: %llx", __FUNCTION__, distance);
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0x2000000 && distance <= 0x1FFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
+	_assert_msg_(DYNA_REC, distance >= -0x2000000LL && distance <= 0x1FFFFFFLL, "%s: Received too large distance: %llx", __FUNCTION__, distance);
 
 	Write32((op << 31) | (0x5 << 26) | (distance & 0x3FFFFFF));
 }
@@ -727,7 +723,7 @@ void ARM64XEmitter::EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, 
 	        (imm << 10) | (Rn << 5) | Rd);
 }
 
-void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
 	// Sometimes Rd is fixed to SP, but can still be 32bit or 64bit.
 	// Use Rn to determine bitness here.
@@ -736,7 +732,7 @@ void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 i
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 
-	Write32((b64Bit << 31) | (op << 29) | (0x24 << 23) | (b64Bit << 22) | \
+	Write32((b64Bit << 31) | (op << 29) | (0x24 << 23) | (b64Bit << 22) | (invert << 21) | \
 	        (immr << 16) | (imms << 10) | (Rn << 5) | Rd);
 }
 
@@ -1410,25 +1406,25 @@ void ARM64XEmitter::ROR(ARM64Reg Rd, ARM64Reg Rm, int shift)
 }
 
 // Logical (immediate)
-void ARM64XEmitter::AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(0, Rd, Rn, immr, imms);
+	EncodeLogicalImmInst(0, Rd, Rn, immr, imms, invert);
 }
-void ARM64XEmitter::ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(3, Rd, Rn, immr, imms);
+	EncodeLogicalImmInst(3, Rd, Rn, immr, imms, invert);
 }
-void ARM64XEmitter::EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(2, Rd, Rn, immr, imms);
+	EncodeLogicalImmInst(2, Rd, Rn, immr, imms, invert);
 }
-void ARM64XEmitter::ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(1, Rd, Rn, immr, imms);
+	EncodeLogicalImmInst(1, Rd, Rn, immr, imms, invert);
 }
-void ARM64XEmitter::TST(ARM64Reg Rn, u32 immr, u32 imms)
+void ARM64XEmitter::TST(ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(3, Is64Bit(Rn) ? SP : WSP, Rn, immr, imms);
+	EncodeLogicalImmInst(3, Is64Bit(Rn) ? SP : WSP, Rn, immr, imms, invert);
 }
 
 // Add/subtract (immediate)
@@ -3101,7 +3097,7 @@ void ARM64FloatEmitter::ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mas
 void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		AND(Rd, Rn, imm_r, imm_s);
+		AND(Rd, Rn, imm_r, imm_s, n);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3112,7 +3108,7 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 void ARM64XEmitter::ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		ORR(Rd, Rn, imm_r, imm_s);
+		ORR(Rd, Rn, imm_r, imm_s, n);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3120,10 +3116,21 @@ void ARM64XEmitter::ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	}
 }
 
+void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	unsigned int n, imm_s, imm_r;
+	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
+		EOR(Rd, Rn, imm_r, imm_s, n);
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "EORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		MOVI2R(scratch, imm);
+		EOR(Rd, Rn, scratch);
+	}
+}
+
 void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		ANDS(Rd, Rn, imm_r, imm_s);
+		ANDS(Rd, Rn, imm_r, imm_s, n);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3137,7 +3144,7 @@ void ARM64XEmitter::ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		ADD(Rd, Rn, val, shift);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ADDI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ADD(Rd, Rn, scratch);
 	}
@@ -3149,11 +3156,85 @@ void ARM64XEmitter::SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		SUB(Rd, Rn, val, shift);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "SUBI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		SUB(Rd, Rn, scratch);
 	}
 }
+
+void ARM64XEmitter::CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		CMP(Rn, val, shift);
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "CMPI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		MOVI2R(scratch, imm);
+		CMP(Rn, scratch);
+	}
+}
+
+bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		ADD(Rd, Rn, val, shift);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		SUB(Rd, Rn, val, shift);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u32 imm) {
+	u32 val;
+	bool shift;
+	if (IsImmArithmetic(imm, &val, &shift)) {
+		CMP(Rn, val, shift);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+	u32 n, imm_r, imm_s;
+	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+		AND(Rd, Rn, imm_r, imm_s, n);
+		return true;
+	} else {
+		return false;
+	}
+}
+bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+	u32 n, imm_r, imm_s;
+	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+		ORR(Rd, Rn, imm_r, imm_s, n);
+		return true;
+	} else {
+		return false;
+	}
+}
+bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+	u32 n, imm_r, imm_s;
+	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+		EOR(Rd, Rn, imm_r, imm_s, n);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 
 void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	u32 val;

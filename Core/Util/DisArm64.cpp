@@ -75,7 +75,7 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		// Constant initialization.
 		int imm16 = (w >> 5) & 0xFFFF;
 		int opc = (w >> 29) & 3;
-		int shift = ((w >> 22) & 0x3) * 16;
+		int shift = ((w >> 21) & 0x3) * 16;
 		const char *opnames[4] = { "movn", "(undef)", "movz", "movk" };
 		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x << %d", opnames[opc], r, Rd, imm16, shift);
 	} else if (((w >> 24) & 0x1F) == 0x10) {

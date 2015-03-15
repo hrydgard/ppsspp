@@ -76,6 +76,9 @@ enum ARM64Reg
 	PLTL2KEEP, PLTL2STRM,
 	PLTL3KEEP, PLTL3STRM,
 
+	WZR = WSP,
+	ZR = SP,
+
 	INVALID_REG = 0xFFFFFFFF
 };
 
@@ -88,6 +91,11 @@ inline ARM64Reg DecodeReg(ARM64Reg reg) { return (ARM64Reg)(reg & 0x1F); }
 inline ARM64Reg EncodeRegTo64(ARM64Reg reg) { return (ARM64Reg)(reg | 0x20); }
 inline ARM64Reg EncodeRegToDouble(ARM64Reg reg) { return (ARM64Reg)((reg & ~0xC0) | 0x80); }
 inline ARM64Reg EncodeRegToQuad(ARM64Reg reg) { return (ARM64Reg)(reg | 0xC0); }
+
+// For AND/TST/ORR/EOR etc
+bool IsImmLogical(uint64_t value, unsigned int width, unsigned int *n, unsigned int *imm_s, unsigned int *imm_r);
+// For ADD/SUB
+bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift);
 
 enum OpType
 {
@@ -341,7 +349,7 @@ private:
 	void EncodeBitfieldMOVInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
 	void EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, ARM64Reg Rn, ARM64Reg Rd);
-	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
+	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert);
 	void EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 	void EncodeAddressInst(u32 op, ARM64Reg Rd, s32 imm);
 	void EncodeLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
@@ -466,6 +474,12 @@ public:
 	void CSINV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 	void CSNEG(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 
+	// Aliases
+	void CSET(ARM64Reg Rd, CCFlags cond) {
+		ARM64Reg zr = Is64Bit(Rd) ? ZR : WZR;
+		CSINC(Rd, zr, zr, (CCFlags)((u32)cond ^ 1));
+	}
+
 	// Data-Processing 1 source
 	void RBIT(ARM64Reg Rd, ARM64Reg Rn);
 	void REV16(ARM64Reg Rd, ARM64Reg Rn);
@@ -532,11 +546,11 @@ public:
 	void ROR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 
 	// Logical (immediate)
-	void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void TST(ARM64Reg Rn, u32 immr, u32 imms);
+	void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void TST(ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
 
 	// Add/subtract (immediate)
 	void ADD(ARM64Reg Rd, ARM64Reg Rn, u32 imm, bool shift = false);
@@ -646,12 +660,22 @@ public:
 	// Wrapper around AND x, y, imm etc. If you are sure the imm will work, no need to pass a scratch register.
 	void ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
 	void ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
-	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG) { ANDSI2R(Is64Bit(Rn) ? SP : WSP, Rn, imm, scratch); }
+	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG) { ANDSI2R(Is64Bit(Rn) ? ZR : WZR, Rn, imm, scratch); }
 	void ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
 
 	void ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
 	void SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
 	void SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+
+	bool TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryCMPI2R(ARM64Reg Rn, u32 imm);
+
+	bool TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
 
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
