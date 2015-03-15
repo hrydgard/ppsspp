@@ -139,6 +139,8 @@ protected:
 	virtual bool ShouldExitEventLoop() {
 		return coreState != CORE_RUNNING;
 	}
+	virtual void FinishDeferred() {
+	}
 
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {

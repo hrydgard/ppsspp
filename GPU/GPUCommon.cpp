@@ -533,6 +533,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		}
 	}
 
+	FinishDeferred();
+
 	// We haven't run the op at list.pc, so it shouldn't count.
 	if (cycleLastPC != list.pc) {
 		UpdatePC(list.pc - 4, list.pc);

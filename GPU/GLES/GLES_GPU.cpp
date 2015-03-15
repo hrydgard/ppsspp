@@ -705,6 +705,10 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 	downcount = 0;
 }
 
+void GLES_GPU::FinishDeferred() {
+	// This finishes reading any vertex data that is pending.
+	transformDraw_.FinishDeferred();
+}
 
 void GLES_GPU::ProcessEvent(GPUEvent ev) {
 	switch (ev.type) {
