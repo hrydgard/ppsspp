@@ -26,34 +26,126 @@
 #define strcasecmp _stricmp
 #endif
 
+static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyOut) {
+	std::string key = "";
+
+	while (pos < line.size()) {
+		size_t next = line.find_first_of("=#", pos);
+		if (next == line.npos || next == 0) {
+			// Key never ended or empty, invalid.
+			return false;
+		} else if (line[next] == '#') {
+			if (line[next - 1] != '\\') {
+				// Value commented out before =, so not valid.
+				return false;
+			}
+
+			// Escaped.
+			key += line.substr(pos, next - pos - 1) + "#";
+			pos = next + 1;
+		} else if (line[next] == '=') {
+			// Hurray, done.
+			key += line.substr(pos, next - pos);
+			pos = next + 1;
+			break;
+		}
+	}
+
+	if (keyOut) {
+		*keyOut = StripSpaces(key);
+	}
+	return true;
+}
+
+static bool ParseLineValue(const std::string &line, size_t &pos, std::string *valueOut) {
+	std::string value = "";
+
+	while (pos < line.size()) {
+		size_t next = line.find('#', pos);
+		if (next == line.npos) {
+			value += line.substr(pos);
+			pos = line.npos;
+			break;
+		} else if (line[next - 1] != '\\') {
+			// It wasn't escaped, so finish before the #.
+			value += line.substr(pos, next - pos);
+			// Include the comment's # in pos.
+			pos = next;
+			break;
+		} else {
+			// Escaped.
+			value += line.substr(pos, next - pos - 1) + "#";
+			pos = next + 1;
+		}
+	}
+
+	if (valueOut) {
+		*valueOut = StripQuotes(StripSpaces(value));
+	}
+
+	return true;
+}
+
+static bool ParseLineComment(const std::string& line, size_t &pos, std::string *commentOut) {
+	// Don't bother with anything if we don't need the comment data.
+	if (commentOut) {
+		// Include any whitespace/formatting in the comment.
+		size_t commentStartPos = pos;
+		if (commentStartPos != line.npos) {
+			while (commentStartPos > 0 && line[commentStartPos - 1] <= ' ') {
+				--commentStartPos;
+			}
+
+			*commentOut = line.substr(commentStartPos);
+		} else {
+			// There was no comment.
+			commentOut->clear();
+		}
+	}
+
+	pos = line.npos;
+	return true;
+}
+
 // Ugh, this is ugly.
 static bool ParseLine(const std::string& line, std::string* keyOut, std::string* valueOut, std::string* commentOut)
 {
-	int FirstEquals = (int)line.find("=", 0);
-	int FirstCommentChar = -1;
+	// Rules:
+	// 1. A line starting with ; is commented out.
+	// 2. A # in a line (and all the space before it) is the comment.
+	// 3. A \# in a line is not part of a comment and becomes # in the value.
+	// 4. Whitespace around values is removed.
+	// 5. Double quotes around values is removed.
 
-	// Comments
-	if (FirstCommentChar < 0)
-		FirstCommentChar =
-			(int)line.find("#", FirstEquals > 0 ? FirstEquals : 0);
-	if (FirstCommentChar < 0 && line[0] == ';')
-		FirstCommentChar = 0;
+	if (line.size() < 2 || line[0] == ';')
+		return false;
 
-	// Allow preservation of spacing before comment
-	while (FirstCommentChar > 0 && line[FirstCommentChar - 1] <= ' ')
-	{
-		FirstCommentChar--;
+	size_t pos = 0;
+	if (!ParseLineKey(line, pos, keyOut))
+		return false;
+	if (!ParseLineValue(line, pos, valueOut))
+		return false;
+	if (!ParseLineComment(line, pos, commentOut))
+		return false;
+
+	return true;
+}
+
+static std::string EscapeComments(const std::string &value) {
+	std::string result = "";
+
+	for (size_t pos = 0; pos < value.size(); ) {
+		size_t next = value.find('#', pos);
+		if (next == value.npos) {
+			result += value.substr(pos);
+			pos = value.npos;
+		} else {
+			result += value.substr(pos, next - pos) + "\\#";
+			pos = next + 1;
+		}
 	}
 
-	if ((FirstEquals >= 0) && ((FirstCommentChar < 0) || (FirstEquals < FirstCommentChar)))
-	{
-		// Yes, a valid key/value line!
-		*keyOut = StripSpaces(line.substr(0, FirstEquals));
-		if (commentOut) *commentOut = FirstCommentChar > 0 ? line.substr(FirstCommentChar) : std::string("");
-		if (valueOut) *valueOut = StripQuotes(StripSpaces(line.substr(FirstEquals + 1, FirstCommentChar - FirstEquals - 1)));
-		return true;
-	}
-	return false;
+	return result;
 }
 
 void IniFile::Section::Clear() {
@@ -80,12 +172,12 @@ void IniFile::Section::Set(const char* key, const char* newValue)
 	if (line)
 	{
 		// Change the value - keep the key and comment
-		*line = StripSpaces(key) + " = " + newValue + commented;
+		*line = StripSpaces(key) + " = " + EscapeComments(newValue) + commented;
 	}
 	else
 	{
 		// The key did not already exist in this section - let's add it.
-		lines.push_back(std::string(key) + " = " + newValue);
+		lines.push_back(std::string(key) + " = " + EscapeComments(newValue));
 	}
 }
 
