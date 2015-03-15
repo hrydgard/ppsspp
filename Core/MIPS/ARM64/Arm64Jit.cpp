@@ -74,8 +74,7 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 Arm64Jit::~Arm64Jit() {
 }
 
-void Arm64Jit::DoState(PointerWrap &p)
-{
+void Arm64Jit::DoState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
@@ -90,8 +89,7 @@ void Arm64Jit::DoState(PointerWrap &p)
 }
 
 // This is here so the savestate matches between jit and non-jit.
-void Arm64Jit::DoDummyState(PointerWrap &p)
-{
+void Arm64Jit::DoDummyState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
@@ -111,8 +109,7 @@ void Arm64Jit::FlushAll()
 	FlushPrefixV();
 }
 
-void Arm64Jit::FlushPrefixV()
-{
+void Arm64Jit::FlushPrefixV() {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		gpr.SetRegImm(SCRATCH1, js.prefixS);
 		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
@@ -132,21 +129,18 @@ void Arm64Jit::FlushPrefixV()
 	}
 }
 
-void Arm64Jit::ClearCache()
-{
+void Arm64Jit::ClearCache() {
 	ILOG("ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace();
 	GenerateFixedCode();
 }
 
-void Arm64Jit::InvalidateCache()
-{
+void Arm64Jit::InvalidateCache() {
 	blocks.Clear();
 }
 
-void Arm64Jit::InvalidateCacheAt(u32 em_address, int length)
-{
+void Arm64Jit::InvalidateCacheAt(u32 em_address, int length) {
 	blocks.InvalidateICache(em_address, length);
 }
 
@@ -164,8 +158,7 @@ void Arm64Jit::EatInstruction(MIPSOpcode op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void Arm64Jit::CompileDelaySlot(int flags)
-{
+void Arm64Jit::CompileDelaySlot(int flags) {
 	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
 	// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 	// delay slot, we're screwed.
@@ -277,11 +270,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
-		//MIPSInfo info = MIPSGetInfo(inst);
-		//if (info & IS_VFPU) {
-		//	logBlocks = 1;
-		//}
-
+	
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -327,10 +316,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	// Don't forget to zap the newly written instructions in the instruction cache!
 	FlushIcache();
 
-	if (js.lastContinuedPC == 0)
+	if (js.lastContinuedPC == 0) {
 		b->originalSize = js.numInstructions;
-	else
-	{
+	} else {
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (js.compilerPC - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
@@ -339,8 +327,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Arm64Jit::AddContinuedBlock(u32 dest)
-{
+void Arm64Jit::AddContinuedBlock(u32 dest) {
 	// The first block is the root block.  When we continue, we create proxy blocks after that.
 	if (js.lastContinuedPC == 0)
 		js.initialBlockSize = js.numInstructions;
@@ -349,14 +336,12 @@ void Arm64Jit::AddContinuedBlock(u32 dest)
 	js.lastContinuedPC = dest;
 }
 
-bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
-{
+bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	// TODO: Not used by anything yet.
 	return false;
 }
 
-void Arm64Jit::Comp_RunBlock(MIPSOpcode op)
-{
+void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
@@ -403,6 +388,7 @@ void Arm64Jit::MovToPC(ARM64Reg r) {
 	STR(INDEX_UNSIGNED, r, CTXREG, offsetof(MIPSState, pc));
 }
 
+// Should not really be necessary except when entering Advance
 void Arm64Jit::SaveDowncount() {
 	STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 }
@@ -436,8 +422,7 @@ void Arm64Jit::UpdateRoundingMode() {
 // and just have conditional that set PC "twice". This only works when we fall back to dispatcher
 // though, as we need to have the SUBS flag set in the end. So with block linking in the mix,
 // I don't think this gives us that much benefit.
-void Arm64Jit::WriteExit(u32 destination, int exit_num)
-{
+void Arm64Jit::WriteExit(u32 destination, int exit_num) {
 	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -456,16 +441,14 @@ void Arm64Jit::WriteExit(u32 destination, int exit_num)
 	}
 }
 
-void Arm64Jit::WriteExitDestInR(ARM64Reg Reg) 
-{
+void Arm64Jit::WriteExitDestInR(ARM64Reg Reg) {
 	MovToPC(Reg);
 	WriteDownCount();
 	// TODO: shouldn't need an indirect branch here...
 	B((const void *)dispatcher);
 }
 
-void Arm64Jit::WriteSyscallExit()
-{
+void Arm64Jit::WriteSyscallExit() {
 	WriteDownCount();
 	B((const void *)dispatcherCheckCoreState);
 }

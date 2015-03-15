@@ -32,7 +32,7 @@ using namespace Arm64Gen;
 
 //static int temp32; // unused?
 
-static const bool enableDebug = true;
+static const bool enableDebug = false;
 
 //static bool enableStatistics = false; //unused?
 
@@ -77,10 +77,10 @@ static const bool enableDebug = true;
 
 extern volatile CoreState coreState;
 
-void ShowPC(u32 sp) {
+void ShowPC(u32 sp, void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
-		ELOG("ShowPC : %08x  ArmSP : %08x %d", currentMIPS->pc, sp, count);
+		ELOG("ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, sp, count);
 	} else {
 		ELOG("Universe corrupt?");
 	}
@@ -127,7 +127,7 @@ void Arm64Jit::GenerateFixedCode() {
 	outerLoopPCInSCRATCH1 = GetCodePtr();
 	MovToPC(SCRATCH1);
 	outerLoop = GetCodePtr();
-		SaveDowncount();
+		SaveDowncount();  // Advance can change the downcount, so must save/restore
 		RestoreRoundingMode(true);
 		QuickCallFunction(SCRATCH1_64, &CoreTiming::Advance);
 		ApplyRoundingMode(true);
@@ -164,19 +164,22 @@ void Arm64Jit::GenerateFixedCode() {
 
 			// Debug
 			if (enableDebug) {
+				MOV(W0, DOWNCOUNTREG);
+				MOV(X1, MEMBASEREG);
+				MOV(X2, JITBASEREG);
 				QuickCallFunction(SCRATCH1, (void *)&ShowPC);
 			}
 
 			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
 			LDR(SCRATCH1, MEMBASEREG, SCRATCH1_64);
-			ANDI2R(SCRATCH2, SCRATCH1, 0xFF000000);   // rotation is to the right, in 2-bit increments.
-			ANDI2R(SCRATCH1, SCRATCH1, 0x00FFFFFF);  // TODO: Replace this and the next op by a bit field extract
-			LSR(SCRATCH2, SCRATCH2, 24);
-			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE>>24);
+			LSR(SCRATCH2, SCRATCH1, 24);
+			ANDI2R(SCRATCH1, SCRATCH1, 0x00FFFFFF);
+			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE >> 24);
 			FixupBranch skipJump = B(CC_NEQ);
 				ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
+
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
@@ -204,15 +207,16 @@ void Arm64Jit::GenerateFixedCode() {
 
 	ABI_PopRegisters(regs_to_save);
 
+	RET();
+	// Don't forget to zap the instruction cache!
+	FlushIcache();
+
 	INFO_LOG(JIT, "THE DISASM : %p ========================", enterCode);
 	std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
 	for (auto s : lines) {
 		INFO_LOG(JIT, "%s", s.c_str());
 	}
 	INFO_LOG(JIT, "END OF THE DISASM : %p ========================", GetCodePtr());
-
-	// Don't forget to zap the instruction cache!
-	FlushIcache();
 }
 
 }  // namespace MIPSComp
