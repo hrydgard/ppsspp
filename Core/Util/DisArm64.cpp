@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 
+#include "Common/Arm64Emitter.h"
 #include "Common/StringUtils.h"
 
 struct Instruction {
@@ -33,80 +34,170 @@ struct Instruction {
 };
 
 int SignExtend26(int x) {
-	return (x & 0x02000000) ? (0xFC000000 | x) : x;
+	return (x & 0x02000000) ? (0xFC000000 | x) : (x & 0x3FFFFFF);
 }
 
 int SignExtend19(int x) {
-	return (x & 0x00040000) ? (0xFFF80000 | x) : x;
+	return (x & 0x00040000) ? (0xFFF80000 | x) : (x & 0x7FFFF);
 }
+
+int SignExtend9(int x) {
+	return (x & 0x00000100) ? (0xFFFFFE00 | x) : (x & 0x1FF);
+}
+
+int SignExtend12(int x) {
+	return (x & 0x00000800) ? (0xFFFFF000 | x) : (x & 0xFFF);
+}
+
+static const char *conds[16] = {
+	"eq", // Equal
+	"ne", // Not equal
+	"cs", // Carry Set    "HS"
+	"cc", // Carry Clear	"LO"
+	"mi", // Minus (Negative)
+	"pl", // Plus
+	"vs", // Overflow
+	"vc", // No Overflow
+	"hi", // Unsigned higher
+	"ls", // Unsigned lower or same
+	"ge", // Signed greater than or equal
+	"lt", // Signed less than
+	"gt", // Signed greater than
+	"le", // Signed less than or equal
+	"al", // Always (unconditional) 14
+};
 
 static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rd = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
 	char r = ((w >> 31) & 1) ? 'x' : 'w';
 	if (((w >> 23) & 0x3f) == 0x25) {
+		// Constant initialization.
 		int imm16 = (w >> 5) & 0xFFFF;
 		int opc = (w >> 29) & 3;
-		int shift = ((w >> 22) & 0x3) << 16;
+		int shift = ((w >> 22) & 0x3) * 16;
 		const char *opnames[4] = { "movn", "(undef)", "movz", "movk" };
 		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x << %d", opnames[opc], r, Rd, imm16, shift);
 	} else if (((w >> 24) & 0x1F) == 0x10) {
+		// Address generation relative to PC
 		int op = w >> 31;
-		int imm = SignExtend19((w >> 5) & 0x7FFFF);
+		int imm = SignExtend19(w >> 5);
 		if (op & 1) imm <<= 12;
 		u64 daddr = addr + imm;
-		snprintf(instr->text, sizeof(instr->text), "%s x%d, 0x%04x%08x", op ? "adrp" : "adr", w, daddr >> 32, daddr & 0xFFFFFFFF);
+		snprintf(instr->text, sizeof(instr->text), "%s x%d, 0x%04x%08x", op ? "adrp" : "adr", Rd, daddr >> 32, daddr & 0xFFFFFFFF);
 	} else if (((w >> 24) & 0x1F) == 0x11) {
+		// Add/subtract immediate value
+		int op = (w >> 30) & 1;
 		int imm = ((w >> 10) & 0xFFF);
-		int shift = ((w >> 22) & 0x3) << 16;
+		int shift = ((w >> 22) & 0x3) * 16;
 		imm <<= shift;
-		snprintf(instr->text, sizeof(instr->text), "add/sub %c%d, %c%d, %d", r, Rd, r, Rn, imm);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %d", op == 0 ? "add" : "sub", r, Rd, r, Rn, imm);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPI %08x)", w);
 	}
 }
 
 static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr) {
+	int Rt = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
 	if (((w >> 26) & 0x1F) == 5) {
 		// Unconditional branch / branch+link
-		int offset = SignExtend26(w & 0x03FFFFFF) << 2;
+		int offset = SignExtend26(w) << 2;
 		uint64_t target = addr + offset;
-		snprintf(instr->text, sizeof(instr->text), "b%s %08x%08x", (w >> 31) ? "l" : "", (target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (target >> 32), (target & 0xFFFFFFFF));
 	} else if (((w >> 25) & 0x3F) == 0x1A) {
-		snprintf(instr->text, sizeof(instr->text), "(comp & branch %08x)", w);
+		// Compare and branch
+		int op = (w >> 24) & 1;
+		const char *opname[2] = { "cbz", "cbnz" };
+		char r = ((w >> 31) & 1) ? 'x' : 'w';
+		int offset = SignExtend19(w >> 5);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d", op, r, Rt);
 	} else if (((w >> 25) & 0x3F) == 0x1B) {
+		// Test and branch
 		snprintf(instr->text, sizeof(instr->text), "(test & branch %08x)", w);
 	} else if (((w >> 25) & 0x7F) == 0x2A) {
-		snprintf(instr->text, sizeof(instr->text), "(cond-branch %08x)", w);
+		// Conditional branch
+		int offset = SignExtend19(w >> 5) << 2;
+		uint64_t target = addr + offset;
+		int cond = w & 0xF;
+		snprintf(instr->text, sizeof(instr->text), "b.%s %04x08x", conds[cond], (target >> 32), (target & 0xFFFFFFFF));
 	} else if ((w >> 24) == 0xD4) {
 		snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
 	} else if (((w >> 20) & 0xFFC) == 0xD50) {
 		snprintf(instr->text, sizeof(instr->text), "(system-reg %08x)", w);
 	} else if (((w >> 25) & 0x7F) == 0x6B) {
-		snprintf(instr->text, sizeof(instr->text), "(branch-reg %08x)", w);
+		int op = (w >> 21) & 3;
+		const char *opname[4] = { "b", "bl", "ret", "(unk)" };
+		snprintf(instr->text, sizeof(instr->text), "%s x%d", opname[op], Rn);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(BRX ?? %08x)", w);
 	}
 }
 
 static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
+	int size = w >> 30;
+	int imm9 = SignExtend9((w >> 12) & 0x1FF);
+	int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
+	int Rt = (w & 0x1F);
+	int Rn = ((w >> 5) & 0x1F);
+	int opc = (w >> 22) & 0x3;
+	const char *opname[4] = { "str", "ldr", "(unk)", "(unk)" };
+	const char *sizeSuffix[4] = { "b", "w", "", "" };
+
+	if (((w >> 27) & 7) == 7) {
+		int V = (w >> 26) & 1;
+		if (V == 0) {
+			char r = size == 3 ? 'x' : 'w';
+			bool index_unsigned = ((w >> 24) & 3) == 1;
+
+			if (index_unsigned) {
+				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + %d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
+				return;
+			}
+		}
+	}
 	snprintf(instr->text, sizeof(instr->text), "(LS %08x)", w);
 }
 
 static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr) {
-	int rd = w & 0x1F;
-	int rn = (w >> 5) & 0x1F;
-	int rm = (w >> 16) & 0x1F;
+	int Rd = w & 0x1F;
+	int Rn = (w >> 5) & 0x1F;
+	int Rm = (w >> 16) & 0x1F;
 	char r = ((w >> 31) & 1) ? 'x' : 'w';
 
 	if (((w >> 21) & 0xF) == 9) {
 		bool S = (w >> 29) & 1;
 		bool sub = (w >> 30) & 1;
-		if (rd == 31 && S) {
+		if (Rd == 31 && S) {
 			// It's a CMP
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d", "cmp", S ? "s" : "", r, rn, r, rm);
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d", "cmp", S ? "s" : "", r, Rn, r, Rm);
 		} else {
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, rd, r, rn, r, rm);
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm);
+		}
+	} else if (((w >> 21) & 0x2FF) == 0x2D6) {
+		// Data processing
+		int opcode2 = (w >> 16) & 0x1F;
+		if (opcode2 == 0) {
+			int opcode = (w >> 10) & 0x3F;
+			// Data-processing (1 source)
+			const char *opname[8] = { "rbit", "rev16", "rev", "(unk)", "clz", "cls" };
+			const char *op = opcode2 >= 8 ? "unk" : opname[opcode];
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", op, r, Rn, r, Rm);
+		} else {
+			// Data processing (2 source)
+			snprintf(instr->text, sizeof(instr->text), "(data-proc-2-source %08x)", w);
+		}
+	} else if (((w >> 24) & 0x1f) == 0xA) {
+		// Logical (shifted register)
+		int shift = (w >> 22) & 0x3;
+		int imm6 = (w >> 10) & 0x3f;
+		int N = (w >> 20) & 1;
+		int opc = (((w >> 29) & 3) << 1) | N;
+		const char *opnames[8] = { "and", "bic", "orr", "orn", "eor", "eon", "ands", "bics" };
+		if (imm6 == 0) {
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
 		}
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);
