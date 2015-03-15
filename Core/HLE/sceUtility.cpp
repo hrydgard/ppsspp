@@ -755,7 +755,7 @@ static u32 sceUtilityLoadUsbModule(u32 module)
 		ERROR_LOG(SCEUTILITY, "sceUtilityLoadUsbModule(%i): invalid module id", module);
 	}
 
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
+	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
 	return 0;
 }
 
@@ -766,7 +766,7 @@ static u32 sceUtilityUnloadUsbModule(u32 module)
 		ERROR_LOG(SCEUTILITY, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
 	}
 
-	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
+	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
 	return 0;
 }
 
