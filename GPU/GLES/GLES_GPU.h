@@ -146,9 +146,10 @@ public:
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
 protected:
-	virtual void FastRunLoop(DisplayList &list);
-	virtual void ProcessEvent(GPUEvent ev);
-	virtual void FastLoadBoneMatrix(u32 target);
+	void FastRunLoop(DisplayList &list) override;
+	void ProcessEvent(GPUEvent ev) override;
+	void FastLoadBoneMatrix(u32 target) override;
+	void FinishDeferred() override;
 
 private:
 	void Flush() {

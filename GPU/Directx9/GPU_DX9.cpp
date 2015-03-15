@@ -621,6 +621,11 @@ void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
+void DIRECTX9_GPU::FinishDeferred() {
+	// This finishes reading any vertex data that is pending.
+	transformDraw_.FinishDeferred();
+}
+
 void DIRECTX9_GPU::ProcessEvent(GPUEvent ev) {
 	switch (ev.type) {
 	case GPU_EVENT_INIT_CLEAR:

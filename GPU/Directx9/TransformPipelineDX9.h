@@ -171,6 +171,12 @@ public:
 		DoFlush();
 	}
 
+	void FinishDeferred() {
+		if (!numDrawCalls)
+			return;
+		DecodeVerts();
+	}
+
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 protected:
