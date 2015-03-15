@@ -193,18 +193,18 @@ void DepalShaderCache::Decimate() {
 	}
 }
 
-GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
+DepalShader *DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 	u32 id = GenerateShaderID(pixelFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
-		return shader->second->program;
+		return shader->second;
 	}
 
 	if (vertexShader_ == 0) {
 		if (!CreateVertexShader()) {
 			// The vertex shader failed, no need to bother trying the fragment.
-			return 0;
+			return nullptr;
 		}
 	}
 
@@ -263,8 +263,11 @@ GLuint DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
 
 		// We will delete the shader later in Clear().
 		glDeleteProgram(program);
+	} else {
+		depal->a_position = glGetAttribLocation(program, "a_position");
+		depal->a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
 	}
 
 	delete[] buffer;
-	return depal->program;
+	return depal->program ? depal : nullptr;
 }

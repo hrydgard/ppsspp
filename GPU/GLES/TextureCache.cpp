@@ -1075,11 +1075,11 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		GLuint program = 0;
+		DepalShader *depal = nullptr;
 		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-			program = depalShaderCache_->GetDepalettizeShader(framebuffer->drawnFormat);
+			depal = depalShaderCache_->GetDepalettizeShader(framebuffer->drawnFormat);
 		}
-		if (program) {
+		if (depal) {
 			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutHash_, clutBuf_);
 			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 			fbo_bind_as_render_target(depalFBO);
@@ -1099,15 +1099,12 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 
 			shaderManager_->DirtyLastShader();
 
-			glUseProgram(program);
-
-			GLint a_position = glGetAttribLocation(program, "a_position");
-			GLint a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
+			glUseProgram(depal->program);
 
 			glstate.arrayBuffer.unbind();
 			glstate.elementArrayBuffer.unbind();
-			glEnableVertexAttribArray(a_position);
-			glEnableVertexAttribArray(a_texcoord0);
+			glEnableVertexAttribArray(depal->a_position);
+			glEnableVertexAttribArray(depal->a_texcoord0);
 
 			glActiveTexture(GL_TEXTURE3);
 			glBindTexture(GL_TEXTURE_2D, clutTexture);
@@ -1128,11 +1125,11 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 #endif
 			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 
-			glVertexAttribPointer(a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
 			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-			glDisableVertexAttribArray(a_position);
-			glDisableVertexAttribArray(a_texcoord0);
+			glDisableVertexAttribArray(depal->a_position);
+			glDisableVertexAttribArray(depal->a_texcoord0);
 
 			fbo_bind_color_as_texture(depalFBO, 0);
 			glstate.Restore();
