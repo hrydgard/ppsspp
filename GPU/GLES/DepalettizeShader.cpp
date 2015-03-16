@@ -100,9 +100,6 @@ DepalShaderCache::DepalShaderCache() {
 
 DepalShaderCache::~DepalShaderCache() {
 	Clear();
-	if (vertexShader_) {
-		glDeleteShader(vertexShader_);
-	}
 }
 
 bool DepalShaderCache::CreateVertexShader() {
@@ -179,6 +176,10 @@ void DepalShaderCache::Clear() {
 		delete tex->second;
 	}
 	texCache_.clear();
+	if (vertexShader_) {
+		glDeleteShader(vertexShader_);
+		vertexShader_ = 0;
+	}
 }
 
 void DepalShaderCache::Decimate() {
