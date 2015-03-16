@@ -742,6 +742,7 @@ public:
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Scalar floating point immediate
 	void FMOV(ARM64Reg Rd, u32 imm);

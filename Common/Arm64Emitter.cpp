@@ -936,10 +936,10 @@ void ARM64XEmitter::CBNZ(ARM64Reg Rt, const void* ptr)
 void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 {
 	s64 distance = (s64)ptr - (s64(m_code) + 8);
+
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, IsInRangeImm19(distance), "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
-
+	_assert_msg_(DYNA_REC, IsInRangeImm19(distance), "%s: Received too large distance: %p->%p %lld %llx", __FUNCTION__, m_code, ptr, distance, distance);
 	Write32((0x54 << 24) | (MaskImm19(distance) << 5) | cond);
 }
 
@@ -2586,6 +2586,10 @@ void ARM64FloatEmitter::FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 void ARM64FloatEmitter::FSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	Emit2Source(0, 0, IsDouble(Rd), 3, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 1, Rd, Rn, Rm);
 }
 
 // Scalar floating point immediate
