@@ -788,7 +788,12 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
+static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCache::TexCacheEntry *entry) {
+	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+		// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+		h = std::max(272, (int)entry->maxSeenV);
+	}
+
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 
@@ -986,6 +991,20 @@ void TextureCache::ApplyTexture() {
 	if (nextTexture_->framebuffer) {
 		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
 	} else {
+		// If the texture is >= 512 pixels tall...
+		if (nextTexture_->dim >= 0x900) {
+			// Texture scale/offset and gen modes don't apply in through.
+			// So we can optimize how much of the texture we look at.
+			if (gstate.isModeThrough()) {
+				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertMaxV);
+			} else {
+				// Otherwise, we need to reset to ensure we use the whole thing.
+				// Can't tell how much is used.
+				// TODO: We could tell for texcoord UV gen, and apply scale to max?
+				nextTexture_->maxSeenV = 512;
+			}
+		}
+
 		glBindTexture(GL_TEXTURE_2D, nextTexture_->textureName);
 		lastBoundTexture = nextTexture_->textureName;
 		UpdateSamplingParams(*nextTexture_, false);
@@ -1219,13 +1238,13 @@ void TextureCache::SetTexture(bool force) {
 
 			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				hashFail = true;
 				rehash = false;
 			}
 
 			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
 				} else if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
@@ -1358,7 +1377,7 @@ void TextureCache::SetTexture(bool force) {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
+	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;

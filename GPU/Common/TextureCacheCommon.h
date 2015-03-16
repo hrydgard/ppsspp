@@ -79,6 +79,7 @@ public:
 		u32 fullhash;
 		u32 cluthash;
 		float lodBias;
+		u16 maxSeenV;
 
 		// Cache the current filter settings so we can avoid setting it again.
 		// (OpenGL madness where filter settings are attached to each texture).
