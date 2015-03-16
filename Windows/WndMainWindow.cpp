@@ -1588,10 +1588,10 @@ namespace MainWindow
 					g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 					break;
 
-				case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(AUTO); break;
-				case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(NEAREST); break;
-				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(LINEAR); break;
-				case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(LINEARFMV); break;
+				case ID_OPTIONS_TEXTUREFILTERING_AUTO: setTexFiltering(TEX_FILTER_AUTO); break;
+				case ID_OPTIONS_NEARESTFILTERING:      setTexFiltering(TEX_FILTER_NEAREST); break;
+				case ID_OPTIONS_LINEARFILTERING:       setTexFiltering(TEX_FILTER_LINEAR); break;
+				case ID_OPTIONS_LINEARFILTERING_CG:    setTexFiltering(TEX_FILTER_LINEAR_VIDEO); break;
 
 				case ID_OPTIONS_BUFLINEARFILTER:       setBufFilter(SCALE_LINEAR); break;
 				case ID_OPTIONS_BUFNEARESTFILTER:      setBufFilter(SCALE_NEAREST); break;
@@ -1918,11 +1918,10 @@ namespace MainWindow
 			ID_OPTIONS_LINEARFILTERING,
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
-		if(g_Config.iTexFiltering < AUTO)
-			g_Config.iTexFiltering = AUTO;
-
-		else if(g_Config.iTexFiltering > LINEARFMV)
-			g_Config.iTexFiltering = LINEARFMV;
+		if (g_Config.iTexFiltering < TEX_FILTER_AUTO)
+			g_Config.iTexFiltering = TEX_FILTER_AUTO;
+		else if (g_Config.iTexFiltering > TEX_FILTER_LINEAR_VIDEO)
+			g_Config.iTexFiltering = TEX_FILTER_LINEAR_VIDEO;
 
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iTexFiltering ? MF_CHECKED : MF_UNCHECKED));

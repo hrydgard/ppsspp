@@ -19,9 +19,19 @@
 
 #include "Common/CommonTypes.h"
 
+enum TextureFiltering {
+	TEX_FILTER_AUTO = 1,
+	TEX_FILTER_NEAREST = 2,
+	TEX_FILTER_LINEAR = 3,
+	TEX_FILTER_LINEAR_VIDEO = 4,
+};
+
 class TextureCacheCommon {
 public:
 	virtual ~TextureCacheCommon();
 
 	virtual bool SetOffsetTexture(u32 offset);
+
+protected:
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
 };

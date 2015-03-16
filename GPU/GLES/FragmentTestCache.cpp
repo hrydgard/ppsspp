@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GPUState.h"
 

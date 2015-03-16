@@ -19,6 +19,7 @@
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/ge_constants.h"
@@ -30,86 +31,6 @@
 
 namespace DX9 {
 
-
-// Dest factors where it's safe to eliminate the alpha test under certain conditions
-static const bool safeDestFactors[16] = {
-	true, // GE_DSTBLEND_SRCCOLOR,
-	true, // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	true, // GE_DSTBLEND_INVSRCALPHA,
-	true, // GE_DSTBLEND_DSTALPHA,
-	true, // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true, //GE_DSTBLEND_FIXB,
-};
-
-bool IsAlphaTestTriviallyTrue() {
-	switch (gstate.getAlphaTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_GEQUAL:
-		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
-			return true;  // If alpha is full, it doesn't matter what the ref value is.
-		return gstate.getAlphaTestRef() == 0;
-
-	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
-	// Speeds up Lumines by a LOT on PowerVR.
-	case GE_COMP_NOTEQUAL:
-		if (gstate.getAlphaTestRef() == 255) {
-			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
-			// complicated code to discard the draw or whatnot.
-			return false;
-		}
-		// Fallthrough on purpose
-
-	case GE_COMP_GREATER:
-		{
-#if 0
-			// Easy way to check the values in the debugger without ruining && early-out
-			bool doTextureAlpha = gstate.isTextureAlphaUsed();
-			bool stencilTest = gstate.isStencilTestEnabled();
-			bool depthTest = gstate.isDepthTestEnabled();
-			GEComparison depthTestFunc = gstate.getDepthTestFunction();
-			int alphaRef = gstate.getAlphaTestRef();
-			int blendA = gstate.getBlendFuncA();
-			bool blendEnabled = gstate.isAlphaBlendEnabled();
-			int blendB = gstate.getBlendFuncA();
-#endif
-			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
-					(!gstate.isStencilTestEnabled() &&
-					!gstate.isDepthTestEnabled() &&
-					gstate.getAlphaTestRef() == 0 &&
-					gstate.isAlphaBlendEnabled() &&
-					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-					safeDestFactors[(int)gstate.getBlendFuncB()]));
-		}
-
-	case GE_COMP_LEQUAL:
-		return gstate.getAlphaTestRef() == 255;
-
-	case GE_COMP_EQUAL:
-	case GE_COMP_LESS:
-		return false;
-
-	default:
-		return false;
-	}
-}
-
-bool IsAlphaTestAgainstZero() {
-	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
-}
-
-bool IsColorTestAgainstZero() {
-	return gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF;
-}
 
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
@@ -219,22 +140,6 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	}
 
 	return STENCIL_VALUE_KEEP;
-}
-
-bool IsColorTestTriviallyTrue() {
-	switch (gstate.getColorTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_EQUAL:
-	case GE_COMP_NOTEQUAL:
-		return false;
-	default:
-		return false;
-	}
 }
 
 ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
