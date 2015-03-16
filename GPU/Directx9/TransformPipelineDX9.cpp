@@ -884,6 +884,12 @@ rotateVBO:
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
+	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
+	gstate_c.vertMinU = 512;
+	gstate_c.vertMinV = 512;
+	gstate_c.vertMaxU = 0;
+	gstate_c.vertMaxV = 0;
+
 	host->GPUNotifyDraw();
 }
 

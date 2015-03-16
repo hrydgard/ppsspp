@@ -507,6 +507,11 @@ struct GPUStateCache {
 	float vpWidthScale;
 	float vpHeightScale;
 
+	u16 vertMinU;
+	u16 vertMinV;
+	u16 vertMaxU;
+	u16 vertMaxV;
+
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
