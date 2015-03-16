@@ -81,12 +81,12 @@ namespace MIPSComp {
 	struct JitState;
 }
 
-class ArmRegCacheFPU {
+class Arm64RegCacheFPU {
 public:
-	ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo);
-	~ArmRegCacheFPU() {}
+	Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo);
+	~Arm64RegCacheFPU() {}
 
-	void Init(Arm64Gen::ARM64XEmitter *emitter);
+	void Init(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp);
 
 	void Start(MIPSAnalyst::AnalysisResults &stats);
 
@@ -144,7 +144,7 @@ public:
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
 
-	void SetEmitter(Arm64Gen::ARM64XEmitter *emitter) { emit_ = emitter; }
+	void SetEmitter(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp) { emit_ = emitter; fp_ = fp; }
 
 	int GetMipsRegOffset(MIPSReg r);
 
@@ -160,6 +160,7 @@ private:
 
 	MIPSState *mips_;
 	Arm64Gen::ARM64XEmitter *emit_;
+	Arm64Gen::ARM64FloatEmitter *fp_;
 	MIPSComp::JitState *js_;
 	MIPSComp::Arm64JitOptions *jo_;
 

@@ -264,7 +264,7 @@ private:
 	JitState js;
 
 	Arm64RegCache gpr;
-	ArmRegCacheFPU fpr;
+	Arm64RegCacheFPU fpr;
 
 	Arm64Gen::ARM64FloatEmitter fp;
 	

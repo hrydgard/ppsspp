@@ -51,7 +51,23 @@ namespace MIPSComp
 
 void Arm64Jit::Comp_FPU3op(MIPSOpcode op)
 { 
-	DISABLE;
+	// DISABLE;
+	CONDITIONAL_DISABLE;
+
+	int ft = _FT;
+	int fs = _FS;
+	int fd = _FD;
+
+	fpr.MapDirtyInIn(fd, fs, ft);
+	switch (op & 0x3f) {
+	case 0: fp.FADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
+	case 1: fp.FSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
+	case 2: fp.FMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) * F(ft); //mul
+	case 3: fp.FDIV(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) / F(ft); //div
+	default:
+		DISABLE;
+		return;
+	}
 }
 
 void Arm64Jit::Comp_FPULS(MIPSOpcode op)
