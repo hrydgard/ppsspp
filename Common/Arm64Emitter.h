@@ -737,6 +737,7 @@ public:
 	// Scalar - 1 Source
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
 	void FNEG(ARM64Reg Rd, ARM64Reg Rn);
+	void FSQRT(ARM64Reg Rd, ARM64Reg Rn);
 
 	// Scalar - 2 Source
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);

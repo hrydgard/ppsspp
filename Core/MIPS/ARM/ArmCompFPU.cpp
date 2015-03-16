@@ -130,7 +130,6 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 		VLDR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetJumpTarget(skip);
-			SetCC(CC_AL);
 		}
 #else
 		VLDR(fpr.R(ft), R0, 0);
@@ -174,7 +173,6 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 		VSTR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetJumpTarget(skip2);
-			SetCC(CC_AL);
 		}
 #else
 		VSTR(fpr.R(ft), R0, 0);

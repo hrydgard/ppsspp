@@ -2573,6 +2573,11 @@ void ARM64FloatEmitter::FNEG(ARM64Reg Rd, ARM64Reg Rn)
 {
 	EmitScalar1Source(0, 0, IsDouble(Rd), 2, Rd, Rn);
 }
+void ARM64FloatEmitter::FSQRT(ARM64Reg Rd, ARM64Reg Rn)
+{
+	EmitScalar1Source(0, 0, IsDouble(Rd), 3, Rd, Rn);
+}
+
 
 // Scalar - 2 Source
 void ARM64FloatEmitter::FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
