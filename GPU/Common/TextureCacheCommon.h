@@ -68,6 +68,7 @@ public:
 		int numInvalidated;
 		u32 framesUntilNextFullHash;
 		u8 format;
+		u8 maxLevel;
 		u16 dim;
 		u16 bufw;
 		union {
@@ -77,7 +78,6 @@ public:
 		int invalidHint;
 		u32 fullhash;
 		u32 cluthash;
-		int maxLevel;
 		float lodBias;
 
 		// Cache the current filter settings so we can avoid setting it again.
@@ -107,13 +107,13 @@ public:
 				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
 			}
 		}
-		bool Matches(u16 dim2, u8 format2, int maxLevel2);
+		bool Matches(u16 dim2, u8 format2, u8 maxLevel2);
 	};
 
 protected:
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
 };
 
-inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
+inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }

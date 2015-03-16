@@ -29,7 +29,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = (gstate.texfilter>>8) & 1;
 	sClamp = gstate.isTexCoordClampedS();

@@ -1047,7 +1047,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 	
 	int bufw = GetTextureBufw(0, texaddr, format);
-	int maxLevel = gstate.getTextureMaxLevel();
+	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
 	u32 fullhash = 0;
@@ -1294,7 +1294,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
-	for (int i = 0; i <= maxLevel; i++) {
+	for (u32 i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
@@ -1368,7 +1368,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 	// Mipmapping is only enabled when texture scaling is disabled.
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
-		for (int i = 1; i <= maxLevel; i++) {
+		for (u32 i = 1; i <= maxLevel; i++) {
 			LoadTextureLevel(*entry, i, maxLevel, replaceImages, scaleFactor, dstFmt);
 		}
 	}

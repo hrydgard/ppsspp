@@ -1114,7 +1114,7 @@ void TextureCache::SetTexture(bool force) {
 	}
 
 	int bufw = GetTextureBufw(0, texaddr, format);
-	int maxLevel = gstate.getTextureMaxLevel();
+	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
 	u32 fullhash = 0;
@@ -1362,7 +1362,7 @@ void TextureCache::SetTexture(bool force) {
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
-	for (int i = 0; i <= maxLevel; i++) {
+	for (u32 i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
