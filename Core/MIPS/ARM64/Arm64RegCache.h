@@ -106,7 +106,7 @@ public:
 	bool IsImm(MIPSGPReg reg) const;
 	u32 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
-	void SetRegImm(Arm64Gen::ARM64Reg reg, u32 imm);
+	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
 
 	// Returns an ARM register containing the requested MIPS register.
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);

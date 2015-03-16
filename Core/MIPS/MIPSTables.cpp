@@ -166,7 +166,7 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	INSTR("cache", JITFUNC(Comp_Cache), Dis_Cache, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR),
 	//48
 	INSTR("ll", JITFUNC(Comp_Generic), Dis_Generic, Int_StoreSync, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|OUT_OTHER|MEMTYPE_WORD),
-	INSTR("lwc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|MEMTYPE_FLOAT),
+	INSTR("lwc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|MEMTYPE_FLOAT|IS_FPU),
 	INSTR("lv.s", JITFUNC(Comp_SV), Dis_SV, Int_SV, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
 	INVALID, // HIT THIS IN WIPEOUT
 	ENCODING(VFPU4Jump),
@@ -175,7 +175,7 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	ENCODING(VFPU5),
 	//56
 	INSTR("sc", JITFUNC(Comp_Generic), Dis_Generic, Int_StoreSync, IN_IMM16|IN_RS_ADDR|IN_OTHER|IN_RT|OUT_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("swc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|MEMTYPE_FLOAT), //copU
+	INSTR("swc1", JITFUNC(Comp_FPULS), Dis_FPULS, Int_FPULS, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|MEMTYPE_FLOAT|IS_FPU), //copU
 	INSTR("sv.s", JITFUNC(Comp_SV), Dis_SV, Int_SV, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
 	INVALID,
 	//60
@@ -466,20 +466,20 @@ const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 
 const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 {
-	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT),
-	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT),
-	INSTR("mul.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT),
-	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT),
-	INSTR("sqrt.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("abs.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("mov.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("neg.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
+	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("mul.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("div.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
+	INSTR("sqrt.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("abs.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("mov.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("neg.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	//8
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("round.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("trunc.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("ceil.w.s",   JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
-	INSTR("floor.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
+	INSTR("round.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("trunc.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("ceil.w.s",   JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
+	INSTR("floor.w.s",  JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	//16
 	INVALID_X_8,
 	//24
@@ -487,29 +487,29 @@ const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 	//32
 	INVALID, INVALID, INVALID, INVALID,
 	//36
-	INSTR("cvt.w.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
+	INSTR("cvt.w.s", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INVALID,
 	INSTR("dis.int", JITFUNC(Comp_Generic), Dis_Generic, Int_Interrupt, 0),
 	INVALID,
 	//40
 	INVALID_X_8,
 	//48 - 010001 10000 ..... ..... ..... 11xxxx
-	INSTR("c.f",   JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.un",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.eq",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ueq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.olt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ult", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ole", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ule", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.sf",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngle",JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.seq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ngl", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.lt",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.nge", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.le",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
-	INSTR("c.ngt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG),
+	INSTR("c.f",   JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.un",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.eq",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ueq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.olt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ult", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ole", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ule", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.sf",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngle",JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.seq", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngl", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.lt",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.nge", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.le",  JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
+	INSTR("c.ngt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
 };
 
 const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
@@ -522,7 +522,7 @@ const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 	//24
 	INVALID_X_8,
 	//32
-	INSTR("cvt.s.w", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS),
+	INSTR("cvt.s.w", JITFUNC(Comp_FPU2op), Dis_FPU2op, Int_FPU2op, OUT_FD|IN_FS|IS_FPU),
 	INVALID, INVALID, INVALID,
 	//36
 	INVALID,

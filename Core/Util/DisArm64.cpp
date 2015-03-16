@@ -143,7 +143,7 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	int option = (w >> 13) & 0x7;
 	int opc = (w >> 22) & 0x3;
 	char r = size == 3 ? 'x' : 'w';
-	const char *opname[4] = { "str", "ldr", "(unk)", "(unk)" };
+	const char *opname[4] = { "str", "ldr", "str", "ldr" };
 	const char *sizeSuffix[4] = { "b", "w", "", "" };
 
 	if (((w >> 21) & 1) == 1) {
@@ -152,11 +152,24 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 		return;
 	} else if (((w >> 27) & 7) == 7) {
 		int V = (w >> 26) & 1;
+		bool index_unsigned = ((w >> 24) & 3) == 1;
+		int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 		if (V == 0) {
-			bool index_unsigned = ((w >> 24) & 3) == 1;
-			int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
+			// Integer type
 			if (index_unsigned) {
 				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + %d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
+				return;
+			}
+		} else {
+			// FP/Vector type
+			char vr = '!';
+			if (opc == 3 && size == 0) {
+				vr = 'q';
+			} else {
+				vr = "bhsd"[size];
+			}
+			if (index_unsigned) {
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d + %d]", opname[opc], vr, Rt, Rn, imm12);
 				return;
 			}
 		}
@@ -196,10 +209,13 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		// Logical (shifted register)
 		int shift = (w >> 22) & 0x3;
 		int imm6 = (w >> 10) & 0x3f;
-		int N = (w >> 20) & 1;
+		int N = (w >> 21) & 1;
 		int opc = (((w >> 29) & 3) << 1) | N;
 		const char *opnames[8] = { "and", "bic", "orr", "orn", "eor", "eon", "ands", "bics" };
-		if (imm6 == 0) {
+		if (opc == 3 && Rn == 31) {
+			// Special case for MOV (which is constructed from an ORR)
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", opnames[opc], r, Rd, r, Rm);
+		} else if (imm6 == 0) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
@@ -214,7 +230,29 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 }
 
 static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
-	snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
+	int Rd = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
+	int Rm = (w >> 16) & 0x1f;
+	int type = (w >> 22) & 0x3;
+	if ((w >> 24) == 0x1E) {
+		if (((w >> 10) & 0x39f) == 0x810) {
+			const char *opnames[4] = { "fmov", "fabs", "fneg", "fsqrt" };
+			int opc = (w >> 15) & 0x3;
+			snprintf(instr->text, sizeof(instr->text), "%s !%d, !%d (%08x)", opnames[opc], Rd, Rn, w);
+		} else if (((w >> 10) & 3) == 2) {
+			// FP data-proc (2 source)
+			int opc = (w >> 12) & 0xf;
+			if (type == 0 || type == 1) {
+				const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
+				char r = 's';
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
+			}
+		}
+	} else {
+		snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
+	}
 }
 
 static void DisassembleInstruction(uint32_t w, uint64_t addr, Instruction *instr) {
