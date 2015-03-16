@@ -64,7 +64,7 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 	dontLogBlocks = 0;
 	blocks.Init();
 	gpr.SetEmitter(this);
-	fpr.SetEmitter(this);
+	fpr.SetEmitter(this, &fp);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
@@ -204,7 +204,8 @@ void Arm64Jit::Compile(u32 em_address) {
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
 		js.startDefaultPrefix = false;
-		cleanSlate = true;
+		// TODO ARM64: This crashes.
+		//cleanSlate = true;
 	}
 
 	if (cleanSlate) {
@@ -250,10 +251,15 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	} else if (jo.useForwardJump) {
 		b->checkedEntry = GetCodePtr();
 		bail = B(CC_LT);
-	} else {
+	} else if (jo.enableBlocklink) {
 		b->checkedEntry = GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
-		B(CC_LT, (const void *)outerLoopPCInSCRATCH1);
+		// A conditional branch can't reach all the way to the dispatcher :/
+		//FixupBranch skip = B(CC_GE);
+		//B((const void *)outerLoopPCInSCRATCH1, SCRATCH2);
+		//SetJumpTarget(skip);
+	} else {
+		// No block linking, no need to add headers to blocks.
 	}
 
 	b->normalEntry = GetCodePtr();
@@ -279,8 +285,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 		js.numInstructions++;
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
+		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS) {
 			FlushAll();
 			WriteExit(js.compilerPC, js.nextExit++);
 			js.compiling = false;

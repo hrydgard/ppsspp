@@ -27,15 +27,16 @@
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
-	if (cpu_info.bNEON) {
-		numARMFpuReg_ = 32;
-	} else {
-		numARMFpuReg_ = 16;
-	}
+Arm64RegCacheFPU::Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo) : mips_(mips), vr(mr + 32), js_(js), jo_(jo), initialReady(false) {
+	numARMFpuReg_ = 32;
 }
 
-void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
+void Arm64RegCacheFPU::Init(Arm64Gen::ARM64XEmitter *emit, Arm64Gen::ARM64FloatEmitter *fp) {
+	emit_ = emit;
+	fp_ = fp;
+}
+
+void Arm64RegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 	if (!initialReady) {
 		SetupInitialRegs();
 		initialReady = true;
@@ -46,7 +47,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 	pendingFlush = false;
 }
 
-void ArmRegCacheFPU::SetupInitialRegs() {
+void Arm64RegCacheFPU::SetupInitialRegs() {
 	for (int i = 0; i < numARMFpuReg_; i++) {
 		arInitial[i].mipsReg = -1;
 		arInitial[i].isDirty = false;
@@ -67,7 +68,7 @@ void ArmRegCacheFPU::SetupInitialRegs() {
 	}
 }
 
-const ARM64Reg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
+const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// VFP mapping
 	// VFPU registers and regular FP registers are mapped interchangably on top of the standard
 	// 16 FPU registers.
@@ -114,11 +115,11 @@ const ARM64Reg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	}
 }
 
-bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
+bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
 	return mr[r].loc == ML_ARMREG;
 }
 
-ARM64Reg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
+ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
 	if (jo_->useNEONVFPU && mipsReg >= 32) {
 		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
@@ -154,7 +155,7 @@ allocate:
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 				if (mr[mipsReg].loc == ML_MEM && mipsReg < TEMP0) {
-					// emit_->VLDR((ARM64Reg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
+					fp_->LDR(32, INDEX_UNSIGNED, (ARM64Reg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
 				}
 			}
 			ar[reg].mipsReg = mipsReg;
@@ -188,7 +189,7 @@ allocate:
 	return INVALID_REG;
 }
 
-void ArmRegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
+void Arm64RegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 	SpillLock(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
@@ -196,7 +197,7 @@ void ArmRegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 	ReleaseSpillLock(rs);
 }
 
-void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
+void Arm64RegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
 	bool overlap = avoidLoad && rd == rs;
 	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
@@ -205,7 +206,7 @@ void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	ReleaseSpillLock(rs);
 }
 
-void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
+void Arm64RegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
 	bool overlap = avoidLoad && (rd == rs || rd == rt);
 	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
@@ -216,32 +217,32 @@ void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoid
 	ReleaseSpillLock(rt);
 }
 
-void ArmRegCacheFPU::SpillLockV(const u8 *v, VectorSize sz) {
+void Arm64RegCacheFPU::SpillLockV(const u8 *v, VectorSize sz) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		vr[v[i]].spillLock = true;
 	}
 }
 
-void ArmRegCacheFPU::SpillLockV(int vec, VectorSize sz) {
+void Arm64RegCacheFPU::SpillLockV(int vec, VectorSize sz) {
 	u8 v[4];
 	GetVectorRegs(v, sz, vec);
 	SpillLockV(v, sz);
 }
 
-void ArmRegCacheFPU::MapRegV(int vreg, int flags) {
+void Arm64RegCacheFPU::MapRegV(int vreg, int flags) {
 	MapReg(vreg + 32, flags);
 }
 
-void ArmRegCacheFPU::LoadToRegV(ARM64Reg armReg, int vreg) {
+void Arm64RegCacheFPU::LoadToRegV(ARM64Reg armReg, int vreg) {
 	if (vr[vreg].loc == ML_ARMREG) {
-		// emit_->VMOV(armReg, (ARM64Reg)(S0 + vr[vreg].reg));
+		fp_->FMOV(armReg, (ARM64Reg)(S0 + vr[vreg].reg));
 	} else {
 		MapRegV(vreg);
-		// emit_->VMOV(armReg, V(vreg));
+		fp_->FMOV(armReg, V(vreg));
 	}
 }
 
-void ArmRegCacheFPU::MapRegsAndSpillLockV(int vec, VectorSize sz, int flags) {
+void Arm64RegCacheFPU::MapRegsAndSpillLockV(int vec, VectorSize sz, int flags) {
 	u8 v[4];
 	GetVectorRegs(v, sz, vec);
 	SpillLockV(v, sz);
@@ -250,14 +251,14 @@ void ArmRegCacheFPU::MapRegsAndSpillLockV(int vec, VectorSize sz, int flags) {
 	}
 }
 
-void ArmRegCacheFPU::MapRegsAndSpillLockV(const u8 *v, VectorSize sz, int flags) {
+void Arm64RegCacheFPU::MapRegsAndSpillLockV(const u8 *v, VectorSize sz, int flags) {
 	SpillLockV(v, sz);
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapRegV(v[i], flags);
 	}
 }
 
-void ArmRegCacheFPU::MapInInV(int vs, int vt) {
+void Arm64RegCacheFPU::MapInInV(int vs, int vt) {
 	SpillLockV(vs);
 	SpillLockV(vt);
 	MapRegV(vs);
@@ -266,7 +267,7 @@ void ArmRegCacheFPU::MapInInV(int vs, int vt) {
 	ReleaseSpillLockV(vt);
 }
 
-void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
+void Arm64RegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
 	bool overlap = avoidLoad && (vd == vs);
 	SpillLockV(vd);
 	SpillLockV(vs);
@@ -276,7 +277,7 @@ void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
 	ReleaseSpillLockV(vs);
 }
 
-void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
+void Arm64RegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	bool overlap = avoidLoad && ((vd == vs) || (vd == vt));
 	SpillLockV(vd);
 	SpillLockV(vs);
@@ -289,7 +290,7 @@ void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	ReleaseSpillLockV(vt);
 }
 
-void ArmRegCacheFPU::FlushArmReg(ARM64Reg r) {
+void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
 	if (r >= S0 && r <= S31) {
 		int reg = r - S0;
 		if (ar[reg].mipsReg == -1) {
@@ -300,7 +301,7 @@ void ArmRegCacheFPU::FlushArmReg(ARM64Reg r) {
 			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
 			{
 				//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
-				// emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+				fp_->STR(32, INDEX_UNSIGNED, r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 			}
 			// IMMs won't be in an ARM reg.
 			mr[ar[reg].mipsReg].loc = ML_MEM;
@@ -313,11 +314,11 @@ void ArmRegCacheFPU::FlushArmReg(ARM64Reg r) {
 	}
 }
 
-void ArmRegCacheFPU::FlushV(MIPSReg r) {
+void Arm64RegCacheFPU::FlushV(MIPSReg r) {
 	FlushR(r + 32);
 }
 
-void ArmRegCacheFPU::FlushR(MIPSReg r) {
+void Arm64RegCacheFPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -328,24 +329,6 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
-		}
-
-		if (mr[r].reg >= Q0 && mr[r].reg <= Q15) {
-			// This should happen rarely, but occasionally we need to flush a single stray
-			// mipsreg that's been part of a quad.
-			int quad = mr[r].reg - Q0;
-			if (qr[quad].isDirty) {
-				WARN_LOG(JIT, "FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
-				//emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(r), R1);
-				//emit_->VST1_lane(F_32, (ARM64Reg)mr[r].reg, R0, mr[r].lane, true);
-			}
-		} else {
-			if (ar[mr[r].reg].isDirty) {
-				//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
-				// emit_->VSTR((ARM64Reg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
-				ar[mr[r].reg].isDirty = false;
-			}
-			ar[mr[r].reg].mipsReg = -1;
 		}
 		break;
 
@@ -361,7 +344,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
-int ArmRegCacheFPU::GetNumARMFPURegs() {
+int Arm64RegCacheFPU::GetNumARMFPURegs() {
 	if (cpu_info.bNEON)
 		return 32;
 	else
@@ -369,7 +352,7 @@ int ArmRegCacheFPU::GetNumARMFPURegs() {
 }
 
 // Scalar only. Need a similar one for sequential Q vectors.
-int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
+int Arm64RegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
 	int c = 1;
 	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
 	a++;
@@ -388,7 +371,7 @@ int ArmRegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
 	return c;
 }
 
-void ArmRegCacheFPU::FlushAll() {
+void Arm64RegCacheFPU::FlushAll() {
 	if (!pendingFlush) {
 		// Nothing allocated.  FPU regs are not nearly as common as GPR.
 		return;
@@ -417,31 +400,13 @@ void ArmRegCacheFPU::FlushAll() {
 				continue;
 			}
 
-			int c = FlushGetSequential(a, GetNumARMFPURegs());
-			if (c == 1) {
-				// ILOG("Got single register: %i (%i)", a, m);
-				//emit_->VSTR((ARM64Reg)(a + S0), CTXREG, GetMipsRegOffset(m));
-			} else if (c == 2) {
-				// Probably not worth using VSTMIA for two.
-				int offset = GetMipsRegOffset(m);
-				//emit_->VSTR((ARM64Reg)(a + S0), CTXREG, offset);
-				//emit_->VSTR((ARM64Reg)(a + 1 + S0), CTXREG, offset + 4);
-			} else {
-				// ILOG("Got sequence: %i at %i (%i)", c, a, m);
-				//emit_->ADDI2R(SCRATCHREG1, CTXREG, GetMipsRegOffset(m), SCRATCHREG2);
-				// ILOG("VSTMIA R0, %i, %i", a, c);
-				//emit_->VSTMIA(SCRATCHREG1, false, (ARM64Reg)(S0 + a), c);
-			}
+			fp_->STR(32, INDEX_UNSIGNED, (ARM64Reg)(a + S0), CTXREG, GetMipsRegOffset(m));
 
 			// Skip past, and mark as non-dirty.
-			for (int j = 0; j < c; j++) {
-				int b = a + j;
-				mr[ar[b].mipsReg].loc = ML_MEM;
-				mr[ar[b].mipsReg].reg = (int)INVALID_REG;
-				ar[a + j].mipsReg = -1;
-				ar[a + j].isDirty = false;
-			}
-			i += c - 1;
+			mr[ar[a].mipsReg].loc = ML_MEM;
+			mr[ar[a].mipsReg].reg = (int)INVALID_REG;
+			ar[a].mipsReg = -1;
+			ar[a].isDirty = false;
 		} else {
 			if (m != -1) {
 				mr[m].loc = ML_MEM;
@@ -461,7 +426,7 @@ void ArmRegCacheFPU::FlushAll() {
 	pendingFlush = false;
 }
 
-void ArmRegCacheFPU::DiscardR(MIPSReg r) {
+void Arm64RegCacheFPU::DiscardR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -493,11 +458,11 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	mr[r].spillLock = false;
 }
 
-bool ArmRegCacheFPU::IsTempX(ARM64Reg r) const {
+bool Arm64RegCacheFPU::IsTempX(ARM64Reg r) const {
 	return ar[r - S0].mipsReg >= TEMP0;
 }
 
-int ArmRegCacheFPU::GetTempR() {
+int Arm64RegCacheFPU::GetTempR() {
 	if (jo_->useNEONVFPU) {
 		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
 		return 0;
@@ -515,7 +480,7 @@ int ArmRegCacheFPU::GetTempR() {
 	return -1;
 }
 
-int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
+int Arm64RegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs", then the VFPU ctrls.
 	if (r < 0 || r > 32 + 128 + NUM_TEMPS) {
 		ERROR_LOG(JIT, "bad mips register %i, out of range", r);
@@ -530,7 +495,7 @@ int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	}
 }
 
-void ArmRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
+void Arm64RegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 	mr[r1].spillLock = true;
 	if (r2 != -1) mr[r2].spillLock = true;
 	if (r3 != -1) mr[r3].spillLock = true;
@@ -538,7 +503,7 @@ void ArmRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 }
 
 // This is actually pretty slow with all the 160 regs...
-void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
+void Arm64RegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		mr[i].spillLock = false;
 	}
@@ -554,7 +519,7 @@ void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 	}
 }
 
-ARM64Reg ArmRegCacheFPU::R(int mipsReg) {
+ARM64Reg Arm64RegCacheFPU::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return (ARM64Reg)(mr[mipsReg].reg + S0);
 	} else {
