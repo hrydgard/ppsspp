@@ -901,6 +901,8 @@ void TransformDrawEngine::ApplyDrawStateLate() {
 			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
 		}
 
+		textureCache_->ApplyTexture();
+
 		if (fboTexNeedBind_) {
 			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr);
 			glActiveTexture(GL_TEXTURE1);

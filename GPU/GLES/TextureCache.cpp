@@ -88,6 +88,8 @@ TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0
 
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
+
+	nextTexture_ = nullptr;
 }
 
 TextureCache::~TextureCache() {
@@ -938,61 +940,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 		}
 		if (depal) {
-			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-			fbo_bind_as_render_target(depalFBO);
-			static const float pos[12] = {
-				-1, -1, -1,
-				 1, -1, -1,
-				 1,  1, -1,
-				-1,  1, -1
-			};
-			static const float uv[8] = {
-				0, 0,
-				1, 0,
-				1, 1,
-				0, 1,
-			};
-			static const GLubyte indices[4] = { 0, 1, 3, 2 };
-
-			shaderManager_->DirtyLastShader();
-
-			glUseProgram(depal->program);
-
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-			glEnableVertexAttribArray(depal->a_position);
-			glEnableVertexAttribArray(depal->a_texcoord0);
-
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, clutTexture);
-			glActiveTexture(GL_TEXTURE0);
-
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, true);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-			glDisable(GL_BLEND);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			glDisable(GL_SCISSOR_TEST);
-			glDisable(GL_CULL_FACE);
-			glDisable(GL_DEPTH_TEST);
-			glDisable(GL_STENCIL_TEST);
-#if !defined(USING_GLES2)
-			glDisable(GL_LOGIC_OP);
-#endif
-			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
-
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-			glDisableVertexAttribArray(depal->a_position);
-			glDisableVertexAttribArray(depal->a_texcoord0);
-
-			fbo_bind_color_as_texture(depalFBO, 0);
-			glstate.Restore();
-			framebufferManager_->RebindFramebuffer();
-
+			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
@@ -1001,7 +949,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer);
 
 			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
@@ -1020,7 +967,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
-		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+		nextTexture_ = entry;
 	} else {
 		if (framebuffer->fbo) {
 			fbo_destroy(framebuffer->fbo);
@@ -1029,6 +977,92 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
 	}
+}
+
+void TextureCache::ApplyTexture() {
+	if (nextTexture_ == nullptr) {
+		return;
+	}
+
+	if (nextTexture_->framebuffer) {
+		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
+	} else {
+		glBindTexture(GL_TEXTURE_2D, nextTexture_->textureName);
+		lastBoundTexture = nextTexture_->textureName;
+		UpdateSamplingParams(*nextTexture_, false);
+	}
+
+	nextTexture_ = nullptr;
+}
+
+void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	DepalShader *depal = nullptr;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+		depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+	}
+	if (depal) {
+		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		fbo_bind_as_render_target(depalFBO);
+		static const float pos[12] = {
+			-1, -1, -1,
+			 1, -1, -1,
+			 1,  1, -1,
+			-1,  1, -1
+		};
+		static const float uv[8] = {
+			0, 0,
+			1, 0,
+			1, 1,
+			0, 1,
+		};
+		static const GLubyte indices[4] = { 0, 1, 3, 2 };
+
+		shaderManager_->DirtyLastShader();
+
+		glUseProgram(depal->program);
+
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glEnableVertexAttribArray(depal->a_position);
+		glEnableVertexAttribArray(depal->a_texcoord0);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, clutTexture);
+		glActiveTexture(GL_TEXTURE0);
+
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, true);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+		glDisable(GL_BLEND);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glDisable(GL_SCISSOR_TEST);
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_STENCIL_TEST);
+#if !defined(USING_GLES2)
+		glDisable(GL_LOGIC_OP);
+#endif
+		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+
+		glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		glDisableVertexAttribArray(depal->a_position);
+		glDisableVertexAttribArray(depal->a_texcoord0);
+
+		fbo_bind_color_as_texture(depalFBO, 0);
+		glstate.Restore();
+		framebufferManager_->RebindFramebuffer();
+	} else {
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer);
+	}
+
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+	lastBoundTexture = -1;
 }
 
 bool TextureCache::SetOffsetTexture(u32 offset) {
@@ -1057,8 +1091,8 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	}
 
 	if (success && entry->framebuffer) {
+		// This will not apply the texture immediately.
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return true;
 	}
@@ -1136,7 +1170,6 @@ void TextureCache::SetTexture(bool force) {
 		if (entry->framebuffer) {
 			if (match) {
 				SetTextureFramebuffer(entry, entry->framebuffer);
-				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFlips;
 				return;
 			} else {
@@ -1254,12 +1287,10 @@ void TextureCache::SetTexture(bool force) {
 			//got one!
 			entry->lastFrame = gpuStats.numFlips;
 			if (entry->textureName != lastBoundTexture) {
-				glBindTexture(GL_TEXTURE_2D, entry->textureName);
-				lastBoundTexture = entry->textureName;
+				nextTexture_ = entry;
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
-			UpdateSamplingParams(*entry, false);
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
@@ -1353,7 +1384,6 @@ void TextureCache::SetTexture(bool force) {
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return;
 	}
