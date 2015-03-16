@@ -812,6 +812,8 @@ void TransformDrawEngineDX9::ApplyDrawStateLate() {
 	if (!gstate.isModeClear()) {
 		// TODO: Test texture?
 
+		textureCache_->ApplyTexture();
+
 		if (fboTexNeedBind_) {
 			framebufferManager_->BindFramebufferColor(1, nullptr, false);
 			// If we are rendering at a higher resolution, linear is probably best for the dest color.

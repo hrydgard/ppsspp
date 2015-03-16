@@ -94,6 +94,8 @@ TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstim
 		maxAnisotropyLevel = pCaps.MaxAnisotropy;
 	}
 	SetupTextureDecoder();
+
+	nextTexture_ = nullptr;
 }
 
 TextureCacheDX9::~TextureCacheDX9() {
@@ -866,65 +868,7 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 			pshader = depalShaderCache_->GetDepalettizePixelShader(clutFormat, framebuffer->drawnFormat);
 		}
-
 		if (pshader) {
-			LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-
-			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-			fbo_bind_as_render_target(depalFBO);
-
-			float xoff = -0.5f / framebuffer->renderWidth;
-			float yoff = 0.5f / framebuffer->renderHeight;
-
-			const float pos[12 + 8] = {
-				-1 + xoff, 1 + yoff, 0,    0, 0,
-				1 + xoff, 1 + yoff, 0,     1, 0,
-				1 + xoff, -1 + yoff, 0,    1, 1,
-				-1 + xoff, -1 + yoff, 0,   0, 1,
-			};
-
-			shaderManager_->DirtyLastShader();
-
-			pD3Ddevice->SetPixelShader(pshader);
-			pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
-			pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
-			pD3Ddevice->SetTexture(1, clutTexture);
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-			pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-
-			framebufferManager_->BindFramebufferColor(0, framebuffer, true);
-			pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-			pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-			pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
-
-			pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-			pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-			pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-			pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-			pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-
-			D3DVIEWPORT9 vp;
-			vp.MinZ = 0;
-			vp.MaxZ = 1;
-			vp.X = 0;
-			vp.Y = 0;
-			vp.Width = framebuffer->renderWidth;
-			vp.Height = framebuffer->renderHeight;
-			pD3Ddevice->SetViewport(&vp);
-
-			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pos, (3 + 2) * sizeof(float));
-			if (FAILED(hr)) {
-				ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
-			}
-
-			framebufferManager_->RebindFramebuffer();
-			fbo_bind_color_as_texture(depalFBO, 0);
-			dxstate.Restore();
-			dxstate.viewport.restore();
-
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
@@ -933,7 +877,6 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(0, framebuffer);
 
 			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
@@ -953,7 +896,8 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
-		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+		nextTexture_ = entry;
 	} else {
 		if (framebuffer->fbo) {
 			fbo_destroy(framebuffer->fbo);
@@ -962,6 +906,98 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 		pD3Ddevice->SetTexture(0, NULL);
 		gstate_c.needShaderTexClamp = false;
 	}
+}
+
+void TextureCacheDX9::ApplyTexture() {
+	if (nextTexture_ == nullptr) {
+		return;
+	}
+
+	if (nextTexture_->framebuffer) {
+		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
+	} else {
+		LPDIRECT3DTEXTURE9 texture = DxTex(nextTexture_);
+		pD3Ddevice->SetTexture(0, texture);
+		lastBoundTexture = texture;
+		UpdateSamplingParams(*nextTexture_, false);
+	}
+
+	nextTexture_ = nullptr;
+}
+
+void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	LPDIRECT3DPIXELSHADER9 pshader = nullptr;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+		pshader = depalShaderCache_->GetDepalettizePixelShader(clutFormat, framebuffer->drawnFormat);
+	}
+
+	if (pshader) {
+		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+
+		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		fbo_bind_as_render_target(depalFBO);
+
+		float xoff = -0.5f / framebuffer->renderWidth;
+		float yoff = 0.5f / framebuffer->renderHeight;
+
+		const float pos[12 + 8] = {
+			-1 + xoff, 1 + yoff, 0,    0, 0,
+			1 + xoff, 1 + yoff, 0,     1, 0,
+			1 + xoff, -1 + yoff, 0,    1, 1,
+			-1 + xoff, -1 + yoff, 0,   0, 1,
+		};
+
+		shaderManager_->DirtyLastShader();
+
+		pD3Ddevice->SetPixelShader(pshader);
+		pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
+		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+		pD3Ddevice->SetTexture(1, clutTexture);
+		pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+		pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+		framebufferManager_->BindFramebufferColor(0, framebuffer, true);
+		pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+		pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+		pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+		D3DVIEWPORT9 vp;
+		vp.MinZ = 0;
+		vp.MaxZ = 1;
+		vp.X = 0;
+		vp.Y = 0;
+		vp.Width = framebuffer->renderWidth;
+		vp.Height = framebuffer->renderHeight;
+		pD3Ddevice->SetViewport(&vp);
+
+		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pos, (3 + 2) * sizeof(float));
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+		}
+
+		framebufferManager_->RebindFramebuffer();
+		fbo_bind_color_as_texture(depalFBO, 0);
+		dxstate.Restore();
+		dxstate.viewport.restore();
+
+		framebufferManager_->RebindFramebuffer();
+	} else {
+		framebufferManager_->BindFramebufferColor(0, framebuffer);
+	}
+
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+	lastBoundTexture = INVALID_TEX;
 }
 
 bool TextureCacheDX9::SetOffsetTexture(u32 offset) {
@@ -991,7 +1027,6 @@ bool TextureCacheDX9::SetOffsetTexture(u32 offset) {
 
 	if (success && entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = INVALID_TEX;
 		entry->lastFrame = gpuStats.numFlips;
 		return true;
 	}
@@ -1003,7 +1038,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		return;
 	}
 #endif
@@ -1071,7 +1106,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 		if (entry->framebuffer) {
 			if (match) {
 				SetTextureFramebuffer(entry, entry->framebuffer);
-				lastBoundTexture = INVALID_TEX;
 				entry->lastFrame = gpuStats.numFlips;
 				return;
 			} else {
@@ -1190,8 +1224,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			entry->lastFrame = gpuStats.numFlips;
 			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
 			if (texture != lastBoundTexture) {
-				pD3Ddevice->SetTexture(0, texture);
-				lastBoundTexture = texture;
+				nextTexture_ = entry;
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
@@ -1287,7 +1320,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = INVALID_TEX;
 		entry->lastFrame = gpuStats.numFlips;
 		return;
 	}
@@ -1373,13 +1405,11 @@ void TextureCacheDX9::SetTexture(bool force) {
 		}
 	}
 
-	pD3Ddevice->SetTexture(0, texture);
-	lastBoundTexture = texture;
-
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
-	UpdateSamplingParams(*entry, true);
+	nextTexture_ = entry;
+	UpdateSamplingParams(*nextTexture_, true);
 }
 
 D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {

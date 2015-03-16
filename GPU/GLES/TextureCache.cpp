@@ -940,7 +940,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 		}
 		if (depal) {
-			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
@@ -1516,6 +1515,8 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
+	// This will rebind it, but that's okay.
+	nextTexture_ = entry;
 	UpdateSamplingParams(*entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);

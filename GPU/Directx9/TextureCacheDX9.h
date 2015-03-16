@@ -81,6 +81,8 @@ public:
 
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
+	void ApplyTexture();
+
 private:
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
@@ -101,6 +103,7 @@ private:
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
@@ -147,6 +150,8 @@ private:
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
+
+	TexCacheEntry *nextTexture_;
 
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
