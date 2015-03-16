@@ -79,78 +79,6 @@ public:
 
 	void ForgetLastTexture();
 
-	// Wow this is starting to grow big. Soon need to start looking at resizing it.
-	// Must stay a POD.
-	struct TexCacheEntry {
-		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
-		const static int FRAMES_REGAIN_TRUST = 1000;
-
-		enum Status {
-			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
-			STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
-			STATUS_MASK = 0x03,
-
-			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
-			STATUS_ALPHA_MASK = 0x0c,
-
-			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
-			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
-			STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
-			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
-		};
-
-		// Status, but int so we can zero initialize.
-		int status;
-		u32 addr;
-		u32 hash;
-		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
-		u32 sizeInRAM;
-		int lastFrame;
-		int numFrames;
-		int numInvalidated;
-		u32 framesUntilNextFullHash;
-		u8 format;
-		u16 dim;
-		u16 bufw;
-		LPDIRECT3DTEXTURE9 texture;
-		int invalidHint;
-		u32 fullhash;
-		u32 cluthash;
-		int maxLevel;
-		float lodBias;
-
-		Status GetHashStatus() {
-			return Status(status & STATUS_MASK);
-		}
-		void SetHashStatus(Status newStatus) {
-			status = (status & ~STATUS_MASK) | newStatus;
-		}
-		Status GetAlphaStatus() {
-			return Status(status & STATUS_ALPHA_MASK);
-		}
-		void SetAlphaStatus(Status newStatus) {
-			status = (status & ~STATUS_ALPHA_MASK) | newStatus;
-		}
-		void SetAlphaStatus(Status newStatus, int level) {
-			// For non-level zero, only set more restrictive.
-			if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
-				SetAlphaStatus(newStatus);
-			} else if (newStatus == STATUS_ALPHA_SIMPLE && GetAlphaStatus() == STATUS_ALPHA_FULL) {
-				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
-			}
-		}
-		bool Matches(u16 dim2, u8 format2, int maxLevel2);
-		void ReleaseTexture() {
-			if (texture) {
-				texture->Release();
-				texture = NULL;
-			}
-		}
-	};
-
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 
 private:
@@ -174,7 +102,16 @@ private:
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
-	TexCacheEntry *GetEntryAt(u32 texaddr);
+	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
+		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
+	}
+	void ReleaseTexture(TexCacheEntry *entry) {
+		LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+		if (texture) {
+			texture->Release();
+			texture = nullptr;
+		}
+	}
 
 	TexCache cache;
 	TexCache secondCache;

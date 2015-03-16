@@ -139,12 +139,12 @@ void TextureCacheDX9::Clear(bool delete_them) {
 	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
-			iter->second.ReleaseTexture();
+			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
+			ReleaseTexture(&iter->second);
 		}
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texture);
-			iter->second.ReleaseTexture();
+			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.texturePtr);
+			ReleaseTexture(&iter->second);
 		}
 	}
 	if (cache.size() + secondCache.size()) {
@@ -158,7 +158,7 @@ void TextureCacheDX9::Clear(bool delete_them) {
 }
 
 void TextureCacheDX9::DeleteTexture(TexCache::iterator it) {
-	it->second.ReleaseTexture();
+	ReleaseTexture(&it->second);
 	auto fbInfo = fbTexInfo_.find(it->second.addr);
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
@@ -204,7 +204,7 @@ void TextureCacheDX9::Decimate() {
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
 			// In low memory mode, we kill them all.
 			if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
-				iter->second.ReleaseTexture();
+				ReleaseTexture(&iter->second);
 				secondCache.erase(iter++);
 			} else {
 				++iter;
@@ -771,10 +771,6 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	return DoQuickTexHash(checkp, sizeInRAM);
 }
 
-inline bool TextureCacheDX9::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
-	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
-}
-
 void TextureCacheDX9::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutTotalBytes_ = loadBytes;
 	if (Memory::IsValidAddress(clutAddr)) {
@@ -1108,7 +1104,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 					// Exponential backoff up to 512 frames.  Textures are often reused.
 					if (entry->numFrames > 32) {
 						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + ((intptr_t)entry->texture & 15);
+						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + ((intptr_t)entry->texturePtr & 15);
 					} else {
 						entry->framesUntilNextFullHash = entry->numFrames;
 					}
@@ -1192,9 +1188,10 @@ void TextureCacheDX9::SetTexture(bool force) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
 			entry->lastFrame = gpuStats.numFlips;
-			if (entry->texture != lastBoundTexture) {
-				pD3Ddevice->SetTexture(0, entry->texture);
-				lastBoundTexture = entry->texture;
+			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
+			if (texture != lastBoundTexture) {
+				pD3Ddevice->SetTexture(0, texture);
+				lastBoundTexture = texture;
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
@@ -1212,10 +1209,10 @@ void TextureCacheDX9::SetTexture(bool force) {
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
 				} else {
-					if (entry->texture == lastBoundTexture) {
+					if (entry->texturePtr == lastBoundTexture) {
 						lastBoundTexture = INVALID_TEX;
 					}
-					entry->ReleaseTexture();
+					ReleaseTexture(entry);
 				}
 			}
 			// Clear the reliable bit if set.
@@ -1364,7 +1361,8 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 
 	LoadTextureLevel(*entry, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
-	if (!entry->texture) {
+	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
+	if (!texture) {
 		return;
 	}
 
@@ -1375,8 +1373,8 @@ void TextureCacheDX9::SetTexture(bool force) {
 		}
 	}
 
-	pD3Ddevice->SetTexture(0, entry->texture);
-	lastBoundTexture = entry->texture;
+	pD3Ddevice->SetTexture(0, texture);
+	lastBoundTexture = texture;
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
@@ -1713,7 +1711,8 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 	}
 
-	if (level == 0 && (!replaceImages || entry.texture == nullptr)) {
+	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
+	if (level == 0 && (!replaceImages || texture == nullptr)) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
@@ -1722,20 +1721,20 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
 		}
 		int levels = g_Config.iTexScalingLevel == 1 ? maxLevel + 1 : 1;
-		HRESULT hr = pD3Ddevice->CreateTexture(w, h, levels, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &entry.texture, NULL);
+		HRESULT hr = pD3Ddevice->CreateTexture(w, h, levels, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &texture, NULL);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture");
-			entry.ReleaseTexture();
+			ReleaseTexture(&entry);
 			return;
 		}
 	}
 
 	D3DLOCKED_RECT rect;
-	entry.texture->LockRect(level, &rect, NULL, 0);
+	texture->LockRect(level, &rect, NULL, 0);
 
 	copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
 
-	entry.texture->UnlockRect(level);
+	texture->UnlockRect(level);
 }
 
 bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state)
