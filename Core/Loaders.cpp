@@ -238,7 +238,7 @@ LocalFileLoader::~LocalFileLoader() {
 
 bool LocalFileLoader::Exists() {
 	// If we couldn't open it for reading, we say it does not exist.
-	if (f_) {
+	if (f_ || IsDirectory()) {
 		FileInfo info;
 		return getFileInfo(filename_.c_str(), &info);
 	}
