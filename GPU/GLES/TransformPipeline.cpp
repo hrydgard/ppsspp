@@ -126,6 +126,7 @@ TransformDrawEngine::TransformDrawEngine()
 		decodeCounter_(0),
 		dcid_(0),
 		uvScale(0),
+		fboTexNeedBind_(false),
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	memset(&decOptions_, 0, sizeof(decOptions_));
