@@ -205,12 +205,10 @@ void Arm64Jit::GenerateFixedCode() {
 	FlushIcache();
 
 	if (false) {
-		INFO_LOG(JIT, "THE DISASM : %p ========================", enterCode);
 		std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}
-		INFO_LOG(JIT, "END OF THE DISASM : %p ========================", GetCodePtr());
 	}
 }
 

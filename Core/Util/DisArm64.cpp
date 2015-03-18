@@ -185,7 +185,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		const char *opname[2] = { "cbz", "cbnz" };
 		char r = ((w >> 31) & 1) ? 'x' : 'w';
 		int offset = SignExtend19(w >> 5);
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d", op, r, Rt);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d", opname[op], r, Rt);
 	} else if (((w >> 25) & 0x3F) == 0x1B) {
 		// Test and branch
 		snprintf(instr->text, sizeof(instr->text), "(test & branch %08x)", w);
