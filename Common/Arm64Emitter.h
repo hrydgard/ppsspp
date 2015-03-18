@@ -120,9 +120,10 @@ enum ShiftType
 
 enum IndexType
 {
-	INDEX_UNSIGNED,
-	INDEX_POST,
-	INDEX_PRE,
+	INDEX_UNSIGNED = 0,
+	INDEX_POST = 1,
+	INDEX_PRE = 2,
+	INDEX_SIGNED = INDEX_UNSIGNED // used in LDP/STP
 };
 
 enum ShiftAmount

@@ -48,6 +48,10 @@ int SignExtend9(int x) {
 	return (x & 0x00000100) ? (0xFFFFFE00 | x) : (x & 0x1FF);
 }
 
+int SignExtend7(int x) {
+	return (x & 0x00000040) ? (0xFFFFFF80 | x) : (x & 0x7F);
+}
+
 int SignExtend12(int x) {
 	return (x & 0x00000800) ? (0xFFFFF000 | x) : (x & 0xFFF);
 }
@@ -206,6 +210,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 
 static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	int size = w >> 30;
+	bool is64bit = (w >> 31) ? true : false;
 	int imm9 = SignExtend9((w >> 12) & 0x1FF);
 	int Rt = (w & 0x1F);
 	int Rn = ((w >> 5) & 0x1F);
@@ -216,18 +221,29 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	const char *opname[4] = { "str", "ldr", "str", "ldr" };
 	const char *sizeSuffix[4] = { "b", "w", "", "" };
 
-	if (((w >> 21) & 1) == 1) {
-		// register offset
-		snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + w%d]", opname[opc], sizeSuffix[size], r, Rt, Rn, Rm);
-		return;
-	} else if (((w >> 27) & 7) == 7) {
+	if (((w >> 27) & 7) == 7) {
 		int V = (w >> 26) & 1;
 		bool index_unsigned = ((w >> 24) & 3) == 1;
+		bool index_post = !index_unsigned && ((w >> 10) & 3) == 1;
+		bool index_pre = !index_unsigned && ((w >> 10) & 3) == 3;
 		int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 		if (V == 0) {
 			// Integer type
 			if (index_unsigned) {
-				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + %d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
+				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d, #%d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
+				return;
+			} else if (index_post) {
+				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d], #%d", opname[opc], sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
+				return;
+			} else if (index_pre) {
+				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d, #%d]!", opname[opc], sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
+				return;
+			} else {
+				// register offset
+				int S = (w >> 12) & 1;
+				char index_w = (option & 3) == 2 ? 'w' : 'x';
+				// TODO: Needs index support
+				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d + %c%d]", opname[opc], sizeSuffix[size], r, Rt, Rn, index_w, Rm);
 				return;
 			}
 		} else {
@@ -239,9 +255,31 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 				vr = "bhsd"[size];
 			}
 			if (index_unsigned) {
-				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d + %d]", opname[opc], vr, Rt, Rn, imm12);
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d, #%d]", opname[opc], vr, Rt, Rn, imm12);
+				return;
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(loadstore-fp-vector %08x)", w);
 				return;
 			}
+		}
+	} else if (((w >> 25) & 0x3F) == 0x14) {
+		// store pair
+		int offset = SignExtend7((w >> 15) & 0x7f) << (is64bit ? 3 : 2);
+		int Rt2 = (w >> 10) & 0x1f;
+		bool load = (w >> 22) & 1;
+		int index_type = ((w >> 23) & 3);
+		if (index_type == 2) {
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
+			return;
+		} else if (index_type == 1) {
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d], #%d", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
+			return;
+		} else if (index_type == 3) {
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]!", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
+			return;
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(loadstore-pair %08x)", w);
+			return;
 		}
 	}
 	snprintf(instr->text, sizeof(instr->text), "(LS %08x)", w);
