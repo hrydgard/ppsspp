@@ -68,6 +68,12 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "aa1e03f7 mov x23, x30"));
 	fp.FSQRT(S20, S25);
 	RET(CheckLast(emitter, "1e21c334 fsqrt s20, s25"));
+	fp.FNEG(S20, S25);
+	RET(CheckLast(emitter, "1e214334 fneg s20, s25"));
+	fp.FABS(S20, S25);
+	RET(CheckLast(emitter, "1e20c334 fabs s20, s25"));
+	fp.FMOV(S20, S25);
+	RET(CheckLast(emitter, "1e204334 fmov s20, s25"));
 	emitter.ORI2R(X1, X3, 0x3F, INVALID_REG);
 	RET(CheckLast(emitter, "b2401461 orr x1, x3, #0x3f"));
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);

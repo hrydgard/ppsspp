@@ -733,6 +733,7 @@ public:
 	void ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
 
 	// Scalar - 1 Source
+	void FMOV(ARM64Reg Rd, ARM64Reg Rn);
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
 	void FNEG(ARM64Reg Rd, ARM64Reg Rn);
 	void FSQRT(ARM64Reg Rd, ARM64Reg Rn);

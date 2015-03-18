@@ -2583,6 +2583,10 @@ void ARM64FloatEmitter::ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn)
 }
 
 // Scalar - 1 Source
+void ARM64FloatEmitter::FMOV(ARM64Reg Rd, ARM64Reg Rn)
+{
+	EmitScalar1Source(0, 0, IsDouble(Rd), 0, Rd, Rn);
+}
 void ARM64FloatEmitter::FABS(ARM64Reg Rd, ARM64Reg Rn)
 {
 	EmitScalar1Source(0, 0, IsDouble(Rd), 1, Rd, Rn);

@@ -145,13 +145,8 @@ void Arm64Jit::Comp_FPUComp(MIPSOpcode op) {
 void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	// These don't work for some reason.
-	DISABLE;
 	int fs = _FS;
 	int fd = _FD;
-
-	// TODO: Most of these mishandle infinity/NAN.
-	// Maybe we can try to track per reg if they *could* be INF/NAN to optimize out?
 
 	switch (op & 0x3f) {
 	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
