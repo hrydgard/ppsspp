@@ -780,7 +780,7 @@ public:
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
 
-	// Conversion between float and integer
+	// Conversion or movement between float and integer
 	void FMOV(u8 size, bool top, ARM64Reg Rd, ARM64Reg Rn);
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
 	void UCVTF(ARM64Reg Rd, ARM64Reg Rn);
@@ -841,7 +841,7 @@ private:
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm);
+	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
 	void EmitShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn);
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);

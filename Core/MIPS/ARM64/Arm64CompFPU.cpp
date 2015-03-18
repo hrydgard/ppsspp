@@ -249,16 +249,16 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 	MIPSGPReg rt = _RT;
 
 	switch ((op >> 21) & 0x1f) {
-		/*
 	case 0: // R(rt) = FI(fs); break; //mfc1
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 		if (fpr.IsMapped(fs)) {
-			MOV(gpr.R(rt), fpr.R(fs));
+			fp.FMOV(32, false, gpr.R(rt), fpr.R(fs));
 		} else {
 			LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
 		}
 		return;
 
+		/*
 	case 2: //cfc1
 		if (fs == 31) {
 			if (gpr.IsImm(MIPS_REG_FPCOND)) {
@@ -284,18 +284,20 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			gpr.SetImm(rt, 0);
 		}
 		return;
+		*/
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 			fpr.MapReg(fs, MAP_NOINIT);
-			MOVI2F(fpr.R(fs), 0.0f, SCRATCH1);
+			fp.FMOV(fpr.R(fs), 0);  // Immediate form
 		} else {
 			gpr.MapReg(rt);
 			fpr.MapReg(fs, MAP_NOINIT);
-			VMOV(fpr.R(fs), gpr.R(rt));
+			fp.FMOV(32, false, fpr.R(fs), gpr.R(rt));
 		}
 		return;
 
+		/*
 	case 6: //ctc1
 		if (fs == 31) {
 			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.

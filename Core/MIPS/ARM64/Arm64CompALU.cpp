@@ -383,11 +383,85 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rt = _RT;
+	MIPSGPReg rd = _RD;
+	// Don't change $zr.
+	if (rd == 0)
+		return;
+
+	switch ((op >> 6) & 31) {
+	/*
+	case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
+		if (gpr.IsImm(rt)) {
+			gpr.SetImm(rd, (s32)(s8)(u8)gpr.GetImm(rt));
+			return;
+		}
+		gpr.MapDirtyIn(rd, rt);
+		SXTB(gpr.R(rd), gpr.R(rt));
+		break;
+
+	case 24: // seh
+		if (gpr.IsImm(rt)) {
+			gpr.SetImm(rd, (s32)(s16)(u16)gpr.GetImm(rt));
+			return;
+		}
+		gpr.MapDirtyIn(rd, rt);
+		SXTH(gpr.R(rd), gpr.R(rt));
+		break;*/
+
+	case 20: //bitrev
+		if (gpr.IsImm(rt)) {
+			// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+			u32 v = gpr.GetImm(rt);
+			v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1); //   odd<->even
+			v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2); //  pair<->pair
+			v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4); //  nibb<->nibb
+			v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8); //  byte<->byte
+			v = (v >> 16) | (v << 16); // hword<->hword
+			gpr.SetImm(rd, v);
+			return;
+		}
+
+		gpr.MapDirtyIn(rd, rt);
+		RBIT(gpr.R(rd), gpr.R(rt));
+		break;
+
+	default:
+		Comp_Generic(op);
+		return;
+	}
 }
 
 void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rt = _RT;
+	MIPSGPReg rd = _RD;
+	// Don't change $zr.
+	if (rd == 0)
+		return;
+
+	switch (op & 0x3ff) {
+	case 0xA0: //wsbh
+		if (gpr.IsImm(rt)) {
+			gpr.SetImm(rd, ((gpr.GetImm(rt) & 0xFF00FF00) >> 8) | ((gpr.GetImm(rt) & 0x00FF00FF) << 8));
+		} else {
+			gpr.MapDirtyIn(rd, rt);
+			REV16(gpr.R(rd), gpr.R(rt));
+		}
+		break;
+	case 0xE0: //wsbw
+		if (gpr.IsImm(rt)) {
+			gpr.SetImm(rd, swap32(gpr.GetImm(rt)));
+		} else {
+			gpr.MapDirtyIn(rd, rt);
+			REV32(gpr.R(rd), gpr.R(rt));
+		}
+		break;
+	default:
+		Comp_Generic(op);
+		break;
+	}
 }
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {

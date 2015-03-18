@@ -35,6 +35,14 @@ bool TestArm64Emitter() {
 	u32 code[512];
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
+	//fp.FMOV(32, false, S1, X3);
+	//RET(CheckLast(emitter, "aa023be1 fmov s1, w3"));
+	//fp.FMOV(32, false, X1, S3);
+	//RET(CheckLast(emitter, "aa023be1 fmov x1, s3"));
+	emitter.MOV(X1, X2, ArithOption(X1, ST_LSL, 14));
+	RET(CheckLast(emitter, "aa023be1 mov x1, x2, lsl #14"));
+	emitter.LSLV(X1, X2, X30);
+	RET(CheckLast(emitter, "9ade2041 lslv x1, x2, x30"));
 	emitter.CMP(W2, W30);
 	RET(CheckLast(emitter, "6b1e005f cmp w2, w30"));
 	emitter.ADD(X1, X2, X30);

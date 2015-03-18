@@ -24,9 +24,8 @@
 namespace MIPSComp {
 
 int Arm64Jit::Replace_fabsf() {
-	// TODO ARM64
-	// fpr.MapDirtyIn(0, 12);
-	// VABS(fpr.R(0), fpr.R(12));
+	fpr.MapDirtyIn(0, 12);
+	fp.FABS(fpr.R(0), fpr.R(12));
 	return 4;  // Number of instructions in the MIPS function
 }
 
