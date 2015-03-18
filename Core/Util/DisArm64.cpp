@@ -49,6 +49,60 @@ int SignExtend12(int x) {
 	return (x & 0x00000800) ? (0xFFFFF000 | x) : (x & 0xFFF);
 }
 
+int HighestSetBit(int value) {
+	int highest = 0;
+	for (int i = 0; i < 32; i++) {
+		if (value & (1 << i))
+			highest = i;
+	}
+	return highest;
+}
+
+uint64_t Ones(int len) {
+	if (len == 0x40) {
+		return 0xFFFFFFFFFFFFFFFF;
+	}
+	return (1ULL << len) - 1;
+}
+
+uint64_t Replicate(uint64_t value, int esize) {
+	uint64_t out = 0;
+	value &= Ones(esize);
+	for (int i = 0; i < 64; i += esize) {
+		out |= value << i;
+	}
+	return out;
+}
+
+uint64_t ROR(uint64_t value, int amount, int esize) {
+	uint64_t rotated = (value >> amount) | (value << (esize - amount));
+	return rotated & Ones(esize);
+}
+
+void DecodeBitMasks(int immN, int imms, int immr, uint64_t *tmask, uint64_t *wmask) {
+	// Compute log2 of element size
+	// 2^len must be in range [2, M]
+	int len = HighestSetBit((immN << 6) | ((~imms) & 0x3f));
+	// if len < 1 then ReservedValue();
+	// assert M >= (1 << len);
+	// Determine S, R and S - R parameters
+	int levels = Ones(len);
+	uint32_t S = imms & levels;
+	uint32_t R = immr & levels;
+	int diff = S - R; // 6-bit subtract with borrow
+	int esize = 1 << len;
+	int d = diff & Ones(len - 1);
+	uint32_t welem = Ones(S + 1);
+	uint32_t telem = Ones(d + 1);
+	if (wmask) {
+		uint64_t rotated = ROR(welem, R, esize);
+		*wmask = Replicate(rotated, esize);
+	}
+	if (tmask) {
+		*tmask = Replicate(telem, esize);
+	}
+}
+
 static const char *conds[16] = {
 	"eq", // Equal
 	"ne", // Not equal
@@ -77,21 +131,33 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		int opc = (w >> 29) & 3;
 		int shift = ((w >> 21) & 0x3) * 16;
 		const char *opnames[4] = { "movn", "(undef)", "movz", "movk" };
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d, 0x%04x << %d", opnames[opc], r, Rd, imm16, shift);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, #0x%04x << %d", opnames[opc], r, Rd, imm16, shift);
 	} else if (((w >> 24) & 0x1F) == 0x10) {
 		// Address generation relative to PC
 		int op = w >> 31;
 		int imm = SignExtend19(w >> 5);
 		if (op & 1) imm <<= 12;
 		u64 daddr = addr + imm;
-		snprintf(instr->text, sizeof(instr->text), "%s x%d, 0x%04x%08x", op ? "adrp" : "adr", Rd, daddr >> 32, daddr & 0xFFFFFFFF);
+		snprintf(instr->text, sizeof(instr->text), "%s x%d, #0x%04x%08x", op ? "adrp" : "adr", Rd, daddr >> 32, daddr & 0xFFFFFFFF);
 	} else if (((w >> 24) & 0x1F) == 0x11) {
 		// Add/subtract immediate value
 		int op = (w >> 30) & 1;
 		int imm = ((w >> 10) & 0xFFF);
 		int shift = ((w >> 22) & 0x3) * 16;
 		imm <<= shift;
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %d", op == 0 ? "add" : "sub", r, Rd, r, Rn, imm);
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", r, Rd, r, Rn, imm);
+	} else if (((w >> 23) & 0x3f) == 0x24) {
+		int immr = (w >> 16) & 0x3f;
+		int imms = (w >> 10) & 0x3f;
+		int N = (w >> 22) & 1;
+		int opc = (w >> 29) & 3;
+		const char *opname[4] = { "and", "orr", "eor", "ands" };
+		uint64_t wmask;
+		DecodeBitMasks(N, imms, immr, NULL, &wmask);
+		if (((w >> 31) & 1) && wmask & 0xFFFFFFFF00000000ULL)
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x%08x", opname[opc], r, Rd, r, Rn, (wmask >> 32), (wmask & 0xFFFFFFFF));
+		else
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x", opname[opc], r, Rd, r, Rn, (uint32_t)wmask);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPI %08x)", w);
 	}
@@ -120,7 +186,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		int offset = SignExtend19(w >> 5) << 2;
 		uint64_t target = addr + offset;
 		int cond = w & 0xF;
-		snprintf(instr->text, sizeof(instr->text), "b.%s %04x08x", conds[cond], (target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", conds[cond], (target >> 32), (target & 0xFFFFFFFF));
 	} else if ((w >> 24) == 0xD4) {
 		snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
 	} else if (((w >> 20) & 0xFFC) == 0xD50) {
@@ -212,9 +278,9 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		int N = (w >> 21) & 1;
 		int opc = (((w >> 29) & 3) << 1) | N;
 		const char *opnames[8] = { "and", "bic", "orr", "orn", "eor", "eon", "ands", "bics" };
-		if (opc == 3 && Rn == 31) {
+		if (opc == 2 && Rn == 31) {
 			// Special case for MOV (which is constructed from an ORR)
-			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", opnames[opc], r, Rd, r, Rm);
+			snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d", r, Rd, r, Rm);
 		} else if (imm6 == 0) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 		} else {
@@ -235,20 +301,22 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rm = (w >> 16) & 0x1f;
 	int type = (w >> 22) & 0x3;
 	if ((w >> 24) == 0x1E) {
-		if (((w >> 10) & 0x39f) == 0x810) {
+		if (((w >> 10) & 0xf9f) == 0x810) {
 			const char *opnames[4] = { "fmov", "fabs", "fneg", "fsqrt" };
 			int opc = (w >> 15) & 0x3;
-			snprintf(instr->text, sizeof(instr->text), "%s !%d, !%d (%08x)", opnames[opc], Rd, Rn, w);
+			snprintf(instr->text, sizeof(instr->text), "%s s%d, s%d", opnames[opc], Rd, Rn);  // TODO: Support doubles too
 		} else if (((w >> 10) & 3) == 2) {
 			// FP data-proc (2 source)
 			int opc = (w >> 12) & 0xf;
 			if (type == 0 || type == 1) {
 				const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
-				char r = 's';
+				char r = 's';  // TODO: Support doubles too
 				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 			} else {
 				snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
 			}
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
 		}
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);

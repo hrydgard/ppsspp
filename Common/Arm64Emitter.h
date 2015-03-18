@@ -87,6 +87,10 @@ inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
 inline bool IsDouble(ARM64Reg reg) { return (reg & 0xC0) == 0x80; }
 inline bool IsQuad(ARM64Reg reg) { return (reg & 0xC0) == 0xC0; }
 inline bool IsVector(ARM64Reg reg) { return (reg & 0xC0) != 0; }
+inline bool IsGPR(ARM64Reg reg) { return (int)reg < 0x40; }
+
+int CountLeadingZeros(uint64_t value, int width);
+
 inline ARM64Reg DecodeReg(ARM64Reg reg) { return (ARM64Reg)(reg & 0x1F); }
 inline ARM64Reg EncodeRegTo64(ARM64Reg reg) { return (ARM64Reg)(reg | 0x20); }
 inline ARM64Reg EncodeRegToDouble(ARM64Reg reg) { return (ARM64Reg)((reg & ~0xC0) | 0x80); }
@@ -349,7 +353,7 @@ private:
 	void EncodeBitfieldMOVInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
 	void EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, ARM64Reg Rn, ARM64Reg Rd);
-	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert);
+	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, int n);
 	void EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 	void EncodeAddressInst(u32 op, ARM64Reg Rd, s32 imm);
 	void EncodeLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
@@ -821,7 +825,6 @@ public:
 
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
-
 
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);

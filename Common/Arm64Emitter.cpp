@@ -22,7 +22,7 @@ const int kXRegSizeInBits = 64;
 int CountLeadingZeros(uint64_t value, int width) {
 	// TODO(jbramley): Optimize this for ARM64 hosts.
 	int count = 0;
-	uint64_t bit_test = 1UL << (width - 1);
+	uint64_t bit_test = 1ULL << (width - 1);
 	while ((count < width) && ((bit_test & value) == 0)) {
 		count++;
 		bit_test >>= 1;
@@ -723,7 +723,7 @@ void ARM64XEmitter::EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, 
 	        (imm << 10) | (Rn << 5) | Rd);
 }
 
-void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert)
+void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, int n)
 {
 	// Sometimes Rd is fixed to SP, but can still be 32bit or 64bit.
 	// Use Rn to determine bitness here.
@@ -732,7 +732,7 @@ void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 i
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 
-	Write32((b64Bit << 31) | (op << 29) | (0x24 << 23) | (b64Bit << 22) | (invert << 21) | \
+	Write32((b64Bit << 31) | (op << 29) | (0x24 << 23) | (n << 22) | \
 	        (immr << 16) | (imms << 10) | (Rn << 5) | Rd);
 }
 
@@ -1382,7 +1382,11 @@ void ARM64XEmitter::BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shif
 }
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm)
 {
-	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, 0));
+	if (IsGPR(Rd) && IsGPR(Rm)) {
+		ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, 0));
+	} else {
+		_assert_msg_(JIT, false, "Non-GPRs not supported in MOV");
+	}
 }
 void ARM64XEmitter::MVN(ARM64Reg Rd, ARM64Reg Rm)
 {
@@ -1797,7 +1801,7 @@ void ARM64XEmitter::ADRP(ARM64Reg Rd, s32 imm)
 	EncodeAddressInst(1, Rd, imm >> 12);
 }
 
-// Wrapper around MOVZ+MOVK
+// Wrapper around MOVZ+MOVK (and later MOVN)
 void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 {
 	unsigned int parts = Is64Bit(Rd) ? 4 : 2;
@@ -1816,13 +1820,22 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 	if ((Is64Bit(Rd) && imm == std::numeric_limits<u64>::max()) ||
 	    (!Is64Bit(Rd) && imm == std::numeric_limits<u32>::max()))
 	{
-		// Max unsigned value
+		// Max unsigned value (or if signed, -1)
 		// Set to ~ZR
 		ARM64Reg ZR = Is64Bit(Rd) ? SP : WSP;
 		ORN(Rd, ZR, ZR, ArithOption(ZR, ST_LSL, 0));
 		return;
 	}
 
+	// TODO: Make some more systemic use of MOVN, but this will take care of most cases.
+	// Small negative integer. Use MOVN
+	if (!Is64Bit(Rd) && (imm | 0xFFFF0000) == imm) {
+		MOVN(Rd, ~imm, SHIFT_0);
+		return;
+	}
+
+
+	// XXX: Use MOVN when possible.
 	// XXX: Optimize more
 	// XXX: Support rotating immediates to save instructions
 	if (optimize)
