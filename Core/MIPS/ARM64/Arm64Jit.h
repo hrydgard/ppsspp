@@ -239,6 +239,8 @@ private:
 	// Utilities to reduce duplicated code
 	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEmitter::*arith)(Arm64Gen::ARM64Reg dst, Arm64Gen::ARM64Reg src, Arm64Gen::ARM64Reg src2), bool (ARM64XEmitter::*tryArithI2R)(Arm64Gen::ARM64Reg dst, Arm64Gen::ARM64Reg src, u32 val), u32 (*eval)(u32 a, u32 b));
 	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARM64XEmitter::*arithOp2)(Arm64Gen::ARM64Reg dst, Arm64Gen::ARM64Reg rm, Arm64Gen::ARM64Reg rn), bool (ARM64XEmitter::*tryArithI2R)(Arm64Gen::ARM64Reg dst, Arm64Gen::ARM64Reg rm, u32 val), u32 (*eval)(u32 a, u32 b), bool symmetric = false);
+	void CompShiftImm(MIPSOpcode op, Arm64Gen::ShiftType shiftType, int sa);
+	void CompShiftVar(MIPSOpcode op, Arm64Gen::ShiftType shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);

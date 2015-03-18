@@ -1380,33 +1380,38 @@ void ARM64XEmitter::BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shif
 {
 	EncodeLogicalInst(7, Rd, Rn, Rm, Shift);
 }
+
+void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift) {
+	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, Shift);
+}
+
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm)
 {
 	if (IsGPR(Rd) && IsGPR(Rm)) {
-		ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, 0));
+		ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_LSL, 0));
 	} else {
 		_assert_msg_(JIT, false, "Non-GPRs not supported in MOV");
 	}
 }
 void ARM64XEmitter::MVN(ARM64Reg Rd, ARM64Reg Rm)
 {
-	ORN(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, 0));
+	ORN(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_LSL, 0));
 }
 void ARM64XEmitter::LSL(ARM64Reg Rd, ARM64Reg Rm, int shift)
 {
-	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSL, shift));
+	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_LSL, shift));
 }
 void ARM64XEmitter::LSR(ARM64Reg Rd, ARM64Reg Rm, int shift)
 {
-	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_LSR, shift));
+	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_LSR, shift));
 }
 void ARM64XEmitter::ASR(ARM64Reg Rd, ARM64Reg Rm, int shift)
 {
-	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_ASR, shift));
+	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_ASR, shift));
 }
 void ARM64XEmitter::ROR(ARM64Reg Rd, ARM64Reg Rm, int shift)
 {
-	ORR(Rd, Is64Bit(Rd) ? SP : WSP, Rm, ArithOption(Rm, ST_ROR, shift));
+	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, ArithOption(Rm, ST_ROR, shift));
 }
 
 // Logical (immediate)
@@ -1428,7 +1433,7 @@ void ARM64XEmitter::ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool inver
 }
 void ARM64XEmitter::TST(ARM64Reg Rn, u32 immr, u32 imms, bool invert)
 {
-	EncodeLogicalImmInst(3, Is64Bit(Rn) ? SP : WSP, Rn, immr, imms, invert);
+	EncodeLogicalImmInst(3, Is64Bit(Rn) ? ZR : WZR, Rn, immr, imms, invert);
 }
 
 // Add/subtract (immediate)

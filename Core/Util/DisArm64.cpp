@@ -275,11 +275,15 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		const char *opnames[8] = { "and", "bic", "orr", "orn", "eor", "eon", "ands", "bics" };
 		if (opc == 2 && Rn == 31) {
 			// Special case for MOV (which is constructed from an ORR)
-			snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d", r, Rd, r, Rm);
+			if (imm6 != 0) {
+				snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d, %s #%d", r, Rd, r, Rm, shiftnames[shift], imm6);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d", r, Rd, r, Rm);
+			}
 		} else if (imm6 == 0 && shift == 0) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 		} else {
-			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %s #%d", opnames[opc], r, Rd, r, Rn, r, Rm, shiftnames[shift], imm6);
 		}
 	} else if (((w >> 24) & 0x1f) == 0xB) {
 		// Arithmetic (shifted register)
@@ -310,6 +314,10 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d, %s", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm, extendnames[option]);
 		}
+	} else if (((w >> 21) & 0xFF) == 0xD6 && ((w >> 12) & 0xF) == 2) {
+		// Variable shifts
+		int opc = (w >> 10) & 3;
+		snprintf(instr->text, sizeof(instr->text), "%sv %c%d, %c%d, %c%d", shiftnames[opc], r, Rd, r, Rn, r, Rm);
 	} else {
 		// Logical (extended register)
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);
