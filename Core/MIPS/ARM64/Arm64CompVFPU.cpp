@@ -86,8 +86,7 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Arm64Jit::Comp_VVectorInit(MIPSOpcode op)
-	{
+	void Arm64Jit::Comp_VVectorInit(MIPSOpcode op) {
 		DISABLE;
 	}
 
@@ -95,8 +94,7 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Arm64Jit::Comp_VMatrixInit(MIPSOpcode op)
-	{
+	void Arm64Jit::Comp_VMatrixInit(MIPSOpcode op) {
 		DISABLE;
 	}
 
@@ -208,7 +206,6 @@ namespace MIPSComp
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
-	// Apparently this may not work on hardfp. I don't think we have any platforms using this though.
 	void Arm64Jit::Comp_VRot(MIPSOpcode op) {
 		DISABLE;
 	}

@@ -600,7 +600,7 @@ void ArmJit::RestoreRoundingMode(bool force) {
 }
 
 void ArmJit::ApplyRoundingMode(bool force) {
-	// NOTE: Must not destory R0.
+	// NOTE: Must not destroy R0.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
