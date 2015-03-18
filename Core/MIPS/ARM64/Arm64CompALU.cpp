@@ -94,9 +94,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 	case 13: CompImmLogic(rs, rt, uimm, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr); break;
 	case 14: CompImmLogic(rs, rt, uimm, &ARM64XEmitter::EOR, &ARM64XEmitter::TryEORI2R, &EvalEor); break;
 
-		/*
 	case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm ? 1 : 0);
 			break;
@@ -108,35 +106,24 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 		}
 		gpr.MapDirtyIn(rt, rs);
 		if (!TryCMPI2R(gpr.R(rs), simm)) {
-			gpr.SetRegImm(SCRATCHREG1, simm);
-			CMP(gpr.R(rs), SCRATCHREG1);
+			gpr.SetRegImm(SCRATCH1, simm);
+			CMP(gpr.R(rs), SCRATCH1);
 		}
-		SetCC(CC_LT);
-		MOVI2R(gpr.R(rt), 1);
-		SetCC(CC_GE);
-		MOVI2R(gpr.R(rt), 0);
-		SetCC(CC_AL);
-	}
+		CSET(gpr.R(rt), CC_LT);
 		break;
 
 	case 11: // R(rt) = R(rs) < suimm; break; //sltiu
-	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, gpr.GetImm(rs) < suimm ? 1 : 0);
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
 		if (!TryCMPI2R(gpr.R(rs), suimm)) {
-			gpr.SetRegImm(SCRATCHREG1, suimm);
-			CMP(gpr.R(rs), SCRATCHREG1);
+			gpr.SetRegImm(SCRATCH1, suimm);
+			CMP(gpr.R(rs), SCRATCH1);
 		}
-		SetCC(CC_LO);
-		MOVI2R(gpr.R(rt), 1);
-		SetCC(CC_HS);
-		MOVI2R(gpr.R(rt), 0);
-		SetCC(CC_AL);
-	}
-		break;*/
+		CSET(gpr.R(rt), CC_LO);
+		break;
 
 	case 15: // R(rt) = uimm << 16;	 //lui
 		gpr.SetImm(rt, uimm << 16);
@@ -238,11 +225,13 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
+		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_EQ);
 		break;
 	case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
+		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_NEQ);
@@ -274,11 +263,9 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-		DISABLE;
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
 		} else {
-			// TODO: Optimize imm cases
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			CSET(gpr.R(rd), CC_LT);
@@ -286,7 +273,6 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 43: //R(rd) = R(rs) < R(rt);           break; //sltu
-		DISABLE;
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
 		} else {
@@ -297,7 +283,6 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 44: //R(rd) = max(R(rs), R(rt);        break; //max
-		DISABLE;
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, std::max(gpr.GetImm(rs), gpr.GetImm(rt)));
 			break;
@@ -308,7 +293,6 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 45: //R(rd) = min(R(rs), R(rt));       break; //min
-		DISABLE;
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, std::min(gpr.GetImm(rs), gpr.GetImm(rt)));
 			break;
