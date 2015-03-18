@@ -54,26 +54,19 @@ static const bool enableDebug = false;
 // x29: the frame pointer register
 // x30: link register for procedure calls
 
-// r15 is the program counter.
-// r14 is the link register. (The BL instruction, used in a subroutine call, stores the return address in this register).
-// r13 is the stack pointer. (The Push/Pop instructions in "Thumb" operating mode use this register only).
-// r12 is the Intra-Procedure-call scratch register.
-// r4 to r11: used to hold local variables.
-// r0 to r3: used to hold argument values passed to a subroutine, and also hold results returned from a subroutine.
-
 // So: Scratch registers: x16, x17
 // Mappable registers in priority order:
-//	 x19, x20, x21, x22, x23, x24, x25, x27, x28, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x0, x1,
+//	 x19, x20, x21, x22, x23, (x24, x25, x26, x27, x28), x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x0, x1,
 // That's a whole lot of registers so we might be able to statically allocate a bunch of common MIPS registers.
 // We should put statically allocated registers in the 7 callee-save regs that are left over after the system regs (x19-x25), so we don't have to bother with
 // saving them when we call out of the JIT. We will perform regular dynamic register allocation in the rest (x0-x15)
 
 // STATIC ALLOCATION ARM64 (these are all callee-save registers):
+// x24 : Down counter
 // x25 : MSR/MRS temporary (to be eliminated later)
 // x26 : JIT base reg
 // x27 : MIPS state (Could eliminate by placing the MIPS state right at the memory base)
 // x28 : Memory base pointer.
-// x24 : Down counter
 
 extern volatile CoreState coreState;
 

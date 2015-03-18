@@ -321,7 +321,6 @@ void Arm64Jit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 
 	gpr.MapReg(MIPS_REG_FPCOND);
 	TSTI2R(gpr.R(MIPS_REG_FPCOND), 1, W0);
-
 	Arm64Gen::FixupBranch ptr;
 	if (!likely) {
 		if (!delaySlotIsNice)
@@ -507,7 +506,6 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
-		INFO_LOG(JIT, "jreg DelaySlotIsNice");
 		if (andLink)
 			gpr.SetImm(rd, js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);

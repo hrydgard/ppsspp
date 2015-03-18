@@ -83,14 +83,17 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 8:	// same as addiu?
 	case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-		CompImmLogic(rs, rt, simm, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd);
+		if (simm >= 0) {
+			CompImmLogic(rs, rt, simm, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd);
+		} else if (simm < 0) {
+			CompImmLogic(rs, rt, -simm, &ARM64XEmitter::SUB, &ARM64XEmitter::TrySUBI2R, &EvalSub);
+		}
 		break;
 
-		/*
 	case 12: CompImmLogic(rs, rt, uimm, &ARM64XEmitter::AND, &ARM64XEmitter::TryANDI2R, &EvalAnd); break;
 	case 13: CompImmLogic(rs, rt, uimm, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr); break;
 	case 14: CompImmLogic(rs, rt, uimm, &ARM64XEmitter::EOR, &ARM64XEmitter::TryEORI2R, &EvalEor); break;
-	*/
+
 		/*
 	case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 	{
