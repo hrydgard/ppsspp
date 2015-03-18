@@ -1050,6 +1050,24 @@ if(ARM)
 		Core/MIPS/ARM/ArmRegCacheFPU.h
 		GPU/Common/VertexDecoderArm.cpp
 		ext/disarm.cpp)
+elseif(ARM64)
+  set(CoreExtra ${CoreExtra}
+		Core/MIPS/ARM64/Arm64Asm.cpp
+		Core/MIPS/ARM64/Arm64Asm.h
+		Core/MIPS/ARM64/Arm64CompALU.cpp
+		Core/MIPS/ARM64/Arm64CompBranch.cpp
+		Core/MIPS/ARM64/Arm64CompFPU.cpp
+		Core/MIPS/ARM64/Arm64CompLoadStore.cpp
+		Core/MIPS/ARM64/Arm64CompVFPU.cpp
+		Core/MIPS/ARM64/Arm64CompReplace.cpp
+		Core/MIPS/ARM64/Arm64Jit.cpp
+		Core/MIPS/ARM64/Arm64Jit.h
+		Core/MIPS/ARM64/Arm64RegCache.cpp
+		Core/MIPS/ARM64/Arm64RegCache.h
+		Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
+		Core/MIPS/ARM64/Arm64RegCacheFPU.h
+		GPU/Common/VertexDecoderArm.cpp
+		Core/Util/DisArm64.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/x86/Asm.cpp
@@ -1069,6 +1087,7 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
+		Core/Util/DisArm64.cpp
 		ext/disarm.cpp)
 elseif(MIPS)
 	set(CoreExtra ${CoreExtra}
