@@ -75,7 +75,6 @@ using namespace Gen;
 #endif
 
 const u32 INVALID_EXIT = 0xFFFFFFFF;
-const MIPSOpcode INVALID_ORIGINAL_OP = MIPSOpcode(0x00000001);
 
 JitBlockCache::JitBlockCache(MIPSState *mips, NativeCodeBlock *codeBlock) :
 	mips_(mips), codeBlock_(codeBlock), blocks_(0), num_blocks_(0) {
@@ -483,12 +482,13 @@ std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps() {
 			continue;
 
 		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
-		result[block_num] = emuhack;
-		// The goal here is to prevent restoring it if it did not match (in case originalFirstOpcode does match.)
-		if (Memory::ReadUnchecked_U32(b.originalAddress) != emuhack)
-			b.originalFirstOpcode = INVALID_ORIGINAL_OP;
-		else
+		if (Memory::ReadUnchecked_U32(b.originalAddress) == emuhack)
+		{
+			result[block_num] = emuhack;
 			Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode);
+		}
+		else
+			result[block_num] = 0;
 	}
 
 	return result;
@@ -502,7 +502,7 @@ void JitBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
 
 	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
 		const JitBlock &b = blocks_[block_num];
-		if (b.invalid)
+		if (b.invalid || saved[block_num] == 0)
 			continue;
 
 		// Only if we restored it, write it back.
