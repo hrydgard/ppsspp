@@ -445,7 +445,9 @@ void JitBlockCache::LinkBlockExits(int i) {
 				b.linkStatus[e] = true;
 #elif defined(ARM64)
 				ARM64XEmitter emit(b.exitPtrs[e]);
-				// TODO ARM64 - must be done before enabling block linking
+				emit.B(blocks_[destinationBlock].checkedEntry);
+				emit.FlushIcache();
+				b.linkStatus[e] = true;
 #endif
 			}
 		}

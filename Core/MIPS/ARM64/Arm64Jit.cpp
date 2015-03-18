@@ -255,10 +255,9 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	} else if (jo.enableBlocklink) {
 		b->checkedEntry = GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
-		// A conditional branch can't reach all the way to the dispatcher :/
-		//FixupBranch skip = B(CC_GE);
-		//B((const void *)outerLoopPCInSCRATCH1, SCRATCH2);
-		//SetJumpTarget(skip);
+		FixupBranch skip = B(CC_GE);
+		B((const void *)outerLoopPCInSCRATCH1);
+		SetJumpTarget(skip);
 	} else {
 		// No block linking, no need to add headers to blocks.
 	}

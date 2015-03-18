@@ -37,7 +37,7 @@ namespace MIPSComp
 struct Arm64JitOptions
 {
 	Arm64JitOptions()  {
-		enableBlocklink = false;
+		enableBlocklink = true;
 		useBackJump = false;
 		useForwardJump = false;
 		cachePointers = true;
