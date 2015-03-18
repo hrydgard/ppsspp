@@ -353,13 +353,110 @@ void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
 }
 
 bool Arm64Jit::ReplaceJalTo(u32 dest) {
-	return false;
+#ifdef ARM64
+	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
+	if (!MIPS_IS_REPLACEMENT(op.encoding))
+		return false;
+
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+	if (!entry) {
+		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
+		return false;
+	}
+
+	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+	INFO_LOG(HLE, "ReplaceJalTo to %s", entry->name);
+
+	// Warning - this might be bad if the code at the destination changes...
+	if (entry->flags & REPFLAG_ALLOWINLINE) {
+		// Jackpot! Just do it, no flushing. The code will be entirely inlined.
+		// First, compile the delay slot. It's unconditional so no issues.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		// Technically, we should write the unused return address to RA, but meh.
+		MIPSReplaceFunc repl = entry->jitReplaceFunc;
+		int cycles = (this->*repl)();
+		js.downcountAmount += cycles;
+	} else {
+		gpr.SetImm(MIPS_REG_RA, js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		RestoreRoundingMode();
+		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
+		ApplyRoundingMode();
+		WriteDownCountR(W0);
+	}
+
+	js.compilerPC += 4;
+	// No writing exits, keep going!
+
+	// Add a trigger so that if the inlined code changes, we invalidate this block.
+	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
+#endif
+	return true;
 }
 
 void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 {
-	ERROR_LOG(JIT, "Comp_ReplacementFunc not implemented");
-	// TODO ARM64
+	// We get here if we execute the first instruction of a replaced function. This means
+	// that we do need to return to RA.
+
+	// Inlined function calls (caught in jal) are handled differently.
+
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+	if (!entry) {
+		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		return;
+	}
+
+	if (entry->flags & REPFLAG_DISABLED) {
+		MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+	} else if (entry->jitReplaceFunc) {
+		INFO_LOG(HLE, "JitReplaceFunc to %s", entry->name);
+		MIPSReplaceFunc repl = entry->jitReplaceFunc;
+		int cycles = (this->*repl)();
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			FlushAll();
+			// Flushed, so R1 is safe.
+			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, MIPS_REG_RA * 4);
+			js.downcountAmount += cycles;
+			WriteExitDestInR(SCRATCH1);
+			js.compiling = false;
+		}
+	} else if (entry->replaceFunc) {
+		INFO_LOG(HLE, "ReplaceFunc to %s", entry->name);
+		FlushAll();
+		RestoreRoundingMode();
+		gpr.SetRegImm(SCRATCH1, js.compilerPC);
+		MovToPC(SCRATCH1);
+
+		// Standard function call, nothing fancy.
+		// The function returns the number of cycles it took in EAX.
+		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			ApplyRoundingMode();
+			MIPSCompileOp(Memory::Read_Instruction(js.compilerPC, true));
+		} else {
+			ApplyRoundingMode();
+			LDR(INDEX_UNSIGNED, W1, CTXREG, MIPS_REG_RA * 4);
+			WriteDownCountR(W0);
+			WriteExitDestInR(W1);
+			js.compiling = false;
+		}
+	} else {
+		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+	}
 }
 
 void Arm64Jit::Comp_Generic(MIPSOpcode op)

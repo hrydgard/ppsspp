@@ -2181,7 +2181,7 @@ void ARM64FloatEmitter::EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, 
 	        (1 << 11) | (Rn << 5) | Rd);
 }
 
-void ARM64FloatEmitter::EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm)
+void ARM64FloatEmitter::EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8)
 {
 	_assert_msg_(DYNA_REC, !IsQuad(Rd), "%s doesn't support vector!", __FUNCTION__);
 
@@ -2190,7 +2190,7 @@ void ARM64FloatEmitter::EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64R
 	Rd = DecodeReg(Rd);
 
 	Write32((M << 31) | (S << 29) | (0xF1 << 21) | (is_double << 22) | (type << 22) | \
-	        (imm << 13) | (1 << 12) | (imm5 << 5) | Rd);
+	        (imm8 << 13) | (1 << 12) | (imm5 << 5) | Rd);
 }
 
 void ARM64FloatEmitter::EmitShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)

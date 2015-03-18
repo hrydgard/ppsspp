@@ -204,12 +204,14 @@ void Arm64Jit::GenerateFixedCode() {
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
 
-	INFO_LOG(JIT, "THE DISASM : %p ========================", enterCode);
-	std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
-	for (auto s : lines) {
-		INFO_LOG(JIT, "%s", s.c_str());
+	if (false) {
+		INFO_LOG(JIT, "THE DISASM : %p ========================", enterCode);
+		std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
+		for (auto s : lines) {
+			INFO_LOG(JIT, "%s", s.c_str());
+		}
+		INFO_LOG(JIT, "END OF THE DISASM : %p ========================", GetCodePtr());
 	}
-	INFO_LOG(JIT, "END OF THE DISASM : %p ========================", GetCodePtr());
 }
 
 }  // namespace MIPSComp
