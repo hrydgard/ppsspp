@@ -347,6 +347,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xad67add5122b8c64, 52, "matrix_q_translate_t", },
 	{ 0xada952a1adcea4f5, 60, "vmmul_q_transp5", },
 	{ 0xadfbf8fb8c933193, 56, "fabs", },
+	{ 0xae39bac51fd6e76b, 628, "gakuenheaven_download_frame", }, // Gakuen Heaven: Boy's Love Scramble!
 	{ 0xae50226363135bdd, 24, "vector_sub_t", },
 	{ 0xae6cd7dfac82c244, 48, "vpow_s", },
 	{ 0xaf85d47f95ad2921, 1936, "pow", },
