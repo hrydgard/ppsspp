@@ -33,6 +33,9 @@ struct Instruction {
 	bool oddbits;
 };
 
+static const char * const shiftnames[4] = { "lsl", "lsr", "asr", "ror" };
+static const char * const extendnames[8] = { "uxtb", "uxth", "uxtw", "uxtx", "sxtb", "sxth", "sxtw", "sxtx" };
+
 int SignExtend26(int x) {
 	return (x & 0x02000000) ? (0xFC000000 | x) : (x & 0x3FFFFFF);
 }
@@ -58,14 +61,14 @@ int HighestSetBit(int value) {
 	return highest;
 }
 
-uint64_t Ones(int len) {
+static uint64_t Ones(int len) {
 	if (len == 0x40) {
 		return 0xFFFFFFFFFFFFFFFF;
 	}
 	return (1ULL << len) - 1;
 }
 
-uint64_t Replicate(uint64_t value, int esize) {
+static uint64_t Replicate(uint64_t value, int esize) {
 	uint64_t out = 0;
 	value &= Ones(esize);
 	for (int i = 0; i < 64; i += esize) {
@@ -74,7 +77,7 @@ uint64_t Replicate(uint64_t value, int esize) {
 	return out;
 }
 
-uint64_t ROR(uint64_t value, int amount, int esize) {
+static uint64_t ROR(uint64_t value, int amount, int esize) {
 	uint64_t rotated = (value >> amount) | (value << (esize - amount));
 	return rotated & Ones(esize);
 }
@@ -144,8 +147,9 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		int op = (w >> 30) & 1;
 		int imm = ((w >> 10) & 0xFFF);
 		int shift = ((w >> 22) & 0x3) * 16;
+		const char *s = ((w >> 29) & 1) ? "s" : "";
 		imm <<= shift;
-		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", r, Rd, r, Rn, imm);
+		snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", s, r, Rd, r, Rn, imm);
 	} else if (((w >> 23) & 0x3f) == 0x24) {
 		int immr = (w >> 16) & 0x3f;
 		int imms = (w >> 10) & 0x3f;
@@ -249,16 +253,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 	int Rm = (w >> 16) & 0x1F;
 	char r = ((w >> 31) & 1) ? 'x' : 'w';
 
-	if (((w >> 21) & 0xF) == 9) {
-		bool S = (w >> 29) & 1;
-		bool sub = (w >> 30) & 1;
-		if (Rd == 31 && S) {
-			// It's a CMP
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d", "cmp", S ? "s" : "", r, Rn, r, Rm);
-		} else {
-			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm);
-		}
-	} else if (((w >> 21) & 0x2FF) == 0x2D6) {
+	if (((w >> 21) & 0x2FF) == 0x2D6) {
 		// Data processing
 		int opcode2 = (w >> 16) & 0x1F;
 		if (opcode2 == 0) {
@@ -281,12 +276,42 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		if (opc == 2 && Rn == 31) {
 			// Special case for MOV (which is constructed from an ORR)
 			snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d", r, Rd, r, Rm);
-		} else if (imm6 == 0) {
+		} else if (imm6 == 0 && shift == 0) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
 		}
+	} else if (((w >> 24) & 0x1f) == 0xB) {
+		// Arithmetic (shifted register)
+		bool S = (w >> 29) & 1;
+		int shift = (w >> 22) & 0x3;
+		int imm6 = (w >> 10) & 0x3f;
+		int opc = ((w >> 29) & 3);
+		const char *opnames[8] = { "add", "adds", "sub", "subs"};
+		if (imm6 == 0 && shift == 0) {
+			if (Rd == 31 && opc == 3) {
+				// It's a CMP
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", "cmp", r, Rn, r, Rm);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
+			}
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
+		}
+	} else if (((w >> 21) & 0xF) == 9) {
+		// Add/sub (extended register)
+		bool S = (w >> 29) & 1;
+		bool sub = (w >> 30) & 1;
+		int option = (w >> 13) & 0x7;
+		int imm3 = (w >> 10) & 0x7;
+		if (Rd == 31 && sub && S) {
+			// It's a CMP
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %s", "cmp", S ? "s" : "", r, Rn, r, Rm, extendnames[option]);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, %c%d, %s", sub ? "sub" : "add", S ? "s" : "", r, Rd, r, Rn, r, Rm, extendnames[option]);
+		}
 	} else {
+		// Logical (extended register)
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);
 	}
 }
