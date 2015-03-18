@@ -238,10 +238,14 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-		DISABLE;
+		gpr.MapDirtyInIn(rd, rt, rs);
+		CMP(gpr.R(rt), 0);
+		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_EQ);
 		break;
 	case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-		DISABLE;
+		gpr.MapDirtyInIn(rd, rt, rs);
+		CMP(gpr.R(rt), 0);
+		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_NEQ);
 		break;
 
 	case 32: //R(rd) = R(rs) + R(rt);           break; //add
@@ -320,8 +324,74 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 	}
 }
 
+void Arm64Jit::CompShiftImm(MIPSOpcode op, Arm64Gen::ShiftType shiftType, int sa) {
+	MIPSGPReg rd = _RD;
+	MIPSGPReg rt = _RT;
+	if (gpr.IsImm(rt)) {
+		switch (shiftType) {
+		case ST_LSL:
+			gpr.SetImm(rd, gpr.GetImm(rt) << sa);
+			break;
+		case ST_LSR:
+			gpr.SetImm(rd, gpr.GetImm(rt) >> sa);
+			break;
+		case ST_ASR:
+			gpr.SetImm(rd, (int)gpr.GetImm(rt) >> sa);
+			break;
+		case ST_ROR:
+			gpr.SetImm(rd, (gpr.GetImm(rt) >> sa) | (gpr.GetImm(rt) << (32 - sa)));
+			break;
+		default:
+			DISABLE;
+		}
+	} else {
+		gpr.MapDirtyIn(rd, rt);
+		MOV(gpr.R(rd), gpr.R(rt), ArithOption(gpr.R(rd), shiftType, sa));
+	}
+}
+
+void Arm64Jit::CompShiftVar(MIPSOpcode op, Arm64Gen::ShiftType shiftType) {
+	MIPSGPReg rd = _RD;
+	MIPSGPReg rt = _RT;
+	MIPSGPReg rs = _RS;
+	if (gpr.IsImm(rs)) {
+		int sa = gpr.GetImm(rs) & 0x1F;
+		CompShiftImm(op, shiftType, sa);
+		return;
+	}
+	gpr.MapDirtyInIn(rd, rs, rt);
+	ANDI2R(SCRATCH1, gpr.R(rs), 0x1F, INVALID_REG);  // Not sure if ARM64 wraps like this so let's do it for it.
+	switch (shiftType) {
+	case ST_LSL: LSLV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
+	case ST_LSR: LSRV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
+	case ST_ASR: ASRV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
+	case ST_ROR: RORV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
+	}
+}
+
 void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rd = _RD;
+	int fd = _FD;
+	int sa = _SA;
+
+	// noop, won't write to ZERO.
+	if (rd == 0)
+		return;
+
+	// WARNING : ROTR
+	switch (op & 0x3f) {
+	case 0: CompShiftImm(op, ST_LSL, sa); break; //sll
+	case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR, sa); break;	//srl
+	case 3: CompShiftImm(op, ST_ASR, sa); break; //sra
+	case 4: CompShiftVar(op, ST_LSL); break; //sllv
+	case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
+	case 7: CompShiftVar(op, ST_ASR); break; //srav
+	default:
+		DISABLE;
+		break;
+	}
 }
 
 void Arm64Jit::Comp_Special3(MIPSOpcode op) {

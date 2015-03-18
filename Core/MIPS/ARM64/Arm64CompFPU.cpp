@@ -242,7 +242,91 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 
 void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 {
+	CONDITIONAL_DISABLE;
 	DISABLE;
+
+	int fs = _FS;
+	MIPSGPReg rt = _RT;
+
+	switch ((op >> 21) & 0x1f) {
+		/*
+	case 0: // R(rt) = FI(fs); break; //mfc1
+		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+		if (fpr.IsMapped(fs)) {
+			MOV(gpr.R(rt), fpr.R(fs));
+		} else {
+			LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
+		}
+		return;
+
+	case 2: //cfc1
+		if (fs == 31) {
+			if (gpr.IsImm(MIPS_REG_FPCOND)) {
+				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+				LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
+					ORI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCH2);
+				} else {
+					ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCH2);
+				}
+			} else {
+				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
+				LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+				// BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
+				ANDI2R(SCRATCH1, gpr.R(MIPS_REG_FPCOND), 1); // Just in case
+				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCH2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
+				ORR(gpr.R(rt), gpr.R(rt), SCRATCH1, ArithOption(gpr.R(rt), ST_LSL, 23));
+			}
+		} else if (fs == 0) {
+			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		} else {
+			// Unsupported regs are always 0.
+			gpr.SetImm(rt, 0);
+		}
+		return;
+
+	case 4: //FI(fs) = R(rt);	break; //mtc1
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+			fpr.MapReg(fs, MAP_NOINIT);
+			MOVI2F(fpr.R(fs), 0.0f, SCRATCH1);
+		} else {
+			gpr.MapReg(rt);
+			fpr.MapReg(fs, MAP_NOINIT);
+			VMOV(fpr.R(fs), gpr.R(rt));
+		}
+		return;
+
+	case 6: //ctc1
+		if (fs == 31) {
+			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
+			RestoreRoundingMode();
+			bool wasImm = gpr.IsImm(rt);
+			if (wasImm) {
+				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				gpr.MapReg(rt);
+			} else {
+				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
+			}
+
+			// Update MIPS state
+			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
+			STR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			if (!wasImm) {
+				// UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+				LSR(SCRATCH1, gpr.R(rt), 23);
+				ANDI2R(gpr.R(MIPS_REG_FPCOND), SCRATCH1, 1);
+			}
+			UpdateRoundingMode();
+			ApplyRoundingMode();
+		} else {
+			Comp_Generic(op);
+		}
+		return;
+		*/
+	default:
+		DISABLE;
+		break;
+	}
 }
 
 }	// namespace MIPSComp

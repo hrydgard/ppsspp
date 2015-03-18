@@ -535,6 +535,7 @@ public:
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
 
 	// Convenience wrappers around ORR. These match the official convenience syntax.
+	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
 	void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
