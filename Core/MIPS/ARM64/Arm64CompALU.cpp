@@ -247,26 +247,21 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 	case 32: //R(rd) = R(rs) + R(rt);           break; //add
 	case 33: //R(rd) = R(rs) + R(rt);           break; //addu
 		// We optimize out 0 as an operand2 ADD.
-		DISABLE;
 		CompType3(rd, rs, rt, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd, true);
 		break;
 
 	case 34: //R(rd) = R(rs) - R(rt);           break; //sub
 	case 35: //R(rd) = R(rs) - R(rt);           break; //subu
-		DISABLE;
 		CompType3(rd, rs, rt, &ARM64XEmitter::SUB, &ARM64XEmitter::TrySUBI2R, &EvalSub, false);
 		break;
 
 	case 36: //R(rd) = R(rs) & R(rt);           break; //and
-		DISABLE;
 		CompType3(rd, rs, rt, &ARM64XEmitter::AND, &ARM64XEmitter::TryANDI2R, &EvalAnd, true);
 		break;
 	case 37: //R(rd) = R(rs) | R(rt);           break; //or
-		DISABLE;
 		CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
 		break;
 	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-		DISABLE;
 		CompType3(rd, rs, rt, &ARM64XEmitter::EOR, &ARM64XEmitter::TryEORI2R, &EvalEor, true);
 		break;
 
