@@ -496,7 +496,7 @@ void ARM64XEmitter::EncodeArithmeticInst(u32 instenc, bool flags, ARM64Reg Rd, A
 	Rn = DecodeReg(Rn);
 	Rm = DecodeReg(Rm);
 	Write32((b64Bit << 31) | (flags << 29) | (ArithEnc[instenc] << 21) | \
-	        (Option.GetType() == ArithOption::TYPE_EXTENDEDREG ? 1 << 21 : 0) | (Rm << 16) | Option.GetData() | (Rn << 5) | Rd);
+	        (Option.GetType() == ArithOption::TYPE_EXTENDEDREG ? (1 << 21) : 0) | (Rm << 16) | Option.GetData() | (Rn << 5) | Rd);
 }
 
 void ARM64XEmitter::EncodeArithmeticCarryInst(u32 op, bool flags, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
@@ -589,7 +589,7 @@ void ARM64XEmitter::EncodeLogicalInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM
 	Rd = DecodeReg(Rd);
 	Rm = DecodeReg(Rm);
 	Rn = DecodeReg(Rn);
-	Write32((b64Bit << 31) | (LogicalEnc[instenc][0] << 29) | (0x50 << 21) | (LogicalEnc[instenc][1] << 21) | \
+	Write32((b64Bit << 31) | (LogicalEnc[instenc][0] << 29) | (0x5 << 25) | (LogicalEnc[instenc][1] << 21) | \
 	        Shift.GetData() | (Rm << 16) | (Rn << 5) | Rd);
 }
 
@@ -1103,7 +1103,7 @@ void ARM64XEmitter::ISB(BarrierType type)
 // Add/Subtract (extended register)
 void ARM64XEmitter::ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	ADD(Rd, Rn, Rm, ArithOption(Rd));
+	ADD(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0));
 }
 
 void ARM64XEmitter::ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
@@ -1113,7 +1113,7 @@ void ARM64XEmitter::ADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Optio
 
 void ARM64XEmitter::ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EncodeArithmeticInst(0, true, Rd, Rn, Rm, ArithOption(Rd));
+	EncodeArithmeticInst(0, true, Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0));
 }
 
 void ARM64XEmitter::ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
@@ -1123,7 +1123,7 @@ void ARM64XEmitter::ADDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Opti
 
 void ARM64XEmitter::SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	SUB(Rd, Rn, Rm, ArithOption(Rd));
+	SUB(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0));
 }
 
 void ARM64XEmitter::SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
@@ -1133,7 +1133,7 @@ void ARM64XEmitter::SUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Optio
 
 void ARM64XEmitter::SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EncodeArithmeticInst(1, false, Rd, Rn, Rm, ArithOption(Rd));
+	EncodeArithmeticInst(1, true, Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0));
 }
 
 void ARM64XEmitter::SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
@@ -1143,22 +1143,22 @@ void ARM64XEmitter::SUBS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Opti
 
 void ARM64XEmitter::CMN(ARM64Reg Rn, ARM64Reg Rm)
 {
-	CMN(Rn, Rm, ArithOption(Rn));
+	CMN(Rn, Rm, ArithOption(Rn, ST_LSL, 0));
 }
 
 void ARM64XEmitter::CMN(ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
 {
-	EncodeArithmeticInst(0, true, SP, Rn, Rm, Option);
+	EncodeArithmeticInst(0, true, Is64Bit(Rn) ? ZR : WZR, Rn, Rm, Option);
 }
 
 void ARM64XEmitter::CMP(ARM64Reg Rn, ARM64Reg Rm)
 {
-	CMP(Rn, Rm, ArithOption(Rn));
+	CMP(Rn, Rm, ArithOption(Rn, ST_LSL, 0));
 }
 
 void ARM64XEmitter::CMP(ARM64Reg Rn, ARM64Reg Rm, ArithOption Option)
 {
-	EncodeArithmeticInst(1, true, SP, Rn, Rm, Option);
+	EncodeArithmeticInst(1, true, Is64Bit(Rn) ? ZR : WZR, Rn, Rm, Option);
 }
 
 // Add/Subtract (with carry)
