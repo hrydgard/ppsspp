@@ -53,7 +53,7 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
 	// TODO: Add static allocation of top MIPS registers like SP
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15, W0, W1,
+		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
@@ -79,7 +79,6 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 		if (mipsReg == MIPS_REG_ZERO) {
 			// If we get a request to load the zero register, at least we won't spend
 			// time on a memory access...
-			// TODO: EOR?
 			emit_->MOVI2R(reg, 0);
 
 			// This way, if we SetImm() it, we'll keep it.
@@ -90,7 +89,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 			case ML_MEM:
 			{
 				int offset = GetMipsRegOffset(mipsReg);
-				INFO_LOG(JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
+				// INFO_LOG(JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
 				emit_->LDR(INDEX_UNSIGNED, reg, CTXREG, offset);
 				mr[mipsReg].loc = ML_ARMREG;
 				break;

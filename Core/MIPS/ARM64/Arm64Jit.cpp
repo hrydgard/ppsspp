@@ -44,6 +44,7 @@ void DisassembleArm64Print(const u8 *data, int size) {
 	for (auto s : lines) {
 		ILOG("%s", s.c_str());
 	}
+	/*
 	ILOG("+++");
 	// A format friendly to Online Disassembler which gets endianness wrong
 	for (size_t i = 0; i < lines.size(); i++) {
@@ -51,7 +52,7 @@ void DisassembleArm64Print(const u8 *data, int size) {
 		ILOG("%d/%d: %08x", (int)(i+1), (int)lines.size(), swap32(opcode));
 	}
 	ILOG("===");
-	ILOG("===");
+	ILOG("===");*/
 }
 
 namespace MIPSComp
