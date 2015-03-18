@@ -434,7 +434,7 @@ void ARM64XEmitter::EncodeCompareBranchInst(u32 op, ARM64Reg Rt, const void* ptr
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, distance >= -0xFFFFF && distance < 0xFFFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
+	_assert_msg_(DYNA_REC, distance >= -0x40000 && distance <= 0x3FFFF, "%s: Received too large distance: %lx", __FUNCTION__, (int)distance);
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x34 << 24) | (op << 24) | \
@@ -935,7 +935,7 @@ void ARM64XEmitter::CBNZ(ARM64Reg Rt, const void* ptr)
 // Conditional Branch
 void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 {
-	s64 distance = (s64)ptr - (s64(m_code) + 8);
+	s64 distance = (s64)ptr - (s64)m_code;
 
 	distance >>= 2;
 
