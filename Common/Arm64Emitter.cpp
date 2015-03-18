@@ -2134,6 +2134,16 @@ void ARM64FloatEmitter::EmitConversion(bool sf, bool S, u32 type, u32 rmode, u32
 	        (opcode << 16) | (Rn << 5) | Rd);
 }
 
+void ARM64FloatEmitter::EmitConversion2(bool sf, bool S, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn)
+{
+	_assert_msg_(DYNA_REC, Rn <= SP, "%s only supports GPR as source!", __FUNCTION__);
+	Rd = DecodeReg(Rd);
+	Rn = DecodeReg(Rn);
+
+	Write32((sf << 31) | (S << 29) | (0xF0 << 21) | (type << 22) | (rmode << 19) | \
+		(opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
+}
+
 void ARM64FloatEmitter::EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm)
 {
 	_assert_msg_(DYNA_REC, !IsQuad(Rn), "%s doesn't support vector!", __FUNCTION__);
@@ -2733,6 +2743,7 @@ void ARM64FloatEmitter::UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Emit2RegMisc(1, size >> 6, 0x1D, Rd, Rn);
 }
+
 void ARM64FloatEmitter::XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Emit2RegMisc(0, dest_size >> 4, 0x12, Rd, Rn);
@@ -2928,6 +2939,26 @@ void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn)
 		type = 1;
 
 	EmitConversion(sf, 0, type, 0, 3, Rd, Rn);
+}
+
+void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
+{
+	bool sf = Is64Bit(Rn);
+	u32 type = 0;
+	if (IsDouble(Rd))
+		type = 1;
+
+	EmitConversion2(sf, 0, type, 0, 2, 64 - scale, Rd, Rn);
+}
+
+void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
+{
+	bool sf = Is64Bit(Rn);
+	u32 type = 0;
+	if (IsDouble(Rd))
+		type = 1;
+
+	EmitConversion2(sf, 0, type, 0, 3, 64 - scale, Rd, Rn);
 }
 
 void ARM64FloatEmitter::FCMP(ARM64Reg Rn, ARM64Reg Rm)

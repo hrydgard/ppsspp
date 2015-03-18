@@ -787,6 +787,10 @@ public:
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
 	void UCVTF(ARM64Reg Rd, ARM64Reg Rn);
 
+	// Fixed point to float. scale is the number of fractional bits.
+	void SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
+
 	// Float comparison
 	void FCMP(ARM64Reg Rn, ARM64Reg Rm);
 	void FCMP(ARM64Reg Rn);
@@ -840,6 +844,7 @@ private:
 	void EmitLoadStoreSingleStructure(bool L, bool R, u32 opcode, bool S, u32 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void Emit1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitConversion(bool sf, bool S, u32 type, u32 rmode, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitConversion2(bool sf, bool S, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
