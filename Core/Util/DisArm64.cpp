@@ -35,6 +35,23 @@ struct Instruction {
 
 static const char * const shiftnames[4] = { "lsl", "lsr", "asr", "ror" };
 static const char * const extendnames[8] = { "uxtb", "uxth", "uxtw", "uxtx", "sxtb", "sxth", "sxtw", "sxtx" };
+static const char * const condnames[16] = {
+	"eq", // Equal
+	"ne", // Not equal
+	"cs", // Carry Set    "HS"
+	"cc", // Carry Clear	"LO"
+	"mi", // Minus (Negative)
+	"pl", // Plus
+	"vs", // Overflow
+	"vc", // No Overflow
+	"hi", // Unsigned higher
+	"ls", // Unsigned lower or same
+	"ge", // Signed greater than or equal
+	"lt", // Signed less than
+	"gt", // Signed greater than
+	"le", // Signed less than or equal
+	"al", // Always (unconditional) 14
+};
 
 int SignExtend26(int x) {
 	return (x & 0x02000000) ? (0xFC000000 | x) : (x & 0x3FFFFFF);
@@ -110,24 +127,6 @@ void DecodeBitMasks(int immN, int imms, int immr, uint64_t *tmask, uint64_t *wma
 	}
 }
 
-static const char *conds[16] = {
-	"eq", // Equal
-	"ne", // Not equal
-	"cs", // Carry Set    "HS"
-	"cc", // Carry Clear	"LO"
-	"mi", // Minus (Negative)
-	"pl", // Plus
-	"vs", // Overflow
-	"vc", // No Overflow
-	"hi", // Unsigned higher
-	"ls", // Unsigned lower or same
-	"ge", // Signed greater than or equal
-	"lt", // Signed less than
-	"gt", // Signed greater than
-	"le", // Signed less than or equal
-	"al", // Always (unconditional) 14
-};
-
 static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rd = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
@@ -194,9 +193,14 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		int offset = SignExtend19(w >> 5) << 2;
 		uint64_t target = addr + offset;
 		int cond = w & 0xF;
-		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", conds[cond], (target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", condnames[cond], (target >> 32), (target & 0xFFFFFFFF));
 	} else if ((w >> 24) == 0xD4) {
-		snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
+		if (((w >> 21) & 0x7) == 1 && Rt == 0) {
+			int imm = (w >> 5) & 0xFFFF;
+			snprintf(instr->text, sizeof(instr->text), "brk #%d", imm);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
+		}
 	} else if (((w >> 20) & 0xFFC) == 0xD50) {
 		snprintf(instr->text, sizeof(instr->text), "(system-reg %08x)", w);
 	} else if (((w >> 25) & 0x7F) == 0x6B) {
@@ -219,7 +223,7 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	int opc = (w >> 22) & 0x3;
 	char r = size == 3 ? 'x' : 'w';
 	const char *opname[4] = { "str", "ldr", "str", "ldr" };
-	const char *sizeSuffix[4] = { "b", "w", "", "" };
+	const char *sizeSuffix[4] = { "b", "h", "", "" };
 
 	if (((w >> 27) & 7) == 7) {
 		int V = (w >> 26) & 1;
@@ -323,8 +327,8 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %s #%d", opnames[opc], r, Rd, r, Rn, r, Rm, shiftnames[shift], imm6);
 		}
-	} else if (((w >> 24) & 0x1f) == 0xB) {
-		// Arithmetic (shifted register)
+	} else if (((w >> 21) & 0xf9) == 0x58) {
+		// Add/sub/cmp (shifted register)
 		bool S = (w >> 29) & 1;
 		int shift = (w >> 22) & 0x3;
 		int imm6 = (w >> 10) & 0x3f;
@@ -340,7 +344,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		} else {
 			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
 		}
-	} else if (((w >> 21) & 0xF) == 9) {
+	} else if (((w >> 21) & 0xFF) == 0x59) {
 		// Add/sub (extended register)
 		bool S = (w >> 29) & 1;
 		bool sub = (w >> 30) & 1;
@@ -356,6 +360,29 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 		// Variable shifts
 		int opc = (w >> 10) & 3;
 		snprintf(instr->text, sizeof(instr->text), "%sv %c%d, %c%d, %c%d", shiftnames[opc], r, Rd, r, Rn, r, Rm);
+	} else if (((w >> 21) & 0xFF) == 0xD4) {
+		// Conditional select
+		int op = (w >> 30) & 1;
+		int op2 = (w >> 10) & 3;
+		int cond = (w >> 12) & 0xf;
+		const char *opnames[4] = { "csel", "csinc", "csinv", "csneg" };
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %s", opnames[(op << 1) | op2], r, Rd, r, Rn, r, Rm, condnames[cond]);
+	} else if (((w >> 24) & 0x1f) == 0x1b) {
+		// Data processing - 3 source
+		int op31 = (w >> 21) & 0x7;
+		int o0 = (w >> 15) & 1;
+		int Ra = (w >> 10) & 0x1f;
+		const char *opnames[8] = { 0, 0, "maddl", "msubl", "smulh", 0, 0, 0 };
+
+		if (op31 == 0) {
+			// madd/msub supports both 32-bit and 64-bit modes
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %c%d", o0 ? "msub" : "madd", r, Rd, r, Rn, r, Rm, r, Ra);
+		} else {
+			// The rest are 64-bit accumulator, 32-bit operands
+			char sign = (op31 >> 2) ? 'u' : 's';
+			int opn = (op31 & 0x3) << 1 | o0;
+			snprintf(instr->text, sizeof(instr->text), "%c%s x%d, x%d, w%d, w%d", sign, opnames[opn], Rd, Rn, Rm, Ra);
+		}
 	} else {
 		// Logical (extended register)
 		snprintf(instr->text, sizeof(instr->text), "(DPR %08x)", w);

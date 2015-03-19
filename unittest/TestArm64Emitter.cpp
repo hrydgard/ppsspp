@@ -39,6 +39,16 @@ bool TestArm64Emitter() {
 	//RET(CheckLast(emitter, "aa023be1 fmov s1, w3"));
 	//fp.FMOV(32, false, X1, S3);
 	//RET(CheckLast(emitter, "aa023be1 fmov x1, s3"));
+	//fp.UCVTF(S12, X3, 8);
+	//RET(CheckLast(emitter, "b86c6877 ucvtf s12, x3, #8"));
+	emitter.MADD(W3, W7, W1, W8);
+	RET(CheckLast(emitter, "1b0120e3 madd w3, w7, w1, w8"));
+	emitter.SMADDL(X3, X6, W1, W8);
+	RET(CheckLast(emitter, "9b2120c3 smaddl x3, x6, w1, w8"));
+	emitter.BRK(3);
+	RET(CheckLast(emitter, "d4200060 brk #3"));
+	emitter.CSEL(X3, X5, X7, CC_GT);
+	RET(CheckLast(emitter, "9a87c0a3 csel x3, x5, x7, gt"));
 	emitter.LDR(W23, X3, X12);
 	RET(CheckLast(emitter, "b86c6877 ldr w23, [x3 + x12]"));
 	emitter.LDP(INDEX_SIGNED, W23, W5, X3, 36);
