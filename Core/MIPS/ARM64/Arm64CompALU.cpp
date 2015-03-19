@@ -465,6 +465,164 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	MIPSGPReg rt = _RT;
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rd = _RD;
+
+	switch (op & 63) {
+	case 16: // R(rd) = HI; //mfhi
+		if (gpr.IsImm(MIPS_REG_HI)) {
+			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_HI));
+			break;
+		}
+		gpr.MapDirtyIn(rd, MIPS_REG_HI);
+		MOV(gpr.R(rd), gpr.R(MIPS_REG_HI));
+		break;
+
+	case 17: // HI = R(rs); //mthi
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(MIPS_REG_HI, gpr.GetImm(rs));
+			break;
+		}
+		gpr.MapDirtyIn(MIPS_REG_HI, rs);
+		MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+		break;
+
+	case 18: // R(rd) = LO; break; //mflo
+		if (gpr.IsImm(MIPS_REG_LO)) {
+			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO));
+			break;
+		}
+		gpr.MapDirtyIn(rd, MIPS_REG_LO);
+		MOV(gpr.R(rd), gpr.R(MIPS_REG_LO));
+		break;
+
+	case 19: // LO = R(rs); break; //mtlo
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(MIPS_REG_LO, gpr.GetImm(rs));
+			break;
+		}
+		gpr.MapDirtyIn(MIPS_REG_LO, rs);
+		MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
+		break;
+
+	// TODO: All of these could be more elegant if we cached HI and LO together in one 64-bit register!
+
+	case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			s64 result = (s64)(s32)gpr.GetImm(rs) * (s64)(s32)gpr.GetImm(rt);
+			u64 resultBits = (u64)result;
+			gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
+			gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+			break;
+		}
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+		SMULL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), gpr.R(rs), gpr.R(rt));
+		LSR(EncodeRegTo64(gpr.R(MIPS_REG_HI)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32);
+		break;
+
+	case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			u64 resultBits = (u64)gpr.GetImm(rs) * (u64)gpr.GetImm(rt);
+			gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
+			gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+			break;
+		}
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+		SMULL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), gpr.R(rs), gpr.R(rt));
+		LSR(EncodeRegTo64(gpr.R(MIPS_REG_HI)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32);
+		break;
+
+	case 26: //div
+		// TODO: Does this handle INT_MAX, 0, etc. correctly?
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+		MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
+		SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+		break;
+
+	case 27: //divu
+		// Do we have a known power-of-two denominator?  Yes, this happens.
+		if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
+			u32 denominator = gpr.GetImm(rt);
+			if (denominator == 0) {
+				// TODO: Is this correct?
+				gpr.SetImm(MIPS_REG_LO, 0);
+				gpr.SetImm(MIPS_REG_HI, 0);
+			} else {
+				gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
+				// Remainder is just an AND, neat.
+				ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, SCRATCH1);
+				int shift = 0;
+				while (denominator != 0) {
+					++shift;
+					denominator >>= 1;
+				}
+				// The shift value is one too much for the divide by the same value.
+				if (shift > 1) {
+					LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
+				} else {
+					MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
+				}
+			}
+		} else {
+			// TODO: Does this handle INT_MAX, 0, etc. correctly?
+			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+			MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
+			SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+		}
+		break;
+
+	case 28: //madd
+	{
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
+		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
+		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
+		SMADDL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
+		LSR(hi64, lo64, 32);
+	}
+		break;
+
+	case 29: //maddu
+	{
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
+		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
+		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
+		UMADDL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
+		LSR(hi64, lo64, 32);
+	}
+		break;
+
+	case 46: // msub
+	{
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
+		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
+		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
+		SMSUBL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
+		LSR(hi64, lo64, 32);
+	}
+		break;
+
+	case 47: // msubu
+	{
+		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
+		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
+		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
+		UMSUBL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
+		LSR(hi64, lo64, 32);
+		break;
+	}
+
+	default:
+		DISABLE;
+	}
 }
+
 }
