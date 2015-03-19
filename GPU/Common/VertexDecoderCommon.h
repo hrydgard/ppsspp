@@ -673,4 +673,7 @@ private:
 	void Jit_AnyFloatMorph(int srcoff, int dstoff);
 
 	const VertexDecoder *dec_;
+#ifdef ARM64
+	Arm64Gen::ARM64FloatEmitter fp;
+#endif
 };

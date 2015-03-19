@@ -53,7 +53,7 @@ static const ARM64Reg fpUVoffsetReg = D1;
 static const ARM64Reg neonScratchReg = D2;
 static const ARM64Reg neonScratchReg2 = D3;
 
-static const ARM64Reg neonScratchRegQ = Q1;  // Overlaps with all the scratch regs
+static const ARM64Reg neonScratchRegQ = Q1;
 
 // Everything above S6 is fair game for skinning
 
@@ -85,15 +85,18 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
-
+	*/
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
+	/*
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
+	*/
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
 
+	/*
 	{&VertexDecoder::Step_NormalS8Skin, &VertexDecoderJitCache::Jit_NormalS8Skin},
 	{&VertexDecoder::Step_NormalS16Skin, &VertexDecoderJitCache::Jit_NormalS16Skin},
 	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
@@ -105,9 +108,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
+	*/
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
+	/*
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
 	*/
+	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
+	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
 	/*
 	{&VertexDecoder::Step_PosS8Skin, &VertexDecoderJitCache::Jit_PosS8Skin},
@@ -240,11 +247,32 @@ void VertexDecoderJitCache::Jit_TcU16() {
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
+void VertexDecoderJitCache::Jit_TcU16Through() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
 void VertexDecoderJitCache::Jit_TcFloat() {
 	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
 	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 4);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_PosS8() {
+	Jit_AnyS8ToFloat(dec_->posoff);
+	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
+	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
+	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_PosS16() {
+	Jit_AnyS16ToFloat(dec_->posoff);
+	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
+	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
+	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
 // Just copy 12 bytes.
@@ -255,4 +283,63 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.posoff);
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.posoff + 4);
 	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Through() {
+	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->posoff);
+	LDRSH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->posoff + 2);
+	LDRH(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 4);
+	fp.SCVTF(fpScratchReg, tempReg1);
+	fp.SCVTF(fpScratchReg2, tempReg2);
+	fp.SCVTF(fpScratchReg3, tempReg3);
+	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff);
+	STR(INDEX_UNSIGNED, fpScratchReg2, dstReg, dec_->decFmt.posoff + 4);
+	STR(INDEX_UNSIGNED, fpScratchReg3, dstReg, dec_->decFmt.posoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8() {
+	LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
+	LDRB(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 1);
+	LDRB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 2);
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 8));
+	ORR(tempReg1, tempReg1, tempReg3, ArithOption(tempReg3, ST_LSL, 16));
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
+}
+
+// Copy 6 bytes and then 2 zeroes.
+void VertexDecoderJitCache::Jit_NormalS16() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 2);
+	LDRH(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 4);
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloat() {
+	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
+	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 4);
+	LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
+	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
+	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
+	// TODO: NEONize. In that case we'll leave all three floats in one register instead, so callers must change too.
+	LDRSB(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
+	LDRSB(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 1);
+	LDRSB(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 2);
+	fp.SCVTF(src[0], tempReg1, 7);
+	fp.SCVTF(src[1], tempReg2, 7);
+	fp.SCVTF(src[2], tempReg3, 7);
+}
+
+void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
+	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
+	LDRSH(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 2);
+	LDRSH(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 4);
+	fp.SCVTF(src[0], tempReg1, 15);
+	fp.SCVTF(src[1], tempReg2, 15);
+	fp.SCVTF(src[2], tempReg3, 15);
 }
