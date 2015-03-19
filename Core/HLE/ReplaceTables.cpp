@@ -178,7 +178,10 @@ static int Replace_memcpy_jak() {
 	currentMIPS->r[MIPS_REG_A2] = 0;
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
-
+#ifndef MOBILE_DEVICE
+	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
+	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
+#endif
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
 
