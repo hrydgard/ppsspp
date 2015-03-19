@@ -1032,15 +1032,18 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): no data", atracID, outBitrateAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
+	} else {		
 		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 		if (atrac->codecType == PSP_MODE_AT_3_PLUS)
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
 		else
 			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
-		if (Memory::IsValidAddress(outBitrateAddr))
+		if (Memory::IsValidAddress(outBitrateAddr)) {
 			Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
+			DEBUG_LOG(ME, "sceAtracGetBitrate(%i, %08x[%d])", atracID, outBitrateAddr, atrac->atracBitrate);
+		}
+		else
+			DEBUG_LOG_REPORT(ME, "sceAtracGetBitrate(%i, %08x[%d]) invalid address", atracID, outBitrateAddr, atrac->atracBitrate);
 	}
 	return 0;
 }
@@ -1053,10 +1056,13 @@ static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): no data", atracID, channelAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
-		if (Memory::IsValidAddress(channelAddr))
+	} else {		
+		if (Memory::IsValidAddress(channelAddr)){
 			Memory::Write_U32(atrac->atracChannels, channelAddr);
+			DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x[%d])", atracID, channelAddr, atrac->atracChannels);
+		}
+		else
+			DEBUG_LOG_REPORT(ME, "sceAtracGetChannel(%i, %08x[%d]) invalid address", atracID, channelAddr, atrac->atracChannels);
 	}
 	return 0;
 }
@@ -1227,14 +1233,18 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): no data", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {
-		DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+	} else {		
 		if (Memory::IsValidAddress(outEndSampleAddr))
 			Memory::Write_U32(atrac->endSample - 1, outEndSampleAddr);
 		if (Memory::IsValidAddress(outLoopStartSampleAddr))
 			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
 		if (Memory::IsValidAddress(outLoopEndSampleAddr))
 			Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr);
+		if (Memory::IsValidAddress(outEndSampleAddr) && (Memory::IsValidAddress(outLoopStartSampleAddr)) && (Memory::IsValidAddress(outLoopEndSampleAddr)))
+			DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d])", atracID, outEndSampleAddr, atrac->endSample - 1, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
+		else
+			DEBUG_LOG_REPORT(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d]) invalid address", atracID, outEndSampleAddr, atrac->endSample - 1, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
+
 	}
 	return 0;
 }
@@ -1262,11 +1272,17 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		if (Memory::IsValidAddress(readOffsetAddr))
 			Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
-		
-		DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
+		if ((Memory::IsValidAddress(writeAddr)) && (Memory::IsValidAddress(writableBytesAddr)) && (Memory::IsValidAddress(readOffsetAddr)))
+			DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
 				  writeAddr, atrac->first.addr,
 				  writableBytesAddr, atrac->first.writableBytes,
 				  readOffsetAddr, atrac->first.fileoffset);
+		else
+			//TODO:Use JPCSPtrace to correct
+			DEBUG_LOG_REPORT(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x]) invalid address", atracID,
+			writeAddr, atrac->first.addr,
+			writableBytesAddr, atrac->first.writableBytes,
+			readOffsetAddr, atrac->first.fileoffset);
 	}
 	return 0;
 }
