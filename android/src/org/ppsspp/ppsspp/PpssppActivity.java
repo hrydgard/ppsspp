@@ -1,10 +1,13 @@
 package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
+import android.app.UiModeManager;
+import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+import android.util.Log;
 
 import com.henrikrydgard.libnative.NativeActivity;
 import com.henrikrydgard.libnative.NativeApp;
@@ -63,6 +66,11 @@ public class PpssppActivity extends NativeActivity {
 			
 			System.exit(-1);
 			return;
+		}
+
+		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
+		if (uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
+		    Log.i(TAG, "Running on an Android TV Device");
 		}
 
 		// In case app launched from homescreen shortcut, get shortcut parameter
