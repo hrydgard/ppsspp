@@ -117,6 +117,15 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VV2Op(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
+		if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
+			return;
+		}
 		DISABLE;
 	}
 

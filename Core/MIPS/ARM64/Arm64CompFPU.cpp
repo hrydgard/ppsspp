@@ -139,7 +139,49 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 }
 
 void Arm64Jit::Comp_FPUComp(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	int opc = op & 0xF;
+	if (opc >= 8) opc -= 8; // alias
+	if (opc == 0) {  // f, sf (signalling false)
+		gpr.SetImm(MIPS_REG_FPCOND, 0);
+		return;
+	}
+
+	int fs = _FS;
+	int ft = _FT;
+	gpr.MapReg(MIPS_REG_FPCOND, MAP_DIRTY | MAP_NOINIT);
+	fpr.MapInIn(fs, ft);
+	fp.FCMP(fpr.R(fs), fpr.R(ft));
+
+	switch (opc) {
+	case 1:      // un,  ngle (unordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_VS);
+		break;
+	case 2:      // eq,  seq (equal, ordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_EQ);
+		break;
+	case 3:      // ueq, ngl (equal, unordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_EQ);
+		CSET(SCRATCH1, CC_VS);
+		ORR(gpr.R(MIPS_REG_FPCOND), gpr.R(MIPS_REG_FPCOND), SCRATCH1);
+		return;
+	case 4:      // olt, lt (less than, ordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_LO);
+		break;
+	case 5:      // ult, nge (less than, unordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_LT);
+		break;
+	case 6:      // ole, le (less equal, ordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_LS);
+		break;
+	case 7:      // ule, ngt (less equal, unordered)
+		CSET(gpr.R(MIPS_REG_FPCOND), CC_LE);
+		break;
+	default:
+		Comp_Generic(op);
+		return;
+	}
 }
 
 void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {

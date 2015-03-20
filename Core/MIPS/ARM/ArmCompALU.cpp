@@ -216,7 +216,7 @@ namespace MIPSComp
 		} else if (gpr.IsImm(rs) && !symmetric) {
 			Operand2 op2;
 			// For SUB, we can use RSB as a reverse operation.
-			if (TryMakeOperand2(gpr.GetImm(rs), op2) && eval == &EvalSub) {
+			if (eval == &EvalSub && TryMakeOperand2(gpr.GetImm(rs), op2)) {
 				gpr.MapDirtyIn(rd, rt);
 				RSB(gpr.R(rd), gpr.R(rt), op2);
 				return;

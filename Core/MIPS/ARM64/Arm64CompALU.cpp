@@ -251,7 +251,18 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		CompType3(rd, rs, rt, &ARM64XEmitter::AND, &ARM64XEmitter::TryANDI2R, &EvalAnd, true);
 		break;
 	case 37: //R(rd) = R(rs) | R(rt);           break; //or
-		CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
+		if (rs == 0 && rd != rt) {
+			gpr.MapDirtyIn(rd, rt);
+			MOV(gpr.R(rd), gpr.R(rt));
+		} else if (rt == 0 && rd != rs) {
+			gpr.MapDirtyIn(rd, rs);
+			MOV(gpr.R(rd), gpr.R(rs));
+		} else if (rt == 0 && rs == 0) {
+			gpr.MapReg(rd, MAP_DIRTY | MAP_NOINIT);
+			MOVI2R(gpr.R(rd), 0);
+		} else {
+			CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
+		}
 		break;
 	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
 		CompType3(rd, rs, rt, &ARM64XEmitter::EOR, &ARM64XEmitter::TryEORI2R, &EvalEor, true);
@@ -466,6 +477,7 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
+
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -508,7 +520,6 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	// TODO: All of these could be more elegant if we cached HI and LO together in one 64-bit register!
-
 	case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			s64 result = (s64)(s32)gpr.GetImm(rs) * (s64)(s32)gpr.GetImm(rt);
