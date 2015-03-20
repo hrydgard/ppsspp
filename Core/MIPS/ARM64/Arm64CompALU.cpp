@@ -239,7 +239,6 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	case 32: //R(rd) = R(rs) + R(rt);           break; //add
 	case 33: //R(rd) = R(rs) + R(rt);           break; //addu
-		// We optimize out 0 as an operand2 ADD.
 		CompType3(rd, rs, rt, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd, true);
 		break;
 
@@ -531,7 +530,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
-		SMULL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), gpr.R(rs), gpr.R(rt));
+		MUL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), EncodeRegTo64(gpr.R(rs)), EncodeRegTo64(gpr.R(rt)));
 		LSR(EncodeRegTo64(gpr.R(MIPS_REG_HI)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32);
 		break;
 
