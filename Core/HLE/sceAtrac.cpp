@@ -1032,7 +1032,7 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetBitrate(%i, %08x): no data", atracID, outBitrateAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {		
+	} else {
 		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 		if (atrac->codecType == PSP_MODE_AT_3_PLUS)
 			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
