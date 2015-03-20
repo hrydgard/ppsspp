@@ -1056,7 +1056,7 @@ static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetChannel(%i, %08x): no data", atracID, channelAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {		
+	} else {
 		if (Memory::IsValidAddress(channelAddr)){
 			Memory::Write_U32(atrac->atracChannels, channelAddr);
 			DEBUG_LOG(ME, "sceAtracGetChannel(%i, %08x[%d])", atracID, channelAddr, atrac->atracChannels);
@@ -1233,7 +1233,7 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 	} else if (!atrac->data_buf) {
 		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): no data", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 		return ATRAC_ERROR_NO_DATA;
-	} else {		
+	} else {
 		if (Memory::IsValidAddress(outEndSampleAddr))
 			Memory::Write_U32(atrac->endSample - 1, outEndSampleAddr);
 		if (Memory::IsValidAddress(outLoopStartSampleAddr))
