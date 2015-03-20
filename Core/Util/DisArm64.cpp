@@ -18,7 +18,7 @@
 // Basic ARM64 disassembler.
 
 // No promises of accuracy, mostly just made to debug JIT code.
-// Contains just enough to sort of understand what's going on without having to resort to an
+// Does enough to understand what's going on without having to resort to an
 // external disassembler all the time...
 
 #include <stdlib.h>
@@ -150,9 +150,13 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		int op = (w >> 30) & 1;
 		int imm = ((w >> 10) & 0xFFF);
 		int shift = ((w >> 22) & 0x3) * 16;
-		const char *s = ((w >> 29) & 1) ? "s" : "";
+		int s = ((w >> 29) & 1);
 		imm <<= shift;
-		snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", s, r, Rd, r, Rn, imm);
+		if (s && Rd == 31) {
+			snprintf(instr->text, sizeof(instr->text), "cmp %c%d, #%d", r, Rn, imm);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, %c%d, #%d", op == 0 ? "add" : "sub", s ? "s" : "", r, Rd, r, Rn, imm);
+		}
 	} else if (((w >> 23) & 0x3f) == 0x24) {
 		int immr = (w >> 16) & 0x3f;
 		int imms = (w >> 10) & 0x3f;
@@ -298,16 +302,20 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 	if (((w >> 21) & 0x2FF) == 0x2D6) {
 		// Data processing
 		int opcode2 = (w >> 16) & 0x1F;
-		if (opcode2 == 0) {
-			int opcode = (w >> 10) & 0x3F;
-			// Data-processing (1 source)
-			const char *opname[8] = { "rbit", "rev16", "rev", "(unk)", "clz", "cls" };
-			const char *op = opcode2 >= 8 ? "unk" : opname[opcode];
-			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", op, r, Rn, r, Rm);
-		} else {
-			// Data processing (2 source)
-			snprintf(instr->text, sizeof(instr->text), "(data-proc-2-source %08x)", w);
-		}
+		int opcode = (w >> 10) & 0x3F;
+		// Data-processing (1 source)
+		const char *opname[8] = { "rbit", "rev16", "rev32", "(unk)", "clz", "cls" };
+		const char *op = opcode2 >= 8 ? "unk" : opname[opcode];
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", op, r, Rd, r, Rn);
+	} else if (((w >> 21) & 0x2FF) == 0x0D6) {
+		const char *opname[32] = {
+			0, 0, "udiv", "sdiv", 0, 0, 0, 0,
+			"lslv", "lsrv", "asrv", "rorv", 0, 0, 0, 0,
+			"crc32b", "crc32h", "crc32w", 0, "crc32cb", "crc32ch", "crc32cw", 0,
+		};
+		int opcode = (w >> 10) & 0x3F;
+		// Data processing (2 source)
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opname[opcode], r, Rd, r, Rn, r, Rm);
 	} else if (((w >> 24) & 0x1f) == 0xA) {
 		// Logical (shifted register)
 		int shift = (w >> 22) & 0x3;
@@ -389,33 +397,91 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 	}
 }
 
+// (w >> 25) & 0xF  == 7
 static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
-	snprintf(instr->text, sizeof(instr->text), "(FP1 %08x)", w);
+	if (((w >> 21) & 0x4F9) == 0x71) {
+		switch ((w >> 10) & 3) {
+		case 1: case 3:
+			snprintf(instr->text, sizeof(instr->text), "(asimd three-same %08x)", w);
+			break;
+		case 0:
+			snprintf(instr->text, sizeof(instr->text), "(asimd three-different %08x)", w);
+			break;
+		case 2:
+			if (((w >> 17) & 0xf) == 0) {
+				snprintf(instr->text, sizeof(instr->text), "(asimd two-reg misc %08x)", w);
+			} else if (((w >> 17) & 0xf) == 1) {
+				snprintf(instr->text, sizeof(instr->text), "(asimd across lanes %08x)", w);
+			} else {
+				goto bail;
+			}
+		}
+	} else if (((w >> 21) & 0x4F9) == 0x70) {
+		if (((w >> 10) & 0x21) == 1) {
+			snprintf(instr->text, sizeof(instr->text), "(asimd copy %08x)", w);
+		}
+	} else if (((w >> 21) & 0x4F8) == 0x78) {
+		if ((w >> 10) & 1) {
+			if (((w >>	19) & 0xf) == 0) {
+				snprintf(instr->text, sizeof(instr->text), "(asimd modified immediate %08x)", w);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(asimd shift-by-immediate %08x)", w);
+			}
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(asimd vector x indexed elem %08x)", w);
+		}
+	} else {
+		bail:
+		snprintf(instr->text, sizeof(instr->text), "(FP1 %08x)", w);
+	}
 }
 
+// (w >> 25) & 0xF  == f
 static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rd = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
 	int Rm = (w >> 16) & 0x1f;
 	int type = (w >> 22) & 0x3;
-	if ((w >> 24) == 0x1E) {
-		if (((w >> 10) & 0xf9f) == 0x810) {
-			const char *opnames[4] = { "fmov", "fabs", "fneg", "fsqrt" };
-			int opc = (w >> 15) & 0x3;
-			snprintf(instr->text, sizeof(instr->text), "%s s%d, s%d", opnames[opc], Rd, Rn);  // TODO: Support doubles too
-		} else if (((w >> 10) & 3) == 2) {
-			// FP data-proc (2 source)
-			int opc = (w >> 12) & 0xf;
-			if (type == 0 || type == 1) {
-				const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
-				char r = 's';  // TODO: Support doubles too
-				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
-			} else {
-				snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
+
+	if (((w >> 21) & 0x2F9) == 0xF0) {
+		snprintf(instr->text, sizeof(instr->text), "(float<->fixed %08x)", w);
+	} else if (((w >> 21) & 0x2F9) == 0xF1) {
+		if (((w >> 10) & 3) == 0) {
+			if (((w >> 10) & 7) == 4) {
+				snprintf(instr->text, sizeof(instr->text), "(float imm %08x)", w);
+			} else if (((w >> 10) & 0xf) == 8) {
+				int opcode2 = w & 0x1f;
+				int e = opcode2 >> 4;
+				int z = (opcode2 >> 3) & 1;
+				char r = type == 1 ? 'd' : 's';
+				if (z) {
+					snprintf(instr->text, sizeof(instr->text), "fcmp %c%d, #0.0", r, Rn);
+				} else {
+					snprintf(instr->text, sizeof(instr->text), "fcmp %c%d, %c%d", r, Rn, r, Rm);
+				}
+			} else if (((w >> 10) & 0x1f) == 0x10) {
+				// snprintf(instr->text, sizeof(instr->text), "(data 1-source %08x)", w);
+				const char *opnames[4] = { "fmov", "fabs", "fneg", "fsqrt" };
+				int opc = (w >> 15) & 0x3;
+				snprintf(instr->text, sizeof(instr->text), "%s s%d, s%d", opnames[opc], Rd, Rn);  // TODO: Support doubles too
+			} else if (((w >> 10) & 0x3f) == 0x0) {
+				snprintf(instr->text, sizeof(instr->text), "(float<->integer conv %08x)", w);
 			}
-		} else {
-			snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
+		} else if (((w >> 10) & 3) == 1) {
+			snprintf(instr->text, sizeof(instr->text), "(float cond compare %08x)", w);
+		} else if (((w >> 10) & 3) == 2) {
+			int opc = (w >> 12) & 0xf;
+			const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
+			char r = 's';  // TODO: Support doubles too
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
+		} else if (((w >> 10) & 3) == 3) {
+			snprintf(instr->text, sizeof(instr->text), "(float cond select %08x)", w);
 		}
+	} else if (((w >> 21) & 0x2F9) == 0xF8) {
+		snprintf(instr->text, sizeof(instr->text), "(float data 3-source %08x)", w);
+	} else if (((w >> 21) & 0x2F0) == 0x2F0) {
+		// many lines
+		snprintf(instr->text, sizeof(instr->text), "(asimd stuff %08x)", w);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(FP2 %08x)", w);
 	}

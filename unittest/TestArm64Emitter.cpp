@@ -41,6 +41,14 @@ bool TestArm64Emitter() {
 	//RET(CheckLast(emitter, "aa023be1 fmov x1, s3"));
 	//fp.UCVTF(S12, X3, 8);
 	//RET(CheckLast(emitter, "b86c6877 ucvtf s12, x3, #8"));
+	emitter.LSLV(W1, W2, W3);
+	RET(CheckLast(emitter, "1ac32041 lslv w1, w2, w3"));
+	emitter.UDIV(W1, W2, W3);
+	RET(CheckLast(emitter, "1ac30841 udiv w1, w2, w3"));
+	emitter.RBIT(W3, W2);
+	RET(CheckLast(emitter, "5ac00043 rbit w3, w2"));
+	emitter.CMP(W3, 3, false);
+	RET(CheckLast(emitter, "71000c7f cmp w3, #3"));
 	emitter.MADD(W3, W7, W1, W8);
 	RET(CheckLast(emitter, "1b0120e3 madd w3, w7, w1, w8"));
 	emitter.SMADDL(X3, X6, W1, W8);
@@ -98,6 +106,10 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "1e20c334 fabs s20, s25"));
 	fp.FMOV(S20, S25);
 	RET(CheckLast(emitter, "1e204334 fmov s20, s25"));
+	fp.FCMP(S7);
+	RET(CheckLast(emitter, "1e6320e0 fcmp s7, #0.0"));
+	fp.FCMP(D7, D3);
+	RET(CheckLast(emitter, "1e2020e8 fcmp d7, d3"));
 	emitter.ORI2R(X1, X3, 0x3F, INVALID_REG);
 	RET(CheckLast(emitter, "b2401461 orr x1, x3, #0x3f"));
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);
