@@ -490,13 +490,87 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VHdp(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+		fp.FMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[0]));
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 1; i < n; i++) {
+			// sum += s[i]*t[i];
+			if (i == n - 1) {
+				fp.FADD(S0, S0, fpr.V(tregs[i]));
+			} else {
+				fp.FMADD(S0, fpr.V(sregs[i]), fpr.V(tregs[i]), S0);
+			}
+		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
+
+		fp.FMOV(fpr.V(dregs[0]), S0);
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void Arm64Jit::Comp_Vhoriz(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+
+		int n = GetNumVectorElements(sz);
+
+		bool is_vavg = ((op >> 16) & 0x1f) == 7;
+		if (is_vavg) {
+			fp.MOVI2F(S1, vavg_table[n - 1], SCRATCH1);
+		}
+		// Have to start at +0.000 for the correct sign.
+		fp.MOVI2F(S0, 0.0f, SCRATCH1);
+		for (int i = 0; i < n; i++) {
+			// sum += s[i];
+			fp.FADD(S0, S0, fpr.V(sregs[i]));
+		}
+
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
+		if (is_vavg) {
+			fp.FMUL(fpr.V(dregs[0]), S0, S1);
+		} else {
+			fp.FMOV(fpr.V(dregs[0]), S0);
+		}
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VDot(MIPSOpcode op) {
