@@ -1251,8 +1251,8 @@ namespace MIPSComp
 	}
 
 	void ArmJit::Comp_Mftv(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_Mftv);
+		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
