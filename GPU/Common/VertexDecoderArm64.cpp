@@ -60,8 +60,8 @@ static const ARM64Reg neonScratchRegQ = Q1;
 // S8-S15 are used during matrix generation
 
 // These only live through the matrix multiplication
-static const ARM64Reg src[3] = { S8, S9, S10 };  // skin source
-static const ARM64Reg acc[3] = { S11, S12, S13 };  // skin accumulator
+static const ARM64Reg src[3] = { S16, S17, S18 };  // skin source
+static const ARM64Reg acc[3] = { S19, S20, S21 };  // skin accumulator
 
 static const ARM64Reg srcNEON = Q2;
 static const ARM64Reg accNEON = Q3;
@@ -139,9 +139,14 @@ static const JitLookup jitLookup[] = {
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
+
+	const u32 ALL_CALLEE_SAVED = 0x7FF80000;
+	BitSet32 regs_to_save(ALL_CALLEE_SAVED);
+
 	const u8 *start = AlignCode16();
 
-	WARN_LOG(HLE, "VertexDecoderJitCache::Compile");
+	ABI_PushRegisters(regs_to_save);
+	// TODO: Also push D8-D15, the fp registers we need to save.
 
 	bool prescaleStep = false;
 	bool skinning = false;
@@ -195,7 +200,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		SetJumpTarget(skip);
 	}
 
-	// POP(6, R4, R5, R6, R7, R8, R_PC);
+	ABI_PopRegisters(regs_to_save);
+
 	RET();
 
 	FlushIcache();

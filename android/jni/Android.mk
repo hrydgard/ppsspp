@@ -92,7 +92,8 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
   $(SRC)/Core/Util/DisArm64.cpp \
-  $(SRC)/GPU/Common/VertexDecoderArm64.cpp
+  $(SRC)/GPU/Common/VertexDecoderArm64.cpp \
+  Arm64EmitterTest.cpp
 endif
 
 ifeq ($(TARGET_ARCH_ABI),armeabi)
