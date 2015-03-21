@@ -754,13 +754,10 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 		break;
 	}
 
-	if (b64Bit)
-	{
+	if (b64Bit) {
 		op |= 2;
 		imm >>= 3;
-	}
-	else
-	{
+	} else {
 		imm >>= 2;
 	}
 
@@ -769,7 +766,7 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 	Rn = DecodeReg(Rn);
 
 	Write32((op << 30) | (5 << 27) | (type_encode << 23) | (load << 22) | \
-	        ((imm & 0x7F) << 15) | (Rt2 << 10) | (Rn << 5) | Rt);
+	        (((uint32_t)imm & 0x7F) << 15) | (Rt2 << 10) | (Rn << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeAddressInst(u32 op, ARM64Reg Rd, s32 imm)

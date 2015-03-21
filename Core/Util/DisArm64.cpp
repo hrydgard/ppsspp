@@ -225,7 +225,6 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 
 static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 	int size = w >> 30;
-	bool is64bit = (w >> 31) ? true : false;
 	int imm9 = SignExtend9((w >> 12) & 0x1FF);
 	int Rt = (w & 0x1F);
 	int Rn = ((w >> 5) & 0x1F);
@@ -279,10 +278,12 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 		}
 	} else if (((w >> 25) & 0x3F) == 0x14) {
 		// store pair
-		int offset = SignExtend7((w >> 15) & 0x7f) << (is64bit ? 3 : 2);
 		int Rt2 = (w >> 10) & 0x1f;
 		bool load = (w >> 22) & 1;
 		int index_type = ((w >> 23) & 3);
+		bool sf = (w >> 31);
+		r = sf ? 'x' : 'w';
+		int offset = SignExtend7((w >> 15) & 0x7f) << (sf ? 3 : 2);
 		if (index_type == 2) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
 			return;

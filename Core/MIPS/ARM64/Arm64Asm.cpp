@@ -100,6 +100,7 @@ void Arm64Jit::GenerateFixedCode() {
 	enterCode = GetCodePtr();
 
 	ABI_PushRegisters(regs_to_save);
+	// TODO: Also push D8-D15, the fp registers we need to save.
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.

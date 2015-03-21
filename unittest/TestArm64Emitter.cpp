@@ -82,6 +82,8 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "9a87c0a3 csel x3, x5, x7, gt"));
 	emitter.LDR(W23, X3, X12);
 	RET(CheckLast(emitter, "b86c6877 ldr w23, [x3 + x12]"));
+	emitter.LDP(INDEX_SIGNED, X23, X5, X3, 32);
+	RET(CheckLast(emitter, "a9421477 ldp x23, x5, [x3, #32]"));
 	emitter.LDP(INDEX_SIGNED, W23, W5, X3, 36);
 	RET(CheckLast(emitter, "29449477 ldp w23, w5, [x3, #36]"));
 	emitter.STP(INDEX_PRE, W23, W5, SP, -16);
