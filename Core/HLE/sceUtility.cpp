@@ -448,6 +448,15 @@ static int sceUtilityNetconfGetStatus()
 	return status;
 }
 
+static int sceUtilityCheckNetParam(int id)
+{
+	bool available = (id >= 0 && id <= 24);
+	int ret = available ? 0 : 0X80110601;
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityCheckNetParam(%d)", ret, id);
+	return ret;
+}
+
+
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
 static int sceUtilityScreenshotInitStart(u32 paramAddr)
@@ -779,7 +788,7 @@ const HLEFunction sceUtility[] =
 	{0x4db1e739, &WrapI_U<sceUtilityNetconfInitStart>, "sceUtilityNetconfInitStart"},
 	{0x91e70e35, &WrapI_I<sceUtilityNetconfUpdate>, "sceUtilityNetconfUpdate"},
 	{0x6332aa39, &WrapI_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
-	{0x5eee6548, 0, "sceUtilityCheckNetParam"},
+	{0x5eee6548, &WrapI_I<sceUtilityCheckNetParam>, "sceUtilityCheckNetParam"},
 	{0x434d4b3a, 0, "sceUtilityGetNetParam"},
 	{0x4FED24D8, 0, "sceUtilityGetNetParamLatestID"},
 
