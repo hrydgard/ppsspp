@@ -258,8 +258,7 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 			gpr.MapDirtyIn(rd, rs);
 			MOV(gpr.R(rd), gpr.R(rs));
 		} else if (rt == 0 && rs == 0) {
-			gpr.MapReg(rd, MAP_DIRTY | MAP_NOINIT);
-			MOVI2R(gpr.R(rd), 0);
+			gpr.SetImm(rd, 0);
 		} else {
 			CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
 		}

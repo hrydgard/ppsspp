@@ -207,71 +207,45 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 		fpr.MapDirtyIn(fd, fs);
 		fp.FNEG(fpr.R(fd), fpr.R(fs));
 		break;
-		/*
+
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);  // to nearest, ties to even
 		break;
+
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+		// TODO: Correctly convert NAN to 0x7fffffff
 		break;
+
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
-		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
-		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode.
-		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
-		VMSR(SCRATCHREG1);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
-		VMSR(SCRATCHREG2);
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_P);  // towards +inf
+		// TODO: Correctly convert NAN to 0x7fffffff
 		break;
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 	{
-		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
-		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode.
-		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
-		VMSR(SCRATCHREG1);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
-		VMSR(SCRATCHREG2);
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_M);  // towards -inf
+		// TODO: Correctly convert NAN to 0x7fffffff
 		break;
 	}
+
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
+		fp.SCVTF(fpr.R(fd), fpr.R(fs));
 		break;
+
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
+		// TODO: Find a way to use the current rounding mode. Until then, default to C conversion rules.
 		fpr.MapDirtyIn(fd, fs);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+		// TODO: Correctly convert NAN to 0x7fffffff
 		break;
-		*/
+
 	default:
 		DISABLE;
 	}
@@ -280,7 +254,6 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
-	DISABLE;
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;
@@ -289,7 +262,7 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 	case 0: // R(rt) = FI(fs); break; //mfc1
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 		if (fpr.IsMapped(fs)) {
-			fp.FMOV(32, false, gpr.R(rt), fpr.R(fs));
+			fp.FMOV(gpr.R(rt), fpr.R(fs));
 		} else {
 			LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
 		}
@@ -324,13 +297,14 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 		*/
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-			fpr.MapReg(fs, MAP_NOINIT);
+		if (false && gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+			// broken?
+			fpr.MapReg(fs, MAP_NOINIT | MAP_DIRTY);
 			fp.FMOV(fpr.R(fs), 0);  // Immediate form
 		} else {
 			gpr.MapReg(rt);
-			fpr.MapReg(fs, MAP_NOINIT);
-			fp.FMOV(32, false, fpr.R(fs), gpr.R(rt));
+			fpr.MapReg(fs, MAP_NOINIT | MAP_DIRTY);
+			fp.FMOV(fpr.R(fs), gpr.R(rt));
 		}
 		return;
 

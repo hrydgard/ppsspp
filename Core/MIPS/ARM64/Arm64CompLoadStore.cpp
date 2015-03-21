@@ -231,6 +231,7 @@ namespace MIPSComp
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
 		int offset = (signed short)(op & 0xFFFF);
 		bool load = false;
 		MIPSGPReg rt = _RT;
