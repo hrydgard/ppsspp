@@ -673,6 +673,7 @@ public:
 	void MOVI2R(ARM64Reg Rd, u64 imm, bool optimize = true);
 	template <class P>
 	void MOVP2R(ARM64Reg Rd, P *ptr) {
+		_assert_msg_(JIT, Is64Bit(Rd), "Can't store pointers in 32-bit registers");
 		MOVI2R(Rd, (uintptr_t)ptr);
 	}
 

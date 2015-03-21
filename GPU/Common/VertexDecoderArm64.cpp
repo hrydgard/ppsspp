@@ -36,6 +36,7 @@ static const ARM64Reg dstReg = X1;
 
 static const ARM64Reg counterReg = W2;
 static const ARM64Reg tempReg1 = W3;
+static const ARM64Reg tempRegPtr = X3;
 static const ARM64Reg tempReg2 = W4;
 static const ARM64Reg tempReg3 = W5;
 static const ARM64Reg scratchReg = W6;
@@ -193,10 +194,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	B(CC_NEQ, loopStart);
 
 	if (dec.col) {
-		MOVP2R(tempReg1, &gstate_c.vertexFullAlpha);
+		MOVP2R(tempRegPtr, &gstate_c.vertexFullAlpha);
 		CMP(fullAlphaReg, 0);
 		FixupBranch skip = B(CC_NEQ);
-		STRB(INDEX_UNSIGNED, fullAlphaReg, tempReg1, 0);
+		STRB(INDEX_UNSIGNED, fullAlphaReg, tempRegPtr, 0);
 		SetJumpTarget(skip);
 	}
 
@@ -219,7 +220,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 }
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
-	return false;
 	// See if we find a matching JIT function
 	for (size_t i = 0; i < ARRAY_SIZE(jitLookup); i++) {
 		if (dec.steps_[step] == jitLookup[i].func) {
