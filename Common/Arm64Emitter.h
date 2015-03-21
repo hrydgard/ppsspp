@@ -109,6 +109,9 @@ bool IsImmLogical(uint64_t value, unsigned int width, unsigned int *n, unsigned 
 // For ADD/SUB
 bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift);
 
+float FPImm8ToFloat(uint8_t bits);
+bool FPImm8FromFloat(float value, uint8_t *immOut);
+
 enum OpType
 {
 	TYPE_IMM = 0,
@@ -785,7 +788,7 @@ public:
 	void FNMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
 
 	// Scalar floating point immediate
-	void FMOV(ARM64Reg Rd, u32 imm);
+	void FMOV(ARM64Reg Rd, uint8_t imm8);
 
 	// Vector
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);

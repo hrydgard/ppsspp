@@ -2743,9 +2743,9 @@ void ARM64FloatEmitter::Emit3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM
 }
 
 // Scalar floating point immediate
-void ARM64FloatEmitter::FMOV(ARM64Reg Rd, u32 imm)
+void ARM64FloatEmitter::FMOV(ARM64Reg Rd, uint8_t imm8)
 {
-	EmitScalarImm(0, 0, 0, 0, Rd, imm);
+	EmitScalarImm(0, 0, 0, 0, Rd, imm8);
 }
 
 // Vector
@@ -3410,14 +3410,51 @@ bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	}
 }
 
+float FPImm8ToFloat(uint8_t bits) {
+	int E = 8;
+	int F = 32 - 8 - 1;
+	int sign = bits >> 7;
+	uint32_t f = 0;
+	f |= (sign << 31);
+	int bit6 = (bits >> 6) & 1;
+	uint32_t exp = ((!bit6) << 7) | (0x7C * bit6) | ((bits >> 4) & 3);
+	uint32_t mantissa = (bits & 0xF) << 19;
+	f |= exp << 23;
+	f |= mantissa;
+	float fl;
+	memcpy(&fl, &f, sizeof(float));
+	return fl;
+}
+
+bool FPImm8FromFloat(float value, uint8_t *immOut) {
+	uint32_t f;
+	memcpy(&f, &value, sizeof(float));
+	uint32_t mantissa4 = (f & 0x7FFFFF) >> 19;
+	uint32_t exponent = (f >> 23) & 0xFF;
+	uint32_t sign = f >> 31;
+	if ((exponent >> 7) == ((exponent >> 6) & 1))
+		return false;
+	uint8_t imm8 = (sign << 7) | ((!(exponent >> 7)) << 6) | ((exponent & 3) << 4) | mantissa4;
+	float newFloat = FPImm8ToFloat(imm8);
+	if (newFloat == value) {
+		*immOut = imm8;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool negate) {
 	_assert_msg_(JIT, !IsDouble(Rd), "MOVI2F does not yet support double precision");
+	uint8_t imm8;
 	if (value == 0.0) {
-		FMOV(Rd, 0);
+		FMOV(Rd, IsDouble(Rd) ? ZR : WZR);
 		if (negate) {
 			FNEG(Rd, Rd);
 		}
 		// TODO: There are some other values we could generate with the float-imm instruction, like 1.0...
+	} else if (FPImm8FromFloat(value, &imm8)) {
+		FMOV(Rd, imm8);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "Failed to find a way to generate FP immediate %f without scratch", value);
 		u32 ival;

@@ -469,7 +469,10 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 		int opcode = (w >> 16) & 7;
 		if (((w >> 10) & 3) == 0) {
 			if (((w >> 10) & 7) == 4) {
-				snprintf(instr->text, sizeof(instr->text), "(float imm %08x)", w);
+				uint8_t uimm8 = (w >> 13) & 0xff;
+				float fl_imm = Arm64Gen::FPImm8ToFloat(uimm8);
+				char fr = ((w >> 22) & 1) ? 'd' : 's';
+				snprintf(instr->text, sizeof(instr->text), "fmov %c%d, #%f", fr, Rd, fl_imm);
 			} else if (((w >> 10) & 0xf) == 8) {
 				int opcode2 = w & 0x1f;
 				int e = opcode2 >> 4;

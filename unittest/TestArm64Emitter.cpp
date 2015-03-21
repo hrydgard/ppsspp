@@ -32,12 +32,21 @@ bool TestArm64Emitter() {
 	int lz = CountLeadingZeros(0x0000400000000000, 64);
 	EXPECT_EQ_INT(lz, 17);
 
+
 	u32 code[512];
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
 	//emitter.EXTR(W1, W3, 0, 7);
 	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
+	float value = 1.0;
+	uint8_t imm8;
+	FPImm8FromFloat(value, &imm8);
+	fp.FMOV(S7, imm8);
+	RET(CheckLast(emitter, "1e2e1007 fmov s7, #1.000000"));
+	FPImm8FromFloat(-value, &imm8);
+	fp.FMOV(S7, imm8);
+	RET(CheckLast(emitter, "1e2e1007 fmov s7, #-1.000000"));
 	fp.FMADD(S1, S2, S3, S4);
 	RET(CheckLast(emitter, "1f031041 fmadd s1, s2, s3, s4"));
 	fp.FNMSUB(D1, D2, D3, D4);
