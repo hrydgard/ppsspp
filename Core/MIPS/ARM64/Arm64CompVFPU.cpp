@@ -500,8 +500,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VDot(MIPSOpcode op) {
-		DISABLE;
-		
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -538,8 +536,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VecDo3(MIPSOpcode op) {
-		DISABLE;
-		
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -643,8 +639,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VV2Op(MIPSOpcode op) {
-		DISABLE;
-		
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -797,8 +791,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Mftv(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
-
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f) {
@@ -871,7 +863,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vmfvc(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -890,7 +881,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vmtvc(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -917,7 +907,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vmmov(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 
 		// This probably ignores prefixes for all sane intents and purposes.
@@ -955,7 +944,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VScl(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1005,7 +993,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vmmul(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1052,7 +1039,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vtfm(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1129,7 +1115,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VCrossQuat(MIPSOpcode op) {
-		DISABLE;
 		// This op does not support prefixes anyway.
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
@@ -1218,7 +1203,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Viim(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 
 		u8 dreg;
@@ -1233,8 +1217,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vfim(MIPSOpcode op) {
-		DISABLE;
-
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
@@ -1254,8 +1236,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vcst(MIPSOpcode op) {
-		DISABLE;
-
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
