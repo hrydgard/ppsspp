@@ -119,7 +119,6 @@ public:
 	void DiscardR(MIPSReg r);
 	Arm64Gen::ARM64Reg R(int preg); // Returns a cached register
 
-	// VFPU register as single ARM VFP registers. Must not be used in the upcoming NEON mode!
 	void MapRegV(int vreg, int flags = 0);
 	void LoadToRegV(Arm64Gen::ARM64Reg armReg, int vreg);
 	void MapInInV(int rt, int rs);
@@ -131,7 +130,6 @@ public:
 	// VFPU registers as single VFP registers.
 	Arm64Gen::ARM64Reg V(int vreg) { return R(vreg + 32); }
 	 
-	int FlushGetSequential(int a, int maxArmReg);
 	void FlushAll();
 
 	// This one is allowed at any point.
@@ -168,16 +166,13 @@ private:
 	int qTime_;
 
 	enum {
-		// With NEON, we have 64 S = 32 D = 16 Q registers. Only the first 32 S registers
-		// are individually mappable though.
+		// On ARM64, each of the 32 registers are full 128-bit. No sharing of components!
 		MAX_ARMFPUREG = 32,
-		MAX_ARMQUADS = 16,
 		NUM_MIPSFPUREG = Arm64JitConstants::TOTAL_MAPPABLE_MIPSFPUREGS,
 	};
 
 	FPURegARM64 ar[MAX_ARMFPUREG];
 	FPURegMIPS mr[NUM_MIPSFPUREG];
-	FPURegQuad64 qr[MAX_ARMQUADS];
 	FPURegMIPS *vr;
 
 	bool pendingFlush;

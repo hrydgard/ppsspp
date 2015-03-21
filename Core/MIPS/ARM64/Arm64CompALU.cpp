@@ -400,7 +400,6 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 		return;
 
 	switch ((op >> 6) & 31) {
-	/*
 	case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
 		if (gpr.IsImm(rt)) {
 			gpr.SetImm(rd, (s32)(s8)(u8)gpr.GetImm(rt));
@@ -417,7 +416,7 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 		}
 		gpr.MapDirtyIn(rd, rt);
 		SXTH(gpr.R(rd), gpr.R(rt));
-		break;*/
+		break;
 
 	case 20: //bitrev
 		if (gpr.IsImm(rt)) {

@@ -58,14 +58,6 @@ void Arm64RegCacheFPU::SetupInitialRegs() {
 		mrInitial[i].spillLock = false;
 		mrInitial[i].tempLock = false;
 	}
-	for (int i = 0; i < MAX_ARMQUADS; i++) {
-		qr[i].isDirty = false;
-		qr[i].mipsVec = -1;
-		qr[i].sz = V_Invalid;
-		qr[i].spillLock = false;
-		qr[i].isTemp = false;
-		memset(qr[i].vregs, 0xff, 4);
-	}
 }
 
 const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
@@ -84,10 +76,8 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// able to use regular VFP instructions too.
 	static const ARM64Reg allocationOrder[] = {
 		// Reserve four temp registers. Useful when building quads until we really figure out
-		// how to do that best.
+		// how to do that best. Note that we avoid the callee-save registers for now.
 		S4,  S5,  S6,  S7,   // Q1
-		S8,  S9,  S10, S11,  // Q2
-		S12, S13, S14, S15,  // Q3
 		S16, S17, S18, S19,  // Q4
 		S20, S21, S22, S23,  // Q5
 		S24, S25, S26, S27,  // Q6
@@ -106,7 +96,7 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 
 	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
 	// They are used by a few instructions, like vh2f.
-	if (jo_->useNEONVFPU) {
+	if (jo_->useASIMDVFPU) {
 		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARM64Reg);
 		return allocationOrderNEONVFPU;
 	} else {
@@ -121,7 +111,7 @@ bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
 
 ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
-	if (jo_->useNEONVFPU && mipsReg >= 32) {
+	if (jo_->useASIMDVFPU && mipsReg >= 32) {
 		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
 		return S0;
 	}
@@ -351,26 +341,6 @@ int Arm64RegCacheFPU::GetNumARMFPURegs() {
 		return 16;
 }
 
-// Scalar only. Need a similar one for sequential Q vectors.
-int Arm64RegCacheFPU::FlushGetSequential(int a, int maxArmReg) {
-	int c = 1;
-	int lastMipsOffset = GetMipsRegOffset(ar[a].mipsReg);
-	a++;
-	while (a < maxArmReg) {
-		if (!ar[a].isDirty || ar[a].mipsReg == -1)
-			break;
-		int mipsOffset = GetMipsRegOffset(ar[a].mipsReg);
-		if (mipsOffset != lastMipsOffset + 4) {
-			break;
-		}
-
-		lastMipsOffset = mipsOffset;
-		a++;
-		c++;
-	}
-	return c;
-}
-
 void Arm64RegCacheFPU::FlushAll() {
 	if (!pendingFlush) {
 		// Nothing allocated.  FPU regs are not nearly as common as GPR.
@@ -386,12 +356,12 @@ void Arm64RegCacheFPU::FlushAll() {
 	// sequential. This is necessary because we store VFPU registers in a staggered order to get
 	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
 	
-	int numArmRegs;
+	int numArmRegs = 0;
 	// We rely on the allocation order being sequential.
-	const ARM64Reg baseReg = GetMIPSAllocationOrder(numArmRegs)[0];
+	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
 
 	for (int i = 0; i < numArmRegs; i++) {
-		int a = (baseReg - S0) + i;
+		int a = DecodeReg(order[i]);
 		int m = ar[a].mipsReg;
 
 		if (ar[a].isDirty) {
@@ -402,7 +372,6 @@ void Arm64RegCacheFPU::FlushAll() {
 
 			fp_->STR(32, INDEX_UNSIGNED, (ARM64Reg)(a + S0), CTXREG, GetMipsRegOffset(m));
 
-			// Skip past, and mark as non-dirty.
 			mr[ar[a].mipsReg].loc = ML_MEM;
 			mr[ar[a].mipsReg].reg = (int)INVALID_REG;
 			ar[a].mipsReg = -1;
@@ -463,7 +432,7 @@ bool Arm64RegCacheFPU::IsTempX(ARM64Reg r) const {
 }
 
 int Arm64RegCacheFPU::GetTempR() {
-	if (jo_->useNEONVFPU) {
+	if (jo_->useASIMDVFPU) {
 		ERROR_LOG(JIT, "VFP temps not allowed in NEON mode");
 		return 0;
 	}
@@ -509,13 +478,6 @@ void Arm64RegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 	}
 	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
 		DiscardR(i);
-	}
-	for (int i = 0; i < MAX_ARMQUADS; i++) {
-		qr[i].spillLock = false;
-		if (qr[i].isTemp) {
-			qr[i].isTemp = false;
-			qr[i].sz = V_Invalid;
-		}
 	}
 }
 

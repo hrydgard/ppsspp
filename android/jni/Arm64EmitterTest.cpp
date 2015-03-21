@@ -60,6 +60,7 @@ static u32 CallPtr(const void *ptr) {
 }
 
 void Arm64EmitterTest() {
+	return;
 
 	for (int i = 0; i < 6; i++) {
 		ILOG("---------------------------");
