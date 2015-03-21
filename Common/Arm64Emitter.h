@@ -76,18 +76,30 @@ enum ARM64Reg
 	PLTL2KEEP, PLTL2STRM,
 	PLTL3KEEP, PLTL3STRM,
 
+	WZR = WSP,
+	ZR = SP,
+
 	INVALID_REG = 0xFFFFFFFF
 };
 
-inline bool Is64Bit(ARM64Reg reg) { return reg & 0x20; }
+inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
 inline bool IsDouble(ARM64Reg reg) { return (reg & 0xC0) == 0x80; }
 inline bool IsQuad(ARM64Reg reg) { return (reg & 0xC0) == 0xC0; }
 inline bool IsVector(ARM64Reg reg) { return (reg & 0xC0) != 0; }
+inline bool IsGPR(ARM64Reg reg) { return (int)reg < 0x40; }
+
+int CountLeadingZeros(uint64_t value, int width);
+
 inline ARM64Reg DecodeReg(ARM64Reg reg) { return (ARM64Reg)(reg & 0x1F); }
 inline ARM64Reg EncodeRegTo64(ARM64Reg reg) { return (ARM64Reg)(reg | 0x20); }
 inline ARM64Reg EncodeRegToDouble(ARM64Reg reg) { return (ARM64Reg)((reg & ~0xC0) | 0x80); }
 inline ARM64Reg EncodeRegToQuad(ARM64Reg reg) { return (ARM64Reg)(reg | 0xC0); }
+
+// For AND/TST/ORR/EOR etc
+bool IsImmLogical(uint64_t value, unsigned int width, unsigned int *n, unsigned int *imm_s, unsigned int *imm_r);
+// For ADD/SUB
+bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift);
 
 enum OpType
 {
@@ -108,9 +120,10 @@ enum ShiftType
 
 enum IndexType
 {
-	INDEX_UNSIGNED,
-	INDEX_POST,
-	INDEX_PRE,
+	INDEX_UNSIGNED = 0,
+	INDEX_POST = 1,
+	INDEX_PRE = 2,
+	INDEX_SIGNED = INDEX_UNSIGNED // used in LDP/STP
 };
 
 enum ShiftAmount
@@ -121,12 +134,11 @@ enum ShiftAmount
 	SHIFT_48 = 3,
 };
 
-enum ExtendType
-{
-	EXTEND_UXTW = 2,
-	EXTEND_LSL = 3, // Default for zero shift amount
-	EXTEND_SXTW = 6,
-	EXTEND_SXTX = 7,
+// The only system registers accessible from EL0 (user space)
+enum SystemRegister {  // Three digits : Op1, CRm, Op2
+	SYSREG_NZCV = 0x320,
+	SYSREG_FPCR = 0x340,
+	SYSREG_FPSR = 0x341,
 };
 
 struct FixupBranch
@@ -157,6 +169,7 @@ enum PStateField
 	FIELD_SPSel = 0,
 	FIELD_DAIFSet,
 	FIELD_DAIFClr,
+	FIELD_NZCV,
 };
 
 enum SystemHint
@@ -252,6 +265,7 @@ public:
 			m_width = WIDTH_32BIT;
 			m_extend = EXTEND_UXTW;
 		}
+		m_shifttype = ST_LSL;
 	}
 	ArithOption(ARM64Reg Rd, ShiftType shift_type, u32 shift)
 	{
@@ -333,7 +347,7 @@ private:
 	void EncodeBitfieldMOVInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
 	void EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, ARM64Reg Rn, ARM64Reg Rd);
-	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
+	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, int n);
 	void EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 	void EncodeAddressInst(u32 op, ARM64Reg Rd, s32 imm);
 	void EncodeLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
@@ -398,7 +412,7 @@ public:
 	// Unconditional Branch (register)
 	void BR(ARM64Reg Rn);
 	void BLR(ARM64Reg Rn);
-	void RET(ARM64Reg Rn);
+	void RET(ARM64Reg Rn = X30);
 	void ERET();
 	void DRPS();
 
@@ -414,6 +428,10 @@ public:
 
 	// System
 	void _MSR(PStateField field, u8 imm);
+
+	void _MSR(PStateField field, ARM64Reg Rt);
+	void MRS(ARM64Reg Rt, PStateField field);
+
 	void HINT(SystemHint op);
 	void CLREX();
 	void DSB(BarrierType type);
@@ -453,6 +471,12 @@ public:
 	void CSINC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 	void CSINV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 	void CSNEG(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
+
+	// Aliases
+	void CSET(ARM64Reg Rd, CCFlags cond) {
+		ARM64Reg zr = Is64Bit(Rd) ? ZR : WZR;
+		CSINC(Rd, zr, zr, (CCFlags)((u32)cond ^ 1));
+	}
 
 	// Data-Processing 1 source
 	void RBIT(ARM64Reg Rd, ARM64Reg Rn);
@@ -500,15 +524,32 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+
+	// Wrap the above for saner syntax
+	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { AND(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void BIC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BIC(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ORR(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void ORN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ORN(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EOR(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EON(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ANDS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+
+	// Convenience wrappers around ORR. These match the official convenience syntax.
+	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
+	void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void LSL(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void ASR(ARM64Reg Rd, ARM64Reg Rm, int shift);
+	void ROR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 
 	// Logical (immediate)
-	void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-	void TST(ARM64Reg Rn, u32 immr, u32 imms);
+	void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void ANDS(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void ORR(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
+	void TST(ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);
 
 	// Add/subtract (immediate)
 	void ADD(ARM64Reg Rd, ARM64Reg Rn, u32 imm, bool shift = false);
@@ -610,6 +651,30 @@ public:
 
 	// Wrapper around MOVZ+MOVK
 	void MOVI2R(ARM64Reg Rd, u64 imm, bool optimize = true);
+	template <class P>
+	void MOVP2R(ARM64Reg Rd, P *ptr) {
+		MOVI2R(Rd, (uintptr_t)ptr);
+	}
+
+	// Wrapper around AND x, y, imm etc. If you are sure the imm will work, no need to pass a scratch register.
+	void ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void TSTI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG) { ANDSI2R(Is64Bit(Rn) ? ZR : WZR, Rn, imm, scratch); }
+	void ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+
+	void ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+	void SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch = INVALID_REG);
+
+	bool TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryCMPI2R(ARM64Reg Rn, u32 imm);
+
+	bool TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
+	bool TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm);
 
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
@@ -633,9 +698,15 @@ public:
 	ARM64Reg ABI_SetupLambda(const std::function<T(Args...)>* f)
 	{
 		auto trampoline = &ARM64XEmitter::CallLambdaTrampoline<T, Args...>;
-		MOVI2R(X30, (u64)trampoline);
-		MOVI2R(X0, (u64)const_cast<void*>((const void*)f));
+		MOVI2R(X30, (uintptr_t)trampoline);
+		MOVI2R(X0, (uintptr_t)const_cast<void*>((const void*)f));
 		return X30;
+	}
+
+	// Plain function call
+	void QuickCallFunction(ARM64Reg scratchreg, const void *func);
+	template <typename T> void QuickCallFunction(ARM64Reg scratchreg, T func) {
+		QuickCallFunction(scratchreg, (const void *)func);
 	}
 };
 
@@ -663,13 +734,16 @@ public:
 	void ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
 
 	// Scalar - 1 Source
+	void FMOV(ARM64Reg Rd, ARM64Reg Rn);
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
 	void FNEG(ARM64Reg Rd, ARM64Reg Rn);
+	void FSQRT(ARM64Reg Rd, ARM64Reg Rn);
 
 	// Scalar - 2 Source
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Scalar floating point immediate
 	void FMOV(ARM64Reg Rd, u32 imm);
@@ -708,10 +782,14 @@ public:
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
 
-	// Conversion between float and integer
+	// Conversion or movement between float and integer
 	void FMOV(u8 size, bool top, ARM64Reg Rd, ARM64Reg Rn);
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
 	void UCVTF(ARM64Reg Rd, ARM64Reg Rn);
+
+	// Fixed point to float. scale is the number of fractional bits.
+	void SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
 
 	// Float comparison
 	void FCMP(ARM64Reg Rn, ARM64Reg Rm);
@@ -766,10 +844,11 @@ private:
 	void EmitLoadStoreSingleStructure(bool L, bool R, u32 opcode, bool S, u32 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void Emit1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitConversion(bool sf, bool S, u32 type, u32 rmode, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitConversion2(bool sf, bool S, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm);
+	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
 	void EmitShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn);
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);

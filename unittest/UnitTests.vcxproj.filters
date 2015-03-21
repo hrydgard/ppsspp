@@ -6,6 +6,7 @@
     <ClCompile Include="JitHarness.cpp" />
     <ClCompile Include="TestArmEmitter.cpp" />
     <ClCompile Include="TestX64Emitter.cpp" />
+    <ClCompile Include="TestArm64Emitter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />

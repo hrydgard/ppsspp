@@ -465,6 +465,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("UI Language")));
 	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
+	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
+	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+
 	systemSettings->Add(new ItemHeader(s->T("Help the PPSSPP team")));
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
@@ -486,9 +489,6 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, s->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bSetRoundingMode, s->T("Respect FPU rounding (disable for old GEB saves)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
-
-	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
-	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 	systemSettings->Add(new ItemHeader(s->T("General")));
 

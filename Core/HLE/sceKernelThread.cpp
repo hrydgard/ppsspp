@@ -20,6 +20,8 @@
 #include <queue>
 #include <algorithm>
 
+#include "base/logging.h"
+
 #include "Common/LogManager.h"
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"

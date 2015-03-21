@@ -134,7 +134,8 @@ void PrintDecodedVertex(VertexReader &vtx) {
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
-VertexDecoder::VertexDecoder() : jitted_(0), decoded_(nullptr), ptr_(nullptr) {
+VertexDecoder::VertexDecoder() : jitted_(0), decoded_(nullptr), ptr_(nullptr)
+{
 }
 
 void VertexDecoder::Step_WeightsU8() const
@@ -1093,7 +1094,11 @@ int VertexDecoder::ToString(char *output) const {
 	return output - start;
 }
 
-VertexDecoderJitCache::VertexDecoderJitCache() {
+VertexDecoderJitCache::VertexDecoderJitCache()
+#ifdef ARM64
+ : fp(this)
+#endif
+{
 	// 256k should be enough.
 	AllocCodeSpace(1024 * 64 * 4);
 

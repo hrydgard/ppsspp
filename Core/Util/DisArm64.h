@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,18 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+// Basic ARM64 disassembler.
+// No promises of accuracy, mostly just made to debug JIT code.
 
-#include <vector>
-#include <string>
+#include <stdint.h>
 
-#include "Common/Common.h"
+void Arm64Dis(uint64_t addr, uint32_t w, char *output, int bufsize, bool includeWord);
 
-// TODO: Find a better place for these.
-std::vector<std::string> DisassembleArm2(const u8 *data, int size);
-std::vector<std::string> DisassembleArm64(const u8 *data, int size);
-std::vector<std::string> DisassembleX86(const u8 *data, int size);
-
-namespace MIPSComp {
-	void JitAt();
-}

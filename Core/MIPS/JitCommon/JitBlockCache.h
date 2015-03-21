@@ -30,6 +30,10 @@
 #include "Common/ArmEmitter.h"
 namespace ArmGen { class ARMXEmitter; }
 typedef ArmGen::ARMXCodeBlock NativeCodeBlock;
+#elif defined(ARM64)
+#include "Common/Arm64Emitter.h"
+namespace Arm64Gen { class ARM64XEmitter; }
+typedef Arm64Gen::ARM64CodeBlock NativeCodeBlock;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 namespace Gen { class XEmitter; }
@@ -44,7 +48,7 @@ namespace FakeGen { class FakeXEmitter; }
 typedef FakeGen::FakeXCodeBlock NativeCodeBlock;
 #endif
 
-#if defined(ARM)
+#if defined(ARM) || defined(ARM64)
 const int MAX_JIT_BLOCK_EXITS = 2;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;

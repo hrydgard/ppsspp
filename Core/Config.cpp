@@ -265,7 +265,7 @@ static int DefaultNumWorkers() {
 static bool DefaultJit() {
 #ifdef IOS
 	return iosCanUseJit;
-#elif defined(ARM) || defined(_M_IX86) || defined(_M_X64)
+#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return true;
 #else
 	return false;

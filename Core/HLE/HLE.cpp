@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 
+#include "base/logging.h"
 #include "base/timeutil.h"
 
 #include "Core/Config.h"
