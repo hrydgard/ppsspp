@@ -450,10 +450,10 @@ static int sceUtilityNetconfGetStatus()
 
 static int sceUtilityCheckNetParam(int id)
 {
-		bool available = (id >= 0 && id <= 24);
-		int ret = available ? 0 : 0X80110601;
-		DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityCheckNetParam(%d)", ret);
-		return ret;
+	bool available = (id >= 0 && id <= 24);
+	int ret = available ? 0 : 0X80110601;
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityCheckNetParam(%d)", ret);
+	return ret;
 }
 
 
