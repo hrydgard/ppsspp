@@ -283,8 +283,6 @@ const char *GetCompilerABI() {
 	return "armeabi-v7a";
 #elif defined(ARM)
 	return "armeabi";
-#elif defined(ARM64)
-	return "arm64";
 #elif defined(_M_IX86)
 	return "x86";
 #elif defined(_M_X64)
@@ -565,8 +563,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice(de->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
 	leftColumn->Add(new Choice(de->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
 	leftColumn->Add(new Choice(de->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	leftColumn->Add(new Choice(de->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
-	leftColumn->Add(new Choice(de->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
+	leftColumn->Add(new Choice(de->T("Random VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView(de->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -615,8 +612,6 @@ void JitCompareScreen::UpdateDisasm() {
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
-	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
@@ -632,9 +627,6 @@ void JitCompareScreen::UpdateDisasm() {
 }
 
 UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	u32 addr;
 	if (blockAddr_->GetText().size() > 8)
@@ -670,10 +662,6 @@ UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	if (Memory::IsValidAddress(e.a)) {
 		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
@@ -685,10 +673,6 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
-
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
@@ -699,34 +683,21 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_VFPU);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_FPU);
-	return UI::EVENT_DONE;
-}
-
-void JitCompareScreen::OnRandomBlock(int flag) {
-	if (!MIPSComp::jit) {
-		return;
-	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
-		bool anyWanted = false;
+		bool anyVFPU = false;
 		int tries = 0;
-		while (!anyWanted && tries < 10000) {
+		while (!anyVFPU && tries < 10000) {
 			currentBlock_ = rand() % numBlocks;
 			const JitBlock *b = blockCache->GetBlock(currentBlock_);
 			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
-				if (MIPSGetInfo(opcode) & flag) {
+				if (MIPSGetInfo(opcode) & IS_VFPU) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
 					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
-					anyWanted = true;
+					anyVFPU = true;
 					break;
 				}
 			}
@@ -734,13 +705,11 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 		}
 	}
 	UpdateDisasm();
+	return UI::EVENT_DONE;
 }
 
 
 UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
-		return UI::EVENT_DONE;
-	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	std::vector<int> blockNum;
 	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);

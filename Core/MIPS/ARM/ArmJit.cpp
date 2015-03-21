@@ -423,7 +423,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
+			MOVI2R(R0, (u32)entry->replaceFunc);
 			BL(R0);
 		}
 		ApplyRoundingMode();
@@ -482,7 +482,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
+			MOVI2R(R0, (u32)entry->replaceFunc);
 			BL(R0);
 		}
 
@@ -600,7 +600,7 @@ void ArmJit::RestoreRoundingMode(bool force) {
 }
 
 void ArmJit::ApplyRoundingMode(bool force) {
-	// NOTE: Must not destroy R0.
+	// NOTE: Must not destory R0.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));

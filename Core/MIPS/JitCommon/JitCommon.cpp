@@ -23,13 +23,10 @@
 
 #include "ext/disarm.h"
 #include "ext/udis86/udis86.h"
-#include "Core/Util/DisArm64.h"
 
 namespace MIPSComp {
 #if defined(ARM)
 	ArmJit *jit;
-#elif defined(ARM64)
-	Arm64Jit *jit;
 #else
 	Jit *jit;
 #endif
@@ -38,7 +35,6 @@ namespace MIPSComp {
 	}
 }
 
-#if !defined(ARM64)
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.
 std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	std::vector<std::string> lines;
@@ -79,62 +75,8 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	}
 	return lines;
 }
-#endif
 
-std::string AddAddress(const std::string &buf, uint64_t addr) {
-	char buf2[16];
-	snprintf(buf2, sizeof(buf2), "%04x%08x", addr >> 32, addr & 0xFFFFFFFF);
-	return std::string(buf2) + " " + buf;
-}
-
-#if !defined(ARM)
-std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
-	std::vector<std::string> lines;
-
-	char temp[256];
-	int bkpt_count = 0;
-	for (int i = 0; i < size; i += 4) {
-		const u32 *codePtr = (const u32 *)(data + i);
-		uint64_t addr = (intptr_t)codePtr;
-		u32 inst = codePtr[0];
-		u32 next = (i < size - 4) ? codePtr[1] : 0;
-		// MAGIC SPECIAL CASE for MOVZ+MOVK readability!
-		if (((inst >> 21) & 0x3FF) == 0x294 && ((next >> 21) & 0x3FF) == 0x395) {
-			u32 low = (inst >> 5) & 0xFFFF;
-			u32 hi = (next >> 5) & 0xFFFF;
-			int reg0 = inst & 0x1F;
-			int reg1 = next & 0x1F;
-			char r = (inst >> 31) ? 'x' : 'w';
-			if (reg0 == reg1) {
-				snprintf(temp, sizeof(temp), "movi32 %c%d, %04x%04x", r, reg0, hi, low);
-				lines.push_back(AddAddress(temp, addr));
-				i += 4;
-				continue;
-			}
-		}
-		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false);
-		std::string buf = temp;
-		if (buf == "BKPT 1") {
-			bkpt_count++;
-		} else {
-			if (bkpt_count) {
-				lines.push_back(StringFromFormat("BKPT 1 (x%i)", bkpt_count));
-				bkpt_count = 0;
-			}
-			if (true) {
-				buf = AddAddress(buf, addr);
-			}
-			lines.push_back(buf);
-		}
-	}
-	if (bkpt_count) {
-		lines.push_back(StringFromFormat("BKPT 1 (x%i)", bkpt_count));
-	}
-	return lines;
-}
-#endif
-
-#if !defined(ARM) && !defined(ARM64)
+#ifndef ARM
 
 const char *ppsspp_resolver(struct ud*,
 	uint64_t addr,

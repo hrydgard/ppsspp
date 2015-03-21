@@ -20,7 +20,7 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"
 
-#if !defined(ARM) && !defined(ARM64)
+#ifndef ARM
 #error Should not be compiled on non-ARM.
 #endif
 

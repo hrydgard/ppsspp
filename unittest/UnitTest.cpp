@@ -369,21 +369,16 @@ struct TestItem {
 #define TEST_ITEM(name) { #name, &Test ##name, }
 
 bool TestArmEmitter();
-bool TestArm64Emitter();
 bool TestX64Emitter();
 
+	
 TestItem availableTests[] = {
-#if defined(ARM64) || defined(_M_X64) || defined(_M_IX86)
-	TEST_ITEM(Arm64Emitter),
-#endif
-#if defined(ARM) || defined(_M_X64) || defined(_M_IX86)
-	TEST_ITEM(ArmEmitter),
-#endif
-#if defined(_M_X64) || defined(_M_IX86)
-	TEST_ITEM(X64Emitter),
-#endif
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
+	TEST_ITEM(ArmEmitter),
+#ifndef ARM
+	TEST_ITEM(X64Emitter),
+#endif
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),

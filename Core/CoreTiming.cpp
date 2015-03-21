@@ -19,8 +19,6 @@
 #include <vector>
 #include <cstdio>
 
-#include "base/logging.h"
-
 #include "Common/MsgHandler.h"
 #include "Common/StdMutex.h"
 #include "Common/Atomics.h"
