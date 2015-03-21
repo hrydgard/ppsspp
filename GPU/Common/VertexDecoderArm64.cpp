@@ -213,6 +213,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 }
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
+	return false;
 	// See if we find a matching JIT function
 	for (size_t i = 0; i < ARRAY_SIZE(jitLookup); i++) {
 		if (dec.steps_[step] == jitLookup[i].func) {
