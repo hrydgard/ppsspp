@@ -1195,11 +1195,231 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vcmp(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		VCondition cond = (VCondition)(op & 0xF);
+
+		u8 sregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+
+		// Some, we just fall back to the interpreter.
+		// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
+
+		switch (cond) {
+		case VC_EI: // c = my_isinf(s[i]); break;
+		case VC_NI: // c = !my_isinf(s[i]); break;
+			DISABLE;
+		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+		case VC_EN: // c = my_isnan(s[i]); break;
+		case VC_NN: // c = !my_isnan(s[i]); break;
+			if (_VS != _VT)
+				DISABLE;
+			break;
+
+		case VC_EZ:
+		case VC_NZ:
+			break;
+		default:
+			;
+		}
+
+		// First, let's get the trivial ones.
+		int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+
+		MOVI2R(SCRATCH1, 0);
+		for (int i = 0; i < n; ++i) {
+			// Let's only handle the easy ones, and fall back on the interpreter for the rest.
+			CCFlags flag = CC_AL;
+			switch (cond) {
+			case VC_FL: // c = 0;
+				break;
+
+			case VC_TR: // c = 1
+				if (i == 0) {
+					if (n == 1) {
+						MOVI2R(SCRATCH1, 0x31);
+					} else {
+						MOVI2R(SCRATCH1, 1 << i);
+					}
+				} else {
+					ORRI2R(SCRATCH1, SCRATCH1, 1 << i);
+				}
+				break;
+
+			case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+			case VC_NS: // c = !(my_isnan(s[i]) || my_isinf(s[i])); break;
+				// For these, we use the integer ALU as there is no support on ARM for testing for INF.
+				// Testing for nan or inf is the same as testing for &= 0x7F800000 == 0x7F800000.
+				// We need an extra temporary register so we store away SCRATCH1.
+				STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, temp));
+				fpr.MapRegV(sregs[i], 0);
+				MOVI2R(SCRATCH1, 0x7F800000);
+				fp.FMOV(SCRATCH2, fpr.V(sregs[i]));
+				AND(SCRATCH2, SCRATCH2, SCRATCH1);
+				CMP(SCRATCH2, SCRATCH1);   // (SCRATCH2 & 0x7F800000) == 0x7F800000
+				flag = cond == VC_ES ? CC_EQ : CC_NEQ;
+				LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, temp));
+				break;
+
+			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
+				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_VS;  // overflow = unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
+				break;
+
+			case VC_NN: // c = !my_isnan(s[i]); break;
+				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_VC;  // !overflow = !unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
+				break;
+
+			case VC_EQ: // c = s[i] == t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_EQ;
+				break;
+
+			case VC_LT: // c = s[i] < t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_LO;
+				break;
+
+			case VC_LE: // c = s[i] <= t[i]; 
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_LS;
+				break;
+
+			case VC_NE: // c = s[i] != t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_NEQ;
+				break;
+
+			case VC_GE: // c = s[i] >= t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_GE;
+				break;
+
+			case VC_GT: // c = s[i] > t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_GT;
+				break;
+
+			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
+				fpr.MapRegV(sregs[i]);
+				fp.FCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
+				flag = CC_EQ;
+				break;
+
+			case VC_NZ: // c = s[i] != 0
+				fpr.MapRegV(sregs[i]);
+				fp.FCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
+				flag = CC_NEQ;
+				break;
+
+			default:
+				DISABLE;
+			}
+			if (flag != CC_AL) {
+				FixupBranch b = B(InvertCond(flag));
+				if (i == 0) {
+					if (n == 1) {
+						MOVI2R(SCRATCH1, 0x31);
+					} else {
+						MOVI2R(SCRATCH1, 1);  // 1 << i, but i == 0
+					}
+				} else {
+					ORRI2R(SCRATCH1, SCRATCH1, 1 << i);
+				}
+				SetJumpTarget(b);
+			}
+
+			affected_bits |= 1 << i;
+		}
+
+		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
+		// after all.
+		if (n > 1) {
+			CMP(SCRATCH1, affected_bits & 0xF);
+			FixupBranch skip1 = B(CC_NEQ);
+			ORRI2R(SCRATCH1, SCRATCH1, 1 << 5);
+			SetJumpTarget(skip1);
+
+			CMP(SCRATCH1, 0);
+			FixupBranch skip2 = B(CC_EQ);
+			ORRI2R(SCRATCH1, SCRATCH1, 1 << 4);
+			SetJumpTarget(skip2);
+		}
+
+		gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
+		ANDI2R(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), ~affected_bits);
+		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), SCRATCH1);
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vcmov(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		int tf = (op >> 19) & 1;
+		int imm3 = (op >> 16) & 7;
+
+		for (int i = 0; i < n; ++i) {
+			// Simplification: Disable if overlap unsafe
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
+				DISABLE;
+			}
+		}
+
+		if (imm3 < 6) {
+			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			gpr.MapReg(MIPS_REG_VFPUCC);
+			TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3);
+			// TODO: Use fsel?
+			FixupBranch b = B(tf ? CC_NEQ : CC_EQ);
+			for (int i = 0; i < n; i++) {
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+			}
+			SetJumpTarget(b);
+		} else {
+			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			gpr.MapReg(MIPS_REG_VFPUCC);
+			for (int i = 0; i < n; i++) {
+				TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << i);
+				FixupBranch b = B(tf ? CC_NEQ : CC_EQ);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+				SetJumpTarget(b);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Viim(MIPSOpcode op) {
@@ -1303,7 +1523,7 @@ namespace MIPSComp
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void Arm64Jit::Comp_VRot(MIPSOpcode op) {
-		DISABLE;
+		DISABLE;  // Need to figure out how to deal with the return values from the function.
 
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
@@ -1343,7 +1563,6 @@ namespace MIPSComp
 		bool negSin1 = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
-		// We should write a custom pure-asm function instead.
 		fp.FMOV(S0, fpr.V(sreg));
 		QuickCallFunction(SCRATCH2_64, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
 		CompVrotShuffle(dregs, imm, sz, false);
@@ -1362,7 +1581,48 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vocp(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
+		// interpreter. But whatever.
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		fp.MOVI2F(S0, 1.0f, SCRATCH1);
+		for (int i = 0; i < n; ++i) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			// Let's do it integer registers for now. NEON later.
+			// There's gotta be a shorter way, can't find one though that takes
+			// care of NaNs like the interpreter (ignores them and just operates on the bits).
+			fp.FSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_ColorConv(MIPSOpcode op) {

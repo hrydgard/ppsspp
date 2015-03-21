@@ -3280,12 +3280,12 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	}
 }
 
-void ARM64XEmitter::ORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ORR(Rd, Rn, imm_r, imm_s, n);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ORRI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ORR(Rd, Rn, scratch);
 	}
