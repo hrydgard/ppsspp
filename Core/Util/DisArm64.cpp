@@ -518,8 +518,13 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 		} else if (((w >> 10) & 3) == 3) {
 			snprintf(instr->text, sizeof(instr->text), "(float cond select %08x)", w);
 		}
-	} else if (((w >> 21) & 0x2F9) == 0xF8) {
-		snprintf(instr->text, sizeof(instr->text), "(float data 3-source %08x)", w);
+	} else if (((w >> 21) & 0x2F8) == 0xF8) {
+		int opcode = ((w >> 15) & 1) | ((w >> 20) & 2);
+		const char *opnames[9] = { "fmadd", "fmsub", "fnmadd", "fnmsub" };
+		int size = (w >> 22) & 1;
+		char r = size ? 'd' : 's';
+		int Ra = (w >> 10) & 0x1f;
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %c%d", opnames[opcode], r, Rd, r, Rn, r, Rm, r, Ra);
 	} else if (((w >> 21) & 0x2F9) == 0x2F1) {
 		if (((w >> 10) & 3) == 0) {
 			snprintf(instr->text, sizeof(instr->text), "(asimd scalar three different %08x)", w);

@@ -13,6 +13,13 @@
 
 #define DYNA_REC JIT
 
+#ifdef FMAX
+#undef FMAX
+#endif
+#ifdef FMIN
+#undef FMIN
+#endif
+
 namespace Arm64Gen
 {
 
@@ -765,6 +772,17 @@ public:
 	void FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMAX(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMIN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMAXNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMINNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FNMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+
+	// Scalar - 3 Source. Note - the accumulator is last on ARM!
+	void FMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
+	void FMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
+	void FNMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
+	void FNMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
 
 	// Scalar floating point immediate
 	void FMOV(ARM64Reg Rd, u32 imm);
@@ -852,6 +870,8 @@ public:
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
 
+	void MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
+
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
 	void ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask = BitSet32(0));
@@ -881,6 +901,7 @@ private:
 	void EmitVectorxElement(bool U, u32 size, bool L, u32 opcode, bool H, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
 	void EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round, bool sign);
+	void Emit3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode);
 };
 
 class ARM64CodeBlock : public CodeBlock<ARM64XEmitter>

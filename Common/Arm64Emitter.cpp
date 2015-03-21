@@ -2697,6 +2697,50 @@ void ARM64FloatEmitter::FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	Emit2Source(0, 0, IsDouble(Rd), 1, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::FMAX(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 4, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FMIN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 5, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FMAXNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 6, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FMINNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 7, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FNMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	Emit2Source(0, 0, IsDouble(Rd), 8, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::FMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
+	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 0);
+}
+void ARM64FloatEmitter::FMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
+	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 1);
+}
+void ARM64FloatEmitter::FNMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
+	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 2);
+}
+void ARM64FloatEmitter::FNMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
+	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 3);
+}
+
+void ARM64FloatEmitter::Emit3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode) {
+	int type = isDouble ? 1 : 0;
+	Rd = DecodeReg(Rd);
+	Rn = DecodeReg(Rn);
+	Rm = DecodeReg(Rm);
+	Ra = DecodeReg(Ra);
+	int o1 = opcode >> 1;
+	int o0 = opcode & 1;
+	m_emit->Write32((0x1F << 24) | (type << 22) | (o1 << 21) | (Rm << 16) | (o0 << 15) | (Ra << 10) | (Rn << 5) | Rd);
+}
 
 // Scalar floating point immediate
 void ARM64FloatEmitter::FMOV(ARM64Reg Rd, u32 imm)
@@ -3366,6 +3410,25 @@ bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	}
 }
 
+void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool negate) {
+	_assert_msg_(JIT, !IsDouble(Rd), "MOVI2F does not yet support double precision");
+	if (value == 0.0) {
+		FMOV(Rd, 0);
+		if (negate) {
+			FNEG(Rd, Rd);
+		}
+		// TODO: There are some other values we could generate with the float-imm instruction, like 1.0...
+	} else {
+		_assert_msg_(JIT, scratch != INVALID_REG, "Failed to find a way to generate FP immediate %f without scratch", value);
+		u32 ival;
+		if (negate) {
+			value = -value;
+		}
+		memcpy(&ival, &value, sizeof(ival));
+		m_emit->MOVI2R(scratch, ival);
+		FMOV(Rd, scratch);
+	}
+}
 
 void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	u32 val;

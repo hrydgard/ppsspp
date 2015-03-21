@@ -38,6 +38,14 @@ bool TestArm64Emitter() {
 
 	//emitter.EXTR(W1, W3, 0, 7);
 	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
+	fp.FMADD(S1, S2, S3, S4);
+	RET(CheckLast(emitter, "1f031041 fmadd s1, s2, s3, s4"));
+	fp.FNMSUB(D1, D2, D3, D4);
+	RET(CheckLast(emitter, "1f639041 fnmsub d1, d2, d3, d4"));
+	fp.FMAX(S1, S2, S3);
+	RET(CheckLast(emitter, "1e234841 fmax s1, s2, s3"));
+	fp.FNMUL(D1, D2, D3);
+	RET(CheckLast(emitter, "1e638841 fnmul d1, d2, d3"));
 	fp.SCVTF(S13, W7);
 	RET(CheckLast(emitter, "1e2200ed scvtf s13, w7"));
 	emitter.UBFM(W1, W3, 0, 7);
