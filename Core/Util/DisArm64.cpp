@@ -497,8 +497,91 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 		}
 	} else if (((w >> 21) & 0x2F9) == 0xF8) {
 		snprintf(instr->text, sizeof(instr->text), "(float data 3-source %08x)", w);
-	} else if (((w >> 21) & 0x2F0) == 0x2F0) {
+	} else if (((w >> 21) & 0x2F9) == 0x2F1) {
+		if (((w >> 10) & 3) == 0) {
+			snprintf(instr->text, sizeof(instr->text), "(asimd scalar three different %08x)", w);
+		} else if (((w >> 10) & 1) == 1) {
+			snprintf(instr->text, sizeof(instr->text), "(asimd scalar three same %08x)", w);
+		} else if (((w >> 10) & 3) == 2) {
+			// asimd scalar two-reg misc: This is a particularly sad and messy encoding :/
+			if (((w >> 17) & 0xf) == 0) {
+				int sz = (w >> 22) & 3;
+				char r = (sz & 1) ? 'd' : 's';
+				int opcode = (w >> 12) & 0x1f;
+				bool U = ((w >> 29) & 1);
+				const char *opname = NULL;
+				bool zero = false;
+				bool sign_suffix = false;
+				bool sign_prefix = false;
+				if ((sz & 2) == 0) {
+					switch (opcode) {
+					case 0x1a: opname = "fcvtn"; sign_suffix = true; break;
+					case 0x1b: opname = "fcvtm"; sign_suffix = true; break;
+					case 0x1c: opname = "fcvta"; sign_suffix = true; break;
+					case 0x1d: opname = "cvtf"; sign_prefix = true;  break;
+					}
+				} else {
+					if (U == 0) {
+						switch (opcode) {
+						case 0xC: opname = "fcmgt"; zero = true; break;
+						case 0xD: opname = "fcmeq"; zero = true; break;
+						case 0xE: opname = "fcmlt"; zero = true; break;
+						case 0x1A: opname = "fcvtp"; sign_suffix = true;  break;
+						case 0x1B: opname = "fcvtz"; sign_suffix = true;  break;
+						}
+					} else {
+						switch (opcode) {
+						case 0x1A: opname = "fcvtp"; sign_suffix = true;  break;
+						case 0x1B: opname = "fcvtz"; sign_suffix = true;  break;
+						}
+					}
+				}
+				if (!opname) {  // These ignore size.
+					if (U == 0) {
+						switch (opcode) {
+						case 3: opname = "suqadd"; break;
+						case 7: opname = "sqabs"; break;
+						case 8: opname = "cmgt"; zero = true;  break;
+						case 9: opname = "cmeq"; zero = true;  break;
+						case 0xa: opname = "cmlt"; zero = true;  break;
+						case 0xb: opname = "abs"; break;
+						case 0xc: opname = "sqxtn?"; break;
+						}
+					} else {
+						switch (opcode) {
+						case 3: opname = "usqadd"; break;
+						case 7: opname = "sqneg"; break;
+						case 8: opname = "cmge"; zero = true;  break;
+						case 9: opname = "cmle"; zero = true;  break;
+						case 0xB: opname = "neg"; break;
+						case 0x12: opname = "sqxtun?"; break;
+						case 0x14: opname = "uqxtn?"; break;
+						}
+					}
+				}
 
+				if (opname) {
+					if (sign_suffix) {
+						char sign = U ? 'u' : 's';
+						snprintf(instr->text, sizeof(instr->text), "%s%c %c%d, %c%d", opname, sign, r, Rd, r, Rn);
+					} else if (sign_prefix) {
+						char sign = U ? 'u' : 's';
+						snprintf(instr->text, sizeof(instr->text), "%c%s %c%d, %c%d", sign, opname, r, Rd, r, Rn);
+					} else {
+						snprintf(instr->text, sizeof(instr->text), "%s (asimd scalar two-reg misc %08x)", opname, w);
+					}
+				} else {
+					snprintf(instr->text, sizeof(instr->text), "(asimd scalar two-reg misc %08x)", w);
+				}
+			} else if (((w >> 17) & 0xf) == 8) {
+				snprintf(instr->text, sizeof(instr->text), "(asimd scalar pair-wise %08x)", w);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(asimd scalar stuff %08x)", w);
+			}
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(asimd stuff %08x)", w);
+		}
+	} else if (((w >> 21) & 0x2F1) == 0x2F0) {
 		// many lines
 		snprintf(instr->text, sizeof(instr->text), "(asimd stuff %08x)", w);
 	} else {

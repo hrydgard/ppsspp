@@ -2157,7 +2157,7 @@ void ARM64FloatEmitter::EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, Roundin
 	else
 	{
 		// Use the encoding (vector, single) that keeps the result in the fp register.
-		int sz = Is64Bit(Rn);
+		int sz = IsDouble(Rn);
 		Rd = DecodeReg(Rd);
 		Rn = DecodeReg(Rn);
 		int opcode = 0;

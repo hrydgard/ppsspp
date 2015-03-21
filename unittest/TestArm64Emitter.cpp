@@ -40,7 +40,9 @@ bool TestArm64Emitter() {
 	//fp.FMOV(32, false, X1, S3);
 	//RET(CheckLast(emitter, "aa023be1 fmov x1, s3"));
 	fp.FCVTS(S13, S12, ROUND_N);
-	RET(CheckLast(emitter, "7e21c98d fcvtns s13, s12"));
+	RET(CheckLast(emitter, "5e21a98d fcvtns s13, s12"));
+	fp.FCVTS(D13, D12, ROUND_P);
+	RET(CheckLast(emitter, "5ee1a98d fcvtps d13, d12"));
 	fp.FCVTS(W13, S12, ROUND_N);
 	RET(CheckLast(emitter, "1e20018d fcvtns w13, s12"));
 	fp.FCVTS(S22, S12, ROUND_Z);
