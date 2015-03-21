@@ -152,7 +152,6 @@ private:
 	int GetMipsRegOffsetV(MIPSReg r) {
 		return GetMipsRegOffset(r + 32);
 	}
-	int GetNumARMFPURegs();
 
 	void SetupInitialRegs();
 

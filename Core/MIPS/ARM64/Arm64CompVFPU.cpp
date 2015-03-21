@@ -374,7 +374,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VVectorInit(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 		// WARNING: No prefix support!
 		if (js.HasUnknownPrefix()) {
@@ -409,12 +408,10 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VIdt(MIPSOpcode op) {
-		DISABLE;
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
-		DISABLE;
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -446,8 +443,6 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_VMatrixInit(MIPSOpcode op) {
-		DISABLE;
-
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			// Don't think matrix init ops care about prefixes.

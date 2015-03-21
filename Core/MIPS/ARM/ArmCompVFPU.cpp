@@ -1969,15 +1969,13 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	// sincosf is unavailable in the Android NDK:
-	// https://code.google.com/p/android/issues/detail?id=38423
-	double SinCos(float angle) {
+	static double SinCos(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		return sincos.out;
 	}
 
-	double SinCosNegSin(float angle) {
+	static double SinCosNegSin(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		sincos.sin = -sincos.sin;

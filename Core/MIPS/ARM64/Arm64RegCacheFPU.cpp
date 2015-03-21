@@ -138,7 +138,7 @@ ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 
 allocate:
 	for (int i = 0; i < allocCount; i++) {
-		int reg = allocOrder[i] - S0;
+		int reg = DecodeReg(allocOrder[i]);
 
 		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
@@ -288,8 +288,7 @@ void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
 			return;
 		}
 		if (ar[reg].mipsReg != -1) {
-			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-			{
+			if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG){
 				//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
 				fp_->STR(32, INDEX_UNSIGNED, r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 			}
@@ -299,8 +298,8 @@ void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
 		} else {
 			ERROR_LOG(JIT, "Dirty but no mipsreg?");
 		}
-		ar[reg].isDirty = false;
 		ar[reg].mipsReg = -1;
+		ar[reg].isDirty = false;
 	}
 }
 
@@ -334,13 +333,6 @@ void Arm64RegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
-int Arm64RegCacheFPU::GetNumARMFPURegs() {
-	if (cpu_info.bNEON)
-		return 32;
-	else
-		return 16;
-}
-
 void Arm64RegCacheFPU::FlushAll() {
 	if (!pendingFlush) {
 		// Nothing allocated.  FPU regs are not nearly as common as GPR.
@@ -352,14 +344,9 @@ void Arm64RegCacheFPU::FlushAll() {
 		DiscardR(i);
 	}
 
-	// Loop through the ARM registers, then use GetMipsRegOffset to determine if MIPS registers are
-	// sequential. This is necessary because we store VFPU registers in a staggered order to get
-	// columns sequential (most VFPU math in nearly all games is in columns, not rows).
-	
 	int numArmRegs = 0;
-	// We rely on the allocation order being sequential.
-	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
 
+	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
 	for (int i = 0; i < numArmRegs; i++) {
 		int a = DecodeReg(order[i]);
 		int m = ar[a].mipsReg;
@@ -372,8 +359,8 @@ void Arm64RegCacheFPU::FlushAll() {
 
 			fp_->STR(32, INDEX_UNSIGNED, (ARM64Reg)(a + S0), CTXREG, GetMipsRegOffset(m));
 
-			mr[ar[a].mipsReg].loc = ML_MEM;
-			mr[ar[a].mipsReg].reg = (int)INVALID_REG;
+			mr[m].loc = ML_MEM;
+			mr[m].reg = (int)INVALID_REG;
 			ar[a].mipsReg = -1;
 			ar[a].isDirty = false;
 		} else {
