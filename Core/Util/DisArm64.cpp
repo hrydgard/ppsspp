@@ -442,9 +442,21 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rn = (w >> 5) & 0x1f;
 	int Rm = (w >> 16) & 0x1f;
 	int type = (w >> 22) & 0x3;
-
+	int sf = (w >> 31);
 	if (((w >> 21) & 0x2F9) == 0xF0) {
-		snprintf(instr->text, sizeof(instr->text), "(float<->fixed %08x)", w);
+		int rmode = (w >> 19) & 3;
+		int opcode = (w >> 16) & 7;
+		int scale = 64 - ((w >> 10) & 0x3f);
+		char fr = type == 1 ? 'd' : 's';
+		char ir = sf == 1 ? 'x' : 'w';
+		char sign = (opcode & 1) ? 'u' : 's';
+		if (rmode == 0) {
+			snprintf(instr->text, sizeof(instr->text), "%ccvtf %c%d, %c%d, #%d", sign, fr, Rd, ir, Rn, scale);
+		} else if (rmode == 3) {
+			snprintf(instr->text, sizeof(instr->text), "fcvtz%c %c%d, %c%d, #%d", sign, ir, Rd, fr, Rn, scale);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "(float<->fixed %08x)", w);
+		}
 	} else if (((w >> 21) & 0x2F9) == 0xF1) {
 		if (((w >> 10) & 3) == 0) {
 			if (((w >> 10) & 7) == 4) {
@@ -465,7 +477,13 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 				int opc = (w >> 15) & 0x3;
 				snprintf(instr->text, sizeof(instr->text), "%s s%d, s%d", opnames[opc], Rd, Rn);  // TODO: Support doubles too
 			} else if (((w >> 10) & 0x3f) == 0x0) {
-				snprintf(instr->text, sizeof(instr->text), "(float<->integer conv %08x)", w);
+				char ir = sf ? 'x' : 'w';
+				char roundmode = "npmz"[(w >> 19) & 3];
+				int opcode = (w >> 16) & 7;
+				if (opcode & 0x4)
+					roundmode = 'a';
+				char fr = ((w >> 22) & 1) ? 'd' : 's';
+				snprintf(instr->text, sizeof(instr->text), "fcvt%cs %c%d, %c%d", roundmode, ir, Rd, fr, Rn);
 			}
 		} else if (((w >> 10) & 3) == 1) {
 			snprintf(instr->text, sizeof(instr->text), "(float cond compare %08x)", w);
@@ -480,6 +498,7 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 	} else if (((w >> 21) & 0x2F9) == 0xF8) {
 		snprintf(instr->text, sizeof(instr->text), "(float data 3-source %08x)", w);
 	} else if (((w >> 21) & 0x2F0) == 0x2F0) {
+
 		// many lines
 		snprintf(instr->text, sizeof(instr->text), "(asimd stuff %08x)", w);
 	} else {

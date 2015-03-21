@@ -85,6 +85,7 @@ enum ARM64Reg
 inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
 inline bool IsDouble(ARM64Reg reg) { return (reg & 0xC0) == 0x80; }
+inline bool IsScalar(ARM64Reg reg) { return IsSingle(reg) || IsDouble(reg); }
 inline bool IsQuad(ARM64Reg reg) { return (reg & 0xC0) == 0xC0; }
 inline bool IsVector(ARM64Reg reg) { return (reg & 0xC0) != 0; }
 inline bool IsGPR(ARM64Reg reg) { return (int)reg < 0x40; }
@@ -139,6 +140,14 @@ enum SystemRegister {  // Three digits : Op1, CRm, Op2
 	SYSREG_NZCV = 0x320,
 	SYSREG_FPCR = 0x340,
 	SYSREG_FPSR = 0x341,
+};
+
+enum RoundingMode {
+	ROUND_A,  // round to nearest, ties to away
+	ROUND_M,  // round towards -inf
+	ROUND_N,  // round to nearest, ties to even
+	ROUND_P,  // round towards +inf
+	ROUND_Z,  // round towards zero
 };
 
 struct FixupBranch
@@ -784,10 +793,18 @@ public:
 
 	// Conversion or movement between float and integer
 	void FMOV(u8 size, bool top, ARM64Reg Rd, ARM64Reg Rn);
+
+	// Scalar convert float to int, in a lot of variants.
+	// Note that the scalar version of this operation has two encodings, one that goes to an integer register
+	// and one that outputs to a scalar fp register.
+	void FCVTS(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
+	void FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
+
+	// Scalar convert int to float. No rounding mode specifier necessary.
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
 	void UCVTF(ARM64Reg Rd, ARM64Reg Rn);
 
-	// Fixed point to float. scale is the number of fractional bits.
+	// Scalar fixed point to float. scale is the number of fractional bits.
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale);
 
@@ -844,7 +861,7 @@ private:
 	void EmitLoadStoreSingleStructure(bool L, bool R, u32 opcode, bool S, u32 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void Emit1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitConversion(bool sf, bool S, u32 type, u32 rmode, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
-	void EmitConversion2(bool sf, bool S, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitConversion2(bool sf, bool S, bool direction, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -854,6 +871,7 @@ private:
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitVectorxElement(bool U, u32 size, bool L, u32 opcode, bool H, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
+	void EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round, bool sign);
 };
 
 class ARM64CodeBlock : public CodeBlock<ARM64XEmitter>

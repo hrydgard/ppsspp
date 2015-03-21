@@ -2134,13 +2134,58 @@ void ARM64FloatEmitter::EmitConversion(bool sf, bool S, u32 type, u32 rmode, u32
 	        (opcode << 16) | (Rn << 5) | Rd);
 }
 
-void ARM64FloatEmitter::EmitConversion2(bool sf, bool S, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round, bool sign)
 {
-	_assert_msg_(DYNA_REC, Rn <= SP, "%s only supports GPR as source!", __FUNCTION__);
+	_dbg_assert_msg_(JIT, IsScalar(Rn), "fcvts: Rn must be floating point");
+	if (IsGPR(Rd)) {
+		// Use the encoding that transfers the result to a GPR.
+		bool sf = Is64Bit(Rd);
+		int type = IsDouble(Rn) ? 1 : 0;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+		int opcode = (sign ? 1 : 0);
+		int rmode = 0;
+		switch (round) {
+		case ROUND_A: rmode = 0; opcode |= 4; break;
+		case ROUND_P: rmode = 1; break;
+		case ROUND_M: rmode = 2; break;
+		case ROUND_Z: rmode = 3; break;
+		case ROUND_N: rmode = 0; break;
+		}
+		EmitConversion2(sf, 0, true, type, rmode, opcode, 0, Rd, Rn);
+	}
+	else
+	{
+		// Use the encoding (vector, single) that keeps the result in the fp register.
+		int sz = Is64Bit(Rn);
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+		int opcode = 0;
+		switch (round) {
+		case ROUND_A: opcode = 0x1C; break;
+		case ROUND_N: opcode = 0x1A; break;
+		case ROUND_M: opcode = 0x1B; break;
+		case ROUND_P: opcode = 0x1A; sz |= 2; break;
+		case ROUND_Z: opcode = 0x1B; sz |= 2; break;
+		}
+		Write32((0x5E << 24) | (sign << 29) | (sz << 22) | (1 << 21) | (opcode << 12) | (2 << 10) | (Rn << 5) | Rd);
+	}
+}
+
+void ARM64FloatEmitter::FCVTS(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round) {
+	EmitConvertScalarToInt(Rd, Rn, round, false);
+}
+
+void ARM64FloatEmitter::FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round) {
+	EmitConvertScalarToInt(Rd, Rn, round, true);
+}
+
+void ARM64FloatEmitter::EmitConversion2(bool sf, bool S, bool direction, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn)
+{
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 
-	Write32((sf << 31) | (S << 29) | (0xF0 << 21) | (type << 22) | (rmode << 19) | \
+	Write32((sf << 31) | (S << 29) | (0xF0 << 21) | (direction << 21) | (type << 22) | (rmode << 19) | \
 		(opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
 }
 
@@ -2948,7 +2993,7 @@ void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
 	if (IsDouble(Rd))
 		type = 1;
 
-	EmitConversion2(sf, 0, type, 0, 2, 64 - scale, Rd, Rn);
+	EmitConversion2(sf, 0, false, type, 0, 2, 64 - scale, Rd, Rn);
 }
 
 void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
@@ -2958,7 +3003,7 @@ void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
 	if (IsDouble(Rd))
 		type = 1;
 
-	EmitConversion2(sf, 0, type, 0, 3, 64 - scale, Rd, Rn);
+	EmitConversion2(sf, 0, false, type, 0, 3, 64 - scale, Rd, Rn);
 }
 
 void ARM64FloatEmitter::FCMP(ARM64Reg Rn, ARM64Reg Rm)
