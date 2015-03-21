@@ -169,6 +169,13 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x%08x", opname[opc], r, Rd, r, Rn, (wmask >> 32), (wmask & 0xFFFFFFFF));
 		else
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x", opname[opc], r, Rd, r, Rn, (uint32_t)wmask);
+	} else if (((w >> 23) & 0x3f) == 0x26) {
+		int N = (w >> 22) & 1;
+		int opc = (w >> 29) & 3;
+		int immr = (w >> 16) & 0x3f;
+		int imms = (w >> 10) & 0x3f;
+		const char *opname[4] = { "sbfm", "bfm", "ubfm" };
+		snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #%d, #%d", opname[opc], r, Rd, r, Rn, immr, imms);
 	} else {
 		snprintf(instr->text, sizeof(instr->text), "(DPI %08x)", w);
 	}
@@ -458,6 +465,7 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 			snprintf(instr->text, sizeof(instr->text), "(float<->fixed %08x)", w);
 		}
 	} else if (((w >> 21) & 0x2F9) == 0xF1) {
+		int opcode = (w >> 16) & 7;
 		if (((w >> 10) & 3) == 0) {
 			if (((w >> 10) & 7) == 4) {
 				snprintf(instr->text, sizeof(instr->text), "(float imm %08x)", w);
@@ -476,14 +484,28 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 				const char *opnames[4] = { "fmov", "fabs", "fneg", "fsqrt" };
 				int opc = (w >> 15) & 0x3;
 				snprintf(instr->text, sizeof(instr->text), "%s s%d, s%d", opnames[opc], Rd, Rn);  // TODO: Support doubles too
-			} else if (((w >> 10) & 0x3f) == 0x0) {
+			} else if (((w >> 10) & 0x1bf) == 0x180) {
+				// Generalized FMOV
+				char ir = sf ? 'x' : 'w';
+				bool tosimd = (opcode & 0x1);
+				char fr = ((w >> 22) & 1) ? 'd' : 's';
+				if (tosimd) {
+					snprintf(instr->text, sizeof(instr->text), "fmov %c%d, %c%d", fr, Rd, ir, Rn);
+				} else {
+					snprintf(instr->text, sizeof(instr->text), "fmov %c%d, %c%d", ir, Rd, fr, Rn);
+				}
+			} else if (((w >> 10) & 0x3f) == 0x0 && opcode == 0) {
 				char ir = sf ? 'x' : 'w';
 				char roundmode = "npmz"[(w >> 19) & 3];
-				int opcode = (w >> 16) & 7;
 				if (opcode & 0x4)
 					roundmode = 'a';
 				char fr = ((w >> 22) & 1) ? 'd' : 's';
 				snprintf(instr->text, sizeof(instr->text), "fcvt%cs %c%d, %c%d", roundmode, ir, Rd, fr, Rn);
+			} else if ((opcode & 6) == 2) {
+				char ir = sf ? 'x' : 'w';
+				char fr = ((w >> 22) & 1) ? 'd' : 's';
+				char sign = (opcode & 1) ? 'u' : 's';
+				snprintf(instr->text, sizeof(instr->text), "%ccvtf %c%d, %c%d", sign, fr, Rd, ir, Rn);
 			}
 		} else if (((w >> 10) & 3) == 1) {
 			snprintf(instr->text, sizeof(instr->text), "(float cond compare %08x)", w);
@@ -567,8 +589,10 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 					} else if (sign_prefix) {
 						char sign = U ? 'u' : 's';
 						snprintf(instr->text, sizeof(instr->text), "%c%s %c%d, %c%d", sign, opname, r, Rd, r, Rn);
-					} else {
-						snprintf(instr->text, sizeof(instr->text), "%s (asimd scalar two-reg misc %08x)", opname, w);
+					} else if (!zero) {
+						snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", opname, r, Rd, r, Rn);
+					} else if (zero) {
+						snprintf(instr->text, sizeof(instr->text), "%s %c%d, #0.0", opname, r, Rd);
 					}
 				} else {
 					snprintf(instr->text, sizeof(instr->text), "(asimd scalar two-reg misc %08x)", w);

@@ -1485,6 +1485,14 @@ void ARM64XEmitter::UBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms)
 {
 	EncodeBitfieldMOVInst(2, Rd, Rn, immr, imms);
 }
+void ARM64XEmitter::EXTR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u32 shift) {
+	bool sf = Is64Bit(Rd);
+	bool N = sf;
+	Rd = DecodeReg(Rd);
+	Rn = DecodeReg(Rn);
+	Rm = DecodeReg(Rm);
+	Write32((sf << 31) | (0x27 << 23) | (N << 22) | (Rm << 16) | (shift << 10) | (Rm << 5) | Rd);
+}
 void ARM64XEmitter::SXTB(ARM64Reg Rd, ARM64Reg Rn)
 {
 	SBFM(Rd, Rn, 0, 7);
@@ -1496,7 +1504,6 @@ void ARM64XEmitter::SXTH(ARM64Reg Rd, ARM64Reg Rn)
 void ARM64XEmitter::SXTW(ARM64Reg Rd, ARM64Reg Rn)
 {
 	_assert_msg_(DYNA_REC, Is64Bit(Rd), "%s requires 64bit register as destination", __FUNCTION__);
-
 	SBFM(Rd, Rn, 0, 31);
 }
 void ARM64XEmitter::UXTB(ARM64Reg Rd, ARM64Reg Rn)
@@ -1817,8 +1824,8 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	if (!imm)
 	{
-		// Zero immediate, just clear the register
-		EOR(Rd, Rd, Rd, ArithOption(Rd, ST_LSL, 0));
+		// Zero immediate, just clear the register. EOR is pointless when we have MOVZ, which looks clearer in disasm too.
+		MOVZ(Rd, 0, SHIFT_0);
 		return;
 	}
 
@@ -2638,10 +2645,30 @@ void ARM64FloatEmitter::ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn)
 }
 
 // Scalar - 1 Source
-void ARM64FloatEmitter::FMOV(ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::FMOV(ARM64Reg Rd, ARM64Reg Rn, bool top)
 {
-	EmitScalar1Source(0, 0, IsDouble(Rd), 0, Rd, Rn);
+	if (IsScalar(Rd) && IsScalar(Rn)) {
+		EmitScalar1Source(0, 0, IsDouble(Rd), 0, Rd, Rn);
+	} else {
+		int type = 0;
+		int rmode = 0;
+		int opcode = 6;
+		int sf = 0;
+		if (IsSingle(Rd) && !Is64Bit(Rn) && !top) {
+			// GPR to scalar single
+			opcode |= 1;
+		} else if (!Is64Bit(Rd) && IsSingle(Rn) && !top) {
+			// Scalar single to GPR - defaults are correct
+		} else {
+			// TODO
+			_assert_msg_(JIT, 0, "FMOV: Unhandled case");
+		}
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+		Write32((sf << 31) | (0x1e2 << 20) | (rmode << 19) | (opcode << 16) | (Rn << 5) | Rd);
+	}
 }
+
 void ARM64FloatEmitter::FABS(ARM64Reg Rd, ARM64Reg Rn)
 {
 	EmitScalar1Source(0, 0, IsDouble(Rd), 1, Rd, Rn);
@@ -2949,41 +2976,41 @@ void ARM64FloatEmitter::FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn)
 	Emit1Source(0, 0, src_encoding, 4 | dst_encoding, Rd, Rn);
 }
 
-// Conversion between float and integer
-void ARM64FloatEmitter::FMOV(u8 size, bool top, ARM64Reg Rd, ARM64Reg Rn)
-{
-	bool sf = size == 64 ? true : false;
-	u32 type = 0;
-	u32 rmode = top ? 1 : 0;
-	if (size == 64)
-	{
-		if (top)
-			type = 2;
-		else
-			type = 1;
-	}
-
-	EmitConversion(sf, 0, type, rmode, IsVector(Rd) ? 7 : 6, Rd, Rn);
-}
-
 void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn)
 {
-	bool sf = Is64Bit(Rn);
-	u32 type = 0;
-	if (IsDouble(Rd))
-		type = 1;
-
-	EmitConversion(sf, 0, type, 0, 2, Rd, Rn);
+	if (IsScalar(Rn)) {
+		// Source is in FP register (like destination!). We must use a vector encoding.
+		bool sign = false;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+		int sz = IsDouble(Rn);
+		Write32((0x5e << 24) | (sign << 29) | (sz << 22) | (0x876 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rn);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
+		EmitConversion(sf, 0, type, 0, 2, Rd, Rn);
+	}
 }
 
 void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn)
 {
-	bool sf = Is64Bit(Rn);
-	u32 type = 0;
-	if (IsDouble(Rd))
-		type = 1;
+	if (IsScalar(Rn)) {
+		// Source is in FP register (like destination!). We must use a vector encoding.
+		bool sign = true;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+		int sz = IsDouble(Rn);
+		Write32((0x5e << 24) | (sign << 29) | (sz << 22) | (0x876 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rn);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
 
-	EmitConversion(sf, 0, type, 0, 3, Rd, Rn);
+		EmitConversion(sf, 0, type, 0, 3, Rd, Rn);
+	}
 }
 
 void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)

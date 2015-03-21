@@ -35,10 +35,19 @@ bool TestArm64Emitter() {
 	u32 code[512];
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
-	//fp.FMOV(32, false, S1, X3);
-	//RET(CheckLast(emitter, "aa023be1 fmov s1, w3"));
-	//fp.FMOV(32, false, X1, S3);
-	//RET(CheckLast(emitter, "aa023be1 fmov x1, s3"));
+
+	//emitter.EXTR(W1, W3, 0, 7);
+	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
+	fp.SCVTF(S13, W7);
+	RET(CheckLast(emitter, "1e2200ed scvtf s13, w7"));
+	emitter.UBFM(W1, W3, 0, 7);
+	RET(CheckLast(emitter, "53001c61 ubfm w1, w3, #0, #7"));
+	fp.FMOV(W1, S3);
+	RET(CheckLast(emitter, "1e260061 fmov w1, s3"));
+	fp.FMOV(S1, W3);
+	RET(CheckLast(emitter, "1e270061 fmov s1, w3"));
+	fp.SCVTF(S13, S12);
+	RET(CheckLast(emitter, "5e21d98d scvtf s13, s12"));
 	fp.FCVTS(S13, S12, ROUND_N);
 	RET(CheckLast(emitter, "5e21a98d fcvtns s13, s12"));
 	fp.FCVTS(D13, D12, ROUND_P);
@@ -46,13 +55,15 @@ bool TestArm64Emitter() {
 	fp.FCVTS(W13, S12, ROUND_N);
 	RET(CheckLast(emitter, "1e20018d fcvtns w13, s12"));
 	fp.FCVTS(S22, S12, ROUND_Z);
-	RET(CheckLast(emitter, "9e03e06c fcvtzs s22, s12"));
+	RET(CheckLast(emitter, "5ea1b996 fcvtzs s22, s12"));
 	fp.FCVTS(X3, D2, ROUND_M);
-	RET(CheckLast(emitter, "9e03e06c fcvtms x3, d2"));
+	RET(CheckLast(emitter, "9e700043 fcvtms x3, d2"));
 	fp.UCVTF(S12, X3, 8);
-	RET(CheckLast(emitter, "9e03e06c ucvtf s12, x3"));
-	//fp.FCVTZS(W12, S3, 12);
-	//RET(CheckLast(emitter, "b86c6877 fcvtzs w12, s3, #12"));
+	RET(CheckLast(emitter, "9e03e06c ucvtf s12, x3, #8"));
+	fp.SCVTF(S12, W13, 12);
+	RET(CheckLast(emitter, "1e02d1ac scvtf s12, w13, #12"));
+	fp.FCVTS(W12, S3, ROUND_Z);
+	RET(CheckLast(emitter, "1e38006c fcvtzs w12, s3"));
 	emitter.LSLV(W1, W2, W3);
 	RET(CheckLast(emitter, "1ac32041 lslv w1, w2, w3"));
 	emitter.UDIV(W1, W2, W3);
@@ -103,7 +114,6 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "6a1e0041 ands w1, w2, w30"));
 	emitter.ORR(X1, X2, X30);
 	RET(CheckLast(emitter, "aa1e0041 orr x1, x2, x30"));
-
 	fp.FMUL(S0, S12, S22);
 	RET(CheckLast(emitter, "1e360980 fmul s0, s12, s22"));
 	emitter.ADD(X23, X30, 123, false);
@@ -119,9 +129,9 @@ bool TestArm64Emitter() {
 	fp.FMOV(S20, S25);
 	RET(CheckLast(emitter, "1e204334 fmov s20, s25"));
 	fp.FCMP(S7);
-	RET(CheckLast(emitter, "1e6320e0 fcmp s7, #0.0"));
+	RET(CheckLast(emitter, "1e2020e8 fcmp s7, #0.0"));
 	fp.FCMP(D7, D3);
-	RET(CheckLast(emitter, "1e2020e8 fcmp d7, d3"));
+	RET(CheckLast(emitter, "1e6320e0 fcmp d7, d3"));
 	emitter.ORI2R(X1, X3, 0x3F, INVALID_REG);
 	RET(CheckLast(emitter, "b2401461 orr x1, x3, #0x3f"));
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);

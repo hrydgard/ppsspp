@@ -548,6 +548,8 @@ public:
 	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);
 	void MOV(ARM64Reg Rd, ARM64Reg Rm);
 	void MVN(ARM64Reg Rd, ARM64Reg Rm);
+
+	// TODO: These are "slow" as they use arith+shift, should be replaced with UBFM/EXTR variants.
 	void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 	void LSL(ARM64Reg Rd, ARM64Reg Rm, int shift);
 	void ASR(ARM64Reg Rd, ARM64Reg Rm, int shift);
@@ -576,11 +578,20 @@ public:
 	void BFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void SBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void UBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
+
+	// Extract register (ROR with two inputs, if same then faster on A67)
+	void EXTR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u32 shift);
+
+	// Aliases
 	void SXTB(ARM64Reg Rd, ARM64Reg Rn);
 	void SXTH(ARM64Reg Rd, ARM64Reg Rn);
 	void SXTW(ARM64Reg Rd, ARM64Reg Rn);
 	void UXTB(ARM64Reg Rd, ARM64Reg Rn);
 	void UXTH(ARM64Reg Rd, ARM64Reg Rn);
+
+	void UBFX(ARM64Reg Rd, ARM64Reg Rn, int lsb, int width) {
+		UBFM(Rd, Rn, lsb, lsb + width <= (Is64Bit(Rn) ? 64 : 32));
+	}
 
 	// Load Register (Literal)
 	void LDR(ARM64Reg Rt, u32 imm);
@@ -743,10 +754,10 @@ public:
 	void ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
 
 	// Scalar - 1 Source
-	void FMOV(ARM64Reg Rd, ARM64Reg Rn);
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
 	void FNEG(ARM64Reg Rd, ARM64Reg Rn);
 	void FSQRT(ARM64Reg Rd, ARM64Reg Rn);
+	void FMOV(ARM64Reg Rd, ARM64Reg Rn, bool top = false);  // Also generalized move between GPR/FP
 
 	// Scalar - 2 Source
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -790,9 +801,6 @@ public:
 
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
-
-	// Conversion or movement between float and integer
-	void FMOV(u8 size, bool top, ARM64Reg Rd, ARM64Reg Rn);
 
 	// Scalar convert float to int, in a lot of variants.
 	// Note that the scalar version of this operation has two encodings, one that goes to an integer register
