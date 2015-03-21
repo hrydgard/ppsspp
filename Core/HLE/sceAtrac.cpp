@@ -1195,10 +1195,12 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): no data", atracID, remainAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x[%d])", atracID, remainAddr, atrac->getRemainFrames());
 		if (Memory::IsValidAddress(remainAddr)) {
 			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
+			DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x[%d])", atracID, remainAddr, atrac->getRemainFrames());
 		}
+		else
+			DEBUG_LOG_REPORT(ME, "sceAtracGetRemainFrame(%i, %08x[%d]) invalid address", atracID, remainAddr, atrac->getRemainFrames());
 		// Let sceAtracGetStreamDataInfo() know to set the full filled buffer .
 		atrac->resetBuffer = true;
 
