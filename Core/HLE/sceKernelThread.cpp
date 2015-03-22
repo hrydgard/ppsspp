@@ -3010,8 +3010,6 @@ SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 
 int sceKernelDeleteCallback(SceUID cbId)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelDeleteCallback(%i)", cbId);
-
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb)
@@ -3022,38 +3020,35 @@ int sceKernelDeleteCallback(SceUID cbId)
 		if (cb->nc.notifyCount != 0)
 			readyCallbacksCount--;
 
-		return kernelObjects.Destroy<Callback>(cbId);
+		return hleLogSuccessI(SCEKERNEL, kernelObjects.Destroy<Callback>(cbId), "d");
+	} else {
+		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
 	}
-	return error;
 }
 
 // Generally very rarely used, but Numblast uses it like candy.
 int sceKernelNotifyCallback(SceUID cbId, int notifyArg)
 {
-	DEBUG_LOG(SCEKERNEL,"sceKernelNotifyCallback(%i, %i)", cbId, notifyArg);
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
 		__KernelNotifyCallback(cbId, notifyArg);
-		return 0;
+		return hleLogSuccessI(SCEKERNEL, 0, "ii");
 	} else {
-		ERROR_LOG(SCEKERNEL, "sceKernelCancelCallback(%i) - bad cbId", cbId);
-		return error;
+		return hleLogError(SCEKERNEL, error, "ii", "bad cbId");
 	}
 }
 
 int sceKernelCancelCallback(SceUID cbId)
 {
-	DEBUG_LOG(SCEKERNEL, "sceKernelCancelCallback(%i)", cbId);
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
 		// This just resets the notify count.
 		cb->nc.notifyArg = 0;
-		return 0;
+		return hleLogSuccessI(SCEKERNEL, 0, "i");
 	} else {
-		ERROR_LOG(SCEKERNEL, "sceKernelCancelCallback(%i) - bad cbId", cbId);
-		return error;
+		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
 	}
 }
 
@@ -3062,10 +3057,9 @@ int sceKernelGetCallbackCount(SceUID cbId)
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
-		return cb->nc.notifyCount;
+		return hleLogSuccessVerboseI(SCEKERNEL, cb->nc.notifyCount, "i");
 	} else {
-		ERROR_LOG(SCEKERNEL, "sceKernelGetCallbackCount(%i) - bad cbId", cbId);
-		return error;
+		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
 	}
 }
 
@@ -3074,40 +3068,30 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 	u32 error;
 	Callback *c = kernelObjects.Get<Callback>(cbId, error);
 	if (c) {
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferCallbackStatus(%i, %08x)", cbId, statusAddr);
 		if (Memory::IsValidAddress(statusAddr) && Memory::Read_U32(statusAddr) != 0) {
 			Memory::WriteStruct(statusAddr, &c->nc);
+			return hleLogSuccessI(SCEKERNEL, 0, "ip");
+		} else {
+			return hleLogDebug(SCEKERNEL, 0, "ip", "struct size was 0");
 		}
-		return 0;
 	} else {
-		ERROR_LOG(SCEKERNEL, "sceKernelReferCallbackStatus(%i, %08x) - bad cbId", cbId, statusAddr);
-		return error;
+		return hleLogError(SCEKERNEL, error, "ip", "bad cbId");
 	}
 }
 
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 {
 	if (size < 512)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExtendThreadStack(%08x, %08x, %08x) - stack size too small", size, entryAddr, entryParameter);
-		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
-	}
+		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "xxx", "stack size too small");
 
 	Thread *thread = __GetCurrentThread();
 	if (!thread)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExtendThreadStack(%08x, %08x, %08x) - not on a thread?", size, entryAddr, entryParameter);
-		return -1;
-	}
+		return hleReportError(SCEKERNEL, -1, "xxx", "not on a thread?");
 
 	if (!thread->PushExtendedStack(size))
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExtendThreadStack(%08x, %08x, %08x) - could not allocate new stack", size, entryAddr, entryParameter);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "xxx", "could not allocate new stack");
 
 	// The stack has been changed now, so it's do or die time.
-	DEBUG_LOG(SCEKERNEL, "sceKernelExtendThreadStack(%08x, %08x, %08x)", size, entryAddr, entryParameter);
 
 	// Push the old SP, RA, and PC onto the stack (so we can restore them later.)
 	Memory::Write_U32(currentMIPS->r[MIPS_REG_RA], thread->currentStack.end - 4);
@@ -3121,7 +3105,7 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
 
 	hleSkipDeadbeef();
-	return 0;
+	return hleLogSuccessI(SCEKERNEL, 0, "xxx");
 }
 
 void __KernelReturnFromExtendStack()

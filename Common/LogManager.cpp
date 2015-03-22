@@ -46,6 +46,12 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 	va_end(args);
 }
 
+bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
+	if (LogManager::GetInstance())
+		return g_Config.bEnableLogging && LogManager::GetInstance()->IsEnabled(level, type);
+	return false;
+}
+
 LogManager *LogManager::logManager_ = NULL;
 
 struct LogNameTableEntry {
@@ -217,6 +223,13 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	memcpy(msgPos, "\n", sizeof("\n"));
 
 	log->Trigger(level, msg);
+}
+
+bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
+	LogChannel *log = log_[type];
+	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
+		return false;
+	return true;
 }
 
 void LogManager::Init() {

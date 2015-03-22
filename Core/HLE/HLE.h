@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
 class PointerWrap;
@@ -125,3 +126,20 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, char retmask, const char *argmask, const char *file, int line, const char *reportTag, const char *reason, ...);
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, char retmask, const char *argmask, const char *file, int line, const char *reportTag);
+
+// Only one side of the ?: is evaluated (per c++ standard), so this should be safe.
+#define hleLogHelper(t, level, res, retmask, argmask, ...) (LogTypes::level > MAX_LOGLEVEL ? res : hleDoLog(LogTypes::t, LogTypes::level, res, retmask, argmask, __FILE__, __LINE__, nullptr, __VA_ARGS__))
+#define hleLogError(t, res, argmask, ...) hleLogHelper(t, LERROR, res, 'x', argmask, __VA_ARGS__)
+#define hleLogWarning(t, res, argmask, ...) hleLogHelper(t, LWARNING, res, 'x', argmask, __VA_ARGS__)
+#define hleLogDebug(t, res, argmask, ...) hleLogHelper(t, LDEBUG, res, 'x', argmask, __VA_ARGS__)
+#define hleLogSuccessX(t, res, argmask, ...) hleLogHelper(t, LDEBUG, res, 'x', argmask, __VA_ARGS__)
+#define hleLogSuccessI(t, res, argmask, ...) hleLogHelper(t, LDEBUG, res, 'i', argmask, __VA_ARGS__)
+#define hleLogSuccessVerboseX(t, res, argmask, ...) hleLogHelper(t, LVERBOSE, res, 'x', argmask, __VA_ARGS__)
+#define hleLogSuccessVerboseI(t, res, argmask, ...) hleLogHelper(t, LVERBOSE, res, 'x', argmask, __VA_ARGS__)
+
+#define hleReportError(t, res, argmask, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, 'x', argmask, __FILE__, __LINE__, "", __VA_ARGS__)
+#define hleReportWarning(t, res, argmask, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, 'x', argmask, __FILE__, __LINE__, "", __VA_ARGS__)
+#define hleReportDebug(t, res, argmask, ...) hleDoLog(LogTypes::t, LogTypes::LDEBUG, res, 'x', argmask, __FILE__, __LINE__, "", __VA_ARGS__)
+#define hleReportVerbose(t, res, argmask, ...) hleDoLog(LogTypes::t, LogTypes::LVERBOSE, res, 'x', argmask, __FILE__, __LINE__, "", __VA_ARGS__)

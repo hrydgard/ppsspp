@@ -140,6 +140,7 @@ public:
 
 	void Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 			 const char *file, int line, const char *fmt, va_list args);
+	bool IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 	LogChannel *GetLogChannel(LogTypes::LOG_TYPE type) {
 		return log_[type];
@@ -183,7 +184,7 @@ public:
 		return ringLog_;
 	}
 
-	static LogManager* GetInstance() {
+	static inline LogManager* GetInstance() {
 		return logManager_;
 	}
 
