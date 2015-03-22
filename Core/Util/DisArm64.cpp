@@ -405,8 +405,19 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 	}
 }
 
+inline bool GetQ(uint32_t w) { return (w >> 30) & 1; }
+inline bool GetU(uint32_t w) { return (w >> 29) & 1; }
+const char *GetArrangement(bool Q, bool sz) {
+	if (Q == 0 && sz == 0) return "2s";
+	else if (Q == 1 && sz == 0) return "4s";
+	else if (Q == 1 && sz == 1) return "2d";
+	else return "ERROR";
+}
 // (w >> 25) & 0xF  == 7
 static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
+	int Rd = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
+	int Rm = (w >> 16) & 0x1f;
 	if (((w >> 21) & 0x4F9) == 0x71) {
 		switch ((w >> 10) & 3) {
 		case 1: case 3:
@@ -430,13 +441,38 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 		}
 	} else if (((w >> 21) & 0x4F8) == 0x78) {
 		if ((w >> 10) & 1) {
-			if (((w >>	19) & 0xf) == 0) {
+			if (((w >> 19) & 0xf) == 0) {
 				snprintf(instr->text, sizeof(instr->text), "(asimd modified immediate %08x)", w);
 			} else {
 				snprintf(instr->text, sizeof(instr->text), "(asimd shift-by-immediate %08x)", w);
 			}
 		} else {
-			snprintf(instr->text, sizeof(instr->text), "(asimd vector x indexed elem %08x)", w);
+			bool Q = GetQ(w);
+			bool U = GetU(w);
+			int size = (w >> 22) & 3;
+			bool L = (w >> 21) & 1;
+			bool M = (w >> 20) & 1;
+			bool H = (w >> 11) & 1;
+			int opcode = (w >> 12) & 0xf;
+			if (size & 0x2) {
+				const char *opname = 0;
+				switch (opcode) {
+				case 1: opname = "fmla"; break;
+				case 5: opname = "fmls"; break;
+				case 9: opname = "fmul"; break;
+				}
+				int index;
+				if ((size & 1) == 0) {
+					index = (H << 1) | L;
+				} else {
+					index = H;
+				}
+				char r = Q ? 'q' : 'd';
+				const char *arrangement = GetArrangement(Q, size & 1);
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d.%s[%d]", opname, r, Rd, r, Rn, r, Rm, arrangement, index);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(asimd vector x indexed elem %08x)", w);
+			}
 		}
 	} else {
 		bail:
@@ -516,10 +552,12 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 		} else if (((w >> 10) & 3) == 2) {
 			int opc = (w >> 12) & 0xf;
 			const char *opnames[9] = { "fmul", "fdiv", "fadd", "fsub", "fmax", "fmin", "fmaxnm", "fminnm", "fnmul" };
-			char r = 's';  // TODO: Support doubles too
+			char r = ((w >> 22) & 1) ? 'd' : 's';
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 		} else if (((w >> 10) & 3) == 3) {
-			snprintf(instr->text, sizeof(instr->text), "(float cond select %08x)", w);
+			char fr = ((w >> 22) & 1) ? 'd' : 's';
+			int cond = (w >> 12) & 0xf;
+			snprintf(instr->text, sizeof(instr->text), "fcsel %c%d, %c%d, %c%d, %s", fr, Rd, fr, Rn, fr, Rm, condnames[cond]);
 		}
 	} else if (((w >> 21) & 0x2F8) == 0xF8) {
 		int opcode = ((w >> 15) & 1) | ((w >> 20) & 2);

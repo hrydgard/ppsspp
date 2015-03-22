@@ -39,6 +39,12 @@ bool TestArm64Emitter() {
 
 	//emitter.EXTR(W1, W3, 0, 7);
 	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
+	fp.FMUL(32, Q0, Q1, Q2, 3);
+	RET(CheckLast(emitter, "4fa29820 fmul q0, q1, q2.4s[3]"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
+	fp.FMLA(32, D0, D1, D2, 1);
+	RET(CheckLast(emitter, "1e222c20 fmla d0, d1, d2.2s[1]"));
+	fp.FCSEL(S0, S1, S2, CC_CS);
+	RET(CheckLast(emitter, "1e222c20 fcsel s0, s1, s2, cs"));
 	float value = 1.0;
 	uint8_t imm8;
 	FPImm8FromFloat(value, &imm8);
@@ -46,7 +52,7 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "1e2e1007 fmov s7, #1.000000"));
 	FPImm8FromFloat(-value, &imm8);
 	fp.FMOV(S7, imm8);
-	RET(CheckLast(emitter, "1e2e1007 fmov s7, #-1.000000"));
+	RET(CheckLast(emitter, "0fa21020 fmov s7, #-1.000000"));
 	fp.FMADD(S1, S2, S3, S4);
 	RET(CheckLast(emitter, "1f031041 fmadd s1, s2, s3, s4"));
 	fp.FNMSUB(D1, D2, D3, D4);
@@ -151,7 +157,7 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "1e2020e8 fcmp s7, #0.0"));
 	fp.FCMP(D7, D3);
 	RET(CheckLast(emitter, "1e6320e0 fcmp d7, d3"));
-	emitter.ORI2R(X1, X3, 0x3F, INVALID_REG);
+	emitter.ORRI2R(X1, X3, 0x3F, INVALID_REG);
 	RET(CheckLast(emitter, "b2401461 orr x1, x3, #0x3f"));
 	emitter.EORI2R(X1, X3, 0x3F0000003F0, INVALID_REG);
 	RET(CheckLast(emitter, "d21c1461 eor x1, x3, #0x3f0000003f0"));

@@ -2052,7 +2052,7 @@ void ARM64FloatEmitter::EmitLoadStoreImmediate(u8 size, u32 opc, IndexType type,
 	        (size == 128 ? (1 << 23) : 0) | (opc << 22) | (encoded_imm << 10) | (Rn << 5) | Rt);
 }
 
-void ARM64FloatEmitter::Emit2Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+void ARM64FloatEmitter::EmitScalar2Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	_assert_msg_(DYNA_REC, !IsQuad(Rd), "%s only supports double and single registers!", __FUNCTION__);
 	Rd = DecodeReg(Rd);
@@ -2683,55 +2683,55 @@ void ARM64FloatEmitter::FSQRT(ARM64Reg Rd, ARM64Reg Rn)
 // Scalar - 2 Source
 void ARM64FloatEmitter::FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 2, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 2, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 0, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 0, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 3, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 3, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FDIV(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 1, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 1, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMAX(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 4, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 4, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMIN(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 5, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 5, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMAXNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 6, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 6, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMINNM(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 7, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 7, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FNMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	Emit2Source(0, 0, IsDouble(Rd), 8, Rd, Rn, Rm);
+	EmitScalar2Source(0, 0, IsDouble(Rd), 8, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::FMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
-	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 0);
+	EmitScalar3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 0);
 }
 void ARM64FloatEmitter::FMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
-	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 1);
+	EmitScalar3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 1);
 }
 void ARM64FloatEmitter::FNMADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
-	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 2);
+	EmitScalar3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 2);
 }
 void ARM64FloatEmitter::FNMSUB(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra) {
-	Emit3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 3);
+	EmitScalar3Source(IsDouble(Rd), Rd, Rn, Rm, Ra, 3);
 }
 
-void ARM64FloatEmitter::Emit3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode) {
+void ARM64FloatEmitter::EmitScalar3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode) {
 	int type = isDouble ? 1 : 0;
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
@@ -3235,18 +3235,30 @@ void ARM64FloatEmitter::FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 
 
 	bool L = false;
 	bool H = false;
-
-	if (size == 32)
-	{
+	if (size == 32) {
 		L = index & 1;
 		H = (index >> 1) & 1;
-	}
-	else if (size == 64)
-	{
+	} else if (size == 64) {
 		H = index == 1;
 	}
 
 	EmitVectorxElement(0, 2 | (size >> 6), L, 0x9, H, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index)
+{
+	_assert_msg_(DYNA_REC, size == 32 || size == 64, "%s only supports 32bit or 64bit size!", __FUNCTION__);
+
+	bool L = false;
+	bool H = false;
+	if (size == 32) {
+		L = index & 1;
+		H = (index >> 1) & 1;
+	} else if (size == 64) {
+		H = index == 1;
+	}
+
+	EmitVectorxElement(0, 2 | (size >> 6), L, 1, H, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::ABI_PushRegisters(BitSet32 registers)
@@ -3271,10 +3283,12 @@ void ARM64FloatEmitter::ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mas
 
 void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
+	if (!Is64Bit(Rn))
+		imm &= 0xFFFFFFFF;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		AND(Rd, Rn, imm_r, imm_s, n);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		AND(Rd, Rn, scratch);
 	}
@@ -3285,7 +3299,7 @@ void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ORR(Rd, Rn, imm_r, imm_s, n);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ORRI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ORRI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ORR(Rd, Rn, scratch);
 	}
@@ -3296,7 +3310,7 @@ void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		EOR(Rd, Rn, imm_r, imm_s, n);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "EORI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "EORI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		EOR(Rd, Rn, scratch);
 	}
@@ -3307,7 +3321,7 @@ void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ANDS(Rd, Rn, imm_r, imm_s, n);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ANDS(Rd, Rn, scratch);
 	}
@@ -3319,7 +3333,7 @@ void ARM64XEmitter::ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		ADD(Rd, Rn, val, shift);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "ADDI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "ADDI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ADD(Rd, Rn, scratch);
 	}
@@ -3331,7 +3345,7 @@ void ARM64XEmitter::SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		SUB(Rd, Rn, val, shift);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "SUBI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "SUBI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		SUB(Rd, Rn, scratch);
 	}
@@ -3343,7 +3357,7 @@ void ARM64XEmitter::CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		CMP(Rn, val, shift);
 	} else {
-		_assert_msg_(JIT, scratch != INVALID_REG, "CMPI2R - failed to construct immediate value from %08x, need scratch", (u32)imm);
+		_assert_msg_(JIT, scratch != INVALID_REG, "CMPI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		CMP(Rn, scratch);
 	}
