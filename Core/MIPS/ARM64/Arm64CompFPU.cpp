@@ -81,6 +81,13 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 	bool doCheck = false;
 	switch (op >> 26) {
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset <= 16380 && offset >= 0) {
+			gpr.MapRegAsPointer(rs);
+			fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
+			fp.LDR(32, INDEX_UNSIGNED, fpr.R(ft), gpr.RPtr(rs), offset);
+			break;
+		}
+
 		fpr.SpillLock(ft);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
@@ -108,6 +115,13 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset <= 16380 && offset >= 0) {
+			gpr.MapRegAsPointer(rs);
+			fpr.MapReg(ft, 0);
+			fp.STR(32, INDEX_UNSIGNED, fpr.R(ft), gpr.RPtr(rs), offset);
+			break;
+		}
+
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
@@ -297,10 +311,22 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 		*/
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		if (false && gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-			// broken?
+		if (gpr.IsImm(rt)) {
+			uint32_t ival = gpr.GetImm(rt);
+			float floatval;
+			memcpy(&floatval, &ival, sizeof(floatval));
+			uint8_t imm8;
+			// If zero, just zero it.
 			fpr.MapReg(fs, MAP_NOINIT | MAP_DIRTY);
-			fp.FMOV(fpr.R(fs), 0);  // Immediate form
+			if (ival == 0) {
+				fp.FMOV(fpr.R(fs), WZR);  // This is supposedly special cased in hardware to be fast.
+			} else if (FPImm8FromFloat(floatval, &imm8)) {
+				fp.FMOV(fpr.R(fs), imm8);
+			} else {
+				// Materialize the register and do a cross move.
+				gpr.MapReg(rt);
+				fp.FMOV(fpr.R(fs), gpr.R(rt));
+			}
 		} else {
 			gpr.MapReg(rt);
 			fpr.MapReg(fs, MAP_NOINIT | MAP_DIRTY);
