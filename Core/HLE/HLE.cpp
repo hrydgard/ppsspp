@@ -618,7 +618,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	return used;
 }
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, char retmask, const char *argmask, const char *file, int line, const char *reportTag, const char *reason, ...) {
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *argmask, const char *reason, ...) {
 	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
 	}
@@ -666,6 +666,6 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, char ret
 	return res;
 }
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, char retmask, const char *argmask, const char *file, int line, const char *reportTag) {
-	return hleDoLog(t, level, res, retmask, argmask, file, line, reportTag, nullptr);
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *argmask) {
+	return hleDoLog(t, level, res, file, line, reportTag, retmask, argmask, nullptr);
 }
