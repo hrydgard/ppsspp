@@ -123,8 +123,8 @@ static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 w
 }
 
 const HLEFunction scePauth[] = {
-	{0xF7AA47F6, &WrapI_UIUU<scePauth_F7AA47F6>, "scePauth_F7AA47F6"},
-	{0x98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>, "scePauth_98B83B5D"},
+	{0XF7AA47F6, &WrapI_UIUU<scePauth_F7AA47F6>,     "scePauth_F7AA47F6", 'i', "xixx"},
+	{0X98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>,     "scePauth_98B83B5D", 'i', "xixx"},
 };
 
 void Register_scePauth()

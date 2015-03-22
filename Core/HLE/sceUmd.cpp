@@ -522,22 +522,22 @@ static u32 sceUmdReplacePermit()
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0xC6183D47,WrapI_UC<sceUmdActivate>,"sceUmdActivate"},
-	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
-	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
-	{0xE83742BA,WrapI_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
-	{0x8EF08FCE,WrapI_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
-	{0x56202973,WrapI_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
-	{0x4A9E5E29,WrapI_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
-	{0x6af9b50a,WrapU_V<sceUmdCancelWaitDriveStat>,"sceUmdCancelWaitDriveStat"},
-	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
-	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},
-	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
-	{0xBD2BDE07,&WrapI_I<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
-	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
-	{0xCBE9F02A,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
-	{0x14c6c45c,0,"sceUmdUnuseUMDInMsUsbWlan"},
-	{0xb103fa38,0,"sceUmdUseUMDInMsUsbWlan"},
+	{0XC6183D47, &WrapI_UC<sceUmdActivate>,               "sceUmdActivate",               'i', "xs"},
+	{0X6B4A146C, &WrapU_V<sceUmdGetDriveStat>,            "sceUmdGetDriveStat",           'x', ""  },
+	{0X46EBB729, &WrapI_V<sceUmdCheckMedium>,             "sceUmdCheckMedium",            'i', ""  },
+	{0XE83742BA, &WrapI_UC<sceUmdDeactivate>,             "sceUmdDeactivate",             'i', "xs"},
+	{0X8EF08FCE, &WrapI_U<sceUmdWaitDriveStat>,           "sceUmdWaitDriveStat",          'i', "x" },
+	{0X56202973, &WrapI_UU<sceUmdWaitDriveStatWithTimer>, "sceUmdWaitDriveStatWithTimer", 'i', "xx"},
+	{0X4A9E5E29, &WrapI_UU<sceUmdWaitDriveStatCB>,        "sceUmdWaitDriveStatCB",        'i', "xx"},
+	{0X6AF9B50A, &WrapU_V<sceUmdCancelWaitDriveStat>,     "sceUmdCancelWaitDriveStat",    'x', ""  },
+	{0X20628E6F, &WrapU_V<sceUmdGetErrorStat>,            "sceUmdGetErrorStat",           'x', ""  },
+	{0X340B7686, &WrapU_U<sceUmdGetDiscInfo>,             "sceUmdGetDiscInfo",            'x', "x" },
+	{0XAEE7404D, &WrapU_U<sceUmdRegisterUMDCallBack>,     "sceUmdRegisterUMDCallBack",    'x', "x" },
+	{0XBD2BDE07, &WrapI_I<sceUmdUnRegisterUMDCallBack>,   "sceUmdUnRegisterUMDCallBack",  'i', "i" },
+	{0X87533940, &WrapU_V<sceUmdReplaceProhibit>,         "sceUmdReplaceProhibit",        'x', ""  },
+	{0XCBE9F02A, &WrapU_V<sceUmdReplacePermit>,           "sceUmdReplacePermit",          'x', ""  },
+	{0X14C6C45C, nullptr,                                 "sceUmdUnuseUMDInMsUsbWlan",    '?', ""  },
+	{0XB103FA38, nullptr,                                 "sceUmdUseUMDInMsUsbWlan",      '?', ""  },
 };
 
 void Register_sceUmdUser()

@@ -448,81 +448,81 @@ static u32 IsPSPNonFat() {
 }
 
 static const HLEFunction scePower[] = {
-	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
-	{0x2B51FE2F,0,"scePower_2B51FE2F"},
-	{0x442BFBAC,0,"scePowerGetBacklightMaximum"},
-	{0xEFD3C963,&WrapI_V<scePowerTick>,"scePowerTick"},
-	{0xEDC13FE5,0,"scePowerGetIdleTimer"},
-	{0x7F30B3B1,0,"scePowerIdleTimerEnable"},
-	{0x972CE941,0,"scePowerIdleTimerDisable"},
-	{0x27F3292C,0,"scePowerBatteryUpdateInfo"},
-	{0xE8E4E204,0,"scePower_E8E4E204"},
-	{0xB999184C,0,"scePowerGetLowBatteryCapacity"},
-	{0x87440F5E,&WrapI_V<scePowerIsPowerOnline>,"scePowerIsPowerOnline"},
-	{0x0AFD0D8B,&WrapI_V<scePowerIsBatteryExist>,"scePowerIsBatteryExist"},
-	{0x1E490401,&WrapI_V<scePowerIsBatteryCharging>,"scePowerIsBatteryCharging"},
-	{0xB4432BC8,&WrapI_V<scePowerGetBatteryChargingStatus>,"scePowerGetBatteryChargingStatus"},
-	{0xD3075926,&WrapI_V<scePowerIsLowBattery>,"scePowerIsLowBattery"},
-	{0x78A1A796,0,"scePowerIsSuspendRequired"},
-	{0x94F5A53F,0,"scePowerGetBatteryRemainCapacity"},
-	{0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
-	{0x2085D15D,&WrapI_V<scePowerGetBatteryLifePercent>,"scePowerGetBatteryLifePercent"},
-	{0x8EFB3FA2,&WrapI_V<scePowerGetBatteryLifeTime>,"scePowerGetBatteryLifeTime"},
-	{0x28E12023,&WrapI_V<scePowerGetBatteryTemp>,"scePowerGetBatteryTemp"},
-	{0x862AE1A6,0,"scePowerGetBatteryElec"},
-	{0x483CE86B,0,"scePowerGetBatteryVolt"},
-	{0xcb49f5ce,0,"scePowerGetBatteryChargeCycle"},
-	{0x23436A4A,0,"scePowerGetInnerTemp"},
-	{0x0CD21B1F,0,"scePowerSetPowerSwMode"},
-	{0x165CE085,0,"scePowerGetPowerSwMode"},
-	{0xD6D016EF,0,"scePowerLock"},
-	{0xCA3D34C1,0,"scePowerUnlock"},
-	{0xDB62C9CF,0,"scePowerCancelRequest"},
-	{0x7FA406DD,0,"scePowerIsRequest"},
-	{0x2B7C7CF4,0,"scePowerRequestStandby"},
-	{0xAC32C9CC,0,"scePowerRequestSuspend"},
-	{0x2875994B,0,"scePower_2875994B"},
-	{0x0074EF9B,0,"scePowerGetResumeCount"},
-	{0xDFA8BAF8,WrapI_I<scePowerUnregisterCallback>,"scePowerUnregisterCallback"},
-	{0xDB9D28DD,WrapI_I<scePowerUnregisterCallback>,"scePowerUnregitserCallback"},	
-	{0x843FBF43,WrapU_U<scePowerSetCpuClockFrequency>,"scePowerSetCpuClockFrequency"},
-	{0xB8D7B3FB,WrapU_U<scePowerSetBusClockFrequency>,"scePowerSetBusClockFrequency"},
-	{0xFEE03A2F,WrapU_V<scePowerGetCpuClockFrequencyInt>,"scePowerGetCpuClockFrequency"},
-	{0x478FE6F5,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequency"},
-	{0xFDB5BFE9,WrapU_V<scePowerGetCpuClockFrequencyInt>,"scePowerGetCpuClockFrequencyInt"},
-	{0xBD681969,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequencyInt"},
-	{0xB1A52C83,WrapF_V<scePowerGetCpuClockFrequencyFloat>,"scePowerGetCpuClockFrequencyFloat"},
-	{0x9BADB3EB,WrapF_V<scePowerGetBusClockFrequencyFloat>,"scePowerGetBusClockFrequencyFloat"},
-	{0x737486F2,WrapU_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
-	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
-	{0xea382a27,WrapF_V<scePowerGetPllClockFrequencyFloat>,"scePowerGetPllClockFrequencyFloat"},
-	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_EBD177D6"}, // This is also the same as SetClockFrequency
-	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"}, // This is also the same as SetClockFrequency
-	{0x545a7f3c,0,"scePower_545A7F3C"}, // TODO: Supposedly the same as SetClockFrequency also?
-	{0xa4e93389,0,"scePower_A4E93389"}, // TODO: Supposedly the same as SetClockFrequency also?
-	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
-	{0x3951af53,0,"scePowerWaitRequestCompletion"},
-	{0x0442d852,0,"scePowerRequestColdReset"},
-	{0xbafa3df0,0,"scePowerGetCallbackMode"},
-	{0xa9d22232,0,"scePowerSetCallbackMode"},
+	{0X04B7766E, &WrapI_II<scePowerRegisterCallback>,         "scePowerRegisterCallback",          'i', "ii" },
+	{0X2B51FE2F, nullptr,                                     "scePower_2B51FE2F",                 '?', ""   },
+	{0X442BFBAC, nullptr,                                     "scePowerGetBacklightMaximum",       '?', ""   },
+	{0XEFD3C963, &WrapI_V<scePowerTick>,                      "scePowerTick",                      'i', ""   },
+	{0XEDC13FE5, nullptr,                                     "scePowerGetIdleTimer",              '?', ""   },
+	{0X7F30B3B1, nullptr,                                     "scePowerIdleTimerEnable",           '?', ""   },
+	{0X972CE941, nullptr,                                     "scePowerIdleTimerDisable",          '?', ""   },
+	{0X27F3292C, nullptr,                                     "scePowerBatteryUpdateInfo",         '?', ""   },
+	{0XE8E4E204, nullptr,                                     "scePower_E8E4E204",                 '?', ""   },
+	{0XB999184C, nullptr,                                     "scePowerGetLowBatteryCapacity",     '?', ""   },
+	{0X87440F5E, &WrapI_V<scePowerIsPowerOnline>,             "scePowerIsPowerOnline",             'i', ""   },
+	{0X0AFD0D8B, &WrapI_V<scePowerIsBatteryExist>,            "scePowerIsBatteryExist",            'i', ""   },
+	{0X1E490401, &WrapI_V<scePowerIsBatteryCharging>,         "scePowerIsBatteryCharging",         'i', ""   },
+	{0XB4432BC8, &WrapI_V<scePowerGetBatteryChargingStatus>,  "scePowerGetBatteryChargingStatus",  'i', ""   },
+	{0XD3075926, &WrapI_V<scePowerIsLowBattery>,              "scePowerIsLowBattery",              'i', ""   },
+	{0X78A1A796, nullptr,                                     "scePowerIsSuspendRequired",         '?', ""   },
+	{0X94F5A53F, nullptr,                                     "scePowerGetBatteryRemainCapacity",  '?', ""   },
+	{0XFD18A0FF, nullptr,                                     "scePowerGetBatteryFullCapacity",    '?', ""   },
+	{0X2085D15D, &WrapI_V<scePowerGetBatteryLifePercent>,     "scePowerGetBatteryLifePercent",     'i', ""   },
+	{0X8EFB3FA2, &WrapI_V<scePowerGetBatteryLifeTime>,        "scePowerGetBatteryLifeTime",        'i', ""   },
+	{0X28E12023, &WrapI_V<scePowerGetBatteryTemp>,            "scePowerGetBatteryTemp",            'i', ""   },
+	{0X862AE1A6, nullptr,                                     "scePowerGetBatteryElec",            '?', ""   },
+	{0X483CE86B, nullptr,                                     "scePowerGetBatteryVolt",            '?', ""   },
+	{0XCB49F5CE, nullptr,                                     "scePowerGetBatteryChargeCycle",     '?', ""   },
+	{0X23436A4A, nullptr,                                     "scePowerGetInnerTemp",              '?', ""   },
+	{0X0CD21B1F, nullptr,                                     "scePowerSetPowerSwMode",            '?', ""   },
+	{0X165CE085, nullptr,                                     "scePowerGetPowerSwMode",            '?', ""   },
+	{0XD6D016EF, nullptr,                                     "scePowerLock",                      '?', ""   },
+	{0XCA3D34C1, nullptr,                                     "scePowerUnlock",                    '?', ""   },
+	{0XDB62C9CF, nullptr,                                     "scePowerCancelRequest",             '?', ""   },
+	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
+	{0X2B7C7CF4, nullptr,                                     "scePowerRequestStandby",            '?', ""   },
+	{0XAC32C9CC, nullptr,                                     "scePowerRequestSuspend",            '?', ""   },
+	{0X2875994B, nullptr,                                     "scePower_2875994B",                 '?', ""   },
+	{0X0074EF9B, nullptr,                                     "scePowerGetResumeCount",            '?', ""   },
+	{0XDFA8BAF8, &WrapI_I<scePowerUnregisterCallback>,        "scePowerUnregisterCallback",        'i', "i"  },
+	{0XDB9D28DD, &WrapI_I<scePowerUnregisterCallback>,        "scePowerUnregitserCallback",        'i', "i"  },
+	{0X843FBF43, &WrapU_U<scePowerSetCpuClockFrequency>,      "scePowerSetCpuClockFrequency",      'x', "x"  },
+	{0XB8D7B3FB, &WrapU_U<scePowerSetBusClockFrequency>,      "scePowerSetBusClockFrequency",      'x', "x"  },
+	{0XFEE03A2F, &WrapU_V<scePowerGetCpuClockFrequencyInt>,   "scePowerGetCpuClockFrequency",      'x', ""   },
+	{0X478FE6F5, &WrapU_V<scePowerGetBusClockFrequencyInt>,   "scePowerGetBusClockFrequency",      'x', ""   },
+	{0XFDB5BFE9, &WrapU_V<scePowerGetCpuClockFrequencyInt>,   "scePowerGetCpuClockFrequencyInt",   'x', ""   },
+	{0XBD681969, &WrapU_V<scePowerGetBusClockFrequencyInt>,   "scePowerGetBusClockFrequencyInt",   'x', ""   },
+	{0XB1A52C83, &WrapF_V<scePowerGetCpuClockFrequencyFloat>, "scePowerGetCpuClockFrequencyFloat", 'f', ""   },
+	{0X9BADB3EB, &WrapF_V<scePowerGetBusClockFrequencyFloat>, "scePowerGetBusClockFrequencyFloat", 'f', ""   },
+	{0X737486F2, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency",         'x', "xxx"},
+	{0X34F9C463, &WrapU_V<scePowerGetPllClockFrequencyInt>,   "scePowerGetPllClockFrequencyInt",   'x', ""   },
+	{0XEA382A27, &WrapF_V<scePowerGetPllClockFrequencyFloat>, "scePowerGetPllClockFrequencyFloat", 'f', ""   },
+	{0XEBD177D6, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_EBD177D6",                 'x', "xxx"}, // This is also the same as SetClockFrequency
+	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_469989ad",                 'x', "xxx"}, // This is also the same as SetClockFrequency
+	{0X545A7F3C, nullptr,                                     "scePower_545A7F3C",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
+	{0XA4E93389, nullptr,                                     "scePower_A4E93389",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
+	{0XA85880D0, &WrapU_V<IsPSPNonFat>,                       "scePower_a85880d0_IsPSPNonFat",     'x', ""   },
+	{0X3951AF53, nullptr,                                     "scePowerWaitRequestCompletion",     '?', ""   },
+	{0X0442D852, nullptr,                                     "scePowerRequestColdReset",          '?', ""   },
+	{0XBAFA3DF0, nullptr,                                     "scePowerGetCallbackMode",           '?', ""   },
+	{0XA9D22232, nullptr,                                     "scePowerSetCallbackMode",           '?', ""   },
 
 	// These seem to be aliases.
-	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock"},
-	{0xfa97a599,&WrapI_IUU<sceKernelVolatileMemTryLock>,"scePowerVolatileMemTryLock"},
-	{0xb3edd801,&WrapI_I<sceKernelVolatileMemUnlock>,"scePowerVolatileMemUnlock"},
+	{0X23C31FFE, &WrapI_IUU<sceKernelVolatileMemLock>,        "scePowerVolatileMemLock",           'i', "ixx"},
+	{0XFA97A599, &WrapI_IUU<sceKernelVolatileMemTryLock>,     "scePowerVolatileMemTryLock",        'i', "ixx"},
+	{0XB3EDD801, &WrapI_I<sceKernelVolatileMemUnlock>,        "scePowerVolatileMemUnlock",         'i', "i"  },
 };
 
 //890129c in tyshooter looks bogus
 const HLEFunction sceSuspendForUser[] = {
-	{0xEADB1BD7,&WrapI_I<sceKernelPowerLock>,"sceKernelPowerLock"}, //(int param) set param to 0
-	{0x3AEE7261,&WrapI_I<sceKernelPowerUnlock>,"sceKernelPowerUnlock"},//(int param) set param to 0
-	{0x090ccb3f,&WrapI_I<sceKernelPowerTick>,"sceKernelPowerTick"},
+	{0XEADB1BD7, &WrapI_I<sceKernelPowerLock>,                "sceKernelPowerLock",                'i', "i"  }, //(int param) set param to 0
+	{0X3AEE7261, &WrapI_I<sceKernelPowerUnlock>,              "sceKernelPowerUnlock",              'i', "i"  }, //(int param) set param to 0
+	{0X090CCB3F, &WrapI_I<sceKernelPowerTick>,                "sceKernelPowerTick",                'i', "i"  },
 
 	// There's an extra 4MB that can be allocated, which seems to be "volatile". These functions
 	// let you grab it.
-	{0xa14f40b2,&WrapI_IUU<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
-	{0xa569e425,&WrapI_I<sceKernelVolatileMemUnlock>,"sceKernelVolatileMemUnlock"},
-	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
+	{0XA14F40B2, &WrapI_IUU<sceKernelVolatileMemTryLock>,     "sceKernelVolatileMemTryLock",       'i', "ixx"},
+	{0XA569E425, &WrapI_I<sceKernelVolatileMemUnlock>,        "sceKernelVolatileMemUnlock",        'i', "i"  },
+	{0X3E0271D3, &WrapI_IUU<sceKernelVolatileMemLock>,        "sceKernelVolatileMemLock",          'i', "ixx"},
 };
 
 

@@ -173,10 +173,10 @@ int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
 
 
 const HLEFunction sceMd5[] = {
-	{0x19884A15, WrapI_U<sceMd5BlockInit>, "sceMd5BlockInit"},
-	{0xA30206C2, WrapI_UUU<sceMd5BlockUpdate>, "sceMd5BlockUpdate"},
-	{0x4876AFFF, WrapI_UU<sceMd5BlockResult>, "sceMd5BlockResult"},
-	{0x98E31A9E, WrapI_UUU<sceMd5Digest>, "sceMd5Digest"},
+	{0X19884A15, &WrapI_U<sceMd5BlockInit>,          "sceMd5BlockInit",   'i', "x"  },
+	{0XA30206C2, &WrapI_UUU<sceMd5BlockUpdate>,      "sceMd5BlockUpdate", 'i', "xxx"},
+	{0X4876AFFF, &WrapI_UU<sceMd5BlockResult>,       "sceMd5BlockResult", 'i', "xx" },
+	{0X98E31A9E, &WrapI_UUU<sceMd5Digest>,           "sceMd5Digest",      'i', "xxx"},
 };
 
 void Register_sceMd5() {

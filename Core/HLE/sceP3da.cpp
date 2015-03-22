@@ -68,9 +68,9 @@ static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, 
 
 const HLEFunction sceP3da[] =
 {
-	{0x374500a5, WrapU_UU<sceP3daBridgeInit>, "sceP3daBridgeInit"},
-	{0x43F756a2, WrapU_V<sceP3daBridgeExit>, "sceP3daBridgeExit"},
-	{0x013016f3, WrapU_UUUUU<sceP3daBridgeCore>, "sceP3daBridgeCore"},
+	{0X374500A5, &WrapU_UU<sceP3daBridgeInit>,       "sceP3daBridgeInit", 'x', "xx"   },
+	{0X43F756A2, &WrapU_V<sceP3daBridgeExit>,        "sceP3daBridgeExit", 'x', ""     },
+	{0X013016F3, &WrapU_UUUUU<sceP3daBridgeCore>,    "sceP3daBridgeCore", 'x', "xxxxx"},
 };
 
 void Register_sceP3da()

@@ -2553,11 +2553,11 @@ SceUID sceKernelGetThreadId()
 	return currentThread;
 }
 
-void sceKernelGetThreadCurrentPriority()
+int sceKernelGetThreadCurrentPriority()
 {
 	u32 retVal = __GetCurrentThread()->nt.currentPriority;
 	DEBUG_LOG(SCEKERNEL,"%i = sceKernelGetThreadCurrentPriority()", retVal);
-	RETURN(retVal);
+	return retVal;
 }
 
 int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)

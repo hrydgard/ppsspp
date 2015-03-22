@@ -572,6 +572,8 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	} \
 } while (false)
 
+	// TODO: Floats, 64-bit params (with every-other), and > 8 args (stack.)
+
 	for (size_t i = 0, n = strlen(argmask); i < n; ++i) {
 		switch (argmask[i]) {
 		case 'p':
@@ -638,6 +640,7 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 	hleFormatLogArgs(formatted_args, sizeof(formatted_args), argmask);
 
 	const char *fmt;
+	// TODO: Floats and other types... move to another func (for return type?)  Hmm.
 	if (retmask == 'x') {
 		fmt = "%08x=%s(%s)%s";
 	} else if (retmask == 'i') {

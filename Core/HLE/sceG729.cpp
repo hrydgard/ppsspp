@@ -20,18 +20,18 @@
 
 const HLEFunction sceG729[] =
 {
-	{ 0x13F1028A, 0, "sceG729DecodeExit" },
-	{ 0x17C11696, 0, "sceG729DecodeInitResource" },
-	{ 0x3489D1F3, 0, "sceG729DecodeCore" },
-	{ 0x55E14F75, 0, "sceG729DecodeInit" },
-	{ 0x5A409D1B, 0, "sceG729EncodeExit" },
-	{ 0x74804D93, 0, "sceG729DecodeReset" },
-	{ 0x890B86AE, 0, "sceG729DecodeTermResource" },
-	{ 0x8C87A2CA, 0, "sceG729EncodeReset" },
-	{ 0x94714D50, 0, "sceG729EncodeTermResource" },
-	{ 0xAA1E5462, 0, "sceG729EncodeInitResource" },
-	{ 0xCFCD367C, 0, "sceG729EncodeInit" },
-	{ 0xDB7259D5, 0, "sceG729EncodeCore" },
+	{0X13F1028A, nullptr,                            "sceG729DecodeExit",         '?', ""},
+	{0X17C11696, nullptr,                            "sceG729DecodeInitResource", '?', ""},
+	{0X3489D1F3, nullptr,                            "sceG729DecodeCore",         '?', ""},
+	{0X55E14F75, nullptr,                            "sceG729DecodeInit",         '?', ""},
+	{0X5A409D1B, nullptr,                            "sceG729EncodeExit",         '?', ""},
+	{0X74804D93, nullptr,                            "sceG729DecodeReset",        '?', ""},
+	{0X890B86AE, nullptr,                            "sceG729DecodeTermResource", '?', ""},
+	{0X8C87A2CA, nullptr,                            "sceG729EncodeReset",        '?', ""},
+	{0X94714D50, nullptr,                            "sceG729EncodeTermResource", '?', ""},
+	{0XAA1E5462, nullptr,                            "sceG729EncodeInitResource", '?', ""},
+	{0XCFCD367C, nullptr,                            "sceG729EncodeInit",         '?', ""},
+	{0XDB7259D5, nullptr,                            "sceG729EncodeCore",         '?', ""},
 };
 
 void Register_sceG729()

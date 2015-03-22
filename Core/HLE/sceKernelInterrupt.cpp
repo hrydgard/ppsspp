@@ -76,7 +76,7 @@ static bool inInterrupt;
 static SceUID threadBeforeInterrupt;
 
 
-static void sceKernelCpuSuspendIntr()
+static int sceKernelCpuSuspendIntr()
 {
 	VERBOSE_LOG(SCEINTC, "sceKernelCpuSuspendIntr");
 	int returnValue;
@@ -90,7 +90,7 @@ static void sceKernelCpuSuspendIntr()
 		returnValue = 0;
 	}
 	hleEatCycles(15);
-	RETURN(returnValue);
+	return returnValue;
 }
 
 static void sceKernelCpuResumeIntr(u32 enable)
@@ -109,11 +109,11 @@ static void sceKernelCpuResumeIntr(u32 enable)
 	hleEatCycles(15);
 }
 
-static void sceKernelIsCpuIntrEnable()
+static int sceKernelIsCpuIntrEnable()
 {
 	u32 retVal = __InterruptsEnabled(); 
 	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrEnable()", retVal);
-	RETURN(retVal);
+	return retVal;
 }
 
 static int sceKernelIsCpuIntrSuspended(int flag)
@@ -594,10 +594,10 @@ struct PspIntrHandlerOptionParam {
 	u32 max_clock_hi;      //+34
 };  //=38
 
-static void QueryIntrHandlerInfo()
+static int QueryIntrHandlerInfo()
 {
 	ERROR_LOG_REPORT(SCEINTC, "QueryIntrHandlerInfo()");
-	RETURN(0);
+	return 0;
 }
 
 static u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
@@ -660,22 +660,22 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 
 const HLEFunction Kernel_Library[] =
 {
-	{0x092968F4,sceKernelCpuSuspendIntr, "sceKernelCpuSuspendIntr"},
-	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
-	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
-	{0x47a0b729,WrapI_I<sceKernelIsCpuIntrSuspended>, "sceKernelIsCpuIntrSuspended"}, //flags
-	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"},
-	{0xa089eca4,WrapU_UUU<sceKernelMemset>, "sceKernelMemset"},
-	{0xDC692EE3,WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
-	{0x37431849,WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
-	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
-	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
-	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
-	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
-	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},
-	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
-	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sceKernelMemcpy"},
-	{0xfa835cde,WrapI_I<sceKernelGetTlsAddr>, "sceKernelGetTlsAddr"},
+	{0x092968F4, &WrapI_V<sceKernelCpuSuspendIntr>,            "sceKernelCpuSuspendIntr",             'i', ""     },
+	{0X5F10D406, &WrapV_U<sceKernelCpuResumeIntr>,             "sceKernelCpuResumeIntr",              'v', "x"    },
+	{0X3B84732D, &WrapV_U<sceKernelCpuResumeIntrWithSync>,     "sceKernelCpuResumeIntrWithSync",      'v', "x"    },
+	{0X47A0B729, &WrapI_I<sceKernelIsCpuIntrSuspended>,        "sceKernelIsCpuIntrSuspended",         'i', "i"    },
+	{0xb55249d2, &WrapI_V<sceKernelIsCpuIntrEnable>,           "sceKernelIsCpuIntrEnable",            'i', "",    },
+	{0XA089ECA4, &WrapU_UUU<sceKernelMemset>,                  "sceKernelMemset",                     'x', "xxx"  },
+	{0XDC692EE3, &WrapI_UI<sceKernelTryLockLwMutex>,           "sceKernelTryLockLwMutex",             'i', "xi"   },
+	{0X37431849, &WrapI_UI<sceKernelTryLockLwMutex_600>,       "sceKernelTryLockLwMutex_600",         'i', "xi"   },
+	{0XBEA46419, &WrapI_UIU<sceKernelLockLwMutex>,             "sceKernelLockLwMutex",                'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X1FC64E09, &WrapI_UIU<sceKernelLockLwMutexCB>,           "sceKernelLockLwMutexCB",              'i', "xix", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
+	{0X15B6446B, &WrapI_UI<sceKernelUnlockLwMutex>,            "sceKernelUnlockLwMutex",              'i', "xi"   },
+	{0XC1734599, &WrapI_UU<sceKernelReferLwMutexStatus>,       "sceKernelReferLwMutexStatus",         'i', "xx"   },
+	{0X293B45B8, &WrapI_V<sceKernelGetThreadId>,               "sceKernelGetThreadId",                'i', ""     },
+	{0XD13BDE95, &WrapI_V<sceKernelCheckThreadStack>,          "sceKernelCheckThreadStack",           'i', ""     },
+	{0X1839852A, &WrapU_UUU<sceKernelMemcpy>,                  "sceKernelMemcpy",                     'x', "xxx"  },
+	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"    },
 };
 
 static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
@@ -726,14 +726,14 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 
 const HLEFunction SysclibForKernel[] =
 {
-	{0xAB7592FF, WrapU_UUU<sysclib_memcpy>, "memcpy"},
-	{0x476FD94A, WrapU_UU<sysclib_strcat>, "strcat"},
-	{0xC0AB8932, WrapI_UU<sysclib_strcmp>, "strcmp"},
-	{0xEC6F1CF2, WrapU_UU<sysclib_strcpy>, "strcpy"},
-	{0x52DF196C, WrapU_U<sysclib_strlen>, "strlen"},
-	{0x81D0D1F7, WrapI_UUU<sysclib_memcmp>, "memcmp"},
-	{0x7661e728, WrapI_UU<sysclib_sprintf>, "sprintf"},
-	{0x10F3BB61, WrapU_UII<sysclib_memset>, "memset" },
+	{0XAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx"  },
+	{0X476FD94A, &WrapU_UU<sysclib_strcat>,                    "strcat",                              'x', "xx"   },
+	{0XC0AB8932, &WrapI_UU<sysclib_strcmp>,                    "strcmp",                              'i', "xx"   },
+	{0XEC6F1CF2, &WrapU_UU<sysclib_strcpy>,                    "strcpy",                              'x', "xx"   },
+	{0X52DF196C, &WrapU_U<sysclib_strlen>,                     "strlen",                              'x', "x"    },
+	{0X81D0D1F7, &WrapI_UUU<sysclib_memcmp>,                   "memcmp",                              'i', "xxx"  },
+	{0X7661E728, &WrapI_UU<sysclib_sprintf>,                   "sprintf",                             'i', "xx"   },
+	{0X10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii"  },
 };
 
 void Register_Kernel_Library()
@@ -748,15 +748,15 @@ void Register_SysclibForKernel()
 
 const HLEFunction InterruptManager[] =
 {
-	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
-	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
-	{0xFB8E22EC, WrapU_UU<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
-	{0x8A389411, WrapU_UU<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
-	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},
-	{0x7860E0DC, 0, "sceKernelResumeSubIntr"},
-	{0xFC4374B8, 0, "sceKernelIsSubInterruptOccurred"},
-	{0xD2E8363F, QueryIntrHandlerInfo, "QueryIntrHandlerInfo"},	// No sce prefix for some reason
-	{0xEEE43F47, 0, "sceKernelRegisterUserSpaceIntrStack"},
+	{0XCA04A2B9, &WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler",     'x', "xxxx" },
+	{0XD61E6961, &WrapU_UU<sceKernelReleaseSubIntrHandler>,    "sceKernelReleaseSubIntrHandler",      'x', "xx"   },
+	{0XFB8E22EC, &WrapU_UU<sceKernelEnableSubIntr>,            "sceKernelEnableSubIntr",              'x', "xx"   },
+	{0X8A389411, &WrapU_UU<sceKernelDisableSubIntr>,           "sceKernelDisableSubIntr",             'x', "xx"   },
+	{0X5CB5A78B, nullptr,                                      "sceKernelSuspendSubIntr",             '?', ""     },
+	{0X7860E0DC, nullptr,                                      "sceKernelResumeSubIntr",              '?', ""     },
+	{0XFC4374B8, nullptr,                                      "sceKernelIsSubInterruptOccurred",     '?', ""     },
+	{0xD2E8363F, &WrapI_V<QueryIntrHandlerInfo>,               "QueryIntrHandlerInfo",                'i', ""     },  // No sce prefix for some reason
+	{0XEEE43F47, nullptr,                                      "sceKernelRegisterUserSpaceIntrStack", '?', ""     },
 };
 
 

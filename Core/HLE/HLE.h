@@ -33,15 +33,35 @@ enum {
 	HLE_NOT_IN_INTERRUPT = 1 << 8,
 	// Don't allow the call if dispatch or interrupts are disabled.
 	HLE_NOT_DISPATCH_SUSPENDED = 1 << 9,
+	// Indicates the call should write zeros to the stack (stackBytesToClear in the table.)
 	HLE_CLEAR_STACK_BYTES = 1 << 10
 };
 
 struct HLEFunction
 {
+	// This is the id, or nid, of the function (which is how it's linked.)
+	// Generally, the truncated least significant 32 bits of a SHA-1 hash.
 	u32 ID;
+	// A pointer to the C++ handler; see FunctionWrappers.h for helpers.
 	HLEFunc func;
+	// Name of the function.  Often the same as func, this should match the PSP func's name and hash.
 	const char *name;
+	// The return type, see argmask for the possible values.
+	// An additional value is possible - 'v', which means void (no return type.)
+	char retmask;
+	// The argument types, in order.  Use the following characters:
+	//   - x: for u32 (shown as hex in log)
+	//   - i: for int/s32
+	//   - f: for float
+	//   - X: uppercase, for u64
+	//   - I: uppercase, for s64
+	//   - F: uppercase, for double
+	//   - s: a string pointer (const char *, utf-8)
+	//   - p: a pointer (e.g. u32 *, shown with value in log)
+	const char *argmask;
+	// Flags (see above, e.g. HLE_NOT_IN_INTERRUPT.)
 	u32 flags;
+	// See HLE_CLEAR_STACK_BYTES.
 	u32 stackBytesToClear;
 };
 

@@ -37,7 +37,7 @@ static int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
 
 const HLEFunction sceOpenPSID[] = 
 {
-	{0xc69bebce, WrapI_U<sceOpenPSIDGetOpenPSID>, "sceOpenPSIDGetOpenPSID"},
+	{0XC69BEBCE, &WrapI_U<sceOpenPSIDGetOpenPSID>,   "sceOpenPSIDGetOpenPSID", 'i', "x"},
 };
 
 void Register_sceOpenPSID()

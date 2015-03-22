@@ -225,16 +225,16 @@ static u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 
 static const HLEFunction sceHeap[] = 
 {
-	{0x0E875980,WrapI_UUI<sceHeapReallocHeapMemory>,"sceHeapReallocHeapMemory"},
-	{0x1C84B58D,WrapI_UUIU<sceHeapReallocHeapMemoryWithOption>,"sceHeapReallocHeapMemoryWithOption"},
-	{0x2ABADC63,WrapI_UU<sceHeapFreeHeapMemory>,"sceHeapFreeHeapMemory"},
-	{0x2A0C2009,WrapI_UU<sceHeapGetMallinfo>,"sceHeapGetMallinfo"},
-	{0x2B7299D8,WrapU_UUU<sceHeapAllocHeapMemoryWithOption>,"sceHeapAllocHeapMemoryWithOption"},
-	{0x4929B40D,WrapI_U<sceHeapGetTotalFreeSize>,"sceHeapGetTotalFreeSize"},
-	{0x7012BBDD,WrapI_UU<sceHeapIsAllocatedHeapMemory>,"sceHeapIsAllocatedHeapMemory"},
-	{0x70210B73,WrapI_U<sceHeapDeleteHeap>,"sceHeapDeleteHeap"},
-	{0x7DE281C2,WrapI_CUIU<sceHeapCreateHeap>,"sceHeapCreateHeap"},
-	{0xA8E102A0,WrapU_UU<sceHeapAllocHeapMemory>,"sceHeapAllocHeapMemory"},
+	{0X0E875980, &WrapI_UUI<sceHeapReallocHeapMemory>,            "sceHeapReallocHeapMemory",           'i', "xxi" },
+	{0X1C84B58D, &WrapI_UUIU<sceHeapReallocHeapMemoryWithOption>, "sceHeapReallocHeapMemoryWithOption", 'i', "xxix"},
+	{0X2ABADC63, &WrapI_UU<sceHeapFreeHeapMemory>,                "sceHeapFreeHeapMemory",              'i', "xx"  },
+	{0X2A0C2009, &WrapI_UU<sceHeapGetMallinfo>,                   "sceHeapGetMallinfo",                 'i', "xx"  },
+	{0X2B7299D8, &WrapU_UUU<sceHeapAllocHeapMemoryWithOption>,    "sceHeapAllocHeapMemoryWithOption",   'x', "xxx" },
+	{0X4929B40D, &WrapI_U<sceHeapGetTotalFreeSize>,               "sceHeapGetTotalFreeSize",            'i', "x"   },
+	{0X7012BBDD, &WrapI_UU<sceHeapIsAllocatedHeapMemory>,         "sceHeapIsAllocatedHeapMemory",       'i', "xx"  },
+	{0X70210B73, &WrapI_U<sceHeapDeleteHeap>,                     "sceHeapDeleteHeap",                  'i', "x"   },
+	{0X7DE281C2, &WrapI_CUIU<sceHeapCreateHeap>,                  "sceHeapCreateHeap",                  'i', "sxix"},
+	{0XA8E102A0, &WrapU_UU<sceHeapAllocHeapMemory>,               "sceHeapAllocHeapMemory",             'x', "xx"  },
 };
 
 void Register_sceHeap()

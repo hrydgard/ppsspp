@@ -149,13 +149,13 @@ static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 }
 
 const HLEFunction sceAudiocodec[] = {
-	{ 0x70A703F8, WrapI_UI<sceAudiocodecDecode>, "sceAudiocodecDecode" },
-	{ 0x5B37EB1D, WrapI_UI<sceAudiocodecInit>, "sceAudiocodecInit" },
-	{ 0x8ACA11D5, WrapI_UI<sceAudiocodecGetInfo>, "sceAudiocodecGetInfo" },
-	{ 0x3A20A200, WrapI_UI<sceAudiocodecGetEDRAM>, "sceAudiocodecGetEDRAM" },
-	{ 0x29681260, WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM" },
-	{ 0x9D3F790C, WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem" },
-	{ 0x59176a0f, 0, "sceAudiocodec_59176A0F" },
+	{0X70A703F8, &WrapI_UI<sceAudiocodecDecode>,       "sceAudiocodecDecode",       'i', "xi"},
+	{0X5B37EB1D, &WrapI_UI<sceAudiocodecInit>,         "sceAudiocodecInit",         'i', "xi"},
+	{0X8ACA11D5, &WrapI_UI<sceAudiocodecGetInfo>,      "sceAudiocodecGetInfo",      'i', "xi"},
+	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,     "sceAudiocodecGetEDRAM",     'i', "xi"},
+	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM", 'i', "xi"},
+	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem", 'i', "xi"},
+	{0X59176A0F, nullptr,                              "sceAudiocodec_59176A0F",    '?', ""  },
 };
 
 void Register_sceAudiocodec()

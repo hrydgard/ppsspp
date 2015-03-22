@@ -2383,43 +2383,43 @@ KernelObject *__KernelDirListingObject() {
 }
 
 const HLEFunction IoFileMgrForUser[] = {
-	{ 0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen" },
-	{ 0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread" },
-	{ 0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose" },
-	{ 0xe95a012b, &WrapU_UUUUUU<sceIoIoctlAsync>, "sceIoIoctlAsync" },
-	{ 0x63632449, &WrapU_UUUUUU<sceIoIoctl>, "sceIoIoctl" },
-	{ 0xace946e8, &WrapU_CU<sceIoGetstat>, "sceIoGetstat" },
-	{ 0xb8a740f4, &WrapU_CUU<sceIoChstat>, "sceIoChstat" },
-	{ 0x55f4717d, &WrapU_C<sceIoChdir>, "sceIoChdir" },
-	{ 0x08bd7374, &WrapU_I<sceIoGetDevType>, "sceIoGetDevType" },
-	{ 0xB2A628C1, &WrapU_UUUIUI<sceIoAssign>, "sceIoAssign" },
-	{ 0xe8bc6571, &WrapU_I<sceIoCancel>, "sceIoCancel" },
-	{ 0xb293727f, &WrapI_II<sceIoChangeAsyncPriority>, "sceIoChangeAsyncPriority" },
-	{ 0x810C4BC3, &WrapU_I<sceIoClose>, "sceIoClose" }, //(int fd);
-	{ 0xff5940b6, &WrapI_I<sceIoCloseAsync>, "sceIoCloseAsync" },
-	{ 0x54F5FB11, &WrapU_CIUIUI<sceIoDevctl>, "sceIoDevctl" }, //(const char *name int cmd, void *arg, size_t arglen, void *buf, size_t *buflen);
-	{ 0xcb05f8d6, &WrapU_IUU<sceIoGetAsyncStat>, "sceIoGetAsyncStat" },
-	{ 0x27EB27B8, &WrapI64_II64I<sceIoLseek>, "sceIoLseek" }, //(int fd, int offset, int whence);
-	{ 0x68963324, &WrapU_III<sceIoLseek32>, "sceIoLseek32" },
-	{ 0x1b385d8f, &WrapU_III<sceIoLseek32Async>, "sceIoLseek32Async" },
-	{ 0x71b19e77, &WrapU_II64I<sceIoLseekAsync>, "sceIoLseekAsync" },
-	{ 0x109F50BC, &WrapU_CII<sceIoOpen>, "sceIoOpen" }, //(const char* file, int mode);
-	{ 0x89AA9906, &WrapU_CII<sceIoOpenAsync>, "sceIoOpenAsync" },
-	{ 0x06A70004, &WrapU_CI<sceIoMkdir>, "sceIoMkdir" }, //(const char *dir, int mode);
-	{ 0x3251ea56, &WrapU_IU<sceIoPollAsync>, "sceIoPollAsync" },
-	{ 0x6A638D83, &WrapU_IUI<sceIoRead>, "sceIoRead" }, //(int fd, void *data, int size);
-	{ 0xa0b5a7c2, &WrapU_IUI<sceIoReadAsync>, "sceIoReadAsync" },
-	{ 0xF27A9C51, &WrapU_C<sceIoRemove>, "sceIoRemove" }, //(const char *file);
-	{ 0x779103A0, &WrapU_CC<sceIoRename>, "sceIoRename" }, //(const char *oldname, const char *newname);
-	{ 0x1117C65F, &WrapU_C<sceIoRmdir>, "sceIoRmdir" }, //(const char *dir);
-	{ 0xA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>, "sceIoSetAsyncCallback" },
-	{ 0xab96437f, &WrapU_CI<sceIoSync>, "sceIoSync" },
-	{ 0x6d08a871, &WrapU_C<sceIoUnassign>, "sceIoUnassign" },
-	{ 0x42EC03AC, &WrapU_IUI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
-	{ 0x0facab19, &WrapU_IUI<sceIoWriteAsync>, "sceIoWriteAsync" },
-	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
-	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
-	{ 0x5C2BE2CC, &WrapU_UIU<sceIoGetFdList>, "sceIoGetFdList"},
+	{0XB29DDF9C, &WrapU_C<sceIoDopen>,                  "sceIoDopen",                  'x', "s"     },
+	{0XE3EB004C, &WrapU_IU<sceIoDread>,                 "sceIoDread",                  'x', "ix"    },
+	{0XEB092469, &WrapU_I<sceIoDclose>,                 "sceIoDclose",                 'x', "i"     },
+	{0XE95A012B, &WrapU_UUUUUU<sceIoIoctlAsync>,        "sceIoIoctlAsync",             'x', "xxxxxx"},
+	{0X63632449, &WrapU_UUUUUU<sceIoIoctl>,             "sceIoIoctl",                  'x', "xxxxxx"},
+	{0XACE946E8, &WrapU_CU<sceIoGetstat>,               "sceIoGetstat",                'x', "sx"    },
+	{0XB8A740F4, &WrapU_CUU<sceIoChstat>,               "sceIoChstat",                 'x', "sxx"   },
+	{0X55F4717D, &WrapU_C<sceIoChdir>,                  "sceIoChdir",                  'x', "s"     },
+	{0X08BD7374, &WrapU_I<sceIoGetDevType>,             "sceIoGetDevType",             'x', "i"     },
+	{0XB2A628C1, &WrapU_UUUIUI<sceIoAssign>,            "sceIoAssign",                 'x', "xxxixi"},
+	{0XE8BC6571, &WrapU_I<sceIoCancel>,                 "sceIoCancel",                 'x', "i"     },
+	{0XB293727F, &WrapI_II<sceIoChangeAsyncPriority>,   "sceIoChangeAsyncPriority",    'i', "ii"    },
+	{0X810C4BC3, &WrapU_I<sceIoClose>,                  "sceIoClose",                  'x', "i"     },
+	{0XFF5940B6, &WrapI_I<sceIoCloseAsync>,             "sceIoCloseAsync",             'i', "i"     },
+	{0X54F5FB11, &WrapU_CIUIUI<sceIoDevctl>,            "sceIoDevctl",                 'x', "sixixi"},
+	{0XCB05F8D6, &WrapU_IUU<sceIoGetAsyncStat>,         "sceIoGetAsyncStat",           'x', "ixx"   },
+	{0X27EB27B8, &WrapI64_II64I<sceIoLseek>,            "sceIoLseek",                  'I', "iIi"   },
+	{0X68963324, &WrapU_III<sceIoLseek32>,              "sceIoLseek32",                'x', "iii"   },
+	{0X1B385D8F, &WrapU_III<sceIoLseek32Async>,         "sceIoLseek32Async",           'x', "iii"   },
+	{0X71B19E77, &WrapU_II64I<sceIoLseekAsync>,         "sceIoLseekAsync",             'x', "iIi"   },
+	{0X109F50BC, &WrapU_CII<sceIoOpen>,                 "sceIoOpen",                   'x', "sii"   },
+	{0X89AA9906, &WrapU_CII<sceIoOpenAsync>,            "sceIoOpenAsync",              'x', "sii"   },
+	{0X06A70004, &WrapU_CI<sceIoMkdir>,                 "sceIoMkdir",                  'x', "si"    },
+	{0X3251EA56, &WrapU_IU<sceIoPollAsync>,             "sceIoPollAsync",              'x', "ix"    },
+	{0X6A638D83, &WrapU_IUI<sceIoRead>,                 "sceIoRead",                   'x', "ixi"   },
+	{0XA0B5A7C2, &WrapU_IUI<sceIoReadAsync>,            "sceIoReadAsync",              'x', "ixi"   },
+	{0XF27A9C51, &WrapU_C<sceIoRemove>,                 "sceIoRemove",                 'x', "s"     },
+	{0X779103A0, &WrapU_CC<sceIoRename>,                "sceIoRename",                 'x', "ss"    },
+	{0X1117C65F, &WrapU_C<sceIoRmdir>,                  "sceIoRmdir",                  'x', "s"     },
+	{0XA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>,     "sceIoSetAsyncCallback",       'x', "ixx"   },
+	{0XAB96437F, &WrapU_CI<sceIoSync>,                  "sceIoSync",                   'x', "si"    },
+	{0X6D08A871, &WrapU_C<sceIoUnassign>,               "sceIoUnassign",               'x', "s"     },
+	{0X42EC03AC, &WrapU_IUI<sceIoWrite>,                "sceIoWrite",                  'x', "ixi"   },
+	{0X0FACAB19, &WrapU_IUI<sceIoWriteAsync>,           "sceIoWriteAsync",             'x', "ixi"   },
+	{0X35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "ix"    },
+	{0XE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "ix"    },
+	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'x', "xix"   },
 };
 
 void Register_IoFileMgrForUser() {
@@ -2428,17 +2428,17 @@ void Register_IoFileMgrForUser() {
 
 
 const HLEFunction StdioForUser[] = {
-	{ 0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin" },
-	{ 0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout" },
-	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" },
-	{ 0x432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe" },
-	{ 0x6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe" },
-	{ 0xa46785c9, 0, "sceKernelStdioSendChar" },
-	{ 0x0cbb0571, 0, "sceKernelStdioLseek" },
-	{ 0x3054d478, 0, "sceKernelStdioRead" },
-	{ 0xa3b931db, 0, "sceKernelStdioWrite" },
-	{ 0x924aba61, 0, "sceKernelStdioOpen" },
-	{ 0x9d061c19, 0, "sceKernelStdioClose" },
+	{0X172D316E, &WrapU_V<sceKernelStdin>,              "sceKernelStdin",              'x', ""      },
+	{0XA6BAB2E9, &WrapU_V<sceKernelStdout>,             "sceKernelStdout",             'x', ""      },
+	{0XF78BA90A, &WrapU_V<sceKernelStderr>,             "sceKernelStderr",             'x', ""      },
+	{0X432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe", 'x', "x"     },
+	{0X6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe", 'x', "x"     },
+	{0XA46785C9, nullptr,                               "sceKernelStdioSendChar",      '?', ""      },
+	{0X0CBB0571, nullptr,                               "sceKernelStdioLseek",         '?', ""      },
+	{0X3054D478, nullptr,                               "sceKernelStdioRead",          '?', ""      },
+	{0XA3B931DB, nullptr,                               "sceKernelStdioWrite",         '?', ""      },
+	{0X924ABA61, nullptr,                               "sceKernelStdioOpen",          '?', ""      },
+	{0X9D061C19, nullptr,                               "sceKernelStdioClose",         '?', ""      },
 };
 
 void Register_StdioForUser() {

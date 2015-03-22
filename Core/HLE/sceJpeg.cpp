@@ -350,20 +350,20 @@ static int sceJpegDecompressAllImage()
 
 const HLEFunction sceJpeg[] =
 {
-	{0x0425B986, WrapI_V<sceJpegDecompressAllImage>, "sceJpegDecompressAllImage"},
-	{0x04B5AE02, WrapI_UUII<sceJpegMJpegCsc>, "sceJpegMJpegCsc"},
-	{0x04B93CEF, WrapI_UIUI<sceJpegDecodeMJpeg>, "sceJpegDecodeMJpeg"},
-	{0x227662D7, WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively"},
-	{0x48B602B7, WrapI_V<sceJpegDeleteMJpeg>, "sceJpegDeleteMJpeg"},
-	{0x64B6F978, WrapI_UIUI<sceJpegDecodeMJpegSuccessively>, "sceJpegDecodeMJpegSuccessively"},
-	{0x67F0ED84, WrapI_UUIII<sceJpegCsc>, "sceJpegCsc"},
-	{0x7D2F3D7F, WrapI_V<sceJpegFinishMJpeg>, "sceJpegFinishMJpeg"},
-	{0x8F2BB012, WrapI_UIUI<sceJpegGetOutputInfo>, "sceJpegGetOutputInfo"},
-	{0x91EED83C, WrapI_UIUII<sceJpegDecodeMJpegYCbCr>, "sceJpegDecodeMJpegYCbCr"},
-	{0x9B36444C, WrapI_V<sceJpeg_9B36444C>, "sceJpeg_9B36444C"},
-	{0x9D47469C, WrapI_II<sceJpegCreateMJpeg>, "sceJpegCreateMJpeg"},
-	{0xAC9E70E6, WrapI_V<sceJpegInitMJpeg>, "sceJpegInitMJpeg"},
-	{0xa06a75c4, WrapI_V<sceJpegMJpegCscWithColorOption>, "sceJpegMJpegCscWithColorOption"},
+	{0X0425B986, &WrapI_V<sceJpegDecompressAllImage>,               "sceJpegDecompressAllImage",           'i', ""     },
+	{0X04B5AE02, &WrapI_UUII<sceJpegMJpegCsc>,                      "sceJpegMJpegCsc",                     'i', "xxii" },
+	{0X04B93CEF, &WrapI_UIUI<sceJpegDecodeMJpeg>,                   "sceJpegDecodeMJpeg",                  'i', "xixi" },
+	{0X227662D7, &WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively", 'i', "xixii"},
+	{0X48B602B7, &WrapI_V<sceJpegDeleteMJpeg>,                      "sceJpegDeleteMJpeg",                  'i', ""     },
+	{0X64B6F978, &WrapI_UIUI<sceJpegDecodeMJpegSuccessively>,       "sceJpegDecodeMJpegSuccessively",      'i', "xixi" },
+	{0X67F0ED84, &WrapI_UUIII<sceJpegCsc>,                          "sceJpegCsc",                          'i', "xxiii"},
+	{0X7D2F3D7F, &WrapI_V<sceJpegFinishMJpeg>,                      "sceJpegFinishMJpeg",                  'i', ""     },
+	{0X8F2BB012, &WrapI_UIUI<sceJpegGetOutputInfo>,                 "sceJpegGetOutputInfo",                'i', "xixi" },
+	{0X91EED83C, &WrapI_UIUII<sceJpegDecodeMJpegYCbCr>,             "sceJpegDecodeMJpegYCbCr",             'i', "xixii"},
+	{0X9B36444C, &WrapI_V<sceJpeg_9B36444C>,                        "sceJpeg_9B36444C",                    'i', ""     },
+	{0X9D47469C, &WrapI_II<sceJpegCreateMJpeg>,                     "sceJpegCreateMJpeg",                  'i', "ii"   },
+	{0XAC9E70E6, &WrapI_V<sceJpegInitMJpeg>,                        "sceJpegInitMJpeg",                    'i', ""     },
+	{0XA06A75C4, &WrapI_V<sceJpegMJpegCscWithColorOption>,          "sceJpegMJpegCscWithColorOption",      'i', ""     },
 };
 
 void Register_sceJpeg()

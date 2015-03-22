@@ -45,10 +45,10 @@ static u32 sceGameUpdateAbort()
 
 const HLEFunction sceGameUpdate[] =
 {
-	{0xCBE69FB3, WrapU_V<sceGameUpdateInit>, "sceGameUpdateInit"},
-	{0xBB4B68DE, WrapU_V<sceGameUpdateTerm>, "sceGameUpdateTerm"},
-	{0x596AD78C, WrapU_V<sceGameUpdateRun>, "sceGameUpdateRun"},
-	{0x5F5D98A6, WrapU_V<sceGameUpdateAbort>, "sceGameUpdateAbort"},
+	{0XCBE69FB3, &WrapU_V<sceGameUpdateInit>,        "sceGameUpdateInit",  'x', ""},
+	{0XBB4B68DE, &WrapU_V<sceGameUpdateTerm>,        "sceGameUpdateTerm",  'x', ""},
+	{0X596AD78C, &WrapU_V<sceGameUpdateRun>,         "sceGameUpdateRun",   'x', ""},
+	{0X5F5D98A6, &WrapU_V<sceGameUpdateAbort>,       "sceGameUpdateAbort", 'x', ""},
 };
 
 void Register_sceGameUpdate()

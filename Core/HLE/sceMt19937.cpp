@@ -44,8 +44,8 @@ static u32 sceMt19937UInt(u32 mt19937Addr)
 
 const HLEFunction sceMt19937[] =
 {
-	{0xECF5D379, WrapU_UU<sceMt19937Init>, "sceMt19937Init"},
-	{0xF40C98E6, WrapU_U<sceMt19937UInt>, "sceMt19937UInt"},
+	{0XECF5D379, &WrapU_UU<sceMt19937Init>,          "sceMt19937Init", 'x', "xx"},
+	{0XF40C98E6, &WrapU_U<sceMt19937UInt>,           "sceMt19937UInt", 'x', "x" },
 };
 
 void Register_sceMt19937()

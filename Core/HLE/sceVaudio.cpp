@@ -92,14 +92,14 @@ static u32 sceVaudioSetAlcMode(int alcMode) {
 }
 
 const HLEFunction sceVaudio[] = {
-	{0x8986295e, WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlocking"},
-	{0x03b6807d, WrapU_III<sceVaudioChReserve>, "sceVaudioChReserve"},
-	{0x67585dfd, WrapU_V<sceVaudioChRelease>, "sceVaudioChRelease"},
-	{0x346FBE94, WrapU_II<sceVaudioSetEffectType>, "sceVaudioSetEffectType"},
-	{0xCBD4AC51, WrapU_I<sceVaudioSetAlcMode>, "sceVaudioSetAlcMode"},
-	{0x504e4745, 0, "sceVaudio_504E4745"},
-	{0x27acc20b, 0, "sceVaudioChReserveBuffering"},
-	{0xe8e78dc8, 0, "sceVaudio_E8E78DC8"},
+	{0X8986295E, &WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlocking",     'x', "ix" },
+	{0X03B6807D, &WrapU_III<sceVaudioChReserve>,     "sceVaudioChReserve",          'x', "iii"},
+	{0X67585DFD, &WrapU_V<sceVaudioChRelease>,       "sceVaudioChRelease",          'x', ""   },
+	{0X346FBE94, &WrapU_II<sceVaudioSetEffectType>,  "sceVaudioSetEffectType",      'x', "ii" },
+	{0XCBD4AC51, &WrapU_I<sceVaudioSetAlcMode>,      "sceVaudioSetAlcMode",         'x', "i"  },
+	{0X504E4745, nullptr,                            "sceVaudio_504E4745",          '?', ""   },
+	{0X27ACC20B, nullptr,                            "sceVaudioChReserveBuffering", '?', ""   },
+	{0XE8E78DC8, nullptr,                            "sceVaudio_E8E78DC8",          '?', ""   },
 };
 
 void Register_sceVaudio() {
