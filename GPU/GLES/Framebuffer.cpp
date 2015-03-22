@@ -1861,9 +1861,8 @@ void FramebufferManager::DecimateFBOs() {
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
 		}
-
-		// Let's also "decimate" the usageFlags.
-		UpdateFramebufUsage(vfb);
+		else
+			UpdateFramebufUsage(vfb);
 	}
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
