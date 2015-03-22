@@ -1439,7 +1439,7 @@ namespace MIPSComp
 		}
 
 		gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY);
-		ANDI2R(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), ~affected_bits);
+		ANDI2R(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), ~affected_bits, SCRATCH2);
 		ORR(gpr.R(MIPS_REG_VFPUCC), gpr.R(MIPS_REG_VFPUCC), SCRATCH1);
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();

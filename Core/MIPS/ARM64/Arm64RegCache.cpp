@@ -40,6 +40,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;
+		ar[i].pointerified = false;
 	}
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		mr[i].loc = ML_MEM;
@@ -120,6 +121,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 		}
 	}
 	ar[reg].mipsReg = mipsReg;
+	ar[reg].pointerified = false;
 	mr[mipsReg].reg = reg;
 }
 
@@ -167,6 +169,8 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 			// Mapping dirty means the old imm value is invalid.
 			mr[mipsReg].loc = ML_ARMREG;
 			ar[armReg].isDirty = true;
+			// If reg is written to, pointerification is lost.
+			ar[armReg].pointerified = false;
 		}
 		return (ARM64Reg)mr[mipsReg].reg;
 	}
@@ -210,6 +214,24 @@ allocate:
 	// Uh oh, we have all them spilllocked....
 	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
+}
+
+Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
+	ARM64Reg retval = INVALID_REG;
+	if (mr[reg].loc != ML_ARMREG) {
+		retval = MapReg(reg);
+	}
+
+	if (mr[reg].loc == ML_ARMREG) {
+		int a = DecodeReg(mr[reg].reg);
+		if (!ar[a].pointerified) {
+			emit_->MOVK(ARM64Reg(X0 + a), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			ar[a].pointerified = true;
+		}
+	} else {
+		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
+	}
+	return retval;
 }
 
 void Arm64RegCache::MapIn(MIPSGPReg rs) {
@@ -285,6 +307,7 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 	}
 	ar[r].isDirty = false;
 	ar[r].mipsReg = MIPS_REG_INVALID;
+	ar[r].pointerified = false;
 }
 
 void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
@@ -293,6 +316,7 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		ARM64Reg armReg = mr[mipsReg].reg;
 		ar[armReg].isDirty = false;
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
+		ar[armReg].pointerified = false;
 		mr[mipsReg].reg = INVALID_REG;
 		mr[mipsReg].loc = ML_MEM;
 		mr[mipsReg].imm = 0;
@@ -420,6 +444,21 @@ void Arm64RegCache::ReleaseSpillLock(MIPSGPReg reg) {
 ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		return (ARM64Reg)mr[mipsReg].reg;
+	} else {
+		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		return INVALID_REG;  // BAAAD
+	}
+}
+
+ARM64Reg Arm64RegCache::RPtr(MIPSGPReg mipsReg) {
+	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
+		int a = mr[mipsReg].reg;
+		if (ar[a].pointerified) {
+			return (ARM64Reg)mr[mipsReg].reg;
+		} else {
+			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");
+			return INVALID_REG;
+		}
 	} else {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD

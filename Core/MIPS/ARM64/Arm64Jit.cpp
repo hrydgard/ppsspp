@@ -308,7 +308,6 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b)
 	}
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
-
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== ARM (%d instructions -> %d bytes) ===============", js.numInstructions, b->codeSize);
 		DisassembleArm64Print(b->normalEntry, GetCodePtr() - b->normalEntry);

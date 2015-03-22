@@ -71,6 +71,7 @@ typedef int MIPSReg;
 struct RegARM {
 	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
+	bool pointerified;  // Has used movk to move the memory base into the top part of the reg. Note - still usable as 32-bit reg!
 };
 
 struct RegMIPS {
@@ -110,6 +111,7 @@ public:
 
 	// Returns an ARM register containing the requested MIPS register.
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
+	Arm64Gen::ARM64Reg MapRegAsPointer(MIPSGPReg reg);
 
 	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
@@ -127,6 +129,7 @@ public:
 	void DiscardR(MIPSGPReg r);
 
 	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	Arm64Gen::ARM64Reg RPtr(MIPSGPReg preg); // Returns a cached register, if it has been mapped as a pointer
 
 	void SetEmitter(Arm64Gen::ARM64XEmitter *emitter) { emit_ = emitter; }
 
