@@ -851,11 +851,93 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vi2f(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		const float mult = 1.0f / (float)(1UL << imm);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (mult != 1.0f)
+			fp.MOVI2F(S0, mult, SCRATCH1);
+
+		// TODO: Use the SCVTF with builtin scaling where possible.
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			fp.SCVTF(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+			if (mult != 1.0f)
+				fp.FMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vh2f(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		u8 sregs[4], dregs[4];
+		VectorSize sz = GetVecSize(op);
+		VectorSize outSz;
+
+		switch (sz) {
+		case V_Single:
+			outSz = V_Pair;
+			break;
+		case V_Pair:
+			outSz = V_Quad;
+			break;
+		default:
+			DISABLE;
+		}
+
+		int n = GetNumVectorElements(sz);
+		int nOut = n * 2;
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outSz, _VD);
+
+		// Take the single registers and combine them to a D register.
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
+		}
+		// Convert four 16-bit floats in D0 to four 32-bit floats in Q0 (even if we only have two...)
+		fp.FCVTL(32, Q0, D0);
+		// Split apart again.
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vf2i(MIPSOpcode op) {
@@ -1679,9 +1761,6 @@ namespace MIPSComp
 		fp.MOVI2F(S0, 1.0f, SCRATCH1);
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			// Let's do it integer registers for now. NEON later.
-			// There's gotta be a shorter way, can't find one though that takes
-			// care of NaNs like the interpreter (ignores them and just operates on the bits).
 			fp.FSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 		}
 

@@ -2084,14 +2084,13 @@ void ARM64FloatEmitter::EmitCopy(bool Q, u32 op, u32 imm5, u32 imm4, ARM64Reg Rd
 	        (1 << 10) | (Rn << 5) | Rd);
 }
 
-void ARM64FloatEmitter::Emit2RegMisc(bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::Emit2RegMisc(bool Q, bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)
 {
 	_assert_msg_(DYNA_REC, !IsSingle(Rd), "%s doesn't support singles!", __FUNCTION__);
-	bool quad = IsQuad(Rd);
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 
-	Write32((quad << 30) | (U << 29) | (0x71 << 21) | (size << 22) | \
+	Write32((Q << 30) | (U << 29) | (0x71 << 21) | (size << 22) | \
 	        (opcode << 12) | (1 << 11) | (Rn << 5) | Rd);
 }
 
@@ -2786,27 +2785,27 @@ void ARM64FloatEmitter::DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index)
 }
 void ARM64FloatEmitter::FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, 2 | (size >> 6), 0xF, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0xF, Rd, Rn);
 }
 void ARM64FloatEmitter::FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, size >> 6, 0x1A, Rd, Rn, Rm);
 }
-void ARM64FloatEmitter::FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn, bool source_upper)
 {
-	Emit2RegMisc(0, size >> 6, 0x17, Rd, Rn);
+	Emit2RegMisc(source_upper, 0, size >> 6, 0x17, Rd, Rn);
 }
 void ARM64FloatEmitter::FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, dest_size >> 5, 0x16, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, dest_size >> 5, 0x16, Rd, Rn);
 }
 void ARM64FloatEmitter::FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, 2 | (size >> 6), 0x1B, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0x1B, Rd, Rn);
 }
 void ARM64FloatEmitter::FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 2 | (size >> 6), 0x1B, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0x1B, Rd, Rn);
 }
 void ARM64FloatEmitter::FDIV(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -2818,11 +2817,11 @@ void ARM64FloatEmitter::FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FNEG(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 2 | (size >> 6), 0xF, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0xF, Rd, Rn);
 }
 void ARM64FloatEmitter::FRSQRTE(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 2 | (size >> 6), 0x1D, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0x1D, Rd, Rn);
 }
 void ARM64FloatEmitter::FSUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -2830,7 +2829,7 @@ void ARM64FloatEmitter::FSUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::NOT(ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 0, 5, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 0, 5, Rd, Rn);
 }
 void ARM64FloatEmitter::ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -2838,28 +2837,28 @@ void ARM64FloatEmitter::ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::REV16(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, size >> 4, 1, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, size >> 4, 1, Rd, Rn);
 }
 void ARM64FloatEmitter::REV32(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, size >> 4, 0, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, size >> 4, 0, Rd, Rn);
 }
 void ARM64FloatEmitter::REV64(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, size >> 4, 0, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, size >> 4, 0, Rd, Rn);
 }
 void ARM64FloatEmitter::SCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, size >> 6, 0x1D, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, size >> 6, 0x1D, Rd, Rn);
 }
 void ARM64FloatEmitter::UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, size >> 6, 0x1D, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, size >> 6, 0x1D, Rd, Rn);
 }
 
 void ARM64FloatEmitter::XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, dest_size >> 4, 0x12, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, dest_size >> 4, 0x12, Rd, Rn);
 }
 
 // Move
@@ -3096,7 +3095,7 @@ void ARM64FloatEmitter::FCMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FCMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, 2 | (size >> 6), 0x1D, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0x1D, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -3104,7 +3103,7 @@ void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 2 | (size >> 6), 0x1C, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0x1C, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -3112,15 +3111,15 @@ void ARM64FloatEmitter::FCMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FCMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, 2 | (size >> 6), 0x0C, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0x0C, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMLE(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(1, 2 | (size >> 6), 0xD, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0xD, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMLT(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(0, 2 | (size >> 6), 0xE, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0xE, Rd, Rn);
 }
 
 void ARM64FloatEmitter::FCSEL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond)

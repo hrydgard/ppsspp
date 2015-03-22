@@ -2151,9 +2151,6 @@ namespace MIPSComp
 		MOVI2F(S0, 1.0f, SCRATCHREG1);
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			// Let's do it integer registers for now. NEON later.
-			// There's gotta be a shorter way, can't find one though that takes
-			// care of NaNs like the interpreter (ignores them and just operates on the bits).
 			VSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 		}
 

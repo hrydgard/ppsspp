@@ -428,7 +428,8 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			break;
 		case 2:
 			if (((w >> 17) & 0xf) == 0) {
-				snprintf(instr->text, sizeof(instr->text), "(asimd two-reg misc %08x)", w);
+				// Very similar to scalar two-reg misc. can we share code?
+				snprintf(instr->text, sizeof(instr->text), "(asimd vector two-reg misc %08x)", w);
 			} else if (((w >> 17) & 0xf) == 1) {
 				snprintf(instr->text, sizeof(instr->text), "(asimd across lanes %08x)", w);
 			} else {
@@ -463,7 +464,7 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				}
 				int index;
 				if ((size & 1) == 0) {
-					index = (H << 1) | L;
+					index = (H << 1) | (int)L;
 				} else {
 					index = H;
 				}
