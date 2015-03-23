@@ -2977,15 +2977,9 @@ int sceKernelResumeThread(SceUID threadID)
 SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 {
 	if (!name)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateCallback(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
-	}
+		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (entrypoint & 0xF0000000)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateCallback(): invalid func %08x", SCE_KERNEL_ERROR_ILLEGAL_ADDR, entrypoint);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
-	}
+		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid func");
 
 	Callback *cb = new Callback;
 	SceUID id = kernelObjects.Create(cb);
@@ -3003,9 +2997,7 @@ SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 	if (thread)
 		thread->callbacks.push_back(id);
 
-	DEBUG_LOG(SCEKERNEL, "%i=sceKernelCreateCallback(name=%s, entry=%08x, callbackArg=%08x)", id, name, entrypoint, signalArg);
-
-	return id;
+	return hleLogSuccessI(SCEKERNEL, id);
 }
 
 int sceKernelDeleteCallback(SceUID cbId)
