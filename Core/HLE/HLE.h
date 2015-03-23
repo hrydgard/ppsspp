@@ -156,6 +156,8 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 #define hleLogDebug(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessX(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessI(t, res, ...) hleLogHelper(t, LDEBUG, res, 'i', ##__VA_ARGS__)
+#define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LINFO, res, 'i', ##__VA_ARGS__)
 #define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'i', ##__VA_ARGS__)
 

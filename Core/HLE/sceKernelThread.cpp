@@ -2123,17 +2123,11 @@ SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32
 
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
-	if (threadName == NULL)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "SCE_KERNEL_ERROR_ERROR=sceKernelCreateThread(): NULL name");
-		return SCE_KERNEL_ERROR_ERROR;
-	}
+	if (threadName == nullptr)
+		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "NULL name");
 
 	if ((u32)stacksize < 0x200)
-	{
-		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus stack size %08x", threadName, stacksize);
-		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
-	}
+		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "bogus stack size %08x", stacksize);
 	if (prio < 0x08 || prio > 0x77)
 	{
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
@@ -2168,12 +2162,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 
 	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
 	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY)
-	{
-		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
-	}
+		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "out of memory, %08x stack requested", stacksize);
 
-	INFO_LOG(SCEKERNEL, "%i=sceKernelCreateThread(name=%s, entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
 
@@ -2184,7 +2174,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
 	hleReSchedule("thread created");
-	return id;
+	return hleLogSuccessInfoI(SCEKERNEL, id);
 }
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
