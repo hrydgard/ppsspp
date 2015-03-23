@@ -44,6 +44,12 @@ void TestCode::Generate()
 
 	ABI_PushRegisters(regs_to_save);
 
+	PUSH(X3);
+	POP(X3);
+
+	PUSH2(X3, X4);
+	POP2(X3, X4);
+
 	fp.SCVTF(S0, W3, 12);
 	fp.SCVTF(S3, W12);
 	MOVI2R(X0, 1337);

@@ -516,7 +516,29 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 }
 
 void Arm64Jit::UpdateRoundingMode() {
-	// TODO ARM64
+	// NOTE: Must not destroy SCRATCH1.
+	if (g_Config.bSetRoundingMode) {
+		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
+		if (!g_Config.bForceFlushToZero) {
+			TSTI2R(SCRATCH2, 1 << 24);
+			ANDI2R(SCRATCH2, SCRATCH2, 3);
+			FixupBranch skip = B(CC_EQ);
+			ADDI2R(SCRATCH2, SCRATCH2, 4);
+			SetJumpTarget(skip);
+			// We can only skip if the rounding mode is zero and flush is set.
+			CMPI2R(SCRATCH2, 4);
+		} else {
+			ANDSI2R(SCRATCH2, SCRATCH2, 3);
+		}
+
+		FixupBranch skip = B(CC_EQ);
+		PUSH(SCRATCH1_64);
+		MOVI2R(SCRATCH2, 1);
+		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
+		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
+		POP(SCRATCH1_64);
+		SetJumpTarget(skip);
+	}
 }
 
 // IDEA - could have a WriteDualExit that takes two destinations and two condition flags,

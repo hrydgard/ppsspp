@@ -101,7 +101,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 				SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
 				doCheck = true;
 			}
-			ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
 		FixupBranch skip;
 		if (doCheck) {
@@ -134,7 +134,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 				SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
 				doCheck = true;
 			}
-			ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
 		FixupBranch skip2;
 		if (doCheck) {
@@ -200,7 +200,6 @@ void Arm64Jit::Comp_FPUComp(MIPSOpcode op) {
 
 void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
 	int fs = _FS;
 	int fd = _FD;
 
@@ -223,28 +222,49 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-		fpr.MapDirtyIn(fd, fs);
-		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);  // to nearest, ties to even
-		break;
-
-	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
-		fpr.MapDirtyIn(fd, fs);
-		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
-		// TODO: Correctly convert NAN to 0x7fffffff
-		break;
-
-	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 	{
 		fpr.MapDirtyIn(fd, fs);
+		fp.FCMP(fpr.R(fs), fpr.R(fs));  // Detect NaN
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);  // to nearest, ties to even
+		FixupBranch skip = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7FFFFFFF);
+		fp.FMOV(fpr.R(fd), SCRATCH1);
+		SetJumpTarget(skip);
+		break;
+	}
+
+	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
+	{
+		fpr.MapDirtyIn(fd, fs);
+		fp.FCMP(fpr.R(fs), fpr.R(fs));
+		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+		FixupBranch skip = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7FFFFFFF);
+		fp.FMOV(fpr.R(fd), SCRATCH1);
+		SetJumpTarget(skip);
+		break;
+	}
+
+	case 14://FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
+	{
+		fpr.MapDirtyIn(fd, fs);
+		fp.FCMP(fpr.R(fs), fpr.R(fs));
 		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_P);  // towards +inf
-		// TODO: Correctly convert NAN to 0x7fffffff
+		FixupBranch skip = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7FFFFFFF);
+		fp.FMOV(fpr.R(fd), SCRATCH1);
+		SetJumpTarget(skip);
 		break;
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 	{
 		fpr.MapDirtyIn(fd, fs);
+		fp.FCMP(fpr.R(fs), fpr.R(fs));
 		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_M);  // towards -inf
-		// TODO: Correctly convert NAN to 0x7fffffff
+		FixupBranch skip = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7FFFFFFF);
+		fp.FMOV(fpr.R(fd), SCRATCH1);
+		SetJumpTarget(skip);
 		break;
 	}
 
@@ -254,10 +274,45 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
-		// TODO: Find a way to use the current rounding mode. Until then, default to C conversion rules.
 		fpr.MapDirtyIn(fd, fs);
-		fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
-		// TODO: Correctly convert NAN to 0x7fffffff
+		if (js.hasSetRounding) {
+			// Urgh, this looks awfully expensive and bloated.. Perhaps we should have a global function pointer to the right FCVTS to use,
+			// and update it when the rounding mode is switched.
+			fp.FCMP(fpr.R(fs), fpr.R(fs));
+			FixupBranch skip_nan = B(CC_VC);
+			MOVI2R(SCRATCH1, 0x7FFFFFFF);
+			fp.FMOV(fpr.R(fd), SCRATCH1);
+			FixupBranch skip_rest = B();
+			// MIPS Rounding Mode:
+			//   0: Round nearest
+			//   1: Round to zero
+			//   2: Round up (ceil)
+			//   3: Round down (floor)
+			SetJumpTarget(skip_nan);
+			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, fcr31));
+			ANDI2R(SCRATCH1, SCRATCH1, 3);
+			ADR(SCRATCH2_64, 12);  // PC + 12 = address of first FCVTS below
+			ADD(SCRATCH2_64, SCRATCH2_64, EncodeRegTo64(SCRATCH1), ArithOption(SCRATCH2_64, ST_LSL, 3));
+			BR(SCRATCH2_64);  // choose from the four variants below!
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);
+			FixupBranch skip1 = B();
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+			FixupBranch skip2 = B();
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_P);
+			FixupBranch skip3 = B();
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_M);
+			SetJumpTarget(skip1);
+			SetJumpTarget(skip2);
+			SetJumpTarget(skip3);
+			SetJumpTarget(skip_rest);
+		} else {
+			fp.FCMP(fpr.R(fs), fpr.R(fs));
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+			FixupBranch skip_nan = B(CC_VC);
+			MOVI2R(SCRATCH1, 0x7FFFFFFF);
+			fp.FMOV(fpr.R(fd), SCRATCH1);
+			SetJumpTarget(skip_nan);
+		}
 		break;
 
 	default:
@@ -282,14 +337,13 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 		}
 		return;
 
-		/*
 	case 2: //cfc1
 		if (fs == 31) {
 			if (gpr.IsImm(MIPS_REG_FPCOND)) {
 				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 				LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 				if (gpr.GetImm(MIPS_REG_FPCOND) & 1) {
-					ORI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCH2);
+					ORRI2R(gpr.R(rt), gpr.R(rt), 0x1 << 23, SCRATCH2);
 				} else {
 					ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCH2);
 				}
@@ -308,7 +362,6 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			gpr.SetImm(rt, 0);
 		}
 		return;
-		*/
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		if (gpr.IsImm(rt)) {
@@ -334,7 +387,6 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 		}
 		return;
 
-		/*
 	case 6: //ctc1
 		if (fs == 31) {
 			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
@@ -361,7 +413,6 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			Comp_Generic(op);
 		}
 		return;
-		*/
 	default:
 		DISABLE;
 		break;

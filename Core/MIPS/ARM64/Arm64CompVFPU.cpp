@@ -229,7 +229,8 @@ namespace MIPSComp
 					SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
 					doCheck = true;
 				}
-				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+				// Pointerify
+				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
 			FixupBranch skip;
 			if (doCheck) {
@@ -264,7 +265,7 @@ namespace MIPSComp
 					SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
 					doCheck = true;
 				}
-				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
 			FixupBranch skip;
 			if (doCheck) {
@@ -311,7 +312,7 @@ namespace MIPSComp
 						SetCCAndSCRATCH1ForSafeAddress(rs, imm, SCRATCH2);
 						doCheck = true;
 					}
-					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
 				FixupBranch skip;
@@ -347,7 +348,7 @@ namespace MIPSComp
 						SetCCAndSCRATCH1ForSafeAddress(rs, imm, SCRATCH2);
 						doCheck = true;
 					}
-					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
 				FixupBranch skip;
