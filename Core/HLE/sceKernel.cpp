@@ -823,7 +823,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii"      },
 	{0XBA4051D6, &WrapI_I<sceKernelCancelCallback>,                  "sceKernelCancelCallback",                   'i', "i"       },
 	{0X2A3D44FF, &WrapI_I<sceKernelGetCallbackCount>,                "sceKernelGetCallbackCount",                 'i', "i"       },
-	{0X730ED8BC, &WrapI_IU<sceKernelReferCallbackStatus>,            "sceKernelReferCallbackStatus",              'i', "ix"      },
+	{0X730ED8BC, &WrapI_IU<sceKernelReferCallbackStatus>,            "sceKernelReferCallbackStatus",              'i', "ip"      },
 
 	{0X8125221D, &WrapI_CUU<sceKernelCreateMbx>,                     "sceKernelCreateMbx",                        'i', "sxx"     },
 	{0X86255ADA, &WrapI_I<sceKernelDeleteMbx>,                       "sceKernelDeleteMbx",                        'i', "i"       },

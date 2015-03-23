@@ -3020,9 +3020,9 @@ int sceKernelDeleteCallback(SceUID cbId)
 		if (cb->nc.notifyCount != 0)
 			readyCallbacksCount--;
 
-		return hleLogSuccessI(SCEKERNEL, kernelObjects.Destroy<Callback>(cbId), "d");
+		return hleLogSuccessI(SCEKERNEL, kernelObjects.Destroy<Callback>(cbId));
 	} else {
-		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
+		return hleLogError(SCEKERNEL, error, "bad cbId");
 	}
 }
 
@@ -3033,9 +3033,9 @@ int sceKernelNotifyCallback(SceUID cbId, int notifyArg)
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
 		__KernelNotifyCallback(cbId, notifyArg);
-		return hleLogSuccessI(SCEKERNEL, 0, "ii");
+		return hleLogSuccessI(SCEKERNEL, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "ii", "bad cbId");
+		return hleLogError(SCEKERNEL, error, "bad cbId");
 	}
 }
 
@@ -3046,9 +3046,9 @@ int sceKernelCancelCallback(SceUID cbId)
 	if (cb) {
 		// This just resets the notify count.
 		cb->nc.notifyArg = 0;
-		return hleLogSuccessI(SCEKERNEL, 0, "i");
+		return hleLogSuccessI(SCEKERNEL, 0);
 	} else {
-		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
+		return hleLogError(SCEKERNEL, error, "bad cbId");
 	}
 }
 
@@ -3057,9 +3057,9 @@ int sceKernelGetCallbackCount(SceUID cbId)
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
-		return hleLogSuccessVerboseI(SCEKERNEL, cb->nc.notifyCount, "i");
+		return hleLogSuccessVerboseI(SCEKERNEL, cb->nc.notifyCount);
 	} else {
-		return hleLogError(SCEKERNEL, error, "i", "bad cbId");
+		return hleLogError(SCEKERNEL, error, "bad cbId");
 	}
 }
 
@@ -3070,12 +3070,12 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 	if (c) {
 		if (Memory::IsValidAddress(statusAddr) && Memory::Read_U32(statusAddr) != 0) {
 			Memory::WriteStruct(statusAddr, &c->nc);
-			return hleLogSuccessI(SCEKERNEL, 0, "ip");
+			return hleLogSuccessI(SCEKERNEL, 0);
 		} else {
-			return hleLogDebug(SCEKERNEL, 0, "ip", "struct size was 0");
+			return hleLogDebug(SCEKERNEL, 0, "struct size was 0");
 		}
 	} else {
-		return hleLogError(SCEKERNEL, error, "ip", "bad cbId");
+		return hleLogError(SCEKERNEL, error, "bad cbId");
 	}
 }
 
@@ -3105,7 +3105,7 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
 
 	hleSkipDeadbeef();
-	return hleLogSuccessI(SCEKERNEL, 0, "xxx");
+	return hleLogSuccessI(SCEKERNEL, 0);
 }
 
 void __KernelReturnFromExtendStack()

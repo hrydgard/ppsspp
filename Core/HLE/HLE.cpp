@@ -620,7 +620,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	return used;
 }
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *argmask, const char *reason, ...) {
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
 	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
 		return res;
 	}
@@ -637,7 +637,11 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 	}
 
 	char formatted_args[4096];
-	hleFormatLogArgs(formatted_args, sizeof(formatted_args), argmask);
+	hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
+
+	// This acts as an override (for error returns which are usually hex.)
+	if (retmask == '\0')
+		retmask = latestSyscall->retmask;
 
 	const char *fmt;
 	// TODO: Floats and other types... move to another func (for return type?)  Hmm.
@@ -669,6 +673,6 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 	return res;
 }
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *argmask) {
-	return hleDoLog(t, level, res, file, line, reportTag, retmask, argmask, nullptr);
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask) {
+	return hleDoLog(t, level, res, file, line, reportTag, retmask, nullptr);
 }
