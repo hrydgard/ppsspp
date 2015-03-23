@@ -26,6 +26,8 @@ static void DisassembleARMBetween(const u8 *start, const u8 *end) {
 	}
 }
 
+#undef ADD
+
 bool TestArm64Emitter() {
 	using namespace Arm64Gen;
 
@@ -37,6 +39,8 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	emitter.ADD(X1, X2, X3, ArithOption(X1, ST_LSL, 3));
+	RET(CheckLast(emitter, "8b030c41 add x1, x2, x3, lsl #3"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
 	//emitter.EXTR(W1, W3, 0, 7);
 	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
 	//fp.FCVTL(32, Q6, D25);

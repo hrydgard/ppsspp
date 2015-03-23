@@ -141,7 +141,7 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 	} else if (((w >> 24) & 0x1F) == 0x10) {
 		// Address generation relative to PC
 		int op = w >> 31;
-		int imm = SignExtend19(w >> 5);
+		int imm = (SignExtend19(w >> 5) << 2) | ((w >> 29) & 3);
 		if (op & 1) imm <<= 12;
 		u64 daddr = addr + imm;
 		snprintf(instr->text, sizeof(instr->text), "%s x%d, #0x%04x%08x", op ? "adrp" : "adr", Rd, daddr >> 32, daddr & 0xFFFFFFFF);
@@ -358,7 +358,7 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 			}
 		} else {
-			snprintf(instr->text, sizeof(instr->text), "(logical-shifted-register %08x", w);
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d, %s #%d", opnames[opc], r, Rd, r, Rn, r, Rm, shiftnames[shift], imm6);
 		}
 	} else if (((w >> 21) & 0xFF) == 0x59) {
 		// Add/sub (extended register)

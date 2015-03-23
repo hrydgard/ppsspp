@@ -496,6 +496,9 @@ public:
 		ARM64Reg zr = Is64Bit(Rd) ? ZR : WZR;
 		CSINC(Rd, zr, zr, (CCFlags)((u32)cond ^ 1));
 	}
+	void NEG(ARM64Reg Rd, ARM64Reg Rs) {
+		SUB(Rd, Is64Bit(Rd) ? ZR : WZR, Rs);
+	}
 
 	// Data-Processing 1 source
 	void RBIT(ARM64Reg Rd, ARM64Reg Rn);
@@ -710,6 +713,14 @@ public:
 	// ABI related
 	void ABI_PushRegisters(BitSet32 registers);
 	void ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask = BitSet32(0));
+
+	// Pseudo-instruction for convenience. PUSH pushes 16 bytes even though we only push a single register.
+	// This is so the stack pointer is always 16-byte aligned, which is checked by hardware!
+	void PUSH(ARM64Reg Rd);
+	void POP(ARM64Reg Rd);
+	void PUSH2(ARM64Reg Rd, ARM64Reg Rn);
+	void POP2(ARM64Reg Rd, ARM64Reg Rn);
+
 
 	// Utility to generate a call to a std::function object.
 	//

@@ -1901,6 +1901,22 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 	}
 }
 
+void ARM64XEmitter::PUSH(ARM64Reg Rd) {
+	STR(INDEX_PRE, Rd, SP, -16);
+}
+
+void ARM64XEmitter::POP(ARM64Reg Rd) {
+	LDR(INDEX_POST, Rd, SP, 16);
+}
+
+void ARM64XEmitter::PUSH2(ARM64Reg Rd, ARM64Reg Rn) {
+	STP(INDEX_PRE, Rd, Rn, SP, -16);
+}
+void ARM64XEmitter::POP2(ARM64Reg Rd, ARM64Reg Rn) {
+	LDP(INDEX_POST, Rd, Rn, SP, 16);
+}
+
+
 void ARM64XEmitter::ABI_PushRegisters(BitSet32 registers)
 {
 	int num_regs = registers.Count();
