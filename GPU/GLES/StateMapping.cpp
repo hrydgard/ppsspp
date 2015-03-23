@@ -809,9 +809,58 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - vpY0;
 
-		glstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight);
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
-		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
+		// This may mean some games won't work, or at least won't work at higher render resolutions.
+		// So we apply it in the shader instead.
+		float left = renderX + vpX0;
+		float bottom = renderY + vpY0;
+		float right = left + vpWidth;
+		float top = bottom + vpHeight;
+
+		float wScale = 1.0f;
+		float xOffset = 0.0f;
+		float hScale = 1.0f;
+		float yOffset = 0.0f;
+
+		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+		if (left < 0.0f || right > renderWidth) {
+			float overageLeft = std::max(-left, 0.0f);
+			float overageRight = std::max(right - renderWidth, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageRight - overageLeft;
+
+			left += overageLeft;
+			right -= overageRight;
+
+			wScale = vpWidth / (right - left);
+			xOffset = drift / (right - left);
+		}
+
+		if (bottom < 0.0f || top > renderHeight) {
+			float overageBottom = std::max(-bottom, 0.0f);
+			float overageTop = std::max(top - renderHeight, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageTop - overageBottom;
+
+			bottom += overageBottom;
+			top -= overageTop;
+
+			hScale = vpHeight / (top - bottom);
+			yOffset = drift / (top - bottom);
+		}
+
+		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
+		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
+		if (scaleChanged || offsetChanged)
+		{
+			gstate_c.vpWidthScale = wScale;
+			gstate_c.vpHeightScale = hScale;
+			gstate_c.vpXOffset = xOffset;
+			gstate_c.vpYOffset = yOffset;
+			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		}
+
+		glstate.viewport.set(left, bottom, right - left, top - bottom);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
