@@ -572,37 +572,63 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	} \
 } while (false)
 
-	// TODO: Floats, 64-bit params (with every-other), and > 8 args (stack.)
+	int reg = 0;
+	int regf = 0;
+	for (size_t i = 0, n = strlen(argmask); i < n; ++i, ++reg) {
+		u32 regval;
+		if (reg < 8) {
+			regval = PARAM(reg);
+		} else {
+			u32 sp = currentMIPS->r[MIPS_REG_SP];
+			// Goes upward on stack.
+			regval = Memory::Read_U32(sp + (regval - 8) * 4);
+		}
 
-	for (size_t i = 0, n = strlen(argmask); i < n; ++i) {
 		switch (argmask[i]) {
 		case 'p':
-			if (Memory::IsValidAddress(PARAM(i))) {
-				APPEND_FMT("%08x[%08x]", PARAM(i), Memory::Read_U32(PARAM(i)));
+			if (Memory::IsValidAddress(PARAM(reg))) {
+				APPEND_FMT("%08x[%08x]", PARAM(reg), Memory::Read_U32(PARAM(reg)));
 			} else {
-				APPEND_FMT("%08x[invalid]", PARAM(i));
+				APPEND_FMT("%08x[invalid]", PARAM(reg));
 			}
 			break;
 
 		case 's':
-			if (Memory::IsValidAddress(PARAM(i))) {
-				APPEND_FMT("%s", Memory::GetCharPointer(PARAM(i)));
+			if (Memory::IsValidAddress(PARAM(reg))) {
+				APPEND_FMT("%s", Memory::GetCharPointer(PARAM(reg)));
 			} else {
 				APPEND_FMT("(invalid)");
 			}
 			break;
 
 		case 'x':
-			APPEND_FMT("%08x", PARAM(i));
+			APPEND_FMT("%08x", PARAM(reg));
 			break;
 
 		case 'i':
-			APPEND_FMT("%d", PARAM(i));
+			APPEND_FMT("%d", PARAM(reg));
 			break;
+
+		case 'X':
+		case 'I':
+			// 64-bit regs are always aligned.
+			if ((reg & 1))
+				++reg;
+			APPEND_FMT("%016llx", PARAM64(reg));
+			++reg;
+			break;
+
+		case 'f':
+			APPEND_FMT("%08x", PARAMF(regf++));
+			// This doesn't consume a gp reg.
+			--reg;
+			break;
+
+		// TODO: Double?  Does it ever happen?
 
 		default:
 			_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
-			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], PARAM(i));
+			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], PARAM(reg));
 			break;
 		}
 		if (i + 1 < n) {
