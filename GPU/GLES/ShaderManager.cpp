@@ -345,6 +345,12 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
+static inline void ScaleProjMatrix(Matrix4x4 &in) {
+	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, 0.0f);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, 1.0);
+	in.translateAndScale(trans, scale);
+}
+
 void LinkedShader::use(u32 vertType, LinkedShader *previous) {
 	glUseProgram(program);
 	UpdateUniforms(vertType);
@@ -379,13 +385,16 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		float flippedMatrix[16];
-		memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-		if (gstate_c.vpHeight < 0) {
+		Matrix4x4 flippedMatrix;
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+
+		const bool invertedY = gstate_c.vpHeight < 0;
+		if (invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
-		if (gstate_c.vpWidth < 0) {
+		const bool invertedX = gstate_c.vpWidth < 0;
+		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
@@ -422,7 +431,9 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			}
 		}
 
-		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
+		ScaleProjMatrix(flippedMatrix);
+
+		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
