@@ -1854,6 +1854,9 @@ void FramebufferManager::DecimateFBOs() {
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 		}
 
+		// Let's also "decimate" the usageFlags.
+		UpdateFramebufUsage(vfb);
+
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
 				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
@@ -1861,8 +1864,6 @@ void FramebufferManager::DecimateFBOs() {
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
 		}
-		else
-			UpdateFramebufUsage(vfb);
 	}
 
 	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
