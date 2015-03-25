@@ -39,6 +39,9 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	emitter.NEG(X1, X2);
+	RET(CheckLast(emitter, "8b030c41 neg x1, x2"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
+
 	emitter.ADD(X1, X2, X3, ArithOption(X1, ST_LSL, 3));
 	RET(CheckLast(emitter, "8b030c41 add x1, x2, x3, lsl #3"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
 	//emitter.EXTR(W1, W3, 0, 7);
@@ -95,6 +98,8 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "1e38006c fcvtzs w12, s3"));
 	emitter.LSLV(W1, W2, W3);
 	RET(CheckLast(emitter, "1ac32041 lslv w1, w2, w3"));
+	emitter.LSRV(W1, W2, W3);
+	RET(CheckLast(emitter, "1ac32441 lsrv w1, w2, w3"));
 	emitter.UDIV(W1, W2, W3);
 	RET(CheckLast(emitter, "1ac30841 udiv w1, w2, w3"));
 	emitter.RBIT(W3, W2);

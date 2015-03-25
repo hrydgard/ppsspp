@@ -90,7 +90,8 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
 
-		if (!js.inDelaySlot) {
+		// TODO: For some reason I can't get this to work on ARM64.
+		if (!js.inDelaySlot && false) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
 			MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
@@ -149,12 +150,31 @@ namespace MIPSComp
 			return;
 		}
 
-		/*
-		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-		load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+		switch (o) {
+		case 34: // lwl
+			DISABLE;
+			break;
 
-		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-			SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCHREG2, true);
+		case 38: // lwr
+			DISABLE;
+			break;
+
+		case 42: // swl
+			break;
+
+		case 46: // swr
+			break;
+		}
+
+		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+		if (load) {
+			gpr.MapDirtyIn(rt, rs, false);
+		} else {
+			gpr.MapInIn(rt, rs);
+		}
+
+		if (false && !g_Config.bFastMemory && rs != MIPS_REG_SP) {
+			SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2, true);
 			doCheck = true;
 		} else {
 			SetScratch1ToEffectiveAddress(rs, offset);
@@ -162,71 +182,82 @@ namespace MIPSComp
 		if (doCheck) {
 			skip = B();
 		}
-		SetCC(CC_AL);
 
 		// Need temp regs.  TODO: Get from the regcache?
-		static const ARM64Reg LR_SCRATCHREG3 = R9;
-		static const ARM64Reg LR_SCRATCHREG4 = R10;
-		if (load) {
-			PUSH(1, LR_SCRATCHREG3);
+		static const ARM64Reg LR_SCRATCH3 = W9;
+		static const ARM64Reg LR_SCRATCH4 = W10;
+		if (false && load) {
+			PUSH(EncodeRegTo64(LR_SCRATCH3));
 		} else {
-			PUSH(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
+			PUSH2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
 		}
 
 		// Here's our shift amount.
-		AND(SCRATCHREG2, R0, 3);
-		LSL(SCRATCHREG2, SCRATCHREG2, 3);
+		ANDI2R(SCRATCH2, SCRATCH1, 3);
+		LSL(SCRATCH2, SCRATCH2, 3);
 
 		// Now align the address for the actual read.
-		BIC(R0, R0, 3);
+		ANDI2R(SCRATCH1, SCRATCH1, ~3U);
 
 		switch (o) {
 		case 34: // lwl
-			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
-			LDR(R0, MEMBASEREG, R0);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
-			RSB(SCRATCHREG2, SCRATCHREG2, 24);
-			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, SCRATCHREG2));
+			MOVI2R(LR_SCRATCH3, 0x00ffffff);
+			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
+			AND(gpr.R(rt), gpr.R(rt), LR_SCRATCH3);
+			NEG(SCRATCH2, SCRATCH2);
+			ADDI2R(SCRATCH2, SCRATCH2, 24);
+			LSLV(SCRATCH1, SCRATCH1, SCRATCH2);
+			ORR(gpr.R(rt), gpr.R(rt), SCRATCH1);
 			break;
 
 		case 38: // lwr
-			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
-			LDR(R0, MEMBASEREG, R0);
-			LSR(R0, R0, SCRATCHREG2);
-			RSB(SCRATCHREG2, SCRATCHREG2, 24);
-			AND(gpr.R(rt), gpr.R(rt), Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
-			ORR(gpr.R(rt), gpr.R(rt), R0);
+			MOVI2R(LR_SCRATCH3, 0xffffff00);
+			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LSRV(SCRATCH1, SCRATCH1, SCRATCH2);
+			NEG(SCRATCH2, SCRATCH2);
+			ADDI2R(SCRATCH2, SCRATCH2, 24);
+			LSLV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
+			AND(gpr.R(rt), gpr.R(rt), LR_SCRATCH3);
+			ORR(gpr.R(rt), gpr.R(rt), SCRATCH1);
 			break;
 
 		case 42: // swl
-			MOVI2R(LR_SCRATCHREG3, 0xffffff00);
-			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
-			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSL, SCRATCHREG2));
-			RSB(SCRATCHREG2, SCRATCHREG2, 24);
-			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSR, SCRATCHREG2));
-			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCH3, 0xffffff00);
+			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			LSLV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
+			AND(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
+			NEG(SCRATCH2, SCRATCH2);
+			ADDI2R(SCRATCH2, SCRATCH2, 24);
+			LSRV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
+			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
+			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
 			break;
 
 		case 46: // swr
-			MOVI2R(LR_SCRATCHREG3, 0x00ffffff);
-			LDR(LR_SCRATCHREG4, MEMBASEREG, R0);
-			RSB(SCRATCHREG2, SCRATCHREG2, 24);
-			AND(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(LR_SCRATCHREG3, ST_LSR, SCRATCHREG2));
-			RSB(SCRATCHREG2, SCRATCHREG2, 24);
-			ORR(LR_SCRATCHREG4, LR_SCRATCHREG4, Operand2(gpr.R(rt), ST_LSL, SCRATCHREG2));
-			STR(LR_SCRATCHREG4, MEMBASEREG, R0);
+			MOVI2R(LR_SCRATCH3, 0x00ffffff);
+			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			NEG(SCRATCH2, SCRATCH2);
+			ADDI2R(SCRATCH2, SCRATCH2, 24);
+			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
+			AND(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
+			NEG(SCRATCH2, SCRATCH2);
+			ADDI2R(SCRATCH2, SCRATCH2, 24);
+			LSLV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
+			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
+			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
 			break;
 		}
 
-		if (load) {
-			POP(1, LR_SCRATCHREG3);
+		if (false && load) {
+			POP(EncodeRegTo64(LR_SCRATCH3));
 		} else {
-			POP(2, LR_SCRATCHREG3, LR_SCRATCHREG4);
+			POP2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
 		}
 
 		if (doCheck) {
 			SetJumpTarget(skip);
-		}*/
+		}
 	}
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {
@@ -339,8 +370,7 @@ namespace MIPSComp
 			load = true;
 		case 42: //swl
 		case 46: //swr
-			DISABLE;
-			// Comp_ITypeMemLR(op, load);
+			Comp_ITypeMemLR(op, load);
 			break;
 		default:
 			Comp_Generic(op);
