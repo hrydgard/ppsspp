@@ -313,11 +313,47 @@ struct Atrac {
 		packet = nullptr;
 	}
 
-	void SeekToSample(int sample) {
-		s64 seek_pos = (s64)sample;
-		av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
+	void ForceSeekToSample(int sample) {
+		av_seek_frame(pFormatCtx, audio_stream_index, sample + 0x200000, 0);
+		av_seek_frame(pFormatCtx, audio_stream_index, sample, 0);
+		avcodec_flush_buffers(pCodecCtx);
+
 		// Discard any pending packet data.
 		packet->size = 0;
+
+		currentSample = sample;
+	}
+
+	void SeekToSample(int sample) {
+		const u32 atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+
+		// Discard any pending packet data.
+		packet->size = 0;
+
+		// Some kind of header size?
+		const u32 firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+		// It seems like the PSP aligns the sample position to 0x800...?
+		const u32 offsetSamples = firstSampleoffset + firstOffsetExtra;
+		const u32 unalignedSamples = (offsetSamples + sample) % atracSamplesPerFrame;
+		int seekFrame = sample + offsetSamples - unalignedSamples;
+
+		if (sample != currentSample) {
+			// "Seeking" by reading frames seems to work much better.
+			av_seek_frame(pFormatCtx, audio_stream_index, 0, AVSEEK_FLAG_BACKWARD);
+			avcodec_flush_buffers(pCodecCtx);
+
+			for (int i = 0; i < seekFrame; i += atracSamplesPerFrame) {
+				while (FillPacket() && DecodePacket() == ATDECODE_FEEDME) {
+					continue;
+				}
+			}
+		} else {
+			// For some reason, if we skip seeking, we get the wrong amount of data.
+			// (even without flushing the packet...)
+			av_seek_frame(pFormatCtx, audio_stream_index, seekFrame, 0);
+			avcodec_flush_buffers(pCodecCtx);
+		}
+		currentSample = sample;
 	}
 
 	bool FillPacket() {
@@ -351,11 +387,13 @@ struct Atrac {
 			packet->size = 0;
 
 			if (FillPacket()) {
-				if (packet->size >= needed) {
-					memcpy(tempPacket.data + initialSize, packet->data, needed);
-					packet->size -= needed;
-					packet->data += needed;
-				}
+				int to_copy = packet->size >= needed ? needed : packet->size;
+				memcpy(tempPacket.data + initialSize, packet->data, to_copy);
+				packet->size -= to_copy;
+				packet->data += to_copy;
+				tempPacket.size = initialSize + to_copy;
+			} else {
+				tempPacket.size = initialSize;
 			}
 			decodePacket = &tempPacket;
 		}
@@ -829,19 +867,18 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
-			int skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
+			int skipSamples = 0;
 			u32 maxSamples = atrac->endSample - atrac->currentSample;
 			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
 			if (unalignedSamples != 0) {
 				// We're off alignment, possibly due to a loop.  Force it back on.
 				maxSamples = atracSamplesPerFrame - unalignedSamples;
+				skipSamples = unalignedSamples;
 			}
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
-				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
-				atrac->SeekToSample(forceseekSample);
-				atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
+				atrac->SeekToSample(atrac->currentSample);
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket()) {
@@ -918,7 +955,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			int finishFlag = 0;
 			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				atrac->currentSample = atrac->loopStartSample;
+				atrac->SeekToSample(atrac->loopStartSample);
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
 			} else if (atrac->currentSample >= atrac->endSample ||
@@ -1263,10 +1300,14 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
+		// TODO: Is this check even needed?  More testing is needed on writableBytes.
 		if (atrac->resetBuffer) {
-			// Reset temp buf for adding more stream data and set full filled buffer 
+			// Reset temp buf for adding more stream data and set full filled buffer.
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		} else {
+			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 		}
+
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
@@ -1306,13 +1347,13 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
-		atrac->currentSample = sample;
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 			atrac->SeekToSample(sample);
 		} else
 #endif // USE_FFMPEG
 		{
+			atrac->currentSample = sample;
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
 	}
@@ -2143,9 +2184,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		}
 
 		int numSamples = 0;
-		int forceseekSample = 0x200000;
-		atrac->SeekToSample(forceseekSample);
-		atrac->SeekToSample(atrac->currentSample);
+		atrac->ForceSeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
 			AtracDecodeResult res;
@@ -2174,12 +2213,11 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		atrac->currentSample += numSamples;
 		numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
-		atrac->SeekToSample(atrac->currentSample);
 
 		if (atrac->decodePos >= atrac->first.size) {
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
-			atrac->currentSample = 0;
+			atrac->ForceSeekToSample(0);
 		}
 		else
 			atrac->first.writableBytes = 0;
