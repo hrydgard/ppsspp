@@ -39,15 +39,20 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+
+	fp.INS(32, Q3, 1, Q12, 3);
+	RET(CheckLast(emitter, "6e0c6583 ins q3.d[1], q12.d[3]"));
+	fp.INS(8, D4, 5, D11, 2);
+	RET(CheckLast(emitter, "6e0b1564 ins d4.b[5], d11.b[2]"));
 	emitter.NEG(X1, X2);
-	RET(CheckLast(emitter, "8b030c41 neg x1, x2"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
+	RET(CheckLast(emitter, "cb0203e1 neg x1, x2"));
 
 	emitter.ADD(X1, X2, X3, ArithOption(X1, ST_LSL, 3));
-	RET(CheckLast(emitter, "8b030c41 add x1, x2, x3, lsl #3"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
+	RET(CheckLast(emitter, "8b030c41 add x1, x2, x3, lsl #3"));
 	//emitter.EXTR(W1, W3, 0, 7);
 	//RET(CheckLast(emitter, "53033061 extr w1, w3, w7"));
 	//fp.FCVTL(32, Q6, D25);
-	//RET(CheckLast(emitter, "4fa29820 fcvtl q6, d25"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
+	//RET(CheckLast(emitter, "4fa29820 fcvtl q6, d25"));
 	fp.FMUL(32, Q0, Q1, Q2, 3);
 	RET(CheckLast(emitter, "4fa29820 fmul q0, q1, q2.4s[3]"));  // A real disasm says fmla	v0.2s, v1.2s, v2.s[1]  but I think our way is more readable
 	fp.FMLA(32, D0, D1, D2, 1);

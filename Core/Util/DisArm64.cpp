@@ -82,6 +82,15 @@ int HighestSetBit(int value) {
 	return highest;
 }
 
+int LowestSetBit(int value, int maximum = 32) {
+	int lowest = 0;
+	for (int i = 0; i < maximum; i++) {
+		if (value & (1 << i))
+			return i;
+	}
+	return maximum;
+}
+
 static uint64_t Ones(int len) {
 	if (len == 0x40) {
 		return 0xFFFFFFFFFFFFFFFF;
@@ -354,6 +363,9 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 			if (Rd == 31 && opc == 3) {
 				// It's a CMP
 				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", "cmp", r, Rn, r, Rm);
+			} else if (Rn == 31 && opc == 2) {
+				// It's a NEG
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d", "neg", r, Rd, r, Rm);
 			} else {
 				snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opnames[opc], r, Rd, r, Rn, r, Rm);
 			}
@@ -413,6 +425,7 @@ const char *GetArrangement(bool Q, bool sz) {
 	else if (Q == 1 && sz == 1) return "2d";
 	else return "ERROR";
 }
+
 // (w >> 25) & 0xF  == 7
 static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rd = w & 0x1f;
@@ -438,7 +451,20 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 		}
 	} else if (((w >> 21) & 0x4F9) == 0x70) {
 		if (((w >> 10) & 0x21) == 1) {
-			snprintf(instr->text, sizeof(instr->text), "(asimd copy %08x)", w);
+			if (((w >> 11) & 3) == 3) {
+				// From GPR
+				snprintf(instr->text, sizeof(instr->text), "(asimd copy gpr %08x)", w);
+			} else {
+				int imm5 = (w >> 16) & 0x1F;
+				int size = LowestSetBit(imm5, 5);
+				int imm4 = (w >> 11) & 0xF;
+				int dst_index = imm5 >> (size + 1);
+				int src_index = imm4 >> size;
+				int idxdsize = (imm4 & 8) ? 128 : 64;
+				char s = "bhdx"[size];
+				char r = "dq"[idxdsize == 128];
+				snprintf(instr->text, sizeof(instr->text), "ins %c%d.%c[%d], %c%d.%c[%d]", r, Rd, s, dst_index, r, Rn, s, src_index);
+			}
 		}
 	} else if (((w >> 21) & 0x4F8) == 0x78) {
 		if ((w >> 10) & 1) {
