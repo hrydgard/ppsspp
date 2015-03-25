@@ -1056,6 +1056,12 @@ static void GetSystemReg(PStateField field, int &o0, int &op1, int &CRn, int &CR
 	case FIELD_NZCV:
 		o0 = 3; op1 = 3; CRn = 4; CRm = 2; op2 = 0;
 		break;
+	case FIELD_FPCR:
+		o0 = 3; op1 = 3; CRn = 4; CRm = 4; op2 = 0;
+		break;
+	case FIELD_FPSR:
+		o0 = 3; op1 = 3; CRn = 4; CRm = 4; op2 = 1;
+		break;
 	default:
 		_assert_msg_(JIT, false, "Invalid PStateField to do a register move from/to");
 		break;

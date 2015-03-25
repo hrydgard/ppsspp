@@ -37,6 +37,14 @@
 #define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
+
+// FPCR interesting bits:
+// 24: FZ (flush-to-zero)
+// 23:22: RMode (0 = nearest, 1 = +inf, 2 = -inf, 3 = zero)
+// not much else is interesting for us, but should be preserved.
+// To access: MRS Xt, FPCR ;  MSR FPCR, Xt
+
+
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 

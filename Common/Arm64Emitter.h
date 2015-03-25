@@ -145,13 +145,6 @@ enum ShiftAmount
 	SHIFT_48 = 3,
 };
 
-// The only system registers accessible from EL0 (user space)
-enum SystemRegister {  // Three digits : Op1, CRm, Op2
-	SYSREG_NZCV = 0x320,
-	SYSREG_FPCR = 0x340,
-	SYSREG_FPSR = 0x341,
-};
-
 enum RoundingMode {
 	ROUND_A,  // round to nearest, ties to away
 	ROUND_M,  // round towards -inf
@@ -188,7 +181,9 @@ enum PStateField
 	FIELD_SPSel = 0,
 	FIELD_DAIFSet,
 	FIELD_DAIFClr,
-	FIELD_NZCV,
+	FIELD_NZCV,	// The only system registers accessible from EL0 (user space)
+	FIELD_FPCR = 0x340,
+	FIELD_FPSR = 0x341,
 };
 
 enum SystemHint
