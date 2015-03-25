@@ -56,15 +56,15 @@ static u32 sceHprmReadLatch(u32 latchAddr) {
 
 const HLEFunction sceHprm[] = 
 {
-	{0x089fdfa4, 0, "sceHprm_089fdfa4"},
-	{0x1910B327, &WrapU_U<sceHprmPeekCurrentKey>, "sceHprmPeekCurrentKey"},
-	{0x208DB1BD, WrapU_V<sceHprmIsRemoteExist>, "sceHprmIsRemoteExist"},
-	{0x7E69EDA4, WrapU_V<sceHprmIsHeadphoneExist>, "sceHprmIsHeadphoneExist"},
-	{0x219C58F1, WrapU_V<sceHprmIsMicrophoneExist>, "sceHprmIsMicrophoneExist"},
-	{0xC7154136, 0, "sceHprmRegisterCallback"},
-	{0x444ED0B7, 0, "sceHprmUnregitserCallback"}, // Typo.
-	{0x2BCEC83E, &WrapU_U<sceHprmPeekLatch>, "sceHprmPeekLatch"},
-	{0x40D2F9F0, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch"},
+	{0X089FDFA4, nullptr,                            "sceHprm_089fdfa4",          '?', "" },
+	{0X1910B327, &WrapU_U<sceHprmPeekCurrentKey>,    "sceHprmPeekCurrentKey",     'x', "x"},
+	{0X208DB1BD, &WrapU_V<sceHprmIsRemoteExist>,     "sceHprmIsRemoteExist",      'x', "" },
+	{0X7E69EDA4, &WrapU_V<sceHprmIsHeadphoneExist>,  "sceHprmIsHeadphoneExist",   'x', "" },
+	{0X219C58F1, &WrapU_V<sceHprmIsMicrophoneExist>, "sceHprmIsMicrophoneExist",  'x', "" },
+	{0XC7154136, nullptr,                            "sceHprmRegisterCallback",   '?', "" },
+	{0X444ED0B7, nullptr,                            "sceHprmUnregitserCallback", '?', "" }, // Typo.
+	{0X2BCEC83E, &WrapU_U<sceHprmPeekLatch>,         "sceHprmPeekLatch",          'x', "x"},
+	{0X40D2F9F0, &WrapU_U<sceHprmReadLatch>,         "sceHprmReadLatch",          'x', "x"},
 };
 
 void Register_sceHprm()

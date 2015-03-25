@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdarg>
 #include <map>
 #include <vector>
 #include <string>
@@ -62,6 +63,7 @@ static std::vector<HLEModule> moduleDB;
 static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
+static const HLEFunction *latestSyscall = nullptr;
 
 void hleDelayResultFinish(u64 userdata, int cycleslate)
 {
@@ -100,6 +102,7 @@ void HLEDoState(PointerWrap &p)
 void HLEShutdown()
 {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
+	latestSyscall = nullptr;
 	moduleDB.clear();
 }
 
@@ -434,6 +437,7 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
+	latestSyscall = info;
 	const u32 flags = info->flags;
 
 	if (flags & HLE_CLEAR_STACK_BYTES) {
@@ -462,6 +466,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 
 inline void CallSyscallWithoutFlags(const HLEFunction *info)
 {
+	latestSyscall = info;
 	info->func();
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
@@ -553,4 +558,147 @@ void CallSyscall(MIPSOpcode op)
 		hleSteppingTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
 	}
+}
+
+size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
+	char *p = message;
+	size_t used = 0;
+
+#define APPEND_FMT(...) do { \
+	if (used < sz) { \
+		size_t c = snprintf(p, sz - used, __VA_ARGS__); \
+		used += c; \
+		p += c; \
+	} \
+} while (false)
+
+	int reg = 0;
+	int regf = 0;
+	for (size_t i = 0, n = strlen(argmask); i < n; ++i, ++reg) {
+		u32 regval;
+		if (reg < 8) {
+			regval = PARAM(reg);
+		} else {
+			u32 sp = currentMIPS->r[MIPS_REG_SP];
+			// Goes upward on stack.
+			regval = Memory::Read_U32(sp + (regval - 8) * 4);
+		}
+
+		switch (argmask[i]) {
+		case 'p':
+			if (Memory::IsValidAddress(PARAM(reg))) {
+				APPEND_FMT("%08x[%08x]", PARAM(reg), Memory::Read_U32(PARAM(reg)));
+			} else {
+				APPEND_FMT("%08x[invalid]", PARAM(reg));
+			}
+			break;
+
+		case 's':
+			if (Memory::IsValidAddress(PARAM(reg))) {
+				APPEND_FMT("%s", Memory::GetCharPointer(PARAM(reg)));
+			} else {
+				APPEND_FMT("(invalid)");
+			}
+			break;
+
+		case 'x':
+			APPEND_FMT("%08x", PARAM(reg));
+			break;
+
+		case 'i':
+			APPEND_FMT("%d", PARAM(reg));
+			break;
+
+		case 'X':
+		case 'I':
+			// 64-bit regs are always aligned.
+			if ((reg & 1))
+				++reg;
+			APPEND_FMT("%016llx", PARAM64(reg));
+			++reg;
+			break;
+
+		case 'f':
+			APPEND_FMT("%08x", PARAMF(regf++));
+			// This doesn't consume a gp reg.
+			--reg;
+			break;
+
+		// TODO: Double?  Does it ever happen?
+
+		default:
+			_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
+			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], PARAM(reg));
+			break;
+		}
+		if (i + 1 < n) {
+			APPEND_FMT(", ");
+		}
+	}
+
+	if (used > sz) {
+		message[sz - 1] = '\0';
+	} else {
+		message[used] = '\0';
+	}
+
+#undef APPEND_FMT
+	return used;
+}
+
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
+	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+		return res;
+	}
+
+	char formatted_reason[4096] = {0};
+	if (reason != nullptr) {
+		va_list args;
+		va_start(args, reason);
+		formatted_reason[0] = ':';
+		formatted_reason[1] = ' ';
+		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
+		formatted_reason[sizeof(formatted_reason)] = '\0';
+		va_end(args);
+	}
+
+	char formatted_args[4096];
+	hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
+
+	// This acts as an override (for error returns which are usually hex.)
+	if (retmask == '\0')
+		retmask = latestSyscall->retmask;
+
+	const char *fmt;
+	// TODO: Floats and other types... move to another func (for return type?)  Hmm.
+	if (retmask == 'x') {
+		fmt = "%08x=%s(%s)%s";
+	} else if (retmask == 'i') {
+		fmt = "%d=%s(%s)%s";
+	} else {
+		_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
+		fmt = "%08x=%s(%s)%s";
+	}
+
+	GenericLog(level, t, file, line, fmt, res, latestSyscall->name, formatted_args, formatted_reason);
+
+	if (reportTag != nullptr) {
+		// A blank string means always log, not just once.
+		if (reportTag[0] == '\0' || Reporting::ShouldLogOnce(reportTag)) {
+			// Here we want the original key, so that different args, etc. group together.
+			std::string key = std::string("%08x=") + latestSyscall->name + "(%s)";
+			if (reason != nullptr)
+				key += std::string(": ") + reason;
+
+			char formatted_message[8192];
+			snprintf(formatted_message, sizeof(formatted_message), fmt, res, latestSyscall->name, formatted_args, formatted_reason);
+			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
+		}
+	}
+
+	return res;
+}
+
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask) {
+	return hleDoLog(t, level, res, file, line, reportTag, retmask, nullptr);
 }

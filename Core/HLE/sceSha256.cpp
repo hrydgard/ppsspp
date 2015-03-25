@@ -40,7 +40,7 @@ static int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
 
 const HLEFunction sceSha256[] =
 {
-	{ 0x318A350C, WrapI_UIU<sceSha256Digest>, "sceSha256Digest" },
+	{0X318A350C, &WrapI_UIU<sceSha256Digest>,        "sceSha256Digest", 'i', "xix"},
 };
 
 void Register_sceSha256()

@@ -118,8 +118,8 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 }
 
 const HLEFunction sceDmac[] = {
-	{0x617f3fe6, &WrapU_UUU<sceDmacMemcpy>, "sceDmacMemcpy"},
-	{0xd97f94d8, &WrapU_UUU<sceDmacTryMemcpy>, "sceDmacTryMemcpy"},
+	{0X617F3FE6, &WrapU_UUU<sceDmacMemcpy>,          "sceDmacMemcpy",    'x', "xxx"},
+	{0XD97F94D8, &WrapU_UUU<sceDmacTryMemcpy>,       "sceDmacTryMemcpy", 'x', "xxx"},
 };
 
 void Register_sceDmac() {

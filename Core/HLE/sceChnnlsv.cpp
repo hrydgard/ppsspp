@@ -533,12 +533,12 @@ int sceChnnlsv_21BE78B4_(pspChnnlsvContext2& ctx)
 
 const HLEFunction sceChnnlsv[] =
 {
-	{0xE7833020,WrapI_UI<sceSdSetIndex>,"sceSdSetIndex"},
-	{0xF21A1FCA,WrapI_UUI<sceSdRemoveValue>,"sceSdRemoveValue"},
-	{0xC4C494F8,WrapI_UUU<sceSdGetLastIndex>,"sceSdGetLastIndex"},
-	{0xABFDFC8B,WrapI_UIIUU<sceSdCreateList>,"sceSdCreateList"},
-	{0x850A7FA1,WrapI_UUI<sceSdSetMember>,"sceSdSetMember"},
-	{0x21BE78B4,WrapI_U<sceChnnlsv_21BE78B4>,"sceChnnlsv_21BE78B4"},
+	{0XE7833020, &WrapI_UI<sceSdSetIndex>,           "sceSdSetIndex",       'i', "xi"   },
+	{0XF21A1FCA, &WrapI_UUI<sceSdRemoveValue>,       "sceSdRemoveValue",    'i', "xxi"  },
+	{0XC4C494F8, &WrapI_UUU<sceSdGetLastIndex>,      "sceSdGetLastIndex",   'i', "xxx"  },
+	{0XABFDFC8B, &WrapI_UIIUU<sceSdCreateList>,      "sceSdCreateList",     'i', "xiixx"},
+	{0X850A7FA1, &WrapI_UUI<sceSdSetMember>,         "sceSdSetMember",      'i', "xxi"  },
+	{0X21BE78B4, &WrapI_U<sceChnnlsv_21BE78B4>,      "sceChnnlsv_21BE78B4", 'i', "x"    },
 };
 
 void Register_sceChnnlsv()

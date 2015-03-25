@@ -91,6 +91,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 		__attribute__((format(printf, 5, 6)))
 #endif
 		;
+bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 #if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST) || defined(_WIN32)
 #define MAX_LOGLEVEL DEBUG_LEVEL

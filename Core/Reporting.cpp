@@ -403,6 +403,21 @@ namespace Reporting
 		th.detach();
 	}
 
+	void ReportMessageFormatted(const char *message, const char *formatted)
+	{
+		if (!IsEnabled() || CheckSpamLimited())
+			return;
+
+		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
+		Payload &payload = payloadBuffer[pos];
+		payload.type = MESSAGE;
+		payload.string1 = message;
+		payload.string2 = formatted;
+
+		std::thread th(Process, pos);
+		th.detach();
+	}
+
 	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay)
 	{
 		if (!IsEnabled())

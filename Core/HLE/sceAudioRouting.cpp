@@ -53,10 +53,10 @@ static int sceAudioRoutingSetMode(int mode) {
 
 const HLEFunction sceAudioRouting[] =
 {
-	{0x39240E7D, WrapI_V<sceAudioRoutingGetMode>, "sceAudioRoutingGetMode" },
-	{0x28235C56, WrapI_V<sceAudioRoutingGetVolumeMode>, "sceAudioRoutingGetVolumeMode" },
-	{0x36FD8AA9, WrapI_I<sceAudioRoutingSetMode>, "sceAudioRoutingSetMode" },
-	{0xBB548475, WrapI_I<sceAudioRoutingSetVolumeMode>, "sceAudioRoutingSetVolumeMode" },
+	{0X39240E7D, &WrapI_V<sceAudioRoutingGetMode>,       "sceAudioRoutingGetMode",       'i', "" },
+	{0X28235C56, &WrapI_V<sceAudioRoutingGetVolumeMode>, "sceAudioRoutingGetVolumeMode", 'i', "" },
+	{0X36FD8AA9, &WrapI_I<sceAudioRoutingSetMode>,       "sceAudioRoutingSetMode",       'i', "i"},
+	{0XBB548475, &WrapI_I<sceAudioRoutingSetVolumeMode>, "sceAudioRoutingSetVolumeMode", 'i', "i"},
 };
 
 void Register_sceAudioRouting()

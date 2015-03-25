@@ -45,12 +45,12 @@ static int sceNpDrmOpen()
 
 const HLEFunction sceNpDrm[] =
 { 
-	{0xA1336091, WrapI_U<sceNpDrmSetLicenseeKey>, "sceNpDrmSetLicenseeKey"},
-	{0x9B745542, WrapI_V<sceNpDrmClearLicenseeKey>, "sceNpDrmClearLicenseeKey"},
-	{0x275987D1, WrapI_C<sceNpDrmRenameCheck>, "sceNpDrmRenameCheck"},
-	{0x08d98894, WrapI_U<sceNpDrmEdataSetupKey>, "sceNpDrmEdataSetupKey"},
-	{0x219EF5CC, WrapI_U<sceNpDrmEdataGetDataSize>, "sceNpDrmEdataGetDataSize"},
-	{0x2BAA4294, WrapI_V<sceNpDrmOpen>, "sceNpDrmOpen"},
+	{0XA1336091, &WrapI_U<sceNpDrmSetLicenseeKey>,   "sceNpDrmSetLicenseeKey",   'i', "x"},
+	{0X9B745542, &WrapI_V<sceNpDrmClearLicenseeKey>, "sceNpDrmClearLicenseeKey", 'i', "" },
+	{0X275987D1, &WrapI_C<sceNpDrmRenameCheck>,      "sceNpDrmRenameCheck",      'i', "s"},
+	{0X08D98894, &WrapI_U<sceNpDrmEdataSetupKey>,    "sceNpDrmEdataSetupKey",    'i', "x"},
+	{0X219EF5CC, &WrapI_U<sceNpDrmEdataGetDataSize>, "sceNpDrmEdataGetDataSize", 'i', "x"},
+	{0X2BAA4294, &WrapI_V<sceNpDrmOpen>,             "sceNpDrmOpen",             'i', "" },
 };
 
 void Register_sceNpDrm()

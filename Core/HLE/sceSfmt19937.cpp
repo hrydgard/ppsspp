@@ -108,12 +108,12 @@ static int sceSfmt19937FillArray64(u32 sfmt, u32 array, int arraylen) {
 
 const HLEFunction sceSfmt19937[] =
 {
-	{ 0x161ACEB2, WrapI_UU<sceSfmt19937InitGenRand>, "sceSfmt19937InitGenRand" },
-	{ 0xDD5A5D6C, WrapI_UUI<sceSfmt19937InitByArray>, "sceSfmt19937InitByArray" },
-	{ 0xB33FE749, WrapU_U<sceSfmt19937GenRand32>, "sceSfmt19937GenRand32" },
-	{ 0xD5AC9F99, WrapU64_U<sceSfmt19937GenRand64>, "sceSfmt19937GenRand64" },
-	{ 0xDB025BFA, WrapI_UUI<sceSfmt19937FillArray32>, "sceSfmt19937FillArray32" },
-	{ 0xEE2938C4, WrapI_UUI<sceSfmt19937FillArray64>, "sceSfmt19937FillArray64" },
+	{0X161ACEB2, &WrapI_UU<sceSfmt19937InitGenRand>,  "sceSfmt19937InitGenRand", 'i', "xx" },
+	{0XDD5A5D6C, &WrapI_UUI<sceSfmt19937InitByArray>, "sceSfmt19937InitByArray", 'i', "xxi"},
+	{0XB33FE749, &WrapU_U<sceSfmt19937GenRand32>,     "sceSfmt19937GenRand32",   'x', "x"  },
+	{0XD5AC9F99, &WrapU64_U<sceSfmt19937GenRand64>,   "sceSfmt19937GenRand64",   'X', "x"  },
+	{0XDB025BFA, &WrapI_UUI<sceSfmt19937FillArray32>, "sceSfmt19937FillArray32", 'i', "xxi"},
+	{0XEE2938C4, &WrapI_UUI<sceSfmt19937FillArray64>, "sceSfmt19937FillArray64", 'i', "xxi"},
 };
 
 void Register_sceSfmt19937()

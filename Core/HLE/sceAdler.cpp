@@ -37,7 +37,7 @@ static u32 sceAdler32(u32 adler, u32 data, u32 datalen) {
 
 const HLEFunction sceAdler[] =
 {
-	{ 0x9702EF11, WrapU_UUU<sceAdler32>, "sceAdler32" },
+	{0X9702EF11, &WrapU_UUU<sceAdler32>,             "sceAdler32", 'x', "xxx"},
 };
 
 void Register_sceAdler()

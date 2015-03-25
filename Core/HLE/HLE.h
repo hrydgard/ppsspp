@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
 class PointerWrap;
@@ -32,15 +33,35 @@ enum {
 	HLE_NOT_IN_INTERRUPT = 1 << 8,
 	// Don't allow the call if dispatch or interrupts are disabled.
 	HLE_NOT_DISPATCH_SUSPENDED = 1 << 9,
+	// Indicates the call should write zeros to the stack (stackBytesToClear in the table.)
 	HLE_CLEAR_STACK_BYTES = 1 << 10
 };
 
 struct HLEFunction
 {
+	// This is the id, or nid, of the function (which is how it's linked.)
+	// Generally, the truncated least significant 32 bits of a SHA-1 hash.
 	u32 ID;
+	// A pointer to the C++ handler; see FunctionWrappers.h for helpers.
 	HLEFunc func;
+	// Name of the function.  Often the same as func, this should match the PSP func's name and hash.
 	const char *name;
+	// The return type, see argmask for the possible values.
+	// An additional value is possible - 'v', which means void (no return type.)
+	char retmask;
+	// The argument types, in order.  Use the following characters:
+	//   - x: for u32 (shown as hex in log)
+	//   - i: for int/s32
+	//   - f: for float
+	//   - X: uppercase, for u64
+	//   - I: uppercase, for s64
+	//   - F: uppercase, for double
+	//   - s: a string pointer (const char *, utf-8)
+	//   - p: a pointer (e.g. u32 *, shown with value in log)
+	const char *argmask;
+	// Flags (see above, e.g. HLE_NOT_IN_INTERRUPT.)
 	u32 flags;
+	// See HLE_CLEAR_STACK_BYTES.
 	u32 stackBytesToClear;
 };
 
@@ -125,3 +146,22 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...);
+u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask);
+
+// Only one side of the ?: is evaluated (per c++ standard), so this should be safe.
+#define hleLogHelper(t, level, res, retmask, ...) (LogTypes::level > MAX_LOGLEVEL ? res : hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__))
+#define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
+#define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
+#define hleLogDebug(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessX(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessI(t, res, ...) hleLogHelper(t, LDEBUG, res, 'i', ##__VA_ARGS__)
+#define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LINFO, res, 'i', ##__VA_ARGS__)
+#define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'i', ##__VA_ARGS__)
+
+#define hleReportError(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportWarning(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
