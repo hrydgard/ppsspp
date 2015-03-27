@@ -128,7 +128,8 @@ struct AtracLoopInfo {
 };
 
 struct Atrac {
-	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(0), atracOutputChannels(2),
+	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
+		atracChannels(0),atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
@@ -165,7 +166,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 3);
+		auto s = p.Section("Atrac", 1, 4);
 		if (!s)
 			return;
 
@@ -203,6 +204,11 @@ struct Atrac {
 
 		p.Do(decodePos);
 		p.Do(decodeEnd);
+		if (s >= 4) {
+			p.Do(bufferPos);
+		} else {
+			bufferPos = decodePos;
+		}
 
 		p.Do(atracBitrate);
 		p.Do(atracBytesPerFrame);
@@ -250,6 +256,7 @@ struct Atrac {
 
 	u32 decodePos;
 	u32 decodeEnd;
+	u32 bufferPos;
 
 	u16 atracChannels;
 	u16 atracOutputChannels;
@@ -533,6 +540,7 @@ void Atrac::AnalyzeReset() {
 	loopStartSample = -1;
 	loopEndSample = -1;
 	decodePos = 0;
+	bufferPos = 0;
 	atracChannels = 2;
 }
 
@@ -1363,13 +1371,13 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 #ifdef USE_FFMPEG
 static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
 	Atrac *atrac = (Atrac *)opaque;
-	if (atrac->decodePos > atrac->first.filesize)
+	if (atrac->bufferPos > atrac->first.filesize)
 		return -1;
 	int size = std::min((int)atrac->atracBufSize, buf_size);
-	size = std::max(std::min(((int)atrac->first.size - (int)atrac->decodePos), size), 0);
+	size = std::max(std::min(((int)atrac->first.size - (int)atrac->bufferPos), size), 0);
 	if (size > 0)
-		memcpy(buf, atrac->data_buf + atrac->decodePos, size);
-	atrac->decodePos += size;
+		memcpy(buf, atrac->data_buf + atrac->bufferPos, size);
+	atrac->bufferPos += size;
 	return size;
 }
 
@@ -1380,20 +1388,20 @@ static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence) {
 
 	switch (whence) {
 	case SEEK_SET:
-		atrac->decodePos = (u32)offset;
+		atrac->bufferPos = (u32)offset;
 		break;
 	case SEEK_CUR:
-		atrac->decodePos += (u32)offset;
+		atrac->bufferPos += (u32)offset;
 		break;
 	case SEEK_END:
-		atrac->decodePos = atrac->first.filesize - (u32)offset;
+		atrac->bufferPos = atrac->first.filesize - (u32)offset;
 		break;
 #ifdef USE_FFMPEG
 	case AVSEEK_SIZE:
 		return atrac->first.filesize;
 #endif
 	}
-	return atrac->decodePos;
+	return atrac->bufferPos;
 }
 
 #endif // USE_FFMPEG
