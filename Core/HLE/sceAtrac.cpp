@@ -2185,8 +2185,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
 			CBreakPoints::ExecMemCheck(sourceAddr, false, sourcebytes, currentMIPS->pc);
-			if (atrac->decodePos >= atrac->first.size) {
-				atrac->decodePos = atrac->first.size;
+			if (atrac->bufferPos >= atrac->first.size) {
+				atrac->bufferPos = atrac->first.size;
 			}
 			atrac->first.size += sourcebytes;
 		}
@@ -2222,7 +2222,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
 
-		if (atrac->decodePos >= atrac->first.size) {
+		if (atrac->bufferPos >= atrac->first.size) {
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
 			atrac->ForceSeekToSample(0);
