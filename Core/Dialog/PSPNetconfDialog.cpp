@@ -114,7 +114,7 @@ int PSPNetconfDialog::Shutdown(bool force) {
 	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	return PSPDialog::Shutdown();
+	return PSPDialog::Shutdown(force);
 }
 
 void PSPNetconfDialog::DoState(PointerWrap &p) {	

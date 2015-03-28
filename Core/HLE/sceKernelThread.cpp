@@ -240,6 +240,7 @@ public:
 			delete it->second;
 		}
 		calls_.clear();
+		types_.clear();
 		idGen_ = 0;
 	}
 

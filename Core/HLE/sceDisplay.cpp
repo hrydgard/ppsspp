@@ -187,6 +187,7 @@ void __DisplayInit() {
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = GE_FORMAT_8888;
 	framebuf.pspFramebufLinesize = 480; // ??
+	memset(&latchedFramebuf, 0, sizeof(latchedFramebuf));
 	lastFlipCycles = 0;
 	lastFlipsTooFrequent = 0;
 	wasPaused = false;
@@ -200,6 +201,7 @@ void __DisplayInit() {
 
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
+	frameStartTicks = 0;
 	vCount = 0;
 	hCountBase = 0;
 	curFrameTime = 0.0;
