@@ -1235,8 +1235,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
-						*finish = 1;
-						return ATRAC_ERROR_ALL_DATA_DECODED;
+						*finish = 0;
+						return ATRAC_ERROR_API_FAIL;
 					}
 
 					if (res == ATDECODE_GOTFRAME) {
@@ -1531,17 +1531,16 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): bad atrac ID", atracID, errorAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->dataBuf_) {
-		WARN_LOG(ME, "sceAtracGetInternalErrorInfo(%i, %08x): no data", atracID, errorAddr);
-		return ATRAC_ERROR_NO_DATA;
-	} else {
-		ERROR_LOG(ME, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
-		if (Memory::IsValidAddress(errorAddr))
-			Memory::Write_U32(0, errorAddr);
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
+	} else if (atrac->bufferState_ == ATRAC_STATUS_NO_DATA) {
+		return hleLogWarning(ME, ATRAC_ERROR_NO_DATA, "no data");
 	}
-	return 0;
+
+	// TODO: The error code here varies based on what the problem is, but not sure of the right values.
+	// 0000020b and 0000020c have been observed for garbage data.
+	if (Memory::IsValidAddress(errorAddr))
+		Memory::Write_U32(atrac->failedDecode_ ? 0x0000020b : 0, errorAddr);
+	return hleLogWarning(ME, 0);
 }
 
 static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
