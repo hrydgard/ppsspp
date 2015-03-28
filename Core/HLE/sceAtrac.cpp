@@ -207,6 +207,9 @@ struct Atrac {
 
 		if (atracContext.IsValid())
 			kernelMemory.Free(atracContext.ptr);
+
+		// Clean slate time.
+		failedDecode = false;
 	}
 
 	void SetBufferState() {
