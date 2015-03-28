@@ -132,7 +132,7 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	return PSPDialog::Shutdown();
+	return PSPDialog::Shutdown(force);
 }
 
 std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename){
