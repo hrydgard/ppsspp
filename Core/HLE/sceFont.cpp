@@ -939,7 +939,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 		if (q != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
-				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
+				float hDist = fabs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
 				if (hDist < nearestDist) {
 					nearestDist = hDist;
 					nearestFont = internalFonts[i];
@@ -947,7 +947,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 			}
 			if (requestedStyle->fontV > 0.0f) {
 				// Appears to be a bug?  It seems to match H instead of V.
-				float vDist = abs(matchStyle.fontVRes * matchStyle.fontV - vRes * requestedStyle->fontH);
+				float vDist = fabs(matchStyle.fontVRes * matchStyle.fontV - vRes * requestedStyle->fontH);
 				if (vDist < nearestDist) {
 					nearestDist = vDist;
 					nearestFont = internalFonts[i];
@@ -1002,7 +1002,7 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 		if (internalFonts[i]->MatchesStyle(*requestedStyle) != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
 			if (requestedStyle->fontH > 0.0f) {
-				float hDist = abs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
+				float hDist = fabs(matchStyle.fontHRes * matchStyle.fontH - hRes * requestedStyle->fontH);
 				if (hDist > 0.001f) {
 					continue;
 				}

@@ -619,7 +619,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			break;
 
 		case 'f':
-			APPEND_FMT("%08x", PARAMF(regf++));
+			APPEND_FMT("%f", PARAMF(regf++));
 			// This doesn't consume a gp reg.
 			--reg;
 			break;
@@ -658,7 +658,7 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 		formatted_reason[0] = ':';
 		formatted_reason[1] = ' ';
 		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
-		formatted_reason[sizeof(formatted_reason)] = '\0';
+		formatted_reason[sizeof(formatted_reason) - 1] = '\0';
 		va_end(args);
 	}
 
