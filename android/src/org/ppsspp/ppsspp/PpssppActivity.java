@@ -6,7 +6,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 
-import com.google.analytics.tracking.android.EasyTracker;
 import com.henrikrydgard.libnative.NativeActivity;
 import com.henrikrydgard.libnative.NativeApp;
 
@@ -73,18 +72,7 @@ public class PpssppActivity extends NativeActivity {
 
 		super.onCreate(savedInstanceState);
 	}
-  
-	@Override
-	public void onStart() {
-		super.onStart();
-		EasyTracker.getInstance(this).activityStart(this);
-	}
 
-	@Override
-	public void onStop() {
-		super.onStop();
-		EasyTracker.getInstance(this).activityStop(this);
-	}
 
 	private void correctRatio(Point sz, float scale) {
 		float x = sz.x;

@@ -9,12 +9,9 @@
         android:minSdkVersion="9"
         android:targetSdkVersion="19" />
 
-    <uses-feature android:glEsVersion="0x00020000" >
-    </uses-feature>
-    <uses-feature android:name="android.hardware.screen.landscape" />
-    <uses-feature
-        android:name="android.hardware.touchscreen"
-        android:required="false" />
+    <uses-feature android:glEsVersion="0x00020000" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
