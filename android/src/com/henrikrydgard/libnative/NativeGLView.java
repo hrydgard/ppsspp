@@ -55,14 +55,11 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		
 		mController = Controller.getInstance(activity);
 		try {
-			if (mController.init()) {
-				Log.i(TAG, "MOGA initialized");
-				mController.setListener(this, new Handler());
-			} else {
-				Log.i(TAG, "MOGA failed to initialize. No moga detected?");
-			}
-		} catch (java.lang.RuntimeException e) {
-			Log.i(TAG, "MOGA failed to initialize due to the bug.");
+			MogaHack.init(mController, activity);
+			Log.i(TAG, "MOGA initialized");
+			mController.setListener(this, new Handler());
+		} catch (Exception e) {
+			Log.i(TAG, "Moga failed to initialize");
 		}
 	}
 
