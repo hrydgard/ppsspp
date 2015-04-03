@@ -379,39 +379,43 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, c->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), c, screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
 
 	Choice *customizeTilt = controlsSettings->Add(new Choice(c->T("Customize tilt")));
-	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCuztomize);
+	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
 	customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
 #endif
-	controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
-	layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
-	layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-	// Re-centers itself to the touch location on touch-down.
-	CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, c->T("Auto-centering analog stick")));
-	floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+	// TVs don't have touch control, at least not yet.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+		controlsSettings->Add(new ItemHeader(c->T("OnScreen", "On-Screen Touch Controls")));
+		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
+		layoutEditorChoice_ = controlsSettings->Add(new Choice(c->T("Custom layout...")));
+		layoutEditorChoice_->OnClick.Handle(this, &GameSettingsScreen::OnTouchControlLayout);
+		layoutEditorChoice_->SetEnabledPtr(&g_Config.bShowTouchControls);
 
-	// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
-	// Some Windows touch devices don't have a back button or other button to call up the menu.
+		// Re-centers itself to the touch location on touch-down.
+		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, c->T("Auto-centering analog stick")));
+		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
+		// Some Windows touch devices don't have a back button or other button to call up the menu.
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
-	CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
+		CheckBox *enablePauseBtn = controlsSettings->Add(new CheckBox(&g_Config.bShowTouchPause, c->T("Show Touch Pause Menu Button")));
 
-	// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
-	if (!PSP_IsInited()) {
-		enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
-	} else {
-		enablePauseBtn->SetEnabled(false);
-	}
+		// Don't allow the user to disable it once in-game, so they can't lock themselves out of the menu.
+		if (!PSP_IsInited()) {
+			enablePauseBtn->SetEnabledPtr(&g_Config.bShowTouchControls);
+		} else {
+			enablePauseBtn->SetEnabled(false);
+		}
 #endif
 
-	CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
-	disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
-	View *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
-	opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
-	static const char *touchControlStyles[] = {"Classic", "Thin borders"};
-	View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
-	style->SetEnabledPtr(&g_Config.bShowTouchControls);
+		CheckBox *disableDiags = controlsSettings->Add(new CheckBox(&g_Config.bDisableDpadDiagonals, c->T("Disable D-Pad diagonals (4-way touch)")));
+		disableDiags->SetEnabledPtr(&g_Config.bShowTouchControls);
+		View *opacity = controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 100, c->T("Button Opacity"), screenManager()));
+		opacity->SetEnabledPtr(&g_Config.bShowTouchControls);
+		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
+		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
+		style->SetEnabledPtr(&g_Config.bShowTouchControls);
+	}
 
 #ifdef _WIN32
 	static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
@@ -493,9 +497,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new ItemHeader(s->T("General")));
 
 #ifdef ANDROID
-	static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
-	PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, c->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), c, screenManager()));
-	rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
+		static const char *screenRotation[] = {"Auto", "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+		PopupMultiChoice *rot = systemSettings->Add(new PopupMultiChoice(&g_Config.iScreenRotation, c->T("Screen Rotation"), screenRotation, 0, ARRAY_SIZE(screenRotation), c, screenManager()));
+		rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
+	}
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, s->T("VersionCheck", "Check for new versions of PPSSPP")));
@@ -946,7 +952,7 @@ UI::EventReturn GameSettingsScreen::OnTiltTypeChange(UI::EventParams &e){
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn GameSettingsScreen::OnTiltCuztomize(UI::EventParams &e){
+UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e){
 	screenManager()->push(new TiltAnalogSettingsScreen());
 	return UI::EVENT_DONE;
 };

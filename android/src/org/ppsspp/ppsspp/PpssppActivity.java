@@ -68,11 +68,6 @@ public class PpssppActivity extends NativeActivity {
 			return;
 		}
 
-		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
-		if (uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION) {
-		    Log.i(TAG, "Running on an Android TV Device");
-		}
-
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
 		// (from app drawer).
