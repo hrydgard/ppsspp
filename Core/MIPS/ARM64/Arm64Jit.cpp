@@ -633,24 +633,4 @@ void Arm64Jit::WriteSyscallExit() {
 
 void Arm64Jit::Comp_DoNothing(MIPSOpcode op) { }
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6) & 0x1F)
-#define _POS ((op>>6) & 0x1F)
-#define _SIZE ((op>>11) & 0x1F)
-
-//memory regions:
-//
-// 08-0A
-// 48-4A
-// 04-05
-// 44-45
-// mov eax, addrreg
-	// shr eax, 28
-// mov eax, [table+eax]
-// mov dreg, [eax+offreg]
-	
 }
