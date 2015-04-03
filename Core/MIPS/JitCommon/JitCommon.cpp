@@ -25,6 +25,10 @@
 #include "ext/udis86/udis86.h"
 #include "Core/Util/DisArm64.h"
 
+#if (defined(_M_IX86) || defined(_M_X64)) && defined(_WIN32)
+#define DISASM_ALL 1
+#endif
+
 namespace MIPSComp {
 #if defined(ARM)
 	ArmJit *jit;
@@ -38,7 +42,7 @@ namespace MIPSComp {
 	}
 }
 
-#if !defined(ARM64)
+#if defined(ARM) || defined(DISASM_ALL)
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.
 std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	std::vector<std::string> lines;
@@ -87,7 +91,7 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 	return std::string(buf2) + " " + buf;
 }
 
-#if !defined(ARM)
+#if defined(ARM64) || defined(DISASM_ALL)
 std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 	std::vector<std::string> lines;
 

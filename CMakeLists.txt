@@ -1087,7 +1087,6 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h
 		GPU/Common/VertexDecoderX86.cpp
-		Core/Util/DisArm64.cpp
 		ext/disarm.cpp)
 elseif(MIPS)
 	set(CoreExtra ${CoreExtra}
