@@ -4,7 +4,10 @@
 
 #include <limits>
 #include <algorithm>
+#include <vector>
 #include <cmath>
+
+#include <stdlib.h>
 
 #include "base/basictypes.h"
 
@@ -301,7 +304,7 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #else
-#ifdef __clang__
+#if defined(__clang__) && !defined(_M_IX86) && !defined(_M_X64)
 	__clear_cache(start, end);
 #else
 #if !defined(_M_IX86) && !defined(_M_X64)
@@ -1864,11 +1867,11 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	u64 aligned_pc = (u64)GetCodePtr() & ~0xFFF;
 	s64 aligned_offset = (s64)imm - (s64)aligned_pc;
-	if (upload_part.Count() > 1 && std::abs(aligned_offset) < 0xFFFFFFFF)
+	if (upload_part.Count() > 1 && aligned_offset >= -0xFFFFFFFFLL && aligned_offset <= 0xFFFFFFFFLL)
 	{
 		// Immediate we are loading is within 4GB of our aligned range
 		// Most likely a address that we can load in one or two instructions
-		if (!(std::abs(aligned_offset) & 0xFFF))
+		if (aligned_offset >= -0xFFFLL && aligned_offset <= 0xFFFLL)
 		{
 			// Aligned ADR
 			ADRP(Rd, (s32)aligned_offset);

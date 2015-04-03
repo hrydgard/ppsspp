@@ -314,9 +314,14 @@ else()
 		Common/FakeEmitter.h)
 endif()
 # ARMEmitter is here for the unit tests and don't really hurt otherwise.
+if(UNITTEST)
 set(CommonExtra ${CommonExtra}
+		Common/Arm64Emitter.h
+		Common/Arm64Emitter.cpp
 		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp)
+		Common/ArmEmitter.cpp
+		Core/Util/DisArm64.cpp)
+endif()
 
 if(WIN32)
 	set(CommonExtra ${CommonExtra}
@@ -1576,9 +1581,16 @@ endif()
 if(UNITTEST)
 	add_executable(unitTest
 		unittest/UnitTest.cpp
+		unittest/TestArmEmitter.cpp
+		unittest/TestArm64Emitter.cpp
+		unittest/TestX64Emitter.cpp
+		unittest/JitHarness.cpp
+		Core/MIPS/ARM/ArmRegCache.cpp
+		Core/MIPS/ARM/ArmRegCacheFPU.cpp
+		UI/OnScreenDisplay.cpp
 	)
 	target_link_libraries(unitTest
-		${COCOA_LIBRARY} ${LinkCommon})
+		${COCOA_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(unitTest unittest)
 endif()
 
@@ -1603,7 +1615,7 @@ if (TargetBin)
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
 	endif()
-	target_link_libraries(${TargetBin} ${LinkCommon})
+	target_link_libraries(${TargetBin} ${LinkCommon} Common)
 endif()
 
 # installs
