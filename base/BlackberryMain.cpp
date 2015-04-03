@@ -50,6 +50,8 @@ int System_GetPropertyInt(SystemProperty prop) {
     return 44100;
   case SYSPROP_DISPLAY_REFRESH_RATE:
     return 60000;
+  case SYSPROP_DEVICE_TYPE:
+    return DEVICE_TYPE_MOBILE;
   default:
     return -1;
   }

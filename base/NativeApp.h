@@ -119,6 +119,13 @@ bool System_InputBoxGetString(const char *title, const char *defaultValue, char 
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
 void System_SendMessage(const char *command, const char *parameter);
 
+// This will get muddy with multi-screen support :/ But this will always be the type of the main device.
+enum SystemDeviceType {
+	DEVICE_TYPE_MOBILE = 0,  // phones and pads
+	DEVICE_TYPE_TV = 1,  // Android TV and similar
+	DEVICE_TYPE_DESKTOP = 2,  // Desktop computer
+};
+
 enum SystemProperty {
 	SYSPROP_NAME,
 	SYSPROP_LANGREGION,
@@ -132,6 +139,8 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_YRES,
 	SYSPROP_DISPLAY_REFRESH_RATE,  // returns 1000*the refresh rate in Hz as it can be non-integer
 	SYSPROP_MOGA_VERSION,
+
+	SYSPROP_DEVICE_TYPE,
 
 	// Exposed on Android. Choosing the optimal sample rate for audio
 	// will result in lower latencies. Buffer size is automatically matched

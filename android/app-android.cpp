@@ -38,8 +38,8 @@ struct FrameCommand {
 	std::string params;
 };
 
-recursive_mutex frameCommandLock;
-std::queue<FrameCommand> frameCommands;
+static recursive_mutex frameCommandLock;
+static std::queue<FrameCommand> frameCommands;
 
 std::string systemName;
 std::string langRegion;
@@ -57,6 +57,7 @@ static int optimalSampleRate = 0;
 static int sampleRate = 0;
 static int framesPerBuffer = 0;
 static int androidVersion;
+static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
 static int display_xres;
@@ -117,6 +118,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SYSTEMVERSION:
 		return androidVersion;
+	case SYSPROP_DEVICE_TYPE:
+		return deviceType;
 	case SYSPROP_DISPLAY_XRES:
 		return display_xres;
 	case SYSPROP_DISPLAY_YRES:
@@ -184,7 +187,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
-  (JNIEnv *env, jclass, jstring jdevicetype, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
+  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jint jAndroidVersion) {
 	jniEnvUI = env;
@@ -195,6 +198,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	renderer_inited = false;
 	first_lost = true;
 	androidVersion = jAndroidVersion;
+	deviceType = jdeviceType;
 
 	g_buttonTracker.Reset();
 
@@ -210,7 +214,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
-	systemName = GetJavaString(env, jdevicetype);
+	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
 
 	std::string externalDir = GetJavaString(env, jexternalDir);

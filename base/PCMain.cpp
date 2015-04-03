@@ -318,6 +318,18 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
+	case SYSPROP_DEVICE_TYPE:
+#ifdef _WIN32
+		return DEVICE_TYPE_DESKTOP;
+#elif defined(MAEMO)
+		return DEVICE_TYPE_MOBILE;
+#elif __linux__
+		return DEVICE_TYPE_DESKTOP;
+#elif __APPLE__
+		return DEVICE_TYPE_DESKTOP;
+#else
+		return DEVICE_TYPE_MOBILE;
+#endif
 	default:
 		return -1;
 	}

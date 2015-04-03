@@ -75,6 +75,24 @@ int System_GetPropertyInt(SystemProperty prop) {
     return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
+	case SYSPROP_DEVICE_TYPE:
+#ifdef __SYMBIAN32__
+		return DEVICE_TYPE_MOBILE;
+#elif defined(BLACKBERRY)
+		return DEVICE_TYPE_MOBILE;
+#elif defined(MAEMO)
+		return DEVICE_TYPE_MOBILE;
+#elif defined(ANDROID)
+		return DEVICE_TYPE_MOBILE;
+#elif defined(Q_OS_LINUX)
+		return DEVICE_TYPE_DESKTOP;
+#elif defined(_WIN32)
+		return DEVICE_TYPE_DESKTOP;
+#elif defined(Q_OS_MAC)
+		return DEVICE_TYPE_DESKTOP;
+#else
+		return DEVICE_TYPE_DESKTOP;
+#endif
   default:
     return -1;
   }

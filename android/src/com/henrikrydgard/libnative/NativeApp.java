@@ -9,7 +9,11 @@ public class NativeApp {
 	public final static int DEVICE_ID_MOUSE = 2; 
 	public final static int DEVICE_ID_PAD_0 = 10; 
 	
-	public static native void init(String deviceType, int xres, int yres, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String shortcutParam, String installID, int androidVersion);
+	public final static int DEVICE_TYPE_MOBILE = 0;
+	public final static int DEVICE_TYPE_TV = 1;
+	public final static int DEVICE_TYPE_DESKTOP = 2;
+
+	public static native void init(String model, int deviceType, int xres, int yres, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String shortcutParam, String installID, int androidVersion);
 	
 	public static native void audioInit();
 	public static native void audioShutdown();

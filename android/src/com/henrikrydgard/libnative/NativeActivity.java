@@ -10,6 +10,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.UiModeManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -186,6 +187,20 @@ public class NativeActivity extends Activity {
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
 
+		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
+		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
+		switch (uiModeManager.getCurrentModeType()) {
+		case Configuration.UI_MODE_TYPE_TELEVISION:
+			deviceType = NativeApp.DEVICE_TYPE_TV;
+		    Log.i(TAG, "Running on an Android TV Device");
+			break;
+		case Configuration.UI_MODE_TYPE_DESK:
+			deviceType = NativeApp.DEVICE_TYPE_DESKTOP;
+		    Log.i(TAG, "Running on an Android desktop computer (!)");
+			break;
+		// All other device types are treated the same.
+		}
+
 	    isXperiaPlay = IsXperiaPlay();
 		
 		String libraryDir = getApplicationLibraryDir(appInfo);
@@ -195,13 +210,13 @@ public class NativeActivity extends Activity {
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
 
-		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
+		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
 
 		Point displaySize = new Point();
 		GetScreenSize(displaySize);
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
+		NativeApp.init(model, deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
