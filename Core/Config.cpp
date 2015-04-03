@@ -349,6 +349,8 @@ static ConfigSetting cpuSettings[] = {
 };
 
 static int DefaultRenderingMode() {
+	// Workaround for ancient device. Can probably be removed now as we do no longer
+	// support Froyo (Android 2.2)...
 	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
 		return 0;  // Non-buffered
 	}
@@ -360,7 +362,8 @@ static int DefaultInternalResolution() {
 #if defined(USING_WIN_UI)
 	return 0;
 #else
-	return pixel_xres >= 1024 ? 2 : 1;
+	int longestDisplaySide = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES));
+	return longestDisplaySide >= 1000 ? 2 : 1;
 #endif
 }
 
