@@ -884,7 +884,8 @@ bool NativeAxis(const AxisInput &axis) {
 			return false;
 
 		default:
-			return false;
+			// Don't take over completely!
+			return screenManager->axis(axis);
 	}
 
 	//figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
