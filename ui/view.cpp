@@ -414,7 +414,13 @@ void Choice::Draw(UIContext &dc) {
 
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
+	if (HasFocus()) {
+		UI::Style style = dc.theme->itemFocusedStyle;
+		style.background.color &= 0x7fffffff;
+		dc.FillRect(style.background, bounds_);
+	}
 	int paddingX = 12;
+
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.DrawText(rightText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);

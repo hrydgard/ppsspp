@@ -593,6 +593,9 @@ public:
 
 	void Draw(UIContext &dc) override;
 
+	// These are focusable so that long lists of them can be keybaord scrolled.
+	bool CanBeFocused() const override { return true; }
+
 private:
 	std::string text_;
 	std::string rightText_;
@@ -656,10 +659,10 @@ private:
 class TextView : public InertView {
 public:
 	TextView(const std::string &text, LayoutParams *layoutParams = 0) 
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false) {}
 
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -668,12 +671,17 @@ public:
 	void SetSmall(bool small) { small_ = small; }
 	void SetTextColor(uint32_t color) { textColor_ = color; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
+	void SetFocusable(bool focusable) { focusable_ = focusable; }
+
+	bool CanBeFocused() const override { return focusable_; }
+
 private:
 	std::string text_;
 	int textAlign_;
 	uint32_t textColor_;
 	bool small_;
 	bool shadow_;
+	bool focusable_;
 };
 
 class TextEdit : public View {
