@@ -487,11 +487,20 @@ static ConfigSetting soundSettings[] = {
 
 static bool DefaultShowTouchControls() {
 #if defined(MOBILE_DEVICE)
-	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (KeyMap::HasBuiltinController(name)) {
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if (deviceType == DEVICE_TYPE_MOBILE) {
+		std::string name = System_GetProperty(SYSPROP_NAME);
+		if (KeyMap::HasBuiltinController(name)) {
+			return false;
+		} else {
+			return true;
+		}
+	} else if (deviceType == DEVICE_TYPE_TV) {
+		return false;
+	} else if (deviceType == DEVICE_TYPE_DESKTOP) {
 		return false;
 	} else {
-		return true;
+		return false;
 	}
 #else
 	return false;

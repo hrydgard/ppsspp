@@ -423,7 +423,7 @@ void SystemInfoScreen::CreateViews() {
 	SplitString(g_all_gl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 	for (size_t i = 0; i < exts.size(); i++) {
-		oglExtensions->Add(new TextView(exts[i]));
+		oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 	}
 
 	exts.clear();
@@ -442,7 +442,7 @@ void SystemInfoScreen::CreateViews() {
 		eglExtensions->Add(new ItemHeader("EGL Extensions"));
 
 		for (size_t i = 0; i < exts.size(); i++) {
-			eglExtensions->Add(new TextView(exts[i]));
+			eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 		}
 	}
 }
@@ -607,7 +607,7 @@ void JitCompareScreen::UpdateDisasm() {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
 		std::string mipsDis = temp;
-		leftDisasm_->Add(new TextView(mipsDis));
+		leftDisasm_->Add(new TextView(mipsDis))->SetFocusable(true);
 	}
 
 #if defined(ARM)
@@ -616,7 +616,7 @@ void JitCompareScreen::UpdateDisasm() {
 	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
 	for (size_t i = 0; i < targetDis.size(); i++) {
-		rightDisasm_->Add(new TextView(targetDis[i]));
+		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
 	}
 
 	int numMips = leftDisasm_->GetNumSubviews();

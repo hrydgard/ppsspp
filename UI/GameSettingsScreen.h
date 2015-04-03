@@ -65,7 +65,7 @@ private:
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
-	UI::EventReturn OnTiltCuztomize(UI::EventParams &e);
+	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
