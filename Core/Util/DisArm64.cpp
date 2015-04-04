@@ -433,9 +433,82 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rm = (w >> 16) & 0x1f;
 	if (((w >> 21) & 0x4F9) == 0x71) {
 		switch ((w >> 10) & 3) {
-		case 1: case 3:
-			snprintf(instr->text, sizeof(instr->text), "(asimd three-same %08x)", w);
+		case 1: case 3: {
+			int opcode = (w >> 11) & 0x1f;
+			int sz = (w >> 22) & 3;
+			int Q = GetQ(w);
+			int U = GetU(w);
+			const char *opnames000[32] = {
+				"shadd", "sqadd", "srhadd", 0,
+				"shsub", "sqsub", "cmgt", "cmge",
+				"sshl", "sqshl", "srshl", "sqrshl",
+				"smax", "smin", "sabd", "saba",
+				"add", "cmtst", "mla", "mul",
+				"smaxp", "sminp", "sqdmulh", "addp",
+				"fmaxnm", "fmla", "fadd", "fmulx",
+				"fcmeq", 0, "fmax", "frecps",
+			};
+			const char *opnames100[32] = {
+				"uhadd", "uqadd", "urhadd", 0,
+				"uhsub", "uqsub", "cmhi", "cmhs",
+				"ushl", "uqshl", "urshl", "uqrshl",
+				"umax", "umin", "uabd", "uaba",
+				"sub", "cmeq", "mls", "pmul",
+				"umaxp", "uminp", "sqrdmulh", "addp",
+				"fmaxnmp", 0, "faddp", "fmul",
+				"fcmge", "facge", "fmaxp", "fdiv",
+			};
+			const char *opnames010[8] = {
+				"fminm", "fmls", "fsub", 0,
+				0, 0, "fmin", "frsqrts",
+			};
+			const char *opnames110[8] = {
+				"fminnmp", 0, "fabd", 0,
+				"fcmgt", "facgt", "fminp", 0,
+			};
+			char r = Q ? 'q' : 'd';
+			const char *opname = nullptr;
+			bool fp = false;
+			if (U == 0) {
+				if (opcode < 0x18) {
+					opname = opnames000[opcode];
+				} else if ((sz & 0x2) == 0) {
+					opname = opnames000[opcode];
+					fp = true;
+				} else if ((sz & 0x2) == 2) {
+					opname = opnames010[opcode - 0x18];
+					fp = true;
+				}
+				if (!opname && opcode == 3 && (sz & 2) == 0) {
+					opname = !(sz & 1) ? "and" : "bic";
+				} else if (!opname && opcode == 3 && (sz & 2) == 2) {
+					opname = !(sz & 1) ? "orr" : "orn";
+				}
+			} else if (U == 1) {
+				if (opcode < 0x18) {
+					opname = opnames100[opcode];
+				} else if ((sz & 0x2) == 0) {
+					opname = opnames100[opcode];
+					fp = true;
+				} else if ((sz & 0x2) == 2) {
+					opname = opnames110[opcode - 0x18];
+					fp = true;
+				}
+				if (!opname && opcode == 3 && (sz & 2) == 0) {
+					opname = !(sz & 1) ? "eor" : "bsl";
+				} else if (!opname && opcode == 3 && (sz & 2) == 2) {
+					opname = !(sz & 1) ? "bit" : "bif";
+				}
+			}
+
+			int size = (fp ? ((sz & 1) ? 64 : 32) : (sz << 3));
+			if (opname != nullptr) {
+				snprintf(instr->text, sizeof(instr->text), "%s.%d %c%d, %c%d, %c%d", opname, size, r, Rd, r, Rn, r, Rm);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "(asimd three-same %08x)", w);
+			}
 			break;
+		}
 		case 0:
 			snprintf(instr->text, sizeof(instr->text), "(asimd three-different %08x)", w);
 			break;

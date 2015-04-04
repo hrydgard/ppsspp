@@ -1820,6 +1820,11 @@ void ARM64XEmitter::ADRP(ARM64Reg Rd, s32 imm)
 	EncodeAddressInst(1, Rd, imm >> 12);
 }
 
+// LLVM is unhappy about the regular abs function, so here we go.
+inline int64_t abs64(int64_t x) {
+	return x >= 0 ? x : -x;
+}
+
 // Wrapper around MOVZ+MOVK (and later MOVN)
 void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 {
@@ -1868,11 +1873,11 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	u64 aligned_pc = (u64)GetCodePtr() & ~0xFFF;
 	s64 aligned_offset = (s64)imm - (s64)aligned_pc;
-	if (upload_part.Count() > 1 && std::abs(aligned_offset) < 0xFFFFFFFFLL)
+	if (upload_part.Count() > 1 && abs64(aligned_offset) < 0xFFFFFFFFLL)
 	{
 		// Immediate we are loading is within 4GB of our aligned range
 		// Most likely a address that we can load in one or two instructions
-		if (!(std::abs(aligned_offset) & 0xFFF))
+		if (!(abs64(aligned_offset) & 0xFFF))
 		{
 			// Aligned ADR
 			ADRP(Rd, (s32)aligned_offset);
