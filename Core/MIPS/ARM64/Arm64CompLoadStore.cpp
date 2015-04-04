@@ -90,6 +90,7 @@ namespace MIPSComp
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
 
+		DISABLE;
 		// TODO: For some reason I can't get this to work on ARM64.
 		if (!js.inDelaySlot && false) {
 			// Optimisation: Combine to single unaligned load/store

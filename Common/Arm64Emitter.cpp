@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <cinttypes>
 
 #include <stdlib.h>
 
@@ -1867,11 +1868,11 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 
 	u64 aligned_pc = (u64)GetCodePtr() & ~0xFFF;
 	s64 aligned_offset = (s64)imm - (s64)aligned_pc;
-	if (upload_part.Count() > 1 && aligned_offset >= -0xFFFFFFFFLL && aligned_offset <= 0xFFFFFFFFLL)
+	if (upload_part.Count() > 1 && std::abs(aligned_offset) < 0xFFFFFFFFLL)
 	{
 		// Immediate we are loading is within 4GB of our aligned range
 		// Most likely a address that we can load in one or two instructions
-		if (aligned_offset >= -0xFFFLL && aligned_offset <= 0xFFFLL)
+		if (!(std::abs(aligned_offset) & 0xFFF))
 		{
 			// Aligned ADR
 			ADRP(Rd, (s32)aligned_offset);
