@@ -111,7 +111,7 @@ namespace MIPSComp
 		FixupBranch skip;
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-			u32 addr = iaddr & 0x3FFFFFFF;
+			u32 addr = iaddr;
 			// Need to initialize since this only loads part of the register.
 			// But rs no longer matters (even if rs == rt) since we have the address.
 			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
@@ -122,28 +122,26 @@ namespace MIPSComp
 			switch (o) {
 			case 34: // lwl
 				LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, SCRATCH2);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift, INVALID_REG);
 				ORR(gpr.R(rt), gpr.R(rt), SCRATCH1, ArithOption(gpr.R(rt), ST_LSL, 24 - shift));
 				break;
 
 			case 38: // lwr
 				LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
-				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), SCRATCH2);
+				ANDI2R(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift), INVALID_REG);
 				ORR(gpr.R(rt), gpr.R(rt), SCRATCH1, ArithOption(gpr.R(rt), ST_LSR, shift));
 				break;
 
 			case 42: // swl
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
-				// Don't worry, can't use temporary.
-				ANDI2R(SCRATCH2, SCRATCH2, 0xffffff00 << shift, SCRATCH1);
+				ANDI2R(SCRATCH2, SCRATCH2, 0xffffff00 << shift, INVALID_REG);
 				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSR, 24 - shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
 
 			case 46: // swr
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
-				// Don't worry, can't use temporary.
-				ANDI2R(SCRATCH2, SCRATCH2, 0x00ffffff >> (24 - shift), SCRATCH1);
+				ANDI2R(SCRATCH2, SCRATCH2, 0x00ffffff >> (24 - shift), INVALID_REG);
 				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSL, shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
