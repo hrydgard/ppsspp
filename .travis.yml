@@ -33,7 +33,7 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install aria2 pv -qq
   - download_extract() { aria2c -x 16 $1 -o $2 && tar -xf $2; }
-  - download_extract_xz() { aria2c $1 -o $2 && pv $2 | xz -vd | tar -x; }
+  - download_extract_xz() { aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2 && pv $2 | xz -vd | tar -x; }
 # Travis uses CMake 2.8.7. We require 2.8.8. Grab latest
   - if [ "$CMAKE" == "TRUE" ]; then
       sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev -qq &&
@@ -61,7 +61,7 @@ install:
       free -m &&
       NDK_VER=android-ndk-r10d &&
       sudo apt-get install ant -qq &&
-      download_extract_xz http://hdkr.co/${NDK_VER}-x86_64.tar.xz ${NDK_VER}-linux-x86_64.tar.xz &&
+      download_extract_xz http://hdkr.co/${NDK_VER}-x86_64.tar.xz ${NDK_VER}-x86_64.tar.xz &&
       export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER} &&
       if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi;
     fi
