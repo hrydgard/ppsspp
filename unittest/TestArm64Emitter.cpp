@@ -39,7 +39,10 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
-
+	fp.FMLA(32, D1, D2, D3);
+	RET(CheckLast(emitter, "0e23cc41 fmla.32 d1, d2, d3"));
+	fp.FMLS(64, Q1, Q2, Q3);
+	RET(CheckLast(emitter, "4ee3cc41 fmls.64 q1, q2, q3"));
 	fp.FADD(32, Q1, Q13, Q21);
 	RET(CheckLast(emitter, "4e35d5a1 fadd.32 q1, q13, q21"));
 	fp.FMUL(32, D1, D13, D21);

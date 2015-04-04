@@ -802,6 +802,8 @@ public:
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMLS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn, bool source_upper = false);
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn);

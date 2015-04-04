@@ -2822,6 +2822,10 @@ void ARM64FloatEmitter::FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, size >> 6, 0x1A, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(0, size >> 6, 0x19, Rd, Rn, Rm);
+}
 void ARM64FloatEmitter::FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn, bool source_upper)
 {
 	Emit2RegMisc(source_upper, 0, size >> 6, 0x17, Rd, Rn);
@@ -2857,6 +2861,10 @@ void ARM64FloatEmitter::FRSQRTE(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 void ARM64FloatEmitter::FSUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, 2 | (size >> 6), 0x1A, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FMLS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(0, 2 | (size >> 6), 0x19, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::NOT(ARM64Reg Rd, ARM64Reg Rn)
 {

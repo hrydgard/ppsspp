@@ -458,7 +458,7 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				"fmaxnmp", 0, "faddp", "fmul",
 				"fcmge", "facge", "fmaxp", "fdiv",
 			};
-			const char *opnames010[8] = {
+			const char *opnames010[8] = { 
 				"fminm", "fmls", "fsub", 0,
 				0, 0, "fmin", "frsqrts",
 			};
