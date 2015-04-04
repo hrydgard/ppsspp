@@ -54,9 +54,13 @@ static const ARM64Reg fpUVoffsetReg = D1;
 static const ARM64Reg neonScratchReg = D2;
 static const ARM64Reg neonScratchReg2 = D3;
 
-static const ARM64Reg neonScratchRegQ = Q1;
+static const ARM64Reg neonScratchRegQ = Q2;
 
-// Everything above S6 is fair game for skinning
+static const ARM64Reg neonUVScaleReg = D0;
+static const ARM64Reg neonUVOffsetReg = D1;
+
+// Everything above S6 is fair game for skinning. This means that we can easily fit four
+// full skin matrices in registers.
 
 // S8-S15 are used during matrix generation
 
@@ -68,11 +72,10 @@ static const ARM64Reg srcNEON = Q2;
 static const ARM64Reg accNEON = Q3;
 
 static const JitLookup jitLookup[] = {
-	/*
 	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
 	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
 	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
-
+	/*
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -80,19 +83,14 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
 	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
-	/*
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
-
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
-	*/
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
-	/*
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
 	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
-	*/
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
 	{&VertexDecoder::Step_NormalFloat, &VertexDecoderJitCache::Jit_NormalFloat},
@@ -146,7 +144,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	const u8 *start = AlignCode16();
 
-	ABI_PushRegisters(regs_to_save);
 	// TODO: Also push D8-D15, the fp registers we need to save.
 
 	bool prescaleStep = false;
@@ -163,6 +160,24 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 			dec.steps_[i] == &VertexDecoder::Step_WeightsU16Skin ||
 			dec.steps_[i] == &VertexDecoder::Step_WeightsFloatSkin) {
 			skinning = true;
+		}
+	}
+
+	ABI_PushRegisters(regs_to_save);
+
+	// Keep the scale/offset in a few fp registers if we need it.
+	if (prescaleStep) {
+		MOVP2R(X3, &gstate_c.uv);
+		if (cpu_info.bNEON) {
+			fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
+			fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
+			if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+				fp.MOVI2FDUP(neonScratchReg, by128, scratchReg);
+				fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchReg);
+			} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+				fp.MOVI2FDUP(neonScratchReg, by32768, scratchReg);
+				fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchReg);
+			}
 		}
 	}
 
@@ -230,6 +245,55 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	return false;
 }
 
+void VertexDecoderJitCache::Jit_WeightsU8() {
+	// Basic implementation - a byte at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j);
+		STRB(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j);
+	}
+	if (j & 3) {
+		// Create a zero register. Might want to make a fixed one.
+		EOR(scratchReg, scratchReg, scratchReg);
+	}
+	while (j & 3) {
+		STRB(INDEX_UNSIGNED, scratchReg, dstReg, dec_->decFmt.w0off + j);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsU16() {
+	// Basic implementation - a short at a time. TODO: Optimize
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 2);
+		STRH(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
+	}
+	if (j & 3) {
+		// Create a zero register. Might want to make a fixed one.
+		EOR(scratchReg, scratchReg, scratchReg);
+	}
+	while (j & 3) {
+		STRH(INDEX_UNSIGNED, scratchReg, dstReg, dec_->decFmt.w0off + j * 2);
+		j++;
+	}
+}
+
+void VertexDecoderJitCache::Jit_WeightsFloat() {
+	int j;
+	for (j = 0; j < dec_->nweights; j++) {
+		LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 4);
+		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+	}
+	if (j & 3) {
+		EOR(tempReg1, tempReg1, tempReg1);
+	}
+	while (j & 3) {  // Zero additional weights rounding up to 4.
+		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+		j++;
+	}
+}
+
 void VertexDecoderJitCache::Jit_Color8888() {
 	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
 	// TODO: Set flags to determine if alpha != 0xFF.
@@ -261,11 +325,60 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
+void VertexDecoderJitCache::Jit_TcFloatThrough() {
+	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 4);
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
+	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Double() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+	LSL(tempReg1, tempReg1, 1);
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 17));
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+	LSL(tempReg1, tempReg1, 1);
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 17));
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
+}
+
 void VertexDecoderJitCache::Jit_TcFloat() {
 	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
 	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 4);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+}
+
+void VertexDecoderJitCache::Jit_TcU8Prescale() {
+	fp.LDR(16, INDEX_UNSIGNED, neonScratchReg, srcReg, dec_->tcoff);
+	fp.UXTL(8, neonScratchRegQ, neonScratchReg); // Widen to 16-bit
+	fp.UXTL(16, neonScratchRegQ, neonScratchReg); // Widen to 32-bit
+	fp.SCVTF(32, neonScratchReg, neonScratchReg);
+	fp.FMUL(32, neonScratchReg, neonScratchReg, neonUVScaleReg);  // TODO: FMLA
+	fp.FADD(32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+	fp.STR(64, INDEX_UNSIGNED, neonScratchReg, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Prescale() {
+	fp.LDR(32, INDEX_UNSIGNED, neonScratchReg, srcReg, dec_->tcoff);
+	fp.UXTL(16, neonScratchRegQ, neonScratchReg); // Widen to 32-bit
+	fp.SCVTF(32, neonScratchReg, neonScratchReg);
+	fp.FMUL(32, neonScratchReg, neonScratchReg, neonUVScaleReg);  // TODO: FMLA
+	fp.FADD(32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+	fp.STR(64, INDEX_UNSIGNED, neonScratchReg, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescale() {
+	fp.LDR(64, INDEX_UNSIGNED, neonScratchReg, srcReg, dec_->tcoff);
+	fp.FMUL(32, neonScratchReg, neonScratchReg, neonUVScaleReg);  // TODO: FMLA
+	fp.FADD(32, neonScratchReg, neonScratchReg, neonUVOffsetReg);
+	fp.STR(64, INDEX_UNSIGNED, neonScratchReg, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
