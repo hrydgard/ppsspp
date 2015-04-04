@@ -313,7 +313,7 @@ else()
 		Common/FakeCPUDetect.cpp
 		Common/FakeEmitter.h)
 endif()
-# ARMEmitter is here for the unit tests and don't really hurt otherwise.
+
 if(UNITTEST)
 set(CommonExtra ${CommonExtra}
 		Common/Arm64Emitter.h
@@ -321,6 +321,11 @@ set(CommonExtra ${CommonExtra}
 		Common/ArmEmitter.h
 		Common/ArmEmitter.cpp
 		Core/Util/DisArm64.cpp)
+else()
+#Blackberry appears to depend on this being here, should clean it up.
+set(CommonExtra ${CommonExtra}
+		Common/ArmEmitter.h
+		Common/ArmEmitter.cpp)
 endif()
 
 if(WIN32)
