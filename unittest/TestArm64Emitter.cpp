@@ -39,6 +39,8 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	fp.DUP(32, Q1, Q30, 3);
+	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
 	fp.UXTL(8, Q1, D8);
 	RET(CheckLast(emitter, "2f08a501 uxtl.16.8 q1, d8"));
 	fp.LDR(16, INDEX_UNSIGNED, Q1, X1, 64);
@@ -52,7 +54,7 @@ bool TestArm64Emitter() {
 	fp.FMUL(32, D1, D13, D21);
 	RET(CheckLast(emitter, "2e35dda1 fmul.32 d1, d13, d21"));
 	fp.INS(32, Q3, 1, Q12, 3);
-	RET(CheckLast(emitter, "6e0c6583 ins q3.d[1], q12.d[3]"));
+	RET(CheckLast(emitter, "6e0c6583 ins q3.s[1], q12.s[3]"));
 	fp.INS(8, D4, 5, D11, 2);
 	RET(CheckLast(emitter, "6e0b1564 ins d4.b[5], d11.b[2]"));
 	emitter.NEG(X1, X2);

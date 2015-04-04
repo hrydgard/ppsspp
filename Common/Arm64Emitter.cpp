@@ -3518,6 +3518,14 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 	}
 }
 
+// TODO: Quite a few values could be generated easily using the MOVI instruction and friends.
+void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch) {
+	// TODO: Make it work with more element sizes
+	// TODO: Optimize - there are shorter solution for many values
+	MOVI2F(Rd, value, scratch);
+	DUP(32, Rd, Rd, 0);
+}
+
 void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	u32 val;
 	bool shift;
