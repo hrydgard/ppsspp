@@ -2282,16 +2282,15 @@ void ARM64FloatEmitter::EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64R
 	        (imm8 << 13) | (1 << 12) | (imm5 << 5) | Rd);
 }
 
-void ARM64FloatEmitter::EmitShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)
 {
-	bool quad = IsQuad(Rd);
 
 	_assert_msg_(DYNA_REC, immh, "%s bad encoding! Can't have zero immh", __FUNCTION__);
 
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 
-	Write32((quad << 30) | (U << 29) | (0xF << 24) | (immh << 19) | (immb << 16) | \
+	Write32((Q << 30) | (U << 29) | (0xF << 24) | (immh << 19) | (immb << 16) | \
 	        (opcode << 11) | (1 << 10) | (Rn << 5) | Rd);
 }
 void ARM64FloatEmitter::EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn)
@@ -3193,7 +3192,7 @@ void ARM64FloatEmitter::ZIP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 
 // Shift by immediate
-void ARM64FloatEmitter::SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
+void ARM64FloatEmitter::SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
 	_assert_msg_(DYNA_REC, shift < src_size, "%s shift amount must less than the element size!", __FUNCTION__);
 	u32 immh = 0;
@@ -3211,10 +3210,10 @@ void ARM64FloatEmitter::SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
 	{
 		immh = 4 | ((shift >> 3) & 3);;
 	}
-	EmitShiftImm(0, immh, immb, 0x14, Rd, Rn);
+	EmitShiftImm(upper, 0, immh, immb, 0x14, Rd, Rn);
 }
 
-void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
+void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
 	_assert_msg_(DYNA_REC, shift < src_size, "%s shift amount must less than the element size!", __FUNCTION__);
 	u32 immh = 0;
@@ -3232,7 +3231,7 @@ void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
 	{
 		immh = 4 | ((shift >> 3) & 3);;
 	}
-	EmitShiftImm(1, immh, immb, 0x14, Rd, Rn);
+	EmitShiftImm(upper, 1, immh, immb, 0x14, Rd, Rn);
 }
 
 void ARM64FloatEmitter::SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
@@ -3253,17 +3252,17 @@ void ARM64FloatEmitter::SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
 	{
 		immh = 4 | ((shift >> 3) & 3);;
 	}
-	EmitShiftImm(1, immh, immb, 0x10, Rd, Rn);
+	EmitShiftImm(IsQuad(Rd), 1, immh, immb, 0x10, Rd, Rn);
 }
 
-void ARM64FloatEmitter::SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper)
 {
-	SSHLL(src_size, Rd, Rn, 0);
+	SSHLL(src_size, Rd, Rn, 0, upper);
 }
 
-void ARM64FloatEmitter::UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn)
+void ARM64FloatEmitter::UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper)
 {
-	USHLL(src_size, Rd, Rn, 0);
+	USHLL(src_size, Rd, Rn, 0, upper);
 }
 
 // vector x indexed element

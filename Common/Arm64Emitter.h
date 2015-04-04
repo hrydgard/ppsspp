@@ -872,11 +872,11 @@ public:
 	void ZIP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Shift by immediate
-	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
-	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper = false);
+	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper = false);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
-	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
-	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper = false);
+	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper = false);
 
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
@@ -907,7 +907,7 @@ private:
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
-	void EmitShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn);
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitVectorxElement(bool U, u32 size, bool L, u32 opcode, bool H, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);

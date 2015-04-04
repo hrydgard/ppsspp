@@ -197,7 +197,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		// Unconditional branch / branch+link
 		int offset = SignExtend26(w) << 2;
 		uint64_t target = addr + offset;
-		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (uint32_t)(target >> 32), (target & 0xFFFFFFFF));
 	} else if (((w >> 25) & 0x3F) == 0x1A) {
 		// Compare and branch
 		int op = (w >> 24) & 1;
@@ -213,7 +213,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		int offset = SignExtend19(w >> 5) << 2;
 		uint64_t target = addr + offset;
 		int cond = w & 0xF;
-		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", condnames[cond], (target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", condnames[cond], (uint32_t)(target >> 32), (target & 0xFFFFFFFF));
 	} else if ((w >> 24) == 0xD4) {
 		if (((w >> 21) & 0x7) == 1 && Rt == 0) {
 			int imm = (w >> 5) & 0xFFFF;
@@ -544,7 +544,44 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			if (((w >> 19) & 0xf) == 0) {
 				snprintf(instr->text, sizeof(instr->text), "(asimd modified immediate %08x)", w);
 			} else {
-				snprintf(instr->text, sizeof(instr->text), "(asimd shift-by-immediate %08x)", w);
+				bool Q = GetQ(w);
+				bool U = GetU(w);
+				int immh = (w >> 19) & 0xf;
+				int immb = (w >> 16) & 7;
+				int opcode = (w >> 11) & 0x1f;
+				const char *opnamesU0[32] = {
+					"sshr", 0, "ssra", 0,
+					"srshr", 0, "srsra", 0,
+					0, 0, "shl", 0,
+					0, 0, "sqshl", 0,
+					"shrn", "rshrn", "sqshrn", "sqrshrn",
+					"sshll", 0, 0, 0,
+					0, 0, 0, 0,
+					"scvtf", 0, 0, "fcvtzs",
+				};
+				const char *opnamesU1[32] = {
+					"ushr", 0, "usra", 0,
+					"urshr", 0, "ursra", 0,
+					"sri", 0, "sli", 0,
+					"sqslu", 0, "uqshl", 0,
+					"sqshrun", "sqrshrun", "uqshrn", "uqrshrn",
+					"ushll", 0, 0, 0,
+					0, 0, 0, 0,
+					"ucvtf", 0, 0, "fcvtzu",
+				};
+				const char *opname = U ? opnamesU1[opcode] : opnamesU0[opcode];
+				const char *two = Q ? "2" : "";  // TODO: This doesn't apply to all the ops
+				if (opname) {
+					int esize = (8 << HighestSetBit(immh));
+					int shift = ((immh << 3) | immb) - esize;
+					if (shift == 0 && opcode == 0x14) {
+						snprintf(instr->text, sizeof(instr->text), "%cxtl%s.%d.%d q%d, d%d", U ? 'u' : 's', two, esize * 2, esize, Rd, Rn);
+					} else {
+						snprintf(instr->text, sizeof(instr->text), "%s%s.%d.%d q%d, d%d, #%d", opname, two, esize * 2, esize, Rd, Rn, shift);
+					}
+				} else {
+					snprintf(instr->text, sizeof(instr->text), "(asimd shift-by-immediate %08x)", w);
+				}
 			}
 		} else {
 			bool Q = GetQ(w);
