@@ -39,6 +39,15 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	emitter.LDRH(INDEX_UNSIGNED, W3, X7, 18);
+	RET(CheckLast(emitter, "794024e3 ldrh w3, [x7, #18]"));
+	emitter.LDRSH(INDEX_UNSIGNED, W3, X7, 18);
+	RET(CheckLast(emitter, "79c024e3 ldrsh w3, [x7, #18]"));
+	fp.SCVTF(32, Q3, Q7, 7);
+	RET(CheckLast(emitter, "4f39e4e3 scvtf q3.s, q7.s, #7"));
+	fp.UCVTF(32, D3, D7, 15);
+	RET(CheckLast(emitter, "2f31e4e3 ucvtf d3.s, d7.s, #15"));
+
 	fp.LDP(INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad411c63 ldp q3, q7, [x3, #32]"));
 	fp.STP(INDEX_SIGNED, Q3, Q7, X3, 32);
@@ -48,8 +57,30 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
 	fp.UXTL(8, Q1, D8);
 	RET(CheckLast(emitter, "2f08a501 uxtl.16.8 q1, d8"));
-	fp.LDR(16, INDEX_UNSIGNED, Q1, X1, 64);
-	RET(CheckLast(emitter, "7d408021 ldr h1, [x1, #64]"));
+	fp.LDR(8, INDEX_PRE, Q1, X1, 96);
+	RET(CheckLast(emitter, "3c460c21 ldr b1, [x1, #96]!"));
+	fp.LDR(8, INDEX_POST, Q1, X1, 96);
+	RET(CheckLast(emitter, "3c460421 ldr b1, [x1], #96"));
+	fp.LDR(8, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "3d418021 ldr b1, [x1, #96]"));
+	fp.LDR(16, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "7d40c021 ldr h1, [x1, #96]"));
+	fp.LDR(32, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "bd406021 ldr s1, [x1, #96]"));
+	fp.LDR(64, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "fd403021 ldr d1, [x1, #96]"));
+	fp.LDR(128, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "3dc01821 ldr q1, [x1, #96]"));
+	fp.STR(8, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "3d018021 str b1, [x1, #96]"));
+	fp.STR(16, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "7d00c021 str h1, [x1, #96]"));
+	fp.STR(32, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "bd006021 str s1, [x1, #96]"));
+	fp.STR(64, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "fd003021 str d1, [x1, #96]"));
+	fp.STR(128, INDEX_UNSIGNED, Q1, X1, 96);
+	RET(CheckLast(emitter, "3d801821 str q1, [x1, #96]"));
 	fp.FMLA(32, D1, D2, D3);
 	RET(CheckLast(emitter, "0e23cc41 fmla.32 d1, d2, d3"));
 	fp.FMLS(64, Q1, Q2, Q3);

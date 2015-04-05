@@ -101,6 +101,7 @@ int CountLeadingZeros(uint64_t value, int width);
 
 inline ARM64Reg DecodeReg(ARM64Reg reg) { return (ARM64Reg)(reg & 0x1F); }
 inline ARM64Reg EncodeRegTo64(ARM64Reg reg) { return (ARM64Reg)(reg | 0x20); }
+inline ARM64Reg EncodeRegToSingle(ARM64Reg reg) { return (ARM64Reg)(DecodeReg(reg) + S0); }
 inline ARM64Reg EncodeRegToDouble(ARM64Reg reg) { return (ARM64Reg)((reg & ~0xC0) | 0x80); }
 inline ARM64Reg EncodeRegToQuad(ARM64Reg reg) { return (ARM64Reg)(reg | 0xC0); }
 
@@ -823,6 +824,8 @@ public:
 	void REV64(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void SCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void SCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 
 	// Move
@@ -915,6 +918,7 @@ private:
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
 	void EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
+	void EmitScalarShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn);
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitVectorxElement(bool U, u32 size, bool L, u32 opcode, bool H, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);

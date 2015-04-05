@@ -249,17 +249,18 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 		bool index_unsigned = ((w >> 24) & 3) == 1;
 		bool index_post = !index_unsigned && ((w >> 10) & 3) == 1;
 		bool index_pre = !index_unsigned && ((w >> 10) & 3) == 3;
-		int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 		if (V == 0) {
+			const char *signExt = ((opc & 0x2) && size < 3) ? "s" : "";
+			int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 			// Integer type
 			if (index_unsigned) {
-				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d, #%d]", opname[opc], sizeSuffix[size], r, Rt, Rn, imm12);
+				snprintf(instr->text, sizeof(instr->text), "%s%s%s %c%d, [x%d, #%d]", opname[opc], signExt, sizeSuffix[size], r, Rt, Rn, imm12);
 				return;
 			} else if (index_post) {
-				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d], #%d", opname[opc], sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
+				snprintf(instr->text, sizeof(instr->text), "%s%s%s %c%d, [x%d], #%d", opname[opc], signExt, sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
 				return;
 			} else if (index_pre) {
-				snprintf(instr->text, sizeof(instr->text), "%s%s %c%d, [x%d, #%d]!", opname[opc], sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
+				snprintf(instr->text, sizeof(instr->text), "%s%s%s %c%d, [x%d, #%d]!", opname[opc], signExt, sizeSuffix[size], r, Rt, Rn, SignExtend9(imm9));
 				return;
 			} else {
 				// register offset
@@ -271,14 +272,19 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 			}
 		} else {
 			// FP/Vector type
-			char vr = '!';
-			if (opc == 3 && size == 0) {
-				vr = 'q';
-			} else {
-				vr = "bhsd"[size];
+			if ((opc & 2) && size == 0) {
+				size = 4;
 			}
+			char vr = "bhsdq"[size];
+			int imm12 = SignExtend12((w >> 10) & 0xFFF) << size;
 			if (index_unsigned) {
 				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d, #%d]", opname[opc], vr, Rt, Rn, imm12);
+				return;
+			} else if (index_post) {
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d], #%d", opname[opc], vr, Rt, Rn, SignExtend9(imm9));
+				return;
+			} else if (index_pre) {
+				snprintf(instr->text, sizeof(instr->text), "%s %c%d, [x%d, #%d]!", opname[opc], vr, Rt, Rn, SignExtend9(imm9));
 				return;
 			} else {
 				snprintf(instr->text, sizeof(instr->text), "(loadstore-fp-vector %08x)", w);
@@ -614,7 +620,12 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				};
 				const char *opname = U ? opnamesU1[opcode] : opnamesU0[opcode];
 				const char *two = Q ? "2" : "";  // TODO: This doesn't apply to all the ops
-				if (opname) {
+				if (opname && (!strcmp(opname, "scvtf") || !strcmp(opname, "ucvtf"))) {
+					int esize = (8 << HighestSetBit(immh));
+					int shift = 2 * esize - ((immh << 3) | immb);
+					int r = Q ? 'q' : 'd';
+					snprintf(instr->text, sizeof(instr->text), "%ccvtf %c%d.s, %c%d.s, #%d", U ? 'u' : 's', r, Rd, r, Rn, shift);
+				} else if (opname) {
 					int esize = (8 << HighestSetBit(immh));
 					int shift = ((immh << 3) | immb) - esize;
 					if (shift == 0 && opcode == 0x14) {
