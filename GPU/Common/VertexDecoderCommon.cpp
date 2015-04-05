@@ -1071,19 +1071,26 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 	}
 }
 
+static const char *posnames[4] = { "?", "s8", "s16", "f" };
+static const char *nrmnames[4] = { "", "s8", "s16", "f" };
+static const char *tcnames[4] = { "", "u8", "u16", "f" };
+static const char *idxnames[4] = { "-", "u8", "u16", "?" };
+static const char *weightnames[4] = { "-", "u8", "u16", "f" };
+static const char *colnames[8] = { "", "?", "?", "?", "565", "5551", "4444", "8888" };
+
 int VertexDecoder::ToString(char *output) const {
 	char * start = output;
-	output += sprintf(output, "P: %i ", pos);
+	output += sprintf(output, "P: %s ", posnames[pos]);
 	if (nrm)
-		output += sprintf(output, "N: %i ", nrm);
+		output += sprintf(output, "N: %s ", nrmnames[nrm]);
 	if (col)
-		output += sprintf(output, "C: %i ", col);
+		output += sprintf(output, "C: %s ", colnames[col]);
 	if (tc)
-		output += sprintf(output, "T: %i ", tc);
+		output += sprintf(output, "T: %s ", tcnames[tc]);
 	if (weighttype)
-		output += sprintf(output, "W: %i ", weighttype);
+		output += sprintf(output, "W: %s (%ix)", weightnames[weighttype], nweights);
 	if (idx)
-		output += sprintf(output, "I: %i ", idx);
+		output += sprintf(output, "I: %s ", idxnames[idx]);
 	if (morphcount > 1)
 		output += sprintf(output, "Morph: %i ", morphcount);
 	if (throughmode)
