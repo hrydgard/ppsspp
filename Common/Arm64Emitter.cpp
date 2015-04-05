@@ -740,13 +740,11 @@ void ARM64XEmitter::EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 i
 	        (immr << 16) | (imms << 10) | (Rn << 5) | Rd);
 }
 
-void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
+void ARM64XEmitter::EncodeLoadStorePair(u32 op, bool V, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
-	bool b64Bit = Is64Bit(Rt);
 	u32 type_encode = 0;
 
-	switch (type)
-	{
+	switch (type) {
 	case INDEX_UNSIGNED:
 		type_encode = 2;
 		break;
@@ -758,18 +756,37 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 		break;
 	}
 
-	if (b64Bit) {
-		op |= 2;
-		imm >>= 3;
-	} else {
+	// ASIMD
+	if (V) {
 		imm >>= 2;
+		if (IsQuad(Rt)) {
+			op = 2;
+			if (type_encode == 2)
+				imm >>= 2;
+		} else if (IsDouble(Rt)) {
+			op = 1;
+			if (type_encode == 2)
+				imm >>= 1;
+		} else {
+			op = 0;
+		}
+	} else {
+		bool b64Bit = Is64Bit(Rt);
+		if (b64Bit) {
+			op |= 2;
+			imm >>= 3;
+		} else {
+			imm >>= 2;
+		}
 	}
+
+	_assert_msg_(JIT, imm >= -64 && imm <= 63, "%s recieved too large imm: %d", imm);
 
 	Rt = DecodeReg(Rt);
 	Rt2 = DecodeReg(Rt2);
 	Rn = DecodeReg(Rn);
 
-	Write32((op << 30) | (5 << 27) | (type_encode << 23) | (load << 22) | \
+	Write32((op << 30) | (5 << 27) | (V << 26) | (type_encode << 23) | (load << 22) | \
 	        (((uint32_t)imm & 0x7F) << 15) | (Rt2 << 10) | (Rn << 5) | Rt);
 }
 
@@ -1539,15 +1556,15 @@ void ARM64XEmitter::PRFM(ARM64Reg Rt, u32 imm)
 // Load/Store pair
 void ARM64XEmitter::LDP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
-	EncodeLoadStorePair(0, 1, type, Rt, Rt2, Rn, imm);
+	EncodeLoadStorePair(0, false, 1, type, Rt, Rt2, Rn, imm);
 }
 void ARM64XEmitter::LDPSW(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
-	EncodeLoadStorePair(1, 1, type, Rt, Rt2, Rn, imm);
+	EncodeLoadStorePair(1, false, 1, type, Rt, Rt2, Rn, imm);
 }
 void ARM64XEmitter::STP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
-	EncodeLoadStorePair(0, 0, type, Rt, Rt2, Rn, imm);
+	EncodeLoadStorePair(0, false, 0, type, Rt, Rt2, Rn, imm);
 }
 
 // Load/Store Exclusive
@@ -3296,6 +3313,14 @@ void ARM64FloatEmitter::FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 
 	}
 
 	EmitVectorxElement(0, 2 | (size >> 6), L, 1, H, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::LDP(IndexType index_type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm) {
+	m_emit->EncodeLoadStorePair(0, true, 1, index_type, Rt, Rt2, Rn, imm);
+}
+
+void ARM64FloatEmitter::STP(IndexType index_type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm) {
+	m_emit->EncodeLoadStorePair(0, true, 0, index_type, Rt, Rt2, Rn, imm);
 }
 
 void ARM64FloatEmitter::ABI_PushRegisters(BitSet32 registers)

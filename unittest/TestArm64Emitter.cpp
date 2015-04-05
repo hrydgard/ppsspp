@@ -39,6 +39,11 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	fp.LDP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	RET(CheckLast(emitter, "ad411c63 ldp q3, q7, [x3, #32]"));
+	fp.STP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	RET(CheckLast(emitter, "ad011c63 stp q3, q7, [x3, #32]"));
+
 	fp.DUP(32, Q1, Q30, 3);
 	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
 	fp.UXTL(8, Q1, D8);

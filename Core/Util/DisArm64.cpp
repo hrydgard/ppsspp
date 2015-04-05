@@ -285,14 +285,36 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 				return;
 			}
 		}
-	} else if (((w >> 25) & 0x3F) == 0x14) {
-		// store pair
+	} else if (((w >> 25) & 0x1D) == 0x14) {
+		// load/store pair
 		int Rt2 = (w >> 10) & 0x1f;
 		bool load = (w >> 22) & 1;
 		int index_type = ((w >> 23) & 3);
 		bool sf = (w >> 31);
-		r = sf ? 'x' : 'w';
-		int offset = SignExtend7((w >> 15) & 0x7f) << (sf ? 3 : 2);
+		bool V = (w >> 26) & 1;
+		int op = (w >> 30);
+
+		int offset = SignExtend7((w >> 15) & 0x7f);
+		if (V) {
+			offset <<= 2;
+			switch (op) {
+			case 0:
+				r = 's';
+				break;
+			case 1:
+				r = 'd';
+				if (index_type == 2)
+					offset <<= 1;
+				break;
+			case 2:
+				r = 'q';
+				if (index_type == 2)
+					offset <<= 2;
+			}
+		} else {
+			r = sf ? 'x' : 'w';
+			offset <<= (sf ? 3 : 2);
+		}
 		if (index_type == 2) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
 			return;
