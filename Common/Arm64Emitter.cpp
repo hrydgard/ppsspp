@@ -2693,6 +2693,7 @@ void ARM64FloatEmitter::FMOV(ARM64Reg Rd, ARM64Reg Rn, bool top)
 	if (IsScalar(Rd) && IsScalar(Rn)) {
 		EmitScalar1Source(0, 0, IsDouble(Rd), 0, Rd, Rn);
 	} else {
+		_assert_msg_(JIT, !IsQuad(Rd) && !IsQuad(Rn), "FMOV can't move to/from quads");
 		int type = 0;
 		int rmode = 0;
 		int opcode = 6;
@@ -3547,7 +3548,8 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch) {
 	// TODO: Make it work with more element sizes
 	// TODO: Optimize - there are shorter solution for many values
-	MOVI2F(Rd, value, scratch);
+	ARM64Reg s = (ARM64Reg)(S0 + DecodeReg(Rd));
+	MOVI2F(s, value, scratch);
 	DUP(32, Rd, Rd, 0);
 }
 

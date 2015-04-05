@@ -43,6 +43,7 @@ static const ARM64Reg tempRegPtr = X3;
 static const ARM64Reg tempReg2 = W4;
 static const ARM64Reg tempReg3 = W5;
 static const ARM64Reg scratchReg = W6;
+static const ARM64Reg scratchReg64 = X6;
 static const ARM64Reg scratchReg2 = W7;
 static const ARM64Reg scratchReg3 = W8;
 static const ARM64Reg fullAlphaReg = W12;
@@ -182,11 +183,13 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
+#if 1
 	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
 		WARN_LOG(HLE, "vtxdec-arm64 does not support sw skinning");
 		SetCodePtr(const_cast<u8 *>(start));
 		return NULL;
 	}
+#endif
 
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
@@ -202,18 +205,18 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 			fp.LDR(128, INDEX_UNSIGNED, Q5, X3, 12);
 			fp.LDR(128, INDEX_UNSIGNED, Q6, X3, 24);
 			fp.LDR(128, INDEX_UNSIGNED, Q7, X3, 36);
-			fp.FMUL(32, Q4, Q4, Q3);
-			fp.FMUL(32, Q5, Q5, Q3);
-			fp.FMUL(32, Q6, Q6, Q6);
-			fp.FMUL(32, Q7, Q7, Q7);
-			// First four matrices are in registers.
+			// First four matrices are in registers Q16+.
 			if (i < 4) {
-				fp.FMOV((ARM64Reg)(Q16 + i * 4), Q4);
-				fp.FMOV((ARM64Reg)(Q17 + i * 4), Q5);
-				fp.FMOV((ARM64Reg)(Q18 + i * 4), Q6);
-				fp.FMOV((ARM64Reg)(Q19 + i * 4), Q7);
+				fp.FMUL(32, (ARM64Reg)(Q16 + i * 4), Q4, Q3);
+				fp.FMUL(32, (ARM64Reg)(Q17 + i * 4), Q5, Q3);
+				fp.FMUL(32, (ARM64Reg)(Q18 + i * 4), Q6, Q6);
+				fp.FMUL(32, (ARM64Reg)(Q19 + i * 4), Q7, Q7);
 				ADDI2R(X4, X4, 16 * 4);
 			} else {
+				fp.FMUL(32, Q4, Q4, Q3);
+				fp.FMUL(32, Q5, Q5, Q3);
+				fp.FMUL(32, Q6, Q6, Q6);
+				fp.FMUL(32, Q7, Q7, Q7);
 				fp.STR(128, INDEX_UNSIGNED, Q4, X4, 0);
 				fp.STR(128, INDEX_UNSIGNED, Q5, X4, 16);
 				fp.STR(128, INDEX_UNSIGNED, Q6, X4, 32);
@@ -286,7 +289,7 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 	// We construct a matrix in Q4-Q7
 	// We can use Q1 as temp.
 	if (dec_->nweights >= 2) {
-		MOVP2R(scratchReg, bones + 16 * 2);
+		MOVP2R(scratchReg64, bones + 16 * 2);
 	}
 
 	for (int i = 0; i < dec_->nweights; i++) {
@@ -304,33 +307,32 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			fp.FMLA(32, Q7, Q23, neonWeightRegsQ[0], 1);
 			break;
 		case 2:
-			fp.FMLA(32, Q4, Q24, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q5, Q25, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q6, Q26, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q7, Q27, neonWeightRegsQ[0], 1);
+			fp.FMLA(32, Q4, Q24, neonWeightRegsQ[0], 2);
+			fp.FMLA(32, Q5, Q25, neonWeightRegsQ[0], 2);
+			fp.FMLA(32, Q6, Q26, neonWeightRegsQ[0], 2);
+			fp.FMLA(32, Q7, Q27, neonWeightRegsQ[0], 2);
 			break;
 		case 3:
-			fp.FMLA(32, Q4, Q28, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q5, Q29, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q6, Q30, neonWeightRegsQ[0], 1);
-			fp.FMLA(32, Q7, Q31, neonWeightRegsQ[0], 1);
+			fp.FMLA(32, Q4, Q28, neonWeightRegsQ[0], 3);
+			fp.FMLA(32, Q5, Q29, neonWeightRegsQ[0], 3);
+			fp.FMLA(32, Q6, Q30, neonWeightRegsQ[0], 3);
+			fp.FMLA(32, Q7, Q31, neonWeightRegsQ[0], 3);
 			break;
 		default:
 			// Matrices 2+ need to be loaded from memory.
 			// Wonder if we can free up one more register so we could get some parallelism.
 			// Actually Q3 is free if there are fewer than 5 weights...
-			fp.LDP(INDEX_SIGNED, Q8, Q9, scratchReg, 0);
-			fp.LDP(INDEX_SIGNED, Q10, Q11, scratchReg, 2 * 16);
+			fp.LDP(INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
+			fp.LDP(INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
 			fp.FMLA(32, Q4, Q8, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q5, Q9, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q6, Q10, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q7, Q11, neonWeightRegsQ[i >> 2], i & 3);
-			ADDI2R(scratchReg, scratchReg, 4 * 16);
+			ADDI2R(scratchReg64, scratchReg64, 4 * 16);
 			break;
 		}
 	}
 }
-
 
 void VertexDecoderJitCache::Jit_WeightsU8() {
 	// Basic implementation - a byte at a time. TODO: Optimize
@@ -393,7 +395,7 @@ void VertexDecoderJitCache::Jit_WeightsU8Skin() {
 	}
 
 	// TODO: Get rid of this constant, use fixed point conversion
-	fp.MOVI2FDUP(Q3, by128, X0);
+	fp.MOVI2FDUP(Q3, by128, scratchReg);
 	fp.UXTL(8, neonScratchRegQ, neonScratchReg);
 	fp.UXTL(16, neonScratchRegQ, neonScratchReg);
 	fp.UCVTF(neonScratchRegQ, neonScratchRegQ);
@@ -425,7 +427,7 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 		fp.LDR(64, INDEX_UNSIGNED, neonScratchReg, srcReg, 0);
 		break;
 	}
-	fp.MOVI2FDUP(Q3, by32768, X0);
+	fp.MOVI2FDUP(Q3, by32768, scratchReg);
 	fp.UXTL(16, neonScratchRegQ, neonScratchReg);
 	fp.UCVTF(neonScratchRegQ, neonScratchRegQ);
 	fp.FMUL(32, neonWeightRegsQ[0], neonScratchRegQ, Q3);

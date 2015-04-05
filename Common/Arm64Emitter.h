@@ -815,6 +815,9 @@ public:
 	void FSUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void NOT(ARM64Reg Rd, ARM64Reg Rn);
 	void ORR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void MOV(ARM64Reg Rd, ARM64Reg Rn) {
+		ORR(Rd, Rn, Rn);
+	}
 	void REV16(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV32(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV64(u8 size, ARM64Reg Rd, ARM64Reg Rn);

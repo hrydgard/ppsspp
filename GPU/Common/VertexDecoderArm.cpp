@@ -255,14 +255,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
-	// TODO: NEON skinning register mapping
-	// The matrix will be built in Q12-Q15.
-	// The temporary matrix to be added to the built matrix will be in Q8-Q11.
-
-	if (skinning) {
-		// TODO: Preload scale factors
-	}
-
 	if (dec.col) {
 		// Or LDB and skip the conditional?  This is probably cheaper.
 		MOV(fullAlphaReg, 0xFF);

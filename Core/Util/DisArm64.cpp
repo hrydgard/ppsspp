@@ -491,6 +491,7 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			char r = Q ? 'q' : 'd';
 			const char *opname = nullptr;
 			bool fp = false;
+			bool nosize = false;
 			if (U == 0) {
 				if (opcode < 0x18) {
 					opname = opnames000[opcode];
@@ -503,8 +504,10 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				}
 				if (!opname && opcode == 3 && (sz & 2) == 0) {
 					opname = !(sz & 1) ? "and" : "bic";
+					nosize = true;
 				} else if (!opname && opcode == 3 && (sz & 2) == 2) {
 					opname = !(sz & 1) ? "orr" : "orn";
+					nosize = true;
 				}
 			} else if (U == 1) {
 				if (opcode < 0x18) {
@@ -518,14 +521,24 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				}
 				if (!opname && opcode == 3 && (sz & 2) == 0) {
 					opname = !(sz & 1) ? "eor" : "bsl";
+					if (!strcmp(opname, "eor"))
+						nosize = true;
 				} else if (!opname && opcode == 3 && (sz & 2) == 2) {
 					opname = !(sz & 1) ? "bit" : "bif";
 				}
 			}
-
 			int size = (fp ? ((sz & 1) ? 64 : 32) : (sz << 3));
+
 			if (opname != nullptr) {
-				snprintf(instr->text, sizeof(instr->text), "%s.%d %c%d, %c%d, %c%d", opname, size, r, Rd, r, Rn, r, Rm);
+				if (!nosize) {
+					snprintf(instr->text, sizeof(instr->text), "%s.%d %c%d, %c%d, %c%d", opname, size, r, Rd, r, Rn, r, Rm);
+				} else {
+					if (!strcmp(opname, "orr") && Rn == Rm) {
+						snprintf(instr->text, sizeof(instr->text), "mov %c%d, %c%d", r, Rd, r, Rn);
+					} else {
+						snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, %c%d", opname, r, Rd, r, Rn, r, Rm);
+					}
+				}
 			} else {
 				snprintf(instr->text, sizeof(instr->text), "(asimd three-same %08x)", w);
 			}
