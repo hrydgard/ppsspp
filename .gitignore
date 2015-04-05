@@ -29,6 +29,9 @@ ui_atlas_high.zim.png
 android/assets
 ext/_Output
 android/lint.xml
+PPSSPPWindows64.exe.manifest
+PPSSPPWindows.exe.manifest
+
 # For Mac
 .DS_Store
 
