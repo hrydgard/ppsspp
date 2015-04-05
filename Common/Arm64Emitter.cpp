@@ -985,7 +985,7 @@ void ARM64XEmitter::QuickCallFunction(ARM64Reg scratchreg, const void *func) {
 	s64 distance = (s64)func - (s64)m_code;
 	distance >>= 2;  // Can only branch to opcode-aligned (4) addresses
 	if (!IsInRangeImm26(distance)) {
-		WARN_LOG(DYNA_REC, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
+		// WARN_LOG(DYNA_REC, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
 		MOVI2R(scratchreg, (uintptr_t)func);
 		BLR(scratchreg);
 	} else {
@@ -1090,14 +1090,14 @@ static void GetSystemReg(PStateField field, int &o0, int &op1, int &CRn, int &CR
 }
 
 void ARM64XEmitter::_MSR(PStateField field, ARM64Reg Rt) {
-	int o0, op1, CRn, CRm, op2;
+	int o0 = 0, op1 = 0, CRn = 0, CRm = 0, op2 = 0;
 	_assert_msg_(JIT, Is64Bit(Rt), "MSR: Rt must be 64-bit");
 	GetSystemReg(field, o0, op1, CRn, CRm, op2);
 	EncodeSystemInst(o0, op1, CRn, CRm, op2, DecodeReg(Rt));
 }
 
 void ARM64XEmitter::MRS(ARM64Reg Rt, PStateField field) {
-	int o0, op1, CRn, CRm, op2;
+	int o0 = 0, op1 = 0, CRn = 0, CRm = 0, op2 = 0;
 	_assert_msg_(JIT, Is64Bit(Rt), "MRS: Rt must be 64-bit");
 	GetSystemReg(field, o0, op1, CRn, CRm, op2);
 	EncodeSystemInst(o0 | 4, op1, CRn, CRm, op2, DecodeReg(Rt));
