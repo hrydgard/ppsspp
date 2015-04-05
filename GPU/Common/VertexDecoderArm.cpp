@@ -1143,7 +1143,7 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
 	LDRSB(tempReg1, srcReg, dec_->posoff);
 	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
-	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
+	LDRSB(tempReg3, srcReg, dec_->posoff + 2);  // signed?
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	static const ARMReg fr[3] = { fpScratchReg, fpScratchReg2, fpScratchReg3 };
 	ADD(scratchReg, dstReg, dec_->decFmt.posoff);

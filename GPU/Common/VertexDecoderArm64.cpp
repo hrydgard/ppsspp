@@ -28,7 +28,6 @@ static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in register
 static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
 
 static const float by128 = 1.0f / 128.0f;
-static const float by16384 = 1.0f / 16384.0f;
 static const float by32768 = 1.0f / 32768.0f;
 
 using namespace Arm64Gen;
@@ -67,7 +66,7 @@ static const ARM64Reg srcQ[3] = {Q2, Q3, Q8};
 static const ARM64Reg srcNEON = Q8;
 static const ARM64Reg accNEON = Q9;
 
-static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };
+static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prevent clash with neonScratchReg in Jit_WeightsU*Skin.
 
 // Q4-Q7 is the generated matrix that we multiply things by.
 // Q8,Q9 are accumulators/scratch for matrix mul.
@@ -105,13 +104,9 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
 	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
-	/*
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
-	*/
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
-	/*
 	{&VertexDecoder::Step_PosFloatThrough, &VertexDecoderJitCache::Jit_PosFloat},
-	*/
 	{&VertexDecoder::Step_PosS8, &VertexDecoderJitCache::Jit_PosS8},
 	{&VertexDecoder::Step_PosS16, &VertexDecoderJitCache::Jit_PosS16},
 	{&VertexDecoder::Step_PosFloat, &VertexDecoderJitCache::Jit_PosFloat},
@@ -185,14 +180,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 			}
 		}
 	}
-
-#if 0
-	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
-		WARN_LOG(HLE, "vtxdec-arm64 does not support sw skinning");
-		SetCodePtr(const_cast<u8 *>(start));
-		return NULL;
-	}
-#endif
 
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
@@ -663,6 +650,18 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.posoff);
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.posoff + 4);
 	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+}
+
+void VertexDecoderJitCache::Jit_PosS8Through() {
+	LDRSB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->posoff);
+	LDRSB(INDEX_UNSIGNED, tempReg2, srcReg, dec_->posoff + 1);
+	LDRSB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 2);  // signed?
+	fp.SCVTF(fpScratchReg, tempReg1);
+	fp.SCVTF(fpScratchReg2, tempReg2);
+	fp.SCVTF(fpScratchReg3, tempReg3);
+	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff);
+	STR(INDEX_UNSIGNED, fpScratchReg2, dstReg, dec_->decFmt.posoff + 4);
+	STR(INDEX_UNSIGNED, fpScratchReg3, dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosS16Through() {
