@@ -332,12 +332,8 @@ void VertexDecoderJitCache::Jit_WeightsU8() {
 		LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j);
 		STRB(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j);
 	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
 	while (j & 3) {
-		STRB(INDEX_UNSIGNED, scratchReg, dstReg, dec_->decFmt.w0off + j);
+		STRB(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j);
 		j++;
 	}
 }
@@ -349,12 +345,8 @@ void VertexDecoderJitCache::Jit_WeightsU16() {
 		LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 2);
 		STRH(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
 	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
 	while (j & 3) {
-		STRH(INDEX_UNSIGNED, scratchReg, dstReg, dec_->decFmt.w0off + j * 2);
+		STRH(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 2);
 		j++;
 	}
 }
@@ -365,11 +357,8 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 4);
 		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
 	}
-	if (j & 3) {
-		EOR(tempReg1, tempReg1, tempReg1);
-	}
 	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
+		STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 4);
 		j++;
 	}
 }
