@@ -101,11 +101,11 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_NormalFloatSkin, &VertexDecoderJitCache::Jit_NormalFloatSkin},
 
 	{&VertexDecoder::Step_Color8888, &VertexDecoderJitCache::Jit_Color8888},
-	/*
 	{&VertexDecoder::Step_Color4444, &VertexDecoderJitCache::Jit_Color4444},
 	{&VertexDecoder::Step_Color565, &VertexDecoderJitCache::Jit_Color565},
 	{&VertexDecoder::Step_Color5551, &VertexDecoderJitCache::Jit_Color5551},
 
+	/*
 	{&VertexDecoder::Step_PosS8Through, &VertexDecoderJitCache::Jit_PosS8Through},
 	*/
 	{&VertexDecoder::Step_PosS16Through, &VertexDecoderJitCache::Jit_PosS16Through},
@@ -484,6 +484,85 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	// FixupBranch skip = B(CC_NZ);
 	MOVI2R(fullAlphaReg, 0);
 	// SetJumpTarget(skip);
+}
+
+void VertexDecoderJitCache::Jit_Color4444() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
+
+	// Spread out the components.
+	ANDI2R(tempReg2, tempReg1, 0x000F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x00F0, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 4));
+	ANDI2R(tempReg3, tempReg1, 0x0F00, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 8));
+	ANDI2R(tempReg3, tempReg1, 0xF000, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 12));
+
+	// And expand to 8 bits.
+	ORR(tempReg1, tempReg2, tempReg2, ArithOption(tempReg2, ST_LSL, 4));
+
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
+
+	// TODO: Set flags to determine if alpha != 0xFF.
+	//MVNS(tempReg2, tempReg, ArithOption(tempReg1, ST_ASR, 24));
+	//FixupBranch skip = B(CC_EQ);
+	MOVI2R(fullAlphaReg, 0);
+	//SetJumpTarget(skip);
+}
+
+void VertexDecoderJitCache::Jit_Color565() {
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
+
+	// Spread out R and B first.  This puts them in 0x001F001F.
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0xF800, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 5));
+
+	// Expand 5 -> 8.
+	LSL(tempReg3, tempReg2, 3);
+	ORR(tempReg2, tempReg3, tempReg2, ArithOption(tempReg2, ST_LSR, 2));
+	ANDI2R(tempReg2, tempReg2, 0xFFFF00FF, scratchReg);
+
+	// Now finally G.  We start by shoving it into a wall.
+	LSR(tempReg1, tempReg1, 5);
+	ANDI2R(tempReg1, tempReg1, 0x003F, scratchReg);
+	LSL(tempReg3, tempReg1, 2);
+	// Don't worry, shifts into a wall.
+	ORR(tempReg3, tempReg3, tempReg1, ArithOption(tempReg1, ST_LSR, 4));
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 8));
+
+	// Add in full alpha.  No need to update fullAlphaReg.
+	ORRI2R(tempReg1, tempReg2, 0xFF000000, scratchReg);
+
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color5551() {
+	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
+
+	ANDI2R(tempReg2, tempReg1, 0x001F, scratchReg);
+	ANDI2R(tempReg3, tempReg1, 0x03E0, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 3));
+	ANDI2R(tempReg3, tempReg1, 0x7C00, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg3, ArithOption(tempReg3, ST_LSL, 6));
+
+	// Expand 5 -> 8.
+	LSR(tempReg3, tempReg2, 2);
+	// Clean up the bits that were shifted right.
+	ANDI2R(tempReg3, tempReg3, ~0x000000F8);
+	ANDI2R(tempReg3, tempReg3, ~0x0000F800);
+	ORR(tempReg2, tempReg3, tempReg2, ArithOption(tempReg2, ST_LSL, 3));
+
+	// Now we just need alpha.  Since we loaded as signed, it'll be extended.
+	ANDI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
+	ORR(tempReg2, tempReg2, tempReg1);
+	
+	// TODO: Set flags to determine if alpha != 0xFF.
+	//MVNS(tempReg3, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	//STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.c0off);
+	//FixupBranch skip = B(CC_EQ);
+	MOVI2R(fullAlphaReg, 0);
+	//SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_TcU8() {
