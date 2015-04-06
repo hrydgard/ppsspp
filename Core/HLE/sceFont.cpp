@@ -16,7 +16,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Font/PGF.h"

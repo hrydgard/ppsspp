@@ -19,7 +19,7 @@
 #include <map>
 #include <unordered_map>
 #include "Common/ChunkFile.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"

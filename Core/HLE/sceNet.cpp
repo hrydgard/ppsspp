@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #include "net/resolve.h"
 #include "util/text/parsers.h"
 
@@ -24,7 +23,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"

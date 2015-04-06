@@ -23,7 +23,7 @@
 #include "Core/HLE/sceKernelMbx.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
