@@ -678,7 +678,6 @@ namespace MIPSComp
 		}
 		ApplyPrefixD(dregs, V_Single);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-		// NOTICE_LOG(JIT, "vfad/vags at %08x, ", js.compilerPC);
 	}
 
 	void ArmJit::Comp_VDot(MIPSOpcode op) {
@@ -1251,8 +1250,8 @@ namespace MIPSComp
 	}
 
 	void ArmJit::Comp_Mftv(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
 		NEON_IF_AVAILABLE(CompNEON_Mftv);
+		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
@@ -1969,15 +1968,13 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	// sincosf is unavailable in the Android NDK:
-	// https://code.google.com/p/android/issues/detail?id=38423
-	double SinCos(float angle) {
+	static double SinCos(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		return sincos.out;
 	}
 
-	double SinCosNegSin(float angle) {
+	static double SinCosNegSin(float angle) {
 		union { struct { float sin; float cos; }; double out; } sincos;
 		vfpu_sincos(angle, sincos.sin, sincos.cos);
 		sincos.sin = -sincos.sin;
@@ -2154,9 +2151,6 @@ namespace MIPSComp
 		MOVI2F(S0, 1.0f, SCRATCHREG1);
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			// Let's do it integer registers for now. NEON later.
-			// There's gotta be a shorter way, can't find one though that takes
-			// care of NaNs like the interpreter (ignores them and just operates on the bits).
 			VSUB(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
 		}
 

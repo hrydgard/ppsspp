@@ -105,6 +105,8 @@ static UI::Theme ui_theme;
 
 #ifdef ARM
 #include "../../android/jni/ArmEmitterTest.h"
+#elif defined(ARM64)
+#include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
 #ifdef IOS
@@ -256,6 +258,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 #if defined(ARM) && defined(ANDROID)
 	ArmEmitterTest();
+#elif defined(ARM64) && defined(ANDROID)
+	Arm64EmitterTest();
 #endif
 }
 

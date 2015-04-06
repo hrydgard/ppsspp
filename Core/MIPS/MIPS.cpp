@@ -211,6 +211,8 @@ void MIPSState::Init() {
 	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
 #ifdef ARM
 			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#elif defined(ARM64)
+			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)
@@ -218,6 +220,8 @@ void MIPSState::Init() {
 #else
 			MIPSComp::jit = new MIPSComp::FakeJit(this);
 #endif
+	} else {
+		MIPSComp::jit = nullptr;
 	}
 }
 
@@ -233,9 +237,12 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	PSP_CoreParameter().cpuCore = desired;
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
+		INFO_LOG(CPU, "Switching to JIT");
 		if (!MIPSComp::jit) {
 #ifdef ARM
 			MIPSComp::jit = new MIPSComp::ArmJit(this);
+#elif defined(ARM64)
+			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)
@@ -247,6 +254,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 
 	case CPU_INTERPRETER:
+		INFO_LOG(CPU, "Switching to interpreter");
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 		break;

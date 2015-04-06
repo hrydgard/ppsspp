@@ -255,14 +255,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 	}
 
-	// TODO: NEON skinning register mapping
-	// The matrix will be built in Q12-Q15.
-	// The temporary matrix to be added to the built matrix will be in Q8-Q11.
-
-	if (skinning) {
-		// TODO: Preload scale factors
-	}
-
 	if (dec.col) {
 		// Or LDB and skip the conditional?  This is probably cheaper.
 		MOV(fullAlphaReg, 0xFF);
@@ -1151,7 +1143,7 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 	// TODO: SIMD
 	LDRSB(tempReg1, srcReg, dec_->posoff);
 	LDRSB(tempReg2, srcReg, dec_->posoff + 1);
-	LDRSB(tempReg3, srcReg, dec_->posoff + 2);
+	LDRSB(tempReg3, srcReg, dec_->posoff + 2);  // signed?
 	static const ARMReg tr[3] = { tempReg1, tempReg2, tempReg3 };
 	static const ARMReg fr[3] = { fpScratchReg, fpScratchReg2, fpScratchReg3 };
 	ADD(scratchReg, dstReg, dec_->decFmt.posoff);
@@ -1174,7 +1166,6 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	_dbg_assert_msg_(JIT, fpScratchReg + 1 == fpScratchReg2, "VertexDecoder fpScratchRegs must be in order.");
 	_dbg_assert_msg_(JIT, fpScratchReg2 + 1 == fpScratchReg3, "VertexDecoder fpScratchRegs must be in order.");
 
-	// TODO: SIMD
 	LDRSH(tempReg1, srcReg, dec_->posoff);
 	LDRSH(tempReg2, srcReg, dec_->posoff + 2);
 	LDRH(tempReg3, srcReg, dec_->posoff + 4);

@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 
+#include "base/logging.h"
 #include "base/timeutil.h"
 
 #include "Core/Config.h"
@@ -450,8 +451,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled()) {
 		DEBUG_LOG(HLE, "%s: dispatch suspended", info->name);
 		RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
-	}
-	else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt()) {
+	} else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt()) {
 		DEBUG_LOG(HLE, "%s: in interrupt", info->name);
 		RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
 	} else {

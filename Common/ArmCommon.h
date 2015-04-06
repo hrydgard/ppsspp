@@ -28,3 +28,8 @@ enum CCFlags
 };
 const u32 NO_COND = 0xE0000000;
 
+inline CCFlags InvertCond(CCFlags fl) {
+	int x = (int)fl;
+	x ^= 1;
+	return (CCFlags)x;
+}

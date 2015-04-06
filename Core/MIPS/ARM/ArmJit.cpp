@@ -423,7 +423,7 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (u32)entry->replaceFunc);
+			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
 			BL(R0);
 		}
 		ApplyRoundingMode();
@@ -482,7 +482,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (BLInRange((const void *)(entry->replaceFunc))) {
 			BL((const void *)(entry->replaceFunc));
 		} else {
-			MOVI2R(R0, (u32)entry->replaceFunc);
+			MOVI2R(R0, (uintptr_t)entry->replaceFunc);
 			BL(R0);
 		}
 
@@ -600,7 +600,7 @@ void ArmJit::RestoreRoundingMode(bool force) {
 }
 
 void ArmJit::ApplyRoundingMode(bool force) {
-	// NOTE: Must not destory R0.
+	// NOTE: Must not destroy R0.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
@@ -715,24 +715,4 @@ void ArmJit::WriteSyscallExit()
 
 void ArmJit::Comp_DoNothing(MIPSOpcode op) { }
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6) & 0x1F)
-#define _POS ((op>>6) & 0x1F)
-#define _SIZE ((op>>11) & 0x1F)
-
-//memory regions:
-//
-// 08-0A
-// 48-4A
-// 04-05
-// 44-45
-// mov eax, addrreg
-	// shr eax, 28
-// mov eax, [table+eax]
-// mov dreg, [eax+offreg]
-	
 }

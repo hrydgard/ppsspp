@@ -26,6 +26,9 @@ struct JitBlock;
 #if defined(ARM)
 #include "../ARM/ArmJit.h"
 typedef MIPSComp::ArmJit NativeJit;
+#elif defined(ARM64)
+#include "../ARM64/Arm64Jit.h"
+typedef MIPSComp::Arm64Jit NativeJit;
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "../x86/Jit.h"
 typedef MIPSComp::Jit NativeJit;
