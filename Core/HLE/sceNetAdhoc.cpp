@@ -21,7 +21,7 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 #include "Core/Core.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Common/ChunkFile.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 

@@ -413,7 +413,7 @@ void CWCheatEngine::Run() {
 					int len = arg;
 					InvalidateICache(destAddr, len);
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
-						Memory::Memcpy(destAddr, Memory::GetPointer(addr), len);
+						Memory::MemcpyUnchecked(destAddr, addr, len);
 					}
 				}
 				break;
@@ -442,7 +442,9 @@ void CWCheatEngine::Run() {
 								{
 									int srcAddr = Memory::Read_U32(addr) + offset;
 									int dstAddr = Memory::Read_U16(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
-									Memory::Memcpy(dstAddr, Memory::GetPointer(srcAddr), arg);
+									if (Memory::IsValidAddress(dstAddr) && Memory::IsValidAddress(srcAddr)) {
+										Memory::MemcpyUnchecked(dstAddr, srcAddr, arg);
+									}
 									type = -1; //Done
 									break; }
 							case 0x2:

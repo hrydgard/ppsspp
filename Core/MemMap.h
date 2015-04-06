@@ -257,29 +257,19 @@ inline const char* GetCharPointer(const u32 address) {
 	return (const char *)GetPointer(address);
 }
 
-void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
-
-inline void Memcpy(const u32 to_address, const void *from_data, const u32 len)
-{
-	u8 *to = GetPointer(to_address);
-	if (to) {
-		memcpy(to, from_data, len);
-	}
-	// if not, GetPointer will log.
-}
-
-inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
-{
-	const u8 *from = GetPointer(from_address);
-	if (from) {
-		memcpy(to_data, from, len);
-	}
-	// if not, GetPointer will log.
-}
-
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)
 {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
+}
+
+inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len)
+{
+	memcpy(GetPointerUnchecked(to_address), from_data, len);
+}
+
+inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len)
+{
+	MemcpyUnchecked(GetPointer(to_address), from_address, len);
 }
 
 inline bool IsValidAddress(const u32 address) {
@@ -313,8 +303,6 @@ void WriteStruct(u32 address, T *ptr)
 	size_t sz = sizeof(*ptr);
 	memcpy(GetPointer(address), ptr, sz);
 }
-
-const char *GetAddressName(u32 address);
 
 };
 

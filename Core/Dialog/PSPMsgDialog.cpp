@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPMsgDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "../Core/MemMap.h"
+#include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 

@@ -17,7 +17,7 @@
 
 #include <algorithm>
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelInterrupt.h"

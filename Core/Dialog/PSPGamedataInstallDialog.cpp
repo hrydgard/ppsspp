@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"

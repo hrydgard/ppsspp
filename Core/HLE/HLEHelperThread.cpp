@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"

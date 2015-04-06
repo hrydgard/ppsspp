@@ -24,7 +24,7 @@
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 
 #include "Core/Core.h"

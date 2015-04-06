@@ -21,7 +21,7 @@
 #include "Common/ChunkFile.h"
 
 #include "Core/Debugger/Breakpoints.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -2053,7 +2053,7 @@ void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
 		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, Memory::GetPointer(src), size);
+			Memory::Memcpy(dest, src, size);
 		}
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);

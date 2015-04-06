@@ -21,7 +21,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -803,7 +803,6 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 		return 0;
 	int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 	Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, bufPtr, addbytes);
-	CBreakPoints::ExecMemCheck(bufPtr, false, addbytes, currentMIPS->pc);
 	atrac->first.size += bytesToAdd;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
@@ -839,7 +838,6 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
-			CBreakPoints::ExecMemCheck(atrac->first.addr + atrac->first.offset, false, addbytes, currentMIPS->pc);
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
@@ -1533,7 +1531,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		atrac->data_buf = new u8[atrac->first.filesize];
 		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
-		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 #endif // USE_FFMPEG
 
@@ -1546,7 +1543,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		atrac->data_buf = new u8[atrac->first.filesize];
 		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
-		CBreakPoints::ExecMemCheck(buffer, false, copybytes, currentMIPS->pc);
 		return __AtracSetContext(atrac);
 	}
 
@@ -2184,7 +2180,6 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
 			Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
-			CBreakPoints::ExecMemCheck(sourceAddr, false, sourcebytes, currentMIPS->pc);
 			if (atrac->bufferPos >= atrac->first.size) {
 				atrac->bufferPos = atrac->first.size;
 			}

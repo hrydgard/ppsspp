@@ -501,10 +501,4 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 #endif
 }
 
-const char *GetAddressName(u32 address)
-{
-	// TODO, follow GetPointer
-	return "[mem]";
-}
-
 } // namespace
