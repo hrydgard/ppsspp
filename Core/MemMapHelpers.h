@@ -54,10 +54,10 @@ inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
 
 inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len)
 {
+	Memcpy(GetPointer(to_address), from_address, len);
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(to_address, true, len, currentMIPS->pc);
 #endif
-	Memcpy(GetPointer(to_address), from_address, len);
 }
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
