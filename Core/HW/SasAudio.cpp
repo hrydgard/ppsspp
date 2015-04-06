@@ -17,7 +17,7 @@
 
 #include "base/basictypes.h"
 #include "Globals.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

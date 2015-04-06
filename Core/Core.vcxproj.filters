@@ -1061,6 +1061,9 @@
     <ClInclude Include="HLE\sceSfmt19937.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="MemMapHelpers.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

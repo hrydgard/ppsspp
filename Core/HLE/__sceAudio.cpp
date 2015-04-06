@@ -30,7 +30,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Host.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"

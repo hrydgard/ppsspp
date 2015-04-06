@@ -18,6 +18,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"

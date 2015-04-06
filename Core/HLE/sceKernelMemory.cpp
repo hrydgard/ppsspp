@@ -27,7 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 

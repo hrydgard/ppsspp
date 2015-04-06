@@ -1339,6 +1339,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MemMap.cpp
 	Core/MemMap.h
 	Core/MemMapFunctions.cpp
+	Core/MemMapHelpers.h
 	Core/PSPLoaders.cpp
 	Core/PSPLoaders.h
 	Core/Reporting.cpp

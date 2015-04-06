@@ -19,7 +19,7 @@
 
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMsgPipe.h"
@@ -101,17 +101,17 @@ struct MsgPipeWaitingThread
 		Complete(waitID, result);
 	}
 
-	void ReadBuffer(u8 *dest, u32 len)
+	void ReadBuffer(u32 destPtr, u32 len)
 	{
-		Memory::Memcpy(dest, bufAddr + bufSize - freeSize, len);
+		Memory::Memcpy(destPtr, bufAddr + bufSize - freeSize, len);
 		freeSize -= len;
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
 	}
 
-	void WriteBuffer(const u8 *src, u32 len)
+	void WriteBuffer(u32 srcPtr, u32 len)
 	{
-		Memory::Memcpy(bufAddr + (bufSize - freeSize), src, len);
+		Memory::Memcpy(bufAddr + (bufSize - freeSize), srcPtr, len);
 		freeSize -= len;
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
@@ -180,7 +180,7 @@ struct MsgPipe : public KernelObject
 			MsgPipeWaitingThread *thread = &sendWaitingThreads.front();
 			u32 bytesToSend = std::min(thread->freeSize, (u32) nmp.freeSize);
 
-			thread->ReadBuffer(Memory::GetPointer(buffer + GetUsedSize()), bytesToSend);
+			thread->ReadBuffer(buffer + GetUsedSize(), bytesToSend);
 			nmp.freeSize -= bytesToSend;
 			filledSpace = true;
 
@@ -216,7 +216,7 @@ struct MsgPipe : public KernelObject
 			u32 bytesToSend = std::min(thread->freeSize, GetUsedSize());
 
 			u8* ptr = Memory::GetPointer(buffer);
-			thread->WriteBuffer(ptr, bytesToSend);
+			thread->WriteBuffer(buffer, bytesToSend);
 			// Put the unused data at the start of the buffer.
 			nmp.freeSize += bytesToSend;
 			memmove(ptr, ptr + bytesToSend, GetUsedSize());
@@ -343,7 +343,7 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 			u32 bytesToSend = std::min(thread->freeSize, sendSize);
 			if (bytesToSend > 0)
 			{
-				thread->WriteBuffer(Memory::GetPointer(curSendAddr), bytesToSend);
+				thread->WriteBuffer(curSendAddr, bytesToSend);
 				sendSize -= bytesToSend;
 				curSendAddr += bytesToSend;
 
@@ -396,7 +396,7 @@ static int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int wa
 
 		if (bytesToSend != 0)
 		{
-			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), bytesToSend);
+			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), sendBufAddr, bytesToSend);
 			m->nmp.freeSize -= bytesToSend;
 			curSendAddr += bytesToSend;
 			sendSize -= bytesToSend;
@@ -443,7 +443,7 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			u32 bytesToReceive = std::min(thread->freeSize, receiveSize);
 			if (bytesToReceive > 0)
 			{
-				thread->ReadBuffer(Memory::GetPointer(curReceiveAddr), bytesToReceive);
+				thread->ReadBuffer(curReceiveAddr, bytesToReceive);
 				receiveSize -= bytesToReceive;
 				curReceiveAddr += bytesToReceive;
 
@@ -489,7 +489,7 @@ static int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSiz
 			u32 bytesToReceive = std::min(receiveSize, m->GetUsedSize());
 			if (bytesToReceive != 0)
 			{
-				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(m->buffer), bytesToReceive);
+				Memory::Memcpy(curReceiveAddr, m->buffer, bytesToReceive);
 				m->nmp.freeSize += bytesToReceive;
 				memmove(Memory::GetPointer(m->buffer), Memory::GetPointer(m->buffer) + bytesToReceive, m->GetUsedSize());
 				curReceiveAddr += bytesToReceive;

@@ -5,7 +5,7 @@
 #include <cstdarg>
 #include <cstring>
 #include "util/text/utf8.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/Debugger/SymbolMap.h"
 

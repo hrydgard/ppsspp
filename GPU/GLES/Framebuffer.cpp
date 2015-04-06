@@ -1597,7 +1597,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 				ConvertFromRGBA8888(dst, packed, pbo.stride, pbo.stride, pbo.stride, pbo.height, pbo.format);
 			} else {
 				// We don't need to convert, GPU already did (or should have)
-				Memory::Memcpy(pbo.fb_address, packed, pbo.size);
+				Memory::MemcpyUnchecked(pbo.fb_address, packed, pbo.size);
 			}
 
 			pbo.reading = false;

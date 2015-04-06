@@ -21,7 +21,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Common/ChunkFile.h"
 #include "Common/StdMutex.h"
 #include "Core/HLE/sceCtrl.h"

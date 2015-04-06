@@ -17,7 +17,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceDmac.h"
@@ -44,11 +44,6 @@ void __DmacDoState(PointerWrap &p) {
 }
 
 static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
-#ifndef MOBILE_DEVICE
-	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
-#endif
-
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		skip = gpu->PerformMemoryCopy(dst, src, size);
