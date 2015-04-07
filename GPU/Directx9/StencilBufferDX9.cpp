@@ -261,7 +261,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 			continue;
 		}
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			dxstate.stencilMask.set(Convert4To8(i));
+			dxstate.stencilMask.set(i | (i << 4));
 			const float f[4] = {i * (16.0f / 255.0f)};
 			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_STENCILVALUE, f, 1);
 		} else if (dstBuffer->format == GE_FORMAT_5551) {

@@ -42,9 +42,6 @@
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Software\Colors.h">
-      <Filter>Software</Filter>
-    </ClInclude>
     <ClInclude Include="Software\Clipper.h">
       <Filter>Software</Filter>
     </ClInclude>

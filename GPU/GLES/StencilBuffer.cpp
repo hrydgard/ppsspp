@@ -215,7 +215,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		// DrawActiveTexture unbinds it, so rebind here before setting uniforms.
 		glsl_bind(stencilUploadProgram_);
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			glstate.stencilMask.set(Convert4To8(i));
+			glstate.stencilMask.set((i << 4) | i);
 			glUniform1f(u_stencilValue, i * (16.0f / 255.0f));
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
 			glstate.stencilMask.set(0xFF);

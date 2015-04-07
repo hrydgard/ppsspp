@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "math/lin/matrix4x4.h"
+
+#include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -38,26 +40,6 @@
 #include <algorithm>
 
 namespace DX9 {
-	inline u16 RGBA8888toRGB565(u32 px) {
-		return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
-	}
-
-	inline u16 RGBA8888toRGBA4444(u32 px) {
-		return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
-	}
-
-	inline u16 RGBA8888toRGBA5551(u32 px) {
-		return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
-	}
-
-	inline u16 BGRA8888toRGB565(u32 px) {
-		return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
-	}
-
-	inline u16 BGRA8888toRGBA4444(u32 px) {
-		return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
-	}
-
 	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 	void CenterRect(float *x, float *y, float *w, float *h,
@@ -147,24 +129,6 @@ namespace DX9 {
 		if (stencilUploadVS_) {
 			stencilUploadVS_->Release();
 		}
-	}
-
-	static inline void ARGB8From4444(u16 c, u32 * dst) {
-		*dst = ((c & 0xf) << 4) | (((c >> 4) & 0xf) << 12) | (((c >> 8) & 0xf) << 20) | ((c >> 12) << 28);
-	}
-	static inline void ARGB8From565(u16 c, u32 * dst) {
-		*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x003f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-	}
-	static inline void ARGB8From5551(u16 c, u32 * dst) {
-		*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-	}
-
-	// TODO: Swizzle the texture access instead.
-	static inline u32 RGBA2BGRA(u32 src) {
-		const u32 r = (src & 0x000000FF) << 16;
-		const u32 ga = src & 0xFF00FF00;
-		const u32 b = (src & 0x00FF0000) >> 16;
-		return r | ga | b;
 	}
 
 	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {

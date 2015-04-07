@@ -24,6 +24,7 @@
 #include "GPU/GLES/TextureScaler.h"
 
 #include "Core/Config.h"
+#include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"

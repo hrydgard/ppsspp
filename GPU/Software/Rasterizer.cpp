@@ -18,6 +18,7 @@
 #include "base/basictypes.h"
 
 #include "Common/ThreadPools.h"
+#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -26,7 +27,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
-#include "GPU/Software/Colors.h"
 
 #include <algorithm>
 

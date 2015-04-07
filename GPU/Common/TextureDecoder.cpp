@@ -17,6 +17,7 @@
 
 #include "ext/xxhash.h"
 #include "Common/CPUDetect.h"
+#include "Common/ColorConv.h"
 #include "GPU/Common/TextureDecoder.h"
 // NEON is in a separate file so that it can be compiled with a runtime check.
 #include "GPU/Common/TextureDecoderNEON.h"
@@ -359,10 +360,6 @@ void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels) {
 		         ((c >> 0)  & 0xFF00FF00) |
 		         ((c << 16) & 0x00FF0000);
 	}
-}
-
-inline u16 RGBA8888toRGBA5551(u32 px) {
-	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels) {
