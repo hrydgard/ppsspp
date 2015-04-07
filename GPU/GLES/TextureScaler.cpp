@@ -49,49 +49,6 @@
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
 
 namespace {
-	//////////////////////////////////////////////////////////////////// Color space conversion
-
-	// convert 4444 image to 8888, parallelizable
-	void convert4444(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 565 image to 8888, parallelizable
-	void convert565(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				out[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
-	// convert 5551 image to 8888, parallelizable
-	void convert5551(u16* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-			}
-		}
-	}
-
 	//////////////////////////////////////////////////////////////////// Various image processing
 
 	#define R(_col) ((_col>> 0)&0xFF)
@@ -670,15 +627,15 @@ void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int wi
 		break;
 
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert4444_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_6_5:
-		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert565_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert5551_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	default:

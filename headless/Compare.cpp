@@ -17,6 +17,8 @@
 
 #include "headless/Compare.h"
 #include "file/file_util.h"
+
+#include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
