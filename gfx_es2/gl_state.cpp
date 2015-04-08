@@ -270,6 +270,12 @@ void CheckGLExtensions() {
 	gl_extensions.ANY_shader_framebuffer_fetch = gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch;
 	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
 
+	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
+	// Tales of Destiny 2 has been reported to display green.
+	if (gl_extensions.ANY_shader_framebuffer_fetch && strstr(renderer, "NVIDIA Tegra 3") != 0) {
+		gl_extensions.ANY_shader_framebuffer_fetch = false;
+	}
+
 #if defined(ANDROID) || defined(BLACKBERRY)
 	// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 	// https://twitter.com/ID_AA_Carmack/status/387383037794603008
