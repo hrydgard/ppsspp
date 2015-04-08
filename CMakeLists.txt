@@ -1452,7 +1452,6 @@ add_library(GPU OBJECT
 	GPU/GLES/Framebuffer.h
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
-	GPU/GLES/Spline.cpp
 	GPU/GLES/StateMapping.cpp
 	GPU/GLES/StateMapping.h
 	GPU/GLES/StencilBuffer.cpp

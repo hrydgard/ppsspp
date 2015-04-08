@@ -32,7 +32,6 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLES_GPU.cpp \
 	$$P/GPU/GLES/ShaderManager.cpp \
-	$$P/GPU/GLES/Spline.cpp \
 	$$P/GPU/GLES/StateMapping.cpp \
 	$$P/GPU/GLES/StencilBuffer.cpp \
 	$$P/GPU/GLES/TextureCache.cpp \

@@ -251,9 +251,6 @@
     <ClCompile Include="Directx9\StateMappingDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
-    <ClCompile Include="Directx9\SplineDX9.cpp">
-      <Filter>DirectX9</Filter>
-    </ClCompile>
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp">
       <Filter>DirectX9</Filter>
     </ClCompile>
@@ -334,9 +331,6 @@
     </ClCompile>
     <ClCompile Include="Common\DrawEngineCommon.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\Spline.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Common\SplineCommon.cpp">
       <Filter>Common</Filter>

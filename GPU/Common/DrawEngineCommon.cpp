@@ -25,7 +25,30 @@
 
 #include <algorithm>
 
-DrawEngineCommon::~DrawEngineCommon() { }
+#define QUAD_INDICES_MAX 65536
+
+DrawEngineCommon::DrawEngineCommon() : dec_(nullptr) {
+	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
+	decJitCache_ = new VertexDecoderJitCache();
+}
+
+DrawEngineCommon::~DrawEngineCommon() {
+	delete[] quadIndices_;
+	delete decJitCache_;
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+		delete iter->second;
+	}
+}
+
+VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
+	auto iter = decoderMap_.find(vtype);
+	if (iter != decoderMap_.end())
+		return iter->second;
+	VertexDecoder *dec = new VertexDecoder();
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
+	decoderMap_[vtype] = dec;
+	return dec;
+}
 
 struct Plane {
 	float x, y, z, w;

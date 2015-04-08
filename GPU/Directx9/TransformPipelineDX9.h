@@ -110,8 +110,6 @@ public:
 	virtual ~TransformDrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-	void SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
-	void SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
 	void SetShaderManager(ShaderManagerDX9 *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -179,9 +177,10 @@ public:
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
-protected:
-	// Preprocessing for spline/bezier
-	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
+	void DispatchFlush() override { Flush(); }
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
+		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
 
 private:
 	void DecodeVerts();
@@ -221,10 +220,6 @@ private:
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
-	// Cached vertex decoders
-	std::unordered_map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
-	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	TransformedVertex *transformed;
@@ -232,9 +227,6 @@ private:
 
 	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
 	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
-
-	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_;
 	
 	// Other
 	ShaderManagerDX9 *shaderManager_;
@@ -254,7 +246,6 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
-	VertexDecoderOptions decOptions_;
 };
 
 }  // namespace
