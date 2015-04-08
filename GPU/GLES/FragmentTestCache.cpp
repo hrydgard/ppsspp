@@ -24,7 +24,7 @@
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
 static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
-FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0) {
+FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0), decimationCounter_(0) {
 	scratchpad_ = new u8[256 * 4];
 }
 
