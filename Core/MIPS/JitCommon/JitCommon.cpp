@@ -87,7 +87,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 
 std::string AddAddress(const std::string &buf, uint64_t addr) {
 	char buf2[16];
-	snprintf(buf2, sizeof(buf2), "%04x%08x", addr >> 32, addr & 0xFFFFFFFF);
+	snprintf(buf2, sizeof(buf2), "%04x%08x", (uint32_t)(addr >> 32), (uint32_t)(addr & 0xFFFFFFFF));
 	return std::string(buf2) + " " + buf;
 }
 
