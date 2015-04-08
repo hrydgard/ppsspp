@@ -581,7 +581,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 		} else {
 			u32 sp = currentMIPS->r[MIPS_REG_SP];
 			// Goes upward on stack.
-			regval = Memory::Read_U32(sp + (regval - 8) * 4);
+			regval = Memory::Read_U32(sp + (reg - 8) * 4);
 		}
 
 		switch (argmask[i]) {
