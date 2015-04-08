@@ -193,7 +193,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCache.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
-  $(SRC)/GPU/GLES/Spline.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
