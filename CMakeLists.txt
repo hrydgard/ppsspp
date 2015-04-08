@@ -336,6 +336,8 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
+	Common/ColorConv.cpp
+	Common/ColorConv.h
 	Common/ChunkFile.cpp
 	Common/ChunkFile.h
 	Common/ConsoleListener.cpp

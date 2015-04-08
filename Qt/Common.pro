@@ -44,6 +44,7 @@ win32 {
 }
 
 SOURCES += $$P/Common/ChunkFile.cpp \
+	$$P/Common/ColorConv.cpp \
 	$$P/Common/ConsoleListener.cpp \
 	$$P/Common/FileUtil.cpp \
 	$$P/Common/LogManager.cpp \
