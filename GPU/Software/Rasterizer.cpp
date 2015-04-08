@@ -85,13 +85,13 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA5551ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA4444ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_32BIT_ABGR8888:
 		return clut[index + clutSharingOffset];
@@ -261,21 +261,21 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA4444(*(const u16 *)src);
+			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA5551(*(const u16 *)src);
+			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGB565(*(const u16 *)src);
+			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
@@ -357,13 +357,13 @@ static inline u32 GetPixelColor(int x, int y)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		return DecodeRGB565(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_5551:
-		return DecodeRGBA5551(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_4444:
-		return DecodeRGBA4444(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA4444ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_8888:
 		return fb.Get32(x, y, gstate.FrameBufStride());
@@ -378,15 +378,15 @@ static inline void SetPixelColor(int x, int y, u32 value)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To565(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGB565(value));
 		break;
 
 	case GE_FORMAT_5551:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To5551(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA5551(value));
 		break;
 
 	case GE_FORMAT_4444:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To4444(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA4444(value));
 		break;
 
 	case GE_FORMAT_8888:

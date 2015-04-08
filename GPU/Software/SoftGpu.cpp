@@ -214,19 +214,19 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 			switch (displayFormat_) {
 			case GE_FORMAT_565:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGB565(fb_line[x]);
+					buf_line[x] = RGB565ToRGBA8888(fb_line[x]);
 				}
 				break;
 
 			case GE_FORMAT_5551:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA5551(fb_line[x]);
+					buf_line[x] = RGBA5551ToRGBA8888(fb_line[x]);
 				}
 				break;
 
 			case GE_FORMAT_4444:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA4444(fb_line[x]);
+					buf_line[x] = RGBA4444ToRGBA8888(fb_line[x]);
 				}
 				break;
 

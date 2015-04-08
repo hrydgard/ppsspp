@@ -35,7 +35,7 @@ inline u8 Convert6To8(u8 v) {
 	return (v << 2) | (v >> 4);
 }
 
-inline u32 DecodeRGBA4444(u16 src) {
+inline u32 RGBA4444ToRGBA8888(u16 src) {
 	const u32 r = (src & 0x000F) << 0;
 	const u32 g = (src & 0x00F0) << 4;
 	const u32 b = (src & 0x0F00) << 8;
@@ -45,7 +45,7 @@ inline u32 DecodeRGBA4444(u16 src) {
 	return c | (c << 4);
 }
 
-inline u32 DecodeRGBA5551(u16 src) {
+inline u32 RGBA5551ToRGBA8888(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert5To8((src >> 5) & 0x1F);
 	u8 b = Convert5To8((src >> 10) & 0x1F);
@@ -54,7 +54,7 @@ inline u32 DecodeRGBA5551(u16 src) {
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-inline u32 DecodeRGB565(u16 src) {
+inline u32 RGB565ToRGBA8888(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert6To8((src >> 5) & 0x3F);
 	u8 b = Convert5To8((src >> 11) & 0x1F);
@@ -62,7 +62,7 @@ inline u32 DecodeRGB565(u16 src) {
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-inline u16 RGBA8888To565(u32 value) {
+inline u16 RGBA8888ToRGB565(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -72,7 +72,7 @@ inline u16 RGBA8888To565(u32 value) {
 	return (u16)r | ((u16)g << 5) | ((u16)b << 11);
 }
 
-inline u16 RGBA8888To5551(u32 value) {
+inline u16 RGBA8888ToRGBA5551(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -84,7 +84,7 @@ inline u16 RGBA8888To5551(u32 value) {
 	return (u16)r | ((u16)g << 5) | ((u16)b << 10) | ((u16)a << 15);
 }
 
-inline u16 RGBA8888To4444(u32 value) {
+inline u16 RGBA8888ToRGBA4444(u32 value) {
 	const u32 c = value >> 4;
 	const u16 r = (c >> 0) & 0x000F;
 	const u16 g = (c >> 4) & 0x00F0;
