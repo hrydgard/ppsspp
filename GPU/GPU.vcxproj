@@ -280,7 +280,6 @@
     <ClCompile Include="Directx9\PixelShaderGeneratorDX9.cpp" />
     <ClCompile Include="Directx9\FramebufferDX9.cpp" />
     <ClCompile Include="Directx9\ShaderManagerDX9.cpp" />
-    <ClCompile Include="Directx9\SplineDX9.cpp" />
     <ClCompile Include="Directx9\StateMappingDX9.cpp" />
     <ClCompile Include="Directx9\StencilBufferDX9.cpp" />
     <ClCompile Include="Directx9\TextureCacheDX9.cpp" />
@@ -294,7 +293,6 @@
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\GLES_GPU.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
-    <ClCompile Include="GLES\Spline.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\StencilBuffer.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />

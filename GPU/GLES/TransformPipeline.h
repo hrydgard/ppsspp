@@ -111,8 +111,6 @@ public:
 	virtual ~TransformDrawEngine();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-	void SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
-	void SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -183,10 +181,9 @@ public:
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	void DispatchFlush() override { Flush(); }
-
-protected:
-	// Preprocessing for spline/bezier
-	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
+		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
 
 private:
 	void DecodeVerts();

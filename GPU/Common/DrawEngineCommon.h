@@ -41,17 +41,23 @@ public:
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
 
-	// TODO: This can be shared once the decoder cache / etc. are.
-	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) = 0;
-
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
-	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code.
+	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code, which is expensive anyway.
+	// Not really sure if these wrappers are worth it...
 	virtual void DispatchFlush() = 0;
+	// Same for SubmitPrim
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) = 0;
+
+	void SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType);
+	void SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType);
 
 protected:
+	// Preprocessing for spline/bezier
+	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType);
+
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	// Vertex collector buffers
