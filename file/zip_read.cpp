@@ -41,16 +41,26 @@ uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 	FILE *file = fopen(filename, "rb");
 	if (!file) {
-		return 0;
+		*size = 0;
+		return nullptr;
 	}
 	fseek(file, 0, SEEK_END);
 	size_t f_size = ftell(file);
+	if ((long)f_size < 0) {
+		*size = 0;
+		return nullptr;
+	}
 	fseek(file, 0, SEEK_SET);
 	uint8_t *contents = new uint8_t[f_size+1];
-	fread(contents, 1, f_size, file);
+	if (fread(contents, 1, f_size, file) != f_size) {
+		delete [] contents;
+		contents = nullptr;
+		*size = 0;
+	} else {
+		contents[f_size] = 0;
+		*size = f_size;
+	}
 	fclose(file);
-	contents[f_size] = 0;
-	*size = f_size;
 	return contents;
 }
 
