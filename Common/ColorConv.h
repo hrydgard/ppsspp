@@ -20,20 +20,17 @@
 
 #include "CommonTypes.h"
 
-inline u8 Convert4To8(u8 v)
-{
+inline u8 Convert4To8(u8 v) {
 	// Swizzle bits: 00001234 -> 12341234
 	return (v << 4) | (v);
 }
 
-inline u8 Convert5To8(u8 v)
-{
+inline u8 Convert5To8(u8 v) {
 	// Swizzle bits: 00012345 -> 12345123
 	return (v << 3) | (v >> 2);
 }
 
-inline u8 Convert6To8(u8 v)
-{
+inline u8 Convert6To8(u8 v) {
 	// Swizzle bits: 00123456 -> 12345612
 	return (v << 2) | (v >> 4);
 }
@@ -74,7 +71,6 @@ inline void ARGB8From5551(u16 c, u32 * dst) {
 	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
 }
 
-// TODO: Swizzle the texture access instead.
 inline u32 RGBA2BGRA(u32 src) {
 	const u32 r = (src & 0x000000FF) << 16;
 	const u32 ga = src & 0xFF00FF00;
@@ -82,9 +78,7 @@ inline u32 RGBA2BGRA(u32 src) {
 	return r | ga | b;
 }
 
-
-inline u32 DecodeRGBA4444(u16 src)
-{
+inline u32 DecodeRGBA4444(u16 src) {
 	const u32 r = (src & 0x000F) << 0;
 	const u32 g = (src & 0x00F0) << 4;
 	const u32 b = (src & 0x0F00) << 8;
@@ -94,8 +88,7 @@ inline u32 DecodeRGBA4444(u16 src)
 	return c | (c << 4);
 }
 
-inline u32 DecodeRGBA5551(u16 src)
-{
+inline u32 DecodeRGBA5551(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert5To8((src >> 5) & 0x1F);
 	u8 b = Convert5To8((src >> 10) & 0x1F);
@@ -104,8 +97,7 @@ inline u32 DecodeRGBA5551(u16 src)
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-inline u32 DecodeRGB565(u16 src)
-{
+inline u32 DecodeRGB565(u16 src) {
 	u8 r = Convert5To8((src >> 0) & 0x1F);
 	u8 g = Convert6To8((src >> 5) & 0x3F);
 	u8 b = Convert5To8((src >> 11) & 0x1F);
@@ -113,8 +105,7 @@ inline u32 DecodeRGB565(u16 src)
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-inline u32 DecodeRGBA8888(u32 src)
-{
+inline u32 DecodeRGBA8888(u32 src) {
 #if 1
 	return src;
 #else
@@ -127,8 +118,7 @@ inline u32 DecodeRGBA8888(u32 src)
 #endif
 }
 
-inline u16 RGBA8888To565(u32 value)
-{
+inline u16 RGBA8888To565(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -138,8 +128,7 @@ inline u16 RGBA8888To565(u32 value)
 	return (u16)r | ((u16)g << 5) | ((u16)b << 11);
 }
 
-inline u16 RGBA8888To5551(u32 value)
-{
+inline u16 RGBA8888To5551(u32 value) {
 	u8 r = value & 0xFF;
 	u8 g = (value >> 8) & 0xFF;
 	u8 b = (value >> 16) & 0xFF;
@@ -151,8 +140,7 @@ inline u16 RGBA8888To5551(u32 value)
 	return (u16)r | ((u16)g << 5) | ((u16)b << 10) | ((u16)a << 15);
 }
 
-inline u16 RGBA8888To4444(u32 value)
-{
+inline u16 RGBA8888To4444(u32 value) {
 	const u32 c = value >> 4;
 	const u16 r = (c >> 0) & 0x000F;
 	const u16 g = (c >> 4) & 0x00F0;
@@ -170,5 +158,11 @@ void convert565_dx9(u16* data, u32* out, int width, int l, int u);
 void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels);
+
 void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);
+
 void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels);
+void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);

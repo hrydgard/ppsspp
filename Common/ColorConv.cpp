@@ -131,7 +131,7 @@ void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels) {
 	for (; i < numPixels; i++) {
 		const u32 c = src[i];
 		dst[i] = ((c >> 16) & 0x000000FF) |
-			((c >> 0) & 0xFF00FF00) |
+			(c & 0xFF00FF00) |
 			((c << 16) & 0x00FF0000);
 	}
 }
@@ -217,5 +217,29 @@ void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels) {
 #endif
 	for (; i < numPixels; i++) {
 		dst[i] = BGRA8888toRGBA5551(src[i]);
+	}
+}
+
+void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels) {
+	for (u32 i = 0; i < numPixels; i++) {
+		dst[i] = BGRA8888toRGB565(src[i]);
+	}
+}
+
+void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels) {
+	for (u32 i = 0; i < numPixels; i++) {
+		dst[i] = BGRA8888toRGBA4444(src[i]);
+	}
+}
+
+void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels) {
+	for (u32 x = 0; x < numPixels; ++x) {
+		dst[x] = RGBA8888toRGB565(src[x]);
+	}
+}
+
+void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels) {
+	for (u32 x = 0; x < numPixels; ++x) {
+		dst[x] = RGBA8888toRGBA4444(src[x]);
 	}
 }

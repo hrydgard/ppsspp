@@ -1458,17 +1458,13 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 			case GE_FORMAT_565: // BGR 565
 				if (UseBGRA8888()) {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = BGRA8888toRGB565(src32[x]);
-						}
+						ConvertBGRA8888ToRGB565(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = RGBA8888toRGB565(src32[x]);
-						}
+						ConvertRGBA8888ToRGB565(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
@@ -1492,17 +1488,13 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 			case GE_FORMAT_4444: // ABGR 4444
 				if (UseBGRA8888()) {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = BGRA8888toRGBA4444(src32[x]);
-						}
+						ConvertBGRA8888ToRGBA4444(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = RGBA8888toRGBA4444(src32[x]);
-						}
+						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}

@@ -195,8 +195,7 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < width; x++)
-						{
+						for (int x = 0; x < width; x++) {
 							u16_le col = src[x];
 							dst[x * 4 + 0] = (col >> 12) << 4;
 							dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
@@ -210,10 +209,7 @@ namespace DX9 {
 					{
 						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < width; x++)
-						{
-							dst[x] = RGBA2BGRA(src[x]);
-						}
+						ConvertBGRA8888ToRGBA8888(dst, src, width);
 					}
 					break;
 				}
@@ -222,10 +218,7 @@ namespace DX9 {
 			for (int y = 0; y < height; y++) {
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-				for (int x = 0; x < width; x++)
-				{
-					dst[x] = RGBA2BGRA(src[x]);
-				}
+				ConvertBGRA8888ToRGBA8888(dst, src, width);
 			}
 		}
 
@@ -992,9 +985,7 @@ namespace DX9 {
 			switch (format) {
 			case GE_FORMAT_565: // BGR 565
 				for (u32 y = 0; y < height; ++y) {
-					for (u32 x = 0; x < width; ++x) {
-						dst16[x] = BGRA8888toRGB565(src32[x]);
-					}
+					ConvertBGRA8888ToRGB565(dst16, src32, width);
 					src32 += srcStride;
 					dst16 += dstStride;
 				}
@@ -1008,9 +999,7 @@ namespace DX9 {
 				break;
 			case GE_FORMAT_4444: // ABGR 4444
 				for (u32 y = 0; y < height; ++y) {
-					for (u32 x = 0; x < width; ++x) {
-						dst16[x] = BGRA8888toRGBA4444(src32[x]);
-					}
+					ConvertBGRA8888ToRGBA4444(dst16, src32, width);
 					src32 += srcStride;
 					dst16 += dstStride;
 				}
