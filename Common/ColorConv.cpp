@@ -243,3 +243,69 @@ void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels) {
 		dst[x] = RGBA8888toRGBA4444(src[x]);
 	}
 }
+
+void ConvertRGBA565ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+	u8 *dst = (u8 *)dst32;
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col = src[x];
+		dst[x * 4] = Convert5To8((col) & 0x1f);
+		dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
+		dst[x * 4 + 2] = Convert5To8((col >> 11) & 0x1f);
+		dst[x * 4 + 3] = 255;
+	}
+}
+
+void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+	u8 *dst = (u8 *)dst32;
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col = src[x];
+		dst[x * 4] = Convert5To8((col) & 0x1f);
+		dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
+		dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
+		dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
+	}
+}
+
+void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+	u8 *dst = (u8 *)dst32;
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col = src[x];
+		dst[x * 4] = Convert4To8((col >> 8) & 0xf);
+		dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
+		dst[x * 4 + 2] = Convert4To8(col & 0xf);
+		dst[x * 4 + 3] = Convert4To8(col >> 12);
+	}
+}
+
+void ConvertBGRA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+	u8 *dst = (u8 *)dst32;
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col = src[x];
+		dst[x * 4 + 0] = (col >> 12) << 4;
+		dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
+		dst[x * 4 + 2] = ((col >> 4) & 0xf) << 4;
+		dst[x * 4 + 3] = (col & 0xf) << 4;
+	}
+}
+
+inline void ARGB8From565(u16 c, u32 * dst) {
+	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x003f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
+}
+
+inline void ARGB8From5551(u16 c, u32 * dst) {
+	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
+}
+
+void ConvertBGRA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col0 = src[x];
+		ARGB8From5551(col0, &dst[x]);
+	}
+}
+
+void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
+	for (u32 x = 0; x < numPixels; x++) {
+		u16 col0 = src[x];
+		ARGB8From565(col0, &dst[x]);
+	}
+}

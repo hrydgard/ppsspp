@@ -169,15 +169,11 @@ namespace DX9 {
 		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
 			for (int y = 0; y < height; y++) {
 				switch (srcPixelFormat) {
-					// not tested
 				case GE_FORMAT_565:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < width; x++) {
-							u16_le col0 = src[x+0];
-							ARGB8From565(col0, &dst[x + 0]);
-						}
+						ConvertBGR565ToRGBA8888(dst, src, width);
 					}
 					break;
 					// faster
@@ -185,23 +181,14 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < width; x++) {
-							u16_le col0 = src[x+0];
-							ARGB8From5551(col0, &dst[x + 0]);
-						}
+						ConvertBGRA5551ToRGBA8888(dst, src, width);
 					}
 					break;
 				case GE_FORMAT_4444:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
-						for (int x = 0; x < width; x++) {
-							u16_le col = src[x];
-							dst[x * 4 + 0] = (col >> 12) << 4;
-							dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
-							dst[x * 4 + 2] = ((col >> 4) & 0xf) << 4;
-							dst[x * 4 + 3] = (col & 0xf) << 4;
-						}
+						ConvertBGRA4444ToRGBA8888((u32 *)dst, src, width);
 					}
 					break;
 

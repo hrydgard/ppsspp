@@ -59,18 +59,6 @@ inline u16 RGBA8888toRGBA5551(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
-inline void ARGB8From4444(u16 c, u32 * dst) {
-	*dst = ((c & 0xf) << 4) | (((c >> 4) & 0xf) << 12) | (((c >> 8) & 0xf) << 20) | ((c >> 12) << 28);
-}
-
-inline void ARGB8From565(u16 c, u32 * dst) {
-	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x003f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-}
-
-inline void ARGB8From5551(u16 c, u32 * dst) {
-	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-}
-
 inline u32 RGBA2BGRA(u32 src) {
 	const u32 r = (src & 0x000000FF) << 16;
 	const u32 ga = src & 0xFF00FF00;
@@ -150,12 +138,15 @@ inline u16 RGBA8888To4444(u32 value) {
 }
 
 // convert image to 8888, parallelizable
+// TODO: Implement these in terms of the conversion functions below.
 void convert4444_gl(u16* data, u32* out, int width, int l, int u);
 void convert565_gl(u16* data, u32* out, int width, int l, int u);
 void convert5551_gl(u16* data, u32* out, int width, int l, int u);
 void convert4444_dx9(u16* data, u32* out, int width, int l, int u);
 void convert565_dx9(u16* data, u32* out, int width, int l, int u);
 void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
+
+// "Complete" set of color conversion functions between the usual formats.
 
 void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, const u32 numPixels);
 
@@ -166,3 +157,11 @@ void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);
 void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, const u32 numPixels);
 void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, const u32 numPixels);
 void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels);
+
+void ConvertRGBA565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGBA4444ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+
+void ConvertBGRA4444ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertBGRA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);

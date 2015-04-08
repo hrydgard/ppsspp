@@ -405,14 +405,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert5To8((col) & 0x1f);
-						dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
-						dst[x * 4 + 2] = Convert5To8((col >> 11) & 0x1f);
-						dst[x * 4 + 3] = 255;
-					}
+					ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
@@ -420,14 +413,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert5To8((col) & 0x1f);
-						dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
-						dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
-						dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
-					}
+					ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
@@ -435,14 +421,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert4To8((col >> 8) & 0xf);
-						dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
-						dst[x * 4 + 2] = Convert4To8(col & 0xf);
-						dst[x * 4 + 3] = Convert4To8(col >> 12);
-					}
+					ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
