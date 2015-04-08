@@ -221,10 +221,6 @@ private:
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
-	// Cached vertex decoders
-	std::unordered_map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
-	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 	
 	TransformedVertex *transformed;
@@ -232,9 +228,6 @@ private:
 
 	std::unordered_map<u32, VertexArrayInfoDX9 *> vai_;
 	std::unordered_map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
-
-	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_;
 	
 	// Other
 	ShaderManagerDX9 *shaderManager_;
@@ -254,7 +247,6 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
-	VertexDecoderOptions decOptions_;
 };
 
 }  // namespace

@@ -18,10 +18,12 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 #include "Common/CommonTypes.h"
 
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 class VertexDecoder;
 
@@ -34,6 +36,7 @@ enum {
 
 class DrawEngineCommon {
 public:
+	DrawEngineCommon();
 	virtual ~DrawEngineCommon();
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType);
@@ -46,8 +49,19 @@ public:
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
 protected:
+	VertexDecoder *GetVertexDecoder(u32 vtype);
+
 	// Vertex collector buffers
 	u8 *decoded;
 	u16 *decIndex;
 	u8 *splineBuffer;
+
+	// Cached vertex decoders
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
+	VertexDecoderJitCache *decJitCache_;
+	VertexDecoderOptions decOptions_;
+
+	// Fixed index buffer for easy quad generation from spline/bezier
+	u16 *quadIndices_;
 };

@@ -203,8 +203,6 @@ private:
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfo *vai);
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
-
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
 	struct DeferredDrawCall {
@@ -223,19 +221,12 @@ private:
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
-	// Cached vertex decoders
-	std::unordered_map<u32, VertexDecoder *> decoderMap_;
-	VertexDecoder *dec_;
-	VertexDecoderJitCache *decJitCache_;
 	u32 lastVType_;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
 
 	std::unordered_map<u32, VertexArrayInfo *> vai_;
-
-	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_;
 
 	// Vertex buffer objects
 	// Element buffer objects
@@ -259,5 +250,4 @@ private:
 	UVScale *uvScale;
 
 	bool fboTexBound_;
-	VertexDecoderOptions decOptions_;
 };

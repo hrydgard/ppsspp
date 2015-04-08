@@ -106,8 +106,6 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define QUAD_INDICES_MAX 65536
-
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
 #define VERTEXCACHE_NAME_CACHE_FULL_SIZE 80
@@ -118,7 +116,6 @@ enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MA
 TransformDrawEngine::TransformDrawEngine()
 	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
-		dec_(0),
 		lastVType_(-1),
 		shaderManager_(0),
 		textureCache_(0),
@@ -141,13 +138,10 @@ TransformDrawEngine::TransformDrawEngine()
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
-
 	if (g_Config.bPrescaleUV) {
 		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
 	}
 	indexGen.Setup(decIndex);
-	decJitCache_ = new VertexDecoderJitCache();
 
 	InitDeviceObjects();
 	register_gl_resource_holder(this);
@@ -160,13 +154,8 @@ TransformDrawEngine::~TransformDrawEngine() {
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	delete [] quadIndices_;
 
 	unregister_gl_resource_holder(this);
-	delete decJitCache_;
-	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
-		delete iter->second;
-	}
 	delete [] uvScale;
 }
 
@@ -239,16 +228,6 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
 	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
 	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-}
-
-VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
-	auto iter = decoderMap_.find(vtype);
-	if (iter != decoderMap_.end())
-		return iter->second;
-	VertexDecoder *dec = new VertexDecoder();
-	dec->SetVertexType(vtype, decOptions_, decJitCache_);
-	decoderMap_[vtype] = dec;
-	return dec;
 }
 
 void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
