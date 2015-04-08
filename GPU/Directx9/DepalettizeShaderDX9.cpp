@@ -94,6 +94,7 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(const u32 clutID, u32 *ra
 	HRESULT hr = pD3Ddevice->CreateTexture(texturePixels, 1, 1, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &tex->texture, NULL);
 	if (FAILED(hr)) {
 		ERROR_LOG(G3D, "Failed to create D3D texture for depal");
+		delete tex;
 		return nullptr;
 	}
 
@@ -101,6 +102,7 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(const u32 clutID, u32 *ra
 	hr = tex->texture->LockRect(0, &rect, NULL, 0);
 	if (FAILED(hr)) {
 		ERROR_LOG(G3D, "Failed to lock D3D texture for depal");
+		delete tex;
 		return nullptr;
 	}
 	// Regardless of format, the CLUT should always be 1024 bytes.
