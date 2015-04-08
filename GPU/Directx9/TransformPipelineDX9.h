@@ -179,6 +179,8 @@ public:
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
+	void DispatchFlush() override { Flush(); }
+
 protected:
 	// Preprocessing for spline/bezier
 	virtual u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) override;

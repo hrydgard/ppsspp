@@ -48,6 +48,9 @@ public:
 
 	static u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType);
 
+	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code.
+	virtual void DispatchFlush() = 0;
+
 protected:
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 

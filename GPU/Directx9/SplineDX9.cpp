@@ -32,7 +32,7 @@ u32 TransformDrawEngineDX9::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
 void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
-	Flush();
+	DispatchFlush();
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -97,7 +97,7 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 	int bytesRead = 0;
 	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
-	Flush();
+	DispatchFlush();
 
 	if (g_Config.bPrescaleUV) {
 		gstate_c.uv = prevUVScale;
@@ -105,7 +105,7 @@ void TransformDrawEngineDX9::SubmitSpline(const void *control_points, const void
 }
 
 void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
-	Flush();
+	DispatchFlush();
 
 	// TODO: Verify correct functionality with < 4.
 	if (count_u < 4 || count_v < 4)
@@ -190,7 +190,7 @@ void TransformDrawEngineDX9::SubmitBezier(const void *control_points, const void
 	int bytesRead = 0;
 	SubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
 
-	Flush();
+	DispatchFlush();
 
 	if (g_Config.bPrescaleUV) {
 		gstate_c.uv = prevUVScale;
