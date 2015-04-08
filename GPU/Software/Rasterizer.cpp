@@ -94,7 +94,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_32BIT_ABGR8888:
-		return DecodeRGBA8888(clut[index + clutSharingOffset]);
+		return clut[index + clutSharingOffset];
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
@@ -282,7 +282,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA8888(*(const u32 *)src);
+			res.v[i] = *(const u32 *)src;
 		}
 		return res;
 
@@ -323,7 +323,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
@@ -332,7 +332,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
@@ -341,7 +341,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
