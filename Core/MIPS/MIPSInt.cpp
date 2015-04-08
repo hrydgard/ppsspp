@@ -298,7 +298,8 @@ namespace MIPSInt
 			DelayBranchTo(addr);
 			break;
 		case 9: //jalr
-			R(rd) = PC + 8;
+			if (rd != 0)
+				R(rd) = PC + 8;
 			DelayBranchTo(addr);
 			break;
 		}
