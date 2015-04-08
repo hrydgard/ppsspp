@@ -202,7 +202,7 @@ std::string GetVideoCardDriverVersion() {
 		hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
 	}
 
-	if (uReturned && !FAILED(hr)) {
+	if (!FAILED(hr) && uReturned) {
 		hr = pObj->Get(L"DriverVersion", 0, &var, NULL, NULL);
 		if (SUCCEEDED(hr)) {
 			char str[MAX_PATH];
