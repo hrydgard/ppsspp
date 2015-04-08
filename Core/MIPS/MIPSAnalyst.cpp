@@ -1287,7 +1287,9 @@ skip:
 			mf.hardcoded = false;
 			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
 				char temp[1024];
-				fgets(temp, 1024, file);
+				if (!fgets(temp, 1024, file)) {
+					WARN_LOG(LOADER, "Could not read from hash map: %s", filename.c_str());
+				}
 				continue;
 			}
 

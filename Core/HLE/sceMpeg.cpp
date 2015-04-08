@@ -674,6 +674,7 @@ static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	StreamInfo info;
 	info.type = streamType;
 	info.num = streamNum;
+	info.sid = sid;
 	info.needsReset = true;
 	ctx->streamMap[sid] = info;
 	return sid;

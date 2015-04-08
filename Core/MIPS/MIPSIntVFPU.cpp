@@ -390,7 +390,10 @@ namespace MIPSInt
 		else if (type == 7)
 			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
 		else
+		{
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			f[0] = 0;
+		}
 		
 		ApplyPrefixD(f, V_Single);
 		V(vt) = f[0];
@@ -735,6 +738,8 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
+			d[0] = 0;
+			d[1] = 0;
 			break;
 		}
 		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);
@@ -1789,6 +1794,8 @@ bad:
 		default:
 			Reporting::ReportMessage("CrossQuat instruction with wrong size");
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			d[0] = 0;
+			d[1] = 0;
 			break;
 		}
 		WriteVector(d, sz, vd);

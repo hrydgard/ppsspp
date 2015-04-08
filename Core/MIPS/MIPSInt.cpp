@@ -572,7 +572,7 @@ namespace MIPSInt
 			{ //TODO: verify
 				int x = 31;
 				int count=0;
-				while (!(R(rs) & (1<<x)) && x >= 0)
+				while (x >= 0 && !(R(rs) & (1<<x)))
 				{
 					count++;
 					x--;
@@ -584,7 +584,7 @@ namespace MIPSInt
 			{ //TODO: verify
 				int x = 31;
 				int count=0;
-				while ((R(rs) & (1<<x)) && x >= 0)
+				while (x >= 0 && (R(rs) & (1<<x)))
 				{
 					count++;
 					x--;

@@ -387,16 +387,7 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 		// If there are any callbacks, we always wait, and wake after the callbacks.
 		bool hasCallbacks = processCallbacks && __KernelCurHasReadyCallbacks();
 		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0 && !hasCallbacks)
-		{
-			if (hasCallbacks)
-			{
-				// Might actually end up having to wait, so set the timeout.
-				__KernelSetSemaTimeout(s, timeoutPtr);
-				__KernelWaitCallbacksCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr);
-			}
-			else
-				s->ns.currentCount -= wantedCount;
-		}
+			s->ns.currentCount -= wantedCount;
 		else
 		{
 			SceUID threadID = __KernelGetCurThread();
