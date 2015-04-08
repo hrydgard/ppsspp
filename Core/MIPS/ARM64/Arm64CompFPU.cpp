@@ -337,6 +337,9 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 
 	switch ((op >> 21) & 0x1f) {
 	case 0: // R(rt) = FI(fs); break; //mfc1
+		if (rt == MIPS_REG_ZERO) {
+			return;
+		}
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 		if (fpr.IsMapped(fs)) {
 			fp.FMOV(gpr.R(rt), fpr.R(fs));
@@ -346,6 +349,9 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 		return;
 
 	case 2: //cfc1
+		if (rt == MIPS_REG_ZERO) {
+			return;
+		}
 		if (fs == 31) {
 			if (gpr.IsImm(MIPS_REG_FPCOND)) {
 				gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);

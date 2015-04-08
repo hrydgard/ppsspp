@@ -58,6 +58,9 @@
     <Filter Include="Ext\sfmt19937">
       <UniqueIdentifier>{8f56c2fd-7706-49f7-8a1d-64dcffad9ad0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\ARM64">
+      <UniqueIdentifier>{fd036bbc-1f55-40f8-8b62-7879e6b774d8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -557,17 +560,39 @@
     <ClCompile Include="HLE\sceSfmt19937.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompBranch.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64CompFPU.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64CompLoadStore.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64CompReplace.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64CompVFPU.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64Jit.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64RegCache.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64RegCacheFPU.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64Asm.cpp" />
-    <ClCompile Include="MIPS\ARM64\Arm64CompALU.cpp" />
-    <ClCompile Include="Core\Util\DisArm64.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64Asm.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompALU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompBranch.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompLoadStore.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompReplace.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64CompVFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64Jit.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64RegCache.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64RegCacheFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\DisArm64.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1075,11 +1100,21 @@
     <ClInclude Include="MemMapHelpers.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM64\Arm64Jit.h" />
-    <ClInclude Include="MIPS\ARM64\Arm64RegCache.h" />
-    <ClInclude Include="MIPS\ARM64\Arm64RegCacheFPU.h" />
-    <ClInclude Include="MIPS\ARM64\Arm64Asm.h" />
-    <ClInclude Include="Core\Util\DisArm64.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64Asm.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64Jit.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64RegCache.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64RegCacheFPU.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\DisArm64.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

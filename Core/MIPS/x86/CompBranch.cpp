@@ -670,7 +670,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
-	bool andLink = (op & 0x3f) == 9;
+	bool andLink = (op & 0x3f) == 9 && rd != MIPS_REG_ZERO;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);

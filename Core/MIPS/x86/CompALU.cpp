@@ -943,8 +943,10 @@ namespace MIPSComp
 		switch (op & 63) 
 		{
 		case 16: // R(rd) = HI; //mfhi
-			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_HI));
+			if (rd != MIPS_REG_ZERO) {
+				gpr.MapReg(rd, false, true);
+				MOV(32, gpr.R(rd), gpr.R(MIPS_REG_HI));
+			}
 			break; 
 
 		case 17: // HI = R(rs); //mthi
@@ -954,8 +956,10 @@ namespace MIPSComp
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
-			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_LO));
+			if (rd != MIPS_REG_ZERO) {
+				gpr.MapReg(rd, false, true);
+				MOV(32, gpr.R(rd), gpr.R(MIPS_REG_LO));
+			}
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo
