@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"

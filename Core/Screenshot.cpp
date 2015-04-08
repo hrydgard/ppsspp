@@ -22,6 +22,7 @@
 #include "ext/jpge/jpge.h"
 #endif
 
+#include "Common/ColorConv.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"

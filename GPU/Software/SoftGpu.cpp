@@ -19,6 +19,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
@@ -32,7 +33,6 @@
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
-#include "GPU/Software/Colors.h"
 #include "GPU/Software/Rasterizer.h"
 
 static GLuint temp_texture = 0;
@@ -214,19 +214,19 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 			switch (displayFormat_) {
 			case GE_FORMAT_565:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGB565(fb_line[x]);
+					buf_line[x] = RGB565ToRGBA8888(fb_line[x]);
 				}
 				break;
 
 			case GE_FORMAT_5551:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA5551(fb_line[x]);
+					buf_line[x] = RGBA5551ToRGBA8888(fb_line[x]);
 				}
 				break;
 
 			case GE_FORMAT_4444:
 				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA4444(fb_line[x]);
+					buf_line[x] = RGBA4444ToRGBA8888(fb_line[x]);
 				}
 				break;
 

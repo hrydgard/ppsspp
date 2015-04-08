@@ -336,6 +336,8 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
+	Common/ColorConv.cpp
+	Common/ColorConv.h
 	Common/ChunkFile.cpp
 	Common/ChunkFile.h
 	Common/ConsoleListener.cpp
@@ -1432,6 +1434,8 @@ add_library(GPU OBJECT
 	GPU/Common/TextureDecoder.h
 	GPU/Common/TextureCacheCommon.cpp
 	GPU/Common/TextureCacheCommon.h
+	GPU/Common/TextureScalerCommon.cpp
+	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h

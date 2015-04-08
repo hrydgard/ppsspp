@@ -21,6 +21,7 @@
 #include "base/logging.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"

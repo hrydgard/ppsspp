@@ -196,6 +196,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Common\TextureCacheCommon.h" />
+    <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
@@ -232,7 +233,6 @@
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Null\NullGpu.h" />
     <ClInclude Include="Software\Clipper.h" />
-    <ClInclude Include="Software\Colors.h" />
     <ClInclude Include="Software\Lighting.h" />
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\SoftGpu.h" />
@@ -254,6 +254,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Common\TextureCacheCommon.cpp" />
+    <ClCompile Include="Common\TextureScalerCommon.cpp" />
     <ClCompile Include="Common\TransformCommon.cpp" />
     <ClCompile Include="Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderArm.cpp">

@@ -25,6 +25,7 @@
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 
+#include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -96,22 +97,6 @@ static const char color_vs[] =
 	"void main() {\n"
 	"  gl_Position = a_position;\n"
 	"}\n";
-
-inline u16 RGBA8888toRGB565(u32 px) {
-	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
-}
-
-inline u16 RGBA8888toRGBA4444(u32 px) {
-	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
-}
-
-inline u16 BGRA8888toRGB565(u32 px) {
-	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
-}
-
-inline u16 BGRA8888toRGBA4444(u32 px) {
-	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
-}
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
@@ -420,14 +405,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert5To8((col) & 0x1f);
-						dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
-						dst[x * 4 + 2] = Convert5To8((col >> 11) & 0x1f);
-						dst[x * 4 + 3] = 255;
-					}
+					ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
@@ -435,14 +413,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert5To8((col) & 0x1f);
-						dst[x * 4 + 1] = Convert5To8((col >> 5) & 0x1f);
-						dst[x * 4 + 2] = Convert5To8((col >> 10) & 0x1f);
-						dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
-					}
+					ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
@@ -450,14 +421,7 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 				{
 					const u16 *src = (const u16 *)srcPixels + srcStride * y;
 					u8 *dst = convBuf_ + 4 * width * y;
-					for (int x = 0; x < width; x++)
-					{
-						u16 col = src[x];
-						dst[x * 4] = Convert4To8((col >> 8) & 0xf);
-						dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
-						dst[x * 4 + 2] = Convert4To8(col & 0xf);
-						dst[x * 4 + 3] = Convert4To8(col >> 12);
-					}
+					ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
 				}
 				break;
 
@@ -1473,17 +1437,13 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 			case GE_FORMAT_565: // BGR 565
 				if (UseBGRA8888()) {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = BGRA8888toRGB565(src32[x]);
-						}
+						ConvertBGRA8888ToRGB565(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = RGBA8888toRGB565(src32[x]);
-						}
+						ConvertRGBA8888ToRGB565(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
@@ -1507,17 +1467,13 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 			case GE_FORMAT_4444: // ABGR 4444
 				if (UseBGRA8888()) {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = BGRA8888toRGBA4444(src32[x]);
-						}
+						ConvertBGRA8888ToRGBA4444(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}
 				} else {
 					for (u32 y = 0; y < height; ++y) {
-						for (u32 x = 0; x < width; ++x) {
-							dst16[x] = RGBA8888toRGBA4444(src32[x]);
-						}
+						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
 						src32 += srcStride;
 						dst16 += dstStride;
 					}

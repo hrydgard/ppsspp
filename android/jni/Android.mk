@@ -154,6 +154,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Crypto/sha1.cpp \
   $(SRC)/Common/Crypto/sha256.cpp \
   $(SRC)/Common/ChunkFile.cpp \
+  $(SRC)/Common/ColorConv.cpp \
   $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
@@ -174,6 +175,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
+  $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
   $(SRC)/GPU/Common/SplineCommon.cpp.arm \
   $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
   $(SRC)/GPU/Common/TransformCommon.cpp.arm \

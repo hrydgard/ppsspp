@@ -566,7 +566,7 @@ inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 	u32_le *dest = (u32_le *)destp;
 	const u32_le *src = (u32_le *)srcp;
 
-	u32 mask = 0x00FFFFFF;
+	const u32 mask = 0x00FFFFFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
@@ -581,7 +581,7 @@ inline void writeVideoLineABGR5551(void *destp, const void *srcp, int width) {
 	u16_le *dest = (u16_le *)destp;
 	const u16_le *src = (u16_le *)srcp;
 
-	u16 mask = 0x7FFF;
+	const u16 mask = 0x7FFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
@@ -592,7 +592,7 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	u16_le *dest = (u16_le *)destp;
 	const u16_le *src = (u16_le *)srcp;
 
-	u16 mask = 0x0FFF;
+	const u16 mask = 0x0FFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
