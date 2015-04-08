@@ -338,7 +338,8 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	{
 		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
 		fseek(bmp, 14 + 40, SEEK_SET);
-		fread(reference, sizeof(u32), stride * h, bmp);
+		if (fread(reference, sizeof(u32), stride * h, bmp) != stride * h)
+			error = "Unable to read screenshot data: " + screenshotFilename;
 		fclose(bmp);
 	}
 	else

@@ -178,7 +178,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	memset(&pi, 0, sizeof(pi));
 	UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
 	if (!retval) {
-		ERROR_LOG(BOOT, "Failed creating notepad process");
+		ERROR_LOG(COMMON, "Failed creating notepad process");
 	}
 #elif defined(__APPLE__) || defined(__linux__)
 #if defined(__linux__)
@@ -188,7 +188,10 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 #endif
 	cheatFile.append(activeCheatFile);
 	NOTICE_LOG(BOOT, "Launching %s", cheatFile.c_str());
-	system(cheatFile.c_str());
+	int retval = system(cheatFile.c_str());
+	if (retval != 0) {
+		ERROR_LOG(COMMON, "Failed to launch cheat file");
+	}
 #endif
 	return UI::EVENT_DONE;
 }
