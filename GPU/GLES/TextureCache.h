@@ -214,7 +214,8 @@ private:
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
-	TextureScaler scaler;
+
+	TextureScalerGL scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;

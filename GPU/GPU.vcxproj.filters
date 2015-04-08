@@ -180,6 +180,9 @@
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h">
       <Filter>DirectX9</Filter>
     </ClInclude>
+    <ClInclude Include="Common\TextureScalerCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -342,6 +345,9 @@
       <Filter>DirectX9</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderArm64.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\TextureScalerCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

@@ -196,6 +196,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Common\TextureCacheCommon.h" />
+    <ClInclude Include="Common\TextureScalerCommon.h" />
     <ClInclude Include="Common\TransformCommon.h" />
     <ClInclude Include="Common\VertexDecoderCommon.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
@@ -253,6 +254,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Common\TextureCacheCommon.cpp" />
+    <ClCompile Include="Common\TextureScalerCommon.cpp" />
     <ClCompile Include="Common\TransformCommon.cpp" />
     <ClCompile Include="Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="Common\VertexDecoderArm.cpp">

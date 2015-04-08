@@ -1434,6 +1434,8 @@ add_library(GPU OBJECT
 	GPU/Common/TextureDecoder.h
 	GPU/Common/TextureCacheCommon.cpp
 	GPU/Common/TextureCacheCommon.h
+	GPU/Common/TextureScalerCommon.cpp
+	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
