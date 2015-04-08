@@ -293,6 +293,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				break;
 			default:
 				temp[0] = '\0';
+				len = 0;
 				break;
 			}
 
