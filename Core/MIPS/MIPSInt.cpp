@@ -662,9 +662,9 @@ namespace MIPSInt
 				HI = (u32)(result>>32);
 			}
 			break;
-		case 16: R(rd) = HI; break; //mfhi
+		case 16: if (rd != 0) R(rd) = HI; break; //mfhi
 		case 17: HI = R(rs); break; //mthi
-		case 18: R(rd) = LO; break; //mflo
+		case 18: if (rd != 0) R(rd) = LO; break; //mflo
 		case 19: LO = R(rs); break; //mtlo
 		case 26: //div
 			{
