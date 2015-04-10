@@ -48,6 +48,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 	size_t f_size = ftell(file);
 	if ((long)f_size < 0) {
 		*size = 0;
+		fclose(file);
 		return nullptr;
 	}
 	fseek(file, 0, SEEK_SET);
