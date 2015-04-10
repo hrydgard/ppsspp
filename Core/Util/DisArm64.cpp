@@ -296,7 +296,7 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 		int Rt2 = (w >> 10) & 0x1f;
 		bool load = (w >> 22) & 1;
 		int index_type = ((w >> 23) & 3);
-		bool sf = (w >> 31);
+		bool sf = (w >> 31) != 0;
 		bool V = (w >> 26) & 1;
 		int op = (w >> 30);
 
