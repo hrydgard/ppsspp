@@ -271,7 +271,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		if (fd != fs) {
 			MOVSS(fpr.RX(fd), fpr.R(fs));
 		}
-		PAND(fpr.RX(fd), M(ssNoSignMask));
+		ANDPS(fpr.RX(fd), M(ssNoSignMask));
 		break;
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
