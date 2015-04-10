@@ -157,24 +157,25 @@ void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int
 		for (int xb = 0; xb < width / BLOCK_SIZE + 1; ++xb) {
 			for (int y = l + yb*BLOCK_SIZE; y < l + (yb + 1)*BLOCK_SIZE && y < u; ++y) {
 				for (int x = xb*BLOCK_SIZE; x < (xb + 1)*BLOCK_SIZE && x < width; ++x) {
-					out[y*width + x] = 0;
-					u32 center = data[y*width + x];
+					const u32 center = data[y*width + x];
+					u32 dist = 0;
 					for (int yoff = -1; yoff <= 1; ++yoff) {
 						int yy = y + yoff;
 						if (yy == height || yy == -1) {
-							out[y*width + x] += 1200; // assume distance at borders, usually makes for better result
+							dist += 1200; // assume distance at borders, usually makes for better result
 							continue;
 						}
 						for (int xoff = -1; xoff <= 1; ++xoff) {
 							if (yoff == 0 && xoff == 0) continue;
 							int xx = x + xoff;
 							if (xx == width || xx == -1) {
-								out[y*width + x] += 400; // assume distance at borders, usually makes for better result
+								dist += 400; // assume distance at borders, usually makes for better result
 								continue;
 							}
-							out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+							dist += DISTANCE(data[yy*width + xx], center);
 						}
 					}
+					out[y*width + x] = dist;
 				}
 			}
 		}
