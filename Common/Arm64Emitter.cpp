@@ -35,7 +35,7 @@ int CountLeadingZeros(uint64_t value, int width) {
 }
 
 uint64_t LargestPowerOf2Divisor(uint64_t value) {
-	return value & -value;
+	return value & -(int64_t)value;
 }
 
 bool IsPowerOfTwo(uint64_t x) {
@@ -1966,7 +1966,7 @@ void ARM64XEmitter::ABI_PushRegisters(BitSet32 registers)
 		{
 			if (first)
 			{
-				STR(INDEX_PRE, (ARM64Reg)(X0 + it), SP, -stack_size);
+				STR(INDEX_PRE, (ARM64Reg)(X0 + it), SP, -(s32)stack_size);
 				first = false;
 				current_offset += 16;
 			}
@@ -3366,7 +3366,7 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 	if (!Is64Bit(Rn))
 		imm &= 0xFFFFFFFF;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		AND(Rd, Rn, imm_r, imm_s, n);
+		AND(Rd, Rn, imm_r, imm_s, n != 0);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3377,7 +3377,7 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		ORR(Rd, Rn, imm_r, imm_s, n);
+		ORR(Rd, Rn, imm_r, imm_s, n != 0);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ORRI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3388,7 +3388,7 @@ void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		EOR(Rd, Rn, imm_r, imm_s, n);
+		EOR(Rd, Rn, imm_r, imm_s, n != 0);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "EORI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3399,7 +3399,7 @@ void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		ANDS(Rd, Rn, imm_r, imm_s, n);
+		ANDS(Rd, Rn, imm_r, imm_s, n != 0);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3479,7 +3479,7 @@ bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u32 imm) {
 bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	u32 n, imm_r, imm_s;
 	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
-		AND(Rd, Rn, imm_r, imm_s, n);
+		AND(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else {
 		return false;
@@ -3488,7 +3488,7 @@ bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	u32 n, imm_r, imm_s;
 	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
-		ORR(Rd, Rn, imm_r, imm_s, n);
+		ORR(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else {
 		return false;
@@ -3497,7 +3497,7 @@ bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	u32 n, imm_r, imm_s;
 	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
-		EOR(Rd, Rn, imm_r, imm_s, n);
+		EOR(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else {
 		return false;
