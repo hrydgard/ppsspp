@@ -51,8 +51,9 @@ JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
 	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::GetMemChecks().empty();
+	// Mask out the kernel RAM bit, because we'll end up with a negative offset to MEMBASEREG.
 	if (jit_->gpr.IsImm(raddr_))
-		iaddr_ = jit_->gpr.GetImm(raddr_) + offset_;
+		iaddr_ = (jit_->gpr.GetImm(raddr_) + offset_) & 0x7FFFFFFF;
 	else
 		iaddr_ = (u32) -1;
 
@@ -123,9 +124,9 @@ bool JitSafeMem::PrepareRead(OpArg &src, int size)
 
 OpArg JitSafeMem::NextFastAddress(int suboffset)
 {
-	if (jit_->gpr.IsImm(raddr_))
+	if (iaddr_ != (u32) -1)
 	{
-		u32 addr = (jit_->gpr.GetImm(raddr_) + offset_ + suboffset) & alignMask_;
+		u32 addr = (iaddr_ + suboffset) & alignMask_;
 
 #ifdef _M_IX86
 		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
