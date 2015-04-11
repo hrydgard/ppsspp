@@ -3394,7 +3394,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	u8 dregs[4];
 	u8 dregs2[4];
 
-	u32 nextOp = Memory::Read_Opcode_JIT(js.compilerPC + 4).encoding;
+	u32 nextOp = GetOffsetInstruction(1).encoding;
 	int vd2 = -1;
 	int imm2 = -1;
 	if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {

@@ -139,7 +139,7 @@ namespace MIPSComp
 		if (!js.inDelaySlot) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
-			MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+			MIPSOpcode nextOp = GetOffsetInstruction(1);
 			// Find a matching shift in opposite direction with opposite offset.
 			if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
 				                  : (op.encoding - (4<<26) + 3)))

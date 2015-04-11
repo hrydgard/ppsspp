@@ -284,9 +284,9 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 			// Check for four-in-a-row
 			const u32 ops[4] = {
 				op.encoding, 
-				Memory::Read_Instruction(js.compilerPC + 4).encoding,
-				Memory::Read_Instruction(js.compilerPC + 8).encoding,
-				Memory::Read_Instruction(js.compilerPC + 12).encoding
+				GetOffsetInstruction(1).encoding,
+				GetOffsetInstruction(2).encoding,
+				GetOffsetInstruction(3).encoding
 			};
 			if (g_Config.bFastMemory && (ops[1] >> 26) == 54 && (ops[2] >> 26) == 54 && (ops[3] >> 26) == 54) {
 				int offsets[4] = {offset, (s16)(ops[1] & 0xFFFC), (s16)(ops[2] & 0xFFFC), (s16)(ops[3] & 0xFFFC)};
@@ -350,9 +350,9 @@ void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 		{
 			const u32 ops[4] = {
 				op.encoding,
-				Memory::Read_Instruction(js.compilerPC + 4).encoding,
-				Memory::Read_Instruction(js.compilerPC + 8).encoding,
-				Memory::Read_Instruction(js.compilerPC + 12).encoding
+				GetOffsetInstruction(1).encoding,
+				GetOffsetInstruction(2).encoding,
+				GetOffsetInstruction(3).encoding
 			};
 			if (g_Config.bFastMemory && (ops[1] >> 26) == 54 && (ops[2] >> 26) == 54 && (ops[3] >> 26) == 54) {
 				int offsets[4] = { offset, (s16)(ops[1] & 0xFFFC), (s16)(ops[2] & 0xFFFC), (s16)(ops[3] & 0xFFFC) };
