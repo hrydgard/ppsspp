@@ -255,18 +255,19 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		// Did we get an indefinite integer value?
 		CMP(32, R(TEMPREG), Imm32(0x80000000));
 		FixupBranch skip = J_CC(CC_NE);
-		MOVSS(XMM0, fpr.R(fs));
+		if (fd != fs) {
+			CopyFPReg(fpr.RX(fd), fpr.R(fs));
+		}
 		XORPS(XMM1, R(XMM1));
-		CMPSS(XMM0, R(XMM1), CMP_LT);
+		CMPSS(fpr.RX(fd), R(XMM1), CMP_LT);
 
 		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
 		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-		MOVD_xmm(R(TEMPREG), XMM0);
+		MOVD_xmm(R(TEMPREG), fpr.RX(fd));
 		XOR(32, R(TEMPREG), Imm32(0x7fffffff));
 
 		SetJumpTarget(skip);
-		fpr.DiscardR(fd);
-		MOV(32, fpr.R(fd), R(TEMPREG));
+		MOVD_xmm(fpr.RX(fd), R(TEMPREG));
 
 		if (setMXCSR != -1) {
 			LDMXCSR(M(&mxcsrTemp));
