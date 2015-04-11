@@ -402,6 +402,10 @@ void Jit::RunLoopUntil(u64 globalticks)
 	((void (*)())asm_.enterCode)();
 }
 
+MIPSOpcode Jit::GetOffsetInstruction(int offset) {
+	return Memory::Read_Instruction(js.compilerPC + 4 * offset);
+}
+
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;

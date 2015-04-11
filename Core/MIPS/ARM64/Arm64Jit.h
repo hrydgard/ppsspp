@@ -81,10 +81,6 @@ public:
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
-	void CompileDelaySlot(int flags);
-	void EatInstruction(MIPSOpcode op);
-	void AddContinuedBlock(u32 dest);
-
 	void Comp_RunBlock(MIPSOpcode op);
 	void Comp_ReplacementFunc(MIPSOpcode op);
 
@@ -210,6 +206,11 @@ private:
 	void GenerateFixedCode();
 	void FlushAll();
 	void FlushPrefixV();
+
+	void CompileDelaySlot(int flags);
+	void EatInstruction(MIPSOpcode op);
+	void AddContinuedBlock(u32 dest);
+	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteDownCount(int offset = 0);
 	void WriteDownCountR(Arm64Gen::ARM64Reg reg);

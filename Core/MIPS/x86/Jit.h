@@ -199,6 +199,7 @@ private:
 	}
 	void EatInstruction(MIPSOpcode op);
 	void AddContinuedBlock(u32 dest);
+	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(Gen::X64Reg reg);

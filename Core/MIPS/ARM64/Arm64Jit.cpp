@@ -220,6 +220,10 @@ void Arm64Jit::RunLoopUntil(u64 globalticks) {
 	((void (*)())enterCode)();
 }
 
+MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
+	return Memory::Read_Instruction(js.compilerPC + 4 * offset);
+}
+
 const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
