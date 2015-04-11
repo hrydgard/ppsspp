@@ -381,14 +381,28 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
 
-			if (g_Config.bFastMemory && fpr.TryMapRegsVS(vregs, V_Quad, MAP_NOINIT | MAP_DIRTY)) {
+			if (fpr.TryMapRegsVS(vregs, V_Quad, MAP_NOINIT | MAP_DIRTY)) {
 				JitSafeMem safe(this, rs, imm);
 				safe.SetFar();
 				OpArg src;
 				if (safe.PrepareRead(src, 16)) {
-					MOVAPS(fpr.VSX(vregs), safe.NextFastAddress(0));
-				} else {
-					// Hmm... probably never happens.
+					// Should be safe, since lv.q must be aligned, but let's try to avoid crashing in safe mode.
+					if (g_Config.bFastMemory) {
+						MOVAPS(fpr.VSX(vregs), safe.NextFastAddress(0));
+					} else {
+						MOVUPS(fpr.VSX(vregs), safe.NextFastAddress(0));
+					}
+				}
+				if (safe.PrepareSlowRead(safeMemFuncs.readU32)) {
+					for (int i = 0; i < 4; i++) {
+						safe.NextSlowRead(safeMemFuncs.readU32, i * 4);
+						// We use XMM0 as a temporary since MOVSS and MOVD would clear the higher bits.
+						MOVD_xmm(XMM0, R(EAX));
+						MOVSS(fpr.VSX(vregs), R(XMM0));
+						// Rotate things so we can read in the next higher float.
+						// By the end (4 rotates), they'll all be back into place.
+						SHUFPS(fpr.VSX(vregs), fpr.VS(vregs), _MM_SHUFFLE(0, 3, 2, 1));
+					}
 				}
 				safe.Finish();
 				gpr.UnlockAll();
@@ -429,14 +443,25 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
 
-			if (g_Config.bFastMemory && fpr.TryMapRegsVS(vregs, V_Quad, 0)) {
+			if (fpr.TryMapRegsVS(vregs, V_Quad, 0)) {
 				JitSafeMem safe(this, rs, imm);
 				safe.SetFar();
 				OpArg dest;
 				if (safe.PrepareWrite(dest, 16)) {
-					MOVAPS(safe.NextFastAddress(0), fpr.VSX(vregs));
-				} else {
-					// Hmm... probably never happens.
+					// Should be safe, since sv.q must be aligned, but let's try to avoid crashing in safe mode.
+					if (g_Config.bFastMemory) {
+						MOVAPS(safe.NextFastAddress(0), fpr.VSX(vregs));
+					} else {
+						MOVUPS(safe.NextFastAddress(0), fpr.VSX(vregs));
+					}
+				}
+				if (safe.PrepareSlowWrite()) {
+					MOVAPS(XMM0, fpr.VS(vregs));
+					for (int i = 0; i < 4; i++) {
+						MOVSS(M(&ssLoadStoreTemp), XMM0);
+						SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(3, 3, 2, 1));
+						safe.DoSlowWrite(safeMemFuncs.writeU32, M(&ssLoadStoreTemp), i * 4);
+					}
 				}
 				safe.Finish();
 				gpr.UnlockAll();
