@@ -207,6 +207,7 @@ private:
 	void FlushAll();
 	void FlushPrefixV();
 
+	u32 GetCompilerPC();
 	void CompileDelaySlot(int flags);
 	void EatInstruction(MIPSOpcode op);
 	void AddContinuedBlock(u32 dest);

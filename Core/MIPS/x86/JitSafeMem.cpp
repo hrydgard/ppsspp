@@ -61,7 +61,7 @@ JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	// If raddr_ is going to get loaded soon, load it now for more optimal code.
 	// We assume that it was already locked.
 	const int LOOKAHEAD_OPS = 3;
-	if (!jit_->gpr.R(raddr_).IsImm() && MIPSAnalyst::IsRegisterUsed(raddr_, jit_->js.compilerPC + 4, LOOKAHEAD_OPS))
+	if (!jit_->gpr.R(raddr_).IsImm() && MIPSAnalyst::IsRegisterUsed(raddr_, jit_->GetCompilerPC() + 4, LOOKAHEAD_OPS))
 		jit_->gpr.MapReg(raddr_, true, false);
 }
 
@@ -252,7 +252,7 @@ void JitSafeMem::DoSlowWrite(const void *safeFunc, const OpArg& src, int suboffs
 		jit_->MOV(32, R(EDX), src);
 	}
 	if (!g_Config.bIgnoreBadMemAccess) {
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
@@ -282,7 +282,7 @@ bool JitSafeMem::PrepareSlowRead(const void *safeFunc)
 		}
 
 		if (!g_Config.bIgnoreBadMemAccess) {
-			jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+			jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
 		}
 		// This is a special jit-ABI'd function.
 		jit_->CALL(safeFunc);
@@ -316,7 +316,7 @@ void JitSafeMem::NextSlowRead(const void *safeFunc, int suboffset)
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess) {
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
 	}
 	// This is a special jit-ABI'd function.
 	jit_->CALL(safeFunc);
@@ -348,7 +348,7 @@ void JitSafeMem::MemCheckImm(MemoryOpType type)
 		if (!(check->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			return;
 
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
 		jit_->CallProtectedFunction(&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		// CORE_RUNNING is <= CORE_NEXTFRAME.
@@ -388,7 +388,7 @@ void JitSafeMem::MemCheckAsm(MemoryOpType type)
 		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
 		for (int i = 0; i < 4; ++i)
 			jit_->PUSH(xaddr_);
-		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->GetCompilerPC()));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
 		jit_->CallProtectedFunction(&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		for (int i = 0; i < 4; ++i)
