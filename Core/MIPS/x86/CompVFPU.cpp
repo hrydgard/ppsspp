@@ -239,7 +239,6 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
 			gpr.Lock(rs);
-			gpr.MapReg(rs, true, false);
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
@@ -263,9 +262,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 		{
 			gpr.Lock(rs);
-			gpr.MapReg(rs, true, false);
 
-			// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
 			fpr.MapRegV(vt, 0);
 
 			JitSafeMem safe(this, rs, imm);
@@ -380,7 +377,6 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 	case 54: //lv.q
 		{
 			gpr.Lock(rs);
-			gpr.MapReg(rs, true, false);
 	
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
@@ -429,7 +425,6 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 	case 62: //sv.q
 		{
 			gpr.Lock(rs);
-			gpr.MapReg(rs, true, false);
 
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
