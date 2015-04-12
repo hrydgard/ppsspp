@@ -828,8 +828,12 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	} else if (!atrac->data_buf) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else {
-		if (atrac->first.size >= atrac->first.filesize)
+		if (atrac->first.size >= atrac->first.filesize) {
+			// Let's avoid spurious warnings.  Some games call this with 0 which is pretty harmless.
+			if (bytesToAdd == 0)
+				return hleLogDebug(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
 			return hleLogWarning(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
+		}
 		if (bytesToAdd > atrac->first.writableBytes)
 			return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
 
@@ -888,7 +892,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				while (atrac->FillPacket()) {
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
-						// Avoid getting stuck in a loop (Virtua Tennis)
 						*SamplesNum = 0;
 						*finish = 1;
 						*remains = 0;
