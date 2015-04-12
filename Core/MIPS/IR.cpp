@@ -81,7 +81,8 @@ void ExtractIR(const JitOptions &jo, u32 address, IRBlock *block) {
 				if ((e.op >> 26) == 3) {
 					// Definitely a JAL
 					const ReplacementTableEntry *entry;
-					if (CanReplaceJalTo(MIPSCodeUtils::GetJumpTarget(e.origAddress), &entry))
+					u32 funcSize;
+					if (CanReplaceJalTo(MIPSCodeUtils::GetJumpTarget(e.origAddress), &entry, &funcSize))
 						replacableJal = true;
 				}
 			}
