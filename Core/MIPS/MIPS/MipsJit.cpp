@@ -239,7 +239,12 @@ void MipsJit::Comp_RunBlock(MIPSOpcode op)
 }
 
 bool MipsJit::ReplaceJalTo(u32 dest) {
-	return true;
+	const ReplacementTableEntry *entry = nullptr;
+	u32 funcSize = 0;
+	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
+		return false;
+	}
+	return false;
 }
 
 void MipsJit::Comp_ReplacementFunc(MIPSOpcode op)

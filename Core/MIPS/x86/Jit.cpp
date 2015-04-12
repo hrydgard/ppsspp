@@ -533,32 +533,9 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 }
 
 bool Jit::ReplaceJalTo(u32 dest) {
-	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
-	if (!MIPS_IS_REPLACEMENT(op.encoding))
-		return false;
-
-	// Make sure we don't replace if there are any breakpoints inside.
-	u32 funcSize = symbolMap.GetFunctionSize(dest);
-	if (funcSize == SymbolMap::INVALID_ADDRESS) {
-		if (CBreakPoints::IsAddressBreakPoint(dest)) {
-			return false;
-		}
-		funcSize = (u32)sizeof(u32);
-	} else {
-		if (CBreakPoints::RangeContainsBreakPoint(dest, funcSize)) {
-			return false;
-		}
-	}
-
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-	const ReplacementTableEntry *entry = GetReplacementFunc(index);
-	if (!entry) {
-		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
-		return false;
-	}
-
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
-		// If it's a hook, we can't replace the jal, we have to go inside the func.
+	const ReplacementTableEntry *entry = nullptr;
+	u32 funcSize = 0;
+	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
 		return false;
 	}
 
