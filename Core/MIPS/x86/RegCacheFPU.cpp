@@ -108,6 +108,36 @@ void FPURegCache::ReduceSpillLockV(const u8 *vec, VectorSize sz) {
 	}
 }
 
+void FPURegCache::FlushRemap(int oldreg, int newreg) {
+	OpArg oldLocation = regs[oldreg].location;
+	if (!oldLocation.IsSimpleReg()) {
+		PanicAlert("FlushRemap: Must already be in an x86 SSE register");
+	}
+	if (regs[oldreg].lane != 0) {
+		PanicAlert("FlushRemap only supports FPR registers");
+	}
+
+	X64Reg xr = oldLocation.GetSimpleReg();
+
+	if (oldreg == newreg) {
+		xregs[xr].dirty = true;
+		return;
+	}
+
+	StoreFromRegister(oldreg);
+
+	// Now, if newreg already was mapped somewhere, get rid of that.
+	DiscardR(newreg);
+
+	// Now, take over the old register.
+	regs[newreg].location = oldLocation;
+	regs[newreg].away = true;
+	regs[newreg].locked = true;
+	regs[newreg].lane = 0;
+	xregs[xr].mipsReg = newreg;
+	xregs[xr].dirty = true;
+}
+
 void FPURegCache::MapRegV(int vreg, int flags) {
 	MapReg(vreg + 32, (flags & MAP_NOINIT) != MAP_NOINIT, (flags & MAP_DIRTY) != 0);
 }

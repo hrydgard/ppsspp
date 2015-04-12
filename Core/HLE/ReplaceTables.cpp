@@ -23,6 +23,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -1245,4 +1246,36 @@ bool GetReplacedOpAt(u32 address, u32 *op) {
 		}
 	}
 	return false;
+}
+
+bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSize) {
+	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
+	if (!MIPS_IS_REPLACEMENT(op.encoding))
+		return false;
+
+	// Make sure we don't replace if there are any breakpoints inside.
+	*funcSize = symbolMap.GetFunctionSize(dest);
+	if (*funcSize == SymbolMap::INVALID_ADDRESS) {
+		if (CBreakPoints::IsAddressBreakPoint(dest)) {
+			return false;
+		}
+		*funcSize = (u32)sizeof(u32);
+	} else {
+		if (CBreakPoints::RangeContainsBreakPoint(dest, *funcSize)) {
+			return false;
+		}
+	}
+
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	*entry = GetReplacementFunc(index);
+	if (!*entry) {
+		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
+		return false;
+	}
+
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+		// If it's a hook, we can't replace the jal, we have to go inside the func.
+		return false;
+	}
+	return true;
 }

@@ -30,17 +30,6 @@ namespace MIPSComp
 
 typedef int FakeReg;
 
-struct FakeJitOptions
-{
-	FakeJitOptions();
-
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
 class FakeJit : public FakeGen::FakeXCodeBlock
 {
 public:
@@ -166,7 +155,7 @@ private:
 	void WriteSyscallExit();
 
 	JitBlockCache blocks;
-	FakeJitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	MIPSState *mips_;

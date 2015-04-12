@@ -357,19 +357,9 @@ void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
 
 bool Arm64Jit::ReplaceJalTo(u32 dest) {
 #ifdef ARM64
-	MIPSOpcode op(Memory::Read_Opcode_JIT(dest));
-	if (!MIPS_IS_REPLACEMENT(op.encoding))
-		return false;
-
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
-	const ReplacementTableEntry *entry = GetReplacementFunc(index);
-	if (!entry) {
-		ERROR_LOG(HLE, "ReplaceJalTo: Invalid replacement op %08x at %08x", op.encoding, dest);
-		return false;
-	}
-
-	if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
-		// If it's a hook, we can't replace the jal, we have to go inside the func.
+	const ReplacementTableEntry *entry = nullptr;
+	u32 funcSize = 0;
+	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
 		return false;
 	}
 	INFO_LOG(HLE, "ReplaceJalTo to %s", entry->name);
@@ -397,7 +387,7 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, symbolMap.GetFunctionSize(dest) / sizeof(u32), GetCodePtr());
+	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 #endif
 	return true;
 }
