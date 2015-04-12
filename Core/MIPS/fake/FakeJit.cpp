@@ -38,14 +38,6 @@ void DisassembleFake(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-FakeJitOptions::FakeJitOptions() {
-	enableBlocklink = true;
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-}
-
 FakeJit::FakeJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 { 
 	logBlocks = 0;
