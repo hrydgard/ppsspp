@@ -181,8 +181,6 @@ public:
 
 	void EatPrefix() { js.EatPrefix(); }
 
-	void ExtractIR(u32 address, IRBlock *block);
-
 private:
 	void GenerateFixedCode();
 	void FlushAll();
