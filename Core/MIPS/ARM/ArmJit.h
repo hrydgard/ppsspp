@@ -34,36 +34,6 @@
 namespace MIPSComp
 {
 
-struct ArmJitOptions
-{
-	ArmJitOptions()  {
-		enableBlocklink = true;
-		downcountInRegister = true;
-		useBackJump = false;
-		useForwardJump = false;
-		cachePointers = true;
-		immBranches = false;
-		continueBranches = false;
-		continueJumps = false;
-		continueMaxInstructions = 300;
-
-		useNEONVFPU = false;  // true
-		if (!cpu_info.bNEON)
-			useNEONVFPU = false;
-	}
-
-	bool useNEONVFPU;
-	bool enableBlocklink;
-	bool downcountInRegister;
-	bool useBackJump;
-	bool useForwardJump;
-	bool cachePointers;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
 class ArmJit : public ArmGen::ARMXCodeBlock
 {
 public:
@@ -305,7 +275,7 @@ private:
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
 	JitBlockCache blocks;
-	ArmJitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	ArmRegCache gpr;

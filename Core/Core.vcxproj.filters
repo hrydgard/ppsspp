@@ -593,6 +593,9 @@
     <ClCompile Include="Util\DisArm64.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitState.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
