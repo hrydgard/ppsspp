@@ -416,16 +416,16 @@
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitState.cpp" />
-    <ClCompile Include="Mips\MIPS.cpp" />
-    <ClCompile Include="Mips\MIPSAnalyst.cpp" />
+    <ClCompile Include="MIPS\MIPS.cpp" />
+    <ClCompile Include="MIPS\MIPSAnalyst.cpp" />
     <ClCompile Include="MIPS\MIPSAsm.cpp" />
-    <ClCompile Include="Mips\MIPSCodeUtils.cpp" />
+    <ClCompile Include="MIPS\MIPSCodeUtils.cpp" />
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
-    <ClCompile Include="Mips\MIPSDis.cpp" />
+    <ClCompile Include="MIPS\MIPSDis.cpp" />
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp" />
-    <ClCompile Include="Mips\MIPSInt.cpp" />
+    <ClCompile Include="MIPS\MIPSInt.cpp" />
     <ClCompile Include="MIPS\MIPSIntVFPU.cpp" />
-    <ClCompile Include="Mips\MIPSTables.cpp" />
+    <ClCompile Include="MIPS\MIPSTables.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="MIPS\MIPS\MipsJit.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -661,16 +661,16 @@
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="MIPS\JitCommon\NativeJit.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />
-    <ClInclude Include="Mips\MIPS.h" />
-    <ClInclude Include="Mips\MIPSAnalyst.h" />
+    <ClInclude Include="MIPS\MIPS.h" />
+    <ClInclude Include="MIPS\MIPSAnalyst.h" />
     <ClInclude Include="MIPS\MIPSAsm.h" />
-    <ClInclude Include="Mips\MIPSCodeUtils.h" />
+    <ClInclude Include="MIPS\MIPSCodeUtils.h" />
     <ClInclude Include="MIPS\MIPSDebugInterface.h" />
-    <ClInclude Include="Mips\MIPSDis.h" />
+    <ClInclude Include="MIPS\MIPSDis.h" />
     <ClInclude Include="MIPS\MIPSDisVFPU.h" />
-    <ClInclude Include="Mips\MIPSInt.h" />
+    <ClInclude Include="MIPS\MIPSInt.h" />
     <ClInclude Include="MIPS\MIPSIntVFPU.h" />
-    <ClInclude Include="Mips\MIPSTables.h" />
+    <ClInclude Include="MIPS\MIPSTables.h" />
     <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="MIPS\MIPS\MipsJit.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

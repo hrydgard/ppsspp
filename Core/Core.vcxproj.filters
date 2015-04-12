@@ -69,34 +69,34 @@
     <ClCompile Include="ELF\ElfReader.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPS.cpp">
+    <ClCompile Include="MIPS\MIPS.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSDis.cpp">
+    <ClCompile Include="MIPS\MIPSDis.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSInt.cpp">
+    <ClCompile Include="MIPS\MIPSInt.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSIntVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSTables.cpp">
+    <ClCompile Include="MIPS\MIPSTables.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSAnalyst.cpp">
+    <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSCodeUtils.cpp">
+    <ClCompile Include="MIPS\MIPSCodeUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\x86\CompALU.cpp">
@@ -613,31 +613,31 @@
     <ClInclude Include="MIPS\MIPSDebugInterface.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPS.h">
+    <ClInclude Include="MIPS\MIPS.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSDis.h">
+    <ClInclude Include="MIPS\MIPSDis.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSDisVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSInt.h">
+    <ClInclude Include="MIPS\MIPSInt.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSIntVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSTables.h">
+    <ClInclude Include="MIPS\MIPSTables.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSVFPUUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSAnalyst.h">
+    <ClInclude Include="MIPS\MIPSAnalyst.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSCodeUtils.h">
+    <ClInclude Include="MIPS\MIPSCodeUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Jit.h">
