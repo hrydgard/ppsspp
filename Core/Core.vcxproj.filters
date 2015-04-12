@@ -405,7 +405,7 @@
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\MipsJit.cpp">
+    <ClCompile Include="MIPS\MIPS\MipsJit.cpp">
       <Filter>MIPS\MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
