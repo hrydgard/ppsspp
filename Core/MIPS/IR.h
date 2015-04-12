@@ -73,7 +73,7 @@ struct IREntry {
 
 	// Clobbered state. Can discard registers marked as clobbered later.
 	u64 clobberedGPR;
-	u64 clobberedFPR;
+	u32 clobberedFPR;
 
 	// u32 liveVPR[4];  // TODO: For now we assume all VPRs are live at all times.
 
