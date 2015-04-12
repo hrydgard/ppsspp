@@ -567,7 +567,7 @@ void JitCompareScreen::CreateViews() {
 	leftColumn->Add(new Choice(de->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
 	leftColumn->Add(new Choice(de->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
 	leftColumn->Add(new Choice(de->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
-	leftColumn->Add(new Choice(d->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
+	leftColumn->Add(new Choice(de->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	blockName_ = leftColumn->Add(new TextView(de->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
