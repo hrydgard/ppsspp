@@ -199,7 +199,7 @@ bool TestArmEmitter() {
 
 	MIPSState mips;
 	MIPSComp::JitState js;
-	MIPSComp::ArmJitOptions jo;
+	MIPSComp::JitOptions jo;
 	ArmRegCacheFPU fpr(&mips, &js, &jo);
 	fpr.SetEmitter(&emitter);
 	int C000 = GetColumnName(0, M_4x4, 0, 0);

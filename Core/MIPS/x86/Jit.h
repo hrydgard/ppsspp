@@ -41,19 +41,6 @@ namespace MIPSComp
 // This is called when Jit hits a breakpoint.  Returns 1 when hit.
 u32 JitBreakpoint();
 
-struct JitOptions
-{
-	JitOptions();
-
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-	bool enableVFPUSIMD;
-	bool reserveR15ForAsm;
-};
-
 // TODO: Hmm, humongous.
 struct RegCacheState {
 	GPRRegCacheState gpr;

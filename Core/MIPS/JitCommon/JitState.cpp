@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,34 +15,35 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
-struct JitBlock;
-
-#ifdef USING_QT_UI
-#undef emit
-#endif
-
-#if defined(ARM)
-#include "../ARM/ArmJit.h"
-typedef MIPSComp::ArmJit NativeJit;
-#elif defined(ARM64)
-#include "../ARM64/Arm64Jit.h"
-typedef MIPSComp::Arm64Jit NativeJit;
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "../x86/Jit.h"
-typedef MIPSComp::Jit NativeJit;
-#elif defined(MIPS)
-#include "../MIPS/MipsJit.h"
-typedef MIPSComp::MipsJit NativeJit;
-#else
-#include "../fake/FakeJit.h"
-typedef MIPSComp::FakeJit NativeJit;
-#endif
+#include "Common/CPUDetect.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 
 namespace MIPSComp {
-	extern NativeJit *jit;
+	JitOptions::JitOptions() {
+		// x86
+		enableVFPUSIMD = true;
+		// Set by Asm if needed.
+		reserveR15ForAsm = false;
 
-	typedef void (NativeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
-	typedef int (NativeJit::*MIPSReplaceFunc)();
+		// ARM/ARM64
+		useBackJump = false;
+		useForwardJump = false;
+		cachePointers = true;
+
+		// ARM only
+		downcountInRegister = true;
+		useNEONVFPU = false;  // true
+		if (!cpu_info.bNEON)
+			useNEONVFPU = false;
+
+		//ARM64
+		useASIMDVFPU = false;  // true
+
+		// Common
+		enableBlocklink = true;
+		immBranches = false;
+		continueBranches = false;
+		continueJumps = false;
+		continueMaxInstructions = 300;
+	}
 }

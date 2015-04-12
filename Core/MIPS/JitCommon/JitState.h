@@ -175,4 +175,29 @@ namespace MIPSComp {
 			}
 		}
 	};
+
+	struct JitOptions {
+		JitOptions();
+
+		// x86
+		bool enableVFPUSIMD;
+		bool reserveR15ForAsm;
+
+		// ARM/ARM64
+		bool useBackJump;
+		bool useForwardJump;
+		bool cachePointers;
+		// ARM only
+		bool useNEONVFPU;
+		bool downcountInRegister;
+		// ARM64 only
+		bool useASIMDVFPU;
+
+		// Common
+		bool enableBlocklink;
+		bool immBranches;
+		bool continueBranches;
+		bool continueJumps;
+		int continueMaxInstructions;
+	};
 }

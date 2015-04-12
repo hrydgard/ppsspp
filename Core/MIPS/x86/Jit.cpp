@@ -114,18 +114,6 @@ static void JitLogMiss(MIPSOpcode op)
 	func(op);
 }
 
-JitOptions::JitOptions()
-{
-	enableBlocklink = true;
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-	enableVFPUSIMD = true;
-	// Set by Asm if needed.
-	reserveR15ForAsm = false;
-}
-
 #ifdef _MSC_VER
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)

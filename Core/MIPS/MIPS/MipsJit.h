@@ -28,21 +28,10 @@
 namespace MIPSComp
 {
 
-struct MIPSJitOptions
-{
-	MIPSJitOptions();
-
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
-class Jit : public MIPSGen::MIPSCodeBlock
+class MipsJit : public MIPSGen::MIPSCodeBlock
 {
 public:
-	Jit(MIPSState *mips);
+	MipsJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
@@ -165,7 +154,7 @@ private:
 	void WriteSyscallExit();
 
 	JitBlockCache blocks;
-	MIPSJitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	MIPSState *mips_;
@@ -187,8 +176,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (MipsJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (MipsJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

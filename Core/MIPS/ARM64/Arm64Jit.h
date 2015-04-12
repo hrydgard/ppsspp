@@ -34,32 +34,6 @@
 namespace MIPSComp
 {
 
-struct Arm64JitOptions
-{
-	Arm64JitOptions()  {
-		enableBlocklink = true;
-		useBackJump = false;
-		useForwardJump = false;
-		cachePointers = true;
-		immBranches = false;
-		continueBranches = false;
-		continueJumps = false;
-		continueMaxInstructions = 300;
-
-		useASIMDVFPU = false;  // true
-	}
-
-	bool useASIMDVFPU;
-	bool enableBlocklink;
-	bool useBackJump;
-	bool useForwardJump;
-	bool cachePointers;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
 class Arm64Jit : public Arm64Gen::ARM64CodeBlock
 {
 public:
@@ -263,7 +237,7 @@ private:
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
 	JitBlockCache blocks;
-	Arm64JitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	Arm64RegCache gpr;

@@ -29,7 +29,7 @@
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
-ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo) : mips_(mips), js_(js), jo_(jo) {
+ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo) : mips_(mips), js_(js), jo_(jo) {
 }
 
 void ArmRegCache::Init(ARMXEmitter *emitter) {

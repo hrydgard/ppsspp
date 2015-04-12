@@ -77,13 +77,13 @@ struct FPURegMIPS {
 };
 
 namespace MIPSComp {
-	struct Arm64JitOptions;
+	struct JitOptions;
 	struct JitState;
 }
 
 class Arm64RegCacheFPU {
 public:
-	Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::Arm64JitOptions *jo);
+	Arm64RegCacheFPU(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~Arm64RegCacheFPU() {}
 
 	void Init(Arm64Gen::ARM64XEmitter *emitter, Arm64Gen::ARM64FloatEmitter *fp);
@@ -159,7 +159,7 @@ private:
 	Arm64Gen::ARM64XEmitter *emit_;
 	Arm64Gen::ARM64FloatEmitter *fp_;
 	MIPSComp::JitState *js_;
-	MIPSComp::Arm64JitOptions *jo_;
+	MIPSComp::JitOptions *jo_;
 
 	int numARMFpuReg_;
 	int qTime_;

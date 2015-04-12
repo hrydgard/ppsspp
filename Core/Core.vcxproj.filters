@@ -13,6 +13,9 @@
     <Filter Include="MIPS\ARM">
       <UniqueIdentifier>{8a5bebeb-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\MIPS">
+      <UniqueIdentifier>{aaaaaaaa-575f-483d-8bd2-4b7eac163a7d}</UniqueIdentifier>
+    </Filter>
     <Filter Include="MIPS\JitCommon">
       <UniqueIdentifier>{37896407-c373-44a3-b6ec-b57bceb2c4a3}</UniqueIdentifier>
     </Filter>
@@ -66,34 +69,34 @@
     <ClCompile Include="ELF\ElfReader.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPS.cpp">
+    <ClCompile Include="MIPS\MIPS.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSDis.cpp">
+    <ClCompile Include="MIPS\MIPSDis.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSDisVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSInt.cpp">
+    <ClCompile Include="MIPS\MIPSInt.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSIntVFPU.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSTables.cpp">
+    <ClCompile Include="MIPS\MIPSTables.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSAnalyst.cpp">
+    <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="Mips\MIPSCodeUtils.cpp">
+    <ClCompile Include="MIPS\MIPSCodeUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\x86\CompALU.cpp">
@@ -402,6 +405,9 @@
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM\MipsJit.cpp">
+      <Filter>MIPS\MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
@@ -593,6 +599,9 @@
     <ClCompile Include="Util\DisArm64.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitState.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -604,31 +613,31 @@
     <ClInclude Include="MIPS\MIPSDebugInterface.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPS.h">
+    <ClInclude Include="MIPS\MIPS.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSDis.h">
+    <ClInclude Include="MIPS\MIPSDis.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSDisVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSInt.h">
+    <ClInclude Include="MIPS\MIPSInt.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSIntVFPU.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSTables.h">
+    <ClInclude Include="MIPS\MIPSTables.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSVFPUUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSAnalyst.h">
+    <ClInclude Include="MIPS\MIPSAnalyst.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="Mips\MIPSCodeUtils.h">
+    <ClInclude Include="MIPS\MIPSCodeUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Jit.h">
@@ -930,6 +939,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmJit.h">
       <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPS\MipsJit.h">
+      <Filter>MIPS\MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>

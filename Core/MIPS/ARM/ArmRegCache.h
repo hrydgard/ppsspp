@@ -82,13 +82,13 @@ struct RegMIPS {
 };
 
 namespace MIPSComp {
-	struct ArmJitOptions;
+	struct JitOptions;
 	struct JitState;
 }
 
 class ArmRegCache {
 public:
-	ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::ArmJitOptions *jo);
+	ArmRegCache(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
 	~ArmRegCache() {}
 
 	void Init(ArmGen::ARMXEmitter *emitter);
@@ -143,7 +143,7 @@ private:
 	MIPSState *mips_;
 	ArmGen::ARMXEmitter *emit_;
 	MIPSComp::JitState *js_;
-	MIPSComp::ArmJitOptions *jo_;
+	MIPSComp::JitOptions *jo_;
 	u32 compilerPC_;
 
 	enum {
