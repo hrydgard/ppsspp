@@ -486,6 +486,11 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				srcBuffer = vfb;
 				srcY = yOffset;
 				srcH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+			} else if ((offset % vfb_byteStride) == 0 && size == vfb->fb_stride && yOffset < srcY) {
+				// Valkyrie Profile reads 512 bytes at a time, rather than 2048.  So, let's whitelist fb_stride also.
+				srcBuffer = vfb;
+				srcY = yOffset;
+				srcH = 1;
 			}
 		}
 	}
