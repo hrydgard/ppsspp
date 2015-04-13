@@ -61,10 +61,15 @@ namespace MIPSComp
 		u32 uimm = (u16)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
-		gpr.Lock(rt, rs);
-		gpr.MapReg(rt, rt == rs, true);
-		if (rt != rs)
-			MOV(32, gpr.R(rt), gpr.R(rs));
+		if (gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+			// NOTICE_LOG(JIT,"immlogic remap at %08x : %08x", js.blockStart, GetCompilerPC());
+			gpr.FlushRemap(rs, rt, GetIREntry().IsGPRClobbered(rs));
+		} else {
+			gpr.Lock(rt, rs);
+			gpr.MapReg(rt, rt == rs, true);
+			if (rt != rs)
+				MOV(32, gpr.R(rt), gpr.R(rs));
+		}
 		(this->*arith)(32, gpr.R(rt), Imm32(uimm));
 		gpr.UnlockAll();
 	}
@@ -99,6 +104,16 @@ namespace MIPSComp
 					if (simm > 0) {
 						ADD(32, gpr.R(rt), UImmAuto(simm));
 					} else if (simm < 0) {
+						SUB(32, gpr.R(rt), UImmAuto(-simm));
+					}
+				} else if (gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+					// NOTICE_LOG(JIT, "Reg remap at %08x", js.blockStart);
+					// Can avoid a MOV by taking over the dest register. It keeps its contents
+					// but is now reassigned to rt.
+					gpr.FlushRemap(rs, rt, GetIREntry().IsGPRClobbered(rs));
+					if (simm > 0)
+						ADD(32, gpr.R(rt), UImmAuto(simm));
+					else if (simm < 0) {
 						SUB(32, gpr.R(rt), UImmAuto(-simm));
 					}
 				} else if (gpr.R(rs).IsSimpleReg()) {
@@ -145,16 +160,22 @@ namespace MIPSComp
 				// This is often used before a branch.  If rs is not already mapped, let's leave it.
 				gpr.MapReg(rt, rt == rs, true);
 
-				bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
-				if (needsTemp) {
-					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_B, R(TEMPREG));
-					MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
+				if (false && rt == rs) {
+					SUB(32, gpr.R(rt), Imm32(suimm));
+					SHR(32, gpr.R(rt), Imm8(31));
 				} else {
-					XOR(32, gpr.R(rt), gpr.R(rt));
-					CMP(32, gpr.R(rs), Imm32(suimm));
-					SETcc(CC_B, gpr.R(rt));
+					bool needsTemp = !HasLowSubregister(gpr.R(rt)) || rt == rs;
+					if (needsTemp) {
+						CMP(32, gpr.R(rs), Imm32(suimm));
+						SETcc(CC_B, R(TEMPREG));
+						MOVZX(32, 8, gpr.RX(rt), R(TEMPREG));
+					} else {
+						XOR(32, gpr.R(rt), gpr.R(rt));
+						CMP(32, gpr.R(rs), Imm32(suimm));
+						SETcc(CC_B, gpr.R(rt));
+					}
 				}
+				// TODO: If we can figure out that it's ok to replace the source register
 				gpr.UnlockAll();
 			}
 			break;
@@ -358,6 +379,13 @@ namespace MIPSComp
 			if (invertResult) {
 				NOT(32, gpr.R(rd));
 			}
+		} else if (rd != rt && rd != rs && gpr.R(rs).IsSimpleReg() && !GetIREntry().IsGPRAlive(rs)) {
+			// NOTICE_LOG(JIT, "TriArith liveness at %08x", js.blockStart);
+			gpr.FlushRemap(rs, rd, GetIREntry().IsGPRClobbered(rs));
+			(this->*arith)(32, gpr.R(rd), gpr.R(rt));
+			if (invertResult) {
+				NOT(32, gpr.R(rd));
+			}
 		} else {
 			// Use TEMPREG as a temporary if we'd overwrite it.
 			if (rd == rt)
@@ -485,7 +513,7 @@ namespace MIPSComp
 					cc = SwapCCFlag(cc);
 				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
 					// Let's try to pick which makes more sense to load.
-					if (MIPSAnalyst::IsRegisterUsed(rhs, GetCompilerPC() + 4, 3)) {
+					if (irblock.IsRegisterUsed(rhs, js.irBlockPos + 1, 3)) {
 						std::swap(lhs, rhs);
 						cc = SwapCCFlag(cc);
 					}
@@ -525,7 +553,7 @@ namespace MIPSComp
 					cc = SwapCCFlag(cc);
 				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
 					// Let's try to pick which makes more sense to load.
-					if (MIPSAnalyst::IsRegisterUsed(rhs, GetCompilerPC() + 4, 3)) {
+					if (irblock.IsRegisterUsed(rhs, js.irBlockPos + 1, 3)) {
 						std::swap(lhs, rhs);
 						cc = SwapCCFlag(cc);
 					}

@@ -21,7 +21,11 @@
 namespace MIPSComp {
 	JitOptions::JitOptions() {
 		// x86
+#if defined(_M_IX86) || defined(_M_X64)
 		enableVFPUSIMD = true;
+#else
+		enableVFPUSIMD = false;
+#endif
 		// Set by Asm if needed.
 		reserveR15ForAsm = false;
 
@@ -31,18 +35,23 @@ namespace MIPSComp {
 		cachePointers = true;
 
 		// ARM only
+#ifdef ARM
 		downcountInRegister = true;
+#else
+		downcountInRegister = false;
+#endif
 		useNEONVFPU = false;  // true
 		if (!cpu_info.bNEON)
 			useNEONVFPU = false;
 
-		//ARM64
+		// ARM64
 		useASIMDVFPU = false;  // true
 
 		// Common
+		useClobberOpt = false;
 		enableBlocklink = true;
 		immBranches = false;
-		continueBranches = false;
+		continueBranches = false;  // true
 		continueJumps = false;
 		continueMaxInstructions = 300;
 	}

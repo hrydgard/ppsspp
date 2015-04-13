@@ -123,6 +123,8 @@ public:
 	void FlushRemap(int oldreg, int newreg);
 
 	void Flush();
+
+	void FlushRemap(int oldreg, int newreg, bool clobbered);
 	int SanityCheck() const;
 
 	const Gen::OpArg &R(int freg) const {return regs[freg].location;}

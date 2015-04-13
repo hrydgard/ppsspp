@@ -32,6 +32,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -547,32 +548,46 @@ void JitCompareScreen::CreateViews() {
 	
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
+	((LinearLayout *)root_)->SetSpacing(0.0f);
+
 	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 
-	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	midColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *midColumn = midColumnScroll_->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_->SetSpacing(0.0f);
 
-	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
-	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	rightColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	LinearLayout *rightColumn = rightColumnScroll_->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
 
+	irColumnScroll_ = root_->Add(new ScrollView(ORIENT_VERTICAL,  new LinearLayoutParams(4.0f)));
+	LinearLayout *irColumn = irColumnScroll_->Add(new LinearLayout(ORIENT_VERTICAL));
+	irDisasm_ = irColumn->Add(new LinearLayout(ORIENT_VERTICAL));
+	irColumnScroll_->SetVisibility(V_GONE);
+	irDisasm_->SetSpacing(0.0f);
+
 	leftColumn->Add(new Choice(de->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+#ifdef MOBILE_DEVICE
 	leftColumn->Add(new Choice(de->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice(de->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
-	leftColumn->Add(new Choice(de->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
-	leftColumn->Add(new Choice(de->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	leftColumn->Add(new Choice(de->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
-	leftColumn->Add(new Choice(de->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
-	leftColumn->Add(new Choice(de->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
 	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+#endif
+	LinearLayout *lin = leftColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lin->Add(new Choice("<<", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
+	lin->Add(new Choice(">>", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
+	lin = leftColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lin->Add(new Choice(de->T("Rn")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	lin->Add(new Choice(de->T("FP")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
+	lin->Add(new Choice(de->T("VFP")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
+	leftColumn->Add(new Choice(de->T("Show IR")))->OnClick.Handle(this, &JitCompareScreen::OnShowIR);
 	blockName_ = leftColumn->Add(new TextView(de->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
+	leftColumn->Add(new Choice(de->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
+	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	EventParams ignore = {0};
 	OnCurrentBlock(ignore);
@@ -581,6 +596,7 @@ void JitCompareScreen::CreateViews() {
 void JitCompareScreen::UpdateDisasm() {
 	leftDisasm_->Clear();
 	rightDisasm_->Clear();
+	irDisasm_->Clear();
 
 	using namespace UI;
 
@@ -595,6 +611,7 @@ void JitCompareScreen::UpdateDisasm() {
 	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView(de->T("No block")));
 		rightDisasm_->Add(new TextView(de->T("No block")));
+		irDisasm_->Add(new TextView(de->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
@@ -623,6 +640,15 @@ void JitCompareScreen::UpdateDisasm() {
 #endif
 	for (size_t i = 0; i < targetDis.size(); i++) {
 		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
+	}
+
+	if (showIR_) {
+		MIPSComp::IRBlock irblock;
+		MIPSComp::ExtractIR(MIPSComp::jit->GetJitOptions(), block->originalAddress, &irblock);
+		std::vector<std::string> irDis = irblock.ToStringVector();
+		for (size_t i = 0; i < irDis.size(); i++) {
+			irDisasm_->Add(new TextView(irDis[i]));
+		}
 	}
 
 	int numMips = leftDisasm_->GetNumSubviews();
@@ -654,7 +680,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
 	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
-	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
+	NOTICE_LOG(JIT, "Average Bloat (bytes!): %0.2f%%", 100 * bcStats.avgBloat);
 	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
 	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
 
@@ -678,6 +704,16 @@ UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto addressPrompt = new AddressPromptScreen(de->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnShowIR(UI::EventParams &e) {
+	using namespace UI;
+	showIR_ = !showIR_;
+	midColumnScroll_->SetVisibility(showIR_ ? V_GONE : V_VISIBLE);
+	rightColumnScroll_->SetVisibility(showIR_ ? V_GONE : V_VISIBLE);
+	irColumnScroll_->SetVisibility(showIR_ ? V_VISIBLE : V_GONE);
+	UpdateDisasm();
 	return UI::EVENT_DONE;
 }
 
@@ -722,26 +758,21 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_VFPU);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
-	OnRandomBlock(IS_FPU);
-	return UI::EVENT_DONE;
+	return OnRandomBlockWithFlag(e, IS_FPU);
 }
 
-void JitCompareScreen::OnRandomBlock(int flag) {
-	if (!MIPSComp::jit) {
-		return;
-	}
+UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
+	return OnRandomBlockWithFlag(e, IS_VFPU);
+}
+
+UI::EventReturn JitCompareScreen::OnRandomBlockWithFlag(UI::EventParams &e, u64 flag) {
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
-		bool anyWanted = false;
+		bool anyWithFlag = false;
 		int tries = 0;
-		while (!anyWanted && tries < 10000) {
+		while (!anyWithFlag && tries < 10000) {
 			currentBlock_ = rand() % numBlocks;
 			const JitBlock *b = blockCache->GetBlock(currentBlock_);
 			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
@@ -750,7 +781,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
 					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
-					anyWanted = true;
+					anyWithFlag = true;
 					break;
 				}
 			}
@@ -758,6 +789,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 		}
 	}
 	UpdateDisasm();
+	return UI::EVENT_DONE;
 }
 
 

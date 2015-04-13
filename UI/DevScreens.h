@@ -114,7 +114,7 @@ private:
 
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
-	JitCompareScreen() : currentBlock_(-1) {}
+	JitCompareScreen() : currentBlock_(-1), showIR_(false) {}
 	virtual void CreateViews();
 
 private:
@@ -122,14 +122,14 @@ private:
 	UI::EventReturn OnRandomBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
-	void OnRandomBlock(int flag);
-
+	UI::EventReturn OnRandomBlockWithFlag(UI::EventParams &e, u64 flag);
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnPrevBlock(UI::EventParams &e);
 	UI::EventReturn OnNextBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
 	UI::EventReturn OnAddressChange(UI::EventParams &e);
+	UI::EventReturn OnShowIR(UI::EventParams &e);
 	UI::EventReturn OnShowStats(UI::EventParams &e);
 
 	int currentBlock_;
@@ -140,4 +140,11 @@ private:
 
 	UI::LinearLayout *leftDisasm_;	
 	UI::LinearLayout *rightDisasm_;	
+	UI::LinearLayout *irDisasm_;
+
+	UI::ScrollView *midColumnScroll_;
+	UI::ScrollView *rightColumnScroll_;
+	UI::ScrollView *irColumnScroll_;
+
+	bool showIR_;
 };

@@ -64,8 +64,6 @@ static std::set<HashMapFunc> hashMap;
 
 static std::string hashmapFileName;
 
-#define MIPSTABLE_IMM_MASK 0xFC000000
-
 // Similar to HashMapFunc but has a char pointer for the name for efficiency.
 struct HardHashTableEntry {
 	uint64_t hash;
@@ -537,33 +535,6 @@ namespace MIPSAnalyst {
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
 	}
 
-	static bool IsSWInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xAC000000;
-	}
-	static bool IsSBInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA0000000;
-	}
-	static bool IsSHInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA4000000;
-	}
-
-	static bool IsSWLInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xA8000000;
-	}
-	static bool IsSWRInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xB8000000;
-	}
-
-	static bool IsSWC1Instr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xE4000000;
-	}
-	static bool IsSVSInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xE8000000;
-	}
-	static bool IsSVQInstr(MIPSOpcode op) {
-		return (op & MIPSTABLE_IMM_MASK) == 0xF8000000;
-	}
-
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
 		const auto op = Memory::Read_Instruction(pc, true);
 
@@ -633,7 +604,7 @@ namespace MIPSAnalyst {
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			MIPSOpcode op = Memory::Read_Opcode_JIT(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			MIPSGPReg rs = MIPS_GET_RS(op);
@@ -696,113 +667,6 @@ namespace MIPSAnalyst {
 				hashToFunction.insert(std::make_pair(f.hash, &f));
 			}
 		}
-	}
-
-	enum RegisterUsage {
-		USAGE_CLOBBERED,
-		USAGE_INPUT,
-		USAGE_UNKNOWN,
-	};
-
-	static RegisterUsage DetermineInOutUsage(u64 inFlag, u64 outFlag, u32 addr, int instrs) {
-		const u32 start = addr;
-		u32 end = addr + instrs * sizeof(u32);
-		bool canClobber = true;
-		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			const MIPSInfo info = MIPSGetInfo(op);
-
-			// Yes, used.
-			if (info & inFlag)
-				return USAGE_INPUT;
-
-			// Clobbered, so not used.
-			if (info & outFlag)
-				return canClobber ? USAGE_CLOBBERED : USAGE_UNKNOWN;
-
-			// Bail early if we hit a branch (could follow each path for continuing?)
-			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
-				// Still need to check the delay slot (so end after it.)
-				// We'll assume likely are taken.
-				end = addr + 8;
-				// The reason for the start != addr check is that we compile delay slots before branches.
-				// That means if we're starting at the branch, it's not safe to allow the delay slot
-				// to clobber, since it might have already been compiled.
-				// As for LIKELY, we don't know if it'll run the branch or not.
-				canClobber = (info & LIKELY) == 0 && start != addr;
-			}
-			addr += 4;
-		}
-		return USAGE_UNKNOWN;
-	}
-
-	static RegisterUsage DetermineRegisterUsage(MIPSGPReg reg, u32 addr, int instrs) {
-		switch (reg) {
-		case MIPS_REG_HI:
-			return DetermineInOutUsage(IN_HI, OUT_HI, addr, instrs);
-		case MIPS_REG_LO:
-			return DetermineInOutUsage(IN_LO, OUT_LO, addr, instrs);
-		case MIPS_REG_FPCOND:
-			return DetermineInOutUsage(IN_FPUFLAG, OUT_FPUFLAG, addr, instrs);
-		case MIPS_REG_VFPUCC:
-			return DetermineInOutUsage(IN_VFPU_CC, OUT_VFPU_CC, addr, instrs);
-		default:
-			break;
-		}
-
-		if (reg > 32) {
-			return USAGE_UNKNOWN;
-		}
-
-		const u32 start = addr;
-		u32 end = addr + instrs * sizeof(u32);
-		bool canClobber = true;
-		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			const MIPSInfo info = MIPSGetInfo(op);
-
-			// Yes, used.
-			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
-				return USAGE_INPUT;
-			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
-				return USAGE_INPUT;
-
-			// Clobbered, so not used.
-			bool clobbered = false;
-			if ((info & OUT_RT) && (MIPS_GET_RT(op) == reg))
-				clobbered = true;
-			if ((info & OUT_RD) && (MIPS_GET_RD(op) == reg))
-				clobbered = true;
-			if ((info & OUT_RA) && (reg == MIPS_REG_RA))
-				clobbered = true;
-			if (clobbered) {
-				if (!canClobber || (info & IS_CONDMOVE))
-					return USAGE_UNKNOWN;
-				return USAGE_CLOBBERED;
-			}
-
-			// Bail early if we hit a branch (could follow each path for continuing?)
-			if ((info & IS_CONDBRANCH) || (info & IS_JUMP)) {
-				// Still need to check the delay slot (so end after it.)
-				// We'll assume likely are taken.
-				end = addr + 8;
-				// The reason for the start != addr check is that we compile delay slots before branches.
-				// That means if we're starting at the branch, it's not safe to allow the delay slot
-				// to clobber, since it might have already been compiled.
-				// As for LIKELY, we don't know if it'll run the branch or not.
-				canClobber = (info & LIKELY) == 0 && start != addr;
-			}
-			addr += 4;
-		}
-		return USAGE_UNKNOWN;
-	}
-
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs) {
-		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_INPUT;
-	}
-
-	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs) {
-		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
 	void HashFunctions() {

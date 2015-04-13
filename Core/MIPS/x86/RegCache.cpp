@@ -20,6 +20,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
@@ -102,7 +103,6 @@ void GPRRegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOp
 	jo_ = jo;
 }
 
-
 // these are MIPS reg indices
 void GPRRegCache::Lock(MIPSGPReg p1, MIPSGPReg p2, MIPSGPReg p3, MIPSGPReg p4) {
 	regs[p1].locked = true;
@@ -149,13 +149,13 @@ X64Reg GPRRegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 			continue;
 
 		// Awesome, a clobbered reg.  Let's use it.
-		if (MIPSAnalyst::IsRegisterClobbered(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (js_->irBlock->IsRegisterClobbered(xregs[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			*clobbered = true;
 			return reg;
 		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		if (unusedOnly && MIPSAnalyst::IsRegisterUsed(xregs[reg].mipsReg, js_->compilerPC, UNUSED_LOOKAHEAD_OPS)) {
+		if (unusedOnly && js_->irBlock->IsRegisterUsed(xregs[reg].mipsReg, js_->irBlockPos, UNUSED_LOOKAHEAD_OPS)) {
 			continue;
 		}
 
@@ -178,7 +178,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 		}
 	}
 
-	//Okay, not found :( Force grab one
+	// Okay, not found :( Force grab one
 	bool clobbered;
 	X64Reg bestToSpill = FindBestToSpill(true, &clobbered);
 	if (bestToSpill == INVALID_REG) {
@@ -208,7 +208,7 @@ void GPRRegCache::FlushR(X64Reg reg)
 		StoreFromRegister(xregs[reg].mipsReg);
 }
 
-void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg) {
+void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg, bool clobbered) {
 	OpArg oldLocation = regs[oldreg].location;
 	if (!oldLocation.IsSimpleReg()) {
 		PanicAlert("FlushRemap: Must already be in an x86 register");
@@ -221,7 +221,11 @@ void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg) {
 		return;
 	}
 
-	StoreFromRegister(oldreg);
+	if (clobbered && jo_->useClobberOpt) {
+		DiscardRegContentsIfCached(oldreg);
+	} else {
+		StoreFromRegister(oldreg);
+	}
 
 	// Now, if newreg already was mapped somewhere, get rid of that.
 	DiscardRegContentsIfCached(newreg);

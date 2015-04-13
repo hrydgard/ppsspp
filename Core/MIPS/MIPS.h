@@ -91,6 +91,10 @@ enum MIPSGPReg {
 	MIPS_REG_FPCOND = 34,
 	MIPS_REG_VFPUCC = 35,
 
+	// For branch slot unfolding later. We will move conflicting comparands to these special hidden registers and replace the compare operation, instead of stashing the flags.
+	MIPS_REG_COMP_LEFT = 36,
+	MIPS_REG_COMP_RIGHT = 37,
+
 	MIPS_REG_INVALID=-1,
 };
 

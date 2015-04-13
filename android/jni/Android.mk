@@ -120,6 +120,7 @@ endif
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   TestRunner.cpp \
+  $(SRC)/Core/MIPS/IR.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \

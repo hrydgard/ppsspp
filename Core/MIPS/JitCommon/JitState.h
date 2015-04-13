@@ -24,6 +24,8 @@ struct JitBlock;
 
 namespace MIPSComp {
 
+	class IRBlock;
+
 	enum CompileDelaySlotFlags
 	{
 		// Easy, nothing extra.
@@ -62,7 +64,8 @@ namespace MIPSComp {
 			prefixTFlag(PREFIX_UNKNOWN),
 			prefixDFlag(PREFIX_UNKNOWN) {}
 
-		u32 compilerPC;
+		IRBlock *irBlock;
+		u32 irBlockPos;
 		u32 blockStart;
 		u32 lastContinuedPC;
 		u32 initialBlockSize;
@@ -73,7 +76,6 @@ namespace MIPSComp {
 		int afterOp;
 		int downcountAmount;
 		int numInstructions;
-		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		JitBlock *curBlock;
 
 		u8 hasSetRounding;
@@ -194,6 +196,7 @@ namespace MIPSComp {
 		bool useASIMDVFPU;
 
 		// Common
+		bool useClobberOpt;
 		bool enableBlocklink;
 		bool immBranches;
 		bool continueBranches;

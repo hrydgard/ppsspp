@@ -77,11 +77,6 @@ namespace MIPSAnalyst
 
 	AnalysisResults Analyze(u32 address);
 
-	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
-	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
-	// This tells us if the reg is clobbered within intrs of addr (e.g. it is surely not used.)
-	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs);
-
 	struct AnalyzedFunction {
 		u32 start;
 		u32 end;
@@ -98,7 +93,6 @@ namespace MIPSAnalyst
 
 	void Reset();
 
-	bool IsRegisterUsed(u32 reg, u32 addr);
 	// This will not only create a database of "AnalyzedFunction" structs, it also
 	// will insert all the functions it finds into the symbol map, if insertSymbols is true.
 
@@ -129,6 +123,27 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);
+
+#define MIPSTABLE_IMM_MASK 0xFC000000
+
+	inline bool IsLBInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x80000000; }
+	inline bool IsLWInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x8C000000; }
+
+	inline bool IsSWInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xAC000000; }
+	inline bool IsSBInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA0000000; }
+	inline bool IsSHInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA4000000; }
+
+	inline bool IsSWLInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xA8000000; }
+	inline bool IsSWRInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xB8000000; }
+
+	inline bool IsSWC1Instr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xE4000000; }
+	inline bool IsSVSInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xE8000000; }
+	inline bool IsSVQInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xF8000000; }
+
+	inline bool IsLWC1Instr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC4000000; }
+	inline bool IsLVSInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0xC8000000; }
+
+	inline bool IsANDIInstr(MIPSOpcode op) { return (op & MIPSTABLE_IMM_MASK) == 0x30000000; }
 
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
 

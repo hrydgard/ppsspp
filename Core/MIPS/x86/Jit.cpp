@@ -32,6 +32,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/IR.h"
 #include "Core/HLE/ReplaceTables.h"
 
 #include "RegCache.h"
@@ -307,15 +308,18 @@ void Jit::InvalidateCache()
 
 void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
+	IREntry &entry = irblock.entries[js.irBlockPos + 1];
+
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
-	CheckJitBreakpoint(GetCompilerPC() + 4, -2);
+	CheckJitBreakpoint(entry.origAddress, -2);
 
 	if (flags & DELAYSLOT_SAFE)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
-	MIPSOpcode op = GetOffsetInstruction(1);
+	MIPSOpcode op = entry.op;
 	MIPSCompileOp(op);
+	entry.flags |= IR_FLAG_SKIP;
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
@@ -341,7 +345,7 @@ void Jit::EatInstruction(MIPSOpcode op)
 
 	CheckJitBreakpoint(GetCompilerPC() + 4, 0);
 	js.numInstructions++;
-	js.compilerPC += 4;
+	js.irBlockPos++;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
@@ -389,23 +393,22 @@ void Jit::RunLoopUntil(u64 globalticks)
 }
 
 u32 Jit::GetCompilerPC() {
-	return js.compilerPC;
+	return irblock.entries[js.irBlockPos].origAddress;
 }
 
 MIPSOpcode Jit::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	return irblock.entries[js.irBlockPos + offset].op;
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = mips_->pc;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
-	js.compiling = true;
 	js.inDelaySlot = false;
 	js.afterOp = JitState::AFTER_NONE;
 	js.PrefixStart();
@@ -420,21 +423,28 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	b->normalEntry = GetCodePtr();
 
-	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
+	ExtractIR(jo, em_address, &irblock);
 
-	gpr.Start(mips_, &js, &jo, analysis);
-	fpr.Start(mips_, &js, &jo, analysis);
+	gpr.Start(mips_, &js, &jo, irblock.analysis);
+	fpr.Start(mips_, &js, &jo, irblock.analysis);
 
 	js.numInstructions = 0;
-	while (js.compiling) {
+	js.irBlockPos = 0;
+	js.irBlock = &irblock;
+	// - 1 to avoid the final delay slot.
+	while (js.irBlockPos < irblock.entries.size()) {
+		IREntry &entry = irblock.entries[js.irBlockPos];
+		if (entry.flags & IR_FLAG_SKIP)
+			goto skip_entry;
+		CheckJitBreakpoint(entry.origAddress, 0);
+		if (entry.pseudoInstr != PSEUDO_NONE) {
+			CompPseudoOp(entry.pseudoInstr, entry.op);
+		} else {
+			MIPSCompileOp(entry.op);
+		}
+		js.downcountAmount += MIPSGetInstructionCycleEstimate(entry.op);
+
 		// Jit breakpoints are quite fast, so let's do them in release too.
-		CheckJitBreakpoint(GetCompilerPC(), 0);
-
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
-		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
-
-		MIPSCompileOp(inst);
-
 		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
 			FlushAll();
@@ -445,9 +455,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC()));
+				MOV(32, M(&mips_->pc), Imm32(entry.origAddress));
 			else
-				MOV(32, M(&mips_->pc), Imm32(GetCompilerPC() + 4));
+				MOV(32, M(&mips_->pc), Imm32(irblock.entries[js.irBlockPos + 1].origAddress));
 			WriteSyscallExit();
 			SetJumpTarget(skipCheck);
 
@@ -456,30 +466,23 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		if (js.afterOp & JitState::AFTER_MEMCHECK_CLEANUP) {
 			js.afterOp &= ~JitState::AFTER_MEMCHECK_CLEANUP;
 		}
-
-		js.compilerPC += 4;
 		js.numInstructions++;
-
-		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
-		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)
-		{
-			FlushAll();
-			WriteExit(GetCompilerPC(), js.nextExit++);
-			js.compiling = false;
-		}
+skip_entry:
+		js.irBlockPos++;
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	if (js.lastContinuedPC == 0)
-		b->originalSize = js.numInstructions;
-	else
+
+	b->originalSize = js.numInstructions;
+	
+	/*
 	{
 		// We continued at least once.  Add the last proxy and set the originalSize correctly.
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
-	}
+	}*/
 	return b->normalEntry;
 }
 
@@ -560,11 +563,11 @@ bool Jit::ReplaceJalTo(u32 dest) {
 		ApplyRoundingMode();
 	}
 
-	js.compilerPC += 4;
+	js.irBlockPos++;
 	// No writing exits, keep going!
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
-	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
+	blocks.ProxyBlock(js.blockStart, dest, sizeof(u32), GetCodePtr());
 	return true;
 }
 
@@ -595,20 +598,19 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	}
 
 	if (disabled) {
+		// We probably won't get here anymore.
 		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
-			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			FlushAll();
 			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));
 			js.downcountAmount += cycles;
 			WriteExitDestInReg(ECX);
-			js.compiling = false;
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
@@ -630,7 +632,6 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			// Need to set flags again, ApplyRoundingMode destroyed them (and EAX.)
 			SUB(32, M(&mips_->downcount), Imm8(0));
 			WriteExitDestInReg(ECX);
-			js.compiling = false;
 		}
 	} else {
 		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
@@ -837,5 +838,20 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 a
 }
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }
+
+void Jit::Comp_IR_SaveRA(MIPSOpcode op) {
+	gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+}
+
+void Jit::CompPseudoOp(int pseudo, MIPSOpcode op) {
+	switch (pseudo) {
+		case PSEUDO_SAVE_RA:
+			Comp_IR_SaveRA(op);
+			break;
+		default:
+			ERROR_LOG(JIT, "Invalid pseudo op %i", pseudo);
+			break;
+	}
+}
 
 } // namespace

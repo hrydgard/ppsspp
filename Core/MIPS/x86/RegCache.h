@@ -20,6 +20,7 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/IR.h"
 
 namespace X64JitConstants {
 #ifdef _M_X64
@@ -88,7 +89,8 @@ public:
 	void FlushBeforeCall();
 
 	// Flushes one register and reuses the register for another one. Dirtyness is implied.
-	void FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg);
+	// If clobbered, just discards the first register instead of flushing it.
+	void FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg, bool clobbered);
 
 	int SanityCheck() const;
 	void KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty);

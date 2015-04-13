@@ -32,8 +32,11 @@
 #include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
+#include "Core/MIPS/IR.h"
 
 class PointerWrap;
+struct ReplacementTableEntry;
+
 
 namespace MIPSComp
 {
@@ -47,14 +50,15 @@ struct RegCacheState {
 	FPURegCacheState fpr;
 };
 
-class Jit : public Gen::XCodeBlock
-{
+class Jit : public Gen::XCodeBlock {
 public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -65,6 +69,9 @@ public:
 
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
+
+	IRBlock *GetIRBlock() { return &irblock; }
+	IREntry &GetIREntry() { return irblock.entries[js.irBlockPos]; }
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
@@ -139,6 +146,10 @@ public:
 
 	void Comp_DoNothing(MIPSOpcode op);
 
+	// Pseudo instructions emitted by the IR extractor
+	void Comp_IR_SaveRA(MIPSOpcode op);
+	void CompPseudoOp(int pseudo, MIPSOpcode op);
+
 	int Replace_fabsf();
 	int Replace_dl_write_matrix();
 
@@ -192,7 +203,6 @@ private:
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(Gen::X64Reg reg);
-	void WriteExitDestInEAX() { WriteExitDestInReg(Gen::EAX); }
 
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
@@ -258,6 +268,7 @@ private:
 	}
 
 	bool PredictTakeBranch(u32 targetAddr, bool likely);
+	/*
 	bool CanContinueBranch(u32 targetAddr) {
 		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
 			return false;
@@ -280,17 +291,13 @@ private:
 			return false;
 		}
 		return true;
-	}
-	bool CanContinueImmBranch(u32 targetAddr) {
-		if (!jo.immBranches || js.numInstructions >= jo.continueMaxInstructions) {
-			return false;
-		}
-		return true;
-	}
+	}*/
 
 	JitBlockCache blocks;
 	JitOptions jo;
 	JitState js;
+
+	IRBlock irblock;
 
 	GPRRegCache gpr;
 	FPURegCache fpr;

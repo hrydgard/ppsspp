@@ -136,7 +136,7 @@ namespace MIPSComp
 				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
-					WARN_LOG(CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(js.compilerPC));
+					WARN_LOG(CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(GetCompilerPC()));
 					regnum = 0;
 				}
 				
@@ -2031,7 +2031,7 @@ namespace MIPSComp
 		u32 nextOp = GetOffsetInstruction(1).encoding;
 		int vd2 = -1;
 		int imm2 = -1;
-		if ((nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
+		if (false && (nextOp >> 26) == 60 && ((nextOp >> 21) & 0x1F) == 29 && _VS == MIPS_GET_VS(nextOp)) {
 			// Pair of vrot. Let's join them.
 			vd2 = MIPS_GET_VD(nextOp);
 			imm2 = (nextOp >> 16) & 0x1f;
@@ -2068,7 +2068,7 @@ namespace MIPSComp
 			// If the negsin setting differs between the two joint invocations, we need to flip the second one.
 			bool negSin2 = (imm2 & 0x10) ? true : false;
 			CompVrotShuffle(dregs2, imm2, sz, negSin1 != negSin2);
-			js.compilerPC += 4;
+			irblock.entries[js.irBlockPos + 1].flags |= IR_FLAG_SKIP;
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();

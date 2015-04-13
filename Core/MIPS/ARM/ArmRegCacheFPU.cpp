@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/IR.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -132,7 +133,7 @@ bool ArmRegCacheFPU::IsMapped(MIPSReg r) {
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
 	if (jo_->useNEONVFPU && mipsReg >= 32) {
-		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode. PC=%08x", js_->compilerPC);
+		ERROR_LOG(JIT, "Cannot map VFPU registers to ARM VFP registers in NEON mode.");
 		return S0;
 	}
 
@@ -195,7 +196,7 @@ allocate:
 	}
 
 	// Uh oh, we have all them spilllocked....
-	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", js_->compilerPC);
+	ERROR_LOG(JIT, "Out of spillable registers at %08x!!!", js_->blockStart);
 	return INVALID_REG;
 }
 
@@ -379,7 +380,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 			// mipsreg that's been part of a quad.
 			int quad = mr[r].reg - Q0;
 			if (qr[quad].isDirty) {
-				WARN_LOG(JIT, "FlushR found quad register %i - PC=%08x", quad, js_->compilerPC);
+				WARN_LOG(JIT, "FlushR found quad register %i - PC=%08x", quad, js_->blockStart);
 				emit_->ADDI2R(R0, CTXREG, GetMipsRegOffset(r), R1);
 				emit_->VST1_lane(F_32, (ARMReg)mr[r].reg, R0, mr[r].lane, true);
 			}
@@ -609,11 +610,11 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "FReg %i not in ARM reg. %s", mipsReg, js_->irBlock->DisasmAt(js_->irBlockPos));
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "VReg %i not in ARM reg. %s", mipsReg - 32, js_->irBlock->DisasmAt(js_->irBlockPos));
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. %s", mipsReg - 128 - 32, js_->irBlock->DisasmAt(js_->irBlockPos));
 		}
 		return INVALID_REG;  // BAAAD
 	}

@@ -243,9 +243,10 @@ const char *DefaultLangRegion() {
 
 const char *CreateRandMAC() {
 	std::stringstream randStream;
+	u32 value;
 	srand(time(nullptr));
 	for (int i = 0; i < 6; i++) {
-		u32 value = rand() % 256;
+		value = rand() % 256;
 		if (value <= 15)
 			randStream << '0' << std::hex << value;
 		else

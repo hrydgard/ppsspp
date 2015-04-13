@@ -46,3 +46,4 @@ namespace MIPSComp {
 	typedef void (NativeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
 	typedef int (NativeJit::*MIPSReplaceFunc)();
 }
+

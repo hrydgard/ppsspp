@@ -2455,12 +2455,17 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 
 	MatrixSize sz = GetMtxSize(op);
 	int n = GetMatrixSide(sz);
+	int vd = _VD;
+	if (n == 4) {
+		// Just remove the transposed-ness. All modes are transpose-invariant.
+		vd &= ~0x20;
+	}
 
 	// Not really about trying here, it will work if enabled.
 	if (jo.enableVFPUSIMD) {
 		VectorSize vsz = GetVectorSize(sz);
 		u8 vecs[4];
-		GetMatrixColumns(_VD, sz, vecs);
+		GetMatrixColumns(vd, sz, vecs);
 		for (int i = 0; i < n; i++) {
 			u8 vec[4];
 			GetVectorRegs(vec, vsz, vecs[i]);
@@ -2482,7 +2487,7 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	}
 
 	u8 dregs[16];
-	GetMatrixRegs(dregs, sz, _VD);
+	GetMatrixRegs(dregs, sz, vd);
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
@@ -3401,7 +3406,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 		// Pair of vrot with the same angle argument. Let's join them (can share sin/cos results).
 		vd2 = MIPS_GET_VD(nextOp);
 		imm2 = (nextOp >> 16) & 0x1f;
-		// NOTICE_LOG(JIT, "Joint VFPU at %08x", js.blockStart);
+		// NOTICE_LOG(JIT, "Joint vrot at %08x", js.blockStart);
 	}
 
 	u8 sreg;
@@ -3436,7 +3441,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 		// If the negsin setting differs between the two joint invocations, we need to flip the second one.
 		bool negSin2 = (imm2 & 0x10) ? true : false;
 		CompVrotShuffle(dregs2, imm2, n, negSin1 != negSin2);
-		js.compilerPC += 4;
+		// TODO later in merge: irblock.entries[js.irBlockPos + 1].skipped = true
 	}
 	fpr.ReleaseSpillLocks();
 }
