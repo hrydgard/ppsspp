@@ -824,25 +824,35 @@ inline bool TextureCacheDX9::TexCacheEntry::Matches(u16 dim2, u8 format2, int ma
 
 void TextureCacheDX9::LoadClut() {
 	u32 clutAddr = gstate.getClutAddress();
+	clutTotalBytes_ = gstate.getClutLoadBytes();
 	if (Memory::IsValidAddress(clutAddr)) {
+		// It's possible for a game to (successfully) access outside valid memory.
+		u32 bytes = Memory::ValidSize(clutAddr, clutTotalBytes_);
 #ifdef _M_SSE
-		int numBlocks = gstate.getClutLoadBlocks();
-		clutTotalBytes_ = numBlocks * 32;
-		const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
-		__m128i *dest = (__m128i *)clutBufRaw_;
-		for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
-			__m128i data1 = _mm_loadu_si128(source);
-			__m128i data2 = _mm_loadu_si128(source + 1);
-			_mm_store_si128(dest, data1);
-			_mm_store_si128(dest + 1, data2);
+		int numBlocks = bytes / 16;
+		if (bytes == clutTotalBytes_) {
+			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
+			__m128i *dest = (__m128i *)clutBufRaw_;
+			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
+				__m128i data1 = _mm_loadu_si128(source);
+				__m128i data2 = _mm_loadu_si128(source + 1);
+				_mm_store_si128(dest, data1);
+				_mm_store_si128(dest + 1, data2);
+			}
+		} else {
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+			if (bytes < clutTotalBytes_) {
+				memset(clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+			}
 		}
 #else
-		clutTotalBytes_ = gstate.getClutLoadBytes();
-		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+		if (bytes < clutTotalBytes_) {
+			memset(clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+		}
 #endif
 	} else {
-		clutTotalBytes_ = gstate.getClutLoadBytes();
-		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
+		memset(clutBufRaw_, 0x00, clutTotalBytes_);
 	}
 	// Reload the clut next time.
 	clutLastFormat_ = 0xFFFFFFFF;

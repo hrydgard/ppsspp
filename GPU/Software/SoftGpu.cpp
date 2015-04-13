@@ -577,12 +577,16 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 			if (Memory::IsValidAddress(clutAddr)) {
-				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
-			// TODO: Do something to the CLUT with 0?
+				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
+				Memory::MemcpyUnchecked(clut, clutAddr, validSize);
+				if (validSize < clutTotalBytes) {
+					// Zero out the parts that were outside valid memory.
+					memset((u8 *)clut + validSize, 0x00, clutTotalBytes - validSize);
+				}
 			} else if (clutAddr != 0) {
-				// TODO: Does this make any sense?
+				// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
 				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
-				memset(clut, 0xFF, clutTotalBytes);
+				memset(clut, 0x00, clutTotalBytes);
 			}
 		}
 		break;
