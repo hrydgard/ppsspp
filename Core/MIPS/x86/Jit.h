@@ -228,6 +228,7 @@ private:
 	static Gen::CCFlags FlipCCFlag(Gen::CCFlags flag);
 	static Gen::CCFlags SwapCCFlag(Gen::CCFlags flag);
 
+	void CopyFPReg(Gen::X64Reg dst, Gen::OpArg src);
 	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(Gen::X64Reg reg, Gen::OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
 	void CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin);

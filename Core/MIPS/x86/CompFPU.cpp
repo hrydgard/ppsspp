@@ -47,6 +47,14 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64JitConstants;
 
+void Jit::CopyFPReg(X64Reg dst, OpArg src) {
+	if (src.IsSimpleReg()) {
+		MOVAPS(dst, src);
+	} else {
+		MOVSS(dst, src);
+	}
+}
+
 void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters) {
 	int ft = _FT;
 	int fs = _FS;
@@ -62,14 +70,14 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 	} else if (ft != fd) {
 		// fs can't be fd (handled above.)
 		fpr.MapReg(fd, false, true);
-		MOVSS(fpr.RX(fd), fpr.R(fs));
+		CopyFPReg(fpr.RX(fd), fpr.R(fs));
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
 	} else {
-		// fd must be ft.
+		// fd must be ft, and order must matter.
 		fpr.MapReg(fd, true, true);
-		MOVSS(XMM0, fpr.R(fs));
+		CopyFPReg(XMM0, fpr.R(fs));
 		(this->*arith)(XMM0, fpr.R(ft));
-		MOVSS(fpr.RX(fd), R(XMM0));
+		MOVAPS(fpr.RX(fd), R(XMM0));
 	}
 	fpr.ReleaseSpillLocks();
 }
@@ -151,14 +159,14 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN) {
 
 	// This means that NaN also means true, e.g. !<> or !>, etc.
 	if (allowNaN) {
-		MOVSS(XMM0, fpr.R(lhs));
-		MOVSS(XMM1, fpr.R(lhs));
+		CopyFPReg(XMM0, fpr.R(lhs));
+		CopyFPReg(XMM1, fpr.R(lhs));
 		CMPSS(XMM0, fpr.R(rhs), compare);
 		CMPUNORDSS(XMM1, fpr.R(rhs));
 
 		POR(XMM0, R(XMM1));
 	} else {
-		MOVSS(XMM0, fpr.R(lhs));
+		CopyFPReg(XMM0, fpr.R(lhs));
 		CMPSS(XMM0, fpr.R(rhs), compare);
 	}
 
@@ -226,7 +234,8 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	int fd = _FD;
 
 	auto execRounding = [&](void (XEmitter::*conv)(X64Reg, OpArg), int setMXCSR) {
-		fpr.SpillLock(fs);
+		fpr.SpillLock(fd, fs);
+		fpr.MapReg(fd, fs == fd, true);
 
 		// Small optimization: 0 is our default mode anyway.
 		if (setMXCSR == 0 && !js.hasSetRounding) {
@@ -246,18 +255,19 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 		// Did we get an indefinite integer value?
 		CMP(32, R(TEMPREG), Imm32(0x80000000));
 		FixupBranch skip = J_CC(CC_NE);
-		MOVSS(XMM0, fpr.R(fs));
+		if (fd != fs) {
+			CopyFPReg(fpr.RX(fd), fpr.R(fs));
+		}
 		XORPS(XMM1, R(XMM1));
-		CMPSS(XMM0, R(XMM1), CMP_LT);
+		CMPSS(fpr.RX(fd), R(XMM1), CMP_LT);
 
 		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
 		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-		MOVD_xmm(R(TEMPREG), XMM0);
+		MOVD_xmm(R(TEMPREG), fpr.RX(fd));
 		XOR(32, R(TEMPREG), Imm32(0x7fffffff));
 
 		SetJumpTarget(skip);
-		fpr.DiscardR(fd);
-		MOV(32, fpr.R(fd), R(TEMPREG));
+		MOVD_xmm(fpr.RX(fd), R(TEMPREG));
 
 		if (setMXCSR != -1) {
 			LDMXCSR(M(&mxcsrTemp));
@@ -268,32 +278,42 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
-		if (fd != fs) {
-			MOVSS(fpr.RX(fd), fpr.R(fs));
+		if (fd != fs && fpr.IsMapped(fs)) {
+			MOVAPS(fpr.RX(fd), M(ssNoSignMask));
+			ANDPS(fpr.RX(fd), fpr.R(fs));
+		} else {
+			if (fd != fs) {
+				MOVSS(fpr.RX(fd), fpr.R(fs));
+			}
+			ANDPS(fpr.RX(fd), M(ssNoSignMask));
 		}
-		ANDPS(fpr.RX(fd), M(ssNoSignMask));
 		break;
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
 		if (fd != fs) {
 			fpr.SpillLock(fd, fs);
 			fpr.MapReg(fd, fd == fs, true);
-			MOVSS(fpr.RX(fd), fpr.R(fs));
+			CopyFPReg(fpr.RX(fd), fpr.R(fs));
 		}
 		break;
 
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
-		if (fd != fs) {
-			MOVSS(fpr.RX(fd), fpr.R(fs));
+		if (fd != fs && fpr.IsMapped(fs)) {
+			MOVAPS(fpr.RX(fd), M(ssSignBits2));
+			XORPS(fpr.RX(fd), fpr.R(fs));
+		} else {
+			if (fd != fs) {
+				MOVSS(fpr.RX(fd), fpr.R(fs));
+			}
+			XORPS(fpr.RX(fd), M(ssSignBits2));
 		}
-		XORPS(fpr.RX(fd), M(ssSignBits2));
 		break;
 
 
 	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
-		fpr.SpillLock(fd, fs); // this probably works, just badly tested
+		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fd == fs, true);
 		SQRTSS(fpr.RX(fd), fpr.R(fs));
 		break;
@@ -305,7 +325,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
 		fpr.SpillLock(fd, fs);
 		fpr.MapReg(fd, fs == fd, true);
-		if (fpr.R(fs).IsSimpleReg()) {
+		if (fpr.IsMapped(fs)) {
 			CVTDQ2PS(fpr.RX(fd), fpr.R(fs));
 		} else {
 			// If fs was fd, we'd be in the case above since we mapped fd.
