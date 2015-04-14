@@ -526,6 +526,7 @@ namespace MIPSInt
 					R(rt) = MIPSState::FCR0_VALUE;
 				} else {
 					WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", fs);
+					R(rt) = 0;
 				}
 				break;
 			}
