@@ -377,6 +377,10 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 	case 54: //lv.q
 		{
 			gpr.Lock(rs);
+			// This must be in a reg or an immediate.
+			// Otherwise, it'll get put in EAX and we'll clobber that during NextSlowRead().
+			if (!gpr.IsImm(rs))
+				gpr.MapReg(rs, true, false);
 	
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
@@ -439,6 +443,10 @@ void Jit::Comp_SVQ(MIPSOpcode op)
 	case 62: //sv.q
 		{
 			gpr.Lock(rs);
+			// This must be in a reg or an immediate.
+			// Otherwise, it'll get put in EAX and we'll clobber that during NextSlowRead().
+			if (!gpr.IsImm(rs))
+				gpr.MapReg(rs, true, false);
 
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
