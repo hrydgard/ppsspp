@@ -382,8 +382,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			spline_n_4(iv, v, knot_v, v_weights);
 
 			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
-			int patch_w = std::min(spatch.count_u, 4);
-			int patch_h = std::min(spatch.count_v, 4);
+			int patch_w = std::min(spatch.count_u - iu, 4);
+			int patch_h = std::min(spatch.count_v - iv, 4);
 
 			for (int ii = 0; ii < patch_w; ++ii) {
 				for (int jj = 0; jj < patch_h; ++jj) {
