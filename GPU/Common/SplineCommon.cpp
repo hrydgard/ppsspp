@@ -332,12 +332,16 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// int max_idx = spatch.count_u * spatch.count_v;
 
 	bool computeNormals = gstate.isLightingEnabled();
+
+	float one_over_patch_div_s = 1.0f / (float)(patch_div_s);
+	float one_over_patch_div_t = 1.0f / (float)(patch_div_t);
+
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
-		float v = ((float)tile_v * (float)(spatch.count_v - 3) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
+		float v = (float)tile_v * (float)(spatch.count_v - 3) * one_over_patch_div_t;
 		if (v < 0.0f)
 			v = 0.0f;
 		for (int tile_u = 0; tile_u < patch_div_s + 1; tile_u++) {
-			float u = ((float)tile_u * (float)(spatch.count_u - 3) / (float)(patch_div_s + 0.00001f));
+			float u = (float)tile_u * (float)(spatch.count_u - 3) * one_over_patch_div_s;
 			if (u < 0.0f)
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
@@ -357,9 +361,10 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				vert->uv[0] = 0.0f;
 				vert->uv[1] = 0.0f;
 			} else {
-				vert->uv[0] = tu_width * ((float)tile_u / (float)patch_div_s);
-				vert->uv[1] = tv_height * ((float)tile_v / (float)patch_div_t);
+				vert->uv[0] = tu_width * ((float)tile_u * one_over_patch_div_s);
+				vert->uv[1] = tv_height * ((float)tile_v * one_over_patch_div_t);
 			}
+
 
 			// Collect influences from surrounding control points.
 			float u_weights[4];
@@ -367,6 +372,12 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 			int iu = (int)u;
 			int iv = (int)v;
+
+			// TODO: Would really like to fix the surrounding logic somehow to get rid of these but I can't quite get it right..
+			// Without the previous epsilons and with large count_u, we will end up doing an out of bounds access later without these.
+			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
+			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
+
 			spline_n_4(iu, u, knot_u, u_weights);
 			spline_n_4(iv, v, knot_v, v_weights);
 
