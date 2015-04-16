@@ -15,6 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+/*
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#undef min
+#undef max
+*/
+
 #include <string.h>
 #include <algorithm>
 
@@ -322,6 +329,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	float tu_width = (float)spatch.count_u - 3.0f;
 	float tv_height = (float)spatch.count_v - 3.0f;
 
+	// int max_idx = spatch.count_u * spatch.count_v;
+
 	bool computeNormals = gstate.isLightingEnabled();
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
 		float v = ((float)tile_v * (float)(spatch.count_v - 3) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
@@ -378,6 +387,13 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 						Vec4f fv = Vec4f::AssignToAll(f);
 #endif
 						int idx = spatch.count_u * (iv + jj) + (iu + ii);
+						/*
+						if (idx >= max_idx) {
+							char temp[512];
+							snprintf(temp, sizeof(temp), "count_u: %d count_v: %d patch_w: %d patch_h: %d  ii: %d  jj: %d  iu: %d  iv: %d  patch_div_s: %d  patch_div_t: %d\n", spatch.count_u, spatch.count_v, patch_w, patch_h, ii, jj, iu, iv, patch_div_s, patch_div_t);
+							OutputDebugStringA(temp);
+							DebugBreak();
+						}*/
 						SimpleVertex *a = spatch.points[idx];
 						AccumulateWeighted(vert_pos, a->pos, fv);
 						if (origTc) {
