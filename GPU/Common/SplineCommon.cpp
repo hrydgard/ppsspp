@@ -294,16 +294,10 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
-	// First, generate knot vectors.
-	int n = spatch.count_u - 1;
-	int m = spatch.count_v - 1;
-
-
-
-	float *knot_u = new float[n + 5];
-	float *knot_v = new float[m + 5];
-	spline_knot(n, spatch.type_u, knot_u);
-	spline_knot(m, spatch.type_v, knot_v);
+	float *knot_u = new float[spatch.count_u + 4];
+	float *knot_v = new float[spatch.count_v + 4];
+	spline_knot(spatch.count_u - 1, spatch.type_u, knot_u);
+	spline_knot(spatch.count_v - 1, spatch.type_v, knot_v);
 
 	// Increase tesselation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
@@ -330,11 +324,11 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	bool computeNormals = gstate.isLightingEnabled();
 	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
-		float v = ((float)tile_v * (float)(m - 2) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
+		float v = ((float)tile_v * (float)(spatch.count_v - 3) / (float)(patch_div_t + 0.00001f));  // epsilon to prevent division by 0 in spline_s
 		if (v < 0.0f)
 			v = 0.0f;
 		for (int tile_u = 0; tile_u < patch_div_s + 1; tile_u++) {
-			float u = ((float)tile_u * (float)(n - 2) / (float)(patch_div_s + 0.00001f));
+			float u = ((float)tile_u * (float)(spatch.count_u - 3) / (float)(patch_div_s + 0.00001f));
 			if (u < 0.0f)
 				u = 0.0f;
 			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
