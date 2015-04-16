@@ -307,14 +307,14 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 		patch_div_t /= quality;
 	}
 
-	if (patch_div_s < 2) patch_div_s = 2;
-	if (patch_div_t < 2) patch_div_t = 2;
-
 	// Downsample until it fits, in case crazy tesselation factors are sent.
 	while ((patch_div_s + 1) * (patch_div_t + 1) > maxVertices) {
 		patch_div_s /= 2;
 		patch_div_t /= 2;
 	}
+
+	if (patch_div_s < 2) patch_div_s = 2;
+	if (patch_div_t < 2) patch_div_t = 2;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
