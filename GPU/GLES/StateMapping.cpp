@@ -862,11 +862,24 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.viewport.set(left, bottom, right - left, top - bottom);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		float zScale = getFloat24(gstate.viewportz1) * (1.0f / 65535.0f);
+		float zOff = getFloat24(gstate.viewportz2) * (1.0f / 65535.0f);
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
+
+#ifndef MOBILE_DEVICE
+		float minz = gstate.getDepthRangeMin() * (1.0f / 65535.0f);
+		float maxz = gstate.getDepthRangeMax() * (1.0f / 65535.0f);
+		if ((minz > depthRangeMin && minz > depthRangeMax) || (maxz < depthRangeMin && maxz < depthRangeMax)) {
+			WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range test - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+		} else if ((gstate.clipEnable & 1) == 0) {
+			// TODO: Need to test whether clipEnable should even affect depth or not.
+			if ((minz < depthRangeMin && minz < depthRangeMax) || (maxz > depthRangeMin && maxz > depthRangeMax)) {
+				WARN_LOG_REPORT_ONCE(znoclip, G3D, "Unsupported depth range test without clipping - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+			}
+		}
+#endif
 	}
 }
 
