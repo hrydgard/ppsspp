@@ -619,8 +619,6 @@ static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tes
 
 static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices) {
 	const float third = 1.0f / 3.0f;
-	// Full correct tesselation of bezier patches.
-	// Note: Does not handle splines correctly.
 
 	// Downsample until it fits, in case crazy tesselation factors are sent.
 	while ((tess_u + 1) * (tess_v + 1) > maxVertices) {
@@ -684,7 +682,6 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				Vec3Packedf derivU = Bernstein3D(derivU1_, derivU2_, derivU3_, derivU4_, bv);
 				Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
-				// TODO: Interpolate normals instead of generating them, if available?
 				vert.nrm = Cross(derivU, derivV).Normalized();
 				if (gstate.patchfacing & 1)
 					vert.nrm *= -1.0f;
@@ -756,6 +753,10 @@ const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_P
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
 	DispatchFlush();
+
+	// TODO: Verify correct functionality with < 4.
+	if (count_u < 4 || count_v < 4)
+		return;
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
