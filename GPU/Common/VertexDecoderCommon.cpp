@@ -365,6 +365,11 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
+void VertexDecoder::Step_ColorInvalid() const
+{
+	// Do nothing.  This is only here to prevent crashes.
+}
+
 void VertexDecoder::Step_Color565() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
@@ -762,7 +767,10 @@ static const StepFunction tcstep_through_RemasterToFloat[4] = {
 // TODO: Tc Morph
 
 static const StepFunction colstep[8] = {
-	0, 0, 0, 0,
+	0,
+	&VertexDecoder::Step_ColorInvalid,
+	&VertexDecoder::Step_ColorInvalid,
+	&VertexDecoder::Step_ColorInvalid,
 	&VertexDecoder::Step_Color565,
 	&VertexDecoder::Step_Color5551,
 	&VertexDecoder::Step_Color4444,
@@ -770,7 +778,10 @@ static const StepFunction colstep[8] = {
 };
 
 static const StepFunction colstep_morph[8] = {
-	0, 0, 0, 0,
+	0,
+	&VertexDecoder::Step_ColorInvalid,
+	&VertexDecoder::Step_ColorInvalid,
+	&VertexDecoder::Step_ColorInvalid,
 	&VertexDecoder::Step_Color565Morph,
 	&VertexDecoder::Step_Color5551Morph,
 	&VertexDecoder::Step_Color4444Morph,

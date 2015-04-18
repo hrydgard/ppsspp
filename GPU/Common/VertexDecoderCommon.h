@@ -493,6 +493,7 @@ public:
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
+	void Step_ColorInvalid() const;
 	void Step_Color4444() const;
 	void Step_Color565() const;
 	void Step_Color5551() const;
