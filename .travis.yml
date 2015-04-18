@@ -2,7 +2,21 @@
 
 language: cpp
 
+os: linux
+
 dist: trusty
+
+compiler:
+  - gcc
+
+env:
+  - PPSSPP_BUILD_TYPE=Linux
+    CMAKE=TRUE
+  - PPSSPP_BUILD_TYPE=Android
+  - PPSSPP_BUILD_TYPE=Blackberry
+    CMAKE=TRUE
+# Currently broken.
+#  - PPSSPP_BUILD_TYPE=Symbian
 
 notifications:
   irc:
@@ -13,95 +27,28 @@ notifications:
     template:
       - "%{repository_slug}:%{branch} - %{message} %{build_url}"
 
-env:
-  - PPSSPP_BUILD_TYPE=Linux
-    CMAKE=TRUE
-  - PPSSPP_BUILD_TYPE=Android
-  - PPSSPP_BUILD_TYPE=Blackberry
-    CMAKE=TRUE
-  - PPSSPP_BUILD_TYPE=Symbian
-
-compiler:
-  - gcc
-
 matrix:
   include:
     - compiler: clang
       env: PPSSPP_BUILD_TYPE=Linux
            CMAKE=TRUE
+    - compiler: gcc
+      env: PPSSPP_BUILD_TYPE=Linux
+           QT=TRUE
+# Can't get iOS to work.
+#    - os: osx
+#      compiler: clang
+#      env: PPSSPP_BUILD_TYPE=iOS
+#           CMAKE=TRUE
 
 before_install:
-  - git submodule update --init --recursive
-  - sudo apt-get update -qq
-  - sudo apt-get install aria2 pv -qq
-  - download_extract() { aria2c -x 16 $1 -o $2 && tar -xf $2; }
-  - download_extract_xz() {
-      aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2 &&
-      stat -c 'ATTEMPT 1 - %s' $2 &&
-      md5sum $2 &&
-      aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2 &&
-      stat -c 'ATTEMPT 2 - %s' $2 &&
-      md5sum $2 &&
-      pv $2 | xz -vd | tar -x;
-    }
-  - if [ "$CMAKE" == "TRUE" ]; then
-      sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev cmake -qq;
-    fi
+  - bash .travis.sh travis_before_install
 
 install:
-# Ubuntu Linux + GCC 4.8
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
-      sudo add-apt-repository ppa:zoogie/sdl2-snapshots -y &&
-      if [[ "$CXX" == g++ ]]; then
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y;
-      fi;
-      sudo apt-get update &&
-      sudo apt-get install libsdl2-dev -qq &&
-      if [[ "$CXX" == g++ ]]; then
-        sudo apt-get install g++-4.8 -qq &&
-        export CXX="g++-4.8" CC="gcc-4.8";
-      fi;
-    fi
-# Android NDK + GCC 4.8
-  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
-      free -m &&
-      NDK_VER=android-ndk-r10d &&
-      sudo apt-get install ant -qq &&
-      download_extract_xz http://hdkr.co/${NDK_VER}-x86_64.tar.xz ${NDK_VER}-x86_64.tar.xz &&
-      export ANDROID_HOME=$(pwd)/${NDK_VER} NDK=$(pwd)/${NDK_VER} &&
-      if [[ "$CXX" == *clang* ]]; then export NDK_TOOLCHAIN_VERSION=clang; fi;
-    fi
-# Blackberry NDK: 10.3.0.440 + GCC: 4.8.2
-  - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.libraries.10.3.0.440.tar.gz libs.tar.gz &&
-      download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.tools.10.3.0.2702.tar.gz tools.tar.gz &&
-      sed -i 's/-g../&-4.8.2/g' Blackberry/bb.toolchain.cmake &&
-      export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH";
-    fi
-# Symbian NDK: Belle + GCC: 4.8.3
-  - if [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
-      sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq &&
-      download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/gcc4.8.3_x86-64.tar.bz2 compiler.tar.bz2 &&
-      download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk.tar.bz2 ndk.tar.bz2 &&
-      export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin &&
-      cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/ &&
-      PATH=$SBS_GCCE483BIN:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH;
-    fi
+  - bash .travis.sh travis_install
 
 script:
-# Compile PPSSPP
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then
-      ./b.sh --headless;
-    fi
-  - if [ "$PPSSPP_BUILD_TYPE" == "Android" ]; then
-      pushd android && ./ab.sh -j1 && popd;
-    fi
-  - if [ "$PPSSPP_BUILD_TYPE" == "Blackberry" ]; then
-      ./b.sh --release --no-package;
-    fi
-  - if [ "$PPSSPP_BUILD_TYPE" == "Symbian" ]; then
-      QMAKE_ARGS="CONFIG+=no_assets" ./b.sh --debug --no-package;
-    fi
+  - bash .travis.sh travis_script
 
 after_success:
-  - if [ "$PPSSPP_BUILD_TYPE" == "Linux" ]; then ./test.py; fi
+  - bash .travis.sh travis_after_success
