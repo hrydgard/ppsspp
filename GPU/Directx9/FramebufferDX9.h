@@ -70,6 +70,7 @@ public:
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
+	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
