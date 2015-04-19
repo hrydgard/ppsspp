@@ -503,6 +503,15 @@ namespace DX9 {
 			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
+			D3DVIEWPORT9 vp;
+			vp.MinZ = 0;
+			vp.MaxZ = 1;
+			vp.X = 0;
+			vp.Y = 0;
+			vp.Width = vfb->renderWidth;
+			vp.Height = vfb->renderHeight;
+			pD3Ddevice->SetViewport(&vp);
+
 			// This should clear stencil and alpha without changing the other colors.
 			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 			if (FAILED(hr)) {
