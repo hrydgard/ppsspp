@@ -1195,7 +1195,8 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 		return false;
 	}
 
-	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
+	const u16 dim = gstate.getTextureDimension(0);
+	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter == cache.end()) {
 		return false;
@@ -1241,6 +1242,7 @@ void TextureCache::SetTexture(bool force) {
 		return;
 	}
 
+	const u16 dim = gstate.getTextureDimension(0);
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 
@@ -1253,7 +1255,7 @@ void TextureCache::SetTexture(bool force) {
 	bool hasClut = gstate.isTextureFormatIndexed();
 
 	// Ignore uncached/kernel when caching.
-	u64 cachekey = (u64)(texaddr & 0x3FFFFFFF) << 32;
+	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1261,7 +1263,7 @@ void TextureCache::SetTexture(bool force) {
 			UpdateCurrentClut();
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-		cachekey |= cluthash;
+		cachekey ^= cluthash;
 	} else {
 		cluthash = 0;
 	}
@@ -1282,8 +1284,8 @@ void TextureCache::SetTexture(bool force) {
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
-		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
+		const char *reason = "different params";
 
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
@@ -1295,6 +1297,7 @@ void TextureCache::SetTexture(bool force) {
 			} else {
 				// Make sure we re-evaluate framebuffers.
 				DetachFramebuffer(entry, texaddr, entry->framebuffer);
+				reason = "detached framebuf";
 				match = false;
 			}
 		}
@@ -1359,6 +1362,7 @@ void TextureCache::SetTexture(bool force) {
 
 			if (hashFail) {
 				match = false;
+				reason = "hash fail";
 				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
 					entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
@@ -1396,6 +1400,7 @@ void TextureCache::SetTexture(bool force) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
+				reason = "scaling";
 			}
 		}
 
@@ -1416,7 +1421,7 @@ void TextureCache::SetTexture(bool force) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
-			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
 				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
