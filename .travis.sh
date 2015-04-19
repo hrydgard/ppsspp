@@ -75,7 +75,7 @@ travis_install() {
 	if [ "$PPSSPP_BUILD_TYPE" = "Symbian" ]; then
 		sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq
 		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/gcc4.8.3_x86-64.tar.bz2 compiler.tar.bz2
-		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk.tar.bz2 ndk.tar.bz2
+		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk-new.tar.bz2 ndk.tar.bz2
 		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin
 		cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/
 	fi

@@ -15,8 +15,7 @@ env:
   - PPSSPP_BUILD_TYPE=Android
   - PPSSPP_BUILD_TYPE=Blackberry
     CMAKE=TRUE
-# Currently broken.
-#  - PPSSPP_BUILD_TYPE=Symbian
+  - PPSSPP_BUILD_TYPE=Symbian
 
 notifications:
   irc:
