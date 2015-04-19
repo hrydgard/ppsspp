@@ -151,8 +151,8 @@ inline FP32 half_to_float_fast5(FP16 h)
 	FP32 o;
 	o.u = (h.u & 0x7fff) << 13;     // exponent/mantissa bits
 	o.f *= magic.f;                 // exponent adjust
-	if (o.f >= was_infnan.f)        // make sure Inf/NaN survive
-		o.u |= 255 << 23;
+	if (o.f >= was_infnan.f)        // make sure Inf/NaN survive (retain the low bits)
+		o.u = (255 << 23) | (h.u & 0x03ff);
 	o.u |= (h.u & 0x8000) << 16;    // sign bit
 	return o;
 }
@@ -178,7 +178,7 @@ inline FP16 float_to_half_fast3(FP32 f)
 	f.u ^= sign;
 
 	if (f.u >= f32infty.u) // Inf or NaN (all exponent bits set)
-		o.u = (f.u > f32infty.u) ? 0x7e00 : 0x7c00; // NaN->qNaN and Inf->Inf
+		o.u = (f.u > f32infty.u) ? (0x7e00 | (f.u & 0x3ff)) : 0x7c00; // NaN->qNaN and Inf->Inf
 	else // (De)normalized number or zero
 	{
 		f.u &= round_mask;
