@@ -1014,6 +1014,15 @@ static int Hook_gakuenheaven_download_frame() {
 	return 0;
 }
 
+static int Hook_youkosohitsujimura_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(ARM64)
@@ -1106,6 +1115,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "photokano_download_frame", &Hook_photokano_download_frame, 0, REPFLAG_HOOKENTER, 0x2C },
 	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
 	{}
 };
 
