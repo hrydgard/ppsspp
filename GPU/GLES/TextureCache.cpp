@@ -997,7 +997,7 @@ void TextureCache::UpdateCurrentClut() {
 	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
 	// unrelated old entries for small palettes.
 	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
-	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
+	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
 	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
