@@ -309,7 +309,11 @@ struct GPUgstate
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
-	u32 transformClutIndex(u32 index) const { return ((index >> getClutIndexShift()) & getClutIndexMask()) | getClutIndexStartPos(); }
+	u32 transformClutIndex(u32 index) const {
+		// We need to wrap any entries beyond the first 1024 bytes.
+		u32 mask = getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 0xFF : 0x1FF;
+		return ((index >> getClutIndexShift()) & getClutIndexMask()) | (getClutIndexStartPos() & mask);
+	}
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 	bool isClutSharedForMipmaps() const { return (texmode & 0x100) == 0; }
