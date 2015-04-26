@@ -70,14 +70,14 @@ TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstim
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
 
-	// Aren't these way too big?
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(4096 * sizeof(u32), 16);  // 16KB
+	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
 
 	// Zap these so that reads from uninitialized parts of the CLUT look the same in
 	// release and debug
-	memset(clutBufConverted_, 0, 4096 * sizeof(u32));
-	memset(clutBufRaw_, 0, 4096 * sizeof(u32));
+	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 
 	D3DCAPS9 pCaps;
 	ZeroMemory(&pCaps, sizeof(pCaps));
