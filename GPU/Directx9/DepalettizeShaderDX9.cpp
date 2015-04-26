@@ -109,7 +109,7 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(const u32 clutID, u32 *ra
 	memcpy(rect.pBits, rawClut, 1024);
 	tex->texture->UnlockRect(0);
 
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
 	pD3Ddevice->SetSamplerState(1, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);

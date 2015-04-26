@@ -88,7 +88,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 		texturePixels = 512;
 
 	if (shift) {
-		WRITE(p, "  index = ((index >> %i) & 0x%02x)", shift, mask);
+		WRITE(p, "  index = (int(uint(index) >> %i) & 0x%02x)", shift, mask);
 	} else {
 		WRITE(p, "  index = (index & 0x%02x)", mask);
 	}
@@ -213,6 +213,7 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.
+	// Technically, the clutBase should be |'d, not added, but that's hard with floats.
 	float texel_offset = ((float)clutBase + 0.5f) / texturePixels;
 	sprintf(offset, " + %f", texel_offset);
 
