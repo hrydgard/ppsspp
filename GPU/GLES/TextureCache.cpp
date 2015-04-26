@@ -992,13 +992,18 @@ void TextureCache::UpdateCurrentClut() {
 	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
+	//
+	// TODO: Actually, this seems like a hack.  The game can upload part of a CLUT and reference other data.
+	// clutTotalBytes_ is the last amount uploaded.  We should hash clutMaxBytes_, but this will often hash
+	// unrelated old entries for small palettes.
+	// Adding clutBaseBytes may just be mitigating this for some usage patterns.
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
 	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
 	// Avoid a copy when we don't need to convert colors.
 	if (UseBGRA8888() || clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		const int numColors = (clutMaxBytes_ + clutBaseBytes) / (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
+		const int numColors = clutMaxBytes_ / (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), numColors);
 		clutBuf_ = clutBufConverted_;
 	} else {
@@ -1147,11 +1152,10 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			framebufferManager_->RebindFramebuffer();
 
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			const u32 clutBase = gstate.getClutIndexStartPos();
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-			const u32 clutExtendedColors = (clutTotalBytes_ / bytesPerColor) + clutBase;
+			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutExtendedColors, clutExtendedColors, 1);
+			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutTotalColors, clutTotalColors, 1);
 			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {

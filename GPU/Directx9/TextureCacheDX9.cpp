@@ -973,11 +973,10 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 			dxstate.viewport.restore();
 
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			const u32 clutBase = gstate.getClutIndexStartPos();
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-			const u32 clutExtendedColors = (clutTotalBytes_ / bytesPerColor) + clutBase;
+			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
-			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutExtendedColors, clutExtendedColors, 1);
+			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(gstate.getClutPaletteFormat()), clutTotalColors, clutTotalColors, 1);
 			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
