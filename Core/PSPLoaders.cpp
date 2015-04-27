@@ -137,7 +137,7 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.LLD",
-	"disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN",
+	//"disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN", //Utawareru Mono Chinese version
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.123",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN",
 	"disc0:/PSP_GAME/SYSDIR/BOOT0.OLD",
